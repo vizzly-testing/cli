@@ -5,16 +5,45 @@
 
 // Internal client state
 let currentClient = null;
+let isDisabled = false;
+
+/**
+ * Check if Vizzly is currently disabled
+ * @private
+ * @returns {boolean} True if disabled via environment variable or auto-disabled due to failure
+ */
+function isVizzlyDisabled() {
+  return process.env.VIZZLY_ENABLED === 'false' || isDisabled;
+}
+
+/**
+ * Disable Vizzly SDK for the current session
+ * @private
+ * @param {string} [reason] - Optional reason for disabling
+ */
+function disableVizzly(reason = 'disabled') {
+  isDisabled = true;
+  currentClient = null;
+  if (reason !== 'disabled') {
+    console.warn(
+      `Vizzly SDK disabled due to ${reason}. Screenshots will be skipped for the remainder of this session.`
+    );
+  }
+}
 
 /**
  * Get the current client instance
  * @private
  */
 function getClient() {
+  if (isVizzlyDisabled()) {
+    return null;
+  }
+
   if (!currentClient) {
     // Try to initialize from environment
     const serverUrl = process.env.VIZZLY_SERVER_URL || 'http://localhost:3001';
-    if (serverUrl && process.env.VIZZLY_ENABLED !== 'false') {
+    if (serverUrl) {
       currentClient = createSimpleClient(serverUrl);
     }
   }
@@ -51,7 +80,13 @@ function createSimpleClient(serverUrl) {
         return await response.json();
       } catch (error) {
         console.error(`Failed to save screenshot "${name}":`, error.message);
-        throw error;
+        console.error(`Vizzly screenshot failed for ${name}: ${error.message}`);
+
+        // Disable the SDK after first failure to prevent spam
+        disableVizzly('failure');
+
+        // Don't throw - just return silently to not break tests
+        return null;
       }
     },
 
@@ -95,7 +130,7 @@ function createSimpleClient(serverUrl) {
  * @throws {VizzlyError} When screenshot capture fails or client is not initialized
  */
 export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
-  if (process.env.VIZZLY_ENABLED === 'false') {
+  if (isVizzlyDisabled()) {
     return; // Silently skip when disabled
   }
 
@@ -131,7 +166,7 @@ export async function vizzlyFlush() {
  * @returns {boolean} True if client is ready, false otherwise
  */
 export function isVizzlyReady() {
-  return getClient() !== null;
+  return !isVizzlyDisabled() && getClient() !== null;
 }
 
 /**
@@ -149,7 +184,9 @@ export function configure(config = {}) {
   if (typeof config.enabled === 'boolean') {
     process.env.VIZZLY_ENABLED = config.enabled ? 'true' : 'false';
     if (!config.enabled) {
-      currentClient = null;
+      disableVizzly();
+    } else {
+      isDisabled = false;
     }
   }
 }
@@ -169,10 +206,11 @@ export function setEnabled(enabled) {
 export function getVizzlyInfo() {
   const client = getClient();
   return {
-    enabled: process.env.VIZZLY_ENABLED !== 'false',
+    enabled: !isVizzlyDisabled(),
     serverUrl: process.env.VIZZLY_SERVER_URL || 'http://localhost:3001',
-    ready: client !== null,
+    ready: !isVizzlyDisabled() && client !== null,
     buildId: process.env.VIZZLY_BUILD_ID,
     tddMode: process.env.VIZZLY_TDD === 'true',
+    disabled: isVizzlyDisabled(),
   };
 }

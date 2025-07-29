@@ -7,7 +7,9 @@
 
 ## What is Vizzly?
 
-Vizzly is a visual review platform that enables UI developers and designers to collaborate on any screenshot. Whether you're testing web applications, mobile apps, design mockups, or any visual interface, Vizzly helps you catch visual changes and streamline your review process. The CLI provides seamless integration with any test framework and programming language.
+Vizzly is a visual review platform designed for how modern teams work. Instead of recreating your components in a sandboxed environment, Vizzly captures screenshots directly from your functional tests. This means you test the *real thing*, not a snapshot.
+
+It's fast because we don't render anything—we process the images you provide from any source. Bring screenshots from web apps, mobile apps, or even design mockups, and use our collaborative dashboard to streamline the review process between developers and designers.
 
 ## Features
 
@@ -30,9 +32,13 @@ npx @vizzly-testing/cli upload ./screenshots
 
 ### Set up your API token
 
-```bash
-export VIZZLY_TOKEN=your-api-token
+For local development, create a `.env` file in your project root and add your token:
+
 ```
+VIZZLY_TOKEN=your-api-token
+```
+
+Then add `.env` to your `.gitignore` file. For CI/CD, use your provider's secret management system.
 
 ### Upload existing screenshots
 

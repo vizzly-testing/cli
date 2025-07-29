@@ -23,19 +23,19 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./src/index.js",
+      "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
     "./client": {
-      "import": "./src/client/index.js",
+      "import": "./dist/client/index.js",
       "require": "./dist/client/index.js"
     },
     "./sdk": {
-      "import": "./src/sdk/index.js",
+      "import": "./dist/sdk/index.js",
       "require": "./dist/sdk/index.js"
     },
     "./config": {
-      "import": "./src/utils/config-helpers.js",
+      "import": "./dist/utils/config-helpers.js",
       "require": "./dist/utils/config-helpers.js"
     }
   },
@@ -51,6 +51,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "start": "node src/index.js",
     "build": "npm run clean && npm run compile && npm run types",
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",

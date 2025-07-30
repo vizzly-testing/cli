@@ -86,7 +86,37 @@ vizzly upload ./screenshots --wait  # Wait for processing
 vizzly run "npm test"               # Run with Vizzly integration
 vizzly run "npm test" --tdd         # Local TDD mode
 vizzly run "pytest" --port 3002     # Custom port
+vizzly run "npm test" --wait        # Wait for build completion
+vizzly run "npm test" --eager       # Create build immediately
+vizzly run "npm test" --allow-no-token  # Run without API token
 ```
+
+#### Run Command Options
+
+**Server Configuration:**
+- `--port <port>` - Port for screenshot server (default: 47392)
+- `--timeout <ms>` - Server timeout in milliseconds (default: 30000)
+
+**Build Configuration:**
+- `-b, --build-name <name>` - Custom build name
+- `--branch <branch>` - Git branch override
+- `--commit <sha>` - Git commit SHA override
+- `--message <msg>` - Commit message
+- `--environment <env>` - Environment name (default: test)
+
+**Processing Options:**
+- `--wait` - Wait for build completion and exit with appropriate code
+- `--eager` - Create build immediately (default: lazy creation)
+- `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
+
+**Development & Testing:**
+- `--tdd` - Enable TDD mode with local comparisons
+- `--allow-no-token` - Allow running without API token (useful for local development)
+- `--token <token>` - API token override
+
+**Baseline Configuration:**
+- `--baseline-build <id>` - Use specific build as baseline for comparisons
+- `--baseline-comparison <id>` - Use specific comparison as baseline
 
 ### Other Commands
 ```bash
@@ -118,7 +148,7 @@ Create a `vizzly.config.js` file:
 ```javascript
 export default {
   apiUrl: 'https://vizzly.dev',
-  server: { port: 3001 },
+  server: { port: 47392 },
   build: { environment: 'test' },
   comparison: { threshold: 0.01 }
 };
@@ -157,6 +187,8 @@ Cypress.Commands.add('vizzlyScreenshot', (name, properties = {}) => {
 
 ## CI/CD Integration
 
+For CI/CD pipelines, use the `--wait` flag to wait for visual comparison results and get appropriate exit codes:
+
 ### GitHub Actions
 ```yaml
 - name: Visual Tests
@@ -164,6 +196,24 @@ Cypress.Commands.add('vizzlyScreenshot', (name, properties = {}) => {
   env:
     VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
 ```
+
+### GitLab CI
+```yaml
+visual-tests:
+  stage: test
+  image: node:20
+  script:
+    - npm ci
+    - npx vizzly run "npm test" --wait
+  variables:
+    VIZZLY_TOKEN: $VIZZLY_TOKEN
+```
+
+The `--wait` flag ensures the process:
+- Waits for all screenshots to be processed
+- Exits with code `1` if visual differences are detected
+- Exits with code `0` if all comparisons pass
+- Allows your CI to fail appropriately when visual regressions occur
 
 ## API Reference
 

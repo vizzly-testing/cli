@@ -121,6 +121,29 @@ export class ConsoleUI {
   }
 
   /**
+   * Update a status line in place (for dynamic updates)
+   */
+  updateStatus(line, message) {
+    if (this.json) {
+      console.log(
+        JSON.stringify({
+          status: 'update',
+          line,
+          message,
+          timestamp: new Date().toISOString(),
+        })
+      );
+    } else {
+      // Move cursor up to the target line and overwrite it
+      process.stdout.write(`\u001b[${line}A`); // Move up
+      process.stdout.write('\u001b[2K'); // Clear line
+      process.stdout.write('\r'); // Move to beginning
+      console.log(this.colors.blue(`ℹ ${message}`));
+      process.stdout.write(`\u001b[${line}B`); // Move back down
+    }
+  }
+
+  /**
    * Output structured data
    */
   data(data) {

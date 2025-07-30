@@ -256,10 +256,15 @@ describe('ApiService', () => {
       const result = await apiService.createBuild(buildData);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://test.api.com/builds',
+        'https://test.api.com/api/sdk/builds',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(buildData),
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-key',
+            'Content-Type': 'application/json',
+            'User-Agent': 'vizzly-cli',
+          }),
         })
       );
       expect(result).toEqual(mockBuild);
@@ -364,7 +369,7 @@ describe('ApiService', () => {
       const result = await service.request('/test');
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://api.vizzly.co/test',
+        'https://vizzly.dev/test',
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer test-token',
@@ -399,7 +404,7 @@ describe('ApiService', () => {
       const result = await service.createBuild(metadata);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://api.vizzly.co/builds',
+        'https://vizzly.dev/api/sdk/builds',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(metadata),

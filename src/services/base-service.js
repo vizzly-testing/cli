@@ -55,7 +55,7 @@ export class BaseService extends EventEmitter {
 
       this.started = true;
       this.emit('started');
-      this.logger.info(`${this.constructor.name} started successfully`);
+      this.logger.debug(`${this.constructor.name} started successfully`);
     } catch (error) {
       this.emit('error', error);
       throw new VizzlyError(
@@ -85,7 +85,7 @@ export class BaseService extends EventEmitter {
 
       this.started = false;
       this.emit('stopped');
-      this.logger.info(`${this.constructor.name} stopped successfully`);
+      this.logger.debug(`${this.constructor.name} stopped successfully`);
     } catch (error) {
       this.emit('error', error);
       throw new VizzlyError(

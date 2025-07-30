@@ -1,8 +1,29 @@
 # Test Integration Guide
 
-The `vizzly run` command integrates Vizzly directly into your test suite, automatically capturing screenshots during test execution.
+The `vizzly run` command integrates Vizzly directly into your test suite, automatically capturing screenshots during tes**`--build-name <name>`** - Custom build name
+```bash
+vizzly run "npm test" --build-name "PR-123"
+```
 
-## Basic Usage
+**`--environment <env>`** - Environment name (default: "test")
+```bash
+vizzly run "npm test" --environment "staging"
+```
+
+**`--branch <branch>`** - Git branch override
+```bash
+vizzly run "npm test" --branch "feature/new-ui"
+```
+
+**`--commit <sha>`** - Git commit SHA override
+```bash
+vizzly run "npm test" --commit "abc123def456"
+```
+
+**`--message <msg>`** - Commit message override
+```bash
+vizzly run "npm test" --message "Add new component"
+```## Basic Usage
 
 ```bash
 vizzly run "<your-test-command>"
@@ -132,7 +153,7 @@ describe('Visual tests', () => {
 
 ### Server Configuration
 
-**`--port <port>`** - Server port (default: 3000)
+**`--port <port>`** - Server port (default: 47392)
 ```bash
 vizzly run "npm test" --port 3002
 ```
@@ -171,6 +192,11 @@ vizzly run "npm test" --wait
 vizzly run "npm test" --eager
 ```
 
+**`--threshold <number>`** - Comparison threshold (0-1, default: 0.01)
+```bash
+vizzly run "npm test" --threshold 0.02
+```
+
 ### Development Options
 
 **`--tdd`** - Enable TDD mode (see [TDD Mode Guide](./tdd-mode.md))
@@ -181,6 +207,23 @@ vizzly run "npm test" --tdd
 **`--allow-no-token`** - Allow running without API token
 ```bash
 vizzly run "npm test" --allow-no-token
+```
+
+**`--token <token>`** - API token override
+```bash
+vizzly run "npm test" --token "your-token-here"
+```
+
+### Baseline Configuration
+
+**`--baseline-build <id>`** - Use specific build as baseline
+```bash
+vizzly run "npm test" --baseline-build "build_123"
+```
+
+**`--baseline-comparison <id>`** - Use specific comparison as baseline
+```bash
+vizzly run "npm test" --baseline-comparison "comp_456"
 ```
 
 ## Screenshot Properties

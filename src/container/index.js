@@ -133,7 +133,7 @@ export const container = new ServiceContainer();
  * @param {Object} config - Configuration object
  * @returns {ServiceContainer}
  */
-export async function createServiceContainer(config) {
+export async function createServiceContainer(config, command = 'run') {
   const container = new ServiceContainer();
 
   // Dynamic ESM imports to avoid circular deps
@@ -143,17 +143,21 @@ export async function createServiceContainer(config) {
     { createUploader },
     { createTDDService },
     { TestRunner },
+    { BuildManager },
+    { ServerManager },
   ] = await Promise.all([
     import('../utils/logger.js'),
     import('../services/api-service.js'),
     import('../services/uploader.js'),
     import('../services/tdd-service.js'),
     import('../services/test-runner.js'),
+    import('../services/build-manager.js'),
+    import('../services/server-manager.js'),
   ]);
 
   // Create logger instance once
   const logger = createLogger({
-    level: config.logLevel || 'info',
+    level: config.logLevel || (config.verbose ? 'debug' : 'warn'),
     verbose: config.verbose || false,
   });
 
@@ -162,11 +166,27 @@ export async function createServiceContainer(config) {
 
   container.register('apiService', () => new ApiService(config, { logger }));
 
-  container.register('uploader', () => createUploader(config, { logger }));
+  container.register('uploader', () =>
+    createUploader({ ...config, command }, { logger })
+  );
+
+  container.register(
+    'buildManager',
+    () => new BuildManager(config, { logger })
+  );
+
+  container.register(
+    'serverManager',
+    () => new ServerManager(config, { logger })
+  );
 
   container.register('tddService', () => createTDDService(config, { logger }));
 
-  container.register('testRunner', () => new TestRunner(config, { logger }));
+  container.register('testRunner', {
+    factory: async (buildManager, serverManager, tddService) =>
+      new TestRunner(config, logger, buildManager, serverManager, tddService),
+    dependencies: ['buildManager', 'serverManager', 'tddService'],
+  });
 
   return container;
 }

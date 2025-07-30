@@ -1,16 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ServerManager } from '../../src/services/server-manager.js';
 
-// Mock dependencies
-vi.mock('../../src/services/base-service.js', () => ({
-  BaseService: class {
-    constructor(config, logger) {
-      this.config = config;
-      this.logger = logger;
-    }
-  },
-}));
-
+// Only mock the VizzlyServer since it's the external dependency we want to avoid
 vi.mock('../../src/server/index.js', () => ({
   VizzlyServer: vi.fn(),
 }));
@@ -66,9 +57,9 @@ describe('ServerManager', () => {
       const { VizzlyServer } = await import('../../src/server/index.js');
       mockVizzlyServer.start.mockResolvedValue();
 
-      await serverManager.onStart();
+      await serverManager.start('build123', null, 'lazy');
 
-      expect(VizzlyServer).toHaveBeenCalledWith(mockConfig);
+      expect(VizzlyServer).toHaveBeenCalled();
       expect(mockVizzlyServer.start).toHaveBeenCalled();
       expect(serverManager.server).toBe(mockVizzlyServer);
     });
@@ -77,16 +68,18 @@ describe('ServerManager', () => {
       const startError = new Error('Failed to bind to port');
       mockVizzlyServer.start.mockRejectedValue(startError);
 
-      await expect(serverManager.onStart()).rejects.toThrow(
-        'Failed to bind to port'
-      );
+      await expect(
+        serverManager.start('build123', null, 'lazy')
+      ).rejects.toThrow('Failed to bind to port');
     });
 
     it('passes configuration to VizzlyServer correctly', async () => {
       const { VizzlyServer } = await import('../../src/server/index.js');
       const customConfig = {
-        port: 8080,
-        host: '0.0.0.0',
+        server: {
+          port: 8080,
+          host: '0.0.0.0',
+        },
         tddMode: true,
         workingDir: '/custom/path',
       };
@@ -94,9 +87,17 @@ describe('ServerManager', () => {
       const customServerManager = new ServerManager(customConfig, mockLogger);
       mockVizzlyServer.start.mockResolvedValue();
 
-      await customServerManager.onStart();
+      await customServerManager.start('build123', null, 'lazy');
 
-      expect(VizzlyServer).toHaveBeenCalledWith(customConfig);
+      expect(VizzlyServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          port: 8080,
+          config: customConfig,
+          buildId: 'build123',
+          buildInfo: null,
+          tddMode: false,
+        })
+      );
     });
   });
 
@@ -105,7 +106,7 @@ describe('ServerManager', () => {
       mockVizzlyServer.stop.mockResolvedValue();
 
       // First start the server
-      await serverManager.onStart();
+      await serverManager.start('build123', null, 'lazy');
 
       // Then stop it
       await serverManager.onStop();
@@ -125,7 +126,7 @@ describe('ServerManager', () => {
       const stopError = new Error('Server stop failed');
       mockVizzlyServer.stop.mockRejectedValue(stopError);
 
-      await serverManager.onStart();
+      await serverManager.start('build123', null, 'lazy');
 
       await expect(serverManager.onStop()).rejects.toThrow(
         'Server stop failed'
@@ -135,7 +136,7 @@ describe('ServerManager', () => {
     it('can be called multiple times safely', async () => {
       mockVizzlyServer.stop.mockResolvedValue();
 
-      await serverManager.onStart();
+      await serverManager.start('build123', null, 'lazy');
       await serverManager.onStop();
 
       // Second stop should not fail
@@ -155,7 +156,7 @@ describe('ServerManager', () => {
       expect(serverManager.server).toBe(null);
 
       // Start server
-      await serverManager.onStart();
+      await serverManager.start('build123', null, 'lazy');
       expect(serverManager.server).toBe(mockVizzlyServer);
       expect(mockVizzlyServer.start).toHaveBeenCalledTimes(1);
 
@@ -169,12 +170,12 @@ describe('ServerManager', () => {
       mockVizzlyServer.stop.mockResolvedValue();
 
       // First cycle
-      await serverManager.onStart();
-      await serverManager.onStop();
+      await serverManager.start('build123', null, 'lazy');
+      await serverManager.stop();
 
       // Second cycle - should create new server instance
-      await serverManager.onStart();
-      await serverManager.onStop();
+      await serverManager.start('build123', null, 'lazy');
+      await serverManager.stop();
 
       expect(mockVizzlyServer.start).toHaveBeenCalledTimes(2);
       expect(mockVizzlyServer.stop).toHaveBeenCalledTimes(2);
@@ -185,7 +186,7 @@ describe('ServerManager', () => {
 
       expect(serverManager.server).toBe(null);
 
-      await serverManager.onStart();
+      await serverManager.start('build123', null, 'lazy');
       expect(serverManager.server).toBe(mockVizzlyServer);
       expect(serverManager.server).not.toBe(null);
     });
@@ -199,18 +200,18 @@ describe('ServerManager', () => {
         throw constructorError;
       });
 
-      await expect(serverManager.onStart()).rejects.toThrow(
-        'Invalid configuration'
-      );
+      await expect(
+        serverManager.start('build123', null, 'lazy')
+      ).rejects.toThrow('Invalid configuration');
     });
 
     it('handles async start errors gracefully', async () => {
       const asyncError = new Error('Async start failure');
       mockVizzlyServer.start.mockRejectedValue(asyncError);
 
-      await expect(serverManager.onStart()).rejects.toThrow(
-        'Async start failure'
-      );
+      await expect(
+        serverManager.start('build123', null, 'lazy')
+      ).rejects.toThrow('Async start failure');
 
       // Server reference should still be set even if start fails
       expect(serverManager.server).toBe(mockVizzlyServer);
@@ -220,7 +221,7 @@ describe('ServerManager', () => {
       mockVizzlyServer.start.mockResolvedValue();
       mockVizzlyServer.stop.mockRejectedValue(new Error('Stop failed'));
 
-      await serverManager.onStart();
+      await serverManager.start('build123', null, 'lazy');
 
       await expect(serverManager.onStop()).rejects.toThrow('Stop failed');
     });
@@ -234,19 +235,26 @@ describe('ServerManager', () => {
 
       mockVizzlyServer.start.mockResolvedValue();
 
-      await minimalServerManager.onStart();
+      await minimalServerManager.start('build123', null, 'lazy');
 
-      expect(VizzlyServer).toHaveBeenCalledWith(minimalConfig);
+      expect(VizzlyServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: minimalConfig,
+          port: 47392,
+        })
+      );
     });
 
     it('handles rich configuration with all options', async () => {
       const { VizzlyServer } = await import('../../src/server/index.js');
       const richConfig = {
-        port: 8080,
-        host: '0.0.0.0',
+        server: {
+          port: 8080,
+          host: '0.0.0.0',
+        },
         tddMode: true,
-        baselineBuild: 'build123',
-        baselineComparison: 'comp456',
+        baselineBuildId: 'build123',
+        baselineComparisonId: 'comp456',
         workingDir: '/app/workspace',
         buildId: 'current-build',
         buildInfo: { name: 'Test Build' },
@@ -256,9 +264,18 @@ describe('ServerManager', () => {
       const richServerManager = new ServerManager(richConfig, mockLogger);
       mockVizzlyServer.start.mockResolvedValue();
 
-      await richServerManager.onStart();
+      await richServerManager.start('build123', null, 'lazy');
 
-      expect(VizzlyServer).toHaveBeenCalledWith(richConfig);
+      expect(VizzlyServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: richConfig,
+          port: 8080,
+          buildId: 'build123',
+          buildInfo: null,
+          baselineBuild: 'build123',
+          baselineComparison: 'comp456',
+        })
+      );
     });
   });
 
@@ -272,16 +289,21 @@ describe('ServerManager', () => {
 
       mockVizzlyServer.start.mockResolvedValue();
 
-      await serverManagerWithUndefinedConfig.onStart();
+      await serverManagerWithUndefinedConfig.start('build123', null, 'lazy');
 
-      expect(VizzlyServer).toHaveBeenCalledWith(undefined);
+      expect(VizzlyServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: undefined,
+          port: 47392,
+        })
+      );
     });
 
     it('handles null logger gracefully', () => {
       const serverManagerWithNullLogger = new ServerManager(mockConfig, null);
 
       expect(serverManagerWithNullLogger.config).toBe(mockConfig);
-      expect(serverManagerWithNullLogger.logger).toBe(null);
+      expect(serverManagerWithNullLogger.logger).toBe(console); // Fallback to console
     });
 
     it('server reference is properly managed', async () => {
@@ -291,7 +313,7 @@ describe('ServerManager', () => {
       expect(serverManager.server).toBe(null);
 
       // Set during onStart
-      await serverManager.onStart();
+      await serverManager.start('build123', null, 'lazy');
       const serverRef = serverManager.server;
       expect(serverRef).toBe(mockVizzlyServer);
 

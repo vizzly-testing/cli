@@ -13,7 +13,7 @@ let isDisabled = false;
  * @returns {boolean} True if disabled via environment variable or auto-disabled due to failure
  */
 function isVizzlyDisabled() {
-  return process.env.VIZZLY_ENABLED === 'false' || isDisabled;
+  return process.env.VIZZLY_ENABLED !== 'true' || isDisabled;
 }
 
 /**
@@ -41,9 +41,9 @@ function getClient() {
   }
 
   if (!currentClient) {
-    // Try to initialize from environment
-    const serverUrl = process.env.VIZZLY_SERVER_URL || 'http://localhost:3001';
-    if (serverUrl) {
+    // Only try to initialize if VIZZLY_ENABLED is explicitly true
+    const serverUrl = process.env.VIZZLY_SERVER_URL;
+    if (serverUrl && process.env.VIZZLY_ENABLED === 'true') {
       currentClient = createSimpleClient(serverUrl);
     }
   }
@@ -64,6 +64,7 @@ function createSimpleClient(serverUrl) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            buildId: process.env.VIZZLY_BUILD_ID,
             name,
             image: imageBuffer.toString('base64'),
             properties: options.properties || {},
@@ -74,13 +75,34 @@ function createSimpleClient(serverUrl) {
         });
 
         if (!response.ok) {
-          throw new Error(`Screenshot failed: ${response.statusText}`);
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(
+            `Screenshot failed: ${response.status} ${response.statusText} - ${errorText}`
+          );
         }
 
         return await response.json();
       } catch (error) {
         console.error(`Failed to save screenshot "${name}":`, error.message);
         console.error(`Vizzly screenshot failed for ${name}: ${error.message}`);
+
+        if (error.message.includes('fetch') || error.code === 'ECONNREFUSED') {
+          console.error(`Server URL: ${serverUrl}/screenshot`);
+          console.error(
+            'This usually means the Vizzly server is not running or not accessible'
+          );
+          console.error(
+            'Check that the server is started and the port is correct'
+          );
+        } else if (
+          error.message.includes('404') ||
+          error.message.includes('Not Found')
+        ) {
+          console.error(`Server URL: ${serverUrl}/screenshot`);
+          console.error(
+            'The screenshot endpoint was not found - check server configuration'
+          );
+        }
 
         // Disable the SDK after first failure to prevent spam
         disableVizzly('failure');
@@ -207,7 +229,7 @@ export function getVizzlyInfo() {
   const client = getClient();
   return {
     enabled: !isVizzlyDisabled(),
-    serverUrl: process.env.VIZZLY_SERVER_URL || 'http://localhost:3001',
+    serverUrl: process.env.VIZZLY_SERVER_URL,
     ready: !isVizzlyDisabled() && client !== null,
     buildId: process.env.VIZZLY_BUILD_ID,
     tddMode: process.env.VIZZLY_TDD === 'true',

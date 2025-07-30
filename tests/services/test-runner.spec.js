@@ -128,10 +128,9 @@ describe('TestRunner', () => {
       await testRunner.run(options);
 
       expect(mockServerManager.start).toHaveBeenCalled();
-      expect(mockBuildManager.createBuild).toHaveBeenCalledWith(options);
-      expect(mockBuildManager.finalizeBuild).toHaveBeenCalledWith('build123', {
-        success: true,
-      });
+      // In lazy mode (non-TDD, non-eager), build manager is not used
+      expect(mockBuildManager.createBuild).not.toHaveBeenCalled();
+      expect(mockBuildManager.finalizeBuild).not.toHaveBeenCalled();
       expect(mockServerManager.stop).toHaveBeenCalled();
       expect(mockTddService.start).not.toHaveBeenCalled();
       expect(mockTddService.stop).not.toHaveBeenCalled();
@@ -140,6 +139,7 @@ describe('TestRunner', () => {
     it('successfully runs test command with TDD enabled', async () => {
       const mockBuild = { id: 'build456' };
       mockBuildManager.createBuild.mockResolvedValue(mockBuild);
+      mockBuildManager.getCurrentBuild.mockReturnValue(mockBuild);
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
       mockTddService.start.mockResolvedValue();
@@ -184,6 +184,7 @@ describe('TestRunner', () => {
 
       const options = {
         testCommand: 'npm test',
+        tdd: true, // Enable TDD mode so finalizeBuild gets called
       };
 
       await expect(testRunner.run(options)).rejects.toThrow(
@@ -222,6 +223,7 @@ describe('TestRunner', () => {
 
       const options = {
         testCommand: 'npm test',
+        tdd: true, // Enable TDD mode so buildManager.createBuild gets called
       };
 
       await expect(testRunner.run(options)).rejects.toThrow(
@@ -282,7 +284,7 @@ describe('TestRunner', () => {
 
       await testRunner.executeTestCommand('npm test', env);
 
-      expect(spawn).toHaveBeenCalledWith('npm', ['test'], {
+      expect(spawn).toHaveBeenCalledWith('npm test', {
         env,
         stdio: 'inherit',
         shell: true,
@@ -327,15 +329,11 @@ describe('TestRunner', () => {
         {}
       );
 
-      expect(spawn).toHaveBeenCalledWith(
-        'jest',
-        ['--coverage', '--verbose', '--watch'],
-        {
-          env: {},
-          stdio: 'inherit',
-          shell: true,
-        }
-      );
+      expect(spawn).toHaveBeenCalledWith('jest --coverage --verbose --watch', {
+        env: {},
+        stdio: 'inherit',
+        shell: true,
+      });
     });
 
     it('stores test process reference', async () => {
@@ -396,12 +394,11 @@ describe('TestRunner', () => {
       await testRunner.run(options);
 
       expect(spawn).toHaveBeenCalledWith(
-        'npm',
-        ['run', 'e2e'],
+        'npm run e2e',
         expect.objectContaining({
           env: expect.objectContaining({
             VIZZLY_SERVER_URL: 'http://localhost:3000',
-            VIZZLY_BUILD_ID: 'integration-build',
+            VIZZLY_BUILD_ID: 'lazy',
             VIZZLY_ENABLED: 'true',
           }),
         })

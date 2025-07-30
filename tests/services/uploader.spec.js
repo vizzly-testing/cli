@@ -87,7 +87,9 @@ describe('Uploader Service', () => {
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer test-api-key',
-            'User-Agent': 'vizzly-cli',
+            'User-Agent': expect.stringMatching(
+              /^vizzly-cli\/\d+\.\d+\.\d+ \(upload\)$/
+            ),
           }),
         })
       );

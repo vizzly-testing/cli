@@ -5,9 +5,28 @@
 
 import { glob } from 'glob';
 import { readFile, readdir, stat } from 'fs/promises';
-import { basename, join, extname } from 'path';
+import { readFileSync } from 'fs';
+import { basename, join, extname, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { createLogger } from '../utils/logger.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '../../package.json'), 'utf-8')
+);
+
+/**
+ * Generate User-Agent string with version, command, and optional SDK info
+ * @param {string} [command] - The command being executed (e.g., 'upload', 'run')
+ * @param {string} [sdkUserAgent] - Additional user agent info from SDK
+ * @returns {string} Formatted user agent string
+ */
+function getUserAgent(command = 'upload', sdkUserAgent) {
+  const baseUserAgent = `vizzly-cli/${packageJson.version} (${command})`;
+  return sdkUserAgent ? `${baseUserAgent} ${sdkUserAgent}` : baseUserAgent;
+}
 import { getDefaultBranch } from '../utils/git.js';
 import { fetchWithTimeout } from '../utils/fetch-utils.js';
 import {
@@ -26,7 +45,10 @@ const DEFAULT_TIMEOUT = 300000; // 5 minutes
 /**
  * Create a new uploader instance
  */
-export function createUploader({ apiKey, apiUrl }, options = {}) {
+export function createUploader(
+  { apiKey, apiUrl, userAgent, command },
+  options = {}
+) {
   const logger =
     options.logger || createLogger({ level: options.logLevel || 'info' });
   const signal = options.signal || new AbortController().signal;
@@ -81,7 +103,7 @@ export function createUploader({ apiKey, apiUrl }, options = {}) {
       // Check which files need uploading
       const { toUpload, existing } = await checkExistingFiles(
         fileMetadata,
-        { apiKey, apiUrl },
+        { apiKey, apiUrl, command, userAgent },
         signal
       );
 
@@ -106,6 +128,8 @@ export function createUploader({ apiKey, apiUrl }, options = {}) {
         },
         apiKey,
         apiUrl,
+        command,
+        userAgent,
         signal,
         onProgress: current =>
           onProgress({
@@ -163,7 +187,7 @@ export function createUploader({ apiKey, apiUrl }, options = {}) {
         {
           headers: {
             Authorization: `Bearer ${apiKey}`,
-            'User-Agent': 'vizzly-cli',
+            'User-Agent': getUserAgent(command, userAgent),
           },
           signal,
         }
@@ -183,7 +207,30 @@ export function createUploader({ apiKey, apiUrl }, options = {}) {
       const { build } = await response.json();
 
       if (build.status === 'completed') {
-        return { status: 'completed', build };
+        // Extract comparison data for the response
+        const result = {
+          status: 'completed',
+          build,
+        };
+
+        // Add comparison summary if available
+        if (typeof build.comparisonsTotal === 'number') {
+          result.comparisons = build.comparisonsTotal;
+          result.passedComparisons = build.comparisonsPassed || 0;
+          result.failedComparisons = build.comparisonsFailed || 0;
+        } else {
+          // Ensure failedComparisons is always a number, even when comparison data is missing
+          // This prevents the run command exit code check from failing
+          result.passedComparisons = 0;
+          result.failedComparisons = 0;
+        }
+
+        // Add build URL if available
+        if (build.url) {
+          result.url = build.url;
+        }
+
+        return result;
       }
 
       if (build.status === 'failed') {
@@ -251,7 +298,11 @@ async function processFiles(files, signal, onProgress) {
 /**
  * Check which files already exist on the server
  */
-async function checkExistingFiles(fileMetadata, { apiKey, apiUrl }, signal) {
+async function checkExistingFiles(
+  fileMetadata,
+  { apiKey, apiUrl, command = 'upload', userAgent } = {},
+  signal
+) {
   const allShas = fileMetadata.map(f => f.sha256);
   const existingShas = new Set();
 
@@ -267,7 +318,7 @@ async function checkExistingFiles(fileMetadata, { apiKey, apiUrl }, signal) {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
-          'User-Agent': 'vizzly-cli',
+          'User-Agent': getUserAgent(command, userAgent),
         },
         body: JSON.stringify({ shas: batch }),
         signal,
@@ -303,6 +354,8 @@ async function uploadFiles({
   apiUrl,
   signal,
   onProgress,
+  command = 'upload',
+  userAgent,
 }) {
   let buildId = null;
   let result = null;
@@ -314,6 +367,8 @@ async function uploadFiles({
       buildInfo,
       apiKey,
       apiUrl,
+      command,
+      userAgent,
       signal,
     });
   }
@@ -361,7 +416,7 @@ async function uploadFiles({
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        'User-Agent': 'vizzly-cli',
+        'User-Agent': getUserAgent(command, userAgent),
       },
       body: form,
       signal,
@@ -400,6 +455,8 @@ async function createBuildWithExisting({
   apiKey,
   apiUrl,
   signal,
+  command = 'upload',
+  userAgent,
 }) {
   const form = new FormData();
 
@@ -418,7 +475,7 @@ async function createBuildWithExisting({
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      'User-Agent': 'vizzly-cli',
+      'User-Agent': getUserAgent(command, userAgent),
     },
     body: form,
     signal,
@@ -448,8 +505,9 @@ async function createBuildWithExisting({
 export class Uploader extends BaseService {
   constructor(config, logger = console) {
     super(config, logger);
-    this.apiUrl = config.apiUrl || 'https://api.vizzly.co';
+    this.apiUrl = config.apiUrl || 'https://vizzly.dev';
     this.apiKey = config.apiKey;
+    this.userAgent = getUserAgent(config.command || 'upload', config.userAgent);
   }
 
   async onStart() {
@@ -553,7 +611,7 @@ export class Uploader extends BaseService {
       ...options,
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
-        'User-Agent': 'vizzly-cli',
+        'User-Agent': this.userAgent,
         ...options.headers,
       },
     });
@@ -627,7 +685,7 @@ export class Uploader extends BaseService {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
-        'User-Agent': 'vizzly-cli',
+        'User-Agent': this.userAgent,
         ...formData.getHeaders(),
       },
       body: formData,

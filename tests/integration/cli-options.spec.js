@@ -166,14 +166,37 @@ describe('CLI Options Integration', () => {
 
     it('should handle port option parsing', async () => {
       const result = await runCLI(
-        ['run', 'npm test', '--port', '8080', '--allow-no-token'],
+        ['run', 'echo "test successful"', '--port', '8080', '--allow-no-token'],
         {
           env: { CI: 'true' },
         }
       );
 
-      // The command should start but may fail later - we're testing option parsing
+      // Should succeed and show test output
+      expect(result.code).toBe(0);
       expect(result.stderr).not.toContain('invalid port');
+      expect(result.stdout).toContain('Test run completed successfully');
+    });
+
+    it('should successfully run command with --allow-no-token', async () => {
+      const result = await runCLI(
+        ['run', 'echo "hello world"', '--allow-no-token'],
+        {
+          env: { CI: 'true' },
+        }
+      );
+
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain('Test run completed successfully');
+    });
+
+    it('should fail when test command fails', async () => {
+      const result = await runCLI(['run', 'exit 1', '--allow-no-token'], {
+        env: { CI: 'true' },
+      });
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('Test run failed');
     });
   });
 

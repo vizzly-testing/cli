@@ -302,16 +302,30 @@ Run tests with Vizzly integration.
 - `<command>` - Test command to execute
 
 **Options:**
-- `--tdd` - Enable TDD mode
-- `--port <port>` - Server port (default: 3000)
-- `-b, --build-name <name>` - Build name
+
+*Server Configuration:*
+- `--port <port>` - Server port (default: 47392)
+- `--timeout <ms>` - Server timeout in milliseconds (default: 30000)
+
+*Build Configuration:*
+- `-b, --build-name <name>` - Custom build name
 - `--branch <branch>` - Git branch override
+- `--commit <sha>` - Git commit SHA override
+- `--message <msg>` - Commit message override
 - `--environment <env>` - Environment name (default: "test")
-- `--wait` - Wait for build completion
-- `--timeout <ms>` - Server timeout (default: 30000)
-- `--eager` - Create build immediately
+
+*Processing Options:*
+- `--wait` - Wait for build completion and exit with appropriate code
+- `--eager` - Create build immediately (default: lazy creation)
+- `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
+
+*Development & Testing:*
+- `--tdd` - Enable TDD mode with local comparisons
 - `--allow-no-token` - Allow running without API token
-- `--baseline-build <id>` - Use specific build as baseline
+- `--token <token>` - API token override
+
+*Baseline Configuration:*
+- `--baseline-build <id>` - Use specific build as baseline for comparisons
 - `--baseline-comparison <id>` - Use specific comparison as baseline
 
 **Environment Variables Set:**
@@ -319,6 +333,11 @@ Run tests with Vizzly integration.
 - `VIZZLY_BUILD_ID` - Current build ID
 - `VIZZLY_ENABLED` - Set to "true"
 - `VIZZLY_TDD_MODE` - "true" if TDD mode active
+
+**Exit Codes:**
+- `0` - Success
+- `1` - Visual differences detected (when using `--wait`)
+- `2` - Build failed or error
 
 ### `vizzly init [directory]`
 
@@ -394,7 +413,7 @@ Configuration loaded via cosmiconfig in this order:
 
   // Server Configuration (for run command)
   server: {
-    port: number,              // Server port (default: 3001)
+    port: number,              // Server port (default: 47392)
     timeout: number,           // Timeout in ms (default: 30000)
     screenshotPath: string     // Screenshot endpoint path
   },

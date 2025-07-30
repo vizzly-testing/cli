@@ -1,6 +1,6 @@
 import { loadConfig } from '../utils/config-loader.js';
 import { ConsoleUI } from '../utils/console-ui.js';
-import { container } from '../container/index.js';
+import { createServiceContainer } from '../container/index.js';
 import {
   detectBranch,
   detectCommit,
@@ -25,16 +25,34 @@ export async function runCommand(
     color: !globalOptions.noColor,
   });
 
+  let testRunner = null;
+  let runResult = null;
+
   // Ensure cleanup on exit
-  process.on('SIGINT', () => {
+  const cleanup = async () => {
     ui.cleanup();
+    if (testRunner && runResult && runResult.buildId) {
+      try {
+        // Try to finalize build on interruption
+        await testRunner.finalizeBuild(
+          runResult.buildId,
+          false,
+          false,
+          Date.now() - (runResult.startTime || Date.now())
+        );
+      } catch {
+        // Silent fail on cleanup
+      }
+    }
+  };
+
+  process.on('SIGINT', async () => {
+    await cleanup();
     process.exit(1);
   });
   process.on('exit', () => ui.cleanup());
 
   try {
-    ui.info('Starting test run with Vizzly integration...');
-
     // Load configuration with CLI overrides
     const allOptions = { ...globalOptions, ...options };
     const config = await loadConfig(globalOptions.config, allOptions);
@@ -66,9 +84,15 @@ export async function runCommand(
       });
     }
 
-    // Get test runner service
+    // Create service container and get test runner service
     ui.startSpinner('Initializing test runner...');
-    const testRunner = await container.get('testRunner', config);
+    const configWithVerbose = { ...config, verbose: globalOptions.verbose };
+    const container = await createServiceContainer(configWithVerbose);
+    testRunner = await container.get('testRunner'); // Assign to outer scope variable
+    ui.stopSpinner();
+
+    // Track build URL for display
+    let buildUrl = null;
 
     // Set up event handlers
     testRunner.on('progress', progressData => {
@@ -85,20 +109,22 @@ export async function runCommand(
     });
 
     testRunner.on('server-ready', serverInfo => {
-      ui.info(`Screenshot server running on port ${serverInfo.port}`);
       if (globalOptions.verbose) {
+        ui.info(`Screenshot server running on port ${serverInfo.port}`);
         ui.info('Server details', serverInfo);
       }
     });
 
     testRunner.on('screenshot-captured', screenshotInfo => {
-      ui.progress(`Screenshot captured: ${screenshotInfo.name}`);
+      // Use UI for consistent formatting
+      ui.info(`Vizzly: Screenshot captured - ${screenshotInfo.name}`);
     });
 
     testRunner.on('build-created', buildInfo => {
-      ui.info(`Build created: ${buildInfo.buildId}`);
-      if (buildInfo.url) {
-        ui.info(`View build: ${buildInfo.url}`);
+      buildUrl = buildInfo.url;
+      // Use UI for consistent formatting
+      if (buildUrl) {
+        ui.info(`Vizzly: ${buildUrl}`);
       }
     });
 
@@ -111,11 +137,13 @@ export async function runCommand(
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
-      tddMode: options.tdd || false,
+      tdd: options.tdd || false,
       buildName,
       branch,
       commit,
+      message: options.message || config.build.message,
       environment: config.build.environment,
+      threshold: config.comparison.threshold,
       eager: config.eager || false,
       allowNoToken: config.allowNoToken || false,
       baselineBuildId: config.baselineBuildId,
@@ -124,37 +152,34 @@ export async function runCommand(
     };
 
     // Start test run
-    ui.progress('Starting test execution...');
+    ui.info('Starting test execution...');
+    runResult = { startTime: Date.now() };
     const result = await testRunner.run(runOptions);
+    runResult = { ...runResult, ...result };
 
     ui.success('Test run completed successfully');
 
+    // Show Vizzly summary
+    if (result.buildId) {
+      console.log(
+        `🐻 Vizzly: Captured ${result.screenshotsCaptured} screenshots in build ${result.buildId}`
+      );
+      if (result.url) {
+        console.log(`🔗 Vizzly: View results at ${result.url}`);
+      }
+    }
+
     // Output results
     if (result.buildId) {
-      ui.data({
-        buildId: result.buildId,
-        screenshotsCaptured: result.screenshotsCaptured || 0,
-        testsPassed: result.testsPassed || 0,
-        testsFailed: result.testsFailed || 0,
-        url: result.url,
-      });
-
       // Wait for build completion if requested
       if (runOptions.wait) {
         ui.info('Waiting for build completion...');
         ui.startSpinner('Processing comparisons...');
 
-        const uploader = await container.get('uploader', config);
+        const uploader = await container.get('uploader');
         const buildResult = await uploader.waitForBuild(result.buildId);
 
         ui.success('Build processing completed');
-        ui.data({
-          status: buildResult.status,
-          comparisons: buildResult.comparisons,
-          passedComparisons: buildResult.passedComparisons,
-          failedComparisons: buildResult.failedComparisons,
-          url: buildResult.url,
-        });
 
         // Exit with appropriate code based on comparison results
         if (buildResult.failedComparisons > 0) {
@@ -165,13 +190,6 @@ export async function runCommand(
           );
         }
       }
-    } else {
-      ui.data({
-        testsPassed: result.testsPassed || 0,
-        testsFailed: result.testsFailed || 0,
-        message:
-          'Tests completed without visual comparisons (no API token provided)',
-      });
     }
 
     ui.cleanup();

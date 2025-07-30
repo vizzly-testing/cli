@@ -1,6 +1,6 @@
 import { loadConfig } from '../utils/config-loader.js';
 import { ConsoleUI } from '../utils/console-ui.js';
-import { container } from '../container/index.js';
+import { createServiceContainer } from '../container/index.js';
 import { detectBranch, detectCommit, getCommitMessage } from '../utils/git.js';
 
 /**
@@ -57,7 +57,8 @@ export async function uploadCommand(
 
     // Get uploader service
     ui.startSpinner('Initializing uploader...');
-    const uploader = await container.get('uploader', config);
+    const container = await createServiceContainer(config, 'upload');
+    const uploader = await container.get('uploader');
 
     // Set up progress tracking
     uploader.on('progress', progressData => {

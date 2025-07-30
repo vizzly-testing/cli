@@ -201,14 +201,18 @@ export class VizzlyServer {
           // Create build now
           const creatingMessage =
             '🏗️  Creating build (first screenshot captured)...';
-          logger.info(creatingMessage);
-          if (this.emitter) this.emitter.emit('log', creatingMessage);
+          logger.debug(creatingMessage); // Change to debug level
+          // Don't emit log event - let the build-created event handle UI updates
 
           try {
-            const buildResult = await this.vizzlyApi.startBuild({
-              name: this.buildInfo.buildName,
-              branch: this.buildInfo.branch,
-              environment: 'test',
+            const buildResult = await this.vizzlyApi.createBuild({
+              build: {
+                name: this.buildInfo.buildName,
+                branch: this.buildInfo.branch,
+                environment: this.buildInfo.environment || 'test',
+                commit_sha: this.buildInfo.commitSha,
+                commit_message: this.buildInfo.commitMessage,
+              },
             });
 
             this.buildId = buildResult.id;
@@ -227,30 +231,41 @@ export class VizzlyServer {
 
             const createdMessage = `✅ Build created: ${this.buildInfo.buildName}`;
             const urlMessage = `🔗 Build URL: ${buildUrl}`;
-            logger.info(createdMessage);
-            logger.info(urlMessage);
+            logger.debug(createdMessage); // Change to debug level
+            logger.debug(urlMessage); // Change to debug level
+            // Don't emit log events - the build-created event will handle UI
             if (this.emitter) {
-              this.emitter.emit('log', createdMessage);
-              this.emitter.emit('log', urlMessage);
               this.emitter.emit('build-created', {
                 buildId: this.buildId,
-                buildName: this.buildInfo.buildName,
-                buildUrl,
-                branch: this.buildInfo.branch,
-                environment: 'test',
-                port: this.port,
+                url: buildUrl,
+                name: this.buildInfo.buildName,
               });
             }
 
             // Clear buildInfo since we no longer need it
             this.buildInfo = null;
           } catch (buildError) {
-            logger.error('Failed to create build:', buildError.message);
+            logger.error('Failed to create build:', {
+              error: buildError.message,
+              code: buildError.code,
+              stack: buildError.stack,
+              buildInfo: this.buildInfo,
+              apiUrl: this.vizzlyApi?.apiUrl,
+              hasApiKey: !!this.config.apiKey,
+            });
+
+            // Log additional context for debugging
+            if (buildError.response) {
+              logger.error('API Response details:', {
+                status: buildError.response.status,
+                statusText: buildError.response.statusText,
+                headers: buildError.response.headers,
+              });
+            }
 
             // Disable Vizzly on any build creation error
             this.vizzlyDisabled = true;
-            const disabledMessage =
-              '⚠️  Vizzly disabled due to build creation error - continuing tests without visual testing';
+            const disabledMessage = `⚠️  Vizzly disabled due to build creation error: ${buildError.message} - continuing tests without visual testing`;
             logger.warn(disabledMessage);
             if (this.emitter) this.emitter.emit('log', disabledMessage);
 
@@ -376,14 +391,26 @@ export class VizzlyServer {
       ) {
         try {
           const imageBuffer = Buffer.from(image, 'base64');
-          await this.vizzlyApi.uploadScreenshot({
+          const result = await this.vizzlyApi.uploadScreenshot(
+            buildId,
             name,
-            image: imageBuffer,
-            properties: properties || {},
-          });
-          // Log upload (debug only, don't spam UI)
-          logger.debug(`Screenshot uploaded: ${name}`);
-          if (this.emitter) this.emitter.emit('screenshot-uploaded', { name });
+            imageBuffer,
+            {
+              properties: properties || {},
+            }
+          );
+
+          // Log upload or skip
+          if (result.skipped) {
+            logger.debug(`Screenshot already exists, skipped: ${name}`);
+          } else {
+            logger.debug(`Screenshot uploaded: ${name}`);
+          }
+          if (this.emitter)
+            this.emitter.emit('screenshot-uploaded', {
+              name,
+              skipped: result.skipped,
+            });
         } catch (uploadError) {
           logger.error(
             `❌ Failed to upload screenshot ${name}:`,

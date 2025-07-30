@@ -6,7 +6,7 @@
 /**
  * @typedef {Object} VizzlyConfig
  * @property {string} [apiKey] - API key for authentication
- * @property {string} [apiUrl='https://api.vizzly.co'] - API base URL
+ * @property {string} [apiUrl='https://vizzly.dev'] - API base URL
  * @property {string} [screenshotsDir='screenshots'] - Directory for screenshots
  * @property {ServerConfig} [server] - Server configuration
  * @property {BuildConfig} [build] - Build configuration

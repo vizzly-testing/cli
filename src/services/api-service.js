@@ -453,7 +453,7 @@ export class ApiService {
       body: JSON.stringify({
         name,
         image_data: buffer.toString('base64'),
-        properties: metadata.properties || {},
+        properties: metadata ?? {},
         sha256, // Include SHA for server-side deduplication
       }),
     });

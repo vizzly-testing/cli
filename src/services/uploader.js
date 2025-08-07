@@ -503,8 +503,8 @@ async function createBuildWithExisting({
  * Uploader class for handling screenshot uploads
  */
 export class Uploader extends BaseService {
-  constructor(config, logger = console) {
-    super(config, logger);
+  constructor(config, logger) {
+    super(config, { logger });
     this.apiUrl = config.apiUrl || 'https://vizzly.dev';
     this.apiKey = config.apiKey;
     this.userAgent = getUserAgent(config.command || 'upload', config.userAgent);

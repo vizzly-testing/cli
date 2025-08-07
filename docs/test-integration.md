@@ -70,8 +70,10 @@ const screenshot = await page.screenshot();
 
 // Send to Vizzly
 await vizzlyScreenshot('homepage', screenshot, {
-  browser: 'chrome',
-  viewport: '1920x1080'
+  properties: {
+    browser: 'chrome',
+    viewport: '1920x1080'
+  }
 });
 ```
 
@@ -88,9 +90,11 @@ test('homepage test', async ({ page }) => {
   
   const screenshot = await page.screenshot();
   await vizzlyScreenshot('homepage', screenshot, {
-    browser: 'chrome',
-    viewport: '1920x1080',
-    page: 'home'
+    properties: {
+      browser: 'chrome',
+      viewport: '1920x1080',
+      page: 'home'
+    }
   });
 });
 ```
@@ -107,9 +111,11 @@ Cypress.Commands.add('vizzlyScreenshot', (name, properties = {}) => {
   cy.readFile(`cypress/screenshots/${name}.png`, 'base64').then((imageBase64) => {
     const imageBuffer = Buffer.from(imageBase64, 'base64');
     return vizzlyScreenshot(name, imageBuffer, {
-      browser: Cypress.browser.name,
-      framework: 'cypress',
-      ...properties
+      properties: {
+        browser: Cypress.browser.name,
+        framework: 'cypress',
+        ...properties
+      }
     });
   });
 });
@@ -140,8 +146,10 @@ describe('Visual tests', () => {
     
     const screenshot = await page.screenshot();
     await vizzlyScreenshot('homepage', screenshot, {
-      browser: 'chrome',
-      framework: 'puppeteer'
+      properties: {
+        browser: 'chrome',
+        framework: 'puppeteer'
+      }
     });
     
     await browser.close();
@@ -232,26 +240,28 @@ The `properties` object in `vizzlyScreenshot()` is flexible and can contain any 
 
 ```javascript
 await vizzlyScreenshot('dashboard', screenshot, {
-  // Technical metadata
-  browser: 'chrome',
-  os: 'macos',
-  viewport: '1920x1080',
-  device: 'desktop',
-  
-  // Organizational metadata
-  component: 'dashboard',
-  page: 'home',
-  feature: 'analytics',
-  theme: 'dark',
-  
-  // Test metadata
-  testSuite: 'smoke-tests',
-  userType: 'admin',
-  state: 'logged-in',
-  
-  // Custom metadata
-  buildNumber: process.env.BUILD_NUMBER,
-  environment: 'staging'
+  properties: {
+    // Technical metadata
+    browser: 'chrome',
+    os: 'macos',
+    viewport: '1920x1080',
+    device: 'desktop',
+    
+    // Organizational metadata
+    component: 'dashboard',
+    page: 'home',
+    feature: 'analytics',
+    theme: 'dark',
+    
+    // Test metadata
+    testSuite: 'smoke-tests',
+    userType: 'admin',
+    state: 'logged-in',
+    
+    // Custom metadata
+    buildNumber: process.env.BUILD_NUMBER,
+    environment: 'staging'
+  }
 });
 ```
 
@@ -378,9 +388,11 @@ await vizzlyScreenshot('screenshot', screenshot);
 Group related screenshots with properties:
 ```javascript
 await vizzlyScreenshot('user-profile', screenshot, {
-  component: 'profile',
-  state: 'editing',
-  userType: 'admin'
+  properties: {
+    component: 'profile',
+    state: 'editing',
+    userType: 'admin'
+  }
 });
 ```
 

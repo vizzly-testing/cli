@@ -9,7 +9,7 @@ import { EventEmitter } from 'events';
 
 export class ServerManager extends BaseService {
   constructor(config, logger) {
-    super(config, { logger: logger || console });
+    super(config, { logger });
     this.server = null;
   }
 

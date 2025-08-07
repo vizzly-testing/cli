@@ -135,7 +135,7 @@ export function validateBuildOptions(buildOptions) {
 
 export class BuildManager extends BaseService {
   constructor(config, logger) {
-    super(config, logger);
+    super(config, { logger });
     this.currentBuild = null;
     this.buildQueue = [];
   }

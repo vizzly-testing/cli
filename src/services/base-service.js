@@ -5,6 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { VizzlyError } from '../errors/vizzly-error.js';
+import { createLogger } from '../utils/logger.js';
 
 /**
  * @typedef {Object} ServiceOptions
@@ -25,7 +26,7 @@ export class BaseService extends EventEmitter {
     super();
 
     this.config = config;
-    this.logger = options.logger || console;
+    this.logger = options.logger || createLogger({ level: 'info' });
     this.signal = options.signal;
 
     this.started = false;
@@ -49,13 +50,11 @@ export class BaseService extends EventEmitter {
 
     try {
       this.emit('starting');
-      this.logger.debug(`Starting ${this.constructor.name}...`);
 
       await this.onStart();
 
       this.started = true;
       this.emit('started');
-      this.logger.debug(`${this.constructor.name} started successfully`);
     } catch (error) {
       this.emit('error', error);
       throw new VizzlyError(
@@ -79,13 +78,11 @@ export class BaseService extends EventEmitter {
 
     try {
       this.emit('stopping');
-      this.logger.debug(`Stopping ${this.constructor.name}...`);
 
       await this.onStop();
 
       this.started = false;
       this.emit('stopped');
-      this.logger.debug(`${this.constructor.name} stopped successfully`);
     } catch (error) {
       this.emit('error', error);
       throw new VizzlyError(

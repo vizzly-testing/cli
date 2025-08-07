@@ -4,13 +4,14 @@ import fs from 'fs/promises';
 import path from 'path';
 import { detectFramework } from '../utils/framework-detector.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
+import { createLogger } from '../utils/logger.js';
 
 /**
  * Interactive configuration wizard for Vizzly CLI
  */
 export class InitCommand {
-  constructor(logger = console) {
-    this.logger = logger;
+  constructor(logger) {
+    this.logger = logger || createLogger({ level: 'info' });
   }
 
   async run(options = {}) {

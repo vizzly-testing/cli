@@ -395,9 +395,7 @@ export class VizzlyServer {
             buildId,
             name,
             imageBuffer,
-            {
-              properties: properties || {},
-            }
+            properties ?? {}
           );
 
           // Log upload or skip

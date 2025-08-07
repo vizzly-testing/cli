@@ -170,15 +170,9 @@ export async function createServiceContainer(config, command = 'run') {
     createUploader({ ...config, command }, { logger })
   );
 
-  container.register(
-    'buildManager',
-    () => new BuildManager(config, { logger })
-  );
+  container.register('buildManager', () => new BuildManager(config, logger));
 
-  container.register(
-    'serverManager',
-    () => new ServerManager(config, { logger })
-  );
+  container.register('serverManager', () => new ServerManager(config, logger));
 
   container.register('tddService', () => createTDDService(config, { logger }));
 

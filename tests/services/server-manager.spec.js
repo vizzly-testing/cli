@@ -303,7 +303,10 @@ describe('ServerManager', () => {
       const serverManagerWithNullLogger = new ServerManager(mockConfig, null);
 
       expect(serverManagerWithNullLogger.config).toBe(mockConfig);
-      expect(serverManagerWithNullLogger.logger).toBe(console); // Fallback to console
+      expect(serverManagerWithNullLogger.logger).toHaveProperty(
+        'level',
+        'info'
+      ); // Fallback to default logger
     });
 
     it('server reference is properly managed', async () => {

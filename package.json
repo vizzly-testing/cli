@@ -13,10 +13,10 @@
     "cli"
   ],
   "homepage": "https://vizzly.dev",
-  "bugs": "https://github.com/vizzly/cli/issues",
+  "bugs": "https://github.com/vizzly-testing/cli/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vizzly/cli.git"
+    "url": "https://github.com/vizzly-testing/cli.git"
   },
   "license": "MIT",
   "author": "Stubborn Mule Software <support@vizzly.dev>",

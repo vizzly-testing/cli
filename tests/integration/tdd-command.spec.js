@@ -165,7 +165,7 @@ describe('TDD Command Integration', () => {
           '--tdd',
           'echo "test"',
           '--port',
-          '8080',
+          '47502',
           '--environment',
           'staging',
           '--threshold',
@@ -198,7 +198,7 @@ describe('TDD Command Integration', () => {
 
   describe('TDD Command Options and Configuration', () => {
     it('should accept valid port option', async () => {
-      const result = await runCLI(['tdd', 'echo "test"', '--port', '8080'], {
+      const result = await runCLI(['tdd', 'echo "test"', '--port', '47503'], {
         env: { CI: 'true' },
       });
 

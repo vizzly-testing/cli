@@ -331,7 +331,7 @@ We welcome contributions! Whether you're fixing bugs, adding features, or improv
 
 ### Getting Started
 
-1. Fork the repository on [GitHub](https://github.com/vizzly/cli)
+1. Fork the repository on [GitHub](https://github.com/vizzly-testing/cli)
 2. Clone your fork locally: `git clone https://github.com/your-username/cli.git`
 3. Install dependencies: `npm install`
 4. Run tests to ensure everything works: `npm test`
@@ -348,7 +348,7 @@ We welcome contributions! Whether you're fixing bugs, adding features, or improv
 
 ### Reporting Issues
 
-Found a bug or have a feature request? Please [open an issue](https://github.com/vizzly/cli/issues) with:
+Found a bug or have a feature request? Please [open an issue](https://github.com/vizzly-testing/cli/issues) with:
 
 - A clear description of the problem or request
 - Steps to reproduce (for bugs)

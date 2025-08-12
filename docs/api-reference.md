@@ -600,4 +600,4 @@ For additional help:
 - Check [Getting Started Guide](./getting-started.md)
 - Review [Test Integration Guide](./test-integration.md)
 - Explore [TDD Mode Guide](./tdd-mode.md)
-- Report issues at [GitHub Issues](https://github.com/vizzly/cli/issues)
+- Report issues at [GitHub Issues](https://github.com/vizzly-testing/cli/issues)

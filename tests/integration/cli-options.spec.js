@@ -165,7 +165,13 @@ describe('CLI Options Integration', () => {
 
     it('should handle port option parsing', async () => {
       const result = await runCLI(
-        ['run', 'echo "test successful"', '--port', '8080', '--allow-no-token'],
+        [
+          'run',
+          'echo "test successful"',
+          '--port',
+          '47501',
+          '--allow-no-token',
+        ],
         {
           env: { CI: 'true' },
         }
@@ -258,7 +264,7 @@ describe('CLI Options Integration', () => {
 
     it('should handle port option parsing', async () => {
       const result = await runCLI(
-        ['tdd', 'echo "test successful"', '--port', '8080'],
+        ['tdd', 'echo "test successful"', '--port', '47500'],
         {
           env: { CI: 'true' },
         }

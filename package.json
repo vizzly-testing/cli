@@ -73,13 +73,10 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@babel/runtime": "^7.23.6",
-    "@vitejs/plugin-react": "^4.7.0",
     "commander": "^11.1.0",
     "cosmiconfig": "^9.0.0",
     "form-data": "^4.0.0",
     "glob": "^10.3.10",
-    "inquirer": "^12.9.1",
     "odiff-bin": "^3.2.1"
   },
   "devDependencies": {

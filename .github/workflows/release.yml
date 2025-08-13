@@ -1,18 +1,37 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      release_notes:
+        description: 'Release notes (optional)'
+        required: false
+        type: string
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
     
-    - name: Use Node.js
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
@@ -30,6 +49,61 @@ jobs:
     
     - name: Build
       run: npm run build
+    
+    - name: Configure git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+    
+    - name: Bump version and create tag
+      id: version
+      run: |
+        # Bump version in package.json
+        npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
+        
+        # Get the new version
+        NEW_VERSION=$(node -p "require('./package.json').version")
+        echo "new_version=v$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "version_number=$NEW_VERSION" >> $GITHUB_OUTPUT
+        
+        # Commit the version change
+        git add package.json
+        git commit -m "🔖 Release v$NEW_VERSION"
+        
+        # Create and push tag
+        git tag "v$NEW_VERSION"
+        git push origin main
+        git push origin "v$NEW_VERSION"
+    
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        if [ -n "${{ github.event.inputs.release_notes }}" ]; then
+          echo "notes=${{ github.event.inputs.release_notes }}" >> $GITHUB_OUTPUT
+        else
+          # Generate basic release notes from commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log $LAST_TAG..HEAD --oneline --pretty=format:"- %s")
+          else
+            COMMITS=$(git log --oneline --pretty=format:"- %s" | head -10)
+          fi
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "## What's Changed" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.new_version }}
+        release_name: Release ${{ steps.version.outputs.new_version }}
+        body: ${{ steps.release_notes.outputs.notes }}
+        draft: false
+        prerelease: false
     
     - name: Publish to NPM
       run: npm publish

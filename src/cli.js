@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 import { program } from 'commander';
 import { init } from './commands/init.js';
 import { uploadCommand, validateUploadOptions } from './commands/upload.js';

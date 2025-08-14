@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 /**
  * Vizzly CLI & SDK - Main exports
  *

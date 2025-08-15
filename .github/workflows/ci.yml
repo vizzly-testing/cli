@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   lint:
@@ -80,15 +78,11 @@ jobs:
 
     - name: Install Playwright browsers
       working-directory: ./test-site
-      run: npx playwright install --with-deps
-
-    - name: Run test site Playwright tests
-      working-directory: ./test-site
-      run: npm test
+      run: npx playwright install chromium --with-deps
 
     - name: Test Vizzly integration
       working-directory: ./test-site
-      run: vizzly run "npm test" --build-name "CI Test Run - ${{ github.sha }}" --wait
+      run: node ../bin/vizzly.js run "npm test" --build-name "CI Test Run - ${{ github.sha }}" --wait
       env:
         CI: true
         VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}

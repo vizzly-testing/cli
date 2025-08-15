@@ -87,5 +87,8 @@ node_modules/
 # dist/ - built files
 # bin/ - executable scripts
 
+# Test site for demonstrations
+test-site/
+
 # Ensure docs directory is included
 !docs/

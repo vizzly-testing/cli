@@ -30,3 +30,5 @@ Thumbs.db
 
 .vizzly
 tests/client/
+test-site/playwright-report/
+test-site/test-results/

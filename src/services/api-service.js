@@ -126,23 +126,24 @@ export class ApiService {
   /**
    * Check if SHAs already exist on the server
    * @param {string[]} shas - Array of SHA256 hashes to check
-   * @returns {Promise<string[]>} Array of existing SHAs
+   * @param {string} buildId - Build ID for screenshot record creation
+   * @returns {Promise<Object>} Response with existing SHAs and screenshot data
    */
-  async checkShas(shas) {
+  async checkShas(shas, buildId) {
     try {
       const response = await this.request('/api/sdk/check-shas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shas }),
+        body: JSON.stringify({ shas, buildId }),
       });
-      return response.existing || [];
+      return response;
     } catch (error) {
       // Continue without deduplication on error
       console.debug(
         'SHA check failed, continuing without deduplication:',
         error.message
       );
-      return [];
+      return { existing: [], missing: shas, screenshots: [] };
     }
   }
 
@@ -159,14 +160,19 @@ export class ApiService {
     const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
     // Check if this SHA already exists
-    const existingShas = await this.checkShas([sha256]);
+    const checkResult = await this.checkShas([sha256], buildId);
 
-    if (existingShas.includes(sha256)) {
-      // File already exists, skip upload but still register the screenshot
+    if (checkResult.existing && checkResult.existing.includes(sha256)) {
+      // File already exists, screenshot record was automatically created
+      const screenshot = checkResult.screenshots?.find(
+        s => s.sha256 === sha256
+      );
       return {
         message: 'Screenshot already exists, skipped upload',
         sha256,
         skipped: true,
+        screenshot,
+        fromExisting: true,
       };
     }
 

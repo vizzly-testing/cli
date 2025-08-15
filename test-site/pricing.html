@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing - FluffyCloud</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <h1>🐾 FluffyCloud</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="features.html">Features</a></li>
+                <li><a href="pricing.html" class="active">Pricing</a></li>
+                <li><a href="contact.html">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="pricing-hero">
+            <h1>Choose Your Perfect Plan</h1>
+            <p>Pricing that won't make you feel like you're paying for premium pet food every month</p>
+        </section>
+
+        <section class="pricing-toggle">
+            <div class="billing-toggle">
+                <span class="toggle-label">Monthly</span>
+                <label class="switch">
+                    <input type="checkbox" id="billingToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-label">Yearly <span class="discount-badge">Save 20%!</span></span>
+            </div>
+        </section>
+
+        <section class="pricing-plans">
+            <div class="plans-container">
+                <div class="plan-card basic">
+                    <div class="plan-header">
+                        <h3>Kitten Plan</h3>
+                        <div class="plan-icon">🐱</div>
+                        <div class="price">
+                            <span class="currency">$</span>
+                            <span class="amount" id="basic-price">5</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <p class="plan-description">Perfect for single pet households</p>
+                    </div>
+                    <div class="plan-features">
+                        <ul>
+                            <li>✅ 10GB Storage</li>
+                            <li>✅ Up to 1 Pet Profile</li>
+                            <li>✅ Basic Photo Organization</li>
+                            <li>✅ Mobile App Access</li>
+                            <li>✅ Automatic Backup</li>
+                            <li>❌ Video Storage</li>
+                            <li>❌ Premium Support</li>
+                        </ul>
+                    </div>
+                    <button class="btn plan-btn">Start Free Trial</button>
+                </div>
+
+                <div class="plan-card pro popular">
+                    <div class="popular-badge">Most Popular</div>
+                    <div class="plan-header">
+                        <h3>Good Boy Plan</h3>
+                        <div class="plan-icon">🐕</div>
+                        <div class="price">
+                            <span class="currency">$</span>
+                            <span class="amount" id="pro-price">15</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <p class="plan-description">Great for multi-pet families</p>
+                    </div>
+                    <div class="plan-features">
+                        <ul>
+                            <li>✅ 100GB Storage</li>
+                            <li>✅ Up to 5 Pet Profiles</li>
+                            <li>✅ Advanced Photo Organization</li>
+                            <li>✅ Video Storage (up to 4K)</li>
+                            <li>✅ Priority Support</li>
+                            <li>✅ Sharing & Collaboration</li>
+                            <li>✅ Custom Albums</li>
+                            <li>✅ AI Photo Tagging</li>
+                        </ul>
+                    </div>
+                    <button class="btn primary plan-btn">Start Free Trial</button>
+                </div>
+
+                <div class="plan-card enterprise">
+                    <div class="plan-header">
+                        <h3>Zoo Keeper Plan</h3>
+                        <div class="plan-icon">🦁</div>
+                        <div class="price">
+                            <span class="currency">$</span>
+                            <span class="amount" id="enterprise-price">50</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <p class="plan-description">For pet shelters and crazy cat ladies</p>
+                    </div>
+                    <div class="plan-features">
+                        <ul>
+                            <li>✅ 1TB Storage</li>
+                            <li>✅ Unlimited Pet Profiles</li>
+                            <li>✅ Everything in Good Boy Plan</li>
+                            <li>✅ Advanced Analytics</li>
+                            <li>✅ API Access</li>
+                            <li>✅ White-label Options</li>
+                            <li>✅ 24/7 Dedicated Support</li>
+                            <li>✅ Custom Integrations</li>
+                        </ul>
+                    </div>
+                    <button class="btn plan-btn">Contact Sales</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="pricing-faq">
+            <h2>Frequently Asked Questions</h2>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>What happens if my pet takes more photos than my storage limit?</h3>
+                    <p>Don't worry! We'll send you a gentle notification (like a soft meow) when you're approaching your limit. You can always upgrade or we'll help you organize your photos better.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Can I change plans if I adopt more pets?</h3>
+                    <p>Absolutely! We love growing families. You can upgrade anytime, and we'll prorate the difference. Adding pets is always a good reason to celebrate!</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Do you offer refunds if my pet doesn't like the service?</h3>
+                    <p>While we can't guarantee your pet's approval (cats can be particularly picky), we offer a 30-day money-back guarantee for all our human customers.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Is there really unlimited storage for the Zoo Keeper plan?</h3>
+                    <p>Yes! We define "unlimited" as more storage than you could fill even if you took a photo of your pet every second for the next 100 years. Challenge accepted?</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="pricing-comparison">
+            <h2>Feature Comparison</h2>
+            <div class="comparison-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Kitten Plan</th>
+                            <th>Good Boy Plan</th>
+                            <th>Zoo Keeper Plan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Storage Space</td>
+                            <td>10GB</td>
+                            <td>100GB</td>
+                            <td>1TB</td>
+                        </tr>
+                        <tr>
+                            <td>Pet Profiles</td>
+                            <td>1</td>
+                            <td>5</td>
+                            <td>Unlimited</td>
+                        </tr>
+                        <tr>
+                            <td>Video Storage</td>
+                            <td>❌</td>
+                            <td>✅ Up to 4K</td>
+                            <td>✅ Up to 8K</td>
+                        </tr>
+                        <tr>
+                            <td>AI Photo Tagging</td>
+                            <td>❌</td>
+                            <td>✅</td>
+                            <td>✅ Advanced</td>
+                        </tr>
+                        <tr>
+                            <td>Support Level</td>
+                            <td>Email</td>
+                            <td>Priority</td>
+                            <td>24/7 Dedicated</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="pricing-cta">
+            <h2>Ready to Start Your Journey?</h2>
+            <p>All plans come with a 14-day free trial. No credit card required, no questions asked (except maybe "who's a good boy?").</p>
+            <div class="cta-buttons">
+                <button class="btn primary large">Start Free Trial</button>
+                <button class="btn secondary">Talk to Sales</button>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>FluffyCloud</h4>
+                <p>Making pet memories last forever, one byte at a time.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="features.html">Features</a></li>
+                    <li><a href="pricing.html">Pricing</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Support</h4>
+                <ul>
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 FluffyCloud. All rights reserved. No animals were harmed in the making of this website.</p>
+        </div>
+    </footer>
+
+    <script>
+        const billingToggle = document.getElementById('billingToggle');
+        const basicPrice = document.getElementById('basic-price');
+        const proPrice = document.getElementById('pro-price');
+        const enterprisePrice = document.getElementById('enterprise-price');
+
+        const monthlyPrices = { basic: 5, pro: 15, enterprise: 50 };
+        const yearlyPrices = { basic: 4, pro: 12, enterprise: 40 };
+
+        billingToggle.addEventListener('change', function() {
+            if (this.checked) {
+                basicPrice.textContent = yearlyPrices.basic;
+                proPrice.textContent = yearlyPrices.pro;
+                enterprisePrice.textContent = yearlyPrices.enterprise;
+            } else {
+                basicPrice.textContent = monthlyPrices.basic;
+                proPrice.textContent = monthlyPrices.pro;
+                enterprisePrice.textContent = monthlyPrices.enterprise;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact - FluffyCloud</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <h1>🐾 FluffyCloud</h1>
+            </div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="features.html">Features</a></li>
+                <li><a href="pricing.html">Pricing</a></li>
+                <li><a href="contact.html" class="active">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="contact-hero">
+            <h1>Get in Touch</h1>
+            <p>Have questions? Need help? Want to share photos of your pet? We're here for all of it!</p>
+        </section>
+
+        <section class="contact-options">
+            <div class="contact-grid">
+                <div class="contact-method">
+                    <div class="contact-icon">💬</div>
+                    <h3>Live Chat</h3>
+                    <p>Chat with our support team instantly. Available 24/7 (unlike your cat, who's only available when they want food).</p>
+                    <button class="btn primary">Start Chat</button>
+                </div>
+
+                <div class="contact-method">
+                    <div class="contact-icon">📧</div>
+                    <h3>Email Support</h3>
+                    <p>Send us an email and we'll get back to you faster than your dog runs to the treat cabinet.</p>
+                    <a href="mailto:support@fluffycloud.com" class="btn secondary">Email Us</a>
+                </div>
+
+                <div class="contact-method">
+                    <div class="contact-icon">📞</div>
+                    <h3>Phone Support</h3>
+                    <p>Call us directly for urgent issues or if you just want to tell us about your pet's latest adventure.</p>
+                    <a href="tel:+1-555-FLUFFY" class="btn secondary">Call Now</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="contact-form-section">
+            <div class="form-container">
+                <div class="form-content">
+                    <h2>Send Us a Message</h2>
+                    <p>We love hearing from our users! Tell us about your experience, share feedback, or just say hi.</p>
+                    
+                    <form class="contact-form" id="contactForm">
+                        <div class="form-group">
+                            <label for="name">Your Name*</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="petName">Your Pet's Name</label>
+                            <input type="text" id="petName" name="petName" placeholder="Who's the real star here?">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email Address*</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="subject">Subject*</label>
+                            <select id="subject" name="subject" required>
+                                <option value="">Select a topic</option>
+                                <option value="support">Technical Support</option>
+                                <option value="billing">Billing Question</option>
+                                <option value="feature">Feature Request</option>
+                                <option value="feedback">General Feedback</option>
+                                <option value="partnership">Partnership Inquiry</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">Message*</label>
+                            <textarea id="message" name="message" rows="6" placeholder="Tell us what's on your mind (and your pet's mind, if you know)" required></textarea>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="newsletter" name="newsletter">
+                                <span class="checkmark"></span>
+                                Subscribe to our newsletter for pet tips, product updates, and adorable customer pet photos
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn primary large">Send Message</button>
+                    </form>
+                </div>
+
+                <div class="contact-info">
+                    <h3>Other Ways to Reach Us</h3>
+                    
+                    <div class="info-item">
+                        <h4>📍 Headquarters</h4>
+                        <p>123 Pet Paradise Lane<br>
+                        Furrytown, CA 90210<br>
+                        (Right next to the dog park)</p>
+                    </div>
+
+                    <div class="info-item">
+                        <h4>🕒 Support Hours</h4>
+                        <p>Monday - Friday: 6 AM - 10 PM PST<br>
+                        Saturday - Sunday: 8 AM - 8 PM PST<br>
+                        (We're early birds like your rooster)</p>
+                    </div>
+
+                    <div class="info-item">
+                        <h4>📱 Social Media</h4>
+                        <div class="social-links">
+                            <a href="#" class="social-link">Twitter @FluffyCloud</a>
+                            <a href="#" class="social-link">Instagram @FluffyCloudPets</a>
+                            <a href="#" class="social-link">Facebook /FluffyCloudStorage</a>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <h4>🏢 Business Inquiries</h4>
+                        <p>For partnerships, press, or business development:</p>
+                        <a href="mailto:business@fluffycloud.com">business@fluffycloud.com</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="team-section">
+            <h2>Meet the Team</h2>
+            <p>We're a group of pet lovers who understand the importance of preserving every precious moment with our furry friends.</p>
+            
+            <div class="team-grid">
+                <div class="team-member">
+                    <div class="member-avatar">🧑‍💻</div>
+                    <h3>Alex Johnson</h3>
+                    <p class="member-role">CEO & Chief Pet Officer</p>
+                    <p class="member-bio">Former Google engineer with 3 cats, 2 dogs, and a deep understanding of cloud storage.</p>
+                </div>
+
+                <div class="team-member">
+                    <div class="member-avatar">👩‍🎨</div>
+                    <h3>Sarah Chen</h3>
+                    <p class="member-role">Head of Design</p>
+                    <p class="member-bio">Award-winning designer whose pet rabbit, Pixel, inspired our user interface color palette.</p>
+                </div>
+
+                <div class="team-member">
+                    <div class="member-avatar">🧑‍🔧</div>
+                    <h3>Mike Rodriguez</h3>
+                    <p class="member-role">Lead Developer</p>
+                    <p class="member-bio">Full-stack developer whose pet snake helped him understand the importance of secure data storage.</p>
+                </div>
+
+                <div class="team-member">
+                    <div class="member-avatar">👩‍💼</div>
+                    <h3>Emma Thompson</h3>
+                    <p class="member-role">Customer Success</p>
+                    <p class="member-bio">Former veterinary tech who knows how to handle both pet emergencies and customer support tickets.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="faq-preview">
+            <h2>Quick Answers</h2>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>How fast do you respond to support requests?</h3>
+                    <p>Faster than your pet runs to the door when they hear your car! Usually within 2 hours during business hours.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Can I schedule a product demo?</h3>
+                    <p>Absolutely! We love showing off FluffyCloud. Schedule a demo and we'll even let you bring your pet to the call (virtually).</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Do you really want to see photos of my pet?</h3>
+                    <p>YES! We're serious pet enthusiasts. Send us your cutest photos and we might feature them in our newsletter (with permission, of course).</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="contact-cta">
+            <h2>We're Here to Help!</h2>
+            <p>Whether you need technical support, have a question about pricing, or just want to share your pet's latest achievement, we're here for you.</p>
+            <div class="cta-buttons">
+                <button class="btn primary large">Start Live Chat</button>
+                <button class="btn secondary">Schedule a Call</button>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>FluffyCloud</h4>
+                <p>Making pet memories last forever, one byte at a time.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Quick Links</h4>
+                <ul>
+                    <li><a href="features.html">Features</a></li>
+                    <li><a href="pricing.html">Pricing</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Support</h4>
+                <ul>
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 FluffyCloud. All rights reserved. No animals were harmed in the making of this website.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.getElementById('contactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            
+            submitBtn.textContent = 'Sending...';
+            submitBtn.disabled = true;
+            
+            setTimeout(() => {
+                alert('Thank you for your message! We\'ll get back to you faster than your pet comes running for treats! 🐾');
+                this.reset();
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }, 1500);
+        });
+    </script>
+</body>
+</html>

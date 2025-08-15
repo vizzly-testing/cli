@@ -93,11 +93,25 @@ export function createUploader(
         onProgress({ phase: 'processing', current, total: files.length })
       );
 
-      // Check which files need uploading
-      const { toUpload, existing } = await checkExistingFiles(
+      // Create build first to get buildId for SHA checking
+      const buildInfo = {
+        name: buildName || `Upload ${new Date().toISOString()}`,
+        branch: branch || (await getDefaultBranch()) || 'main',
+        commitSha: commit,
+        commitMessage: message,
+        environment,
+        threshold,
+      };
+
+      const build = await api.createBuild(buildInfo);
+      const buildId = build.id;
+
+      // Check which files need uploading (now with buildId)
+      const { toUpload, existing, screenshots } = await checkExistingFiles(
         fileMetadata,
         api,
-        signal
+        signal,
+        buildId
       );
 
       onProgress({
@@ -107,18 +121,13 @@ export function createUploader(
         total: files.length,
       });
 
-      // Create build and upload files
+      // Upload remaining files
       const result = await uploadFiles({
         toUpload,
         existing,
-        buildInfo: {
-          name: buildName || `Upload ${new Date().toISOString()}`,
-          branch: branch || (await getDefaultBranch()) || 'main',
-          commitSha: commit,
-          commitMessage: message,
-          environment,
-          threshold,
-        },
+        screenshots,
+        buildId,
+        buildInfo,
         api,
         signal,
         batchSize: batchSize,
@@ -277,9 +286,10 @@ async function processFiles(files, signal, onProgress) {
 /**
  * Check which files already exist on the server
  */
-async function checkExistingFiles(fileMetadata, api, signal) {
+async function checkExistingFiles(fileMetadata, api, signal, buildId) {
   const allShas = fileMetadata.map(f => f.sha256);
   const existingShas = new Set();
+  const allScreenshots = [];
 
   // Check in batches
   for (let i = 0; i < allShas.length; i += DEFAULT_SHA_CHECK_BATCH_SIZE) {
@@ -291,11 +301,12 @@ async function checkExistingFiles(fileMetadata, api, signal) {
       const res = await api.request('/api/sdk/check-shas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shas: batch }),
+        body: JSON.stringify({ shas: batch, buildId }),
         signal,
       });
-      const { existing = [] } = res || {};
+      const { existing = [], screenshots = [] } = res || {};
       existing.forEach(sha => existingShas.add(sha));
+      allScreenshots.push(...screenshots);
     } catch (error) {
       // Continue without deduplication on error
       console.debug(
@@ -308,6 +319,7 @@ async function checkExistingFiles(fileMetadata, api, signal) {
   return {
     toUpload: fileMetadata.filter(f => !existingShas.has(f.sha256)),
     existing: fileMetadata.filter(f => existingShas.has(f.sha256)),
+    screenshots: allScreenshots,
   };
 }
 
@@ -316,19 +328,17 @@ async function checkExistingFiles(fileMetadata, api, signal) {
  */
 async function uploadFiles({
   toUpload,
-  existing,
-  buildInfo,
+  buildId,
   api,
   signal,
   batchSize,
   onProgress,
 }) {
-  let buildId = null;
   let result = null;
 
-  // If all files exist, just create a build
+  // If all files exist, screenshot records were already created during SHA check
   if (toUpload.length === 0) {
-    return createBuildWithExisting({ existing, buildInfo, api, signal });
+    return { buildId, url: null }; // Build was already created
   }
 
   // Upload in batches
@@ -336,33 +346,11 @@ async function uploadFiles({
     if (signal.aborted) throw new UploadError('Operation cancelled');
 
     const batch = toUpload.slice(i, i + batchSize);
-    const isFirstBatch = i === 0;
 
     const form = new FormData();
 
-    if (isFirstBatch) {
-      // First batch creates the build
-      form.append('build_name', buildInfo.name);
-      form.append('branch', buildInfo.branch);
-      form.append('environment', buildInfo.environment);
-
-      if (buildInfo.commitSha) form.append('commit_sha', buildInfo.commitSha);
-      if (buildInfo.commitMessage)
-        form.append('commit_message', buildInfo.commitMessage);
-      if (buildInfo.threshold !== undefined)
-        form.append('threshold', buildInfo.threshold.toString());
-
-      // Include existing SHAs
-      if (existing.length > 0) {
-        form.append(
-          'existing_shas',
-          JSON.stringify(existing.map(f => f.sha256))
-        );
-      }
-    } else {
-      // Subsequent batches add to existing build
-      form.append('build_id', buildId);
-    }
+    // All batches add to existing build (build was created earlier)
+    form.append('build_id', buildId);
 
     // Add files
     for (const file of batch) {
@@ -383,52 +371,17 @@ async function uploadFiles({
       });
     }
 
-    if (isFirstBatch && result.build?.id) {
-      buildId = result.build.id;
-    }
-
     onProgress(i + batch.length);
   }
 
   return {
-    buildId: result.build?.id || buildId,
-    url: result.build?.url || result.url,
+    buildId,
+    url: result?.build?.url || result?.url,
   };
 }
 
-/**
- * Create a build with only existing files
- */
-async function createBuildWithExisting({ existing, buildInfo, api, signal }) {
-  const form = new FormData();
-
-  form.append('build_name', buildInfo.name);
-  form.append('branch', buildInfo.branch);
-  form.append('environment', buildInfo.environment);
-  form.append('existing_shas', JSON.stringify(existing.map(f => f.sha256)));
-
-  if (buildInfo.commitSha) form.append('commit_sha', buildInfo.commitSha);
-  if (buildInfo.commitMessage)
-    form.append('commit_message', buildInfo.commitMessage);
-  if (buildInfo.threshold !== undefined)
-    form.append('threshold', buildInfo.threshold.toString());
-
-  let result;
-  try {
-    result = await api.request('/api/sdk/upload', {
-      method: 'POST',
-      body: form,
-      signal,
-      headers: {},
-    });
-  } catch (err) {
-    throw new UploadError(`Failed to create build: ${err.message}`);
-  }
-  return {
-    buildId: result.build?.id,
-    url: result.build?.url || result.url,
-  };
-}
+// createBuildWithExisting function removed - no longer needed since
+// builds are created first and /check-shas automatically creates screenshot records
 
 /**
  * Uploader class for handling screenshot uploads

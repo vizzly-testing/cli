@@ -1,210 +1,147 @@
-import { test, expect } from '@playwright/test';
-import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
+import { test } from '@playwright/test';
+import { vizzlyScreenshot } from '../../dist/client/index.js';
 
-test.describe('FluffyCloud Marketing Site Visual Tests', () => {
-  
+test.describe('FluffyCloud SaaS - Visual Tests', () => {
+
   test('Homepage - Full page', async ({ page, browserName }) => {
     await page.goto('/');
-    
-    // Wait for page to fully load
     await page.waitForLoadState('networkidle');
-    
-    // Take screenshot of full page
+
     const screenshot = await page.screenshot({ fullPage: true });
-    
+
     await vizzlyScreenshot('homepage-full', screenshot, {
       browser: browserName,
       viewport: page.viewportSize(),
-      page: 'homepage'
+      page: 'homepage',
+      type: 'full-page'
     });
   });
 
   test('Homepage - Hero section', async ({ page, browserName }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-    
-    // Screenshot just the hero section
+
     const heroSection = await page.locator('.hero').screenshot();
-    
+
     await vizzlyScreenshot('homepage-hero', heroSection, {
       browser: browserName,
       viewport: page.viewportSize(),
       page: 'homepage',
-      section: 'hero'
+      section: 'hero',
+      type: 'component'
     });
   });
 
-  test('Pricing Page - Full page', async ({ page, browserName }) => {
+  test('Pricing Page - Plans comparison', async ({ page, browserName }) => {
     await page.goto('/pricing.html');
     await page.waitForLoadState('networkidle');
-    
-    const screenshot = await page.screenshot({ fullPage: true });
-    
-    await vizzlyScreenshot('pricing-full', screenshot, {
-      browser: browserName,
-      viewport: page.viewportSize(),
-      page: 'pricing'
-    });
-  });
 
-  test('Pricing Page - Pricing plans section', async ({ page, browserName }) => {
-    await page.goto('/pricing.html');
-    await page.waitForLoadState('networkidle');
-    
-    // Screenshot the pricing plans
     const plansSection = await page.locator('.plans-container').screenshot();
-    
+
     await vizzlyScreenshot('pricing-plans', plansSection, {
       browser: browserName,
       viewport: page.viewportSize(),
       page: 'pricing',
-      section: 'plans'
+      section: 'plans',
+      type: 'component',
+      feature: 'pricing-comparison'
     });
   });
 
-  test('Pricing Page - Yearly toggle interaction', async ({ page, browserName }) => {
+  test('Pricing Page - Toggle interaction', async ({ page, browserName }) => {
     await page.goto('/pricing.html');
     await page.waitForLoadState('networkidle');
-    
-    // Toggle to yearly billing by clicking the slider (the input is hidden)
+
+    // Simple toggle click demo
     await page.click('.slider');
-    await page.waitForTimeout(500); // Wait for animation
-    
+
     const plansSection = await page.locator('.plans-container').screenshot();
-    
-    await vizzlyScreenshot('pricing-yearly-toggle', plansSection, {
+    await vizzlyScreenshot('pricing-toggle-demo', plansSection, {
       browser: browserName,
       viewport: page.viewportSize(),
       page: 'pricing',
-      section: 'plans-yearly'
-    });
-  });
-
-  test('Features Page - Full page', async ({ page, browserName }) => {
-    await page.goto('/features.html');
-    await page.waitForLoadState('networkidle');
-    
-    const screenshot = await page.screenshot({ fullPage: true });
-    
-    await vizzlyScreenshot('features-full', screenshot, {
-      browser: browserName,
-      viewport: page.viewportSize(),
-      page: 'features'
+      section: 'plans',
+      type: 'interaction'
     });
   });
 
   test('Features Page - Feature spotlight', async ({ page, browserName }) => {
     await page.goto('/features.html');
     await page.waitForLoadState('networkidle');
-    
+
     const spotlightSection = await page.locator('.feature-spotlight').screenshot();
-    
+
     await vizzlyScreenshot('features-spotlight', spotlightSection, {
       browser: browserName,
       viewport: page.viewportSize(),
       page: 'features',
-      section: 'spotlight'
+      section: 'spotlight',
+      type: 'component',
+      feature: 'key-feature-display'
     });
   });
 
-  test('Contact Page - Full page', async ({ page, browserName }) => {
+  test('Contact Form - Empty state', async ({ page, browserName }) => {
     await page.goto('/contact.html');
     await page.waitForLoadState('networkidle');
-    
-    const screenshot = await page.screenshot({ fullPage: true });
-    
-    await vizzlyScreenshot('contact-full', screenshot, {
-      browser: browserName,
-      viewport: page.viewportSize(),
-      page: 'contact'
-    });
-  });
 
-  test('Contact Page - Contact form', async ({ page, browserName }) => {
-    await page.goto('/contact.html');
-    await page.waitForLoadState('networkidle');
-    
     const formSection = await page.locator('.contact-form-section').screenshot();
-    
-    await vizzlyScreenshot('contact-form', formSection, {
+
+    await vizzlyScreenshot('contact-form-empty', formSection, {
       browser: browserName,
       viewport: page.viewportSize(),
       page: 'contact',
-      section: 'form'
+      section: 'form',
+      state: 'empty',
+      type: 'form'
     });
   });
 
-  test('Contact Page - Form with data', async ({ page, browserName }) => {
+  test('Contact Form - Filled state', async ({ page, browserName }) => {
     await page.goto('/contact.html');
     await page.waitForLoadState('networkidle');
-    
-    // Fill out the form
-    await page.fill('#name', 'Test User');
-    await page.fill('#petName', 'Fluffy McTestface');
-    await page.fill('#email', 'test@example.com');
-    await page.selectOption('#subject', 'feedback');
-    await page.fill('#message', 'This is a test message to see how the form looks when filled out!');
-    await page.check('#newsletter');
-    
+
+    // Fill form for demonstration
+    await page.fill('#name', 'Sarah Johnson');
+    await page.fill('#petName', 'Whiskers');
+    await page.fill('#email', 'sarah@example.com');
+    await page.selectOption('#subject', 'support');
+    await page.fill('#message', 'I love how FluffyCloud keeps my pet data secure!');
+
     const formSection = await page.locator('.contact-form-section').screenshot();
-    
+
     await vizzlyScreenshot('contact-form-filled', formSection, {
       browser: browserName,
       viewport: page.viewportSize(),
       page: 'contact',
-      section: 'form-filled'
+      section: 'form',
+      state: 'filled',
+      type: 'form'
     });
   });
 
-  test('Navigation - Header across pages', async ({ page, browserName }) => {
-    const pages = ['/', '/features.html', '/pricing.html', '/contact.html'];
-    
-    for (const pagePath of pages) {
-      await page.goto(pagePath);
+  test('Navigation - Header consistency', async ({ page, browserName }) => {
+    const pages = [
+      { path: '/', name: 'home' },
+      { path: '/features.html', name: 'features' },
+      { path: '/pricing.html', name: 'pricing' },
+      { path: '/contact.html', name: 'contact' }
+    ];
+
+    for (const { path, name } of pages) {
+      await page.goto(path);
       await page.waitForLoadState('networkidle');
-      
+
       const header = await page.locator('header').screenshot();
-      const pageName = pagePath === '/' ? 'home' : pagePath.replace('.html', '').replace('/', '');
-      
-      await vizzlyScreenshot(`header-${pageName}`, header, {
+
+      await vizzlyScreenshot(`header-${name}`, header, {
         browser: browserName,
         viewport: page.viewportSize(),
-        page: pageName,
-        section: 'header'
+        page: name,
+        section: 'header',
+        type: 'navigation',
+        feature: 'header-consistency'
       });
     }
-  });
-
-  test('Responsive - Mobile navigation', async ({ page, browserName }) => {
-    // Only run on mobile viewport
-    if (page.viewportSize().width > 768) {
-      test.skip();
-      return;
-    }
-    
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    
-    const header = await page.locator('header').screenshot();
-    
-    await vizzlyScreenshot('mobile-navigation', header, {
-      browser: browserName,
-      viewport: page.viewportSize(),
-      page: 'homepage',
-      section: 'mobile-nav'
-    });
-  });
-
-  test('Error state simulation', async ({ page, browserName }) => {
-    // Test a non-existent page to capture 404 styling
-    await page.goto('/nonexistent-page.html');
-    
-    const screenshot = await page.screenshot({ fullPage: true });
-    
-    await vizzlyScreenshot('404-page', screenshot, {
-      browser: browserName,
-      viewport: page.viewportSize(),
-      page: '404'
-    });
   });
 });

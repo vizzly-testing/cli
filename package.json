@@ -93,7 +93,6 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",
     "prettier": "^3.6.2",
-    "puppeteer": "^24.16.1",
     "rimraf": "^5.0.5",
     "typescript": "^5.0.4",
     "vite": "^7.1.2",

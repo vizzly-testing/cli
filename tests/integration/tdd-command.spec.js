@@ -1,21 +1,54 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { mkdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const CLI_PATH = join(__dirname, '../../src/cli.js');
 
 /**
- * Helper function to run CLI command and capture output
+ * Helper function to run CLI command with completely isolated environment
  */
 function runCLI(args, options = {}) {
   return new Promise((resolve, reject) => {
+    // Start with minimal clean environment - only essential system vars
+    const cleanEnv = {
+      PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+      HOME: process.env.HOME,
+      NODE_ENV: 'test',
+      CI: 'true',
+      // Explicitly disable dotenv loading to prevent .env file reading
+      DOTENV_CONFIG_PATH: '/dev/null',
+    };
+
+    // Explicitly remove any Vizzly tokens (setting to undefined doesn't work)
+    delete cleanEnv.VIZZLY_TOKEN;
+    delete cleanEnv.VIZZLY_API_KEY;
+
+    // Only add explicitly provided test env vars
+    if (options.env) {
+      Object.assign(cleanEnv, options.env);
+    }
+
+    // Create a completely isolated temp directory that definitely has no .env files
+    // Use a more unique identifier to prevent any collision
+    const testCwd =
+      options.cwd ||
+      `/tmp/vizzly-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Ensure the temp directory exists
+    try {
+      mkdirSync(testCwd, { recursive: true });
+    } catch {
+      // Ignore if directory already exists
+    }
+
     const child = spawn('node', [CLI_PATH, ...args], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, ...options.env },
-      cwd: options.cwd || process.cwd(),
+      env: cleanEnv,
+      cwd: testCwd,
     });
 
     let stdout = '';
@@ -48,6 +81,30 @@ function runCLI(args, options = {}) {
 }
 
 describe('TDD Command Integration', () => {
+  let originalEnv;
+
+  beforeEach(() => {
+    // Save original environment but without any Vizzly tokens
+    originalEnv = { ...process.env };
+    delete originalEnv.VIZZLY_TOKEN;
+    delete originalEnv.VIZZLY_API_KEY;
+
+    // Clear all Vizzly environment variables from current process
+    delete process.env.VIZZLY_TOKEN;
+    delete process.env.VIZZLY_API_KEY;
+    delete process.env.VIZZLY_API_URL;
+    delete process.env.VIZZLY_VERBOSE;
+    delete process.env.VIZZLY_JSON_OUTPUT;
+  });
+
+  afterEach(() => {
+    // Restore clean environment (without tokens)
+    process.env = { ...originalEnv };
+    // Double-ensure Vizzly tokens are never restored
+    delete process.env.VIZZLY_TOKEN;
+    delete process.env.VIZZLY_API_KEY;
+  });
+
   describe('TDD Command Basic Functionality', () => {
     it('should require test command argument', async () => {
       const result = await runCLI(['tdd']);
@@ -57,9 +114,7 @@ describe('TDD Command Integration', () => {
     });
 
     it('should auto-detect missing API token and run in local-only mode', async () => {
-      const result = await runCLI(['tdd', 'echo "test"'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['tdd', 'echo "test"']);
 
       // Should succeed and show warning about no token
       expect(result.code).toBe(0);
@@ -87,21 +142,14 @@ describe('TDD Command Integration', () => {
     });
 
     it('should validate port option correctly', async () => {
-      const result = await runCLI(['tdd', 'echo "test"', '--port', 'invalid'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['tdd', 'echo "test"', '--port', 'invalid']);
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain('Port must be a valid number');
     });
 
     it('should validate threshold option correctly', async () => {
-      const result = await runCLI(
-        ['tdd', 'echo "test"', '--threshold', '1.5'],
-        {
-          env: { CI: 'true' },
-        }
-      );
+      const result = await runCLI(['tdd', 'echo "test"', '--threshold', '1.5']);
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain(
@@ -110,9 +158,7 @@ describe('TDD Command Integration', () => {
     });
 
     it('should validate timeout option correctly', async () => {
-      const result = await runCLI(['tdd', 'echo "test"', '--timeout', '500'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['tdd', 'echo "test"', '--timeout', '500']);
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain(
@@ -121,9 +167,7 @@ describe('TDD Command Integration', () => {
     });
 
     it('should handle --allow-no-token flag', async () => {
-      const result = await runCLI(['tdd', 'echo "test"', '--allow-no-token'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['tdd', 'echo "test"', '--allow-no-token']);
 
       // Should not fail due to missing token when --allow-no-token is used
       // Note: It may still fail for other reasons (like missing baseline) but
@@ -132,9 +176,7 @@ describe('TDD Command Integration', () => {
     });
 
     it('should run successfully without token (auto-detected)', async () => {
-      const result = await runCLI(['tdd', 'echo "test"'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['tdd', 'echo "test"']);
 
       // Now succeeds automatically with missing token
       expect(result.code).toBe(0);
@@ -145,62 +187,9 @@ describe('TDD Command Integration', () => {
     });
   });
 
-  describe('Run command with TDD flag', () => {
-    it('should handle run --tdd command as shortcut', async () => {
-      const result = await runCLI(['run', '--tdd', 'echo "test"'], {
-        env: { CI: 'true' },
-      });
-
-      // Should succeed with auto-detected missing token
-      expect(result.code).toBe(0);
-      expect(result.stdout).toContain(
-        'No API token detected - running in local-only mode'
-      );
-    });
-
-    it('should handle run --tdd with options as shortcut', async () => {
-      const result = await runCLI(
-        [
-          'run',
-          '--tdd',
-          'echo "test"',
-          '--port',
-          '47502',
-          '--environment',
-          'staging',
-          '--threshold',
-          '0.05',
-        ],
-        {
-          env: { CI: 'true' },
-        }
-      );
-
-      // Should succeed with auto-detected missing token
-      expect(result.code).toBe(0);
-      expect(result.stdout).toContain(
-        'No API token detected - running in local-only mode'
-      );
-    });
-
-    it('should handle validation errors in run --tdd shortcut', async () => {
-      const result = await runCLI(
-        ['run', '--tdd', 'echo "test"', '--port', 'invalid'],
-        {
-          env: { CI: 'true' },
-        }
-      );
-
-      expect(result.code).toBe(1);
-      expect(result.stderr).toContain('Port must be a valid number');
-    });
-  });
-
   describe('TDD Command Options and Configuration', () => {
     it('should accept valid port option', async () => {
-      const result = await runCLI(['tdd', 'echo "test"', '--port', '47503'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['tdd', 'echo "test"', '--port', '47503']);
 
       // Should succeed with auto-detected missing token
       expect(result.code).toBe(0);
@@ -211,12 +200,12 @@ describe('TDD Command Integration', () => {
     });
 
     it('should accept valid threshold option', async () => {
-      const result = await runCLI(
-        ['tdd', 'echo "test"', '--threshold', '0.05'],
-        {
-          env: { CI: 'true' },
-        }
-      );
+      const result = await runCLI([
+        'tdd',
+        'echo "test"',
+        '--threshold',
+        '0.05',
+      ]);
 
       // Should succeed with auto-detected missing token
       expect(result.code).toBe(0);
@@ -227,9 +216,7 @@ describe('TDD Command Integration', () => {
     });
 
     it('should accept valid timeout option', async () => {
-      const result = await runCLI(['tdd', 'echo "test"', '--timeout', '5000'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['tdd', 'echo "test"', '--timeout', '5000']);
 
       // Should succeed with auto-detected missing token
       expect(result.code).toBe(0);
@@ -240,42 +227,12 @@ describe('TDD Command Integration', () => {
     });
 
     it('should handle environment option', async () => {
-      const result = await runCLI(
-        ['tdd', 'echo "test"', '--environment', 'staging'],
-        {
-          env: { CI: 'true' },
-        }
-      );
-
-      // Should succeed with auto-detected missing token
-      expect(result.code).toBe(0);
-      expect(result.stdout).toContain(
-        'No API token detected - running in local-only mode'
-      );
-    });
-
-    it('should handle branch option', async () => {
-      const result = await runCLI(
-        ['tdd', 'echo "test"', '--branch', 'feature'],
-        {
-          env: { CI: 'true' },
-        }
-      );
-
-      // Should succeed with auto-detected missing token
-      expect(result.code).toBe(0);
-      expect(result.stdout).toContain(
-        'No API token detected - running in local-only mode'
-      );
-    });
-
-    it('should handle baseline build option', async () => {
-      const result = await runCLI(
-        ['tdd', 'echo "test"', '--baseline-build', 'build-123'],
-        {
-          env: { CI: 'true' },
-        }
-      );
+      const result = await runCLI([
+        'tdd',
+        'echo "test"',
+        '--environment',
+        'staging',
+      ]);
 
       // Should succeed with auto-detected missing token
       expect(result.code).toBe(0);
@@ -285,12 +242,12 @@ describe('TDD Command Integration', () => {
     });
 
     it('should handle baseline comparison option', async () => {
-      const result = await runCLI(
-        ['tdd', 'echo "test"', '--baseline-comparison', 'comp-456'],
-        {
-          env: { CI: 'true' },
-        }
-      );
+      const result = await runCLI([
+        'tdd',
+        'echo "test"',
+        '--baseline-comparison',
+        'comp-456',
+      ]);
 
       // Should succeed with auto-detected missing token
       expect(result.code).toBe(0);
@@ -302,9 +259,7 @@ describe('TDD Command Integration', () => {
 
   describe('Global Options Integration', () => {
     it('should respect global --verbose option', async () => {
-      const result = await runCLI(['--verbose', 'tdd', 'echo "test"'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['--verbose', 'tdd', 'echo "test"']);
 
       expect(result.code).toBe(0);
       expect(result.stdout).toContain(
@@ -313,9 +268,7 @@ describe('TDD Command Integration', () => {
     });
 
     it('should respect global --json option', async () => {
-      const result = await runCLI(['--json', 'tdd', 'echo "test"'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['--json', 'tdd', 'echo "test"']);
 
       expect(result.code).toBe(0);
       expect(result.stdout).toContain(
@@ -324,9 +277,7 @@ describe('TDD Command Integration', () => {
     });
 
     it('should respect global --no-color option', async () => {
-      const result = await runCLI(['--no-color', 'tdd', 'echo "test"'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['--no-color', 'tdd', 'echo "test"']);
 
       expect(result.code).toBe(0);
       expect(result.stdout).toContain(

@@ -200,7 +200,25 @@ export async function detectBranch(override = null, cwd = process.cwd()) {
 export async function detectCommit(override = null, cwd = process.cwd()) {
   if (override) return override;
 
-  return await getCurrentCommitSha(cwd);
+  // Try git command first
+  const gitCommit = await getCurrentCommitSha(cwd);
+  if (gitCommit) return gitCommit;
+
+  // Fallback to environment variables commonly used in CI
+  const envCommit =
+    process.env.GITHUB_SHA || // GitHub Actions
+    process.env.CI_COMMIT_SHA || // GitLab CI
+    process.env.CIRCLE_SHA1 || // CircleCI
+    process.env.TRAVIS_COMMIT || // Travis CI
+    process.env.BUILDKITE_COMMIT || // Buildkite
+    process.env.DRONE_COMMIT_SHA || // Drone CI
+    process.env.CODEBUILD_RESOLVED_SOURCE_VERSION || // AWS CodeBuild
+    process.env.BUILD_VCS_NUMBER || // TeamCity
+    process.env.GIT_COMMIT || // Jenkins
+    process.env.COMMIT_SHA || // Generic
+    process.env.HEAD_COMMIT; // Alternative generic
+
+  return envCommit || null;
 }
 
 /**

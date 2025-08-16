@@ -17,7 +17,7 @@ import {
   ValidationError,
 } from '../errors/vizzly-error.js';
 
-const DEFAULT_BATCH_SIZE = 10;
+const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_SHA_CHECK_BATCH_SIZE = 100;
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
@@ -86,11 +86,20 @@ export function createUploader(
         });
       }
 
-      onProgress({ phase: 'scanning', total: files.length });
+      onProgress({
+        phase: 'scanning',
+        message: `Found ${files.length} screenshots`,
+        total: files.length,
+      });
 
       // Process files to get metadata
       const fileMetadata = await processFiles(files, signal, current =>
-        onProgress({ phase: 'processing', current, total: files.length })
+        onProgress({
+          phase: 'processing',
+          message: `Processing files`,
+          current,
+          total: files.length,
+        })
       );
 
       // Create build first to get buildId for SHA checking
@@ -116,6 +125,7 @@ export function createUploader(
 
       onProgress({
         phase: 'deduplication',
+        message: `Checking for duplicates (${toUpload.length} to upload, ${existing.length} existing)`,
         toUpload: toUpload.length,
         existing: existing.length,
         total: files.length,
@@ -134,6 +144,7 @@ export function createUploader(
         onProgress: current =>
           onProgress({
             phase: 'uploading',
+            message: `Uploading screenshots`,
             current,
             total: toUpload.length,
           }),
@@ -141,6 +152,7 @@ export function createUploader(
 
       onProgress({
         phase: 'completed',
+        message: `Upload completed`,
         buildId: result.buildId,
         url: result.url,
       });

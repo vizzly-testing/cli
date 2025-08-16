@@ -87,57 +87,29 @@ program
       process.exit(1);
     }
 
-    await tddCommand(command, options, globalOptions);
+    const result = await tddCommand(command, options, globalOptions);
+    if (result && !result.success && result.exitCode > 0) {
+      process.exit(result.exitCode);
+    }
   });
 
 program
   .command('run')
   .description('Run tests with Vizzly integration')
   .argument('<command>', 'Test command to run')
-  .option('--tdd', 'Enable TDD mode with auto-reload')
   .option('--port <port>', 'Port for screenshot server', '47392')
   .option('-b, --build-name <name>', 'Custom build name')
   .option('--branch <branch>', 'Git branch override')
   .option('--commit <sha>', 'Git commit SHA')
   .option('--message <msg>', 'Commit message')
   .option('--environment <env>', 'Environment name', 'test')
-  .option('--threshold <number>', 'Comparison threshold', parseFloat)
   .option('--token <token>', 'API token override')
   .option('--wait', 'Wait for build completion')
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
-  .option('--eager', 'Create build immediately (default: lazy)')
   .option('--allow-no-token', 'Allow running without API token')
-  .option('--baseline-build <id>', 'Use specific build as baseline')
-  .option('--baseline-comparison <id>', 'Use specific comparison as baseline')
+  .option('--upload-all', 'Upload all screenshots without SHA deduplication')
   .action(async (command, options) => {
     const globalOptions = program.opts();
-
-    // Forward --tdd flag to TDD command (shortcut)
-    if (options.tdd) {
-      // Forward to tdd command with appropriate options
-      const tddOptions = {
-        port: options.port,
-        branch: options.branch,
-        environment: options.environment,
-        threshold: options.threshold,
-        token: options.token,
-        timeout: options.timeout,
-        baselineBuild: options.baselineBuild,
-        baselineComparison: options.baselineComparison,
-        allowNoToken: options.allowNoToken,
-      };
-
-      // Validate options using TDD validator
-      const validationErrors = validateTddOptions(command, tddOptions);
-      if (validationErrors.length > 0) {
-        console.error('Validation errors:');
-        validationErrors.forEach(error => console.error(`  - ${error}`));
-        process.exit(1);
-      }
-
-      await tddCommand(command, tddOptions, globalOptions);
-      return;
-    }
 
     // Validate options
     const validationErrors = validateRunOptions(command, options);
@@ -147,7 +119,18 @@ program
       process.exit(1);
     }
 
-    await runCommand(command, options, globalOptions);
+    try {
+      const result = await runCommand(command, options, globalOptions);
+      if (result && !result.success && result.exitCode > 0) {
+        process.exit(result.exitCode);
+      }
+    } catch (error) {
+      console.error('Command failed:', error.message);
+      if (globalOptions.verbose) {
+        console.error('Stack trace:', error.stack);
+      }
+      process.exit(1);
+    }
   });
 
 program

@@ -81,7 +81,6 @@ export async function runCommand(
         testCommand,
         port: config.server.port,
         timeout: config.server.timeout,
-        tddMode: options.tdd || false,
         branch,
         commit: commit?.substring(0, 7),
         message,
@@ -93,8 +92,12 @@ export async function runCommand(
 
     // Create service container and get test runner service
     ui.startSpinner('Initializing test runner...');
-    const configWithVerbose = { ...config, verbose: globalOptions.verbose };
-    const command = options.tdd ? 'tdd' : 'run';
+    const configWithVerbose = {
+      ...config,
+      verbose: globalOptions.verbose,
+      uploadAll: options.uploadAll || false,
+    };
+    const command = 'run';
     const container = await createServiceContainer(configWithVerbose, command);
     testRunner = await container.get('testRunner'); // Assign to outer scope variable
     ui.stopSpinner();
@@ -130,14 +133,29 @@ export async function runCommand(
 
     testRunner.on('build-created', buildInfo => {
       buildUrl = buildInfo.url;
+      // Debug: Log build creation details
+      if (globalOptions.verbose) {
+        ui.info(`Build created: ${buildInfo.buildId} - ${buildInfo.name}`);
+      }
       // Use UI for consistent formatting
       if (buildUrl) {
         ui.info(`Vizzly: ${buildUrl}`);
       }
     });
 
+    testRunner.on('build-failed', buildError => {
+      ui.error('Failed to create build', buildError);
+    });
+
     testRunner.on('error', error => {
+      ui.stopSpinner(); // Stop spinner to ensure error is visible
       ui.error('Test runner error occurred', error, 0); // Don't exit immediately, let runner handle it
+    });
+
+    testRunner.on('build-finalize-failed', errorInfo => {
+      ui.warning(
+        `Failed to finalize build ${errorInfo.buildId}: ${errorInfo.error}`
+      );
     });
 
     // Prepare run options
@@ -145,7 +163,6 @@ export async function runCommand(
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
-      tdd: options.tdd || false,
       buildName,
       branch,
       commit,
@@ -154,9 +171,8 @@ export async function runCommand(
       threshold: config.comparison.threshold,
       eager: config.eager || false,
       allowNoToken: config.allowNoToken || false,
-      baselineBuildId: config.baselineBuildId,
-      baselineComparisonId: config.baselineComparisonId,
       wait: config.wait || options.wait || false,
+      uploadAll: options.uploadAll || false,
     };
 
     // Start test run
@@ -194,15 +210,29 @@ export async function runCommand(
           ui.error(
             `${buildResult.failedComparisons} visual comparisons failed`,
             {},
-            1
+            0
           );
+          // Return error status without calling process.exit in tests
+          return { success: false, exitCode: 1 };
         }
       }
     }
 
     ui.cleanup();
   } catch (error) {
-    ui.error('Test run failed', error);
+    ui.stopSpinner(); // Ensure spinner is stopped before showing error
+
+    // Provide more context about where the error occurred
+    let errorContext = 'Test run failed';
+    if (error.message && error.message.includes('build')) {
+      errorContext = 'Build creation failed';
+    } else if (error.message && error.message.includes('screenshot')) {
+      errorContext = 'Screenshot processing failed';
+    } else if (error.message && error.message.includes('server')) {
+      errorContext = 'Server startup failed';
+    }
+
+    ui.error(errorContext, error);
   } finally {
     // Remove event listeners to prevent memory leaks
     process.removeListener('SIGINT', sigintHandler);

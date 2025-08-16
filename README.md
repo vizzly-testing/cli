@@ -334,6 +334,7 @@ For enhanced CI/CD integration, you can override git detection with these enviro
 - `VIZZLY_COMMIT_SHA`: Override detected commit SHA. Useful in CI environments.
 - `VIZZLY_COMMIT_MESSAGE`: Override detected commit message. Useful in CI environments.
 - `VIZZLY_BRANCH`: Override detected branch name. Useful in CI environments.
+- `VIZZLY_PR_NUMBER`: Override detected pull request number. Useful for PR-specific builds.
 
 **Example for GitHub Actions:**
 ```yaml
@@ -341,6 +342,7 @@ env:
   VIZZLY_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
   VIZZLY_COMMIT_SHA: ${{ github.event.head_commit.id }}
   VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
+  VIZZLY_PR_NUMBER: ${{ github.event.pull_request.number }}
 ```
 
 These variables take highest priority over both CLI arguments and automatic git detection.

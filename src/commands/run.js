@@ -5,6 +5,7 @@ import {
   detectBranch,
   detectCommit,
   detectCommitMessage,
+  detectPullRequestNumber,
   generateBuildNameWithGit,
 } from '../utils/git.js';
 
@@ -75,6 +76,7 @@ export async function runCommand(
     const commit = await detectCommit(options.commit);
     const message = options.message || (await detectCommitMessage());
     const buildName = await generateBuildNameWithGit(options.buildName);
+    const pullRequestNumber = detectPullRequestNumber();
 
     if (globalOptions.verbose) {
       ui.info('Configuration loaded', {
@@ -173,6 +175,7 @@ export async function runCommand(
       allowNoToken: config.allowNoToken || false,
       wait: config.wait || options.wait || false,
       uploadAll: options.uploadAll || false,
+      pullRequestNumber,
     };
 
     // Start test run

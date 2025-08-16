@@ -490,6 +490,7 @@ Configuration loaded via cosmiconfig in this order:
 - `VIZZLY_COMMIT_SHA` - Override detected commit SHA
 - `VIZZLY_COMMIT_MESSAGE` - Override detected commit message
 - `VIZZLY_BRANCH` - Override detected branch name
+- `VIZZLY_PR_NUMBER` - Override detected pull request number
 
 **Runtime (Set by CLI):**
 - `VIZZLY_SERVER_URL` - Screenshot server URL (set by CLI)

@@ -1,5 +1,11 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import {
+  getBranch as getCIBranch,
+  getCommit as getCICommit,
+  getCommitMessage as getCICommitMessage,
+  getPullRequestNumber,
+} from './ci-env.js';
 
 const execAsync = promisify(exec);
 
@@ -151,17 +157,9 @@ export async function detectCommitMessage(
 ) {
   if (override) return override;
 
-  // First try environment variables from CI systems that provide them
-  const envCommitMessage =
-    process.env.VIZZLY_COMMIT_MESSAGE || // Vizzly-specific override
-    process.env.CI_COMMIT_MESSAGE || // GitLab CI
-    process.env.TRAVIS_COMMIT_MESSAGE || // Travis CI
-    process.env.BUILDKITE_MESSAGE || // Buildkite
-    process.env.DRONE_COMMIT_MESSAGE || // Drone CI
-    process.env.APPVEYOR_REPO_COMMIT_MESSAGE || // AppVeyor
-    process.env.COMMIT_MESSAGE; // Generic
-
-  if (envCommitMessage) return envCommitMessage;
+  // Try CI environment variables first
+  const ciCommitMessage = getCICommitMessage();
+  if (ciCommitMessage) return ciCommitMessage;
 
   // Fallback to regular git log
   return await getCommitMessage(cwd);
@@ -215,27 +213,9 @@ export async function getGitStatus(cwd = process.cwd()) {
 export async function detectBranch(override = null, cwd = process.cwd()) {
   if (override) return override;
 
-  // First try environment variables from CI
-  const envBranch =
-    process.env.VIZZLY_BRANCH || // Vizzly-specific override
-    process.env.GITHUB_HEAD_REF || // GitHub Actions (for PRs)
-    process.env.GITHUB_REF_NAME || // GitHub Actions (for pushes)
-    process.env.CI_COMMIT_REF_NAME || // GitLab CI
-    process.env.CIRCLE_BRANCH || // CircleCI
-    process.env.TRAVIS_BRANCH || // Travis CI
-    process.env.BUILDKITE_BRANCH || // Buildkite
-    process.env.DRONE_BRANCH || // Drone CI
-    process.env.BRANCH_NAME || // Jenkins
-    process.env.BITBUCKET_BRANCH || // Bitbucket Pipelines
-    process.env.WERCKER_GIT_BRANCH || // Wercker
-    process.env.APPVEYOR_REPO_BRANCH || // AppVeyor
-    process.env.BUILD_SOURCEBRANCH || // Azure DevOps
-    process.env.SEMAPHORE_GIT_BRANCH; // Semaphore
-
-  if (envBranch) {
-    // Clean up Azure DevOps branch format (refs/heads/branch-name -> branch-name)
-    return envBranch.replace(/^refs\/heads\//, '');
-  }
+  // Try CI environment variables first
+  const ciBranch = getCIBranch();
+  if (ciBranch) return ciBranch;
 
   // Fallback to git command when no CI environment variables
   const currentBranch = await getCurrentBranch(cwd);
@@ -251,30 +231,9 @@ export async function detectBranch(override = null, cwd = process.cwd()) {
 export async function detectCommit(override = null, cwd = process.cwd()) {
   if (override) return override;
 
-  // First try environment variables from CI (often more reliable than git in CI contexts)
-  const envCommit =
-    process.env.VIZZLY_COMMIT_SHA || // Vizzly-specific override
-    process.env.GITHUB_SHA || // GitHub Actions
-    process.env.CI_COMMIT_SHA || // GitLab CI
-    process.env.CIRCLE_SHA1 || // CircleCI
-    process.env.TRAVIS_COMMIT || // Travis CI
-    process.env.BUILDKITE_COMMIT || // Buildkite
-    process.env.DRONE_COMMIT_SHA || // Drone CI
-    process.env.CODEBUILD_RESOLVED_SOURCE_VERSION || // AWS CodeBuild
-    process.env.BUILD_VCS_NUMBER || // TeamCity
-    process.env.GIT_COMMIT || // Jenkins
-    process.env.BITBUCKET_COMMIT || // Bitbucket Pipelines
-    process.env.WERCKER_GIT_COMMIT || // Wercker
-    process.env.APPVEYOR_REPO_COMMIT || // AppVeyor
-    process.env.AZURE_DEVOPS_BUILD_SOURCEVERSION || // Azure DevOps
-    process.env.BUILD_SOURCEVERSION || // Azure DevOps (alternative)
-    process.env.SEMAPHORE_GIT_SHA || // Semaphore
-    process.env.HEROKU_TEST_RUN_COMMIT_VERSION || // Heroku CI
-    process.env.COMMIT_SHA || // Generic
-    process.env.HEAD_COMMIT || // Alternative generic
-    process.env.SHA; // Another generic option
-
-  if (envCommit) return envCommit;
+  // Try CI environment variables first
+  const ciCommit = getCICommit();
+  if (ciCommit) return ciCommit;
 
   // Fallback to git command when no CI environment variables
   return await getCurrentCommitSha(cwd);
@@ -301,4 +260,12 @@ export async function generateBuildNameWithGit(
   }
 
   return generateBuildName();
+}
+
+/**
+ * Detect pull request number from CI environment
+ * @returns {number|null} Pull request number or null if not in PR context
+ */
+export function detectPullRequestNumber() {
+  return getPullRequestNumber();
 }

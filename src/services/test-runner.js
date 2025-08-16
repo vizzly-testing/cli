@@ -130,6 +130,7 @@ export class TestRunner extends BaseService {
           environment: options.environment || 'test',
           commit_sha: options.commit,
           commit_message: options.message,
+          github_pull_request_number: options.pullRequestNumber,
         });
         this.logger.debug(`Build created with ID: ${buildResult.id}`);
 

@@ -4,7 +4,7 @@ import { createServiceContainer } from '../container/index.js';
 import {
   detectBranch,
   detectCommit,
-  getCommitMessage,
+  detectCommitMessage,
   generateBuildNameWithGit,
 } from '../utils/git.js';
 
@@ -73,7 +73,7 @@ export async function runCommand(
     // Collect git metadata and build info
     const branch = await detectBranch(options.branch);
     const commit = await detectCommit(options.commit);
-    const message = options.message || (await getCommitMessage());
+    const message = options.message || (await detectCommitMessage());
     const buildName = await generateBuildNameWithGit(options.buildName);
 
     if (globalOptions.verbose) {

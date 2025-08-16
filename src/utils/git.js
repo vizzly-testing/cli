@@ -140,6 +140,39 @@ export async function getCommitMessage(cwd = process.cwd()) {
 }
 
 /**
+ * Detect commit message with override and environment variable support
+ * @param {string} override - Commit message override from CLI
+ * @param {string} cwd - Working directory
+ * @returns {Promise<string|null>} Commit message or null if not available
+ */
+export async function detectCommitMessage(
+  override = null,
+  cwd = process.cwd()
+) {
+  if (override) return override;
+
+  // In CI environments, we might want to get the commit message from the actual commit
+  // rather than the merge commit that git log would give us
+  const commitSha = await detectCommit(null, cwd);
+
+  if (commitSha) {
+    try {
+      // Get commit message for the specific commit SHA
+      const { stdout } = await execAsync(
+        `git log -1 --pretty=%B ${commitSha}`,
+        { cwd }
+      );
+      return stdout.trim();
+    } catch {
+      // Fallback to regular git log if the SHA-specific command fails
+    }
+  }
+
+  // Fallback to regular git log
+  return await getCommitMessage(cwd);
+}
+
+/**
  * Check if the working directory is a git repository
  * @param {string} cwd - Working directory
  * @returns {Promise<boolean>}
@@ -187,6 +220,28 @@ export async function getGitStatus(cwd = process.cwd()) {
 export async function detectBranch(override = null, cwd = process.cwd()) {
   if (override) return override;
 
+  // First try environment variables from CI
+  const envBranch =
+    process.env.GITHUB_HEAD_REF || // GitHub Actions (for PRs)
+    process.env.GITHUB_REF_NAME || // GitHub Actions (for pushes)
+    process.env.CI_COMMIT_REF_NAME || // GitLab CI
+    process.env.CIRCLE_BRANCH || // CircleCI
+    process.env.TRAVIS_BRANCH || // Travis CI
+    process.env.BUILDKITE_BRANCH || // Buildkite
+    process.env.DRONE_BRANCH || // Drone CI
+    process.env.BRANCH_NAME || // Jenkins
+    process.env.BITBUCKET_BRANCH || // Bitbucket Pipelines
+    process.env.WERCKER_GIT_BRANCH || // Wercker
+    process.env.APPVEYOR_REPO_BRANCH || // AppVeyor
+    process.env.BUILD_SOURCEBRANCH || // Azure DevOps
+    process.env.SEMAPHORE_GIT_BRANCH; // Semaphore
+
+  if (envBranch) {
+    // Clean up Azure DevOps branch format (refs/heads/branch-name -> branch-name)
+    return envBranch.replace(/^refs\/heads\//, '');
+  }
+
+  // Fallback to git command when no CI environment variables
   const currentBranch = await getCurrentBranch(cwd);
   return currentBranch || 'unknown';
 }

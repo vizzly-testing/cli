@@ -55,7 +55,7 @@ vizzly upload ./screenshots --build-name "Release v1.2.3"
 vizzly run "npm test"
 
 # Use TDD mode for local development
-vizzly run "npm test" --tdd
+vizzly tdd "npm test"
 ```
 
 ### In your test code
@@ -81,15 +81,14 @@ await vizzlyScreenshot('homepage', screenshot, {
 ```bash
 vizzly upload <directory>           # Upload screenshots from directory
 vizzly upload ./screenshots --wait  # Wait for processing
+vizzly upload ./screenshots --upload-all  # Upload all without deduplication
 ```
 
 ### Run Tests with Integration
 ```bash
 vizzly run "npm test"               # Run with Vizzly integration
-vizzly run "npm test" --tdd         # Local TDD mode
 vizzly run "pytest" --port 3002     # Custom port
 vizzly run "npm test" --wait        # Wait for build completion
-vizzly run "npm test" --eager       # Create build immediately
 vizzly run "npm test" --allow-no-token  # Run without API token
 ```
 
@@ -108,19 +107,36 @@ vizzly run "npm test" --allow-no-token  # Run without API token
 
 **Processing Options:**
 - `--wait` - Wait for build completion and exit with appropriate code
-- `--eager` - Create build immediately (default: lazy creation)
 - `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
-- `--batch-size <n>` - Upload batch size used with `--wait`
 - `--upload-timeout <ms>` - Upload wait timeout in ms
+- `--upload-all` - Upload all screenshots without SHA deduplication
 
 **Development & Testing:**
-- `--tdd` - Enable TDD mode with local comparisons
 - `--allow-no-token` - Allow running without API token (useful for local development)
 - `--token <token>` - API token override
 
-**Baseline Configuration:**
-- `--baseline-build <id>` - Use specific build as baseline for comparisons
-- `--baseline-comparison <id>` - Use specific comparison as baseline
+## TDD Command
+
+For local visual testing with immediate feedback, use the dedicated `tdd` command:
+
+```bash
+# First run - creates local baselines
+vizzly tdd "npm test"
+
+# Make changes and test - fails if visual differences detected  
+vizzly tdd "npm test"
+
+# Accept changes as new baseline
+vizzly tdd "npm test" --set-baseline
+```
+
+**TDD Command Options:**
+- `--set-baseline` - Accept current screenshots as new baseline
+- `--baseline-build <id>` - Use specific build as baseline (requires API token)
+- `--baseline-comparison <id>` - Use specific comparison as baseline (requires API token)
+- `--threshold <number>` - Comparison threshold (0-1, default: 0.1)
+- `--port <port>` - Server port (default: 47392)
+- `--timeout <ms>` - Server timeout (default: 30000)
 
 ### Setup and Status Commands
 ```bash
@@ -176,25 +192,7 @@ VIZZLY_TOKEN=your-token vizzly doctor --api
 vizzly doctor --json
 ```
 
-## TDD Mode
-
-TDD mode enables fast local development by comparing screenshots locally without uploading to Vizzly:
-
-```bash
-# First run - creates local baselines (no token needed)
-npx vizzly tdd "npm test"
-
-# Make changes and test - fails if visual differences detected
-npx vizzly tdd "npm test"
-
-# Accept changes as new baseline
-npx vizzly tdd "npm test" --set-baseline
-```
-
-- **🐻 Auto-baseline creation**: Creates baselines locally when none exist
-- **🐻 No token required**: Works entirely offline for local development  
-- **🐻 Tests fail on differences**: Immediate feedback when visuals change
-- **🐻 Accept changes**: Use `--set-baseline` to update baselines
+The dedicated `tdd` command provides fast local development with immediate visual feedback. See the [TDD Mode Guide](./docs/tdd-mode.md) for complete details on local visual testing.
 
 ## Configuration
 

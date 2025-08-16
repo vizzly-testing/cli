@@ -45,6 +45,7 @@ program
   .option('--threshold <number>', 'Comparison threshold', parseFloat)
   .option('--token <token>', 'API token override')
   .option('--wait', 'Wait for build completion')
+  .option('--upload-all', 'Upload all screenshots without SHA deduplication')
   .action(async (path, options) => {
     const globalOptions = program.opts();
 

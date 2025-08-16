@@ -199,9 +199,9 @@ vizzly run "npm test" --branch "feature/new-ui"
 vizzly run "npm test" --wait
 ```
 
-**`--eager`** - Create build immediately (default: lazy)
+**`--upload-all`** - Upload all screenshots without SHA deduplication
 ```bash
-vizzly run "npm test" --eager
+vizzly run "npm test" --upload-all
 ```
 
 **`--threshold <number>`** - Comparison threshold (0-1, default: 0.01)
@@ -211,10 +211,7 @@ vizzly run "npm test" --threshold 0.02
 
 ### Development Options
 
-**`--tdd`** - Enable TDD mode (see [TDD Mode Guide](./tdd-mode.md))
-```bash
-vizzly run "npm test" --tdd
-```
+For TDD mode, use the dedicated `vizzly tdd` command. See [TDD Mode Guide](./tdd-mode.md) for details.
 
 **`--allow-no-token`** - Allow running without API token
 ```bash
@@ -226,17 +223,6 @@ vizzly run "npm test" --allow-no-token
 vizzly run "npm test" --token "your-token-here"
 ```
 
-### Baseline Configuration
-
-**`--baseline-build <id>`** - Use specific build as baseline
-```bash
-vizzly run "npm test" --baseline-build "build_123"
-```
-
-**`--baseline-comparison <id>`** - Use specific comparison as baseline
-```bash
-vizzly run "npm test" --baseline-comparison "comp_456"
-```
 
 ## Screenshot Properties
 

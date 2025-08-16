@@ -6,8 +6,8 @@
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "serve": "python3 -m http.server 3030",
-    "vizzly:capture": "node ../dist/cli.js run \"npm run test\" --build-name \"FluffyCloud Test Suite\"",
-    "vizzly:tdd": "node ../dist/cli.js tdd \"npm run test\""
+    "vizzly:capture": "node ../bin/vizzly.js run \"npm run test\" --build-name \"FluffyCloud Test Suite\"",
+    "vizzly:tdd": "node ../bin/vizzly.js tdd \"npm run test\""
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0"

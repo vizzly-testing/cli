@@ -72,6 +72,13 @@ This will:
 - Show progress and results
 - Exit with appropriate status code
 
+**`--upload-all`** - Upload all screenshots without SHA deduplication
+```bash
+vizzly upload ./screenshots --upload-all
+```
+
+By default, Vizzly deduplicates screenshots based on their SHA hash to avoid unnecessary uploads. Use this flag to force upload of all screenshots regardless of their content.
+
 **`--metadata <json>`** - Additional metadata as JSON
 ```bash
 vizzly upload ./screenshots --metadata '{"browser": "chrome", "viewport": "1920x1080"}'

@@ -112,6 +112,7 @@ export async function uploadCommand(
       message,
       environment: config.build.environment,
       threshold: config.comparison.threshold,
+      uploadAll: options.uploadAll || false,
       metadata: options.metadata ? JSON.parse(options.metadata) : {},
       onProgress: progressData => {
         const {

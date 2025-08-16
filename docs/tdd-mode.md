@@ -145,11 +145,11 @@ vizzly tdd "npm test" --timeout 60000
 npx vizzly run "npm test" --wait
 
 # 2. Start TDD development
-npx vizzly run "npm test" --tdd
+npx vizzly tdd "npm test"
 
 # 3. Make changes and iterate
 # Edit code...
-npx vizzly run "npm test" --tdd
+npx vizzly tdd "npm test"
 
 # 4. Upload when satisfied
 npx vizzly run "npm test" --wait
@@ -159,13 +159,13 @@ npx vizzly run "npm test" --wait
 
 ```bash
 # Start with latest baselines
-npx vizzly run "npm test" --tdd
+npx vizzly tdd "npm test"
 
 # Develop new feature with immediate feedback
 while [ $? -ne 0 ]; do
   # Edit code to fix visual differences
   vim src/components/NewFeature.js
-  npx vizzly run "npm test" --tdd
+  npx vizzly tdd "npm test"
 done
 
 # Upload completed feature
@@ -176,7 +176,7 @@ npx vizzly run "npm test" --build-name "Feature: New Dashboard"
 
 ```bash
 # Use TDD mode to verify fixes
-npx vizzly run "npm test" --tdd
+npx vizzly tdd "npm test"
 
 # Tests should pass when bug is fixed
 # Then upload the fix
@@ -216,7 +216,7 @@ npx vizzly status  # Shows latest build info
 Download new baselines from a different build:
 
 ```bash
-npx vizzly run "npm test" --tdd --baseline-build build-xyz789
+npx vizzly tdd "npm test" --baseline-build build-xyz789
 ```
 
 ### Force Baseline Refresh
@@ -225,7 +225,7 @@ Delete local baselines to force re-download:
 
 ```bash
 rm -rf .vizzly/baselines/
-npx vizzly run "npm test" --tdd
+npx vizzly tdd "npm test"
 ```
 
 ## Advanced Usage
@@ -276,7 +276,7 @@ jobs:
       # Use TDD mode for PR builds (faster, no uploads)
       - name: TDD Visual Tests (PR)
         if: github.event_name == 'pull_request'
-        run: npx vizzly run "npm test" --tdd
+        run: npx vizzly tdd "npm test"
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
       
@@ -337,7 +337,7 @@ Error: Failed to compare 'homepage': baseline image not found
 **Solution**: Refresh baselines:
 ```bash
 rm -rf .vizzly/baselines/
-npx vizzly run "npm test" --tdd
+npx vizzly tdd "npm test"
 ```
 
 ### Odiff Not Found

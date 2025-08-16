@@ -78,17 +78,26 @@ jobs:
       working-directory: ./test-site
       run: npm ci
 
-    - name: Install Playwright browsers
+    - name: Get installed Playwright version
       working-directory: ./test-site
-      run: npx playwright install --with-deps
+      id: playwright-version
+      run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
 
-    - name: Run test site Playwright tests
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-browsers-${{ steps.playwright-version.outputs.version }}-chromium
+
+    - name: Install Playwright browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
       working-directory: ./test-site
-      run: npm test
+      run: npx playwright install chromium --with-deps
 
     - name: Test Vizzly integration
       working-directory: ./test-site
-      run: vizzly run "npm test" --build-name "CI Test Run - ${{ github.sha }}" --wait
+      run: node ../bin/vizzly.js run "npm test" --build-name "CI Test Run - ${{ github.sha }}" --wait
       env:
         CI: true
         VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}

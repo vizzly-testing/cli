@@ -288,6 +288,7 @@ Upload screenshots from a directory.
 - `--threshold <number>` - Comparison threshold (0-1)
 - `--token <token>` - API token override
 - `--wait` - Wait for build completion
+- `--upload-all` - Upload all screenshots without SHA deduplication
 
 **Exit Codes:**
 - `0` - Success (all approved or no changes)
@@ -316,18 +317,14 @@ Run tests with Vizzly integration.
 
 *Processing Options:*
 - `--wait` - Wait for build completion and exit with appropriate code
-- `--eager` - Create build immediately (default: lazy creation)
 - `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
 - `--upload-timeout <ms>` - Upload wait timeout in ms (default: from config or 30000)
+- `--upload-all` - Upload all screenshots without SHA deduplication
 
 *Development & Testing:*
-- `--tdd` - Enable TDD mode with local comparisons
 - `--allow-no-token` - Allow running without API token
 - `--token <token>` - API token override
 
-*Baseline Configuration:*
-- `--baseline-build <id>` - Use specific build as baseline for comparisons
-- `--baseline-comparison <id>` - Use specific comparison as baseline
 
 **Environment Variables Set:**
 - `VIZZLY_SERVER_URL` - Local server URL

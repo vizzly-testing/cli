@@ -200,11 +200,7 @@ export async function detectBranch(override = null, cwd = process.cwd()) {
 export async function detectCommit(override = null, cwd = process.cwd()) {
   if (override) return override;
 
-  // Try git command first
-  const gitCommit = await getCurrentCommitSha(cwd);
-  if (gitCommit) return gitCommit;
-
-  // Fallback to environment variables commonly used in CI
+  // First try environment variables from CI (often more reliable than git in CI contexts)
   const envCommit =
     process.env.GITHUB_SHA || // GitHub Actions
     process.env.CI_COMMIT_SHA || // GitLab CI
@@ -215,10 +211,21 @@ export async function detectCommit(override = null, cwd = process.cwd()) {
     process.env.CODEBUILD_RESOLVED_SOURCE_VERSION || // AWS CodeBuild
     process.env.BUILD_VCS_NUMBER || // TeamCity
     process.env.GIT_COMMIT || // Jenkins
+    process.env.BITBUCKET_COMMIT || // Bitbucket Pipelines
+    process.env.WERCKER_GIT_COMMIT || // Wercker
+    process.env.APPVEYOR_REPO_COMMIT || // AppVeyor
+    process.env.AZURE_DEVOPS_BUILD_SOURCEVERSION || // Azure DevOps
+    process.env.BUILD_SOURCEVERSION || // Azure DevOps (alternative)
+    process.env.SEMAPHORE_GIT_SHA || // Semaphore
+    process.env.HEROKU_TEST_RUN_COMMIT_VERSION || // Heroku CI
     process.env.COMMIT_SHA || // Generic
-    process.env.HEAD_COMMIT; // Alternative generic
+    process.env.HEAD_COMMIT || // Alternative generic
+    process.env.SHA; // Another generic option
 
-  return envCommit || null;
+  if (envCommit) return envCommit;
+
+  // Fallback to git command when no CI environment variables
+  return await getCurrentCommitSha(cwd);
 }
 
 /**

@@ -45,10 +45,34 @@ describe('Git Utilities - Simple Tests', () => {
       expect(result).toBe('custom-commit-sha');
     });
 
-    it('should return null when no override and git fails', async () => {
-      // This will test the fallback when git fails
-      const result = await detectCommit(null, '/non/existent/path');
-      expect(result).toBe(null);
+    it('should return null when no override, git fails, and no env vars', async () => {
+      // Mock environment to remove any CI-related commit SHA env vars
+      const originalEnv = process.env;
+      process.env = {};
+
+      try {
+        // This will test the fallback when git fails and no env vars are set
+        const result = await detectCommit(null, '/non/existent/path');
+        expect(result).toBe(null);
+      } finally {
+        // Restore original environment
+        process.env = originalEnv;
+      }
+    });
+
+    it('should prioritize environment variables over git', async () => {
+      // Mock environment with a commit SHA
+      const originalEnv = process.env;
+      process.env = { ...originalEnv, GITHUB_SHA: 'env-commit-sha' };
+
+      try {
+        // This will test that env vars are prioritized even when git might work
+        const result = await detectCommit(null, process.cwd());
+        expect(result).toBe('env-commit-sha');
+      } finally {
+        // Restore original environment
+        process.env = originalEnv;
+      }
     });
   });
 });

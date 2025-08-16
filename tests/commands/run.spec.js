@@ -27,6 +27,7 @@ vi.mock('../../src/utils/git.js', () => ({
   detectBranch: vi.fn(),
   detectCommit: vi.fn(),
   getCommitMessage: vi.fn(),
+  detectCommitMessage: vi.fn(),
   generateBuildNameWithGit: vi.fn(),
 }));
 
@@ -76,6 +77,7 @@ describe('runCommand', () => {
       detectBranch,
       detectCommit,
       getCommitMessage,
+      detectCommitMessage,
       generateBuildNameWithGit,
     } = await import('../../src/utils/git.js');
 
@@ -93,6 +95,7 @@ describe('runCommand', () => {
     detectBranch.mockResolvedValue('main');
     detectCommit.mockResolvedValue('abc123');
     getCommitMessage.mockResolvedValue('Test commit');
+    detectCommitMessage.mockResolvedValue('Test commit');
     generateBuildNameWithGit.mockResolvedValue('test-build');
 
     mockTestRunner.run.mockResolvedValue({

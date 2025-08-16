@@ -106,8 +106,8 @@ export function createUploader(
       const buildInfo = {
         name: buildName || `Upload ${new Date().toISOString()}`,
         branch: branch || (await getDefaultBranch()) || 'main',
-        commitSha: commit,
-        commitMessage: message,
+        commit_sha: commit,
+        commit_message: message,
         environment,
         threshold,
       };

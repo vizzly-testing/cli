@@ -277,6 +277,10 @@ For CI/CD pipelines, use the `--wait` flag to wait for visual comparison results
   run: npx vizzly run "npm test" --wait
   env:
     VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+    # Optional: Provide correct git information from GitHub context
+    VIZZLY_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+    VIZZLY_COMMIT_SHA: ${{ github.event.head_commit.id }}
+    VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
 ```
 
 ### GitLab CI
@@ -319,9 +323,27 @@ Check if Vizzly is enabled in the current environment.
 
 ## Environment Variables
 
+### Core Configuration
 - `VIZZLY_TOKEN`: API authentication token. Example: `export VIZZLY_TOKEN=your-token`.
 - `VIZZLY_API_URL`: Override API base URL. Default: `https://vizzly.dev`.
 - `VIZZLY_LOG_LEVEL`: Logger level. One of `debug`, `info`, `warn`, `error`. Example: `export VIZZLY_LOG_LEVEL=debug`.
+
+### Git Information Override
+For enhanced CI/CD integration, you can override git detection with these environment variables:
+
+- `VIZZLY_COMMIT_SHA`: Override detected commit SHA. Useful in CI environments.
+- `VIZZLY_COMMIT_MESSAGE`: Override detected commit message. Useful in CI environments.
+- `VIZZLY_BRANCH`: Override detected branch name. Useful in CI environments.
+
+**Example for GitHub Actions:**
+```yaml
+env:
+  VIZZLY_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+  VIZZLY_COMMIT_SHA: ${{ github.event.head_commit.id }}
+  VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
+```
+
+These variables take highest priority over both CLI arguments and automatic git detection.
 
 ## Contributing
 

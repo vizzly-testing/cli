@@ -125,13 +125,11 @@ export class TestRunner extends BaseService {
       const apiService = await this.createApiService();
       if (apiService) {
         const buildResult = await apiService.createBuild({
-          build: {
-            name: options.buildName || `Test Run ${new Date().toISOString()}`,
-            branch: options.branch || 'main',
-            environment: options.environment || 'test',
-            commit_sha: options.commit,
-            commit_message: options.message,
-          },
+          name: options.buildName || `Test Run ${new Date().toISOString()}`,
+          branch: options.branch || 'main',
+          environment: options.environment || 'test',
+          commit_sha: options.commit,
+          commit_message: options.message,
         });
         this.logger.debug(`Build created with ID: ${buildResult.id}`);
 

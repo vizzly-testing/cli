@@ -151,22 +151,17 @@ export async function detectCommitMessage(
 ) {
   if (override) return override;
 
-  // In CI environments, we might want to get the commit message from the actual commit
-  // rather than the merge commit that git log would give us
-  const commitSha = await detectCommit(null, cwd);
+  // First try environment variables from CI systems that provide them
+  const envCommitMessage =
+    process.env.VIZZLY_COMMIT_MESSAGE || // Vizzly-specific override
+    process.env.CI_COMMIT_MESSAGE || // GitLab CI
+    process.env.TRAVIS_COMMIT_MESSAGE || // Travis CI
+    process.env.BUILDKITE_MESSAGE || // Buildkite
+    process.env.DRONE_COMMIT_MESSAGE || // Drone CI
+    process.env.APPVEYOR_REPO_COMMIT_MESSAGE || // AppVeyor
+    process.env.COMMIT_MESSAGE; // Generic
 
-  if (commitSha) {
-    try {
-      // Get commit message for the specific commit SHA
-      const { stdout } = await execAsync(
-        `git log -1 --pretty=%B ${commitSha}`,
-        { cwd }
-      );
-      return stdout.trim();
-    } catch {
-      // Fallback to regular git log if the SHA-specific command fails
-    }
-  }
+  if (envCommitMessage) return envCommitMessage;
 
   // Fallback to regular git log
   return await getCommitMessage(cwd);
@@ -222,6 +217,7 @@ export async function detectBranch(override = null, cwd = process.cwd()) {
 
   // First try environment variables from CI
   const envBranch =
+    process.env.VIZZLY_BRANCH || // Vizzly-specific override
     process.env.GITHUB_HEAD_REF || // GitHub Actions (for PRs)
     process.env.GITHUB_REF_NAME || // GitHub Actions (for pushes)
     process.env.CI_COMMIT_REF_NAME || // GitLab CI
@@ -257,6 +253,7 @@ export async function detectCommit(override = null, cwd = process.cwd()) {
 
   // First try environment variables from CI (often more reliable than git in CI contexts)
   const envCommit =
+    process.env.VIZZLY_COMMIT_SHA || // Vizzly-specific override
     process.env.GITHUB_SHA || // GitHub Actions
     process.env.CI_COMMIT_SHA || // GitLab CI
     process.env.CIRCLE_SHA1 || // CircleCI

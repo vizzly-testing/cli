@@ -20,6 +20,7 @@ export class ApiService {
   constructor(options = {}) {
     this.baseUrl = options.baseUrl || getApiUrl();
     this.token = options.token || getApiToken();
+    this.uploadAll = options.uploadAll || false;
 
     // Build User-Agent string
     const command = options.command || 'run'; // Default to 'run' for API service
@@ -119,7 +120,7 @@ export class ApiService {
     return this.request('/api/sdk/builds', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(metadata),
+      body: JSON.stringify({ build: metadata }),
     });
   }
 
@@ -156,7 +157,22 @@ export class ApiService {
    * @returns {Promise<Object>} Upload result
    */
   async uploadScreenshot(buildId, name, buffer, metadata = {}) {
-    // Calculate SHA256 of the image
+    // Skip SHA deduplication entirely if uploadAll flag is set
+    if (this.uploadAll) {
+      // Upload directly without SHA calculation or checking
+      return this.request(`/api/sdk/builds/${buildId}/screenshots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          image_data: buffer.toString('base64'),
+          properties: metadata ?? {},
+          // No SHA included when bypassing deduplication
+        }),
+      });
+    }
+
+    // Normal flow with SHA deduplication
     const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
     // Check if this SHA already exists

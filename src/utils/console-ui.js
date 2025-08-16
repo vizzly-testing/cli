@@ -167,13 +167,14 @@ export class ConsoleUI {
     if (this.json || !process.stdout.isTTY) return;
 
     this.stopSpinner();
+    this.currentMessage = message;
 
     const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let i = 0;
 
     this.spinner = setInterval(() => {
       const frame = frames[i++ % frames.length];
-      const line = `${this.colors.blue(frame)} ${message}`;
+      const line = `${this.colors.blue(frame)} ${this.currentMessage || message}`;
 
       // Clear previous line and write new one
       process.stdout.write('\r' + ' '.repeat(this.lastLine.length) + '\r');
@@ -224,17 +225,5 @@ export class ConsoleUI {
   }
 }
 
-// Ensure spinner is cleaned up on process exit
-process.on('exit', () => {
-  // Clear any remaining spinner
-  if (process.stdout.isTTY) {
-    process.stdout.write('\r' + ' '.repeat(80) + '\r');
-  }
-});
-
-process.on('SIGINT', () => {
-  if (process.stdout.isTTY) {
-    process.stdout.write('\r' + ' '.repeat(80) + '\r');
-  }
-  process.exit(1);
-});
+// Note: Global process event listeners are handled in individual commands
+// to avoid interference between tests and proper cleanup

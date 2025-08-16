@@ -1,47 +1,54 @@
 /**
  * Server Manager Service
- * Manages the Vizzly HTTP server
+ * Manages the HTTP server with functional handlers
  */
 
 import { BaseService } from './base-service.js';
-import { VizzlyServer } from '../server/index.js';
+import { createHttpServer } from '../server/http-server.js';
+import { createTddHandler } from '../server/handlers/tdd-handler.js';
+import { createApiHandler } from '../server/handlers/api-handler.js';
 import { EventEmitter } from 'events';
 
 export class ServerManager extends BaseService {
   constructor(config, logger) {
     super(config, { logger });
-    this.server = null;
+    this.httpServer = null;
+    this.handler = null;
+    this.emitter = null;
   }
 
-  async start(buildId = null, buildInfo = null, mode = 'lazy') {
-    if (this.started) {
-      this.logger.warn(`${this.constructor.name} already started`);
-      return;
-    }
-
-    // Create event emitter for server events
-    const emitter = new EventEmitter();
-
-    this.server = new VizzlyServer({
-      port: this.config?.server?.port || 47392,
-      config: this.config,
-      buildId,
-      buildInfo,
-      vizzlyApi:
-        buildInfo || mode === 'eager' ? await this.createApiService() : null,
-      tddMode: mode === 'tdd', // TDD mode only when explicitly set
-      baselineBuild: this.config?.baselineBuildId,
-      baselineComparison: this.config?.baselineComparisonId,
-      workingDir: process.cwd(),
-      emitter, // Pass the emitter to the server
-    });
-
-    await super.start();
+  async start(buildId = null, tddMode = false) {
+    this.buildId = buildId;
+    this.tddMode = tddMode;
+    return super.start();
   }
 
   async onStart() {
-    if (this.server) {
-      await this.server.start();
+    this.emitter = new EventEmitter();
+    const port = this.config?.server?.port || 47392;
+
+    if (this.tddMode) {
+      this.handler = createTddHandler(
+        this.config,
+        process.cwd(),
+        this.config?.baselineBuildId,
+        this.config?.baselineComparisonId
+      );
+
+      await this.handler.initialize();
+
+      if (this.buildId) {
+        this.handler.registerBuild(this.buildId);
+      }
+    } else {
+      const apiService = await this.createApiService();
+      this.handler = createApiHandler(apiService);
+    }
+
+    this.httpServer = createHttpServer(port, this.handler, this.emitter);
+
+    if (this.httpServer) {
+      await this.httpServer.start();
     }
   }
 
@@ -56,8 +63,26 @@ export class ServerManager extends BaseService {
   }
 
   async onStop() {
-    if (this.server) {
-      await this.server.stop();
+    if (this.httpServer) {
+      await this.httpServer.stop();
     }
+    if (this.handler?.cleanup) {
+      try {
+        this.handler.cleanup();
+      } catch (error) {
+        this.logger.debug('Handler cleanup error:', error.message);
+        // Don't throw - cleanup errors shouldn't fail the stop process
+      }
+    }
+  }
+
+  // Expose server interface for compatibility
+  get server() {
+    return {
+      emitter: this.emitter,
+      getScreenshotCount: buildId =>
+        this.handler?.getScreenshotCount?.(buildId) || 0,
+      finishBuild: buildId => this.handler?.finishBuild?.(buildId),
+    };
   }
 }

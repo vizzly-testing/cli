@@ -75,7 +75,7 @@ function createSimpleClient(serverUrl) {
             buildId: getBuildId(),
             name,
             image: imageBuffer.toString('base64'),
-            properties: options.properties || {},
+            properties: options,
             threshold: options.threshold || 0,
             variant: options.variant,
             fullPage: options.fullPage || false,

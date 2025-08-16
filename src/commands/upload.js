@@ -63,12 +63,16 @@ export async function uploadCommand(
 
   // Note: ConsoleUI handles cleanup via global process listeners
 
+  let buildId = null;
+  let config = null;
+  const uploadStartTime = Date.now();
+
   try {
     ui.info('Starting upload process...');
 
     // Load configuration with CLI overrides
     const allOptions = { ...globalOptions, ...options };
-    const config = await loadConfig(globalOptions.config, allOptions);
+    config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token
     if (!config.apiKey) {
@@ -115,19 +119,47 @@ export async function uploadCommand(
           current,
           total,
           phase,
+          buildId: progressBuildId,
         } = progressData;
-        ui.progress(
-          progressMessage ||
-            `${phase || 'Processing'}: ${current || 0}/${total || 0}`,
-          current,
-          total
-        );
+
+        // Track buildId when it becomes available
+        if (progressBuildId) {
+          buildId = progressBuildId;
+        }
+
+        let displayMessage = progressMessage;
+        if (!displayMessage && phase) {
+          if (current !== undefined && total !== undefined) {
+            displayMessage = `${phase}: ${current}/${total}`;
+          } else {
+            displayMessage = phase;
+          }
+        }
+
+        ui.progress(displayMessage || 'Processing...', current, total);
       },
     };
 
     // Start upload
     ui.progress('Starting upload...');
     const result = await uploader.upload(uploadOptions);
+    buildId = result.buildId; // Ensure we have the buildId
+
+    // Mark build as completed
+    if (result.buildId) {
+      ui.progress('Finalizing build...');
+      try {
+        const apiService = new ApiService({
+          baseUrl: config.apiUrl,
+          token: config.apiKey,
+          command: 'upload',
+        });
+        const executionTime = Date.now() - uploadStartTime;
+        await apiService.finalizeBuild(result.buildId, true, executionTime);
+      } catch (error) {
+        ui.warning(`Failed to finalize build: ${error.message}`);
+      }
+    }
 
     ui.success('Upload completed successfully');
 
@@ -171,6 +203,20 @@ export async function uploadCommand(
 
     ui.cleanup();
   } catch (error) {
+    // Mark build as failed if we have a buildId and config
+    if (buildId && config) {
+      try {
+        const apiService = new ApiService({
+          baseUrl: config.apiUrl,
+          token: config.apiKey,
+          command: 'upload',
+        });
+        const executionTime = Date.now() - uploadStartTime;
+        await apiService.finalizeBuild(buildId, false, executionTime);
+      } catch {
+        // Silent fail on cleanup
+      }
+    }
     ui.error('Upload failed', error);
   }
 }

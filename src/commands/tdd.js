@@ -185,7 +185,9 @@ export async function tddCommand(
       (result.comparisons &&
         result.comparisons.some(c => c.status === 'failed'))
     ) {
-      ui.error('Visual differences detected in TDD mode', {}, 1);
+      ui.error('Visual differences detected in TDD mode', {}, 0);
+      // Return error status without calling process.exit in tests
+      return { success: false, exitCode: 1 };
     }
 
     ui.cleanup();

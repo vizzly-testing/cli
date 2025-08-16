@@ -42,73 +42,32 @@ export class TestRunner extends BaseService {
     }
 
     try {
-      let buildInfo = null;
       let buildUrl = null;
       let screenshotCount = 0;
 
-      if (tdd) {
-        // TDD mode: create local build for fast feedback
-        this.logger.debug('TDD mode: creating local build...');
-        const build = await this.buildManager.createBuild(options);
-        buildId = build.id;
-        this.logger.debug(`TDD build created with ID: ${build.id}`);
-      } else if (options.eager) {
-        // Eager mode: create build immediately via API
-        this.logger.debug('Eager mode: creating build via API...');
+      // Create build based on mode
+      buildId = await this.createBuild(options, tdd);
+      if (!tdd && buildId) {
+        // Get build URL for API mode
         const apiService = await this.createApiService();
         if (apiService) {
-          const buildResult = await apiService.createBuild({
-            build: {
-              name: options.buildName || `Test Run ${new Date().toISOString()}`,
-              branch: options.branch || 'main',
-              environment: options.environment || 'test',
-              commit_sha: options.commit,
-              commit_message: options.message,
-            },
-          });
-          buildId = buildResult.id;
-          buildUrl = buildResult.url;
-          this.logger.debug(`Eager build created with ID: ${buildId}`);
-          if (buildUrl) {
-            this.logger.info(`Build URL: ${buildUrl}`);
+          try {
+            const build = await apiService.getBuild(buildId);
+            buildUrl = build.url;
+            if (buildUrl) {
+              this.logger.info(`Build URL: ${buildUrl}`);
+            }
+          } catch (error) {
+            this.logger.debug('Could not retrieve build URL:', error.message);
           }
-
-          // Emit build created event for eager mode
-          this.emit('build-created', {
-            buildId: buildResult.id,
-            url: buildResult.url,
-            name: buildResult.name || options.buildName,
-          });
-        } else {
-          this.logger.warn(
-            'No API key available for eager build creation, falling back to lazy mode'
-          );
         }
-      } else {
-        // Lazy mode: prepare build info for API creation on first screenshot
-        buildInfo = {
-          buildName:
-            options.buildName || `Test Run ${new Date().toISOString()}`,
-          branch: options.branch || 'main',
-          environment: options.environment || 'test',
-          commitSha: options.commit,
-          commitMessage: options.message,
-        };
       }
 
-      // Start server with appropriate configuration
-      const mode = tdd ? 'tdd' : options.eager ? 'eager' : 'lazy';
-      await this.serverManager.start(buildId, buildInfo, mode);
+      // Start server with appropriate handler
+      await this.serverManager.start(buildId, tdd);
 
       // Forward server events
-      if (this.serverManager.server && this.serverManager.server.emitter) {
-        this.serverManager.server.emitter.on('build-created', buildInfo => {
-          // Update local buildId and buildUrl from server
-          buildId = buildInfo.buildId;
-          buildUrl = buildInfo.url;
-          this.emit('build-created', buildInfo);
-        });
-
+      if (this.serverManager.server?.emitter) {
         this.serverManager.server.emitter.on(
           'screenshot-captured',
           screenshotInfo => {
@@ -118,14 +77,10 @@ export class TestRunner extends BaseService {
         );
       }
 
-      if (tdd) {
-        this.logger.debug('TDD service ready for comparisons');
-      }
-
       const env = {
         ...process.env,
         VIZZLY_SERVER_URL: `http://localhost:${this.config.server.port}`,
-        VIZZLY_BUILD_ID: buildId || 'lazy', // Use 'lazy' for API-driven builds
+        VIZZLY_BUILD_ID: buildId,
         VIZZLY_ENABLED: 'true',
         VIZZLY_SET_BASELINE:
           options.setBaseline || options['set-baseline'] ? 'true' : 'false',
@@ -133,7 +88,7 @@ export class TestRunner extends BaseService {
 
       await this.executeTestCommand(testCommand, env);
 
-      // Finalize builds based on mode
+      // Finalize build
       const executionTime = Date.now() - startTime;
       await this.finalizeBuild(buildId, tdd, true, executionTime);
 
@@ -147,19 +102,52 @@ export class TestRunner extends BaseService {
     } catch (error) {
       this.logger.error('Test run failed:', error);
 
-      // Finalize builds on failure too
+      // Finalize build on failure
       const executionTime = Date.now() - startTime;
       await this.finalizeBuild(buildId, tdd, false, executionTime);
 
       throw error;
     } finally {
       await this.serverManager.stop();
-      if (
-        tdd &&
-        this.tddService &&
-        typeof this.tddService.stop === 'function'
-      ) {
-        await this.tddService.stop();
+    }
+  }
+
+  async createBuild(options, tdd) {
+    if (tdd) {
+      // TDD mode: create local build
+      this.logger.debug('TDD mode: creating local build...');
+      const build = await this.buildManager.createBuild(options);
+      this.logger.debug(`TDD build created with ID: ${build.id}`);
+      return build.id;
+    } else {
+      // API mode: create build via API
+      this.logger.debug('Creating build via API...');
+      const apiService = await this.createApiService();
+      if (apiService) {
+        const buildResult = await apiService.createBuild({
+          build: {
+            name: options.buildName || `Test Run ${new Date().toISOString()}`,
+            branch: options.branch || 'main',
+            environment: options.environment || 'test',
+            commit_sha: options.commit,
+            commit_message: options.message,
+          },
+        });
+        this.logger.debug(`Build created with ID: ${buildResult.id}`);
+
+        // Emit build created event
+        this.emit('build-created', {
+          buildId: buildResult.id,
+          url: buildResult.url,
+          name: buildResult.name || options.buildName,
+        });
+
+        return buildResult.id;
+      } else {
+        throw new VizzlyError(
+          'No API key available for build creation',
+          'API_KEY_MISSING'
+        );
       }
     }
   }
@@ -168,10 +156,11 @@ export class TestRunner extends BaseService {
     if (!this.config.apiKey) return null;
 
     const { ApiService } = await import('./api-service.js');
-    return new ApiService(
-      { ...this.config, command: 'run' },
-      { logger: this.logger }
-    );
+    return new ApiService({
+      ...this.config,
+      command: 'run',
+      uploadAll: this.config.uploadAll,
+    });
   }
 
   async finalizeBuild(buildId, isTddMode, success, executionTime) {
@@ -182,15 +171,15 @@ export class TestRunner extends BaseService {
 
     try {
       if (isTddMode) {
-        // TDD mode: use buildManager for local builds
-        if (this.buildManager.getCurrentBuild()) {
-          await this.buildManager.finalizeBuild(buildId, { success });
+        // TDD mode: use server handler to finalize
+        if (this.serverManager.server?.finishBuild) {
+          await this.serverManager.server.finishBuild(buildId);
           this.logger.debug(
             `TDD build ${buildId} finalized with success: ${success}`
           );
         }
       } else {
-        // API mode (eager/lazy): use API service to update build status
+        // API mode: use API service to update build status
         const apiService = await this.createApiService();
         if (apiService) {
           await apiService.finalizeBuild(buildId, success, executionTime);
@@ -199,6 +188,12 @@ export class TestRunner extends BaseService {
     } catch (error) {
       // Don't fail the entire run if build finalization fails
       this.logger.warn(`Failed to finalize build ${buildId}:`, error.message);
+      // Emit event for UI handling
+      this.emit('build-finalize-failed', {
+        buildId,
+        error: error.message,
+        stack: error.stack,
+      });
     }
   }
 

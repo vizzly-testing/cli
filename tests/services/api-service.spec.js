@@ -75,7 +75,7 @@ describe('ApiService', () => {
         'https://vizzly.dev/api/sdk/builds',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify(metadata),
+          body: JSON.stringify({ build: metadata }),
         })
       );
       expect(result).toEqual(mockBuild);

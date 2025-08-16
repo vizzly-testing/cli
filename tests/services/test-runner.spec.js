@@ -8,6 +8,10 @@ vi.mock('../../src/services/base-service.js', () => ({
       this.config = config;
       this.logger = logger;
     }
+
+    emit() {
+      // Mock emit function
+    }
   },
 }));
 
@@ -25,6 +29,14 @@ vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
 
+vi.mock('../../src/services/api-service.js', () => ({
+  ApiService: vi.fn(() => ({
+    createBuild: vi.fn(),
+    getBuild: vi.fn(),
+    finalizeBuild: vi.fn(),
+  })),
+}));
+
 describe('TestRunner', () => {
   let testRunner;
   let mockConfig;
@@ -39,6 +51,7 @@ describe('TestRunner', () => {
       server: {
         port: 3000,
       },
+      apiKey: 'test-api-key',
     };
 
     mockLogger = {
@@ -57,6 +70,12 @@ describe('TestRunner', () => {
     mockServerManager = {
       start: vi.fn(),
       stop: vi.fn(),
+      server: {
+        emitter: {
+          on: vi.fn(),
+        },
+        finishBuild: vi.fn(),
+      },
     };
 
     mockTddService = {
@@ -107,11 +126,24 @@ describe('TestRunner', () => {
     });
 
     it('successfully runs test command without TDD', async () => {
-      const mockBuild = { id: 'build123' };
-      mockBuildManager.createBuild.mockResolvedValue(mockBuild);
+      // Mock the API service methods
+      const mockApiService = {
+        createBuild: vi.fn().mockResolvedValue({
+          id: 'build123',
+          url: 'http://example.com/build/123',
+        }),
+        getBuild: vi.fn().mockResolvedValue({
+          id: 'build123',
+          url: 'http://example.com/build/123',
+        }),
+        finalizeBuild: vi.fn().mockResolvedValue(),
+      };
+
+      const { ApiService } = await import('../../src/services/api-service.js');
+      ApiService.mockReturnValue(mockApiService);
+
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
-      mockBuildManager.finalizeBuild.mockResolvedValue();
 
       // Mock successful process execution
       mockSpawnProcess.on.mockImplementation((event, callback) => {
@@ -127,13 +159,11 @@ describe('TestRunner', () => {
 
       await testRunner.run(options);
 
-      expect(mockServerManager.start).toHaveBeenCalled();
-      // In lazy mode (non-TDD, non-eager), build manager is not used
-      expect(mockBuildManager.createBuild).not.toHaveBeenCalled();
-      expect(mockBuildManager.finalizeBuild).not.toHaveBeenCalled();
+      expect(mockServerManager.start).toHaveBeenCalledWith('build123', false);
+      expect(mockApiService.createBuild).toHaveBeenCalled();
+      expect(mockApiService.finalizeBuild).toHaveBeenCalled();
       expect(mockServerManager.stop).toHaveBeenCalled();
-      expect(mockTddService.start).not.toHaveBeenCalled();
-      expect(mockTddService.stop).not.toHaveBeenCalled();
+      expect(mockBuildManager.createBuild).not.toHaveBeenCalled();
     });
 
     it('successfully runs test command with TDD enabled', async () => {
@@ -160,11 +190,12 @@ describe('TestRunner', () => {
 
       await testRunner.run(options);
 
-      // TDD mode should create a build and finalize it
-      expect(mockBuildManager.finalizeBuild).toHaveBeenCalledWith('build456', {
-        success: true,
-      });
-      expect(mockTddService.stop).toHaveBeenCalled();
+      expect(mockServerManager.start).toHaveBeenCalledWith('build456', true);
+      expect(mockBuildManager.createBuild).toHaveBeenCalled();
+      expect(mockServerManager.server.finishBuild).toHaveBeenCalledWith(
+        'build456'
+      );
+      expect(mockServerManager.stop).toHaveBeenCalled();
     });
 
     it('handles test execution failure', async () => {
@@ -191,13 +222,21 @@ describe('TestRunner', () => {
         'Test command exited with code 1'
       );
 
-      expect(mockBuildManager.finalizeBuild).toHaveBeenCalledWith('build789', {
-        success: false,
-      });
+      expect(mockServerManager.server.finishBuild).toHaveBeenCalledWith(
+        'build789'
+      );
       expect(mockServerManager.stop).toHaveBeenCalled();
     });
 
     it('handles server start failure', async () => {
+      // Mock API service for build creation
+      const mockApiService = {
+        createBuild: vi.fn().mockResolvedValue({ id: 'build123' }),
+        finalizeBuild: vi.fn().mockResolvedValue(),
+      };
+      const { ApiService } = await import('../../src/services/api-service.js');
+      ApiService.mockReturnValue(mockApiService);
+
       mockServerManager.start.mockRejectedValue(
         new Error('Server failed to start')
       );
@@ -261,7 +300,6 @@ describe('TestRunner', () => {
 
       // Verify cleanup happened
       expect(mockServerManager.stop).toHaveBeenCalled();
-      expect(mockTddService.stop).toHaveBeenCalled();
     });
   });
 
@@ -374,12 +412,18 @@ describe('TestRunner', () => {
   describe('integration workflow', () => {
     it('properly sets up environment variables', async () => {
       const { spawn } = await import('child_process');
-      const mockBuild = { id: 'integration-build' };
 
-      mockBuildManager.createBuild.mockResolvedValue(mockBuild);
+      // Mock API service for build creation
+      const mockApiService = {
+        createBuild: vi.fn().mockResolvedValue({ id: 'integration-build' }),
+        getBuild: vi.fn().mockResolvedValue({ id: 'integration-build' }),
+        finalizeBuild: vi.fn().mockResolvedValue(),
+      };
+      const { ApiService } = await import('../../src/services/api-service.js');
+      ApiService.mockReturnValue(mockApiService);
+
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
-      mockBuildManager.finalizeBuild.mockResolvedValue();
 
       mockSpawnProcess.on.mockImplementation((event, callback) => {
         if (event === 'exit') {
@@ -398,7 +442,7 @@ describe('TestRunner', () => {
         expect.objectContaining({
           env: expect.objectContaining({
             VIZZLY_SERVER_URL: 'http://localhost:3000',
-            VIZZLY_BUILD_ID: 'lazy',
+            VIZZLY_BUILD_ID: 'integration-build',
             VIZZLY_ENABLED: 'true',
           }),
         })
@@ -406,11 +450,17 @@ describe('TestRunner', () => {
     });
 
     it('maintains process reference during execution', async () => {
-      const mockBuild = { id: 'ref-test' };
-      mockBuildManager.createBuild.mockResolvedValue(mockBuild);
+      // Mock API service for build creation
+      const mockApiService = {
+        createBuild: vi.fn().mockResolvedValue({ id: 'ref-test' }),
+        getBuild: vi.fn().mockResolvedValue({ id: 'ref-test' }),
+        finalizeBuild: vi.fn().mockResolvedValue(),
+      };
+      const { ApiService } = await import('../../src/services/api-service.js');
+      ApiService.mockReturnValue(mockApiService);
+
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
-      mockBuildManager.finalizeBuild.mockResolvedValue();
 
       let processRef = null;
       mockSpawnProcess.on.mockImplementation((event, callback) => {

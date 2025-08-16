@@ -1,21 +1,86 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ServerManager } from '../../src/services/server-manager.js';
 
-// Only mock the VizzlyServer since it's the external dependency we want to avoid
-vi.mock('../../src/server/index.js', () => ({
-  VizzlyServer: vi.fn(),
+// Mock dependencies
+vi.mock('../../src/server/http-server.js', () => ({
+  createHttpServer: vi.fn(),
+}));
+
+vi.mock('../../src/server/handlers/tdd-handler.js', () => ({
+  createTddHandler: vi.fn(),
+}));
+
+vi.mock('../../src/server/handlers/api-handler.js', () => ({
+  createApiHandler: vi.fn(),
+}));
+
+vi.mock('../../src/services/api-service.js', () => ({
+  ApiService: vi.fn(),
+}));
+
+vi.mock('events', () => ({
+  EventEmitter: vi.fn(() => ({
+    on: vi.fn(),
+    emit: vi.fn(),
+    once: vi.fn(),
+  })),
+}));
+
+// Mock BaseService to avoid complex inheritance issues in tests
+vi.mock('../../src/services/base-service.js', () => ({
+  BaseService: class MockBaseService {
+    constructor(config, options = {}) {
+      this.config = config;
+      this.logger = options.logger || {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+      this.started = false;
+    }
+
+    async start() {
+      if (this.started) {
+        this.logger.warn(`${this.constructor.name} already started`);
+        return;
+      }
+      await this.onStart();
+      this.started = true;
+    }
+
+    async stop() {
+      if (this.started) {
+        await this.onStop();
+        this.started = false;
+      }
+    }
+
+    async onStart() {
+      // Override in child classes
+    }
+
+    async onStop() {
+      // Override in child classes
+    }
+  },
 }));
 
 describe('ServerManager', () => {
   let serverManager;
   let mockConfig;
   let mockLogger;
-  let mockVizzlyServer;
+  let mockHttpServer;
+  let mockTddHandler;
+  let mockApiHandler;
+  let mockApiService;
 
   beforeEach(async () => {
     mockConfig = {
-      port: 3000,
-      host: 'localhost',
+      server: { port: 47392 },
+      apiKey: 'test-api-key',
+      baselineBuildId: 'baseline-123',
+      baselineComparisonId: 'comparison-456',
     };
 
     mockLogger = {
@@ -25,15 +90,47 @@ describe('ServerManager', () => {
       error: vi.fn(),
     };
 
-    // Mock VizzlyServer instance
-    mockVizzlyServer = {
+    mockHttpServer = {
       start: vi.fn(),
       stop: vi.fn(),
+      getServer: vi.fn(),
     };
 
-    // Mock VizzlyServer constructor
-    const { VizzlyServer } = await import('../../src/server/index.js');
-    VizzlyServer.mockImplementation(() => mockVizzlyServer);
+    mockTddHandler = {
+      initialize: vi.fn(),
+      registerBuild: vi.fn(),
+      handleScreenshot: vi.fn(),
+      getScreenshotCount: vi.fn(),
+      finishBuild: vi.fn(),
+      cleanup: vi.fn(),
+    };
+
+    mockApiHandler = {
+      handleScreenshot: vi.fn(),
+      getScreenshotCount: vi.fn(),
+      cleanup: vi.fn(),
+    };
+
+    mockApiService = {
+      uploadScreenshot: vi.fn(),
+    };
+
+    // Mock implementations
+    const { createHttpServer } = await import(
+      '../../src/server/http-server.js'
+    );
+    const { createTddHandler } = await import(
+      '../../src/server/handlers/tdd-handler.js'
+    );
+    const { createApiHandler } = await import(
+      '../../src/server/handlers/api-handler.js'
+    );
+    const { ApiService } = await import('../../src/services/api-service.js');
+
+    createHttpServer.mockReturnValue(mockHttpServer);
+    createTddHandler.mockReturnValue(mockTddHandler);
+    createApiHandler.mockReturnValue(mockApiHandler);
+    ApiService.mockImplementation(() => mockApiService);
 
     serverManager = new ServerManager(mockConfig, mockLogger);
 
@@ -45,283 +142,389 @@ describe('ServerManager', () => {
   });
 
   describe('constructor', () => {
-    it('initializes with config and logger', () => {
+    it('should initialize with config and logger', () => {
       expect(serverManager.config).toBe(mockConfig);
       expect(serverManager.logger).toBe(mockLogger);
-      expect(serverManager.server).toBe(null);
+      expect(serverManager.httpServer).toBe(null);
+      expect(serverManager.handler).toBe(null);
+      expect(serverManager.emitter).toBe(null);
     });
   });
 
-  describe('onStart', () => {
-    it('creates and starts VizzlyServer', async () => {
-      const { VizzlyServer } = await import('../../src/server/index.js');
-      mockVizzlyServer.start.mockResolvedValue();
+  describe('TDD mode', () => {
+    it('should start in TDD mode without buildId', async () => {
+      const { createTddHandler } = await import(
+        '../../src/server/handlers/tdd-handler.js'
+      );
+      const { createHttpServer } = await import(
+        '../../src/server/http-server.js'
+      );
 
-      await serverManager.start('build123', null, 'lazy');
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockResolvedValue();
 
-      expect(VizzlyServer).toHaveBeenCalled();
-      expect(mockVizzlyServer.start).toHaveBeenCalled();
-      expect(serverManager.server).toBe(mockVizzlyServer);
+      await serverManager.start(null, true);
+
+      expect(createTddHandler).toHaveBeenCalledWith(
+        mockConfig,
+        process.cwd(),
+        'baseline-123',
+        'comparison-456'
+      );
+      expect(mockTddHandler.initialize).toHaveBeenCalled();
+      expect(mockTddHandler.registerBuild).not.toHaveBeenCalled();
+      expect(createHttpServer).toHaveBeenCalledWith(
+        47392,
+        mockTddHandler,
+        expect.any(Object)
+      );
+      expect(mockHttpServer.start).toHaveBeenCalled();
     });
 
-    it('handles server start failure', async () => {
-      const startError = new Error('Failed to bind to port');
-      mockVizzlyServer.start.mockRejectedValue(startError);
+    it('should start in TDD mode with buildId', async () => {
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockResolvedValue();
 
-      await expect(
-        serverManager.start('build123', null, 'lazy')
-      ).rejects.toThrow('Failed to bind to port');
+      await serverManager.start('build-123', true);
+
+      expect(mockTddHandler.initialize).toHaveBeenCalled();
+      expect(mockTddHandler.registerBuild).toHaveBeenCalledWith('build-123');
     });
 
-    it('passes configuration to VizzlyServer correctly', async () => {
-      const { VizzlyServer } = await import('../../src/server/index.js');
+    it('should handle TDD initialization failure', async () => {
+      const initError = new Error('TDD initialization failed');
+      mockTddHandler.initialize.mockRejectedValue(initError);
+
+      await expect(serverManager.start(null, true)).rejects.toThrow(
+        'TDD initialization failed'
+      );
+    });
+  });
+
+  describe('API mode', () => {
+    it('should start in API mode', async () => {
+      const { createApiHandler } = await import(
+        '../../src/server/handlers/api-handler.js'
+      );
+      const { createHttpServer } = await import(
+        '../../src/server/http-server.js'
+      );
+
+      mockHttpServer.start.mockResolvedValue();
+
+      await serverManager.start('build-123', false);
+
+      expect(createApiHandler).toHaveBeenCalledWith(mockApiService);
+      expect(createHttpServer).toHaveBeenCalledWith(
+        47392,
+        mockApiHandler,
+        expect.any(Object)
+      );
+      expect(mockHttpServer.start).toHaveBeenCalled();
+    });
+
+    it('should handle API mode without API key', async () => {
+      const configWithoutApiKey = { ...mockConfig, apiKey: null };
+      const serverManagerWithoutKey = new ServerManager(
+        configWithoutApiKey,
+        mockLogger
+      );
+
+      const { createApiHandler } = await import(
+        '../../src/server/handlers/api-handler.js'
+      );
+
+      mockHttpServer.start.mockResolvedValue();
+
+      await serverManagerWithoutKey.start('build-123', false);
+
+      expect(createApiHandler).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe('configuration handling', () => {
+    it('should use default port when not specified', async () => {
+      const configWithoutPort = { ...mockConfig };
+      delete configWithoutPort.server;
+
+      const serverManagerWithoutPort = new ServerManager(
+        configWithoutPort,
+        mockLogger
+      );
+
+      const { createHttpServer } = await import(
+        '../../src/server/http-server.js'
+      );
+
+      mockHttpServer.start.mockResolvedValue();
+      await serverManagerWithoutPort.start(null, false);
+
+      expect(createHttpServer).toHaveBeenCalledWith(
+        47392, // default port
+        expect.any(Object),
+        expect.any(Object)
+      );
+    });
+
+    it('should use custom port when specified', async () => {
       const customConfig = {
-        server: {
-          port: 8080,
-          host: '0.0.0.0',
-        },
-        tddMode: true,
-        workingDir: '/custom/path',
+        ...mockConfig,
+        server: { port: 8080 },
       };
 
-      const customServerManager = new ServerManager(customConfig, mockLogger);
-      mockVizzlyServer.start.mockResolvedValue();
+      const serverManagerWithCustomPort = new ServerManager(
+        customConfig,
+        mockLogger
+      );
 
-      await customServerManager.start('build123', null, 'lazy');
+      const { createHttpServer } = await import(
+        '../../src/server/http-server.js'
+      );
 
-      expect(VizzlyServer).toHaveBeenCalledWith(
-        expect.objectContaining({
-          port: 8080,
-          config: customConfig,
-          buildId: 'build123',
-          buildInfo: null,
-          tddMode: false,
-        })
+      mockHttpServer.start.mockResolvedValue();
+      await serverManagerWithCustomPort.start(null, false);
+
+      expect(createHttpServer).toHaveBeenCalledWith(
+        8080,
+        expect.any(Object),
+        expect.any(Object)
       );
     });
   });
 
-  describe('onStop', () => {
-    it('stops server when server exists', async () => {
-      mockVizzlyServer.stop.mockResolvedValue();
+  describe('server lifecycle', () => {
+    it('should handle complete start-stop cycle in TDD mode', async () => {
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockResolvedValue();
+      mockHttpServer.stop.mockResolvedValue();
 
-      // First start the server
-      await serverManager.start('build123', null, 'lazy');
+      await serverManager.start('build-123', true);
+      await serverManager.stop();
 
-      // Then stop it
-      await serverManager.onStop();
-
-      expect(mockVizzlyServer.stop).toHaveBeenCalled();
+      expect(mockHttpServer.start).toHaveBeenCalledTimes(1);
+      expect(mockHttpServer.stop).toHaveBeenCalledTimes(1);
+      expect(mockTddHandler.cleanup).toHaveBeenCalledTimes(1);
     });
 
-    it('handles case when no server exists', async () => {
-      serverManager.server = null;
+    it('should handle complete start-stop cycle in API mode', async () => {
+      mockHttpServer.start.mockResolvedValue();
+      mockHttpServer.stop.mockResolvedValue();
 
-      await serverManager.onStop();
+      await serverManager.start('build-123', false);
+      await serverManager.stop();
 
-      expect(mockVizzlyServer.stop).not.toHaveBeenCalled();
+      expect(mockHttpServer.start).toHaveBeenCalledTimes(1);
+      expect(mockHttpServer.stop).toHaveBeenCalledTimes(1);
+      expect(mockApiHandler.cleanup).toHaveBeenCalledTimes(1);
     });
 
-    it('handles server stop failure', async () => {
-      const stopError = new Error('Server stop failed');
-      mockVizzlyServer.stop.mockRejectedValue(stopError);
+    it('should prevent multiple starts', async () => {
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockResolvedValue();
 
-      await serverManager.start('build123', null, 'lazy');
+      await serverManager.start('build-123', true);
 
-      await expect(serverManager.onStop()).rejects.toThrow(
-        'Server stop failed'
+      // Second start should warn and return early
+      await serverManager.start('build-456', true);
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'ServerManager already started'
       );
+      expect(mockHttpServer.start).toHaveBeenCalledTimes(1);
     });
 
-    it('can be called multiple times safely', async () => {
-      mockVizzlyServer.stop.mockResolvedValue();
-
-      await serverManager.start('build123', null, 'lazy');
+    it('should handle stop without start', async () => {
       await serverManager.onStop();
 
-      // Second stop should not fail
-      serverManager.server = null;
+      expect(mockHttpServer.stop).not.toHaveBeenCalled();
+    });
+
+    it('should handle cleanup when handler is null', async () => {
+      serverManager.handler = null;
+
       await serverManager.onStop();
 
-      expect(mockVizzlyServer.stop).toHaveBeenCalledTimes(1);
+      // Should not throw
     });
   });
 
-  describe('server lifecycle integration', () => {
-    it('handles complete start-stop cycle', async () => {
-      mockVizzlyServer.start.mockResolvedValue();
-      mockVizzlyServer.stop.mockResolvedValue();
-
-      // Verify initial state
-      expect(serverManager.server).toBe(null);
-
-      // Start server
-      await serverManager.start('build123', null, 'lazy');
-      expect(serverManager.server).toBe(mockVizzlyServer);
-      expect(mockVizzlyServer.start).toHaveBeenCalledTimes(1);
-
-      // Stop server
-      await serverManager.onStop();
-      expect(mockVizzlyServer.stop).toHaveBeenCalledTimes(1);
+  describe('server interface compatibility', () => {
+    beforeEach(async () => {
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockResolvedValue();
+      await serverManager.start('build-123', true);
     });
 
-    it('handles multiple start-stop cycles', async () => {
-      mockVizzlyServer.start.mockResolvedValue();
-      mockVizzlyServer.stop.mockResolvedValue();
-
-      // First cycle
-      await serverManager.start('build123', null, 'lazy');
-      await serverManager.stop();
-
-      // Second cycle - should create new server instance
-      await serverManager.start('build123', null, 'lazy');
-      await serverManager.stop();
-
-      expect(mockVizzlyServer.start).toHaveBeenCalledTimes(2);
-      expect(mockVizzlyServer.stop).toHaveBeenCalledTimes(2);
+    it('should expose emitter through server interface', () => {
+      const server = serverManager.server;
+      expect(server.emitter).toBeDefined();
     });
 
-    it('maintains server reference during lifecycle', async () => {
-      mockVizzlyServer.start.mockResolvedValue();
+    it('should expose getScreenshotCount through server interface', () => {
+      mockTddHandler.getScreenshotCount.mockReturnValue(5);
 
-      expect(serverManager.server).toBe(null);
+      const server = serverManager.server;
+      const count = server.getScreenshotCount('build-123');
 
-      await serverManager.start('build123', null, 'lazy');
-      expect(serverManager.server).toBe(mockVizzlyServer);
-      expect(serverManager.server).not.toBe(null);
+      expect(count).toBe(5);
+      expect(mockTddHandler.getScreenshotCount).toHaveBeenCalledWith(
+        'build-123'
+      );
+    });
+
+    it('should handle getScreenshotCount when handler lacks method', async () => {
+      const handlerWithoutCount = {
+        initialize: vi.fn(),
+        registerBuild: vi.fn(),
+        cleanup: vi.fn(),
+      };
+
+      const { createTddHandler } = await import(
+        '../../src/server/handlers/tdd-handler.js'
+      );
+      createTddHandler.mockReturnValue(handlerWithoutCount);
+
+      const newServerManager = new ServerManager(mockConfig, mockLogger);
+      handlerWithoutCount.initialize.mockResolvedValue();
+      await newServerManager.start('build-123', true);
+
+      const server = newServerManager.server;
+      const count = server.getScreenshotCount('build-123');
+
+      expect(count).toBe(0);
+    });
+
+    it('should expose finishBuild through server interface', async () => {
+      const mockResult = { id: 'build-123', passed: true };
+      mockTddHandler.finishBuild.mockResolvedValue(mockResult);
+
+      const server = serverManager.server;
+      const result = await server.finishBuild('build-123');
+
+      expect(result).toEqual(mockResult);
+      expect(mockTddHandler.finishBuild).toHaveBeenCalledWith('build-123');
+    });
+
+    it('should handle finishBuild when handler lacks method', async () => {
+      const handlerWithoutFinish = {
+        initialize: vi.fn(),
+        registerBuild: vi.fn(),
+        cleanup: vi.fn(),
+      };
+
+      const { createTddHandler } = await import(
+        '../../src/server/handlers/tdd-handler.js'
+      );
+      createTddHandler.mockReturnValue(handlerWithoutFinish);
+
+      const newServerManager = new ServerManager(mockConfig, mockLogger);
+      handlerWithoutFinish.initialize.mockResolvedValue();
+      await newServerManager.start('build-123', true);
+
+      const server = newServerManager.server;
+      const result = await server.finishBuild('build-123');
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('createApiService', () => {
+    it('should create API service with correct configuration', async () => {
+      const { ApiService } = await import('../../src/services/api-service.js');
+
+      const apiService = await serverManager.createApiService();
+
+      expect(ApiService).toHaveBeenCalledWith(
+        { ...mockConfig, command: 'run' },
+        { logger: mockLogger }
+      );
+      expect(apiService).toBe(mockApiService);
+    });
+
+    it('should return null when no API key', async () => {
+      const configWithoutKey = { ...mockConfig, apiKey: null };
+      const serverManagerWithoutKey = new ServerManager(
+        configWithoutKey,
+        mockLogger
+      );
+
+      const apiService = await serverManagerWithoutKey.createApiService();
+
+      expect(apiService).toBe(null);
     });
   });
 
   describe('error handling', () => {
-    it('propagates VizzlyServer constructor errors', async () => {
-      const { VizzlyServer } = await import('../../src/server/index.js');
-      const constructorError = new Error('Invalid configuration');
-      VizzlyServer.mockImplementation(() => {
-        throw constructorError;
-      });
+    it('should propagate HTTP server start errors', async () => {
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockRejectedValue(new Error('Port in use'));
 
-      await expect(
-        serverManager.start('build123', null, 'lazy')
-      ).rejects.toThrow('Invalid configuration');
+      await expect(serverManager.start('build-123', true)).rejects.toThrow(
+        'Port in use'
+      );
     });
 
-    it('handles async start errors gracefully', async () => {
-      const asyncError = new Error('Async start failure');
-      mockVizzlyServer.start.mockRejectedValue(asyncError);
+    it('should propagate HTTP server stop errors', async () => {
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockResolvedValue();
+      mockHttpServer.stop.mockRejectedValue(new Error('Stop failed'));
 
-      await expect(
-        serverManager.start('build123', null, 'lazy')
-      ).rejects.toThrow('Async start failure');
-
-      // Server reference should still be set even if start fails
-      expect(serverManager.server).toBe(mockVizzlyServer);
-    });
-
-    it('handles async stop errors gracefully', async () => {
-      mockVizzlyServer.start.mockResolvedValue();
-      mockVizzlyServer.stop.mockRejectedValue(new Error('Stop failed'));
-
-      await serverManager.start('build123', null, 'lazy');
+      await serverManager.start('build-123', true);
 
       await expect(serverManager.onStop()).rejects.toThrow('Stop failed');
     });
-  });
 
-  describe('configuration variations', () => {
-    it('handles minimal configuration', async () => {
-      const { VizzlyServer } = await import('../../src/server/index.js');
-      const minimalConfig = {};
-      const minimalServerManager = new ServerManager(minimalConfig, mockLogger);
+    it('should handle handler cleanup errors gracefully', async () => {
+      mockTddHandler.initialize.mockResolvedValue();
+      mockTddHandler.cleanup.mockImplementation(() => {
+        throw new Error('Cleanup error');
+      });
+      mockHttpServer.start.mockResolvedValue();
+      mockHttpServer.stop.mockResolvedValue();
 
-      mockVizzlyServer.start.mockResolvedValue();
+      await serverManager.start('build-123', true);
 
-      await minimalServerManager.start('build123', null, 'lazy');
-
-      expect(VizzlyServer).toHaveBeenCalledWith(
-        expect.objectContaining({
-          config: minimalConfig,
-          port: 47392,
-        })
-      );
-    });
-
-    it('handles rich configuration with all options', async () => {
-      const { VizzlyServer } = await import('../../src/server/index.js');
-      const richConfig = {
-        server: {
-          port: 8080,
-          host: '0.0.0.0',
-        },
-        tddMode: true,
-        baselineBuildId: 'build123',
-        baselineComparisonId: 'comp456',
-        workingDir: '/app/workspace',
-        buildId: 'current-build',
-        buildInfo: { name: 'Test Build' },
-        vizzlyApi: { key: 'api-key' },
-      };
-
-      const richServerManager = new ServerManager(richConfig, mockLogger);
-      mockVizzlyServer.start.mockResolvedValue();
-
-      await richServerManager.start('build123', null, 'lazy');
-
-      expect(VizzlyServer).toHaveBeenCalledWith(
-        expect.objectContaining({
-          config: richConfig,
-          port: 8080,
-          buildId: 'build123',
-          buildInfo: null,
-          baselineBuild: 'build123',
-          baselineComparison: 'comp456',
-        })
-      );
+      // Should not throw despite cleanup error
+      await expect(serverManager.onStop()).resolves.toBeUndefined();
     });
   });
 
   describe('edge cases', () => {
-    it('handles undefined config gracefully', async () => {
-      const { VizzlyServer } = await import('../../src/server/index.js');
+    it('should handle undefined config gracefully', () => {
       const serverManagerWithUndefinedConfig = new ServerManager(
         undefined,
         mockLogger
       );
 
-      mockVizzlyServer.start.mockResolvedValue();
+      expect(serverManagerWithUndefinedConfig.config).toBeUndefined();
+    });
 
-      await serverManagerWithUndefinedConfig.start('build123', null, 'lazy');
+    it('should work without baseline configuration', async () => {
+      const configWithoutBaseline = {
+        server: { port: 47392 },
+        apiKey: 'test-api-key',
+      };
 
-      expect(VizzlyServer).toHaveBeenCalledWith(
-        expect.objectContaining({
-          config: undefined,
-          port: 47392,
-        })
+      const serverManagerWithoutBaseline = new ServerManager(
+        configWithoutBaseline,
+        mockLogger
       );
-    });
 
-    it('handles null logger gracefully', () => {
-      const serverManagerWithNullLogger = new ServerManager(mockConfig, null);
+      const { createTddHandler } = await import(
+        '../../src/server/handlers/tdd-handler.js'
+      );
 
-      expect(serverManagerWithNullLogger.config).toBe(mockConfig);
-      expect(serverManagerWithNullLogger.logger).toHaveProperty(
-        'level',
-        'info'
-      ); // Fallback to default logger
-    });
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockResolvedValue();
 
-    it('server reference is properly managed', async () => {
-      mockVizzlyServer.start.mockResolvedValue();
+      await serverManagerWithoutBaseline.start('build-123', true);
 
-      // Initially null
-      expect(serverManager.server).toBe(null);
-
-      // Set during onStart
-      await serverManager.start('build123', null, 'lazy');
-      const serverRef = serverManager.server;
-      expect(serverRef).toBe(mockVizzlyServer);
-
-      // Reference persists after start
-      expect(serverManager.server).toBe(serverRef);
+      expect(createTddHandler).toHaveBeenCalledWith(
+        configWithoutBaseline,
+        process.cwd(),
+        undefined,
+        undefined
+      );
     });
   });
 });

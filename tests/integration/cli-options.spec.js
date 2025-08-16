@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { mkdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -12,10 +13,42 @@ const CLI_PATH = join(__dirname, '../../src/cli.js');
  */
 function runCLI(args, options = {}) {
   return new Promise((resolve, reject) => {
+    // Start with minimal clean environment - only essential system vars
+    const cleanEnv = {
+      PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+      HOME: process.env.HOME,
+      NODE_ENV: 'test',
+      CI: 'true',
+      // Explicitly disable dotenv loading to prevent .env file reading
+      DOTENV_CONFIG_PATH: '/dev/null',
+    };
+
+    // Explicitly remove any Vizzly tokens (setting to undefined doesn't work)
+    delete cleanEnv.VIZZLY_TOKEN;
+    delete cleanEnv.VIZZLY_API_KEY;
+
+    // Only add explicitly provided test env vars
+    if (options.env) {
+      Object.assign(cleanEnv, options.env);
+    }
+
+    // Create a completely isolated temp directory that definitely has no .env files
+    // Use a more unique identifier to prevent any collision
+    const testCwd =
+      options.cwd ||
+      `/tmp/vizzly-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Ensure the temp directory exists
+    try {
+      mkdirSync(testCwd, { recursive: true });
+    } catch {
+      // Ignore if directory already exists
+    }
+
     const child = spawn('node', [CLI_PATH, ...args], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, ...options.env },
-      cwd: options.cwd || process.cwd(),
+      env: cleanEnv,
+      cwd: testCwd,
     });
 
     let stdout = '';
@@ -51,16 +84,25 @@ describe('CLI Options Integration', () => {
   let originalEnv;
 
   beforeEach(() => {
+    // Save original environment but without any Vizzly tokens
     originalEnv = { ...process.env };
-    // Clear Vizzly environment variables
+    delete originalEnv.VIZZLY_TOKEN;
+    delete originalEnv.VIZZLY_API_KEY;
+
+    // Clear all Vizzly environment variables from current process
     delete process.env.VIZZLY_TOKEN;
+    delete process.env.VIZZLY_API_KEY;
     delete process.env.VIZZLY_API_URL;
     delete process.env.VIZZLY_VERBOSE;
     delete process.env.VIZZLY_JSON_OUTPUT;
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    // Restore clean environment (without tokens)
+    process.env = { ...originalEnv };
+    // Double-ensure Vizzly tokens are never restored
+    delete process.env.VIZZLY_TOKEN;
+    delete process.env.VIZZLY_API_KEY;
   });
 
   describe('Global options', () => {
@@ -143,17 +185,13 @@ describe('CLI Options Integration', () => {
       const result = await runCLI(['run', '--help']);
 
       expect(result.code).toBe(0);
-      expect(result.stdout).toContain('--tdd');
       expect(result.stdout).toContain('--port <port>');
       expect(result.stdout).toContain('--build-name <name>');
       expect(result.stdout).toContain('--branch <branch>');
       expect(result.stdout).toContain('--environment <env>');
       expect(result.stdout).toContain('--wait');
       expect(result.stdout).toContain('--timeout <ms>');
-      expect(result.stdout).toContain('--eager');
       expect(result.stdout).toContain('--allow-no-token');
-      expect(result.stdout).toContain('--baseline-build <id>');
-      expect(result.stdout).toContain('--baseline-comparison <id>');
     });
 
     it('should fail without test command argument', async () => {
@@ -232,9 +270,7 @@ describe('CLI Options Integration', () => {
     });
 
     it('should auto-detect missing API token and run in local-only mode', async () => {
-      const result = await runCLI(['tdd', 'echo "test"'], {
-        env: { CI: 'true' },
-      });
+      const result = await runCLI(['tdd', 'echo "test"']);
 
       expect(result.code).toBe(0);
       expect(result.stdout).toContain(
@@ -249,17 +285,6 @@ describe('CLI Options Integration', () => {
 
       // Should not fail due to missing token
       expect(result.stderr).not.toContain('API token required for TDD mode');
-    });
-
-    it('should handle run --tdd command as shortcut', async () => {
-      const result = await runCLI(['run', '--tdd', 'echo "test"'], {
-        env: { CI: 'true' },
-      });
-
-      expect(result.code).toBe(0); // Succeeds with auto-detected token
-      expect(result.stdout).toContain(
-        'No API token detected - running in local-only mode'
-      );
     });
 
     it('should handle port option parsing', async () => {

@@ -4,6 +4,7 @@ import {
   detectBranch,
   detectCommit,
 } from '../../src/utils/git.js';
+import * as ciEnv from '../../src/utils/ci-env.js';
 
 describe('Git Utilities - Simple Tests', () => {
   let originalDateNow;
@@ -33,6 +34,9 @@ describe('Git Utilities - Simple Tests', () => {
     });
 
     it('should return unknown when no override and getCurrentBranch fails', async () => {
+      // Mock CI environment to return null so we test git fallback
+      vi.spyOn(ciEnv, 'getBranch').mockReturnValue(null);
+
       // This will test the fallback when git fails
       const result = await detectBranch(null, '/non/existent/path');
       expect(result).toBe('unknown');
@@ -45,10 +49,22 @@ describe('Git Utilities - Simple Tests', () => {
       expect(result).toBe('custom-commit-sha');
     });
 
-    it('should return null when no override and git fails', async () => {
-      // This will test the fallback when git fails
+    it('should return null when no override, git fails, and no env vars', async () => {
+      // Mock CI environment to return null so we test git fallback
+      vi.spyOn(ciEnv, 'getCommit').mockReturnValue(null);
+
+      // This will test the fallback when git fails and no env vars are set
       const result = await detectCommit(null, '/non/existent/path');
       expect(result).toBe(null);
+    });
+
+    it('should prioritize environment variables over git', async () => {
+      // Mock CI environment to return a specific commit SHA
+      vi.spyOn(ciEnv, 'getCommit').mockReturnValue('env-commit-sha');
+
+      // This will test that env vars are prioritized even when git might work
+      const result = await detectCommit(null, process.cwd());
+      expect(result).toBe('env-commit-sha');
     });
   });
 });

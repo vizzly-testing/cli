@@ -88,10 +88,31 @@ program
       process.exit(1);
     }
 
-    const result = await tddCommand(command, options, globalOptions);
+    const { result, cleanup } = await tddCommand(
+      command,
+      options,
+      globalOptions
+    );
+
+    // Set up cleanup on process signals
+    const handleCleanup = async () => {
+      await cleanup();
+    };
+
+    process.once('SIGINT', () => {
+      handleCleanup().then(() => process.exit(1));
+    });
+
+    process.once('SIGTERM', () => {
+      handleCleanup().then(() => process.exit(1));
+    });
+
     if (result && !result.success && result.exitCode > 0) {
+      await cleanup();
       process.exit(result.exitCode);
     }
+
+    await cleanup();
   });
 
 program

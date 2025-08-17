@@ -34,7 +34,7 @@ describe('Run Command waitForBuild Exit Code Test', () => {
           comparisonsCompleted: 5,
           comparisonsPassed: 3,
           comparisonsFailed: 2,
-          url: 'https://app.vizzly.dev/builds/build-123',
+          url: 'https://app.test.com/builds/build-123',
         },
       };
 
@@ -50,7 +50,7 @@ describe('Run Command waitForBuild Exit Code Test', () => {
       expect(result.passedComparisons).toBe(3);
       expect(result.comparisons).toBe(5);
       expect(result.status).toBe('completed');
-      expect(result.url).toBe('https://app.vizzly.dev/builds/build-123');
+      expect(result.url).toBe('https://app.test.com/builds/build-123');
     });
 
     it('should handle missing comparison data gracefully', async () => {
@@ -70,7 +70,7 @@ describe('Run Command waitForBuild Exit Code Test', () => {
         build: {
           id: 'build-123',
           status: 'completed',
-          url: 'https://app.vizzly.dev/builds/build-123',
+          url: 'https://app.test.com/builds/build-123',
           // Missing comparisonsTotal, comparisonsPassed, comparisonsFailed
         },
       };
@@ -88,7 +88,7 @@ describe('Run Command waitForBuild Exit Code Test', () => {
       expect(result.passedComparisons).toBe(0);
       expect(result.comparisons).toBeUndefined();
       expect(result.status).toBe('completed');
-      expect(result.url).toBe('https://app.vizzly.dev/builds/build-123');
+      expect(result.url).toBe('https://app.test.com/builds/build-123');
     });
 
     it('should demonstrate the run command exit code logic', () => {
@@ -126,7 +126,7 @@ describe('Run Command waitForBuild Exit Code Test', () => {
 
       const config = {
         apiKey: 'test-api-key',
-        apiUrl: 'https://vizzly.dev',
+        apiUrl: 'https://api.test.com',
         command: 'run',
       };
 
@@ -141,7 +141,7 @@ describe('Run Command waitForBuild Exit Code Test', () => {
           comparisonsCompleted: 26,
           comparisonsPassed: 24,
           comparisonsFailed: 2, // Visual differences detected
-          url: 'https://vizzly.dev/vizzly/pitstop/builds/7b3732a2-59e9-43f8-8378-63b9c9196c59',
+          url: 'https://app.test.com/builds/7b3732a2-59e9-43f8-8378-63b9c9196c59',
         },
       };
 
@@ -161,7 +161,7 @@ describe('Run Command waitForBuild Exit Code Test', () => {
       expect(result.comparisons).toBe(26);
       expect(result.status).toBe('completed');
       expect(result.url).toBe(
-        'https://vizzly.dev/vizzly/pitstop/builds/7b3732a2-59e9-43f8-8378-63b9c9196c59'
+        'https://app.test.com/builds/7b3732a2-59e9-43f8-8378-63b9c9196c59'
       );
     });
   });

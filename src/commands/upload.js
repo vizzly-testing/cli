@@ -4,7 +4,8 @@ import { createServiceContainer } from '../container/index.js';
 import {
   detectBranch,
   detectCommit,
-  getCommitMessage,
+  detectCommitMessage,
+  detectPullRequestNumber,
   generateBuildNameWithGit,
 } from '../utils/git.js';
 import { ApiService } from '../services/api-service.js';
@@ -85,8 +86,9 @@ export async function uploadCommand(
     // Collect git metadata if not provided
     const branch = await detectBranch(options.branch);
     const commit = await detectCommit(options.commit);
-    const message = options.message || (await getCommitMessage());
+    const message = options.message || (await detectCommitMessage());
     const buildName = await generateBuildNameWithGit(options.buildName);
+    const pullRequestNumber = detectPullRequestNumber();
 
     ui.info(`Uploading screenshots from: ${screenshotsPath}`);
     if (globalOptions.verbose) {
@@ -114,6 +116,7 @@ export async function uploadCommand(
       threshold: config.comparison.threshold,
       uploadAll: options.uploadAll || false,
       metadata: options.metadata ? JSON.parse(options.metadata) : {},
+      pullRequestNumber,
       onProgress: progressData => {
         const {
           message: progressMessage,

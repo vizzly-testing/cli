@@ -50,7 +50,7 @@ describe('Uploader Service Integration Test', () => {
           comparisonsCompleted: 5,
           comparisonsPassed: 3,
           comparisonsFailed: 2,
-          url: 'https://app.vizzly.dev/builds/build-123',
+          url: 'https://app.test.com/builds/build-123',
         },
       };
 
@@ -68,7 +68,7 @@ describe('Uploader Service Integration Test', () => {
         comparisons: 5,
         passedComparisons: 3,
         failedComparisons: 2,
-        url: 'https://app.vizzly.dev/builds/build-123',
+        url: 'https://app.test.com/builds/build-123',
         build: mockBuildResponse.build,
       });
     });

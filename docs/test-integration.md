@@ -275,7 +275,13 @@ jobs:
       - run: npx vizzly run "npm test" --wait
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+          # Optional: Enhanced git information from GitHub context
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.head_commit.id }}
+          VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
 ```
+
+**Enhanced Git Information:** The `VIZZLY_*` environment variables ensure accurate git metadata is captured in your builds, avoiding issues with merge commits that can occur in CI environments.
 
 ### GitLab CI
 

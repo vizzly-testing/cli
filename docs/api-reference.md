@@ -481,13 +481,28 @@ Configuration loaded via cosmiconfig in this order:
 
 ### Environment Variables
 
+**Core Configuration:**
 - `VIZZLY_TOKEN` - API authentication token
 - `VIZZLY_API_URL` - API base URL override
 - `VIZZLY_LOG_LEVEL` - Logger level (`debug`, `info`, `warn`, `error`)
+
+**Git Information Override (CI/CD Enhancement):**
+- `VIZZLY_COMMIT_SHA` - Override detected commit SHA
+- `VIZZLY_COMMIT_MESSAGE` - Override detected commit message
+- `VIZZLY_BRANCH` - Override detected branch name
+- `VIZZLY_PR_NUMBER` - Override detected pull request number
+
+**Runtime (Set by CLI):**
 - `VIZZLY_SERVER_URL` - Screenshot server URL (set by CLI)
 - `VIZZLY_ENABLED` - Enable/disable client (set by CLI)
 - `VIZZLY_BUILD_ID` - Current build ID (set by CLI)
 - `VIZZLY_TDD_MODE` - TDD mode active (set by CLI)
+
+**Priority Order for Git Information:**
+1. CLI arguments (`--commit`, `--branch`, `--message`)
+2. `VIZZLY_*` environment variables
+3. CI-specific environment variables (e.g., `GITHUB_SHA`, `CI_COMMIT_SHA`)
+4. Git command detection
 
 ## Error Handling
 

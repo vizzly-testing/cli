@@ -101,3 +101,4 @@ jobs:
       env:
         CI: true
         VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+        VIZZLY_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}

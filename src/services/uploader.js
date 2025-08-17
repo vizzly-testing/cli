@@ -57,6 +57,7 @@ export function createUploader(
     message,
     environment = 'production',
     threshold,
+    pullRequestNumber,
     onProgress = () => {},
   }) {
     try {
@@ -106,10 +107,11 @@ export function createUploader(
       const buildInfo = {
         name: buildName || `Upload ${new Date().toISOString()}`,
         branch: branch || (await getDefaultBranch()) || 'main',
-        commitSha: commit,
-        commitMessage: message,
+        commit_sha: commit,
+        commit_message: message,
         environment,
         threshold,
+        github_pull_request_number: pullRequestNumber,
       };
 
       const build = await api.createBuild(buildInfo);

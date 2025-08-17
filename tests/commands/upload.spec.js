@@ -30,6 +30,8 @@ vi.mock('../../src/utils/git.js', () => ({
   detectBranch: vi.fn(),
   detectCommit: vi.fn(),
   getCommitMessage: vi.fn(),
+  detectCommitMessage: vi.fn(),
+  detectPullRequestNumber: vi.fn(),
   generateBuildNameWithGit: vi.fn(),
 }));
 
@@ -80,6 +82,8 @@ describe('uploadCommand', () => {
       detectBranch,
       detectCommit,
       getCommitMessage,
+      detectCommitMessage,
+      detectPullRequestNumber,
       generateBuildNameWithGit,
     } = await import('../../src/utils/git.js');
     const { ApiService } = await import('../../src/services/api-service.js');
@@ -98,6 +102,8 @@ describe('uploadCommand', () => {
     detectBranch.mockResolvedValue('main');
     detectCommit.mockResolvedValue('abc123');
     getCommitMessage.mockResolvedValue('Test commit');
+    detectCommitMessage.mockResolvedValue('Test commit');
+    detectPullRequestNumber.mockReturnValue(null);
     generateBuildNameWithGit.mockResolvedValue('test-build');
 
     mockUploader.upload.mockResolvedValue({

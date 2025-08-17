@@ -8,6 +8,7 @@ import { detectBranch, detectCommit } from '../utils/git.js';
  * @param {string} testCommand - Test command to execute
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @returns {Promise<{result: Object, cleanup: Function}>} Result and cleanup function
  */
 export async function tddCommand(
   testCommand,
@@ -22,23 +23,18 @@ export async function tddCommand(
   });
 
   let testRunner = null;
+  let isCleanedUp = false;
 
-  // Ensure cleanup on exit - store listeners for proper cleanup
+  // Create cleanup function that can be called by the caller
   const cleanup = async () => {
+    if (isCleanedUp) return;
+    isCleanedUp = true;
+
     ui.cleanup();
-    // The test runner's finally block will handle server cleanup
-    // We just need to ensure UI cleanup happens
+    if (testRunner?.cancel) {
+      await testRunner.cancel();
+    }
   };
-
-  const sigintHandler = async () => {
-    await cleanup();
-    process.exit(1);
-  };
-
-  const exitHandler = () => ui.cleanup();
-
-  process.on('SIGINT', sigintHandler);
-  process.on('exit', exitHandler);
 
   try {
     // Load configuration with CLI overrides
@@ -179,24 +175,35 @@ export async function tddCommand(
 
     ui.success('TDD test run completed');
 
-    // Exit with appropriate code based on comparison results
-    if (
+    // Determine success based on comparison results
+    const hasFailures =
       result.failed ||
       (result.comparisons &&
-        result.comparisons.some(c => c.status === 'failed'))
-    ) {
+        result.comparisons.some(c => c.status === 'failed'));
+
+    if (hasFailures) {
       ui.error('Visual differences detected in TDD mode', {}, 0);
-      // Return error status without calling process.exit in tests
-      return { success: false, exitCode: 1 };
     }
 
-    ui.cleanup();
+    // Return result and cleanup function
+    return {
+      result: {
+        success: !hasFailures,
+        exitCode: hasFailures ? 1 : 0,
+        ...result,
+      },
+      cleanup,
+    };
   } catch (error) {
     ui.error('TDD test run failed', error);
-  } finally {
-    // Remove event listeners to prevent memory leaks
-    process.removeListener('SIGINT', sigintHandler);
-    process.removeListener('exit', exitHandler);
+    return {
+      result: {
+        success: false,
+        exitCode: 1,
+        error: error.message,
+      },
+      cleanup,
+    };
   }
 }
 

@@ -125,13 +125,12 @@ export class TestRunner extends BaseService {
       const apiService = await this.createApiService();
       if (apiService) {
         const buildResult = await apiService.createBuild({
-          build: {
-            name: options.buildName || `Test Run ${new Date().toISOString()}`,
-            branch: options.branch || 'main',
-            environment: options.environment || 'test',
-            commit_sha: options.commit,
-            commit_message: options.message,
-          },
+          name: options.buildName || `Test Run ${new Date().toISOString()}`,
+          branch: options.branch || 'main',
+          environment: options.environment || 'test',
+          commit_sha: options.commit,
+          commit_message: options.message,
+          github_pull_request_number: options.pullRequestNumber,
         });
         this.logger.debug(`Build created with ID: ${buildResult.id}`);
 
@@ -171,11 +170,16 @@ export class TestRunner extends BaseService {
 
     try {
       if (isTddMode) {
-        // TDD mode: use server handler to finalize
+        // TDD mode: use server handler to finalize (local-only)
         if (this.serverManager.server?.finishBuild) {
           await this.serverManager.server.finishBuild(buildId);
           this.logger.debug(
             `TDD build ${buildId} finalized with success: ${success}`
+          );
+        } else {
+          // In TDD mode without a server, just log that finalization is skipped
+          this.logger.debug(
+            `TDD build ${buildId} finalization skipped (local-only mode)`
           );
         }
       } else {

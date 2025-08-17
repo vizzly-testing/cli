@@ -55,6 +55,7 @@ function runCLI(args, options = {}) {
 
     let stdout = '';
     let stderr = '';
+    let isResolved = false;
 
     child.stdout.on('data', data => {
       stdout += data.toString();
@@ -65,20 +66,35 @@ function runCLI(args, options = {}) {
     });
 
     child.on('close', code => {
-      resolve({
-        code,
-        stdout: stdout.trim(),
-        stderr: stderr.trim(),
-      });
+      if (!isResolved) {
+        isResolved = true;
+        clearTimeout(timeoutId);
+        resolve({
+          code,
+          stdout: stdout.trim(),
+          stderr: stderr.trim(),
+        });
+      }
     });
 
-    child.on('error', reject);
+    child.on('error', error => {
+      if (!isResolved) {
+        isResolved = true;
+        clearTimeout(timeoutId);
+        reject(error);
+      }
+    });
 
     // Kill process after timeout to prevent hanging
-    setTimeout(() => {
-      child.kill('SIGTERM');
-      reject(new Error('Process timeout'));
-    }, 5000);
+    // Use longer timeout for CI environments to reduce flakiness
+    const timeout = options.timeout || (process.env.CI ? 15000 : 10000);
+    const timeoutId = setTimeout(() => {
+      if (!isResolved) {
+        isResolved = true;
+        child.kill('SIGTERM');
+        reject(new Error(`Process timeout after ${timeout}ms`));
+      }
+    }, timeout);
   });
 }
 

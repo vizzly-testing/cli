@@ -96,7 +96,11 @@ describe('tddCommand', () => {
 
   describe('successful execution', () => {
     it('should run TDD command successfully with API token', async () => {
-      await tddCommand('npm test', {}, { verbose: false });
+      const { result, cleanup } = await tddCommand(
+        'npm test',
+        {},
+        { verbose: false }
+      );
 
       expect(mockUI.startSpinner).toHaveBeenCalledWith(
         'Initializing TDD mode...'
@@ -113,6 +117,16 @@ describe('tddCommand', () => {
         })
       );
       expect(mockUI.success).toHaveBeenCalledWith('TDD test run completed');
+
+      // Test the new return structure
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false); // Failed because one comparison failed
+      expect(result.exitCode).toBe(1);
+      expect(typeof cleanup).toBe('function');
+
+      // Test cleanup function
+      await cleanup();
+      expect(mockUI.cleanup).toHaveBeenCalled();
     });
 
     it('should auto-detect missing token and enable local-only mode', async () => {
@@ -125,7 +139,7 @@ describe('tddCommand', () => {
         allowNoToken: false,
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
 
       expect(mockUI.warning).toHaveBeenCalledWith(
         'No API token detected - running in local-only mode'
@@ -133,10 +147,14 @@ describe('tddCommand', () => {
       expect(mockUI.warning).toHaveBeenCalledWith(
         'Running without API token - all screenshots will be marked as new'
       );
+
+      // Test cleanup
+      await cleanup();
     });
 
     it('should handle verbose mode correctly', async () => {
-      await tddCommand('npm test', {}, { verbose: true });
+      const { cleanup } = await tddCommand('npm test', {}, { verbose: true });
+      await cleanup();
 
       expect(mockUI.info).toHaveBeenCalledWith(
         'TDD Configuration loaded',
@@ -150,7 +168,12 @@ describe('tddCommand', () => {
     });
 
     it('should handle set-baseline flag', async () => {
-      await tddCommand('npm test', { setBaseline: true }, {});
+      const { cleanup } = await tddCommand(
+        'npm test',
+        { setBaseline: true },
+        {}
+      );
+      await cleanup();
 
       expect(mockUI.info).toHaveBeenCalledWith(
         '🐻 Baseline update mode - current screenshots will become new baselines'
@@ -165,7 +188,8 @@ describe('tddCommand', () => {
     it('should display comparison results summary', async () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(consoleSpy).toHaveBeenCalledWith(
         '🐻 Vizzly TDD: Processed 3 screenshots'
@@ -186,7 +210,8 @@ describe('tddCommand', () => {
         comparisons: [{ status: 'failed' }, { status: 'passed' }],
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(mockUI.error).toHaveBeenCalledWith(
         'Visual differences detected in TDD mode',
@@ -202,7 +227,8 @@ describe('tddCommand', () => {
         comparisons: [],
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(mockUI.error).toHaveBeenCalledWith(
         'Visual differences detected in TDD mode',
@@ -218,7 +244,8 @@ describe('tddCommand', () => {
       const error = new Error('Config load failed');
       loadConfig.mockRejectedValue(error);
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(mockUI.error).toHaveBeenCalledWith('TDD test run failed', error);
     });
@@ -230,7 +257,8 @@ describe('tddCommand', () => {
       const error = new Error('Container creation failed');
       createServiceContainer.mockRejectedValue(error);
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(mockUI.error).toHaveBeenCalledWith('TDD test run failed', error);
     });
@@ -239,7 +267,8 @@ describe('tddCommand', () => {
       const error = new Error('Test runner failed');
       mockTestRunner.run.mockRejectedValue(error);
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(mockUI.error).toHaveBeenCalledWith('TDD test run failed', error);
     });
@@ -247,7 +276,8 @@ describe('tddCommand', () => {
 
   describe('event handling', () => {
     it('should set up all required event handlers', async () => {
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(mockTestRunner.on).toHaveBeenCalledWith(
         'progress',
@@ -281,7 +311,8 @@ describe('tddCommand', () => {
         if (event === 'progress') progressHandler = handler;
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       progressHandler({ message: 'TDD progress...' });
       expect(mockUI.progress).toHaveBeenCalledWith('TDD progress...');
@@ -293,7 +324,8 @@ describe('tddCommand', () => {
         if (event === 'screenshot-captured') screenshotHandler = handler;
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       screenshotHandler({ name: 'test-screenshot' });
       expect(mockUI.info).toHaveBeenCalledWith(
@@ -307,7 +339,8 @@ describe('tddCommand', () => {
         if (event === 'comparison-result') comparisonHandler = handler;
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       comparisonHandler({ name: 'test', status: 'passed' });
       expect(mockUI.info).toHaveBeenCalledWith(
@@ -321,7 +354,8 @@ describe('tddCommand', () => {
         if (event === 'comparison-result') comparisonHandler = handler;
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       comparisonHandler({
         name: 'test',
@@ -339,7 +373,8 @@ describe('tddCommand', () => {
         if (event === 'comparison-result') comparisonHandler = handler;
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       comparisonHandler({ name: 'test', status: 'new' });
       expect(mockUI.warning).toHaveBeenCalledWith(
@@ -353,7 +388,8 @@ describe('tddCommand', () => {
         if (event === 'server-ready') serverReadyHandler = handler;
       });
 
-      await tddCommand('npm test', {}, { verbose: true });
+      const { cleanup } = await tddCommand('npm test', {}, { verbose: true });
+      await cleanup();
 
       serverReadyHandler({ port: 3000 });
       expect(mockUI.info).toHaveBeenCalledWith(
@@ -367,7 +403,8 @@ describe('tddCommand', () => {
         if (event === 'error') errorHandler = handler;
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       const testError = new Error('Test error');
       errorHandler(testError);
@@ -397,7 +434,10 @@ describe('tddCommand', () => {
         baselineComparisonId: 'comp456',
       });
 
-      await tddCommand('npm test', options, { verbose: true });
+      const { cleanup } = await tddCommand('npm test', options, {
+        verbose: true,
+      });
+      await cleanup();
 
       expect(mockTestRunner.run).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -412,7 +452,8 @@ describe('tddCommand', () => {
       const globalOptions = { verbose: true, json: true };
       const options = { port: '4000', threshold: 0.05 };
 
-      await tddCommand('npm test', options, globalOptions);
+      const { cleanup } = await tddCommand('npm test', options, globalOptions);
+      await cleanup();
 
       expect(mockTestRunner.run).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -425,7 +466,8 @@ describe('tddCommand', () => {
 
   describe('API token handling', () => {
     it('should show baseline fetch message when API token is available', async () => {
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(mockUI.info).toHaveBeenCalledWith(
         'API token available - will fetch baselines for local comparison'
@@ -442,7 +484,8 @@ describe('tddCommand', () => {
         allowNoToken: false,
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(mockUI.warning).toHaveBeenCalledWith(
         'Running without API token - all screenshots will be marked as new'
@@ -459,7 +502,8 @@ describe('tddCommand', () => {
         comparisons: [{ status: 'passed' }, { status: 'new' }],
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(consoleSpy).not.toHaveBeenCalledWith(
         '🔍 Check diff images in .vizzly/diffs/ directory'
@@ -475,7 +519,8 @@ describe('tddCommand', () => {
         comparisons: [],
       });
 
-      await tddCommand('npm test', {}, {});
+      const { cleanup } = await tddCommand('npm test', {}, {});
+      await cleanup();
 
       expect(consoleSpy).toHaveBeenCalledWith(
         '🐻 Vizzly TDD: Processed 1 screenshots'

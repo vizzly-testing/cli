@@ -4,6 +4,7 @@ import {
   detectBranch,
   detectCommit,
 } from '../../src/utils/git.js';
+import * as ciEnv from '../../src/utils/ci-env.js';
 
 describe('Git Utilities - Simple Tests', () => {
   let originalDateNow;
@@ -33,6 +34,9 @@ describe('Git Utilities - Simple Tests', () => {
     });
 
     it('should return unknown when no override and getCurrentBranch fails', async () => {
+      // Mock CI environment to return null so we test git fallback
+      vi.spyOn(ciEnv, 'getBranch').mockReturnValue(null);
+
       // This will test the fallback when git fails
       const result = await detectBranch(null, '/non/existent/path');
       expect(result).toBe('unknown');
@@ -46,33 +50,21 @@ describe('Git Utilities - Simple Tests', () => {
     });
 
     it('should return null when no override, git fails, and no env vars', async () => {
-      // Mock environment to remove any CI-related commit SHA env vars
-      const originalEnv = process.env;
-      process.env = {};
+      // Mock CI environment to return null so we test git fallback
+      vi.spyOn(ciEnv, 'getCommit').mockReturnValue(null);
 
-      try {
-        // This will test the fallback when git fails and no env vars are set
-        const result = await detectCommit(null, '/non/existent/path');
-        expect(result).toBe(null);
-      } finally {
-        // Restore original environment
-        process.env = originalEnv;
-      }
+      // This will test the fallback when git fails and no env vars are set
+      const result = await detectCommit(null, '/non/existent/path');
+      expect(result).toBe(null);
     });
 
     it('should prioritize environment variables over git', async () => {
-      // Mock environment with a commit SHA
-      const originalEnv = process.env;
-      process.env = { ...originalEnv, GITHUB_SHA: 'env-commit-sha' };
+      // Mock CI environment to return a specific commit SHA
+      vi.spyOn(ciEnv, 'getCommit').mockReturnValue('env-commit-sha');
 
-      try {
-        // This will test that env vars are prioritized even when git might work
-        const result = await detectCommit(null, process.cwd());
-        expect(result).toBe('env-commit-sha');
-      } finally {
-        // Restore original environment
-        process.env = originalEnv;
-      }
+      // This will test that env vars are prioritized even when git might work
+      const result = await detectCommit(null, process.cwd());
+      expect(result).toBe('env-commit-sha');
     });
   });
 });

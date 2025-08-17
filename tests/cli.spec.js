@@ -10,9 +10,29 @@ const CLI_PATH = join(__dirname, '..', 'src', 'cli.js');
 // Helper to run CLI commands
 function runCLI(args = [], options = {}) {
   return new Promise((resolve, reject) => {
+    // Create clean environment to prevent hitting local dev server
+    const cleanEnv = {
+      PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+      HOME: process.env.HOME,
+      NODE_ENV: 'test',
+      CI: 'true',
+      // Force API URL to prevent hitting local dev server
+      VIZZLY_API_URL: 'https://api.vizzly.dev/test',
+      // Prevent any localhost connections
+      VIZZLY_SERVER_URL: 'https://api.vizzly.dev/test',
+    };
+
+    // Explicitly remove any Vizzly tokens (setting to undefined doesn't work)
+    delete cleanEnv.VIZZLY_TOKEN;
+    delete cleanEnv.VIZZLY_API_KEY;
+
+    // Merge with any provided env options
+    const finalEnv = { ...cleanEnv, ...(options.env || {}) };
+
     const child = spawn('node', [CLI_PATH, ...args], {
       stdio: 'pipe',
       ...options,
+      env: finalEnv,
     });
 
     let stdout = '';

@@ -21,6 +21,8 @@ function runCLI(args, options = {}) {
       CI: 'true',
       // Explicitly disable dotenv loading to prevent .env file reading
       DOTENV_CONFIG_PATH: '/dev/null',
+      VIZZLY_API_URL: 'https://api.vizzly.dev/test',
+      VIZZLY_SERVER_URL: 'https://api.vizzly.dev/test',
     };
 
     // Explicitly remove any Vizzly tokens (setting to undefined doesn't work)
@@ -95,6 +97,12 @@ describe('TDD Command Integration', () => {
     delete process.env.VIZZLY_API_URL;
     delete process.env.VIZZLY_VERBOSE;
     delete process.env.VIZZLY_JSON_OUTPUT;
+
+    // Clear any global mocks that might interfere with child processes
+    if (global.fetch && typeof global.fetch.mockRestore === 'function') {
+      global.fetch.mockRestore();
+    }
+    delete global.fetch;
   });
 
   afterEach(() => {

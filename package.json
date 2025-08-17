@@ -73,11 +73,11 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "commander": "^11.1.0",
+    "commander": "^14.0.0",
     "cosmiconfig": "^9.0.0",
     "dotenv": "^17.2.1",
     "form-data": "^4.0.0",
-    "glob": "^10.3.10",
+    "glob": "^11.0.3",
     "odiff-bin": "^3.2.1"
   },
   "devDependencies": {
@@ -93,7 +93,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",
     "prettier": "^3.6.2",
-    "rimraf": "^5.0.5",
+    "rimraf": "^6.0.1",
     "typescript": "^5.0.4",
     "vite": "^7.1.2",
     "vitest": "^3.2.4"

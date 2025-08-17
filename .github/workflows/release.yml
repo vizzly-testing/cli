@@ -52,8 +52,8 @@ jobs:
     
     - name: Configure git
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
+        git config --local user.name "${{ secrets.GIT_USER_NAME }}"
     
     - name: Bump version and create tag
       id: version
@@ -68,7 +68,7 @@ jobs:
         
         # Commit the version change
         git add package.json
-        git commit -m "🔖 Release v$NEW_VERSION"
+        git commit -m "🔖 v$NEW_VERSION"
         
         # Create and push tag
         git tag "v$NEW_VERSION"
@@ -100,7 +100,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.version.outputs.new_version }}
-        release_name: Release ${{ steps.version.outputs.new_version }}
+        release_name: ✨ ${{ steps.version.outputs.new_version }}
         body: ${{ steps.release_notes.outputs.notes }}
         draft: false
         prerelease: false

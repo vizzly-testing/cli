@@ -4,249 +4,478 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pricing - FluffyCloud</title>
-    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a'
+                        },
+                        secondary: {
+                            500: '#8b5cf6',
+                            600: '#7c3aed'
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
-<body>
-    <header>
-        <nav>
-            <div class="logo">
-                <h1>🐾 FluffyCloud</h1>
+<body class="font-sans antialiased bg-white">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">🐾</span>
+                    <span class="text-xl font-bold text-gray-900">FluffyCloud</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="index.html" class="text-gray-600 hover:text-primary-600 transition-colors">Home</a>
+                    <a href="features.html" class="text-gray-600 hover:text-primary-600 transition-colors">Features</a>
+                    <a href="pricing.html" class="text-primary-600 font-medium">Pricing</a>
+                    <a href="contact.html" class="text-gray-600 hover:text-primary-600 transition-colors">Contact</a>
+                    <button class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">Start Free Trial</button>
+                </div>
+                <div class="md:hidden">
+                    <button class="text-gray-600 hover:text-gray-900">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
-            <ul class="nav-links">
-                <li><a href="index.html">Home</a></li>
-                <li><a href="features.html">Features</a></li>
-                <li><a href="pricing.html" class="active">Pricing</a></li>
-                <li><a href="contact.html">Contact</a></li>
-            </ul>
-        </nav>
-    </header>
+        </div>
+    </nav>
 
     <main>
-        <section class="pricing-hero">
-            <h1>Choose Your Perfect Plan</h1>
-            <p>Pricing that won't make you feel like you're paying for premium pet food every month</p>
-        </section>
-
-        <section class="pricing-toggle">
-            <div class="billing-toggle">
-                <span class="toggle-label">Monthly</span>
-                <label class="switch">
-                    <input type="checkbox" id="billingToggle">
-                    <span class="slider"></span>
-                </label>
-                <span class="toggle-label">Yearly <span class="discount-badge">Save 20%!</span></span>
+        <!-- Pricing Hero -->
+        <section class="py-24 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h1 class="text-5xl lg:text-6xl font-black text-gray-900 leading-tight mb-6">
+                    Choose Your 
+                    <span class="bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                        Perfect Plan
+                    </span>
+                </h1>
+                <p class="text-xl text-gray-600 leading-relaxed max-w-3xl mx-auto">
+                    Pricing that won't make you feel like you're paying for premium pet food every month
+                </p>
             </div>
         </section>
 
-        <section class="pricing-plans">
-            <div class="plans-container">
-                <div class="plan-card basic">
-                    <div class="plan-header">
-                        <h3>Kitten Plan</h3>
-                        <div class="plan-icon">🐱</div>
-                        <div class="price">
-                            <span class="currency">$</span>
-                            <span class="amount" id="basic-price">5</span>
-                            <span class="period">/month</span>
+        <!-- Billing Toggle -->
+        <section class="py-12 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <div class="inline-flex items-center bg-gray-100 rounded-full p-1">
+                    <button class="billing-btn px-6 py-3 rounded-full font-medium transition-all duration-200 bg-white shadow-sm text-gray-900" data-period="monthly">
+                        Monthly
+                    </button>
+                    <button class="billing-btn px-6 py-3 rounded-full font-medium transition-all duration-200 text-gray-600 hover:text-gray-900" data-period="yearly">
+                        Yearly
+                        <span class="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">Save 20%!</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pricing Plans -->
+        <section class="py-24 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid lg:grid-cols-3 gap-8">
+                    <!-- Kitten Plan -->
+                    <div class="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 relative">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-600 rounded-xl flex items-center justify-center text-2xl text-white mx-auto mb-4">
+                                🐱
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Kitten Plan</h3>
+                            <p class="text-gray-600">Perfect for single pet households</p>
                         </div>
-                        <p class="plan-description">Perfect for single pet households</p>
-                    </div>
-                    <div class="plan-features">
-                        <ul>
-                            <li>✅ 10GB Storage</li>
-                            <li>✅ Up to 1 Pet Profile</li>
-                            <li>✅ Basic Photo Organization</li>
-                            <li>✅ Mobile App Access</li>
-                            <li>✅ Automatic Backup</li>
-                            <li>❌ Video Storage</li>
-                            <li>❌ Premium Support</li>
-                        </ul>
-                    </div>
-                    <button class="btn plan-btn">Start Free Trial</button>
-                </div>
-
-                <div class="plan-card pro popular">
-                    <div class="popular-badge">Most Popular</div>
-                    <div class="plan-header">
-                        <h3>Good Boy Plan</h3>
-                        <div class="plan-icon">🐕</div>
-                        <div class="price">
-                            <span class="currency">$</span>
-                            <span class="amount" id="pro-price">15</span>
-                            <span class="period">/month</span>
+                        
+                        <div class="text-center mb-8">
+                            <div class="flex items-baseline justify-center">
+                                <span class="text-gray-600 text-lg">$</span>
+                                <span class="text-4xl font-bold text-gray-900 price-amount" data-monthly="5" data-yearly="4">5</span>
+                                <span class="text-gray-600 text-lg">/month</span>
+                            </div>
                         </div>
-                        <p class="plan-description">Great for multi-pet families</p>
-                    </div>
-                    <div class="plan-features">
-                        <ul>
-                            <li>✅ 100GB Storage</li>
-                            <li>✅ Up to 5 Pet Profiles</li>
-                            <li>✅ Advanced Photo Organization</li>
-                            <li>✅ Video Storage (up to 4K)</li>
-                            <li>✅ Priority Support</li>
-                            <li>✅ Sharing & Collaboration</li>
-                            <li>✅ Custom Albums</li>
-                            <li>✅ AI Photo Tagging</li>
+                        
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                10GB Storage
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Up to 1 Pet Profile
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Basic Photo Organization
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Mobile App Access
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Automatic Backup
+                            </li>
+                            <li class="flex items-center opacity-50">
+                                <svg class="w-5 h-5 mr-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                                Video Storage
+                            </li>
+                            <li class="flex items-center opacity-50">
+                                <svg class="w-5 h-5 mr-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                                Premium Support
+                            </li>
                         </ul>
+                        
+                        <button class="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 py-3 rounded-lg font-semibold transition-colors">
+                            Start Free Trial
+                        </button>
                     </div>
-                    <button class="btn primary plan-btn">Start Free Trial</button>
-                </div>
 
-                <div class="plan-card enterprise">
-                    <div class="plan-header">
-                        <h3>Zoo Keeper Plan</h3>
-                        <div class="plan-icon">🦁</div>
-                        <div class="price">
-                            <span class="currency">$</span>
-                            <span class="amount" id="enterprise-price">50</span>
-                            <span class="period">/month</span>
+                    <!-- Good Boy Plan (Popular) -->
+                    <div class="bg-white rounded-2xl p-8 shadow-xl border-2 border-primary-500 relative transform scale-105">
+                        <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                            <span class="bg-primary-500 text-white px-4 py-2 rounded-full text-sm font-semibold">Most Popular</span>
                         </div>
-                        <p class="plan-description">For pet shelters and crazy cat ladies</p>
-                    </div>
-                    <div class="plan-features">
-                        <ul>
-                            <li>✅ 1TB Storage</li>
-                            <li>✅ Unlimited Pet Profiles</li>
-                            <li>✅ Everything in Good Boy Plan</li>
-                            <li>✅ Advanced Analytics</li>
-                            <li>✅ API Access</li>
-                            <li>✅ White-label Options</li>
-                            <li>✅ 24/7 Dedicated Support</li>
-                            <li>✅ Custom Integrations</li>
+                        
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mx-auto mb-4">
+                                🐕
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Good Boy Plan</h3>
+                            <p class="text-gray-600">Great for multi-pet families</p>
+                        </div>
+                        
+                        <div class="text-center mb-8">
+                            <div class="flex items-baseline justify-center">
+                                <span class="text-gray-600 text-lg">$</span>
+                                <span class="text-4xl font-bold text-gray-900 price-amount" data-monthly="15" data-yearly="12">15</span>
+                                <span class="text-gray-600 text-lg">/month</span>
+                            </div>
+                        </div>
+                        
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                100GB Storage
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Up to 5 Pet Profiles
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Advanced Photo Organization
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Video Storage (up to 4K)
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Priority Support
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                AI Photo Tagging
+                            </li>
                         </ul>
+                        
+                        <button class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-semibold transition-colors">
+                            Start Free Trial
+                        </button>
                     </div>
-                    <button class="btn plan-btn">Contact Sales</button>
+
+                    <!-- Zoo Keeper Plan -->
+                    <div class="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 relative">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center text-2xl text-white mx-auto mb-4">
+                                🦁
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Zoo Keeper Plan</h3>
+                            <p class="text-gray-600">For pet shelters and crazy cat ladies</p>
+                        </div>
+                        
+                        <div class="text-center mb-8">
+                            <div class="flex items-baseline justify-center">
+                                <span class="text-gray-600 text-lg">$</span>
+                                <span class="text-4xl font-bold text-gray-900 price-amount" data-monthly="50" data-yearly="40">50</span>
+                                <span class="text-gray-600 text-lg">/month</span>
+                            </div>
+                        </div>
+                        
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                1TB Storage
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Unlimited Pet Profiles
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Everything in Good Boy Plan
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Advanced Analytics
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                API Access
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-5 h-5 mr-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                24/7 Dedicated Support
+                            </li>
+                        </ul>
+                        
+                        <button class="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 rounded-lg font-semibold transition-colors">
+                            Contact Sales
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <section class="pricing-faq">
-            <h2>Frequently Asked Questions</h2>
-            <div class="faq-grid">
-                <div class="faq-item">
-                    <h3>What happens if my pet takes more photos than my storage limit?</h3>
-                    <p>Don't worry! We'll send you a gentle notification (like a soft meow) when you're approaching your limit. You can always upgrade or we'll help you organize your photos better.</p>
+        <!-- FAQ Section -->
+        <section class="py-24 bg-white">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+                        Frequently Asked Questions
+                    </h2>
                 </div>
-                <div class="faq-item">
-                    <h3>Can I change plans if I adopt more pets?</h3>
-                    <p>Absolutely! We love growing families. You can upgrade anytime, and we'll prorate the difference. Adding pets is always a good reason to celebrate!</p>
-                </div>
-                <div class="faq-item">
-                    <h3>Do you offer refunds if my pet doesn't like the service?</h3>
-                    <p>While we can't guarantee your pet's approval (cats can be particularly picky), we offer a 30-day money-back guarantee for all our human customers.</p>
-                </div>
-                <div class="faq-item">
-                    <h3>Is there really unlimited storage for the Zoo Keeper plan?</h3>
-                    <p>Yes! We define "unlimited" as more storage than you could fill even if you took a photo of your pet every second for the next 100 years. Challenge accepted?</p>
+                
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="bg-gray-50 p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">What happens if my pet takes more photos than my storage limit?</h3>
+                        <p class="text-gray-600">Don't worry! We'll send you a gentle notification (like a soft meow) when you're approaching your limit. You can always upgrade or we'll help you organize your photos better.</p>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Can I change plans if I adopt more pets?</h3>
+                        <p class="text-gray-600">Absolutely! We love growing families. You can upgrade anytime, and we'll prorate the difference. Adding pets is always a good reason to celebrate!</p>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Do you offer refunds if my pet doesn't like the service?</h3>
+                        <p class="text-gray-600">While we can't guarantee your pet's approval (cats can be particularly picky), we offer a 30-day money-back guarantee for all our human customers.</p>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-xl">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">Is there really unlimited storage for the Zoo Keeper plan?</h3>
+                        <p class="text-gray-600">Yes! We define "unlimited" as more storage than you could fill even if you took a photo of your pet every second for the next 100 years. Challenge accepted?</p>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <section class="pricing-comparison">
-            <h2>Feature Comparison</h2>
-            <div class="comparison-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Feature</th>
-                            <th>Kitten Plan</th>
-                            <th>Good Boy Plan</th>
-                            <th>Zoo Keeper Plan</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Storage Space</td>
-                            <td>10GB</td>
-                            <td>100GB</td>
-                            <td>1TB</td>
-                        </tr>
-                        <tr>
-                            <td>Pet Profiles</td>
-                            <td>1</td>
-                            <td>5</td>
-                            <td>Unlimited</td>
-                        </tr>
-                        <tr>
-                            <td>Video Storage</td>
-                            <td>❌</td>
-                            <td>✅ Up to 4K</td>
-                            <td>✅ Up to 8K</td>
-                        </tr>
-                        <tr>
-                            <td>AI Photo Tagging</td>
-                            <td>❌</td>
-                            <td>✅</td>
-                            <td>✅ Advanced</td>
-                        </tr>
-                        <tr>
-                            <td>Support Level</td>
-                            <td>Email</td>
-                            <td>Priority</td>
-                            <td>24/7 Dedicated</td>
-                        </tr>
-                    </tbody>
-                </table>
+        <!-- Feature Comparison Table -->
+        <section class="py-24 bg-gray-50">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+                        Feature Comparison
+                    </h2>
+                </div>
+                
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-4 text-left font-semibold text-gray-900">Feature</th>
+                                    <th class="px-6 py-4 text-center font-semibold text-gray-900">Kitten Plan</th>
+                                    <th class="px-6 py-4 text-center font-semibold text-gray-900">Good Boy Plan</th>
+                                    <th class="px-6 py-4 text-center font-semibold text-gray-900">Zoo Keeper Plan</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <tr>
+                                    <td class="px-6 py-4 font-medium text-gray-900 bg-gray-50">Storage Space</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">10GB</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">100GB</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">1TB</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 font-medium text-gray-900 bg-gray-50">Pet Profiles</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">1</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">5</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">Unlimited</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 font-medium text-gray-900 bg-gray-50">Video Storage</td>
+                                    <td class="px-6 py-4 text-center text-red-500">❌</td>
+                                    <td class="px-6 py-4 text-center text-green-500">✅ Up to 4K</td>
+                                    <td class="px-6 py-4 text-center text-green-500">✅ Up to 8K</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 font-medium text-gray-900 bg-gray-50">AI Photo Tagging</td>
+                                    <td class="px-6 py-4 text-center text-red-500">❌</td>
+                                    <td class="px-6 py-4 text-center text-green-500">✅</td>
+                                    <td class="px-6 py-4 text-center text-green-500">✅ Advanced</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 font-medium text-gray-900 bg-gray-50">Support Level</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">Email</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">Priority</td>
+                                    <td class="px-6 py-4 text-center text-gray-600">24/7 Dedicated</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <section class="pricing-cta">
-            <h2>Ready to Start Your Journey?</h2>
-            <p>All plans come with a 14-day free trial. No credit card required, no questions asked (except maybe "who's a good boy?").</p>
-            <div class="cta-buttons">
-                <button class="btn primary large">Start Free Trial</button>
-                <button class="btn secondary">Talk to Sales</button>
+        <!-- Final CTA -->
+        <section class="py-24 bg-white">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h2 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+                    Ready to Start Your Journey?
+                </h2>
+                <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+                    All plans come with a 14-day free trial. No credit card required, no questions asked (except maybe "who's a good boy?").
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200">
+                        Start Free Trial
+                    </button>
+                    <button class="border-2 border-primary-600 text-primary-600 hover:bg-primary-600 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200">
+                        Talk to Sales
+                    </button>
+                </div>
             </div>
         </section>
     </main>
 
-    <footer>
-        <div class="footer-content">
-            <div class="footer-section">
-                <h4>FluffyCloud</h4>
-                <p>Making pet memories last forever, one byte at a time.</p>
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Company Info -->
+                <div class="lg:col-span-2">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <span class="text-2xl">🐾</span>
+                        <span class="text-xl font-bold">FluffyCloud</span>
+                    </div>
+                    <p class="text-gray-400 mb-6 max-w-md">
+                        Making pet memories last forever, one byte at a time. The most trusted cloud storage solution for pet parents worldwide.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">🐦</a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">📸</a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">📘</a>
+                    </div>
+                </div>
+                
+                <!-- Quick Links -->
+                <div>
+                    <h4 class="font-semibold text-lg mb-4">Quick Links</h4>
+                    <ul class="space-y-2">
+                        <li><a href="features.html" class="text-gray-400 hover:text-white transition-colors">Features</a></li>
+                        <li><a href="pricing.html" class="text-gray-400 hover:text-white transition-colors">Pricing</a></li>
+                        <li><a href="contact.html" class="text-gray-400 hover:text-white transition-colors">Contact</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Blog</a></li>
+                    </ul>
+                </div>
+                
+                <!-- Support -->
+                <div>
+                    <h4 class="font-semibold text-lg mb-4">Support</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Help Center</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Privacy Policy</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Terms of Service</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">API Docs</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="footer-section">
-                <h4>Quick Links</h4>
-                <ul>
-                    <li><a href="features.html">Features</a></li>
-                    <li><a href="pricing.html">Pricing</a></li>
-                    <li><a href="contact.html">Contact</a></li>
-                </ul>
+            
+            <div class="border-t border-gray-800 mt-12 pt-8 text-center">
+                <p class="text-gray-400 text-sm">
+                    &copy; 2024 FluffyCloud. All rights reserved. No animals were harmed in the making of this website.
+                </p>
             </div>
-            <div class="footer-section">
-                <h4>Support</h4>
-                <ul>
-                    <li><a href="#">Help Center</a></li>
-                    <li><a href="#">Privacy Policy</a></li>
-                    <li><a href="#">Terms of Service</a></li>
-                </ul>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; 2024 FluffyCloud. All rights reserved. No animals were harmed in the making of this website.</p>
         </div>
     </footer>
 
     <script>
-        const billingToggle = document.getElementById('billingToggle');
-        const basicPrice = document.getElementById('basic-price');
-        const proPrice = document.getElementById('pro-price');
-        const enterprisePrice = document.getElementById('enterprise-price');
-
-        const monthlyPrices = { basic: 5, pro: 15, enterprise: 50 };
-        const yearlyPrices = { basic: 4, pro: 12, enterprise: 40 };
-
-        billingToggle.addEventListener('change', function() {
-            if (this.checked) {
-                basicPrice.textContent = yearlyPrices.basic;
-                proPrice.textContent = yearlyPrices.pro;
-                enterprisePrice.textContent = yearlyPrices.enterprise;
-            } else {
-                basicPrice.textContent = monthlyPrices.basic;
-                proPrice.textContent = monthlyPrices.pro;
-                enterprisePrice.textContent = monthlyPrices.enterprise;
-            }
+        // Billing toggle functionality
+        const billingBtns = document.querySelectorAll('.billing-btn');
+        const priceAmounts = document.querySelectorAll('.price-amount');
+        
+        billingBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const period = this.dataset.period;
+                
+                // Update button states
+                billingBtns.forEach(b => {
+                    b.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
+                    b.classList.add('text-gray-600');
+                });
+                this.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
+                this.classList.remove('text-gray-600');
+                
+                // Update prices
+                priceAmounts.forEach(amount => {
+                    const price = period === 'yearly' ? amount.dataset.yearly : amount.dataset.monthly;
+                    amount.textContent = price;
+                });
+            });
         });
     </script>
 </body>

@@ -4,128 +4,276 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Features - FluffyCloud</title>
-    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a'
+                        },
+                        secondary: {
+                            500: '#8b5cf6',
+                            600: '#7c3aed'
+                        }
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
-<body>
-    <header>
-        <nav>
-            <div class="logo">
-                <h1>🐾 FluffyCloud</h1>
+<body class="font-sans antialiased bg-white">
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <span class="text-2xl">🐾</span>
+                    <span class="text-xl font-bold text-gray-900">FluffyCloud</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="index.html" class="text-gray-600 hover:text-primary-600 transition-colors">Home</a>
+                    <a href="features.html" class="text-primary-600 font-medium">Features</a>
+                    <a href="pricing.html" class="text-gray-600 hover:text-primary-600 transition-colors">Pricing</a>
+                    <a href="contact.html" class="text-gray-600 hover:text-primary-600 transition-colors">Contact</a>
+                    <button class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">Start Free Trial</button>
+                </div>
+                <div class="md:hidden">
+                    <button class="text-gray-600 hover:text-gray-900">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
-            <ul class="nav-links">
-                <li><a href="index.html">Home</a></li>
-                <li><a href="features.html" class="active">Features</a></li>
-                <li><a href="pricing.html">Pricing</a></li>
-                <li><a href="contact.html">Contact</a></li>
-            </ul>
-        </nav>
-    </header>
+        </div>
+    </nav>
 
     <main>
-        <section class="features-hero">
-            <h1>Everything Your Pet's Digital Life Needs</h1>
-            <p>Discover why FluffyCloud is the most advanced cloud storage solution designed specifically for pet parents</p>
+        <!-- Hero Section -->
+        <section class="py-24 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h1 class="text-5xl lg:text-6xl font-black text-gray-900 leading-tight mb-6">
+                    Everything Your Pet's 
+                    <span class="bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+                        Digital Life
+                    </span>
+                    Needs
+                </h1>
+                <p class="text-xl text-gray-600 leading-relaxed max-w-3xl mx-auto">
+                    Discover why FluffyCloud is the most advanced cloud storage solution designed specifically for pet parents
+                </p>
+            </div>
         </section>
 
-        <section class="feature-spotlight">
-            <div class="spotlight-container">
-                <div class="spotlight-content">
-                    <h2>🤖 AI-Powered Pet Recognition</h2>
-                    <p>Our advanced AI can automatically identify your pets in photos and videos, organizing them by individual pet, breed, and even mood. Yes, we can tell when Mr. Whiskers is plotting world domination.</p>
-                    <ul class="feature-benefits">
-                        <li>Automatic pet tagging and sorting</li>
-                        <li>Breed identification and characteristics</li>
-                        <li>Mood detection (happy, sleepy, mischievous)</li>
-                        <li>Activity recognition (playing, eating, napping)</li>
-                    </ul>
-                </div>
-                <div class="spotlight-visual">
-                    <div class="mock-ai-interface">
-                        <div class="ai-result">
-                            <span class="pet-tag">🐕 Buddy</span>
-                            <span class="breed-tag">Golden Retriever</span>
-                            <span class="mood-tag">😊 Happy</span>
+        <!-- AI Feature Spotlight -->
+        <section class="py-24 bg-gradient-to-br from-primary-600 to-secondary-600">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid lg:grid-cols-2 gap-12 items-center">
+                    <div class="text-white">
+                        <h2 class="text-4xl lg:text-5xl font-bold mb-6">
+                            🤖 AI-Powered Pet Recognition
+                        </h2>
+                        <p class="text-xl text-blue-100 mb-8 leading-relaxed">
+                            Our advanced AI can automatically identify your pets in photos and videos, organizing them by individual pet, breed, and even mood. Yes, we can tell when Mr. Whiskers is plotting world domination.
+                        </p>
+                        <ul class="space-y-4 text-lg text-blue-100">
+                            <li class="flex items-center">
+                                <svg class="w-6 h-6 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Automatic pet tagging and sorting
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-6 h-6 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Breed identification and characteristics
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-6 h-6 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Mood detection (happy, sleepy, mischievous)
+                            </li>
+                            <li class="flex items-center">
+                                <svg class="w-6 h-6 mr-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Activity recognition (playing, eating, napping)
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="relative">
+                        <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20">
+                            <div class="space-y-4">
+                                <div class="bg-white/20 px-4 py-2 rounded-lg text-white text-center">
+                                    🐕 Buddy
+                                </div>
+                                <div class="bg-white/20 px-4 py-2 rounded-lg text-white text-center">
+                                    Golden Retriever
+                                </div>
+                                <div class="bg-white/20 px-4 py-2 rounded-lg text-white text-center">
+                                    😊 Happy
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section class="features-grid">
-            <h2>Core Features</h2>
-            <div class="grid-container">
-                <div class="feature-card">
-                    <div class="feature-icon">📱</div>
-                    <h3>Smart Mobile Sync</h3>
-                    <p>Automatically backup photos and videos from your phone the moment you capture them. Works even when your pet is sitting on your phone.</p>
+        <!-- Core Features Grid -->
+        <section class="py-24 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+                        Core Features
+                    </h2>
+                    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                        Everything you need to keep your pet's digital memories safe, organized, and accessible.
+                    </p>
                 </div>
+                
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Feature 1 -->
+                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
+                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                        <div class="relative">
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                                📱
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">Smart Mobile Sync</h3>
+                            <p class="text-gray-600 leading-relaxed">Automatically backup photos and videos from your phone the moment you capture them. Works even when your pet is sitting on your phone.</p>
+                        </div>
+                    </div>
 
-                <div class="feature-card">
-                    <div class="feature-icon">🏷️</div>
-                    <h3>Custom Tags & Albums</h3>
-                    <p>Create custom albums like "Destruction Caused by Mittens" or "Failed Training Attempts" with our intuitive tagging system.</p>
-                </div>
+                    <!-- Feature 2 -->
+                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
+                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                        <div class="relative">
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                                🏷️
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">Custom Tags & Albums</h3>
+                            <p class="text-gray-600 leading-relaxed">Create custom albums like "Destruction Caused by Mittens" or "Failed Training Attempts" with our intuitive tagging system.</p>
+                        </div>
+                    </div>
 
-                <div class="feature-card">
-                    <div class="feature-icon">👥</div>
-                    <h3>Family Sharing</h3>
-                    <p>Share albums with family members, pet sitters, or that neighbor who loves your dog more than their own kids.</p>
-                </div>
+                    <!-- Feature 3 -->
+                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
+                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                        <div class="relative">
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                                👥
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">Family Sharing</h3>
+                            <p class="text-gray-600 leading-relaxed">Share albums with family members, pet sitters, or that neighbor who loves your dog more than their own kids.</p>
+                        </div>
+                    </div>
 
-                <div class="feature-card">
-                    <div class="feature-icon">🔄</div>
-                    <h3>Cross-Platform Sync</h3>
-                    <p>Access your pet's photos from any device - phone, tablet, laptop, or smart fridge (if that's your thing).</p>
-                </div>
+                    <!-- Feature 4 -->
+                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
+                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                        <div class="relative">
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                                🔄
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">Cross-Platform Sync</h3>
+                            <p class="text-gray-600 leading-relaxed">Access your pet's photos from any device - phone, tablet, laptop, or smart fridge (if that's your thing).</p>
+                        </div>
+                    </div>
 
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Lightning Fast Search</h3>
-                    <p>Find that one photo of your cat being adorable from 2019 in seconds. We index everything including your pet's expressions.</p>
-                </div>
+                    <!-- Feature 5 -->
+                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
+                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                        <div class="relative">
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                                ⚡
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">Lightning Fast Search</h3>
+                            <p class="text-gray-600 leading-relaxed">Find that one photo of your cat being adorable from 2019 in seconds. We index everything including your pet's expressions.</p>
+                        </div>
+                    </div>
 
-                <div class="feature-card">
-                    <div class="feature-icon">🎥</div>
-                    <h3>4K Video Storage</h3>
-                    <p>Store high-quality videos of your pet's best (and worst) moments. Full 4K support because pets deserve cinema quality.</p>
+                    <!-- Feature 6 -->
+                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
+                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
+                        <div class="relative">
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                                🎥
+                            </div>
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">4K Video Storage</h3>
+                            <p class="text-gray-600 leading-relaxed">Store high-quality videos of your pet's best (and worst) moments. Full 4K support because pets deserve cinema quality.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <section class="security-features">
-            <h2>Security & Privacy</h2>
-            <div class="security-container">
-                <div class="security-content">
-                    <h3>🔒 Bank-Level Security</h3>
-                    <p>Your pet's photos are protected with the same encryption used by major financial institutions. We take your furry family's privacy seriously.</p>
+        <!-- Security Features -->
+        <section class="py-24 bg-gray-900">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl lg:text-5xl font-bold text-white mb-4">
+                        Security & Privacy
+                    </h2>
+                    <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                        Your pet's photos are protected with the same encryption used by major financial institutions.
+                    </p>
+                </div>
+                
+                <div class="max-w-4xl mx-auto">
+                    <div class="text-center mb-12">
+                        <h3 class="text-3xl font-bold text-white mb-4">🔒 Bank-Level Security</h3>
+                        <p class="text-xl text-gray-300">
+                            We take your furry family's privacy seriously with enterprise-grade protection.
+                        </p>
+                    </div>
                     
-                    <div class="security-features-list">
-                        <div class="security-item">
-                            <span class="security-icon">🛡️</span>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <!-- Security Item 1 -->
+                        <div class="flex items-start space-x-4">
+                            <div class="text-3xl">🛡️</div>
                             <div>
-                                <h4>256-bit AES Encryption</h4>
-                                <p>Your photos are encrypted both in transit and at rest</p>
+                                <h4 class="text-xl font-bold text-green-400 mb-2">256-bit AES Encryption</h4>
+                                <p class="text-gray-300">Your photos are encrypted both in transit and at rest</p>
                             </div>
                         </div>
-                        <div class="security-item">
-                            <span class="security-icon">🔐</span>
+                        
+                        <!-- Security Item 2 -->
+                        <div class="flex items-start space-x-4">
+                            <div class="text-3xl">🔐</div>
                             <div>
-                                <h4>Two-Factor Authentication</h4>
-                                <p>Extra security layer (your pet's approval doesn't count as a second factor)</p>
+                                <h4 class="text-xl font-bold text-green-400 mb-2">Two-Factor Authentication</h4>
+                                <p class="text-gray-300">Extra security layer (your pet's approval doesn't count as a second factor)</p>
                             </div>
                         </div>
-                        <div class="security-item">
-                            <span class="security-icon">🏛️</span>
+                        
+                        <!-- Security Item 3 -->
+                        <div class="flex items-start space-x-4">
+                            <div class="text-3xl">🏛️</div>
                             <div>
-                                <h4>SOC 2 Compliant</h4>
-                                <p>Independently audited security practices</p>
+                                <h4 class="text-xl font-bold text-green-400 mb-2">SOC 2 Compliant</h4>
+                                <p class="text-gray-300">Independently audited security practices</p>
                             </div>
                         </div>
-                        <div class="security-item">
-                            <span class="security-icon">🌍</span>
+                        
+                        <!-- Security Item 4 -->
+                        <div class="flex items-start space-x-4">
+                            <div class="text-3xl">🌍</div>
                             <div>
-                                <h4>Global Data Centers</h4>
-                                <p>Redundant backups across multiple secure locations</p>
+                                <h4 class="text-xl font-bold text-green-400 mb-2">Global Data Centers</h4>
+                                <p class="text-gray-300">Redundant backups across multiple secure locations</p>
                             </div>
                         </div>
                     </div>
@@ -133,67 +281,95 @@
             </div>
         </section>
 
-        <section class="advanced-features">
-            <h2>Advanced Features</h2>
-            <div class="advanced-grid">
-                <div class="advanced-feature">
-                    <h3>📊 Pet Analytics Dashboard</h3>
-                    <p>Track your pet's photo history, most photographed activities, and growth over time. Perfect for those yearly "look how much they've grown" posts.</p>
-                    <div class="feature-demo">
-                        <div class="demo-chart">📈 Photo Activity</div>
-                    </div>
+        <!-- Advanced Features -->
+        <section class="py-24 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+                        Advanced Features
+                    </h2>
+                    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                        Take your pet photo management to the next level with our premium tools.
+                    </p>
                 </div>
-
-                <div class="advanced-feature">
-                    <h3>🎨 Auto-Enhancement</h3>
-                    <p>Our AI automatically enhances your pet photos to make them even more adorable (if that's even possible). Removes red-eye, adjusts lighting, and adds that perfect "aww" factor.</p>
-                    <div class="feature-demo">
-                        <div class="demo-before-after">Before → After ✨</div>
+                
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Advanced Feature 1 -->
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">📊 Pet Analytics Dashboard</h3>
+                        <p class="text-gray-600 mb-6">Track your pet's photo history, most photographed activities, and growth over time. Perfect for those yearly "look how much they've grown" posts.</p>
+                        <div class="bg-primary-50 p-4 rounded-lg text-center text-primary-700 font-semibold">
+                            📈 Photo Activity
+                        </div>
                     </div>
-                </div>
 
-                <div class="advanced-feature">
-                    <h3>📅 Memory Timeline</h3>
-                    <p>Automatically create beautiful timelines of your pet's life milestones. From "first day home" to "learned to open treat cabinet."</p>
-                    <div class="feature-demo">
-                        <div class="demo-timeline">🐕 → 🦴 → 🎾 → 😴</div>
+                    <!-- Advanced Feature 2 -->
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">🎨 Auto-Enhancement</h3>
+                        <p class="text-gray-600 mb-6">Our AI automatically enhances your pet photos to make them even more adorable (if that's even possible). Removes red-eye, adjusts lighting, and adds that perfect "aww" factor.</p>
+                        <div class="bg-secondary-50 p-4 rounded-lg text-center text-secondary-700 font-semibold">
+                            Before → After ✨
+                        </div>
                     </div>
-                </div>
 
-                <div class="advanced-feature">
-                    <h3>🎁 Smart Sharing</h3>
-                    <p>Create shareable albums that automatically update. Perfect for grandparents who need their daily dose of pet photos.</p>
-                    <div class="feature-demo">
-                        <div class="demo-sharing">📤 Auto-shared to 5 family members</div>
+                    <!-- Advanced Feature 3 -->
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">📅 Memory Timeline</h3>
+                        <p class="text-gray-600 mb-6">Automatically create beautiful timelines of your pet's life milestones. From "first day home" to "learned to open treat cabinet."</p>
+                        <div class="bg-green-50 p-4 rounded-lg text-center text-green-700 font-semibold">
+                            🐕 → 🦴 → 🎾 → 😴
+                        </div>
+                    </div>
+
+                    <!-- Advanced Feature 4 -->
+                    <div class="bg-white p-8 rounded-2xl shadow-lg">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">🎁 Smart Sharing</h3>
+                        <p class="text-gray-600 mb-6">Create shareable albums that automatically update. Perfect for grandparents who need their daily dose of pet photos.</p>
+                        <div class="bg-yellow-50 p-4 rounded-lg text-center text-yellow-700 font-semibold">
+                            📤 Auto-shared to 5 family members
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section class="integrations">
-            <h2>Integrations & APIs</h2>
-            <div class="integrations-content">
-                <p>FluffyCloud plays well with all your favorite apps and services:</p>
-                <div class="integration-categories">
-                    <div class="integration-category">
-                        <h3>📱 Mobile Apps</h3>
-                        <ul>
+        <!-- Integrations -->
+        <section class="py-24 bg-gradient-to-br from-primary-600 to-secondary-600">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl lg:text-5xl font-bold text-white mb-4">
+                        Integrations & APIs
+                    </h2>
+                    <p class="text-xl text-blue-100 max-w-3xl mx-auto">
+                        FluffyCloud plays well with all your favorite apps and services
+                    </p>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-8">
+                    <!-- Integration Category 1 -->
+                    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20">
+                        <h3 class="text-2xl font-bold text-white mb-6">📱 Mobile Apps</h3>
+                        <ul class="space-y-3 text-blue-100">
                             <li>Instagram (auto-post your cutest shots)</li>
                             <li>PetDesk (sync with vet appointments)</li>
                             <li>Rover (share with pet sitters)</li>
                         </ul>
                     </div>
-                    <div class="integration-category">
-                        <h3>🖥️ Desktop Tools</h3>
-                        <ul>
+                    
+                    <!-- Integration Category 2 -->
+                    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20">
+                        <h3 class="text-2xl font-bold text-white mb-6">🖥️ Desktop Tools</h3>
+                        <ul class="space-y-3 text-blue-100">
                             <li>Adobe Lightroom sync</li>
                             <li>Google Photos import</li>
                             <li>Dropbox migration</li>
                         </ul>
                     </div>
-                    <div class="integration-category">
-                        <h3>🏠 Smart Home</h3>
-                        <ul>
+                    
+                    <!-- Integration Category 3 -->
+                    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20">
+                        <h3 class="text-2xl font-bold text-white mb-6">🏠 Smart Home</h3>
+                        <ul class="space-y-3 text-blue-100">
                             <li>Pet cameras (automatic upload)</li>
                             <li>Smart doorbells</li>
                             <li>Home security systems</li>
@@ -203,42 +379,80 @@
             </div>
         </section>
 
-        <section class="feature-cta">
-            <h2>Ready to Give Your Pet Photos the Home They Deserve?</h2>
-            <p>Start your free trial today and discover why over 1 million pet parents trust FluffyCloud with their most precious memories.</p>
-            <div class="cta-buttons">
-                <button class="btn primary large">Start Free Trial</button>
-                <button class="btn secondary">Schedule Demo</button>
+        <!-- Final CTA -->
+        <section class="py-24 bg-white">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h2 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+                    Ready to Give Your Pet Photos the Home They Deserve?
+                </h2>
+                <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+                    Start your free trial today and discover why over 1 million pet parents trust FluffyCloud with their most precious memories.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+                    <button class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200">
+                        Start Free Trial
+                    </button>
+                    <button class="border-2 border-primary-600 text-primary-600 hover:bg-primary-600 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200">
+                        Schedule Demo
+                    </button>
+                </div>
+                
+                <p class="text-gray-500 text-sm">
+                    14-day free trial • No credit card required • All features included
+                </p>
             </div>
-            <p class="trial-details">14-day free trial • No credit card required • All features included</p>
         </section>
     </main>
 
-    <footer>
-        <div class="footer-content">
-            <div class="footer-section">
-                <h4>FluffyCloud</h4>
-                <p>Making pet memories last forever, one byte at a time.</p>
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Company Info -->
+                <div class="lg:col-span-2">
+                    <div class="flex items-center space-x-2 mb-4">
+                        <span class="text-2xl">🐾</span>
+                        <span class="text-xl font-bold">FluffyCloud</span>
+                    </div>
+                    <p class="text-gray-400 mb-6 max-w-md">
+                        Making pet memories last forever, one byte at a time. The most trusted cloud storage solution for pet parents worldwide.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">🐦</a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">📸</a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">📘</a>
+                    </div>
+                </div>
+                
+                <!-- Quick Links -->
+                <div>
+                    <h4 class="font-semibold text-lg mb-4">Quick Links</h4>
+                    <ul class="space-y-2">
+                        <li><a href="features.html" class="text-gray-400 hover:text-white transition-colors">Features</a></li>
+                        <li><a href="pricing.html" class="text-gray-400 hover:text-white transition-colors">Pricing</a></li>
+                        <li><a href="contact.html" class="text-gray-400 hover:text-white transition-colors">Contact</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Blog</a></li>
+                    </ul>
+                </div>
+                
+                <!-- Support -->
+                <div>
+                    <h4 class="font-semibold text-lg mb-4">Support</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Help Center</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Privacy Policy</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Terms of Service</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors">API Docs</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="footer-section">
-                <h4>Quick Links</h4>
-                <ul>
-                    <li><a href="features.html">Features</a></li>
-                    <li><a href="pricing.html">Pricing</a></li>
-                    <li><a href="contact.html">Contact</a></li>
-                </ul>
+            
+            <div class="border-t border-gray-800 mt-12 pt-8 text-center">
+                <p class="text-gray-400 text-sm">
+                    &copy; 2024 FluffyCloud. All rights reserved. No animals were harmed in the making of this website.
+                </p>
             </div>
-            <div class="footer-section">
-                <h4>Support</h4>
-                <ul>
-                    <li><a href="#">Help Center</a></li>
-                    <li><a href="#">Privacy Policy</a></li>
-                    <li><a href="#">Terms of Service</a></li>
-                </ul>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; 2024 FluffyCloud. All rights reserved. No animals were harmed in the making of this website.</p>
         </div>
     </footer>
 </body>

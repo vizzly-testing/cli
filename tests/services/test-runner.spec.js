@@ -353,6 +353,28 @@ describe('TestRunner', () => {
       ).rejects.toThrow('Test command exited with code 2');
     });
 
+    it('handles SIGINT interruption correctly', async () => {
+      let exitHandler;
+
+      // Mock spawn process to capture event handlers
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'exit') {
+          exitHandler = callback;
+        }
+      });
+
+      const executePromise = testRunner.executeTestCommand('npm test', {});
+
+      // Simulate the process exiting due to SIGINT
+      if (exitHandler) {
+        exitHandler(null, 'SIGINT');
+      }
+
+      await expect(executePromise).rejects.toThrow(
+        'Test command was interrupted'
+      );
+    });
+
     it('parses complex commands with arguments correctly', async () => {
       const { spawn } = await import('child_process');
 
@@ -396,7 +418,7 @@ describe('TestRunner', () => {
 
       await testRunner.cancel();
 
-      expect(mockSpawnProcess.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(mockSpawnProcess.kill).toHaveBeenCalledWith('SIGKILL');
     });
 
     it('does nothing when no test process is running', async () => {

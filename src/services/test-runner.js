@@ -41,10 +41,12 @@ export class TestRunner extends BaseService {
       };
     }
 
-    try {
-      let buildUrl = null;
-      let screenshotCount = 0;
+    let buildUrl = null;
+    let screenshotCount = 0;
+    let testSuccess = false;
+    let testError = null;
 
+    try {
       // Create build based on mode
       buildId = await this.createBuild(options, tdd);
       if (!tdd && buildId) {
@@ -86,30 +88,50 @@ export class TestRunner extends BaseService {
           options.setBaseline || options['set-baseline'] ? 'true' : 'false',
       };
 
-      await this.executeTestCommand(testCommand, env);
-
-      // Finalize build
-      const executionTime = Date.now() - startTime;
-      await this.finalizeBuild(buildId, tdd, true, executionTime);
-
-      return {
-        buildId: buildId,
-        url: buildUrl,
-        testsPassed: 1,
-        testsFailed: 0,
-        screenshotsCaptured: screenshotCount,
-      };
+      try {
+        await this.executeTestCommand(testCommand, env);
+        testSuccess = true;
+      } catch (error) {
+        testError = error;
+        testSuccess = false;
+      }
     } catch (error) {
-      this.logger.error('Test run failed:', error);
-
-      // Finalize build on failure
-      const executionTime = Date.now() - startTime;
-      await this.finalizeBuild(buildId, tdd, false, executionTime);
-
-      throw error;
+      // Error in setup phase
+      testError = error;
+      testSuccess = false;
     } finally {
-      await this.serverManager.stop();
+      // Always finalize the build and stop the server
+      const executionTime = Date.now() - startTime;
+
+      if (buildId) {
+        try {
+          await this.finalizeBuild(buildId, tdd, testSuccess, executionTime);
+        } catch (finalizeError) {
+          this.logger.error('Failed to finalize build:', finalizeError);
+        }
+      }
+
+      try {
+        await this.serverManager.stop();
+      } catch (stopError) {
+        this.logger.error('Failed to stop server:', stopError);
+      }
+
     }
+
+    // If there was a test error, throw it now (after cleanup)
+    if (testError) {
+      this.logger.error('Test run failed:', testError);
+      throw testError;
+    }
+
+    return {
+      buildId: buildId,
+      url: buildUrl,
+      testsPassed: testSuccess ? 1 : 0,
+      testsFailed: testSuccess ? 0 : 1,
+      screenshotsCaptured: screenshotCount,
+    };
   }
 
   async createBuild(options, tdd) {
@@ -217,8 +239,16 @@ export class TestRunner extends BaseService {
         );
       });
 
-      this.testProcess.on('exit', code => {
-        if (code !== 0) {
+      this.testProcess.on('exit', (code, signal) => {
+        // If process was killed by SIGINT, treat as interruption
+        if (signal === 'SIGINT') {
+          reject(
+            new VizzlyError(
+              'Test command was interrupted',
+              'TEST_COMMAND_INTERRUPTED'
+            )
+          );
+        } else if (code !== 0) {
           reject(
             new VizzlyError(
               `Test command exited with code ${code}`,
@@ -233,8 +263,13 @@ export class TestRunner extends BaseService {
   }
 
   async cancel() {
-    if (this.testProcess) {
-      this.testProcess.kill('SIGTERM');
+    if (this.testProcess && !this.testProcess.killed) {
+      this.testProcess.kill('SIGKILL');
+    }
+
+    // Stop server manager if running
+    if (this.serverManager) {
+      await this.serverManager.stop();
     }
   }
 }

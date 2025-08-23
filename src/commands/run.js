@@ -28,19 +28,32 @@ export async function runCommand(
   });
 
   let testRunner = null;
-  let runResult = null;
+  let buildId = null;
+  let startTime = null;
+  let isTddMode = false;
 
   // Ensure cleanup on exit
   const cleanup = async () => {
     ui.cleanup();
-    if (testRunner && runResult && runResult.buildId) {
+
+    // Cancel test runner (kills process and stops server)
+    if (testRunner) {
       try {
-        // Try to finalize build on interruption
+        await testRunner.cancel();
+      } catch {
+        // Silent fail
+      }
+    }
+
+    // Finalize build if we have one
+    if (testRunner && buildId) {
+      try {
+        const executionTime = Date.now() - (startTime || Date.now());
         await testRunner.finalizeBuild(
-          runResult.buildId,
+          buildId,
+          isTddMode,
           false,
-          false,
-          Date.now() - (runResult.startTime || Date.now())
+          executionTime
         );
       } catch {
         // Silent fail on cleanup
@@ -135,6 +148,7 @@ export async function runCommand(
 
     testRunner.on('build-created', buildInfo => {
       buildUrl = buildInfo.url;
+      buildId = buildInfo.buildId;
       // Debug: Log build creation details
       if (globalOptions.verbose) {
         ui.info(`Build created: ${buildInfo.buildId} - ${buildInfo.name}`);
@@ -180,19 +194,48 @@ export async function runCommand(
 
     // Start test run
     ui.info('Starting test execution...');
-    runResult = { startTime: Date.now() };
-    const result = await testRunner.run(runOptions);
-    runResult = { ...runResult, ...result };
+    startTime = Date.now();
+    isTddMode = runOptions.tdd || false;
 
-    ui.success('Test run completed successfully');
+    let result;
+    try {
+      result = await testRunner.run(runOptions);
 
-    // Show Vizzly summary
-    if (result.buildId) {
-      console.log(
-        `🐻 Vizzly: Captured ${result.screenshotsCaptured} screenshots in build ${result.buildId}`
-      );
-      if (result.url) {
-        console.log(`🔗 Vizzly: View results at ${result.url}`);
+      // Store buildId for cleanup purposes
+      if (result.buildId) {
+        buildId = result.buildId;
+      }
+
+      ui.success('Test run completed successfully');
+
+      // Show Vizzly summary
+      if (result.buildId) {
+        console.log(
+          `🐻 Vizzly: Captured ${result.screenshotsCaptured} screenshots in build ${result.buildId}`
+        );
+        if (result.url) {
+          console.log(`🔗 Vizzly: View results at ${result.url}`);
+        }
+      }
+    } catch (error) {
+      // Test execution failed - build should already be finalized by test runner
+      ui.stopSpinner();
+
+      // Check if it's a test command failure (as opposed to setup failure)
+      if (
+        error.code === 'TEST_COMMAND_FAILED' ||
+        error.code === 'TEST_COMMAND_INTERRUPTED'
+      ) {
+        // Extract exit code from error message if available
+        const exitCodeMatch = error.message.match(/exited with code (\d+)/);
+        const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
+
+        ui.error('Test run failed');
+        return { success: false, exitCode };
+      } else {
+        // Setup or other error
+        ui.error('Test run failed', error);
+        return { success: false, exitCode: 1 };
       }
     }
 

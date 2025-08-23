@@ -28,19 +28,32 @@ export async function runCommand(
   });
 
   let testRunner = null;
-  let runResult = null;
+  let buildId = null;
+  let startTime = null;
+  let isTddMode = false;
 
   // Ensure cleanup on exit
   const cleanup = async () => {
     ui.cleanup();
-    if (testRunner && runResult && runResult.buildId) {
+
+    // Cancel test runner (kills process and stops server)
+    if (testRunner) {
       try {
-        // Try to finalize build on interruption
+        await testRunner.cancel();
+      } catch {
+        // Silent fail
+      }
+    }
+
+    // Finalize build if we have one
+    if (testRunner && buildId) {
+      try {
+        const executionTime = Date.now() - (startTime || Date.now());
         await testRunner.finalizeBuild(
-          runResult.buildId,
+          buildId,
+          isTddMode,
           false,
-          false,
-          Date.now() - (runResult.startTime || Date.now())
+          executionTime
         );
       } catch {
         // Silent fail on cleanup
@@ -135,6 +148,7 @@ export async function runCommand(
 
     testRunner.on('build-created', buildInfo => {
       buildUrl = buildInfo.url;
+      buildId = buildInfo.buildId;
       // Debug: Log build creation details
       if (globalOptions.verbose) {
         ui.info(`Build created: ${buildInfo.buildId} - ${buildInfo.name}`);
@@ -180,9 +194,15 @@ export async function runCommand(
 
     // Start test run
     ui.info('Starting test execution...');
-    runResult = { startTime: Date.now() };
+    startTime = Date.now();
+    isTddMode = runOptions.tdd || false;
+
     const result = await testRunner.run(runOptions);
-    runResult = { ...runResult, ...result };
+
+    // Store buildId for cleanup purposes
+    if (result.buildId) {
+      buildId = result.buildId;
+    }
 
     ui.success('Test run completed successfully');
 

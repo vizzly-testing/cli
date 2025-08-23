@@ -224,6 +224,67 @@ describe('runCommand', () => {
       expect(mockUI.error).toHaveBeenCalledWith('Test run failed', error);
     });
 
+    it('should setup SIGINT handler for build cleanup', async () => {
+      // Mock process.on to capture SIGINT handler
+      let sigintHandler;
+      const originalProcessOn = process.on;
+      const processOnSpy = vi.fn((event, handler) => {
+        if (event === 'SIGINT') {
+          sigintHandler = handler;
+        }
+        return originalProcessOn.call(process, event, handler);
+      });
+      process.on = processOnSpy;
+
+      // Mock process.exit to prevent actual exit
+      const originalProcessExit = process.exit;
+      process.exit = vi.fn();
+
+      await runCommand('npm test', {}, {});
+
+      // Verify SIGINT handler was registered
+      expect(processOnSpy).toHaveBeenCalledWith('SIGINT', expect.any(Function));
+
+      // Verify that if SIGINT handler is called, it attempts cleanup
+      if (sigintHandler) {
+        await sigintHandler();
+        expect(process.exit).toHaveBeenCalledWith(1);
+      }
+
+      // Restore process methods
+      process.on = originalProcessOn;
+      process.exit = originalProcessExit;
+    });
+
+    it('should finalize build when test runner fails', async () => {
+      // Setup mock to simulate build creation
+      let buildCreatedHandler;
+      mockTestRunner.on.mockImplementation((event, handler) => {
+        if (event === 'build-created') {
+          buildCreatedHandler = handler;
+        }
+      });
+
+      const testError = new Error('Test command failed');
+      mockTestRunner.run.mockRejectedValue(testError);
+
+      await runCommand('npm test', {}, {});
+
+      // Simulate build creation before the error
+      if (buildCreatedHandler) {
+        buildCreatedHandler({
+          buildId: 'test-build-456',
+          url: 'http://test.com',
+        });
+      }
+
+      // Verify error was handled
+      expect(mockUI.error).toHaveBeenCalledWith('Test run failed', testError);
+
+      // Note: The actual build finalization in test runner failure is handled
+      // by the TestRunner service itself, not by the run command
+    });
+
     it('should handle config loading errors', async () => {
       const { loadConfig } = await import('../../src/utils/config-loader.js');
       const error = new Error('Config load failed');

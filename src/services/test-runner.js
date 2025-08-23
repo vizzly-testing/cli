@@ -217,8 +217,16 @@ export class TestRunner extends BaseService {
         );
       });
 
-      this.testProcess.on('exit', code => {
-        if (code !== 0) {
+      this.testProcess.on('exit', (code, signal) => {
+        // If process was killed by SIGINT, treat as interruption
+        if (signal === 'SIGINT') {
+          reject(
+            new VizzlyError(
+              'Test command was interrupted',
+              'TEST_COMMAND_INTERRUPTED'
+            )
+          );
+        } else if (code !== 0) {
           reject(
             new VizzlyError(
               `Test command exited with code ${code}`,
@@ -233,8 +241,13 @@ export class TestRunner extends BaseService {
   }
 
   async cancel() {
-    if (this.testProcess) {
-      this.testProcess.kill('SIGTERM');
+    if (this.testProcess && !this.testProcess.killed) {
+      this.testProcess.kill('SIGKILL');
+    }
+
+    // Stop server manager if running
+    if (this.serverManager) {
+      await this.serverManager.stop();
     }
   }
 }

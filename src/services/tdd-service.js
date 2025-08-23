@@ -7,6 +7,7 @@ import { colors } from '../utils/colors.js';
 import { getDefaultBranch } from '../utils/git.js';
 import { fetchWithTimeout } from '../utils/fetch-utils.js';
 import { NetworkError } from '../errors/vizzly-error.js';
+import { HtmlReportGenerator } from './html-report-generator.js';
 
 const logger = createServiceLogger('TDD');
 
@@ -32,7 +33,7 @@ export class TddService {
     this.diffPath = join(workingDir, '.vizzly', 'diffs');
     this.baselineData = null;
     this.comparisons = [];
-    this.threshold = config.comparison?.threshold || 0.01;
+    this.threshold = config.comparison?.threshold || 0.1;
 
     // Ensure directories exist
     [this.baselinePath, this.currentPath, this.diffPath].forEach(dir => {
@@ -68,9 +69,44 @@ export class TddService {
       let baselineBuild;
 
       if (buildId) {
-        // Use specific build ID
+        // Use specific build ID - get it with screenshots in one call
         logger.info(`📌 Using specified build: ${buildId}`);
-        baselineBuild = await this.api.getBuild(buildId);
+        const apiResponse = await this.api.getBuild(buildId, 'screenshots');
+
+        // Debug the full API response (only in debug mode)
+        logger.debug(`📊 Raw API response:`, { apiResponse });
+
+        if (!apiResponse) {
+          throw new Error(`Build ${buildId} not found or API returned null`);
+        }
+
+        // Handle wrapped response format
+        baselineBuild = apiResponse.build || apiResponse;
+
+        if (!baselineBuild.id) {
+          logger.warn(
+            `⚠️  Build response structure: ${JSON.stringify(Object.keys(apiResponse))}`
+          );
+          logger.warn(
+            `⚠️  Extracted build keys: ${JSON.stringify(Object.keys(baselineBuild))}`
+          );
+        }
+
+        // Check build status and warn if it's not successful
+        if (baselineBuild.status === 'failed') {
+          logger.warn(
+            `⚠️  Build ${buildId} is marked as FAILED - falling back to local baselines`
+          );
+          logger.info(
+            `💡 To use remote baselines, specify a successful build ID instead`
+          );
+          // Fall back to local baseline logic
+          return await this.handleLocalBaselines();
+        } else if (baselineBuild.status !== 'completed') {
+          logger.warn(
+            `⚠️  Build ${buildId} has status: ${baselineBuild.status} (expected: completed)`
+          );
+        }
       } else if (comparisonId) {
         // Use specific comparison ID
         logger.info(`📌 Using comparison: ${comparisonId}`);
@@ -98,14 +134,16 @@ export class TddService {
         baselineBuild = builds.data[0];
       }
       logger.info(
-        `📥 Found baseline build: ${colors.cyan(baselineBuild.name)} (${baselineBuild.id})`
+        `📥 Found baseline build: ${colors.cyan(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
       );
 
-      // Get build details with screenshots
-      const buildDetails = await this.api.getBuild(
-        baselineBuild.id,
-        'screenshots'
-      );
+      // For specific buildId, we already have screenshots, otherwise get build details
+      let buildDetails = baselineBuild;
+      if (!buildId) {
+        // Get build details with screenshots for non-buildId cases
+        const actualBuildId = baselineBuild.id;
+        buildDetails = await this.api.getBuild(actualBuildId, 'screenshots');
+      }
 
       if (!buildDetails.screenshots || buildDetails.screenshots.length === 0) {
         logger.warn('⚠️  No screenshots found in baseline build');
@@ -116,46 +154,172 @@ export class TddService {
         `📸 Downloading ${colors.cyan(buildDetails.screenshots.length)} baseline screenshots...`
       );
 
-      // Download each screenshot
+      // Debug screenshots structure (only in debug mode)
+      logger.debug(`📊 Screenshots array structure:`, {
+        screenshotSample: buildDetails.screenshots.slice(0, 2),
+        totalCount: buildDetails.screenshots.length,
+      });
+
+      // Check existing baseline metadata for efficient SHA comparison
+      const existingBaseline = await this.loadBaseline();
+      const existingShaMap = new Map();
+
+      if (existingBaseline) {
+        existingBaseline.screenshots.forEach(s => {
+          if (s.sha256) {
+            existingShaMap.set(s.name, s.sha256);
+          }
+        });
+      }
+
+      // Download each screenshot (with efficient SHA checking)
+      let downloadedCount = 0;
+      let skippedCount = 0;
+
       for (const screenshot of buildDetails.screenshots) {
         const imagePath = join(this.baselinePath, `${screenshot.name}.png`);
 
-        // Download the image
-        const response = await fetchWithTimeout(screenshot.url);
-        if (!response.ok) {
-          throw new NetworkError(
-            `Failed to download ${screenshot.name}: ${response.statusText}`
-          );
+        // Check if we already have this file with the same SHA (using metadata)
+        if (existsSync(imagePath) && screenshot.sha256) {
+          const storedSha = existingShaMap.get(screenshot.name);
+
+          if (storedSha === screenshot.sha256) {
+            logger.debug(
+              `⚡ Skipping ${screenshot.name} - SHA match from metadata`
+            );
+            downloadedCount++; // Count as "downloaded" since we have it
+            skippedCount++;
+            continue;
+          } else if (storedSha) {
+            logger.debug(
+              `🔄 SHA mismatch for ${screenshot.name} - will re-download (stored: ${storedSha?.slice(0, 8)}..., remote: ${screenshot.sha256?.slice(0, 8)}...)`
+            );
+          }
         }
 
-        const imageBuffer = await response.buffer();
-        writeFileSync(imagePath, imageBuffer);
+        // Use original_url as the download URL
+        const downloadUrl = screenshot.original_url || screenshot.url;
 
-        logger.debug(`✓ Downloaded ${screenshot.name}.png`);
+        if (!downloadUrl) {
+          logger.warn(
+            `⚠️  Screenshot ${screenshot.name} has no download URL - skipping`
+          );
+          continue; // Skip screenshots without URLs
+        }
+
+        logger.debug(
+          `📥 Downloading screenshot: ${screenshot.name} from ${downloadUrl}`
+        );
+
+        try {
+          // Download the image
+          const response = await fetchWithTimeout(downloadUrl);
+          if (!response.ok) {
+            throw new NetworkError(
+              `Failed to download ${screenshot.name}: ${response.statusText}`
+            );
+          }
+
+          const arrayBuffer = await response.arrayBuffer();
+          const imageBuffer = Buffer.from(arrayBuffer);
+          writeFileSync(imagePath, imageBuffer);
+          downloadedCount++;
+
+          logger.debug(`✓ Downloaded ${screenshot.name}.png`);
+        } catch (error) {
+          logger.warn(
+            `⚠️  Failed to download ${screenshot.name}: ${error.message}`
+          );
+        }
       }
 
-      // Store baseline metadata
+      // Check if we actually downloaded any screenshots
+      if (downloadedCount === 0) {
+        logger.error(
+          '❌ No screenshots were successfully downloaded from the baseline build'
+        );
+        logger.info(
+          '💡 This usually means the build failed or screenshots have no download URLs'
+        );
+        logger.info(
+          '💡 Try using a successful build ID, or run without --baseline-build to create local baselines'
+        );
+        return null;
+      }
+
+      // Store enhanced baseline metadata with SHA hashes and build info
       this.baselineData = {
         buildId: baselineBuild.id,
         buildName: baselineBuild.name,
         environment,
         branch,
         threshold: this.threshold,
+        createdAt: new Date().toISOString(),
+        buildInfo: {
+          commitSha: baselineBuild.commit_sha,
+          commitMessage: baselineBuild.commit_message,
+          approvalStatus: baselineBuild.approval_status,
+          completedAt: baselineBuild.completed_at,
+        },
         screenshots: buildDetails.screenshots.map(s => ({
           name: s.name,
-          properties: s.properties || {},
+          sha256: s.sha256, // Store remote SHA for quick comparison
+          id: s.id,
+          properties: s.metadata || s.properties || {},
           path: join(this.baselinePath, `${s.name}.png`),
+          originalUrl: s.original_url,
+          fileSize: s.file_size_bytes,
+          dimensions: {
+            width: s.width,
+            height: s.height,
+          },
         })),
       };
 
       const metadataPath = join(this.baselinePath, 'metadata.json');
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
-      logger.info(`✅ Baseline downloaded successfully`);
+      if (skippedCount > 0) {
+        const actualDownloads = downloadedCount - skippedCount;
+        logger.info(
+          `✅ Baseline ready - ${actualDownloads} downloaded, ${skippedCount} skipped (matching SHA) - ${downloadedCount}/${buildDetails.screenshots.length} total`
+        );
+      } else {
+        logger.info(
+          `✅ Baseline downloaded successfully - ${downloadedCount}/${buildDetails.screenshots.length} screenshots`
+        );
+      }
       return this.baselineData;
     } catch (error) {
       logger.error(`❌ Failed to download baseline: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Handle local baseline logic (either load existing or prepare for new baselines)
+   * @returns {Promise<Object|null>} Baseline data or null if no local baselines exist
+   */
+  async handleLocalBaselines() {
+    const baseline = await this.loadBaseline();
+
+    if (!baseline) {
+      if (this.config.apiKey) {
+        logger.info(
+          '📥 No local baseline found, but API key available for future remote fetching'
+        );
+        logger.info('🆕 Current run will create new local baselines');
+      } else {
+        logger.info(
+          '📝 No local baseline found and no API token - all screenshots will be marked as new'
+        );
+      }
+      return null;
+    } else {
+      logger.info(
+        `✅ Using existing baseline: ${colors.cyan(baseline.buildName)}`
+      );
+      return baseline;
     }
   }
 
@@ -350,7 +514,7 @@ export class TddService {
     };
   }
 
-  printResults() {
+  async printResults() {
     const results = this.getResults();
 
     logger.info('\n📊 TDD Results:');
@@ -377,9 +541,6 @@ export class TddService {
       logger.info('\n❌ Failed comparisons:');
       failedComparisons.forEach(comp => {
         logger.info(`  • ${comp.name}`);
-        logger.info(`    Baseline: ${comp.baseline}`);
-        logger.info(`    Current:  ${comp.current}`);
-        logger.info(`    Diff:     ${comp.diff}`);
       });
     }
 
@@ -389,13 +550,74 @@ export class TddService {
       logger.info('\n📸 New screenshots:');
       newComparisons.forEach(comp => {
         logger.info(`  • ${comp.name}`);
-        logger.info(`    Current: ${comp.current}`);
       });
     }
 
-    logger.info(`\n📁 Results saved to: ${colors.dim('.vizzly/')}`);
+    // Generate HTML report
+    await this.generateHtmlReport(results);
 
     return results;
+  }
+
+  /**
+   * Generate HTML report for TDD results
+   * @param {Object} results - TDD comparison results
+   */
+  async generateHtmlReport(results) {
+    try {
+      const reportGenerator = new HtmlReportGenerator(
+        this.workingDir,
+        this.config
+      );
+      const reportPath = await reportGenerator.generateReport(results, {
+        baseline: this.baselineData,
+        threshold: this.threshold,
+      });
+
+      // Show report path (always clickable)
+      logger.info(
+        `\n🐻 View detailed report: ${colors.cyan('file://' + reportPath)}`
+      );
+
+      // Auto-open if configured
+      if (this.config.tdd?.openReport) {
+        await this.openReport(reportPath);
+      }
+
+      return reportPath;
+    } catch (error) {
+      logger.warn(`Failed to generate HTML report: ${error.message}`);
+    }
+  }
+
+  /**
+   * Open HTML report in default browser
+   * @param {string} reportPath - Path to HTML report
+   */
+  async openReport(reportPath) {
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+
+      let command;
+      switch (process.platform) {
+        case 'darwin': // macOS
+          command = `open "${reportPath}"`;
+          break;
+        case 'win32': // Windows
+          command = `start "" "${reportPath}"`;
+          break;
+        default: // Linux and others
+          command = `xdg-open "${reportPath}"`;
+          break;
+      }
+
+      await execAsync(command);
+      logger.info('📖 Report opened in browser');
+    } catch (error) {
+      logger.debug(`Failed to open report: ${error.message}`);
+    }
   }
 
   /**

@@ -116,7 +116,6 @@ export class TestRunner extends BaseService {
       } catch (stopError) {
         this.logger.error('Failed to stop server:', stopError);
       }
-
     }
 
     // If there was a test error, throw it now (after cleanup)

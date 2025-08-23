@@ -88,12 +88,12 @@ jobs:
       id: playwright-cache
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-browsers-${{ steps.playwright-version.outputs.version }}-chromium
+        key: playwright-browsers-${{ steps.playwright-version.outputs.version }}-firefox
 
     - name: Install Playwright browsers
       if: steps.playwright-cache.outputs.cache-hit != 'true'
       working-directory: ./test-site
-      run: npx playwright install chromium --with-deps
+      run: npx playwright install firefox --with-deps
 
     - name: Test Vizzly integration
       working-directory: ./test-site

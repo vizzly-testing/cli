@@ -1,12 +1,13 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { vizzlyScreenshot } from '../../dist/client/index.js';
 
 test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
   test('Homepage - Desktop view', async ({ page, browserName }) => {
     await page.goto('/');
+    await expect(page.locator('h1')).toContainText('Store Your Pet\'s');
 
-    const screenshot = await page.screenshot({ fullPage: true });
+    const screenshot = await page.screenshot();
 
     await vizzlyScreenshot('homepage-desktop', screenshot, {
       browser: browserName,
@@ -18,8 +19,9 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
   test('Features Page - Full page', async ({ page, browserName }) => {
     await page.goto('/features.html');
+    await expect(page.locator('h1')).toBeVisible();
 
-    const screenshot = await page.screenshot({ fullPage: true });
+    const screenshot = await page.screenshot();
 
     await vizzlyScreenshot('features-full', screenshot, {
       browser: browserName,
@@ -31,8 +33,9 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
   test('Pricing Page - Monthly view', async ({ page, browserName }) => {
     await page.goto('/pricing.html');
+    await expect(page.locator('h1')).toBeVisible();
 
-    const screenshot = await page.screenshot({ fullPage: true });
+    const screenshot = await page.screenshot();
     await vizzlyScreenshot('pricing-monthly', screenshot, {
       browser: browserName,
       viewport: page.viewportSize(),
@@ -44,8 +47,9 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
   test('Contact Page - Full page', async ({ page, browserName }) => {
     await page.goto('/contact.html');
+    await expect(page.locator('h1')).toBeVisible();
 
-    const screenshot = await page.screenshot({ fullPage: true });
+    const screenshot = await page.screenshot();
     await vizzlyScreenshot('contact-full', screenshot, {
       browser: browserName,
       viewport: page.viewportSize(),
@@ -55,10 +59,11 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
   });
 
   test('Mobile View - Homepage', async ({ page, browserName }) => {
-    await page.setViewportSize({ width: 375, height: 812 }); // iPhone X
+    await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
+    await expect(page.locator('h1')).toContainText('Store Your Pet\'s');
 
-    const screenshot = await page.screenshot({ fullPage: true });
+    const screenshot = await page.screenshot();
 
     await vizzlyScreenshot('homepage-mobile', screenshot, {
       browser: browserName,

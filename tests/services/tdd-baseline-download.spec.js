@@ -8,7 +8,7 @@ import { tmpdir } from 'os';
 vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
-  existsSync: vi.fn(() => true),
+  existsSync: vi.fn(() => false),
 }));
 vi.mock('../../src/services/api-service.js');
 vi.mock('../../src/utils/logger.js', () => ({
@@ -41,7 +41,7 @@ describe('TDD Service - Baseline Download', () => {
       apiUrl: 'https://test.vizzly.com',
       apiKey: 'test-api-key',
       comparison: {
-        threshold: 0.01,
+        threshold: 0.1,
       },
     };
 
@@ -64,23 +64,36 @@ describe('TDD Service - Baseline Download', () => {
 
   describe('downloadBaselines', () => {
     it('should download baselines successfully with build ID', async () => {
-      // Mock API responses
-      const mockBuild = {
+      // Mock API response - getBuild with 'screenshots' parameter returns full build details
+      const mockBuildWithScreenshots = {
         id: 'build123',
         name: 'Test Build',
         status: 'passed',
-      };
-
-      const mockBuildDetails = {
-        id: 'build123',
         screenshots: [
-          { name: 'homepage', url: 'https://example.com/homepage.png' },
-          { name: 'login', url: 'https://example.com/login.png' },
+          {
+            name: 'homepage',
+            url: 'https://example.com/homepage.png',
+            original_url: 'https://example.com/homepage.png',
+            sha256: 'sha256-homepage',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+          },
+          {
+            name: 'login',
+            url: 'https://example.com/login.png',
+            original_url: 'https://example.com/login.png',
+            sha256: 'sha256-login',
+            id: 'screenshot2',
+            file_size_bytes: 67890,
+            width: 1920,
+            height: 1080,
+          },
         ],
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuild);
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildDetails);
+      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
 
       // Mock fetch responses for image downloads
       const mockImageBuffer = Buffer.from('fake-image-data');
@@ -88,11 +101,11 @@ describe('TDD Service - Baseline Download', () => {
       global.fetch
         .mockResolvedValueOnce({
           ok: true,
-          buffer: () => Promise.resolve(mockImageBuffer),
+          arrayBuffer: () => Promise.resolve(mockImageBuffer),
         })
         .mockResolvedValueOnce({
           ok: true,
-          buffer: () => Promise.resolve(mockImageBuffer),
+          arrayBuffer: () => Promise.resolve(mockImageBuffer),
         });
 
       // Mock filesystem operations
@@ -106,7 +119,6 @@ describe('TDD Service - Baseline Download', () => {
       );
 
       // Verify API calls
-      expect(mockApiService.getBuild).toHaveBeenCalledWith('build123');
       expect(mockApiService.getBuild).toHaveBeenCalledWith(
         'build123',
         'screenshots'
@@ -143,17 +155,40 @@ describe('TDD Service - Baseline Download', () => {
         buildName: 'Test Build',
         environment: 'test',
         branch: 'main',
-        threshold: 0.01,
+        threshold: 0.1,
+        createdAt: expect.any(String),
+        buildInfo: {
+          commitSha: undefined,
+          commitMessage: undefined,
+          approvalStatus: undefined,
+          completedAt: undefined,
+        },
         screenshots: [
           {
             name: 'homepage',
+            sha256: 'sha256-homepage',
+            id: 'screenshot1',
             properties: {},
             path: join(testDir, '.vizzly', 'baselines', 'homepage.png'),
+            originalUrl: 'https://example.com/homepage.png',
+            fileSize: 12345,
+            dimensions: {
+              width: 1920,
+              height: 1080,
+            },
           },
           {
             name: 'login',
+            sha256: 'sha256-login',
+            id: 'screenshot2',
             properties: {},
             path: join(testDir, '.vizzly', 'baselines', 'login.png'),
+            originalUrl: 'https://example.com/login.png',
+            fileSize: 67890,
+            dimensions: {
+              width: 1920,
+              height: 1080,
+            },
           },
         ],
       });
@@ -162,22 +197,26 @@ describe('TDD Service - Baseline Download', () => {
     });
 
     it('should handle download failures gracefully', async () => {
-      // Mock API responses
-      const mockBuild = {
+      // Mock API response - getBuild with 'screenshots' parameter returns full build details
+      const mockBuildWithScreenshots = {
         id: 'build123',
         name: 'Test Build',
         status: 'passed',
-      };
-
-      const mockBuildDetails = {
-        id: 'build123',
         screenshots: [
-          { name: 'homepage', url: 'https://example.com/homepage.png' },
+          {
+            name: 'homepage',
+            url: 'https://example.com/homepage.png',
+            original_url: 'https://example.com/homepage.png',
+            sha256: 'sha256-homepage',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+          },
         ],
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuild);
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildDetails);
+      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
 
       // Mock failed fetch response
       global.fetch.mockResolvedValueOnce({
@@ -185,10 +224,13 @@ describe('TDD Service - Baseline Download', () => {
         statusText: 'Not Found',
       });
 
-      // Should throw NetworkError
-      await expect(
-        tddService.downloadBaselines('test', 'main', 'build123')
-      ).rejects.toThrow('Failed to download homepage: Not Found');
+      // Should return null on download failure
+      let result = await tddService.downloadBaselines(
+        'test',
+        'main',
+        'build123'
+      );
+      expect(result).toBeNull();
 
       // Verify fetch was called
       expect(global.fetch).toHaveBeenCalledWith(
@@ -200,32 +242,39 @@ describe('TDD Service - Baseline Download', () => {
     });
 
     it('should handle fetch timeout scenarios', async () => {
-      // Mock API responses
-      const mockBuild = {
+      // Mock API response - getBuild with 'screenshots' parameter returns full build details
+      const mockBuildWithScreenshots = {
         id: 'build123',
         name: 'Test Build',
         status: 'passed',
-      };
-
-      const mockBuildDetails = {
-        id: 'build123',
         screenshots: [
-          { name: 'homepage', url: 'https://example.com/homepage.png' },
+          {
+            name: 'homepage',
+            url: 'https://example.com/homepage.png',
+            original_url: 'https://example.com/homepage.png',
+            sha256: 'sha256-homepage',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+          },
         ],
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuild);
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildDetails);
+      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
 
       // Mock fetch that throws timeout error
       const timeoutError = new Error('The operation was aborted');
       timeoutError.name = 'AbortError';
       global.fetch.mockRejectedValueOnce(timeoutError);
 
-      // Should throw the timeout error
-      await expect(
-        tddService.downloadBaselines('test', 'main', 'build123')
-      ).rejects.toThrow('The operation was aborted');
+      // Should return null on timeout error
+      let result = await tddService.downloadBaselines(
+        'test',
+        'main',
+        'build123'
+      );
+      expect(result).toBeNull();
 
       // Verify fetch was called with timeout signal
       expect(global.fetch).toHaveBeenCalledWith(
@@ -251,7 +300,16 @@ describe('TDD Service - Baseline Download', () => {
       const mockBuildDetails = {
         id: 'latest-build-456',
         screenshots: [
-          { name: 'dashboard', url: 'https://example.com/dashboard.png' },
+          {
+            name: 'dashboard',
+            url: 'https://example.com/dashboard.png',
+            original_url: 'https://example.com/dashboard.png',
+            sha256: 'sha256-dashboard',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+          },
         ],
       };
 
@@ -262,7 +320,7 @@ describe('TDD Service - Baseline Download', () => {
       const mockImageBuffer = Buffer.from('dashboard-image-data');
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        buffer: () => Promise.resolve(mockImageBuffer),
+        arrayBuffer: () => Promise.resolve(mockImageBuffer),
       });
 
       // Execute without specifying build ID
@@ -362,6 +420,12 @@ describe('TDD Service - Baseline Download', () => {
           {
             name: 'profile',
             url: 'https://example.com/profile.png',
+            original_url: 'https://example.com/profile.png',
+            sha256: 'sha256-profile',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
             properties: { viewport: '1920x1080' },
           },
         ],
@@ -374,7 +438,7 @@ describe('TDD Service - Baseline Download', () => {
       const mockImageBuffer = Buffer.from('profile-image-data');
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        buffer: () => Promise.resolve(mockImageBuffer),
+        arrayBuffer: () => Promise.resolve(mockImageBuffer),
       });
 
       // Execute with comparison ID

@@ -17,12 +17,34 @@ export const createTddHandler = (
   const initialize = async () => {
     logger.info('🔄 TDD mode enabled - setting up local comparison...');
 
+    // Check if we have baseline override flags that should force a fresh download
+    const shouldForceDownload =
+      (baselineBuild || baselineComparison) && config.apiKey;
+
+    if (shouldForceDownload) {
+      logger.info(
+        '📥 Baseline override specified, downloading fresh baselines from Vizzly...'
+      );
+      await tddService.downloadBaselines(
+        config.build?.environment || 'test',
+        config.build?.branch || null,
+        baselineBuild,
+        baselineComparison
+      );
+      return;
+    }
+
     const baseline = await tddService.loadBaseline();
 
     if (!baseline) {
       if (config.apiKey) {
         logger.info('📥 No local baseline found, downloading from Vizzly...');
-        await tddService.downloadBaselines(baselineBuild, baselineComparison);
+        await tddService.downloadBaselines(
+          config.build?.environment || 'test',
+          config.build?.branch || null,
+          baselineBuild,
+          baselineComparison
+        );
       } else {
         logger.info(
           '📝 No local baseline found and no API token - all screenshots will be marked as new'
@@ -53,8 +75,34 @@ export const createTddHandler = (
       throw new Error(`Build ${buildId} not found`);
     }
 
+    // Create unique screenshot name based on properties
+    let uniqueName = name;
+    const relevantProps = [];
+
+    // Add browser to name if provided
+    if (properties.browser) {
+      relevantProps.push(properties.browser);
+    }
+
+    // Add viewport info if provided
+    if (
+      properties.viewport &&
+      properties.viewport.width &&
+      properties.viewport.height
+    ) {
+      relevantProps.push(
+        `${properties.viewport.width}x${properties.viewport.height}`
+      );
+    }
+
+    // Combine base name with relevant properties
+    if (relevantProps.length > 0) {
+      uniqueName = `${name}-${relevantProps.join('-')}`;
+    }
+
     const screenshot = {
-      name,
+      name: uniqueName,
+      originalName: name,
       imageData: image,
       properties,
       timestamp: Date.now(),
@@ -64,7 +112,7 @@ export const createTddHandler = (
 
     const imageBuffer = Buffer.from(image, 'base64');
     const comparison = await tddService.compareScreenshot(
-      name,
+      uniqueName,
       imageBuffer,
       properties
     );
@@ -81,6 +129,8 @@ export const createTddHandler = (
             baseline: comparison.baseline,
             current: comparison.current,
             diff: comparison.diff,
+            diffPercentage: comparison.diffPercentage,
+            threshold: comparison.threshold,
           },
           tddMode: true,
         },
@@ -145,7 +195,7 @@ export const createTddHandler = (
       );
     }
 
-    const results = tddService.printResults();
+    const results = await tddService.printResults();
     builds.delete(buildId);
 
     return {

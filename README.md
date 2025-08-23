@@ -123,12 +123,18 @@ For local visual testing with immediate feedback, use the dedicated `tdd` comman
 # First run - creates local baselines
 vizzly tdd "npm test"
 
-# Make changes and test - fails if visual differences detected  
+# Make changes and test - fails if visual differences detected
 vizzly tdd "npm test"
 
 # Accept changes as new baseline
 vizzly tdd "npm test" --set-baseline
 ```
+
+**Interactive HTML Report:** Each TDD run generates a detailed HTML report with visual comparison tools:
+- **Overlay mode** - Toggle between baseline and current screenshots
+- **Side-by-side mode** - Compare baseline and current images horizontally
+- **Onion skin mode** - Drag to reveal differences interactively
+- **Toggle mode** - Click to switch between baseline and current
 
 **TDD Command Options:**
 - `--set-baseline` - Accept current screenshots as new baseline
@@ -203,25 +209,25 @@ export default {
   // API configuration
   // Set VIZZLY_TOKEN environment variable or uncomment and set here:
   // apiToken: 'your-token-here',
-  
+
   // Screenshot configuration
   screenshots: {
     directory: './screenshots',
     formats: ['png']
   },
-  
+
   // Server configuration
   server: {
     port: 47392,
     screenshotPath: '/screenshot'
   },
-  
+
   // Comparison configuration
   comparison: {
     threshold: 0.1,
     ignoreAntialiasing: true
   },
-  
+
   // Upload configuration
   upload: {
     concurrency: 5,

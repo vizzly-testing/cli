@@ -4,31 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FluffyCloud - The Ultimate Cloud Storage for Your Pets</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#eff6ff',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            900: '#1e3a8a'
-                        },
-                        secondary: {
-                            500: '#8b5cf6',
-                            600: '#7c3aed'
-                        }
-                    },
-                    fontFamily: {
-                        'sans': ['Inter', 'system-ui', 'sans-serif']
-                    }
-                }
-            }
-        }
-    </script>
+    <link rel="stylesheet" href="dist/output.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body class="font-sans antialiased bg-white">
@@ -38,7 +14,7 @@
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-2">
                     <span class="text-2xl">🐾</span>
-                    <span class="text-xl font-bold text-gray-900">FluffyCloud</span>
+                    <span class="text-xl font-bold text-gray-900">FluffyCloud TEST FAIL</span>
                 </div>
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="index.html" class="text-primary-600 font-medium">Home</a>
@@ -63,8 +39,8 @@
         <section class="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
             <!-- Background decorations -->
             <div class="absolute inset-0 overflow-hidden">
-                <div class="absolute -top-40 -right-32 w-80 h-80 bg-primary-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-                <div class="absolute -bottom-40 -left-32 w-80 h-80 bg-secondary-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" style="animation-delay: 2s;"></div>
+                <div class="absolute -top-40 -right-32 w-80 h-80 bg-primary-200 rounded-full mix-blend-multiply filter blur-xl opacity-70"></div>
+                <div class="absolute -bottom-40 -left-32 w-80 h-80 bg-secondary-200 rounded-full mix-blend-multiply filter blur-xl opacity-70"></div>
             </div>
             
             <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
@@ -90,10 +66,10 @@
                         </p>
                         
                         <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                            <button class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200">
+                            <button class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg">
                                 Start Free Trial
                             </button>
-                            <button class="border-2 border-primary-600 text-primary-600 hover:bg-primary-600 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200">
+                            <button class="border-2 border-primary-600 text-primary-600 hover:bg-primary-600 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg">
                                 Watch Demo
                             </button>
                         </div>
@@ -110,7 +86,7 @@
                     <div class="relative">
                         <div class="relative z-10">
                             <!-- Main phone mockup -->
-                            <div class="bg-white p-8 rounded-3xl shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-500">
+                            <div class="bg-white p-8 rounded-3xl shadow-2xl">
                                 <div class="aspect-[9/16] bg-gradient-to-b from-primary-50 to-secondary-50 rounded-2xl p-6 flex flex-col items-center justify-center">
                                     <div class="text-6xl mb-4">🐕</div>
                                     <div class="text-2xl mb-2">📱</div>
@@ -119,10 +95,10 @@
                             </div>
                             
                             <!-- Floating elements -->
-                            <div class="absolute -top-6 -left-6 bg-white p-4 rounded-xl shadow-lg animate-bounce">
+                            <div class="absolute -top-6 -left-6 bg-white p-4 rounded-xl shadow-lg">
                                 <span class="text-2xl">🐱</span>
                             </div>
-                            <div class="absolute -bottom-6 -right-6 bg-white p-4 rounded-xl shadow-lg animate-bounce" style="animation-delay: 1s;">
+                            <div class="absolute -bottom-6 -right-6 bg-white p-4 rounded-xl shadow-lg">
                                 <span class="text-2xl">🦮</span>
                             </div>
                         </div>
@@ -145,10 +121,9 @@
                 
                 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                     <!-- Feature 1 -->
-                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
-                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
-                        <div class="relative">
-                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <div class="bg-white p-8 rounded-2xl border border-gray-100">
+                        <div>
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 ">
                                 🔒
                             </div>
                             <h3 class="text-xl font-bold text-gray-900 mb-3">Pet-Safe Security</h3>
@@ -157,10 +132,9 @@
                     </div>
                     
                     <!-- Feature 2 -->
-                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
-                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
-                        <div class="relative">
-                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <div class="bg-white p-8 rounded-2xl border border-gray-100">
+                        <div>
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 ">
                                 ⚡
                             </div>
                             <h3 class="text-xl font-bold text-gray-900 mb-3">Lightning Fast Access</h3>
@@ -169,10 +143,9 @@
                     </div>
                     
                     <!-- Feature 3 -->
-                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
-                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
-                        <div class="relative">
-                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <div class="bg-white p-8 rounded-2xl border border-gray-100">
+                        <div>
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 ">
                                 🏠
                             </div>
                             <h3 class="text-xl font-bold text-gray-900 mb-3">Multi-Pet Households</h3>
@@ -181,10 +154,9 @@
                     </div>
                     
                     <!-- Feature 4 -->
-                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
-                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
-                        <div class="relative">
-                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <div class="bg-white p-8 rounded-2xl border border-gray-100">
+                        <div>
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 ">
                                 🤖
                             </div>
                             <h3 class="text-xl font-bold text-gray-900 mb-3">AI-Powered Organization</h3>
@@ -193,10 +165,9 @@
                     </div>
                     
                     <!-- Feature 5 -->
-                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
-                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
-                        <div class="relative">
-                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <div class="bg-white p-8 rounded-2xl border border-gray-100">
+                        <div>
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 ">
                                 👥
                             </div>
                             <h3 class="text-xl font-bold text-gray-900 mb-3">Family Sharing</h3>
@@ -205,10 +176,9 @@
                     </div>
                     
                     <!-- Feature 6 -->
-                    <div class="group relative bg-white p-8 rounded-2xl border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300">
-                        <div class="absolute inset-0 bg-gradient-to-br from-primary-50 to-secondary-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></div>
-                        <div class="relative">
-                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <div class="bg-white p-8 rounded-2xl border border-gray-100">
+                        <div>
+                            <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl flex items-center justify-center text-2xl text-white mb-6 ">
                                 📱
                             </div>
                             <h3 class="text-xl font-bold text-gray-900 mb-3">Auto-Backup</h3>
@@ -344,7 +314,7 @@
                 </p>
                 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                    <button class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200">
+                    <button class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg">
                         Start Your Free Trial Today
                     </button>
                     <button class="border-2 border-primary-600 text-primary-600 hover:bg-primary-600 hover:text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200">

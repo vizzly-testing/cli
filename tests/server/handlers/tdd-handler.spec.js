@@ -31,7 +31,7 @@ describe('createTddHandler', () => {
   beforeEach(async () => {
     mockConfig = {
       apiKey: 'test-api-key',
-      comparison: { threshold: 0.01 },
+      comparison: { threshold: 0.1 },
     };
 
     mockTddService = {
@@ -58,23 +58,52 @@ describe('createTddHandler', () => {
 
   describe('initialize', () => {
     it('should use existing baseline when available', async () => {
+      // Create handler without baseline override flags
+      const handlerWithoutOverride = createTddHandler(
+        mockConfig,
+        '/test/workingDir'
+      );
+
       const mockBaseline = { buildName: 'Test Baseline' };
       mockTddService.loadBaseline.mockResolvedValue(mockBaseline);
 
-      await handler.initialize();
+      await handlerWithoutOverride.initialize();
 
       expect(mockTddService.loadBaseline).toHaveBeenCalled();
       expect(mockTddService.downloadBaselines).not.toHaveBeenCalled();
     });
 
     it('should download baseline when none exists and API key available', async () => {
+      // Create handler without baseline override flags
+      const handlerWithoutOverride = createTddHandler(
+        mockConfig,
+        '/test/workingDir'
+      );
+
       mockTddService.loadBaseline.mockResolvedValue(null);
+      mockTddService.downloadBaselines.mockResolvedValue();
+
+      await handlerWithoutOverride.initialize();
+
+      expect(mockTddService.loadBaseline).toHaveBeenCalled();
+      expect(mockTddService.downloadBaselines).toHaveBeenCalledWith(
+        'test', // environment
+        null, // branch
+        undefined, // no baseline build override
+        undefined // no baseline comparison override
+      );
+    });
+
+    it('should force download when baseline override flags provided', async () => {
+      // Use the original handler that has baseline override flags
       mockTddService.downloadBaselines.mockResolvedValue();
 
       await handler.initialize();
 
-      expect(mockTddService.loadBaseline).toHaveBeenCalled();
+      expect(mockTddService.loadBaseline).not.toHaveBeenCalled();
       expect(mockTddService.downloadBaselines).toHaveBeenCalledWith(
+        'test', // environment
+        null, // branch
         'baseline-build-id',
         'baseline-comparison-id'
       );
@@ -154,6 +183,8 @@ describe('createTddHandler', () => {
         baseline: '/path/to/baseline.png',
         current: '/path/to/current.png',
         diff: '/path/to/diff.png',
+        diffPercentage: 2.5,
+        threshold: 0.1,
       };
       mockTddService.compareScreenshot.mockResolvedValue(mockComparison);
 
@@ -167,7 +198,15 @@ describe('createTddHandler', () => {
       expect(result.statusCode).toBe(422);
       expect(result.body.error).toBe('Visual difference detected');
       expect(result.body.tddMode).toBe(true);
-      expect(result.body.comparison).toEqual(mockComparison);
+      expect(result.body.comparison).toEqual({
+        name: screenshotName,
+        status: 'failed',
+        baseline: '/path/to/baseline.png',
+        current: '/path/to/current.png',
+        diff: '/path/to/diff.png',
+        diffPercentage: 2.5,
+        threshold: 0.1,
+      });
     });
 
     it('should handle baseline update', async () => {
@@ -280,7 +319,7 @@ describe('createTddHandler', () => {
         new: 0,
         errors: 0,
       };
-      mockTddService.printResults.mockReturnValue(mockResults);
+      mockTddService.printResults.mockResolvedValue(mockResults);
       mockTddService.compareScreenshot.mockResolvedValue({ status: 'passed' });
 
       // Add a screenshot first
@@ -304,7 +343,7 @@ describe('createTddHandler', () => {
         new: 0,
         errors: 0,
       };
-      mockTddService.printResults.mockReturnValue(mockResults);
+      mockTddService.printResults.mockResolvedValue(mockResults);
       mockTddService.compareScreenshot.mockResolvedValue({ status: 'passed' });
 
       await handler.handleScreenshot(buildId, 'test', 'data');

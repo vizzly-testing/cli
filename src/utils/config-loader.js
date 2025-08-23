@@ -31,6 +31,11 @@ const DEFAULT_CONFIG = {
   comparison: {
     threshold: 0.1,
   },
+
+  // TDD Configuration
+  tdd: {
+    openReport: false, // Whether to auto-open HTML report in browser
+  },
 };
 
 export async function loadConfig(configPath = null, cliOverrides = {}) {
@@ -41,6 +46,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     build: { ...DEFAULT_CONFIG.build },
     upload: { ...DEFAULT_CONFIG.upload },
     comparison: { ...DEFAULT_CONFIG.comparison },
+    tdd: { ...DEFAULT_CONFIG.tdd },
   };
 
   // 1. Load from config file using cosmiconfig

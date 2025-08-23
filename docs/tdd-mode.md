@@ -8,7 +8,7 @@ TDD Mode transforms your visual testing workflow by:
 
 - **Local comparison** - Compares screenshots on your machine using `odiff`
 - **Fast feedback** - No network uploads during development
-- **Immediate results** - Tests fail instantly when visual differences are detected  
+- **Immediate results** - Tests fail instantly when visual differences are detected
 - **Auto-baseline creation** - Creates baselines locally when none exist
 - **No token required** - Works entirely offline for local development
 
@@ -43,7 +43,7 @@ npx vizzly tdd "npm test"
 🐻 **Comparison behavior:**
 - Compares new screenshots against local baselines
 - **Tests fail immediately** when visual differences detected
-- Shows exact diff paths and percentages
+- Generates interactive HTML report for visual analysis
 - Creates diff images in `.vizzly/diffs/`
 
 ### 3. Accept Changes (Update Baseline)
@@ -56,7 +56,7 @@ npx vizzly tdd "npm test" --set-baseline
 
 🐻 **Baseline update behavior:**
 - Skips all comparisons
-- Sets current screenshots as new baselines  
+- Sets current screenshots as new baselines
 - All tests pass (baseline accepted)
 - Future runs use updated baselines
 
@@ -73,7 +73,7 @@ npx vizzly run "npm test" --wait
 TDD Mode creates a local development environment:
 
 1. **Downloads baselines** - Gets approved screenshots from Vizzly
-2. **Runs tests** - Executes your test suite normally  
+2. **Runs tests** - Executes your test suite normally
 3. **Captures screenshots** - Collects new screenshots via `vizzlyScreenshot()`
 4. **Compares locally** - Uses `odiff` for pixel-perfect comparison
 5. **Fails immediately** - Tests fail when differences exceed threshold
@@ -89,15 +89,61 @@ TDD Mode creates a `.vizzly/` directory:
 │   ├── homepage.png
 │   ├── dashboard.png
 │   └── metadata.json    # Baseline build information
-├── current/             # Current test screenshots  
+├── current/             # Current test screenshots
 │   ├── homepage.png
 │   └── dashboard.png
+├── report/              # Interactive HTML report
+│   └── index.html       # Visual comparison interface
 └── diffs/               # Visual diff images (when differences found)
     ├── homepage.png     # Red overlay showing differences
     └── dashboard.png
 ```
 
 **Important**: Add `.vizzly/` to your `.gitignore` file as it contains local development artifacts.
+
+## Interactive HTML Report
+
+Each TDD run automatically generates a comprehensive HTML report at `.vizzly/report/index.html`. This report provides advanced visual comparison tools to analyze differences:
+
+### 🐻 **Viewing Modes**
+
+**Overlay Mode** (Default)
+- Shows current screenshot as base layer
+- Click to toggle diff overlay on/off
+- Perfect for spotting subtle changes
+
+**Side-by-Side Mode**
+- Displays baseline and current screenshots horizontally
+- Easy to compare layout and content changes
+- Great for reviewing larger modifications
+
+**Onion Skin Mode**
+- Drag across image to reveal baseline underneath
+- Interactive reveal lets you control comparison area
+- Ideal for precise change inspection
+
+**Toggle Mode**
+- Click image to switch between baseline and current
+- Quick back-and-forth comparison
+- Simple way to see before/after
+
+### 🐻 **Report Features**
+
+- **Dark Theme** - Easy on the eyes during long debugging sessions
+- **Mobile Responsive** - Works on any screen size
+- **Clickable File Paths** - Click from terminal to open instantly
+- **Clean Status Display** - Shows "Visual differences detected" instead of technical metrics
+- **Test Summary** - Total, passed, failed counts and pass rate
+
+### 🐻 **Opening the Report**
+
+```bash
+# Report path is shown after each run
+🐻 View detailed report: file:///path/to/.vizzly/report/index.html
+
+# Click the link in your terminal, or open manually
+open .vizzly/report/index.html  # macOS
+```
 
 ## Command Options
 
@@ -122,7 +168,7 @@ vizzly tdd "npm test" --set-baseline
 VIZZLY_TOKEN=your-token vizzly tdd "npm test" --baseline-build build-abc123
 ```
 
-**`--baseline-comparison <id>`** - Use specific comparison as baseline  
+**`--baseline-comparison <id>`** - Use specific comparison as baseline
 ```bash
 VIZZLY_TOKEN=your-token vizzly tdd "npm test" --baseline-comparison comparison-xyz789
 ```
@@ -272,14 +318,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
       - run: npm ci
-      
+
       # Use TDD mode for PR builds (faster, no uploads)
       - name: TDD Visual Tests (PR)
         if: github.event_name == 'pull_request'
         run: npx vizzly tdd "npm test"
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
-      
+
       # Upload full build for main branch
       - name: Full Visual Tests (main)
         if: github.ref == 'refs/heads/main'
@@ -295,7 +341,7 @@ jobs:
 - **Immediate feedback** - See results in seconds
 - **No API rate limits** - Test as often as needed
 
-### Development Experience  
+### Development Experience
 - **Fast iteration** - Make changes and test immediately
 - **Visual debugging** - See exact pixel differences
 - **Offline capable** - Works without internet (after initial baseline download)
@@ -354,7 +400,7 @@ npm install odiff-bin
 
 ### Use TDD Mode For
 - **Local development** - Fast iteration on UI changes
-- **Bug fixing** - Verify visual fixes immediately  
+- **Bug fixing** - Verify visual fixes immediately
 - **PR validation** - Quick checks without uploading
 - **Debugging** - Understand exactly what changed visually
 
@@ -372,5 +418,5 @@ npm install odiff-bin
 ## Next Steps
 
 - Learn about [Test Integration](./test-integration.md) for screenshot capture
-- Explore [Upload Command](./upload-command.md) for direct uploads  
+- Explore [Upload Command](./upload-command.md) for direct uploads
 - Check the [API Reference](./api-reference.md) for programmatic usage

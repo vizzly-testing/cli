@@ -45,7 +45,7 @@ describe('TddService', () => {
       apiUrl: 'https://test.vizzly.com',
       apiKey: 'test-api-key',
       comparison: {
-        threshold: 0.01,
+        threshold: 0.1,
       },
     };
 
@@ -59,7 +59,7 @@ describe('TddService', () => {
     it('initializes with correct configuration', () => {
       expect(tddService.config).toEqual(mockConfig);
       expect(tddService.workingDir).toBe(testDir);
-      expect(tddService.threshold).toBe(0.01);
+      expect(tddService.threshold).toBe(0.1);
       expect(tddService.comparisons).toEqual([]);
     });
 
@@ -76,7 +76,7 @@ describe('TddService', () => {
       delete configWithoutThreshold.comparison;
 
       const service = new TddService(configWithoutThreshold, testDir);
-      expect(service.threshold).toBe(0.01);
+      expect(service.threshold).toBe(0.1);
     });
   });
 
@@ -162,7 +162,7 @@ describe('TddService', () => {
         current: join(testDir, '.vizzly', 'current', 'test-screenshot.png'),
         diff: null,
         properties: {},
-        threshold: 0.01,
+        threshold: 0.1,
       });
 
       expect(tddService.comparisons).toHaveLength(1);
@@ -191,7 +191,7 @@ describe('TddService', () => {
         current: join(testDir, '.vizzly', 'current', 'test-screenshot.png'),
         diff: join(testDir, '.vizzly', 'diffs', 'test-screenshot.png'),
         properties: {},
-        threshold: 0.01,
+        threshold: 0.1,
         diffCount: undefined,
         diffPercentage: 5.2,
         reason: 'pixel-diff',

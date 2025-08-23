@@ -123,9 +123,13 @@ export async function tddCommand(
     });
 
     // Show informational messages about baseline behavior
-    if (config.apiKey) {
+    if (config.baselineBuildId || config.baselineComparisonId) {
       ui.info(
-        'API token available - will fetch baselines for local comparison'
+        'API token available - will fetch remote baselines for local comparison'
+      );
+    } else if (config.apiKey) {
+      ui.info(
+        'API token available - will use existing local baselines or create new ones'
       );
     } else {
       ui.warning(

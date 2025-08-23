@@ -470,7 +470,7 @@ describe('tddCommand', () => {
       await cleanup();
 
       expect(mockUI.info).toHaveBeenCalledWith(
-        'API token available - will fetch baselines for local comparison'
+        'API token available - will use existing local baselines or create new ones'
       );
     });
 

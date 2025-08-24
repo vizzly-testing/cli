@@ -176,7 +176,7 @@ describe('tddCommand', () => {
       await cleanup();
 
       expect(mockUI.info).toHaveBeenCalledWith(
-        '🐻 Baseline update mode - current screenshots will become new baselines'
+        '🐻 Baseline update mode - will ignore existing baselines and create new ones'
       );
       expect(mockTestRunner.run).toHaveBeenCalledWith(
         expect.objectContaining({

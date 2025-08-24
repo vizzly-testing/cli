@@ -2,6 +2,10 @@ import { Buffer } from 'buffer';
 import { createServiceLogger } from '../../utils/logger-factory.js';
 import { TddService } from '../../services/tdd-service.js';
 import { colors } from '../../utils/colors.js';
+import {
+  sanitizeScreenshotName,
+  validateScreenshotProperties,
+} from '../../utils/security.js';
 
 const logger = createServiceLogger('TDD-HANDLER');
 
@@ -9,13 +13,22 @@ export const createTddHandler = (
   config,
   workingDir,
   baselineBuild,
-  baselineComparison
+  baselineComparison,
+  setBaseline = false
 ) => {
-  const tddService = new TddService(config, workingDir);
+  const tddService = new TddService(config, workingDir, setBaseline);
   const builds = new Map();
 
   const initialize = async () => {
     logger.info('🔄 TDD mode enabled - setting up local comparison...');
+
+    // In baseline update mode, skip all baseline loading/downloading
+    if (setBaseline) {
+      logger.info(
+        '📁 Ready for new baseline creation - all screenshots will be treated as new baselines'
+      );
+      return;
+    }
 
     // Check if we have baseline override flags that should force a fresh download
     const shouldForceDownload =
@@ -75,36 +88,75 @@ export const createTddHandler = (
       throw new Error(`Build ${buildId} not found`);
     }
 
-    // Create unique screenshot name based on properties
-    let uniqueName = name;
-    const relevantProps = [];
-
-    // Add browser to name if provided
-    if (properties.browser) {
-      relevantProps.push(properties.browser);
+    // Validate and sanitize screenshot name
+    let sanitizedName;
+    try {
+      sanitizedName = sanitizeScreenshotName(name);
+    } catch (error) {
+      return {
+        statusCode: 400,
+        body: {
+          error: 'Invalid screenshot name',
+          details: error.message,
+          tddMode: true,
+        },
+      };
     }
 
-    // Add viewport info if provided
+    // Validate and sanitize properties
+    let validatedProperties;
+    try {
+      validatedProperties = validateScreenshotProperties(properties);
+    } catch (error) {
+      return {
+        statusCode: 400,
+        body: {
+          error: 'Invalid screenshot properties',
+          details: error.message,
+          tddMode: true,
+        },
+      };
+    }
+
+    // Create unique screenshot name based on properties
+    let uniqueName = sanitizedName;
+    const relevantProps = [];
+
+    // Add browser to name if provided (already validated)
+    if (validatedProperties.browser) {
+      relevantProps.push(validatedProperties.browser);
+    }
+
+    // Add viewport info if provided (already validated)
     if (
-      properties.viewport &&
-      properties.viewport.width &&
-      properties.viewport.height
+      validatedProperties.viewport &&
+      validatedProperties.viewport.width &&
+      validatedProperties.viewport.height
     ) {
       relevantProps.push(
-        `${properties.viewport.width}x${properties.viewport.height}`
+        `${validatedProperties.viewport.width}x${validatedProperties.viewport.height}`
       );
     }
 
-    // Combine base name with relevant properties
+    // Combine base name with relevant properties and sanitize the result
     if (relevantProps.length > 0) {
-      uniqueName = `${name}-${relevantProps.join('-')}`;
+      let proposedUniqueName = `${sanitizedName}-${relevantProps.join('-')}`;
+      try {
+        uniqueName = sanitizeScreenshotName(proposedUniqueName);
+      } catch (error) {
+        // If the combined name is invalid, fall back to the base sanitized name
+        uniqueName = sanitizedName;
+        logger.warn(
+          `Combined screenshot name invalid (${error.message}), using base name: ${uniqueName}`
+        );
+      }
     }
 
     const screenshot = {
       name: uniqueName,
       originalName: name,
       imageData: image,
-      properties,
+      properties: validatedProperties,
       timestamp: Date.now(),
     };
 
@@ -114,7 +166,7 @@ export const createTddHandler = (
     const comparison = await tddService.compareScreenshot(
       uniqueName,
       imageBuffer,
-      properties
+      validatedProperties
     );
 
     if (comparison.status === 'failed') {

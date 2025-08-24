@@ -159,7 +159,11 @@ describe('TestRunner', () => {
 
       await testRunner.run(options);
 
-      expect(mockServerManager.start).toHaveBeenCalledWith('build123', false);
+      expect(mockServerManager.start).toHaveBeenCalledWith(
+        'build123',
+        false,
+        undefined
+      );
       expect(mockApiService.createBuild).toHaveBeenCalled();
       expect(mockApiService.finalizeBuild).toHaveBeenCalled();
       expect(mockServerManager.stop).toHaveBeenCalled();
@@ -190,7 +194,11 @@ describe('TestRunner', () => {
 
       await testRunner.run(options);
 
-      expect(mockServerManager.start).toHaveBeenCalledWith('build456', true);
+      expect(mockServerManager.start).toHaveBeenCalledWith(
+        'build456',
+        true,
+        undefined
+      );
       expect(mockBuildManager.createBuild).toHaveBeenCalled();
       expect(mockServerManager.server.finishBuild).toHaveBeenCalledWith(
         'build456'

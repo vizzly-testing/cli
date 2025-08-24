@@ -17,9 +17,10 @@ export class ServerManager extends BaseService {
     this.emitter = null;
   }
 
-  async start(buildId = null, tddMode = false) {
+  async start(buildId = null, tddMode = false, setBaseline = false) {
     this.buildId = buildId;
     this.tddMode = tddMode;
+    this.setBaseline = setBaseline;
     return super.start();
   }
 
@@ -32,7 +33,8 @@ export class ServerManager extends BaseService {
         this.config,
         process.cwd(),
         this.config?.baselineBuildId,
-        this.config?.baselineComparisonId
+        this.config?.baselineComparisonId,
+        this.setBaseline
       );
 
       await this.handler.initialize();

@@ -169,7 +169,8 @@ describe('ServerManager', () => {
         mockConfig,
         process.cwd(),
         'baseline-123',
-        'comparison-456'
+        'comparison-456',
+        false
       );
       expect(mockTddHandler.initialize).toHaveBeenCalled();
       expect(mockTddHandler.registerBuild).not.toHaveBeenCalled();
@@ -523,7 +524,8 @@ describe('ServerManager', () => {
         configWithoutBaseline,
         process.cwd(),
         undefined,
-        undefined
+        undefined,
+        false
       );
     });
   });

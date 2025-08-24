@@ -66,7 +66,7 @@ export class TestRunner extends BaseService {
       }
 
       // Start server with appropriate handler
-      await this.serverManager.start(buildId, tdd);
+      await this.serverManager.start(buildId, tdd, options.setBaseline);
 
       // Forward server events
       if (this.serverManager.server?.emitter) {

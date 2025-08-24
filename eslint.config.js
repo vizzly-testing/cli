@@ -92,6 +92,46 @@ export default [
       'prettier/prettier': 'error'
     }
   },
+  // Browser files (like viewer.js)
+  {
+    files: ['src/services/report-generator/viewer.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        // Browser globals
+        document: 'readonly',
+        window: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        clearTimeout: 'readonly',
+        fetch: 'readonly',
+        FormData: 'readonly',
+        AbortController: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Blob: 'readonly',
+        FileReader: 'readonly',
+        HTMLElement: 'readonly',
+        Event: 'readonly',
+        CustomEvent: 'readonly',
+        addEventListener: 'readonly',
+        removeEventListener: 'readonly'
+      }
+    },
+    plugins: {
+      prettier
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...configPrettier.rules,
+      'no-console': 'off',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'prettier/prettier': 'error'
+    }
+  },
   // Dist files (transpiled) - skip linting
   {
     files: ['dist/**/*.js'],

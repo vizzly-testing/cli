@@ -15,7 +15,6 @@ export async function tddCommand(
   options = {},
   globalOptions = {}
 ) {
-  // Create UI handler
   const ui = new ConsoleUI({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -45,13 +44,6 @@ export async function tddCommand(
     if (!config.apiKey) {
       config.allowNoToken = true;
       ui.warning('No API token detected - running in local-only mode');
-    }
-
-    // Handle --set-baseline flag
-    if (options.setBaseline) {
-      ui.info(
-        '🐻 Baseline update mode - current screenshots will become new baselines'
-      );
     }
 
     // Collect git metadata
@@ -123,7 +115,11 @@ export async function tddCommand(
     });
 
     // Show informational messages about baseline behavior
-    if (config.baselineBuildId || config.baselineComparisonId) {
+    if (options.setBaseline) {
+      ui.info(
+        '🐻 Baseline update mode - will ignore existing baselines and create new ones'
+      );
+    } else if (config.baselineBuildId || config.baselineComparisonId) {
       ui.info(
         'API token available - will fetch remote baselines for local comparison'
       );
@@ -137,12 +133,11 @@ export async function tddCommand(
       );
     }
 
-    // Prepare TDD run options (no uploads, local comparisons only)
     const runOptions = {
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
-      tdd: true, // Enable TDD mode
+      tdd: true,
       setBaseline: options.setBaseline || false, // Pass through baseline update mode
       branch,
       commit,
@@ -154,7 +149,6 @@ export async function tddCommand(
       wait: false, // No build to wait for in TDD mode
     };
 
-    // Start TDD test run (local comparisons only)
     ui.info('Starting TDD test execution...');
     const result = await testRunner.run(runOptions);
 

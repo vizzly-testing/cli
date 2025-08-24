@@ -200,10 +200,15 @@ export class TddService {
         });
       }
 
-      // Download each screenshot (with efficient SHA checking)
+      // Download screenshots in batches with progress indication
       let downloadedCount = 0;
       let skippedCount = 0;
+      let errorCount = 0;
+      const totalScreenshots = buildDetails.screenshots.length;
+      const batchSize = 5; // Download up to 5 screenshots concurrently
 
+      // Filter screenshots that need to be downloaded
+      const screenshotsToProcess = [];
       for (const screenshot of buildDetails.screenshots) {
         // Sanitize screenshot name for security
         let sanitizedName;
@@ -213,6 +218,7 @@ export class TddService {
           logger.warn(
             `Skipping screenshot with invalid name '${screenshot.name}': ${error.message}`
           );
+          errorCount++;
           continue;
         }
 
@@ -243,40 +249,97 @@ export class TddService {
           logger.warn(
             `⚠️  Screenshot ${sanitizedName} has no download URL - skipping`
           );
-          continue; // Skip screenshots without URLs
+          errorCount++;
+          continue;
         }
 
-        logger.debug(
-          `📥 Downloading screenshot: ${sanitizedName} from ${downloadUrl}`
+        screenshotsToProcess.push({
+          screenshot,
+          sanitizedName,
+          imagePath,
+          downloadUrl,
+        });
+      }
+
+      // Process downloads in batches
+      const actualDownloadsNeeded = screenshotsToProcess.length;
+      if (actualDownloadsNeeded > 0) {
+        logger.info(
+          `📥 Downloading ${actualDownloadsNeeded} new/updated screenshots in batches of ${batchSize}...`
         );
 
-        try {
-          // Download the image
-          const response = await fetchWithTimeout(downloadUrl);
-          if (!response.ok) {
-            throw new NetworkError(
-              `Failed to download ${sanitizedName}: ${response.statusText}`
-            );
-          }
+        for (let i = 0; i < screenshotsToProcess.length; i += batchSize) {
+          const batch = screenshotsToProcess.slice(i, i + batchSize);
+          const batchNum = Math.floor(i / batchSize) + 1;
+          const totalBatches = Math.ceil(
+            screenshotsToProcess.length / batchSize
+          );
 
-          const arrayBuffer = await response.arrayBuffer();
-          const imageBuffer = Buffer.from(arrayBuffer);
-          writeFileSync(imagePath, imageBuffer);
-          downloadedCount++;
+          logger.info(
+            `📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} screenshots)`
+          );
 
-          logger.debug(`✓ Downloaded ${sanitizedName}.png`);
-        } catch (error) {
-          logger.warn(
-            `⚠️  Failed to download ${sanitizedName}: ${error.message}`
+          // Download batch concurrently
+          const downloadPromises = batch.map(
+            async ({ sanitizedName, imagePath, downloadUrl }) => {
+              try {
+                logger.debug(`📥 Downloading: ${sanitizedName}`);
+
+                const response = await fetchWithTimeout(downloadUrl);
+                if (!response.ok) {
+                  throw new NetworkError(
+                    `Failed to download ${sanitizedName}: ${response.statusText}`
+                  );
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const imageBuffer = Buffer.from(arrayBuffer);
+                writeFileSync(imagePath, imageBuffer);
+
+                logger.debug(`✓ Downloaded ${sanitizedName}.png`);
+                return { success: true, name: sanitizedName };
+              } catch (error) {
+                logger.warn(
+                  `⚠️  Failed to download ${sanitizedName}: ${error.message}`
+                );
+                return {
+                  success: false,
+                  name: sanitizedName,
+                  error: error.message,
+                };
+              }
+            }
+          );
+
+          const batchResults = await Promise.all(downloadPromises);
+          const batchSuccesses = batchResults.filter(r => r.success).length;
+          const batchFailures = batchResults.filter(r => !r.success).length;
+
+          downloadedCount += batchSuccesses;
+          errorCount += batchFailures;
+
+          // Show progress
+          const totalProcessed = downloadedCount + skippedCount + errorCount;
+          const progressPercent = Math.round(
+            (totalProcessed / totalScreenshots) * 100
+          );
+
+          logger.info(
+            `📊 Progress: ${totalProcessed}/${totalScreenshots} (${progressPercent}%) - ${batchSuccesses} downloaded, ${batchFailures} failed in this batch`
           );
         }
       }
 
       // Check if we actually downloaded any screenshots
-      if (downloadedCount === 0) {
+      if (downloadedCount === 0 && skippedCount === 0) {
         logger.error(
           '❌ No screenshots were successfully downloaded from the baseline build'
         );
+        if (errorCount > 0) {
+          logger.info(
+            `💡 ${errorCount} screenshots had errors - check download URLs and network connection`
+          );
+        }
         logger.info(
           '💡 This usually means the build failed or screenshots have no download URLs'
         );
@@ -335,10 +398,20 @@ export class TddService {
       const metadataPath = join(this.baselinePath, 'metadata.json');
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
-      if (skippedCount > 0) {
-        const actualDownloads = downloadedCount - skippedCount;
+      // Final summary
+      const actualDownloads = downloadedCount - skippedCount;
+      const totalAttempted = downloadedCount + errorCount;
+
+      if (skippedCount > 0 || errorCount > 0) {
+        let summaryParts = [];
+        if (actualDownloads > 0)
+          summaryParts.push(`${actualDownloads} downloaded`);
+        if (skippedCount > 0)
+          summaryParts.push(`${skippedCount} skipped (matching SHA)`);
+        if (errorCount > 0) summaryParts.push(`${errorCount} failed`);
+
         logger.info(
-          `✅ Baseline ready - ${actualDownloads} downloaded, ${skippedCount} skipped (matching SHA) - ${downloadedCount}/${buildDetails.screenshots.length} total`
+          `✅ Baseline ready - ${summaryParts.join(', ')} - ${totalAttempted}/${buildDetails.screenshots.length} total`
         );
       } else {
         logger.info(

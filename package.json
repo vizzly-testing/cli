@@ -53,9 +53,10 @@
   ],
   "scripts": {
     "start": "node src/index.js",
-    "build": "npm run clean && npm run compile && npm run types",
+    "build": "npm run clean && npm run compile && npm run copy-assets && npm run types",
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",
+    "copy-assets": "cp src/services/report-generator/report.css dist/services/report-generator/",
     "types": "tsc --emitDeclarationOnly --outDir dist/types",
     "prepublishOnly": "npm test && npm run build",
     "test": "vitest run",

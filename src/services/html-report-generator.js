@@ -3,8 +3,10 @@
  * Creates an interactive report with overlay, toggle, and onion skin modes
  */
 
-import { writeFileSync, existsSync } from 'fs';
-import { join, relative } from 'path';
+import { writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join, relative, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { createServiceLogger } from '../utils/logger-factory.js';
 
 const logger = createServiceLogger('HTML-REPORT');
@@ -15,6 +17,50 @@ export class HtmlReportGenerator {
     this.config = config;
     this.reportDir = join(workingDir, '.vizzly', 'report');
     this.reportPath = join(this.reportDir, 'index.html');
+
+    // Get path to the CSS file that ships with the package
+    let __filename = fileURLToPath(import.meta.url);
+    let __dirname = dirname(__filename);
+    this.cssPath = join(__dirname, 'report-generator', 'report.css');
+  }
+
+  /**
+   * Sanitize HTML content to prevent XSS attacks
+   * @param {string} text - Text to sanitize
+   * @returns {string} Sanitized text
+   */
+  sanitizeHtml(text) {
+    if (typeof text !== 'string') return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  /**
+   * Sanitize build info object
+   * @param {Object} buildInfo - Build information to sanitize
+   * @returns {Object} Sanitized build info
+   */
+  sanitizeBuildInfo(buildInfo = {}) {
+    let sanitized = {};
+
+    if (buildInfo.baseline && typeof buildInfo.baseline === 'object') {
+      sanitized.baseline = {
+        buildId: this.sanitizeHtml(buildInfo.baseline.buildId || ''),
+        buildName: this.sanitizeHtml(buildInfo.baseline.buildName || ''),
+        environment: this.sanitizeHtml(buildInfo.baseline.environment || ''),
+        branch: this.sanitizeHtml(buildInfo.baseline.branch || ''),
+      };
+    }
+
+    if (typeof buildInfo.threshold === 'number') {
+      sanitized.threshold = Math.max(0, Math.min(1, buildInfo.threshold));
+    }
+
+    return sanitized;
   }
 
   /**
@@ -24,18 +70,22 @@ export class HtmlReportGenerator {
    * @returns {string} Path to generated report
    */
   async generateReport(results, buildInfo = {}) {
+    // Validate inputs
+    if (!results || typeof results !== 'object') {
+      throw new Error('Invalid results object provided');
+    }
+
     const { comparisons = [], passed = 0, failed = 0, total = 0 } = results;
 
-    // Filter only failed comparisons (those with diffs)
+    // Filter only failed comparisons for the report
     const failedComparisons = comparisons.filter(
-      comp => comp.status === 'failed'
+      comp => comp && comp.status === 'failed'
     );
 
     const reportData = {
       buildInfo: {
         timestamp: new Date().toISOString(),
-        workingDir: this.workingDir,
-        ...buildInfo,
+        ...this.sanitizeBuildInfo(buildInfo),
       },
       summary: {
         total,
@@ -43,19 +93,25 @@ export class HtmlReportGenerator {
         failed,
         passRate: total > 0 ? ((passed / total) * 100).toFixed(1) : '0.0',
       },
-      comparisons: failedComparisons.map(comp => this.processComparison(comp)),
+      comparisons: failedComparisons
+        .map(comp => this.processComparison(comp))
+        .filter(Boolean),
     };
 
     const htmlContent = this.generateHtmlTemplate(reportData);
 
-    // Ensure report directory exists
-    const { mkdirSync } = await import('fs');
-    mkdirSync(this.reportDir, { recursive: true });
+    try {
+      // Ensure report directory exists
+      await mkdir(this.reportDir, { recursive: true });
 
-    writeFileSync(this.reportPath, htmlContent, 'utf8');
+      await writeFile(this.reportPath, htmlContent, 'utf8');
 
-    logger.debug(`HTML report generated: ${this.reportPath}`);
-    return this.reportPath;
+      logger.debug(`HTML report generated: ${this.reportPath}`);
+      return this.reportPath;
+    } catch (error) {
+      logger.error(`Failed to generate HTML report: ${error.message}`);
+      throw new Error(`Report generation failed: ${error.message}`);
+    }
   }
 
   /**
@@ -64,16 +120,19 @@ export class HtmlReportGenerator {
    * @returns {Object} Processed comparison data
    */
   processComparison(comparison) {
-    const reportDir = this.reportDir;
+    if (!comparison || typeof comparison !== 'object') {
+      logger.warn('Invalid comparison object provided');
+      return null;
+    }
 
     return {
-      name: comparison.name,
+      name: comparison.name || 'unnamed',
       status: comparison.status,
-      baseline: this.getRelativePath(comparison.baseline, reportDir),
-      current: this.getRelativePath(comparison.current, reportDir),
-      diff: this.getRelativePath(comparison.diff, reportDir),
-      threshold: comparison.threshold,
-      diffPercentage: comparison.diffPercentage,
+      baseline: this.getRelativePath(comparison.baseline, this.reportDir),
+      current: this.getRelativePath(comparison.current, this.reportDir),
+      diff: this.getRelativePath(comparison.diff, this.reportDir),
+      threshold: comparison.threshold || 0,
+      diffPercentage: comparison.diffPercentage || 0,
     };
   }
 
@@ -81,7 +140,7 @@ export class HtmlReportGenerator {
    * Get relative path from report directory to image file
    * @param {string} imagePath - Absolute path to image
    * @param {string} reportDir - Report directory path
-   * @returns {string} Relative path
+   * @returns {string|null} Relative path or null if invalid
    */
   getRelativePath(imagePath, reportDir) {
     if (!imagePath || !existsSync(imagePath)) {
@@ -102,9 +161,7 @@ export class HtmlReportGenerator {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vizzly TDD Report</title>
-    <style>
-        ${this.getCssStyles()}
-    </style>
+    <link rel="stylesheet" href="file://${this.cssPath}">
 </head>
 <body>
     <div class="container">
@@ -143,7 +200,121 @@ export class HtmlReportGenerator {
     </div>
 
     <script>
-        ${this.getJavaScript()}
+document.addEventListener('DOMContentLoaded', function () {
+  // Handle view mode switching
+  document.querySelectorAll('.view-mode-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      let comparison = this.closest('.comparison');
+      let mode = this.dataset.mode;
+
+      // Update active button
+      comparison
+        .querySelectorAll('.view-mode-btn')
+        .forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+
+      // Update viewer mode
+      let viewer = comparison.querySelector('.comparison-viewer');
+      viewer.dataset.mode = mode;
+
+      // Hide all mode containers
+      viewer.querySelectorAll('.mode-container').forEach(container => {
+        container.style.display = 'none';
+      });
+
+      // Show appropriate mode container
+      let activeContainer = viewer.querySelector('.' + mode + '-mode');
+      if (activeContainer) {
+        activeContainer.style.display = 'block';
+      }
+    });
+  });
+
+  // Handle onion skin drag-to-reveal
+  document.querySelectorAll('.onion-container').forEach(container => {
+    let isDragging = false;
+
+    function updateOnionSkin(x) {
+      let rect = container.getBoundingClientRect();
+      let percentage = Math.max(
+        0,
+        Math.min(100, ((x - rect.left) / rect.width) * 100)
+      );
+
+      let currentImg = container.querySelector('.onion-current');
+      let divider = container.querySelector('.onion-divider');
+
+      if (currentImg && divider) {
+        currentImg.style.clipPath = 'inset(0 ' + (100 - percentage) + '% 0 0)';
+        divider.style.left = percentage + '%';
+      }
+    }
+
+    container.addEventListener('mousedown', function (e) {
+      isDragging = true;
+      updateOnionSkin(e.clientX);
+      e.preventDefault();
+    });
+
+    container.addEventListener('mousemove', function (e) {
+      if (isDragging) {
+        updateOnionSkin(e.clientX);
+      }
+    });
+
+    document.addEventListener('mouseup', function () {
+      isDragging = false;
+    });
+
+    // Touch events for mobile
+    container.addEventListener('touchstart', function (e) {
+      isDragging = true;
+      updateOnionSkin(e.touches[0].clientX);
+      e.preventDefault();
+    });
+
+    container.addEventListener('touchmove', function (e) {
+      if (isDragging) {
+        updateOnionSkin(e.touches[0].clientX);
+        e.preventDefault();
+      }
+    });
+
+    document.addEventListener('touchend', function () {
+      isDragging = false;
+    });
+  });
+
+  // Handle overlay mode clicking
+  document.querySelectorAll('.overlay-container').forEach(container => {
+    container.addEventListener('click', function () {
+      let diffImage = this.querySelector('.diff-image');
+      if (diffImage) {
+        // Toggle diff visibility
+        let isVisible = diffImage.style.opacity === '1';
+        diffImage.style.opacity = isVisible ? '0' : '1';
+      }
+    });
+  });
+
+  // Handle toggle mode clicking
+  document.querySelectorAll('.toggle-container img').forEach(img => {
+    let isBaseline = true;
+    let comparison = img.closest('.comparison');
+    let baselineSrc = comparison.querySelector('.baseline-image').src;
+    let currentSrc = comparison.querySelector('.current-image').src;
+
+    img.addEventListener('click', function () {
+      isBaseline = !isBaseline;
+      this.src = isBaseline ? baselineSrc : currentSrc;
+
+      // Update cursor style to indicate interactivity
+      this.style.cursor = 'pointer';
+    });
+  });
+
+  console.log('Vizzly TDD Report loaded successfully');
+});
     </script>
 </body>
 </html>`;
@@ -155,17 +326,24 @@ export class HtmlReportGenerator {
    * @returns {string} HTML content
    */
   generateComparisonHtml(comparison) {
-    if (!comparison.baseline || !comparison.current || !comparison.diff) {
+    if (
+      !comparison ||
+      !comparison.baseline ||
+      !comparison.current ||
+      !comparison.diff
+    ) {
       return `<div class="comparison error">
-        <h3>${comparison.name}</h3>
+        <h3>${this.sanitizeHtml(comparison?.name || 'Unknown')}</h3>
         <p>Missing comparison images</p>
       </div>`;
     }
 
+    let safeName = this.sanitizeHtml(comparison.name);
+
     return `
-    <div class="comparison" data-comparison="${comparison.name}">
+    <div class="comparison" data-comparison="${safeName}">
         <div class="comparison-header">
-            <h3>${comparison.name}</h3>
+            <h3>${safeName}</h3>
             <div class="comparison-meta">
                 <span class="diff-status">Visual differences detected</span>
             </div>
@@ -220,470 +398,5 @@ export class HtmlReportGenerator {
         </div>
 
     </div>`;
-  }
-
-  /**
-   * Get CSS styles for the report
-   * @returns {string} CSS content
-   */
-  getCssStyles() {
-    return `
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #e2e8f0;
-            background: #0f172a;
-            min-height: 100vh;
-        }
-
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-
-        .header {
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 32px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid #334155;
-        }
-
-        .header h1 {
-            font-size: 2rem;
-            margin-bottom: 24px;
-            color: #f1f5f9;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .summary {
-            display: flex;
-            gap: 30px;
-            margin-bottom: 15px;
-        }
-
-        .stat {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .stat-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #94a3b8;
-        }
-
-        .stat.passed .stat-number { color: #22c55e; }
-        .stat.failed .stat-number { color: #f59e0b; }
-
-        .stat-label {
-            font-size: 0.875rem;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.025em;
-            font-weight: 500;
-        }
-
-        .build-info {
-            color: #64748b;
-            font-size: 0.875rem;
-        }
-
-        .no-failures {
-            text-align: center;
-            padding: 48px;
-            background: #1e293b;
-            border-radius: 12px;
-            border: 1px solid #334155;
-            font-size: 1.125rem;
-            color: #22c55e;
-        }
-
-        .comparison {
-            background: #1e293b;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid #334155;
-        }
-
-        .comparison-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid #334155;
-        }
-
-        .comparison-header h3 {
-            margin: 0;
-            font-size: 1.25rem;
-            color: #f1f5f9;
-            font-weight: 600;
-        }
-
-        .comparison-meta {
-            display: flex;
-            gap: 16px;
-            font-size: 0.875rem;
-        }
-
-        .diff-status {
-            padding: 6px 12px;
-            background: rgba(245, 158, 11, 0.1);
-            color: #f59e0b;
-            border-radius: 6px;
-            font-weight: 500;
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            font-size: 0.875rem;
-        }
-
-        .comparison-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .view-mode-btn {
-            padding: 8px 16px;
-            border: 1px solid #475569;
-            background: #334155;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: all 0.2s;
-            color: #cbd5e1;
-        }
-
-        .view-mode-btn:hover {
-            background: #475569;
-            border-color: #64748b;
-            color: #e2e8f0;
-        }
-
-        .view-mode-btn.active {
-            background: #f59e0b;
-            color: #1e293b;
-            border-color: #f59e0b;
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-        }
-
-        .comparison-viewer {
-            position: relative;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #0f172a;
-        }
-
-        .mode-container {
-            position: relative;
-            min-height: 200px;
-            text-align: center;
-        }
-
-        .mode-container img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-        }
-
-        /* Overlay Mode */
-        .overlay-container {
-            position: relative;
-            display: inline-block;
-            margin: 0 auto;
-            cursor: pointer;
-        }
-
-        .overlay-container .current-image {
-            display: block;
-            max-width: 100%;
-            width: auto;
-            height: auto;
-        }
-
-        .overlay-container .baseline-image {
-            position: absolute;
-            top: 0;
-            left: 0;
-            opacity: 0.5;
-            max-width: 100%;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .overlay-container .diff-image {
-            position: absolute;
-            top: 0;
-            left: 0;
-            opacity: 0;
-            max-width: 100%;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        /* Side by Side Mode */
-        .side-by-side-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            align-items: start;
-            padding: 16px;
-        }
-
-        .side-by-side-image {
-            text-align: center;
-            flex: 1;
-            min-width: 200px;
-            max-width: 400px;
-        }
-
-        .side-by-side-image img {
-            width: 100%;
-            height: auto;
-            max-width: none;
-            border: 2px solid #475569;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            transition: border-color 0.2s ease;
-        }
-
-        .side-by-side-image img:hover {
-            border-color: #f59e0b;
-        }
-
-        .side-by-side-image label {
-            display: block;
-            margin-top: 12px;
-            font-size: 0.875rem;
-            color: #94a3b8;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.025em;
-        }
-
-        /* Onion Skin Mode */
-        .onion-container {
-            position: relative;
-            display: flex;
-            justify-content: center;
-            width: 100%;
-            cursor: ew-resize;
-            user-select: none;
-        }
-
-        .onion-baseline {
-            max-width: 100%;
-            width: auto;
-            height: auto;
-            display: block;
-        }
-
-        .onion-current {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            max-width: 100%;
-            width: auto;
-            height: auto;
-            clip-path: inset(0 50% 0 0);
-        }
-        
-        .onion-divider {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            width: 2px;
-            height: 100%;
-            background: #f59e0b;
-            transform: translateX(-50%);
-            z-index: 10;
-            pointer-events: none;
-        }
-        
-        .onion-divider::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #f59e0b;
-            border: 2px solid #1e293b;
-        }
-        
-        .onion-divider::after {
-            content: '⟷';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #1e293b;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-
-        /* Toggle Mode */
-        .toggle-container {
-            display: inline-block;
-        }
-        
-        .toggle-container img {
-            max-width: 100%;
-            width: auto;
-            height: auto;
-            cursor: pointer;
-        }
-
-        .error {
-            color: #ef4444;
-            text-align: center;
-            padding: 40px;
-        }
-
-        @media (max-width: 768px) {
-            .container { padding: 10px; }
-            .summary { flex-wrap: wrap; gap: 15px; }
-            .comparison-controls { flex-wrap: wrap; }
-            .side-by-side-container { 
-                grid-template-columns: 1fr;
-                gap: 15px;
-            }
-        }
-    `;
-  }
-
-  /**
-   * Get JavaScript functionality for the report
-   * @returns {string} JavaScript content
-   */
-  getJavaScript() {
-    return `
-        document.addEventListener('DOMContentLoaded', function() {
-            // Handle view mode switching
-            document.querySelectorAll('.view-mode-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const comparison = this.closest('.comparison');
-                    const mode = this.dataset.mode;
-                    
-                    // Update active button
-                    comparison.querySelectorAll('.view-mode-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    // Update viewer mode
-                    const viewer = comparison.querySelector('.comparison-viewer');
-                    viewer.dataset.mode = mode;
-                    
-                    // Hide all mode containers
-                    viewer.querySelectorAll('.mode-container').forEach(container => {
-                        container.style.display = 'none';
-                    });
-                    
-                    // Show appropriate mode container
-                    const activeContainer = viewer.querySelector('.' + mode + '-mode');
-                    if (activeContainer) {
-                        activeContainer.style.display = 'block';
-                    }
-                    
-                });
-            });
-
-            // Handle onion skin drag-to-reveal
-            document.querySelectorAll('.onion-container').forEach(container => {
-                let isDragging = false;
-                
-                function updateOnionSkin(x) {
-                    const rect = container.getBoundingClientRect();
-                    const percentage = Math.max(0, Math.min(100, ((x - rect.left) / rect.width) * 100));
-                    
-                    const currentImg = container.querySelector('.onion-current');
-                    const divider = container.querySelector('.onion-divider');
-                    
-                    if (currentImg && divider) {
-                        currentImg.style.clipPath = 'inset(0 ' + (100 - percentage) + '% 0 0)';
-                        divider.style.left = percentage + '%';
-                    }
-                }
-                
-                container.addEventListener('mousedown', function(e) {
-                    isDragging = true;
-                    updateOnionSkin(e.clientX);
-                    e.preventDefault();
-                });
-                
-                container.addEventListener('mousemove', function(e) {
-                    if (isDragging) {
-                        updateOnionSkin(e.clientX);
-                    }
-                });
-                
-                document.addEventListener('mouseup', function() {
-                    isDragging = false;
-                });
-                
-                // Touch events for mobile
-                container.addEventListener('touchstart', function(e) {
-                    isDragging = true;
-                    updateOnionSkin(e.touches[0].clientX);
-                    e.preventDefault();
-                });
-                
-                container.addEventListener('touchmove', function(e) {
-                    if (isDragging) {
-                        updateOnionSkin(e.touches[0].clientX);
-                        e.preventDefault();
-                    }
-                });
-                
-                document.addEventListener('touchend', function() {
-                    isDragging = false;
-                });
-            });
-
-            // Handle overlay mode clicking
-            document.querySelectorAll('.overlay-container').forEach(container => {
-                container.addEventListener('click', function() {
-                    const diffImage = this.querySelector('.diff-image');
-                    if (diffImage) {
-                        // Toggle diff visibility
-                        const isVisible = diffImage.style.opacity === '1';
-                        diffImage.style.opacity = isVisible ? '0' : '1';
-                    }
-                });
-            });
-            
-            // Handle toggle mode clicking
-            document.querySelectorAll('.toggle-container img').forEach(img => {
-                let isBaseline = true;
-                const comparison = img.closest('.comparison');
-                const baselineSrc = comparison.querySelector('.baseline-image').src;
-                const currentSrc = comparison.querySelector('.current-image').src;
-                
-                img.addEventListener('click', function() {
-                    isBaseline = !isBaseline;
-                    this.src = isBaseline ? baselineSrc : currentSrc;
-                    
-                    // Update cursor style to indicate interactivity
-                    this.style.cursor = 'pointer';
-                });
-            });
-
-            console.log('Vizzly TDD Report loaded successfully');
-        });
-    `;
   }
 }

@@ -228,7 +228,10 @@ describe('TddService', () => {
       existsSync.mockReturnValue(true);
       execSync.mockReturnValue('');
 
-      const properties = { viewport: '1920x1080', device: 'desktop' };
+      const properties = {
+        viewport: { width: 1920, height: 1080 },
+        device: 'desktop',
+      };
       const result = await tddService.compareScreenshot(
         'test-screenshot',
         mockImageBuffer,

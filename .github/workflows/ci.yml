@@ -97,8 +97,9 @@ jobs:
 
     - name: Test Vizzly integration
       working-directory: ./test-site
-      run: node ../bin/vizzly.js run "npm test" --build-name "CI Test Run - ${{ github.sha }}" --wait
+      run: node ../bin/vizzly.js run "npm test"
       env:
         CI: true
         VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
-        VIZZLY_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}

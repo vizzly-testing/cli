@@ -166,6 +166,7 @@ describe('TDD Service - Baseline Download', () => {
         screenshots: [
           {
             name: 'homepage',
+            originalName: 'homepage',
             sha256: 'sha256-homepage',
             id: 'screenshot1',
             properties: {},
@@ -179,6 +180,7 @@ describe('TDD Service - Baseline Download', () => {
           },
           {
             name: 'login',
+            originalName: 'login',
             sha256: 'sha256-login',
             id: 'screenshot2',
             properties: {},
@@ -426,7 +428,7 @@ describe('TDD Service - Baseline Download', () => {
             file_size_bytes: 12345,
             width: 1920,
             height: 1080,
-            properties: { viewport: '1920x1080' },
+            properties: { viewport: { width: 1920, height: 1080 } },
           },
         ],
       };
@@ -467,7 +469,7 @@ describe('TDD Service - Baseline Download', () => {
       expect(result).not.toBeNull();
       expect(tddService.baselineData.buildId).toBe('baseline-build-789');
       expect(tddService.baselineData.screenshots[0].properties).toEqual({
-        viewport: '1920x1080',
+        viewport: { width: 1920, height: 1080 },
       });
     });
   });

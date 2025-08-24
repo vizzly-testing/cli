@@ -8,6 +8,12 @@ import { getDefaultBranch } from '../utils/git.js';
 import { fetchWithTimeout } from '../utils/fetch-utils.js';
 import { NetworkError } from '../errors/vizzly-error.js';
 import { HtmlReportGenerator } from './html-report-generator.js';
+import {
+  sanitizeScreenshotName,
+  validatePathSecurity,
+  safePath,
+  validateScreenshotProperties,
+} from '../utils/security.js';
 
 const logger = createServiceLogger('TDD');
 
@@ -15,30 +21,52 @@ const logger = createServiceLogger('TDD');
  * Create a new TDD service instance
  */
 export function createTDDService(config, options = {}) {
-  return new TddService(config, options.workingDir);
+  return new TddService(config, options.workingDir, options.setBaseline);
 }
 
 export class TddService {
-  constructor(config, workingDir = process.cwd()) {
+  constructor(config, workingDir = process.cwd(), setBaseline = false) {
     this.config = config;
+    this.setBaseline = setBaseline;
     this.api = new ApiService({
       baseUrl: config.apiUrl,
       token: config.apiKey,
       command: 'tdd',
       allowNoToken: true, // TDD can run without a token to create new screenshots
     });
-    this.workingDir = workingDir;
-    this.baselinePath = join(workingDir, '.vizzly', 'baselines');
-    this.currentPath = join(workingDir, '.vizzly', 'current');
-    this.diffPath = join(workingDir, '.vizzly', 'diffs');
+
+    // Validate and secure the working directory
+    try {
+      this.workingDir = validatePathSecurity(workingDir, workingDir);
+    } catch (error) {
+      logger.error(`Invalid working directory: ${error.message}`);
+      throw new Error(`Working directory validation failed: ${error.message}`);
+    }
+
+    // Use safe path construction for subdirectories
+    this.baselinePath = safePath(this.workingDir, '.vizzly', 'baselines');
+    this.currentPath = safePath(this.workingDir, '.vizzly', 'current');
+    this.diffPath = safePath(this.workingDir, '.vizzly', 'diffs');
     this.baselineData = null;
     this.comparisons = [];
     this.threshold = config.comparison?.threshold || 0.1;
 
+    // Check if we're in baseline update mode
+    if (this.setBaseline) {
+      logger.info(
+        '🐻 Baseline update mode - will overwrite existing baselines with new ones'
+      );
+    }
+
     // Ensure directories exist
     [this.baselinePath, this.currentPath, this.diffPath].forEach(dir => {
       if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
+        try {
+          mkdirSync(dir, { recursive: true });
+        } catch (error) {
+          logger.error(`Failed to create directory ${dir}: ${error.message}`);
+          throw new Error(`Directory creation failed: ${error.message}`);
+        }
       }
     });
   }
@@ -177,22 +205,33 @@ export class TddService {
       let skippedCount = 0;
 
       for (const screenshot of buildDetails.screenshots) {
-        const imagePath = join(this.baselinePath, `${screenshot.name}.png`);
+        // Sanitize screenshot name for security
+        let sanitizedName;
+        try {
+          sanitizedName = sanitizeScreenshotName(screenshot.name);
+        } catch (error) {
+          logger.warn(
+            `Skipping screenshot with invalid name '${screenshot.name}': ${error.message}`
+          );
+          continue;
+        }
+
+        const imagePath = safePath(this.baselinePath, `${sanitizedName}.png`);
 
         // Check if we already have this file with the same SHA (using metadata)
         if (existsSync(imagePath) && screenshot.sha256) {
-          const storedSha = existingShaMap.get(screenshot.name);
+          const storedSha = existingShaMap.get(sanitizedName);
 
           if (storedSha === screenshot.sha256) {
             logger.debug(
-              `⚡ Skipping ${screenshot.name} - SHA match from metadata`
+              `⚡ Skipping ${sanitizedName} - SHA match from metadata`
             );
             downloadedCount++; // Count as "downloaded" since we have it
             skippedCount++;
             continue;
           } else if (storedSha) {
             logger.debug(
-              `🔄 SHA mismatch for ${screenshot.name} - will re-download (stored: ${storedSha?.slice(0, 8)}..., remote: ${screenshot.sha256?.slice(0, 8)}...)`
+              `🔄 SHA mismatch for ${sanitizedName} - will re-download (stored: ${storedSha?.slice(0, 8)}..., remote: ${screenshot.sha256?.slice(0, 8)}...)`
             );
           }
         }
@@ -202,13 +241,13 @@ export class TddService {
 
         if (!downloadUrl) {
           logger.warn(
-            `⚠️  Screenshot ${screenshot.name} has no download URL - skipping`
+            `⚠️  Screenshot ${sanitizedName} has no download URL - skipping`
           );
           continue; // Skip screenshots without URLs
         }
 
         logger.debug(
-          `📥 Downloading screenshot: ${screenshot.name} from ${downloadUrl}`
+          `📥 Downloading screenshot: ${sanitizedName} from ${downloadUrl}`
         );
 
         try {
@@ -216,7 +255,7 @@ export class TddService {
           const response = await fetchWithTimeout(downloadUrl);
           if (!response.ok) {
             throw new NetworkError(
-              `Failed to download ${screenshot.name}: ${response.statusText}`
+              `Failed to download ${sanitizedName}: ${response.statusText}`
             );
           }
 
@@ -225,10 +264,10 @@ export class TddService {
           writeFileSync(imagePath, imageBuffer);
           downloadedCount++;
 
-          logger.debug(`✓ Downloaded ${screenshot.name}.png`);
+          logger.debug(`✓ Downloaded ${sanitizedName}.png`);
         } catch (error) {
           logger.warn(
-            `⚠️  Failed to download ${screenshot.name}: ${error.message}`
+            `⚠️  Failed to download ${sanitizedName}: ${error.message}`
           );
         }
       }
@@ -261,19 +300,36 @@ export class TddService {
           approvalStatus: baselineBuild.approval_status,
           completedAt: baselineBuild.completed_at,
         },
-        screenshots: buildDetails.screenshots.map(s => ({
-          name: s.name,
-          sha256: s.sha256, // Store remote SHA for quick comparison
-          id: s.id,
-          properties: s.metadata || s.properties || {},
-          path: join(this.baselinePath, `${s.name}.png`),
-          originalUrl: s.original_url,
-          fileSize: s.file_size_bytes,
-          dimensions: {
-            width: s.width,
-            height: s.height,
-          },
-        })),
+        screenshots: buildDetails.screenshots
+          .map(s => {
+            let sanitizedName;
+            try {
+              sanitizedName = sanitizeScreenshotName(s.name);
+            } catch (error) {
+              logger.warn(
+                `Screenshot name sanitization failed for '${s.name}': ${error.message}`
+              );
+              return null; // Skip invalid screenshots
+            }
+
+            return {
+              name: sanitizedName,
+              originalName: s.name,
+              sha256: s.sha256, // Store remote SHA for quick comparison
+              id: s.id,
+              properties: validateScreenshotProperties(
+                s.metadata || s.properties || {}
+              ),
+              path: safePath(this.baselinePath, `${sanitizedName}.png`),
+              originalUrl: s.original_url,
+              fileSize: s.file_size_bytes,
+              dimensions: {
+                width: s.width,
+                height: s.height,
+              },
+            };
+          })
+          .filter(Boolean), // Remove null entries from invalid screenshots
       };
 
       const metadataPath = join(this.baselinePath, 'metadata.json');
@@ -301,6 +357,17 @@ export class TddService {
    * @returns {Promise<Object|null>} Baseline data or null if no local baselines exist
    */
   async handleLocalBaselines() {
+    // Check if we're in baseline update mode - skip loading existing baselines
+    if (this.setBaseline) {
+      logger.info(
+        '📁 Ready for new baseline creation - all screenshots will be treated as new baselines'
+      );
+
+      // Reset baseline data since we're creating new ones
+      this.baselineData = null;
+      return null;
+    }
+
     const baseline = await this.loadBaseline();
 
     if (!baseline) {
@@ -324,6 +391,12 @@ export class TddService {
   }
 
   async loadBaseline() {
+    // In baseline update mode, never load existing baselines
+    if (this.setBaseline) {
+      logger.debug('🐻 Baseline update mode - skipping baseline loading');
+      return null;
+    }
+
     const metadataPath = join(this.baselinePath, 'metadata.json');
 
     if (!existsSync(metadataPath)) {
@@ -342,20 +415,41 @@ export class TddService {
   }
 
   async compareScreenshot(name, imageBuffer, properties = {}) {
-    const currentImagePath = join(this.currentPath, `${name}.png`);
-    const baselineImagePath = join(this.baselinePath, `${name}.png`);
-    const diffImagePath = join(this.diffPath, `${name}.png`);
+    // Sanitize screenshot name and validate properties
+    let sanitizedName;
+    try {
+      sanitizedName = sanitizeScreenshotName(name);
+    } catch (error) {
+      logger.error(`Invalid screenshot name '${name}': ${error.message}`);
+      throw new Error(`Screenshot name validation failed: ${error.message}`);
+    }
+
+    let validatedProperties;
+    try {
+      validatedProperties = validateScreenshotProperties(properties);
+    } catch (error) {
+      logger.warn(
+        `Property validation failed for '${sanitizedName}': ${error.message}`
+      );
+      validatedProperties = {};
+    }
+
+    const currentImagePath = safePath(this.currentPath, `${sanitizedName}.png`);
+    const baselineImagePath = safePath(
+      this.baselinePath,
+      `${sanitizedName}.png`
+    );
+    const diffImagePath = safePath(this.diffPath, `${sanitizedName}.png`);
 
     // Save current screenshot
     writeFileSync(currentImagePath, imageBuffer);
 
-    // Check if we're in baseline update mode - skip all comparisons
-    const setBaseline = process.env.VIZZLY_SET_BASELINE === 'true';
-    if (setBaseline) {
-      return this.updateSingleBaseline(
-        name,
+    // Check if we're in baseline update mode - treat as first run, no comparisons
+    if (this.setBaseline) {
+      return this.createNewBaseline(
+        sanitizedName,
         imageBuffer,
-        properties,
+        validatedProperties,
         currentImagePath,
         baselineImagePath
       );
@@ -363,7 +457,9 @@ export class TddService {
 
     // Check if baseline exists
     if (!existsSync(baselineImagePath)) {
-      logger.warn(`⚠️  No baseline found for ${name} - creating baseline`);
+      logger.warn(
+        `⚠️  No baseline found for ${sanitizedName} - creating baseline`
+      );
 
       // Copy current screenshot to baseline directory for future comparisons
       writeFileSync(baselineImagePath, imageBuffer);
@@ -382,13 +478,13 @@ export class TddService {
 
       // Add screenshot to baseline metadata
       const screenshotEntry = {
-        name,
-        properties: properties || {},
+        name: sanitizedName,
+        properties: validatedProperties,
         path: baselineImagePath,
       };
 
       const existingIndex = this.baselineData.screenshots.findIndex(
-        s => s.name === name
+        s => s.name === sanitizedName
       );
       if (existingIndex >= 0) {
         this.baselineData.screenshots[existingIndex] = screenshotEntry;
@@ -400,15 +496,15 @@ export class TddService {
       const metadataPath = join(this.baselinePath, 'metadata.json');
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
-      logger.info(`✅ Created baseline for ${name}`);
+      logger.info(`✅ Created baseline for ${sanitizedName}`);
 
       const result = {
-        name,
+        name: sanitizedName,
         status: 'new',
         baseline: baselineImagePath,
         current: currentImagePath,
         diff: null,
-        properties,
+        properties: validatedProperties,
       };
 
       this.comparisons.push(result);
@@ -434,16 +530,16 @@ export class TddService {
       if (result.match) {
         // Images match
         const comparison = {
-          name,
+          name: sanitizedName,
           status: 'passed',
           baseline: baselineImagePath,
           current: currentImagePath,
           diff: null,
-          properties,
+          properties: validatedProperties,
           threshold: this.threshold,
         };
 
-        logger.info(`✅ ${colors.green('PASSED')} ${name}`);
+        logger.info(`✅ ${colors.green('PASSED')} ${sanitizedName}`);
         this.comparisons.push(comparison);
         return comparison;
       } else {
@@ -456,12 +552,12 @@ export class TddService {
         }
 
         const comparison = {
-          name,
+          name: sanitizedName,
           status: 'failed',
           baseline: baselineImagePath,
           current: currentImagePath,
           diff: diffImagePath,
-          properties,
+          properties: validatedProperties,
           threshold: this.threshold,
           diffPercentage:
             result.reason === 'pixel-diff' ? result.diffPercentage : null,
@@ -470,7 +566,7 @@ export class TddService {
         };
 
         logger.warn(
-          `❌ ${colors.red('FAILED')} ${name} - differences detected${diffInfo}`
+          `❌ ${colors.red('FAILED')} ${sanitizedName} - differences detected${diffInfo}`
         );
         logger.info(`    Diff saved to: ${diffImagePath}`);
         this.comparisons.push(comparison);
@@ -478,15 +574,15 @@ export class TddService {
       }
     } catch (error) {
       // Handle file errors or other issues
-      logger.error(`❌ Error comparing ${name}: ${error.message}`);
+      logger.error(`❌ Error comparing ${sanitizedName}: ${error.message}`);
 
       const comparison = {
-        name,
+        name: sanitizedName,
         status: 'error',
         baseline: baselineImagePath,
         current: currentImagePath,
         diff: null,
-        properties,
+        properties: validatedProperties,
         error: error.message,
       };
 
@@ -652,7 +748,21 @@ export class TddService {
         continue;
       }
 
-      const baselineImagePath = join(this.baselinePath, `${name}.png`);
+      // Sanitize screenshot name for security
+      let sanitizedName;
+      try {
+        sanitizedName = sanitizeScreenshotName(name);
+      } catch (error) {
+        logger.warn(
+          `Skipping baseline update for invalid name '${name}': ${error.message}`
+        );
+        continue;
+      }
+
+      const baselineImagePath = safePath(
+        this.baselinePath,
+        `${sanitizedName}.png`
+      );
 
       try {
         // Copy current screenshot to baseline
@@ -661,13 +771,13 @@ export class TddService {
 
         // Update baseline metadata
         const screenshotEntry = {
-          name,
-          properties: comparison.properties || {},
+          name: sanitizedName,
+          properties: validateScreenshotProperties(comparison.properties || {}),
           path: baselineImagePath,
         };
 
         const existingIndex = this.baselineData.screenshots.findIndex(
-          s => s.name === name
+          s => s.name === sanitizedName
         );
         if (existingIndex >= 0) {
           this.baselineData.screenshots[existingIndex] = screenshotEntry;
@@ -676,10 +786,10 @@ export class TddService {
         }
 
         updatedCount++;
-        logger.info(`✅ Updated baseline for ${name}`);
+        logger.info(`✅ Updated baseline for ${sanitizedName}`);
       } catch (error) {
         logger.error(
-          `❌ Failed to update baseline for ${name}: ${error.message}`
+          `❌ Failed to update baseline for ${sanitizedName}: ${error.message}`
         );
       }
     }
@@ -696,6 +806,68 @@ export class TddService {
     }
 
     return updatedCount;
+  }
+
+  /**
+   * Create a new baseline (used during --set-baseline mode)
+   * @private
+   */
+  createNewBaseline(
+    name,
+    imageBuffer,
+    properties,
+    currentImagePath,
+    baselineImagePath
+  ) {
+    logger.info(`🐻 Creating baseline for ${name}`);
+
+    // Copy current screenshot to baseline directory
+    writeFileSync(baselineImagePath, imageBuffer);
+
+    // Update or create baseline metadata
+    if (!this.baselineData) {
+      this.baselineData = {
+        buildId: 'local-baseline',
+        buildName: 'Local TDD Baseline',
+        environment: 'test',
+        branch: 'local',
+        threshold: this.threshold,
+        screenshots: [],
+      };
+    }
+
+    // Add screenshot to baseline metadata
+    const screenshotEntry = {
+      name,
+      properties: properties || {},
+      path: baselineImagePath,
+    };
+
+    const existingIndex = this.baselineData.screenshots.findIndex(
+      s => s.name === name
+    );
+    if (existingIndex >= 0) {
+      this.baselineData.screenshots[existingIndex] = screenshotEntry;
+    } else {
+      this.baselineData.screenshots.push(screenshotEntry);
+    }
+
+    // Save updated metadata
+    const metadataPath = join(this.baselinePath, 'metadata.json');
+    writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
+
+    const result = {
+      name,
+      status: 'new',
+      baseline: baselineImagePath,
+      current: currentImagePath,
+      diff: null,
+      properties,
+    };
+
+    this.comparisons.push(result);
+    logger.info(`✅ Baseline created for ${name}`);
+    return result;
   }
 
   /**

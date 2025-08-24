@@ -284,8 +284,8 @@ For CI/CD pipelines, use the `--wait` flag to wait for visual comparison results
   env:
     VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
     # Optional: Provide correct git information from GitHub context
-    VIZZLY_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-    VIZZLY_COMMIT_SHA: ${{ github.event.head_commit.id }}
+    VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+    VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
     VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
 ```
 
@@ -345,8 +345,8 @@ For enhanced CI/CD integration, you can override git detection with these enviro
 **Example for GitHub Actions:**
 ```yaml
 env:
-  VIZZLY_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-  VIZZLY_COMMIT_SHA: ${{ github.event.head_commit.id }}
+  VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+  VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
   VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
   VIZZLY_PR_NUMBER: ${{ github.event.pull_request.number }}
 ```

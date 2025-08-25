@@ -1,6 +1,6 @@
 import { cosmiconfigSync } from 'cosmiconfig';
 import { resolve } from 'path';
-import { getApiToken, getApiUrl } from './environment-config.js';
+import { getApiToken, getApiUrl, getParallelId } from './environment-config.js';
 
 const DEFAULT_CONFIG = {
   // API Configuration
@@ -60,8 +60,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 2. Override with environment variables
   const envApiKey = getApiToken();
   const envApiUrl = getApiUrl();
+  const envParallelId = getParallelId();
   if (envApiKey) config.apiKey = envApiKey;
   if (envApiUrl !== 'https://vizzly.dev') config.apiUrl = envApiUrl;
+  if (envParallelId) config.parallelId = envParallelId;
 
   // 3. Apply CLI overrides (highest priority)
   applyCLIOverrides(config, cliOverrides);
@@ -85,6 +87,7 @@ function applyCLIOverrides(config, cliOverrides = {}) {
   if (cliOverrides.branch) config.build.branch = cliOverrides.branch;
   if (cliOverrides.commit) config.build.commit = cliOverrides.commit;
   if (cliOverrides.message) config.build.message = cliOverrides.message;
+  if (cliOverrides.parallelId) config.parallelId = cliOverrides.parallelId;
 
   // Server overrides
   if (cliOverrides.port) config.server.port = parseInt(cliOverrides.port, 10);

@@ -152,6 +152,7 @@ export class TestRunner extends BaseService {
           commit_sha: options.commit,
           commit_message: options.message,
           github_pull_request_number: options.pullRequestNumber,
+          parallel_id: options.parallelId,
         });
         this.logger.debug(`Build created with ID: ${buildResult.id}`);
 

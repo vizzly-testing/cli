@@ -289,6 +289,7 @@ Upload screenshots from a directory.
 - `--token <token>` - API token override
 - `--wait` - Wait for build completion
 - `--upload-all` - Upload all screenshots without SHA deduplication
+- `--parallel-id <id>` - Unique identifier for parallel test execution
 
 **Exit Codes:**
 - `0` - Success (all approved or no changes)
@@ -320,6 +321,9 @@ Run tests with Vizzly integration.
 - `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
 - `--upload-timeout <ms>` - Upload wait timeout in ms (default: from config or 30000)
 - `--upload-all` - Upload all screenshots without SHA deduplication
+
+*Parallel Execution:*
+- `--parallel-id <id>` - Unique identifier for parallel test execution
 
 *Development & Testing:*
 - `--allow-no-token` - Allow running without API token
@@ -403,6 +407,26 @@ Check build status.
 - `1` - Build has changes requiring review
 - `2` - Build failed or error
 
+### `vizzly finalize <parallel-id>`
+
+Finalize a parallel build after all shards complete.
+
+**Arguments:**
+- `<parallel-id>` - Parallel ID to finalize
+
+**Description:**
+When using parallel execution with `--parallel-id`, all test shards contribute screenshots to the same shared build. After all shards complete successfully, use this command to finalize the build and trigger comparison processing.
+
+**Example:**
+```bash
+# After all parallel shards complete
+vizzly finalize "ci-run-123-attempt-1"
+```
+
+**Exit Codes:**
+- `0` - Build finalized successfully
+- `1` - Finalization failed or error
+
 ### `vizzly doctor`
 
 Run environment diagnostics.
@@ -485,6 +509,9 @@ Configuration loaded via cosmiconfig in this order:
 - `VIZZLY_TOKEN` - API authentication token
 - `VIZZLY_API_URL` - API base URL override
 - `VIZZLY_LOG_LEVEL` - Logger level (`debug`, `info`, `warn`, `error`)
+
+**Parallel Builds:**
+- `VIZZLY_PARALLEL_ID` - Unique identifier for parallel test execution
 
 **Git Information Override (CI/CD Enhancement):**
 - `VIZZLY_COMMIT_SHA` - Override detected commit SHA

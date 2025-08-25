@@ -82,6 +82,7 @@ await vizzlyScreenshot('homepage', screenshot, {
 vizzly upload <directory>           # Upload screenshots from directory
 vizzly upload ./screenshots --wait  # Wait for processing
 vizzly upload ./screenshots --upload-all  # Upload all without deduplication
+vizzly upload ./screenshots --parallel-id "ci-run-123"  # For parallel CI builds
 ```
 
 ### Run Tests with Integration
@@ -90,6 +91,7 @@ vizzly run "npm test"               # Run with Vizzly integration
 vizzly run "pytest" --port 3002     # Custom port
 vizzly run "npm test" --wait        # Wait for build completion
 vizzly run "npm test" --allow-no-token  # Run without API token
+vizzly run "npm test" --parallel-id "ci-run-123"  # For parallel CI builds
 ```
 
 #### Run Command Options
@@ -110,6 +112,9 @@ vizzly run "npm test" --allow-no-token  # Run without API token
 - `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
 - `--upload-timeout <ms>` - Upload wait timeout in ms
 - `--upload-all` - Upload all screenshots without SHA deduplication
+
+**Parallel Execution:**
+- `--parallel-id <id>` - Unique identifier for parallel test execution (also via `VIZZLY_PARALLEL_ID`)
 
 **Development & Testing:**
 - `--allow-no-token` - Allow running without API token (useful for local development)
@@ -150,6 +155,7 @@ vizzly init                         # Create vizzly.config.js with defaults
 vizzly status <build-id>            # Check build progress and results
 vizzly status <build-id> --verbose  # Detailed build information
 vizzly status <build-id> --json     # Machine-readable output
+vizzly finalize <parallel-id>       # Finalize parallel build after all shards complete
 vizzly doctor                       # Fast local preflight (no network)
 vizzly doctor --api                 # Include API connectivity checks
 ```
@@ -289,6 +295,37 @@ For CI/CD pipelines, use the `--wait` flag to wait for visual comparison results
     VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
 ```
 
+### Parallel Builds in CI
+
+For parallel test execution, use `--parallel-id` to ensure all shards contribute to the same build:
+
+```yaml
+# GitHub Actions with parallel matrix
+jobs:
+  e2e-tests:
+    strategy:
+      matrix:
+        shard: [1/4, 2/4, 3/4, 4/4]
+    steps:
+      - name: Run tests with Vizzly
+        run: |
+          npx vizzly run "npm test -- --shard=${{ matrix.shard }}" \
+            --parallel-id="${{ github.run_id }}-${{ github.run_attempt }}"
+        env:
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+
+  finalize-e2e:
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    if: always() && needs.e2e-tests.result == 'success'
+    steps:
+      - name: Finalize parallel build
+        run: |
+          npx vizzly finalize "${{ github.run_id }}-${{ github.run_attempt }}"
+        env:
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+```
+
 ### GitLab CI
 ```yaml
 visual-tests:
@@ -333,6 +370,9 @@ Check if Vizzly is enabled in the current environment.
 - `VIZZLY_TOKEN`: API authentication token. Example: `export VIZZLY_TOKEN=your-token`.
 - `VIZZLY_API_URL`: Override API base URL. Default: `https://vizzly.dev`.
 - `VIZZLY_LOG_LEVEL`: Logger level. One of `debug`, `info`, `warn`, `error`. Example: `export VIZZLY_LOG_LEVEL=debug`.
+
+### Parallel Builds
+- `VIZZLY_PARALLEL_ID`: Unique identifier for parallel test execution. Example: `export VIZZLY_PARALLEL_ID=ci-run-123`.
 
 ### Git Information Override
 For enhanced CI/CD integration, you can override git detection with these environment variables:

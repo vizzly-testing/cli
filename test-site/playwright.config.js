@@ -21,6 +21,15 @@ export default defineConfig({
     video: 'off',
     navigationTimeout: 5000,
     actionTimeout: 5000,
+    launchOptions: {
+      args: process.env.CI ? [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-web-security',
+        '--max_old_space_size=4096'
+      ] : [],
+    },
   },
 
   projects: [

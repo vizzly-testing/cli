@@ -190,6 +190,7 @@ export async function runCommand(
       wait: config.wait || options.wait || false,
       uploadAll: options.uploadAll || false,
       pullRequestNumber,
+      parallelId: config.parallelId,
     };
 
     // Start test run

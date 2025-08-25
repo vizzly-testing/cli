@@ -58,6 +58,7 @@ export function createUploader(
     environment = 'production',
     threshold,
     pullRequestNumber,
+    parallelId,
     onProgress = () => {},
   }) {
     try {
@@ -112,6 +113,7 @@ export function createUploader(
         environment,
         threshold,
         github_pull_request_number: pullRequestNumber,
+        parallel_id: parallelId,
       };
 
       const build = await api.createBuild(buildInfo);
@@ -240,8 +242,6 @@ export function createUploader(
           `Build failed: ${build.error || 'Unknown error'}`
         );
       }
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     throw new TimeoutError(`Build timed out after ${timeout}ms`, {

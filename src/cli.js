@@ -6,6 +6,10 @@ import { uploadCommand, validateUploadOptions } from './commands/upload.js';
 import { runCommand, validateRunOptions } from './commands/run.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
+import {
+  finalizeCommand,
+  validateFinalizeOptions,
+} from './commands/finalize.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import { getPackageVersion } from './utils/package-info.js';
 
@@ -46,6 +50,7 @@ program
   .option('--token <token>', 'API token override')
   .option('--wait', 'Wait for build completion')
   .option('--upload-all', 'Upload all screenshots without SHA deduplication')
+  .option('--parallel-id <id>', 'Unique identifier for parallel test execution')
   .action(async (path, options) => {
     const globalOptions = program.opts();
 
@@ -130,6 +135,7 @@ program
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
   .option('--allow-no-token', 'Allow running without API token')
   .option('--upload-all', 'Upload all screenshots without SHA deduplication')
+  .option('--parallel-id <id>', 'Unique identifier for parallel test execution')
   .action(async (command, options) => {
     const globalOptions = program.opts();
 
@@ -171,6 +177,24 @@ program
     }
 
     await statusCommand(buildId, options, globalOptions);
+  });
+
+program
+  .command('finalize')
+  .description('Finalize a parallel build after all shards complete')
+  .argument('<parallel-id>', 'Parallel ID to finalize')
+  .action(async (parallelId, options) => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateFinalizeOptions(parallelId, options);
+    if (validationErrors.length > 0) {
+      console.error('Validation errors:');
+      validationErrors.forEach(error => console.error(`  - ${error}`));
+      process.exit(1);
+    }
+
+    await finalizeCommand(parallelId, options, globalOptions);
   });
 
 program

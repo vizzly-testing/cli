@@ -209,6 +209,15 @@ vizzly run "npm test" --upload-all
 vizzly run "npm test" --threshold 0.02
 ```
 
+### Parallel Execution
+
+**`--parallel-id <id>`** - Unique identifier for parallel test execution
+```bash
+vizzly run "npm test" --parallel-id "ci-run-123"
+```
+
+When using parallel execution, multiple test runners can contribute screenshots to the same build. This is particularly useful for CI/CD pipelines with parallel jobs.
+
 ### Development Options
 
 For TDD mode, use the dedicated `vizzly tdd` command. See [TDD Mode Guide](./tdd-mode.md) for details.
@@ -283,6 +292,43 @@ jobs:
 
 **Enhanced Git Information:** The `VIZZLY_*` environment variables ensure accurate git metadata is captured in your builds, avoiding issues with merge commits that can occur in CI environments.
 
+### Parallel Builds in CI
+
+For parallel test execution, use `--parallel-id` to ensure all shards contribute to the same build:
+
+```yaml
+# GitHub Actions with parallel matrix
+jobs:
+  e2e-tests:
+    strategy:
+      matrix:
+        shard: [1/4, 2/4, 3/4, 4/4]
+    steps:
+      - name: Run tests with Vizzly
+        run: |
+          npx vizzly run "npm test -- --shard=${{ matrix.shard }}" \
+            --parallel-id="${{ github.run_id }}-${{ github.run_attempt }}"
+        env:
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+
+  finalize-e2e:
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    if: always() && needs.e2e-tests.result == 'success'
+    steps:
+      - name: Finalize parallel build
+        run: |
+          npx vizzly finalize "${{ github.run_id }}-${{ github.run_attempt }}"
+        env:
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+```
+
+**How Parallel Builds Work:**
+1. All shards with the same `--parallel-id` contribute to one shared build
+2. First shard creates the build, subsequent shards add screenshots to it
+3. After all shards complete, use `vizzly finalize` to trigger comparison processing
+4. Use GitHub's run ID + attempt for uniqueness across workflow runs
+
 ### GitLab CI
 
 ```yaml
@@ -292,6 +338,29 @@ visual-tests:
   script:
     - npm ci
     - npx vizzly run "npm test" --wait
+  variables:
+    VIZZLY_TOKEN: $VIZZLY_TOKEN
+
+# Parallel execution example
+visual-tests-parallel:
+  stage: test
+  parallel:
+    matrix:
+      - SHARD: "1/4"
+      - SHARD: "2/4"
+      - SHARD: "3/4"
+      - SHARD: "4/4"
+  script:
+    - npm ci
+    - npx vizzly run "npm test -- --shard=$SHARD" --parallel-id "$CI_PIPELINE_ID-$CI_JOB_ID"
+  variables:
+    VIZZLY_TOKEN: $VIZZLY_TOKEN
+
+finalize-visual-tests:
+  stage: finalize
+  needs: ["visual-tests-parallel"]
+  script:
+    - npx vizzly finalize "$CI_PIPELINE_ID-$CI_JOB_ID"
   variables:
     VIZZLY_TOKEN: $VIZZLY_TOKEN
 ```

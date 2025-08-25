@@ -244,4 +244,16 @@ export class ApiService {
   async getTokenContext() {
     return this.request('/api/sdk/token/context');
   }
+
+  /**
+   * Finalize a parallel build
+   * @param {string} parallelId - Parallel ID to finalize
+   * @returns {Promise<Object>} Finalization result
+   */
+  async finalizeParallelBuild(parallelId) {
+    return this.request(`/api/sdk/parallel/${parallelId}/finalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }

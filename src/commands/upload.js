@@ -117,6 +117,7 @@ export async function uploadCommand(
       uploadAll: options.uploadAll || false,
       metadata: options.metadata ? JSON.parse(options.metadata) : {},
       pullRequestNumber,
+      parallelId: config.parallelId,
       onProgress: progressData => {
         const {
           message: progressMessage,

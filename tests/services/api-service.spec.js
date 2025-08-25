@@ -250,4 +250,55 @@ describe('ApiService', () => {
       });
     });
   });
+
+  describe('finalizeParallelBuild', () => {
+    it('should make correct API call', async () => {
+      const service = new ApiService({ token: 'test-token' });
+      const parallelId = 'parallel-123';
+      const mockResponse = {
+        message: 'Parallel build finalized successfully',
+        build: {
+          id: 'build-456',
+          status: 'completed',
+          parallel_id: parallelId,
+        },
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await service.finalizeParallelBuild(parallelId);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        `https://vizzly.dev/api/sdk/parallel/${parallelId}/finalize`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': expect.any(String),
+            Authorization: 'Bearer test-token',
+          },
+        }
+      );
+
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should handle API errors', async () => {
+      const service = new ApiService({ token: 'test-token' });
+      const parallelId = 'parallel-123';
+
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve('Parallel build not found'),
+      });
+
+      await expect(service.finalizeParallelBuild(parallelId)).rejects.toThrow(
+        VizzlyError
+      );
+    });
+  });
 });

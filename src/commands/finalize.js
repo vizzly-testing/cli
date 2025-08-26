@@ -43,7 +43,7 @@ export async function finalizeCommand(
     // Create service container and get API service
     ui.startSpinner('Finalizing parallel build...');
     const container = await createServiceContainer(config, 'finalize');
-    const apiService = await container.get('api');
+    const apiService = await container.get('apiService');
     ui.stopSpinner();
 
     // Call finalize endpoint

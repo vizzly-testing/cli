@@ -298,26 +298,31 @@ async function processFiles(files, signal, onProgress) {
 }
 
 /**
- * Check which files already exist on the server
+ * Check which files already exist on the server using signature-based deduplication
  */
 async function checkExistingFiles(fileMetadata, api, signal, buildId) {
-  const allShas = fileMetadata.map(f => f.sha256);
   const existingShas = new Set();
   const allScreenshots = [];
 
-  // Check in batches
-  for (let i = 0; i < allShas.length; i += DEFAULT_SHA_CHECK_BATCH_SIZE) {
+  // Check in batches using the new signature-based format
+  for (let i = 0; i < fileMetadata.length; i += DEFAULT_SHA_CHECK_BATCH_SIZE) {
     if (signal.aborted) throw new UploadError('Operation cancelled');
 
-    const batch = allShas.slice(i, i + DEFAULT_SHA_CHECK_BATCH_SIZE);
+    const batch = fileMetadata.slice(i, i + DEFAULT_SHA_CHECK_BATCH_SIZE);
+
+    // Convert file metadata to screenshot objects with signature data
+    const screenshotBatch = batch.map(file => ({
+      sha256: file.sha256,
+      name: file.filename.replace(/\.png$/, ''), // Remove .png extension for name
+      // Extract browser from filename if available (e.g., "homepage-chrome.png" -> "chrome")
+      browser: extractBrowserFromFilename(file.filename) || 'chrome', // Default to chrome
+      // Default viewport dimensions (these could be extracted from filename or metadata if available)
+      viewport_width: 1920,
+      viewport_height: 1080,
+    }));
 
     try {
-      const res = await api.request('/api/sdk/check-shas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shas: batch, buildId }),
-        signal,
-      });
+      const res = await api.checkShas(screenshotBatch, buildId);
       const { existing = [], screenshots = [] } = res || {};
       existing.forEach(sha => existingShas.add(sha));
       allScreenshots.push(...screenshots);
@@ -335,6 +340,24 @@ async function checkExistingFiles(fileMetadata, api, signal, buildId) {
     existing: fileMetadata.filter(f => existingShas.has(f.sha256)),
     screenshots: allScreenshots,
   };
+}
+
+/**
+ * Extract browser name from filename
+ * @param {string} filename - The screenshot filename
+ * @returns {string|null} Browser name or null if not found
+ */
+function extractBrowserFromFilename(filename) {
+  const browsers = ['chrome', 'firefox', 'safari', 'edge', 'webkit'];
+  const lowerFilename = filename.toLowerCase();
+
+  for (const browser of browsers) {
+    if (lowerFilename.includes(browser)) {
+      return browser;
+    }
+  }
+
+  return null;
 }
 
 /**

@@ -126,16 +126,38 @@ export class ApiService {
 
   /**
    * Check if SHAs already exist on the server
-   * @param {string[]} shas - Array of SHA256 hashes to check
+   * @param {string[]|Object[]} shas - Array of SHA256 hashes to check, or array of screenshot objects with metadata
    * @param {string} buildId - Build ID for screenshot record creation
    * @returns {Promise<Object>} Response with existing SHAs and screenshot data
    */
   async checkShas(shas, buildId) {
     try {
+      let requestBody;
+
+      // Check if we're using the new signature-based format (array of objects) or legacy format (array of strings)
+      if (
+        Array.isArray(shas) &&
+        shas.length > 0 &&
+        typeof shas[0] === 'object' &&
+        shas[0].sha256
+      ) {
+        // New signature-based format
+        requestBody = {
+          buildId,
+          screenshots: shas,
+        };
+      } else {
+        // Legacy SHA-only format
+        requestBody = {
+          shas,
+          buildId,
+        };
+      }
+
       const response = await this.request('/api/sdk/check-shas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shas, buildId }),
+        body: JSON.stringify(requestBody),
       });
       return response;
     } catch (error) {
@@ -144,7 +166,12 @@ export class ApiService {
         'SHA check failed, continuing without deduplication:',
         error.message
       );
-      return { existing: [], missing: shas, screenshots: [] };
+      // Extract SHAs for fallback response regardless of format
+      const shaList =
+        Array.isArray(shas) && shas.length > 0 && typeof shas[0] === 'object'
+          ? shas.map(s => s.sha256)
+          : shas;
+      return { existing: [], missing: shaList, screenshots: [] };
     }
   }
 
@@ -172,14 +199,25 @@ export class ApiService {
       });
     }
 
-    // Normal flow with SHA deduplication
+    // Normal flow with SHA deduplication using signature-based format
     const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
-    // Check if this SHA already exists
-    const checkResult = await this.checkShas([sha256], buildId);
+    // Create screenshot object with signature data for checking
+    const screenshotCheck = [
+      {
+        sha256,
+        name,
+        browser: metadata?.browser || 'chrome',
+        viewport_width: metadata?.viewport?.width || 1920,
+        viewport_height: metadata?.viewport?.height || 1080,
+      },
+    ];
+
+    // Check if this SHA with signature already exists
+    const checkResult = await this.checkShas(screenshotCheck, buildId);
 
     if (checkResult.existing && checkResult.existing.includes(sha256)) {
-      // File already exists, screenshot record was automatically created
+      // File already exists with same signature, screenshot record was automatically created
       const screenshot = checkResult.screenshots?.find(
         s => s.sha256 === sha256
       );
@@ -192,7 +230,7 @@ export class ApiService {
       };
     }
 
-    // File doesn't exist, proceed with upload
+    // File doesn't exist or has different signature, proceed with upload
     return this.request(`/api/sdk/builds/${buildId}/screenshots`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

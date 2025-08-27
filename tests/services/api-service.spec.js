@@ -133,7 +133,15 @@ describe('ApiService', () => {
       expect(firstCall[1].method).toBe('POST');
       const firstRequestBody = JSON.parse(firstCall[1].body);
       expect(firstRequestBody.buildId).toBe(buildId);
-      expect(firstRequestBody.shas).toEqual([sha256]);
+      expect(firstRequestBody.screenshots).toEqual([
+        {
+          sha256,
+          name,
+          browser: metadata.browser || 'chrome',
+          viewport_width: metadata.viewport?.width || 1920,
+          viewport_height: metadata.viewport?.height || 1080,
+        },
+      ]);
 
       // Check that upload was called with correct data (second call)
       const secondCall = global.fetch.mock.calls[1];
@@ -185,7 +193,15 @@ describe('ApiService', () => {
       const firstCall = global.fetch.mock.calls[0];
       const firstRequestBody = JSON.parse(firstCall[1].body);
       expect(firstRequestBody.buildId).toBe(buildId);
-      expect(firstRequestBody.shas).toEqual([sha256]);
+      expect(firstRequestBody.screenshots).toEqual([
+        {
+          sha256,
+          name,
+          browser: 'chrome',
+          viewport_width: 1920,
+          viewport_height: 1080,
+        },
+      ]);
 
       // Check that upload was called with empty properties (second call)
       const secondCall = global.fetch.mock.calls[1];
@@ -239,7 +255,15 @@ describe('ApiService', () => {
       expect(firstCall[0]).toBe('https://vizzly.dev/api/sdk/check-shas');
       const requestBody = JSON.parse(firstCall[1].body);
       expect(requestBody.buildId).toBe(buildId);
-      expect(requestBody.shas).toEqual([sha256]);
+      expect(requestBody.screenshots).toEqual([
+        {
+          sha256,
+          name,
+          browser: 'chrome',
+          viewport_width: 1920,
+          viewport_height: 1080,
+        },
+      ]);
 
       expect(result).toEqual({
         message: 'Screenshot already exists, skipped upload',

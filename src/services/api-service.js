@@ -4,7 +4,7 @@
  */
 
 import { URLSearchParams } from 'url';
-import { VizzlyError } from '../errors/vizzly-error.js';
+import { VizzlyError, AuthError } from '../errors/vizzly-error.js';
 import crypto from 'crypto';
 import { getPackageVersion } from '../utils/package-info.js';
 import {
@@ -70,6 +70,14 @@ export class ApiService {
       } catch {
         // ignore
       }
+
+      // Handle authentication errors with user-friendly messages
+      if (response.status === 401) {
+        throw new AuthError(
+          'Invalid or expired API token. Please check your VIZZLY_TOKEN environment variable and ensure it is valid.'
+        );
+      }
+
       throw new VizzlyError(
         `API request failed: ${response.status}${errorText ? ` - ${errorText}` : ''} (URL: ${url})`
       );

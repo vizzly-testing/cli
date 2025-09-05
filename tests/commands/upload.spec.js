@@ -332,7 +332,7 @@ describe('uploadCommand', () => {
 
       await uploadCommand('./screenshots', {}, {});
 
-      expect(mockUI.error).toHaveBeenCalledWith('Upload failed', error);
+      expect(mockUI.error).toHaveBeenCalledWith('Config load failed', error);
     });
 
     it('should handle container creation errors', async () => {
@@ -344,7 +344,10 @@ describe('uploadCommand', () => {
 
       await uploadCommand('./screenshots', {}, {});
 
-      expect(mockUI.error).toHaveBeenCalledWith('Upload failed', error);
+      expect(mockUI.error).toHaveBeenCalledWith(
+        'Container creation failed',
+        error
+      );
     });
 
     it('should handle upload errors', async () => {
@@ -362,7 +365,7 @@ describe('uploadCommand', () => {
 
       await uploadCommand('./screenshots', { wait: true }, {});
 
-      expect(mockUI.error).toHaveBeenCalledWith('Upload failed', error);
+      expect(mockUI.error).toHaveBeenCalledWith('Build wait failed', error);
     });
   });
 

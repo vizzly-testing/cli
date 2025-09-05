@@ -44,9 +44,12 @@ export class ConsoleUI {
       };
 
       if (error instanceof Error) {
+        const errorMessage = error.getUserMessage
+          ? error.getUserMessage()
+          : error.message;
         errorData.error = {
           name: error.name,
-          message: error.message,
+          message: errorMessage,
           ...(this.verbose && { stack: error.stack }),
         };
       } else if (typeof error === 'object') {

@@ -222,7 +222,11 @@ export async function uploadCommand(
         // Silent fail on cleanup
       }
     }
-    ui.error('Upload failed', error);
+    // Use user-friendly error message if available
+    const errorMessage = error?.getUserMessage
+      ? error.getUserMessage()
+      : error.message;
+    ui.error(errorMessage || 'Upload failed', error);
   }
 }
 

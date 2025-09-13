@@ -43,7 +43,7 @@ describe('ApiService - Metadata Handling', () => {
       // Verify the upload request has the correct structure (second call after SHA check)
       const secondCall = global.fetch.mock.calls[1];
       expect(secondCall[0]).toBe(
-        `https://vizzly.dev/api/sdk/builds/${buildId}/screenshots`
+        `https://app.vizzly.dev/api/sdk/builds/${buildId}/screenshots`
       );
       expect(secondCall[1].method).toBe('POST');
       expect(secondCall[1].headers['Content-Type']).toBe('application/json');

@@ -470,7 +470,7 @@ Configuration loaded via cosmiconfig in this order:
 {
   // API Configuration
   apiKey: string,              // API token (from VIZZLY_TOKEN)
-  apiUrl: string,              // API base URL (default: 'https://vizzly.dev')
+  apiUrl: string,              // API base URL (default: 'https://app.vizzly.dev')
   project: string,             // Project ID override
 
   // Server Configuration (for run command)

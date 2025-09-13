@@ -30,7 +30,7 @@ import { VizzlyError } from '../errors/vizzly-error.js';
  *
  * const vizzly = await createVizzly({
  *   apiKey: process.env.VIZZLY_TOKEN,
- *   apiUrl: 'https://vizzly.dev',
+ *   apiUrl: 'https://app.vizzly.dev',
  *   server: {
  *     port: 3003,
  *     enabled: true

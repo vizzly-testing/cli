@@ -62,7 +62,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   const envApiUrl = getApiUrl();
   const envParallelId = getParallelId();
   if (envApiKey) config.apiKey = envApiKey;
-  if (envApiUrl !== 'https://vizzly.dev') config.apiUrl = envApiUrl;
+  if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
   if (envParallelId) config.parallelId = envParallelId;
 
   // 3. Apply CLI overrides (highest priority)

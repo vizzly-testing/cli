@@ -16,7 +16,7 @@ export function getApiToken() {
  * @returns {string} API URL with default
  */
 export function getApiUrl() {
-  return process.env.VIZZLY_API_URL || 'https://vizzly.dev';
+  return process.env.VIZZLY_API_URL || 'https://app.vizzly.dev';
 }
 
 /**

@@ -30,7 +30,7 @@ vizzly doctor --json
 
 ## Environment Variables
 
-- `VIZZLY_API_URL` — Override the API base URL (default: `https://vizzly.dev`)
+- `VIZZLY_API_URL` — Override the API base URL (default: `https://app.vizzly.dev`)
 - `VIZZLY_TOKEN` — API token used only when `--api` is provided
 
 ## Exit Codes

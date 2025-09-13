@@ -37,7 +37,7 @@ describe('ApiService', () => {
       const result = await service.request('/test');
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://vizzly.dev/test',
+        'https://app.vizzly.dev/test',
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer test-token',
@@ -72,7 +72,7 @@ describe('ApiService', () => {
       const result = await service.createBuild(metadata);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://vizzly.dev/api/sdk/builds',
+        'https://app.vizzly.dev/api/sdk/builds',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ build: metadata }),
@@ -129,7 +129,7 @@ describe('ApiService', () => {
 
       // Check that SHA check was called first with buildId
       const firstCall = global.fetch.mock.calls[0];
-      expect(firstCall[0]).toBe('https://vizzly.dev/api/sdk/check-shas');
+      expect(firstCall[0]).toBe('https://app.vizzly.dev/api/sdk/check-shas');
       expect(firstCall[1].method).toBe('POST');
       const firstRequestBody = JSON.parse(firstCall[1].body);
       expect(firstRequestBody.buildId).toBe(buildId);
@@ -146,7 +146,7 @@ describe('ApiService', () => {
       // Check that upload was called with correct data (second call)
       const secondCall = global.fetch.mock.calls[1];
       expect(secondCall[0]).toBe(
-        `https://vizzly.dev/api/sdk/builds/${buildId}/screenshots`
+        `https://app.vizzly.dev/api/sdk/builds/${buildId}/screenshots`
       );
       const uploadBody = JSON.parse(secondCall[1].body);
       expect(uploadBody.properties).toEqual(metadata);
@@ -252,7 +252,7 @@ describe('ApiService', () => {
 
       // Verify the request included buildId
       const firstCall = global.fetch.mock.calls[0];
-      expect(firstCall[0]).toBe('https://vizzly.dev/api/sdk/check-shas');
+      expect(firstCall[0]).toBe('https://app.vizzly.dev/api/sdk/check-shas');
       const requestBody = JSON.parse(firstCall[1].body);
       expect(requestBody.buildId).toBe(buildId);
       expect(requestBody.screenshots).toEqual([
@@ -296,7 +296,7 @@ describe('ApiService', () => {
       const result = await service.finalizeParallelBuild(parallelId);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        `https://vizzly.dev/api/sdk/parallel/${parallelId}/finalize`,
+        `https://app.vizzly.dev/api/sdk/parallel/${parallelId}/finalize`,
         {
           method: 'POST',
           headers: {

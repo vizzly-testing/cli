@@ -368,7 +368,7 @@ Check if Vizzly is enabled in the current environment.
 
 ### Core Configuration
 - `VIZZLY_TOKEN`: API authentication token. Example: `export VIZZLY_TOKEN=your-token`.
-- `VIZZLY_API_URL`: Override API base URL. Default: `https://vizzly.dev`.
+- `VIZZLY_API_URL`: Override API base URL. Default: `https://app.vizzly.dev`.
 - `VIZZLY_LOG_LEVEL`: Logger level. One of `debug`, `info`, `warn`, `error`. Example: `export VIZZLY_LOG_LEVEL=debug`.
 
 ### Parallel Builds

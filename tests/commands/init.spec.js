@@ -135,12 +135,12 @@ describe('InitCommand', () => {
       );
       expect(fs.writeFile).toHaveBeenCalledWith(
         configPath,
-        expect.stringContaining('apiToken:'),
+        expect.stringContaining('apiKey:'),
         'utf8'
       );
       expect(fs.writeFile).toHaveBeenCalledWith(
         configPath,
-        expect.stringContaining('screenshots:'),
+        expect.stringContaining('build:'),
         'utf8'
       );
       expect(fs.writeFile).toHaveBeenCalledWith(

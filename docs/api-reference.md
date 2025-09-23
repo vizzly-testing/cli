@@ -496,9 +496,7 @@ Configuration loaded via cosmiconfig in this order:
 
   // Comparison Configuration
   comparison: {
-    threshold: number,         // Pixel difference threshold (default: 0.01)
-    ignoreAntialiasing: boolean, // Ignore antialiasing (default: true)
-    ignoreColors: boolean      // Ignore color differences (default: false)
+    threshold: number         // Pixel difference threshold (default: 0.1)
   }
 }
 ```

@@ -242,9 +242,7 @@ Configure in `vizzly.config.js`:
 ```javascript
 export default {
   comparison: {
-    threshold: 0.01,        // 1% difference tolerance
-    ignoreAntialiasing: true,
-    ignoreColors: false
+    threshold: 0.01        // 1% difference tolerance
   }
 };
 ```

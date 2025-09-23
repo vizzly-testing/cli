@@ -83,9 +83,11 @@ export const createTddHandler = (
   };
 
   const handleScreenshot = async (buildId, name, image, properties = {}) => {
-    const build = builds.get(buildId);
+    let build = builds.get(buildId);
     if (!build) {
-      throw new Error(`Build ${buildId} not found`);
+      // Auto-register the build if it doesn't exist
+      registerBuild(buildId);
+      build = builds.get(buildId);
     }
 
     // Validate and sanitize screenshot name

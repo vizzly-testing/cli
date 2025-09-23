@@ -212,7 +212,7 @@ describe('ScreenshotServer', () => {
 
       expect(mockResponse.statusCode).toBe(400);
       expect(mockResponse.end).toHaveBeenCalledWith(
-        JSON.stringify({ error: 'buildId, name, and image are required' })
+        JSON.stringify({ error: 'name and image are required' })
       );
       expect(mockBuildManager.addScreenshot).not.toHaveBeenCalled();
     });

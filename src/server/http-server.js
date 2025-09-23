@@ -56,16 +56,17 @@ export const createHttpServer = (port, screenshotHandler, emitter = null) => {
         const body = await parseRequestBody(req);
         const { buildId, name, properties, image } = body;
 
-        if (!buildId || !name || !image) {
+        if (!name || !image) {
           res.statusCode = 400;
-          res.end(
-            JSON.stringify({ error: 'buildId, name, and image are required' })
-          );
+          res.end(JSON.stringify({ error: 'name and image are required' }));
           return;
         }
 
+        // Use default buildId if none provided
+        const effectiveBuildId = buildId || 'default';
+
         const result = await screenshotHandler.handleScreenshot(
-          buildId,
+          effectiveBuildId,
           name,
           image,
           properties

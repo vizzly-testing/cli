@@ -52,15 +52,16 @@ export class ScreenshotServer extends BaseService {
         const body = await this.parseRequestBody(req);
         const { buildId, name, image, properties } = body;
 
-        if (!buildId || !name || !image) {
+        if (!name || !image) {
           res.statusCode = 400;
-          res.end(
-            JSON.stringify({ error: 'buildId, name, and image are required' })
-          );
+          res.end(JSON.stringify({ error: 'name and image are required' }));
           return;
         }
 
-        await this.buildManager.addScreenshot(buildId, {
+        // Use default buildId if none provided
+        const effectiveBuildId = buildId || 'default';
+
+        await this.buildManager.addScreenshot(effectiveBuildId, {
           name,
           image,
           properties,

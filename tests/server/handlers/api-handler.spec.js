@@ -131,7 +131,7 @@ describe('createApiHandler', () => {
       expect(mockApiService.uploadScreenshot).not.toHaveBeenCalled();
     });
 
-    it('should handle missing buildId', async () => {
+    it('should handle missing buildId by allowing upload', async () => {
       const result = await handler.handleScreenshot(
         null,
         screenshotName,
@@ -139,13 +139,17 @@ describe('createApiHandler', () => {
         properties
       );
 
-      expect(result.statusCode).toBe(400);
-      expect(result.body.error).toBe(
-        'Build ID is required for screenshot upload'
+      expect(result.statusCode).toBe(200);
+      expect(result.body.success).toBe(true);
+      expect(mockApiService.uploadScreenshot).toHaveBeenCalledWith(
+        null,
+        screenshotName,
+        Buffer.from(imageData, 'base64'),
+        properties
       );
     });
 
-    it('should handle undefined buildId', async () => {
+    it('should handle undefined buildId by allowing upload', async () => {
       const result = await handler.handleScreenshot(
         undefined,
         screenshotName,
@@ -153,9 +157,13 @@ describe('createApiHandler', () => {
         properties
       );
 
-      expect(result.statusCode).toBe(400);
-      expect(result.body.error).toBe(
-        'Build ID is required for screenshot upload'
+      expect(result.statusCode).toBe(200);
+      expect(result.body.success).toBe(true);
+      expect(mockApiService.uploadScreenshot).toHaveBeenCalledWith(
+        undefined,
+        screenshotName,
+        Buffer.from(imageData, 'base64'),
+        properties
       );
     });
 

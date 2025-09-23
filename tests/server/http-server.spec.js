@@ -193,17 +193,32 @@ describe('createHttpServer', () => {
       expect(eventEmitted).toBe(false);
     });
 
-    it('should handle missing buildId', async () => {
+    it('should handle missing buildId by using default', async () => {
       const requestBody = {
         name: 'test-screenshot',
         image: 'base64-image-data',
       };
 
+      const handlerResponse = {
+        statusCode: 200,
+        body: { success: true, name: 'test-screenshot' },
+      };
+
+      mockHandler.handleScreenshot.mockResolvedValue(handlerResponse);
+      mockHandler.getScreenshotCount.mockReturnValue(1);
+
       const response = await makeScreenshotRequest(requestBody);
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.error).toBe('buildId, name, and image are required');
+      expect(data.success).toBe(true);
+
+      expect(mockHandler.handleScreenshot).toHaveBeenCalledWith(
+        'default',
+        'test-screenshot',
+        'base64-image-data',
+        undefined
+      );
     });
 
     it('should handle missing name', async () => {
@@ -216,7 +231,7 @@ describe('createHttpServer', () => {
 
       expect(response.status).toBe(400);
       const data = await response.json();
-      expect(data.error).toBe('buildId, name, and image are required');
+      expect(data.error).toBe('name and image are required');
     });
 
     it('should handle missing image', async () => {
@@ -229,7 +244,7 @@ describe('createHttpServer', () => {
 
       expect(response.status).toBe(400);
       const data = await response.json();
-      expect(data.error).toBe('buildId, name, and image are required');
+      expect(data.error).toBe('name and image are required');
     });
 
     it('should handle invalid JSON', async () => {

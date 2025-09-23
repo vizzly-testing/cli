@@ -21,14 +21,7 @@ export const createApiHandler = apiService => {
       };
     }
 
-    if (!buildId) {
-      return {
-        statusCode: 400,
-        body: {
-          error: 'Build ID is required for screenshot upload',
-        },
-      };
-    }
+    // buildId is optional - API service will handle it appropriately
 
     if (!apiService) {
       return {

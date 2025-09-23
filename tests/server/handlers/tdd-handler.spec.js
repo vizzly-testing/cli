@@ -252,15 +252,26 @@ describe('createTddHandler', () => {
       expect(result.body.tddMode).toBe(true);
     });
 
-    it('should throw error for non-existent build', async () => {
-      await expect(
-        handler.handleScreenshot(
-          'non-existent-build',
-          screenshotName,
-          imageData,
-          properties
-        )
-      ).rejects.toThrow('Build non-existent-build not found');
+    it('should auto-register non-existent build', async () => {
+      const mockComparison = {
+        name: screenshotName,
+        status: 'passed',
+      };
+      mockTddService.compareScreenshot.mockResolvedValue(mockComparison);
+
+      const result = await handler.handleScreenshot(
+        'non-existent-build',
+        screenshotName,
+        imageData,
+        properties
+      );
+
+      // Should successfully handle the screenshot by auto-registering the build
+      expect(result.statusCode).toBe(200);
+      expect(result.body.success).toBe(true);
+      expect(result.body.comparison.name).toBe(screenshotName);
+      expect(result.body.comparison.status).toBe('passed');
+      expect(result.body.tddMode).toBe(true);
     });
 
     it('should handle screenshots without properties', async () => {

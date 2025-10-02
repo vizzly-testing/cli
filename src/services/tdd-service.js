@@ -529,13 +529,19 @@ export class TddService {
     }
 
     // Check if baseline exists
-    if (!existsSync(baselineImagePath)) {
+    const baselineExists = existsSync(baselineImagePath);
+    if (!baselineExists) {
       logger.warn(
-        `⚠️  No baseline found for ${sanitizedName} - creating baseline`
+        `⚠️ [BASELINE-CREATE] No baseline found for ${sanitizedName} - creating baseline`
       );
+      logger.warn(`   Path: ${baselineImagePath}`);
+      logger.warn(`   Size: ${imageBuffer.length} bytes`);
 
       // Copy current screenshot to baseline directory for future comparisons
       writeFileSync(baselineImagePath, imageBuffer);
+      logger.info(
+        `✓ [BASELINE-CREATE] Created baseline: ${imageBuffer.length} bytes`
+      );
 
       // Update or create baseline metadata
       if (!this.baselineData) {
@@ -584,11 +590,17 @@ export class TddService {
       return result;
     }
 
+    // Baseline exists - compare with it
     try {
       // Use odiff Node.js API to compare images
       const { compare } = await import('odiff-bin');
 
-      logger.debug(`Comparing ${baselineImagePath} vs ${currentImagePath}`);
+      // Log file sizes for debugging
+      const baselineSize = readFileSync(baselineImagePath).length;
+      const currentSize = readFileSync(currentImagePath).length;
+      logger.info(`🔍 [COMPARE] Comparing ${sanitizedName}`);
+      logger.info(`   Baseline: ${baselineImagePath} (${baselineSize} bytes)`);
+      logger.info(`   Current:  ${currentImagePath} (${currentSize} bytes)`);
 
       const result = await compare(
         baselineImagePath,
@@ -1003,5 +1015,110 @@ export class TddService {
     this.comparisons.push(result);
     logger.info(`🐻 Baseline set for ${name}`);
     return result;
+  }
+
+  /**
+   * Accept a current screenshot as the new baseline
+   * @param {string} name - Screenshot name to accept
+   * @returns {Object} Result object
+   */
+  async acceptBaseline(name) {
+    const sanitizedName = sanitizeScreenshotName(name);
+    logger.info(`🔍 [ACCEPT] Starting accept baseline for: ${sanitizedName}`);
+
+    // Find the current screenshot file
+    const currentImagePath = safePath(this.currentPath, `${sanitizedName}.png`);
+    logger.info(
+      `🔍 [ACCEPT] Looking for current screenshot at: ${currentImagePath}`
+    );
+
+    if (!existsSync(currentImagePath)) {
+      logger.error(
+        `❌ [ACCEPT] Current screenshot not found at: ${currentImagePath}`
+      );
+      throw new Error(
+        `Current screenshot not found: ${name} (looked at ${currentImagePath})`
+      );
+    }
+
+    // Read the current image
+    const imageBuffer = readFileSync(currentImagePath);
+    logger.info(`✓ [ACCEPT] Read current image: ${imageBuffer.length} bytes`);
+
+    // Create baseline directory if it doesn't exist
+    if (!existsSync(this.baselinePath)) {
+      mkdirSync(this.baselinePath, { recursive: true });
+      logger.info(
+        `✓ [ACCEPT] Created baseline directory: ${this.baselinePath}`
+      );
+    }
+
+    // Update the baseline
+    const baselineImagePath = safePath(
+      this.baselinePath,
+      `${sanitizedName}.png`
+    );
+    logger.info(`🔍 [ACCEPT] Writing baseline to: ${baselineImagePath}`);
+
+    // Write the baseline image directly
+    writeFileSync(baselineImagePath, imageBuffer);
+    logger.info(`✓ [ACCEPT] Wrote baseline image: ${imageBuffer.length} bytes`);
+
+    // Verify the write
+    if (existsSync(baselineImagePath)) {
+      const writtenSize = readFileSync(baselineImagePath).length;
+      logger.info(
+        `✓ [ACCEPT] Verified baseline file exists: ${writtenSize} bytes`
+      );
+    } else {
+      logger.error(`❌ [ACCEPT] Baseline file does not exist after write!`);
+    }
+
+    // Update baseline metadata
+    if (!this.baselineData) {
+      this.baselineData = {
+        buildId: 'local-baseline',
+        buildName: 'Local TDD Baseline',
+        environment: 'test',
+        branch: 'local',
+        threshold: this.threshold,
+        screenshots: [],
+      };
+      logger.info(`✓ [ACCEPT] Created new baseline metadata`);
+    }
+
+    // Add or update screenshot in baseline metadata
+    const screenshotEntry = {
+      name: sanitizedName,
+      properties: {},
+      path: baselineImagePath,
+    };
+
+    const existingIndex = this.baselineData.screenshots.findIndex(
+      s => s.name === sanitizedName
+    );
+    if (existingIndex >= 0) {
+      this.baselineData.screenshots[existingIndex] = screenshotEntry;
+      logger.info(
+        `✓ [ACCEPT] Updated existing metadata entry at index ${existingIndex}`
+      );
+    } else {
+      this.baselineData.screenshots.push(screenshotEntry);
+      logger.info(
+        `✓ [ACCEPT] Added new metadata entry (total: ${this.baselineData.screenshots.length})`
+      );
+    }
+
+    // Save updated metadata
+    const metadataPath = join(this.baselinePath, 'metadata.json');
+    writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
+    logger.info(`✓ [ACCEPT] Saved metadata to: ${metadataPath}`);
+
+    logger.info(`✅ [ACCEPT] Accepted ${sanitizedName} as new baseline`);
+    return {
+      name: sanitizedName,
+      status: 'accepted',
+      message: 'Screenshot accepted as new baseline',
+    };
   }
 }

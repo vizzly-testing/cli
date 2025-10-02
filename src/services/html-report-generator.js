@@ -315,6 +315,74 @@ document.addEventListener('DOMContentLoaded', function () {
 
   console.log('Vizzly TDD Report loaded successfully');
 });
+
+// Accept/Reject baseline functions
+async function acceptBaseline(screenshotName) {
+  const button = document.querySelector(\`button[onclick*="\${screenshotName}"]\`);
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '⏳ Accepting...';
+  }
+
+  try {
+    const response = await fetch('/accept-baseline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: screenshotName })
+    });
+
+    if (response.ok) {
+      // Mark as accepted and hide the comparison
+      const comparison = document.querySelector(\`[data-comparison="\${screenshotName}"]\`);
+      if (comparison) {
+        comparison.style.background = '#e8f5e8';
+        comparison.style.border = '2px solid #4caf50';
+
+        const status = comparison.querySelector('.diff-status');
+        if (status) {
+          status.innerHTML = '✅ Accepted as new baseline';
+          status.style.color = '#4caf50';
+        }
+
+        const actions = comparison.querySelector('.comparison-actions');
+        if (actions) {
+          actions.innerHTML = '<div style="color: #4caf50; padding: 0.5rem;">✅ Screenshot accepted as new baseline</div>';
+        }
+      }
+
+      // Auto-refresh after short delay to show updated report
+      setTimeout(() => window.location.reload(), 2000);
+    } else {
+      throw new Error('Failed to accept baseline');
+    }
+  } catch (error) {
+    console.error('Error accepting baseline:', error);
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = '✅ Accept as Baseline';
+    }
+    alert('Failed to accept baseline. Please try again.');
+  }
+}
+
+function rejectChanges(screenshotName) {
+  const comparison = document.querySelector(\`[data-comparison="\${screenshotName}"]\`);
+  if (comparison) {
+    comparison.style.background = '#fff3cd';
+    comparison.style.border = '2px solid #ffc107';
+
+    const status = comparison.querySelector('.diff-status');
+    if (status) {
+      status.innerHTML = '⚠️ Changes rejected - baseline unchanged';
+      status.style.color = '#856404';
+    }
+
+    const actions = comparison.querySelector('.comparison-actions');
+    if (actions) {
+      actions.innerHTML = '<div style="color: #856404; padding: 0.5rem;">⚠️ Changes rejected - baseline kept as-is</div>';
+    }
+  }
+}
     </script>
 </body>
 </html>`;
@@ -354,6 +422,15 @@ document.addEventListener('DOMContentLoaded', function () {
             <button class="view-mode-btn" data-mode="toggle">Toggle</button>
             <button class="view-mode-btn" data-mode="onion">Onion Skin</button>
             <button class="view-mode-btn" data-mode="side-by-side">Side by Side</button>
+        </div>
+
+        <div class="comparison-actions">
+            <button class="accept-btn" onclick="acceptBaseline('${safeName}')">
+                ✅ Accept as Baseline
+            </button>
+            <button class="reject-btn" onclick="rejectChanges('${safeName}')">
+                ❌ Keep Current Baseline
+            </button>
         </div>
 
         <div class="comparison-viewer">

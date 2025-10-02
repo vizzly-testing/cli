@@ -55,7 +55,7 @@ vizzly upload ./screenshots --build-name "Release v1.2.3"
 vizzly run "npm test"
 
 # Use TDD mode for local development
-vizzly tdd "npm test"
+vizzly tdd run "npm test"
 ```
 
 ### In your test code

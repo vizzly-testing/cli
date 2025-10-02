@@ -122,27 +122,38 @@ The TDD dashboard provides real-time visual comparison feedback as you develop.
 
 ### 🐻 **Dashboard Features**
 
+**Two-View Navigation**
+- **Comparisons View** - Main view showing all screenshot comparisons with visual diffs
+- **Statistics View** - Overview of test runs, pass/fail metrics, and baseline management
+- Switch between views using the navigation tabs at the top
+
 **Live Updates**
 - Screenshots appear as tests run
 - Comparisons processed in real-time
 - No page refresh needed
+- Auto-refreshes every 2 seconds to show latest results
 
-**Visual Diff Modes**
+**Visual Diff Modes** (in Comparisons view)
 - **Overlay** - Toggle diff overlay on/off
 - **Side-by-Side** - Compare baseline and current horizontally
 - **Onion Skin** - Drag to reveal baseline underneath
 - **Toggle** - Click to switch between baseline and current
 
 **Baseline Management**
-- Accept individual screenshots as baseline
-- Accept all changes at once
-- Reset baselines to previous state
+- **Accept Individual** - Click accept on any comparison to update that baseline
+- **Accept All Changes** - Bulk accept all failed/new screenshots at once (shown when changes detected)
+  - Shows count of failed and new baselines
+  - Prominent button appears in Comparisons view when changes exist
+- **Reset Baselines** - Delete all baselines and comparison history (in Statistics view)
+  - Useful for starting fresh or fixing corrupted state
+  - Requires confirmation before executing
 
-**Statistics Dashboard**
-- Total tests run
-- Pass/fail counts
-- Visual change detection rate
-- Filter by test status
+**Filtering & Search** (in Comparisons view)
+- Filter by status: All, Failed, Passed, New
+- Search by screenshot name
+- Filter by browser type
+- Filter by viewport size
+- Sort by name, status, or diff percentage
 
 ### 🐻 **Dashboard UI**
 
@@ -153,7 +164,24 @@ npx vizzly tdd start
 # Opens at http://localhost:47392
 # Shows real-time comparisons as tests run
 # Dark theme optimized for development
+# Navigate between Comparisons and Statistics views
 ```
+
+**Dashboard Views:**
+
+1. **Comparisons View** (`/`)
+   - Lists all screenshot comparisons with visual diffs
+   - Filter, search, and sort capabilities
+   - "Accept All" button appears when changes are detected
+   - Individual accept/reject actions per comparison
+   - Multiple visual diff modes for detailed inspection
+
+2. **Statistics View** (`/stats`)
+   - Overview of test runs and baseline status
+   - Total pass/fail/new screenshot counts
+   - Current baseline information (build name, creation date)
+   - "Accept All Changes" button for bulk baseline updates
+   - "Reset Baselines" button to clear all baselines and start fresh
 
 ### 🐻 **Static HTML Report**
 
@@ -296,7 +324,7 @@ npx vizzly status  # Shows latest build info
 Download new baselines from a different build:
 
 ```bash
-npx vizzly tdd "npm test" --baseline-build build-xyz789
+npx vizzly tdd run "npm test" --baseline-build build-xyz789
 ```
 
 ### Force Baseline Refresh
@@ -305,7 +333,7 @@ Delete local baselines to force re-download:
 
 ```bash
 rm -rf .vizzly/baselines/
-npx vizzly tdd "npm test"
+npx vizzly tdd run "npm test"
 ```
 
 ## Advanced Usage
@@ -356,7 +384,7 @@ jobs:
       # Use TDD mode for PR builds (faster, no uploads)
       - name: TDD Visual Tests (PR)
         if: github.event_name == 'pull_request'
-        run: npx vizzly tdd "npm test"
+        run: npx vizzly tdd run "npm test"
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
 
@@ -379,6 +407,8 @@ jobs:
 - **Fast iteration** - Make changes and test immediately
 - **Visual debugging** - See exact pixel differences
 - **Offline capable** - Works without internet (after initial baseline download)
+- **Clean console output** - Reduced logging noise, only shows important information
+- **Silent mode** - Vizzly client auto-disables after first warning if not initialized
 
 ### Cost Efficiency
 - **Reduced API usage** - Only upload final results
@@ -417,7 +447,7 @@ Error: Failed to compare 'homepage': baseline image not found
 **Solution**: Refresh baselines:
 ```bash
 rm -rf .vizzly/baselines/
-npx vizzly tdd "npm test"
+npx vizzly tdd run "npm test"
 ```
 
 ### Odiff Not Found

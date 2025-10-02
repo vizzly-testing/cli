@@ -59,7 +59,7 @@ npx vizzly upload ./screenshots --build-name "Release v1.2.3"
 npx vizzly run "npm test"
 
 # Use TDD mode for local development
-npx vizzly tdd "npm test"
+npx vizzly tdd run "npm test"
 ```
 
 ### 6. In your test code

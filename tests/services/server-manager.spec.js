@@ -93,6 +93,7 @@ describe('ServerManager', () => {
     mockHttpServer = {
       start: vi.fn(),
       stop: vi.fn(),
+      finishBuild: vi.fn(),
       getServer: vi.fn(),
     };
 
@@ -101,7 +102,6 @@ describe('ServerManager', () => {
       registerBuild: vi.fn(),
       handleScreenshot: vi.fn(),
       getScreenshotCount: vi.fn(),
-      finishBuild: vi.fn(),
       cleanup: vi.fn(),
     };
 
@@ -361,13 +361,13 @@ describe('ServerManager', () => {
 
     it('should expose finishBuild through server interface', async () => {
       const mockResult = { id: 'build-123', passed: true };
-      mockTddHandler.finishBuild.mockResolvedValue(mockResult);
+      mockHttpServer.finishBuild.mockResolvedValue(mockResult);
 
       const server = serverManager.server;
       const result = await server.finishBuild('build-123');
 
       expect(result).toEqual(mockResult);
-      expect(mockTddHandler.finishBuild).toHaveBeenCalledWith('build-123');
+      expect(mockHttpServer.finishBuild).toHaveBeenCalledWith('build-123');
     });
 
     it('should handle finishBuild when handler lacks method', async () => {

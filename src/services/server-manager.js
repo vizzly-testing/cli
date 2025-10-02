@@ -76,7 +76,7 @@ export class ServerManager extends BaseService {
     return {
       getScreenshotCount: buildId =>
         this.handler?.getScreenshotCount?.(buildId) || 0,
-      finishBuild: buildId => this.handler?.finishBuild?.(buildId),
+      finishBuild: buildId => this.httpServer?.finishBuild?.(buildId),
     };
   }
 }

@@ -508,9 +508,30 @@ export const createHttpServer = (port, screenshotHandler) => {
     return Promise.resolve();
   };
 
+  /**
+   * Finish build - flush any pending background operations
+   * Call this before finalizing a build to ensure all uploads complete
+   */
+  const finishBuild = async buildId => {
+    logger.debug(`Finishing build ${buildId}...`);
+
+    // Flush screenshot handler if it has a flush method (API mode)
+    if (screenshotHandler?.flush) {
+      const stats = await screenshotHandler.flush();
+      logger.debug(
+        `Build ${buildId} uploads complete: ${stats.uploaded} uploaded, ${stats.failed} failed`
+      );
+      return stats;
+    }
+
+    logger.debug(`Build ${buildId} finished (no flush needed)`);
+    return null;
+  };
+
   return {
     start,
     stop,
+    finishBuild,
     getServer: () => server,
   };
 };

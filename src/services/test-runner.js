@@ -140,6 +140,12 @@ export class TestRunner extends BaseService {
         }
       }
 
+      // In API mode, get actual screenshot count from handler after flush
+      if (!tdd && this.serverManager.server?.getScreenshotCount) {
+        screenshotCount =
+          this.serverManager.server.getScreenshotCount(buildId) || 0;
+      }
+
       try {
         await this.serverManager.stop();
       } catch (stopError) {
@@ -234,10 +240,23 @@ export class TestRunner extends BaseService {
           );
         }
       } else {
-        // API mode: use API service to update build status
+        // API mode: flush uploads first, then finalize build
+        if (this.serverManager.server?.finishBuild) {
+          this.logger.debug(`Flushing uploads for build ${buildId}...`);
+          await this.serverManager.server.finishBuild(buildId);
+          this.logger.debug(`Upload flush complete for build ${buildId}`);
+        }
+
+        // Then update build status via API
+        this.logger.debug(`Finalizing build ${buildId} via API...`);
         const apiService = await this.createApiService();
         if (apiService) {
           await apiService.finalizeBuild(buildId, success, executionTime);
+          this.logger.debug(`Build ${buildId} finalized successfully`);
+        } else {
+          this.logger.warn(
+            `No API service available to finalize build ${buildId}`
+          );
         }
       }
     } catch (error) {

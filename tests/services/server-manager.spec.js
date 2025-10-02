@@ -147,7 +147,6 @@ describe('ServerManager', () => {
       expect(serverManager.logger).toBe(mockLogger);
       expect(serverManager.httpServer).toBe(null);
       expect(serverManager.handler).toBe(null);
-      expect(serverManager.emitter).toBe(null);
     });
   });
 
@@ -173,12 +172,7 @@ describe('ServerManager', () => {
         false
       );
       expect(mockTddHandler.initialize).toHaveBeenCalled();
-      expect(mockTddHandler.registerBuild).not.toHaveBeenCalled();
-      expect(createHttpServer).toHaveBeenCalledWith(
-        47392,
-        mockTddHandler,
-        expect.any(Object)
-      );
+      expect(createHttpServer).toHaveBeenCalledWith(47392, mockTddHandler);
       expect(mockHttpServer.start).toHaveBeenCalled();
     });
 
@@ -189,7 +183,6 @@ describe('ServerManager', () => {
       await serverManager.start('build-123', true);
 
       expect(mockTddHandler.initialize).toHaveBeenCalled();
-      expect(mockTddHandler.registerBuild).toHaveBeenCalledWith('build-123');
     });
 
     it('should handle TDD initialization failure', async () => {
@@ -216,11 +209,7 @@ describe('ServerManager', () => {
       await serverManager.start('build-123', false);
 
       expect(createApiHandler).toHaveBeenCalledWith(mockApiService);
-      expect(createHttpServer).toHaveBeenCalledWith(
-        47392,
-        mockApiHandler,
-        expect.any(Object)
-      );
+      expect(createHttpServer).toHaveBeenCalledWith(47392, mockApiHandler);
       expect(mockHttpServer.start).toHaveBeenCalled();
     });
 
@@ -260,11 +249,7 @@ describe('ServerManager', () => {
       mockHttpServer.start.mockResolvedValue();
       await serverManagerWithoutPort.start(null, false);
 
-      expect(createHttpServer).toHaveBeenCalledWith(
-        47392, // default port
-        expect.any(Object),
-        expect.any(Object)
-      );
+      expect(createHttpServer).toHaveBeenCalledWith(47392, expect.any(Object));
     });
 
     it('should use custom port when specified', async () => {
@@ -285,11 +270,7 @@ describe('ServerManager', () => {
       mockHttpServer.start.mockResolvedValue();
       await serverManagerWithCustomPort.start(null, false);
 
-      expect(createHttpServer).toHaveBeenCalledWith(
-        8080,
-        expect.any(Object),
-        expect.any(Object)
-      );
+      expect(createHttpServer).toHaveBeenCalledWith(8080, expect.any(Object));
     });
   });
 
@@ -354,23 +335,6 @@ describe('ServerManager', () => {
       mockTddHandler.initialize.mockResolvedValue();
       mockHttpServer.start.mockResolvedValue();
       await serverManager.start('build-123', true);
-    });
-
-    it('should expose emitter through server interface', () => {
-      const server = serverManager.server;
-      expect(server.emitter).toBeDefined();
-    });
-
-    it('should expose getScreenshotCount through server interface', () => {
-      mockTddHandler.getScreenshotCount.mockReturnValue(5);
-
-      const server = serverManager.server;
-      const count = server.getScreenshotCount('build-123');
-
-      expect(count).toBe(5);
-      expect(mockTddHandler.getScreenshotCount).toHaveBeenCalledWith(
-        'build-123'
-      );
     });
 
     it('should handle getScreenshotCount when handler lacks method', async () => {

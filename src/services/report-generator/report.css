@@ -337,6 +337,59 @@ body {
   padding: 40px;
 }
 
+/* Action buttons for accept/reject */
+.comparison-actions {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  background: #1e293b;
+  border-radius: 8px;
+  border: 1px solid #334155;
+}
+
+.accept-btn,
+.reject-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accept-btn {
+  background: #059669;
+  color: white;
+}
+
+.accept-btn:hover {
+  background: #047857;
+}
+
+.accept-btn:disabled {
+  background: #6b7280;
+  cursor: not-allowed;
+}
+
+.reject-btn {
+  background: #dc2626;
+  color: white;
+}
+
+.reject-btn:hover {
+  background: #b91c1c;
+}
+
+.reject-btn:disabled {
+  background: #6b7280;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 10px;
@@ -351,5 +404,8 @@ body {
   .side-by-side-container {
     grid-template-columns: 1fr;
     gap: 15px;
+  }
+  .comparison-actions {
+    flex-direction: column;
   }
 }

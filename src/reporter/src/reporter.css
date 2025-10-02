@@ -1,0 +1,93 @@
+@import 'tailwindcss';
+
+/* Comparison Viewer Styles */
+.comparison-viewer {
+  @apply relative flex justify-center;
+}
+
+/* Overlay Mode */
+.overlay-mode .overlay-container {
+  @apply relative cursor-pointer inline-block;
+}
+
+.overlay-mode .current-image,
+.overlay-mode .baseline-image,
+.overlay-mode .diff-image {
+  @apply absolute top-0 left-0 w-full h-full object-contain border border-gray-600 rounded;
+}
+
+.overlay-mode .current-image {
+  @apply relative z-10 max-w-full h-auto border border-gray-600 rounded;
+}
+
+.overlay-mode .baseline-image {
+  @apply z-20;
+}
+
+.overlay-mode .diff-image {
+  @apply z-30 transition-opacity duration-200;
+}
+
+/* Toggle Mode */
+.toggle-mode .toggle-container {
+  @apply text-center;
+}
+
+.toggle-mode .toggle-image {
+  @apply max-w-full h-auto border border-gray-600 rounded;
+}
+
+.toggle-mode .toggle-label {
+  @apply mt-2 text-sm text-gray-400;
+}
+
+/* Onion Skin Mode */
+.onion-mode .onion-container {
+  @apply relative inline-block cursor-col-resize select-none;
+}
+
+.onion-mode .onion-baseline,
+.onion-mode .onion-current {
+  @apply block max-w-full h-auto border border-gray-600 rounded pointer-events-none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.onion-mode .onion-current {
+  @apply absolute top-0 left-0;
+  clip-path: inset(0 50% 0 0);
+}
+
+.onion-mode .onion-divider {
+  @apply absolute top-0 h-full w-0.5 bg-amber-500 pointer-events-none z-10;
+  left: 50%;
+}
+
+.onion-mode .onion-divider::before {
+  content: '';
+  @apply absolute -top-2 -left-2 w-4 h-4 bg-amber-500 rounded-full;
+}
+
+.onion-mode .onion-divider::after {
+  content: '';
+  @apply absolute -bottom-2 -left-2 w-4 h-4 bg-amber-500 rounded-full;
+}
+
+/* Side by Side Mode */
+.side-by-side-mode .side-by-side-container {
+  @apply flex gap-4;
+}
+
+.side-by-side-mode .side-by-side-image {
+  @apply flex-1 text-center;
+}
+
+.side-by-side-mode .side-by-side-image img {
+  @apply max-w-full h-auto border border-gray-600 rounded;
+}
+
+.side-by-side-mode .side-by-side-image label {
+  @apply block mt-2 text-sm text-gray-400 font-medium;
+}
+
+/* Remove status badge overlay - we'll put status in the header instead */

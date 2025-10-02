@@ -1,6 +1,8 @@
 import js from '@eslint/js';
 import prettier from 'eslint-plugin-prettier';
 import configPrettier from 'eslint-config-prettier';
+import react from 'eslint-plugin-react';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
   // Global ignores
@@ -10,6 +12,7 @@ export default [
   // CLI source files
   {
     files: ['src/**/*.js'],
+    ignores: ['src/reporter/**/*.js', 'src/reporter/**/*.jsx'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -32,7 +35,8 @@ export default [
         EventEmitter: 'readonly',
         Blob: 'readonly',
         createReadStream: 'readonly',
-        createVizzly: 'readonly'
+        createVizzly: 'readonly',
+        URL: 'readonly'
       }
     },
     plugins: {
@@ -119,6 +123,103 @@ export default [
         CustomEvent: 'readonly',
         addEventListener: 'readonly',
         removeEventListener: 'readonly'
+      }
+    },
+    plugins: {
+      prettier
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...configPrettier.rules,
+      'no-console': 'off',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'prettier/prettier': 'error'
+    }
+  },
+  // Reporter React files (JSX)
+  {
+    files: ['src/reporter/**/*.jsx'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true
+        }
+      },
+      globals: {
+        // Browser globals
+        document: 'readonly',
+        window: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        clearTimeout: 'readonly',
+        fetch: 'readonly',
+        FormData: 'readonly',
+        AbortController: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Blob: 'readonly',
+        FileReader: 'readonly',
+        HTMLElement: 'readonly',
+        Event: 'readonly',
+        CustomEvent: 'readonly',
+        Image: 'readonly'
+      }
+    },
+    plugins: {
+      react,
+      'react-hooks': reactHooks,
+      prettier
+    },
+    settings: {
+      react: {
+        version: 'detect'
+      }
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...react.configs.recommended.rules,
+      ...react.configs['jsx-runtime'].rules,
+      ...reactHooks.configs.recommended.rules,
+      ...configPrettier.rules,
+      'no-console': 'off',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'prettier/prettier': 'error',
+      'react/prop-types': 'off'
+    }
+  },
+  // Reporter non-JSX files
+  {
+    files: ['src/reporter/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        // Browser globals
+        document: 'readonly',
+        window: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        clearTimeout: 'readonly',
+        fetch: 'readonly',
+        FormData: 'readonly',
+        AbortController: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Blob: 'readonly',
+        FileReader: 'readonly',
+        HTMLElement: 'readonly',
+        Event: 'readonly',
+        CustomEvent: 'readonly',
+        Image: 'readonly',
+        // Node globals for build files
+        __dirname: 'readonly',
+        process: 'readonly'
       }
     },
     plugins: {

@@ -16,6 +16,35 @@ export class TestRunner extends BaseService {
     this.testProcess = null;
   }
 
+  /**
+   * Initialize server for daemon mode (no test execution)
+   * @param {Object} options - Options for server initialization
+   */
+  async initialize(options) {
+    const { tdd, daemon } = options;
+
+    if (!tdd || !daemon) {
+      throw new VizzlyError(
+        'Initialize method is only for TDD daemon mode',
+        'INVALID_MODE'
+      );
+    }
+
+    try {
+      // Start server manager for daemon mode
+      await this.serverManager.start(null, tdd, options.setBaseline);
+
+      this.emit('server-ready', {
+        port: options.port,
+        mode: 'daemon',
+        tdd: true,
+      });
+    } catch (error) {
+      this.logger.error('Failed to initialize TDD daemon server:', error);
+      throw error;
+    }
+  }
+
   async run(options) {
     const { testCommand, tdd, allowNoToken } = options;
     const startTime = Date.now();

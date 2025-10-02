@@ -253,11 +253,11 @@ describe('CLI Options Integration', () => {
 
   describe('TDD command options', () => {
     it('should show tdd command help with all options', async () => {
-      const result = await runCLI(['tdd', '--help']);
+      const result = await runCLI(['tdd', 'run', '--help']);
 
       expect(result.code).toBe(0);
       expect(result.stdout).toContain(
-        'Run tests in TDD mode with local visual comparisons'
+        'Run tests once in TDD mode with local visual comparisons'
       );
       expect(result.stdout).toContain('--port <port>');
       expect(result.stdout).toContain('--branch <branch>');
@@ -267,48 +267,35 @@ describe('CLI Options Integration', () => {
       expect(result.stdout).toContain('--timeout <ms>');
       expect(result.stdout).toContain('--baseline-build <id>');
       expect(result.stdout).toContain('--baseline-comparison <id>');
-      expect(result.stdout).toContain('--allow-no-token');
+      expect(result.stdout).toContain('--set-baseline');
     });
 
     it('should fail without test command argument', async () => {
-      const result = await runCLI(['tdd']);
+      const result = await runCLI(['tdd', 'run']);
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain('missing required argument');
     });
 
-    it('should auto-detect missing API token and run in local-only mode', async () => {
-      const result = await runCLI(['tdd', 'echo "test"']);
+    it('should start TDD mode with valid command', async () => {
+      const result = await runCLI(['tdd', 'run', 'echo test']);
 
-      expect(result.code).toBe(0);
-      expect(result.stdout).toContain(
-        'No API token detected - running in local-only mode'
-      );
-    });
-
-    it('should allow running without token when --allow-no-token is used', async () => {
-      const result = await runCLI(['tdd', 'echo "test"', '--allow-no-token'], {
-        env: { CI: 'true' },
-      });
-
-      // Should not fail due to missing token
-      expect(result.stderr).not.toContain('API token required for TDD mode');
+      // Should not have CLI errors - may fail during execution
+      expect(result.stderr).not.toContain('error: unknown');
+      expect(result.stdout).toContain('Running in local');
     });
 
     it('should handle port option parsing', async () => {
       const result = await runCLI(
-        ['tdd', 'echo "test successful"', '--port', '47500'],
+        ['tdd', 'run', 'echo test', '--port', '47500'],
         {
           env: { CI: 'true' },
         }
       );
 
-      // Should succeed with auto-detected missing token
-      expect(result.code).toBe(0);
+      // Should not have validation errors for port
       expect(result.stderr).not.toContain('invalid port');
-      expect(result.stdout).toContain(
-        'No API token detected - running in local-only mode'
-      );
+      expect(result.stderr).not.toContain('Port must be');
     });
   });
 

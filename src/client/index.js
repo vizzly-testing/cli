@@ -4,16 +4,18 @@
  */
 
 import {
-  isVizzlyEnabled,
   getServerUrl,
   getBuildId,
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
+import { existsSync, readFileSync } from 'fs';
+import { join, parse, dirname } from 'path';
 
 // Internal client state
 let currentClient = null;
 let isDisabled = false;
+let hasLoggedWarning = false;
 
 /**
  * Check if Vizzly is currently disabled
@@ -21,7 +23,8 @@ let isDisabled = false;
  * @returns {boolean} True if disabled via environment variable or auto-disabled due to failure
  */
 function isVizzlyDisabled() {
-  return !isVizzlyEnabled() || isDisabled;
+  // Don't check isVizzlyEnabled() here - let auto-discovery happen first
+  return isDisabled;
 }
 
 /**
@@ -40,6 +43,40 @@ function disableVizzly(reason = 'disabled') {
 }
 
 /**
+ * Auto-discover local TDD server by checking for server.json
+ * @private
+ * @returns {string|null} Server URL if found
+ */
+function autoDiscoverTddServer() {
+  try {
+    // Look for .vizzly/server.json in current directory and parent directories
+    let currentDir = process.cwd();
+    const root = parse(currentDir).root;
+
+    while (currentDir !== root) {
+      const serverJsonPath = join(currentDir, '.vizzly', 'server.json');
+
+      if (existsSync(serverJsonPath)) {
+        try {
+          const serverInfo = JSON.parse(readFileSync(serverJsonPath, 'utf8'));
+          if (serverInfo.port) {
+            const url = `http://localhost:${serverInfo.port}`;
+            return url;
+          }
+        } catch {
+          // Invalid JSON, continue searching
+        }
+      }
+      currentDir = dirname(currentDir);
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get the current client instance
  * @private
  */
@@ -49,9 +86,19 @@ function getClient() {
   }
 
   if (!currentClient) {
-    // Only try to initialize if VIZZLY_ENABLED is explicitly true
-    const serverUrl = getServerUrl();
-    if (serverUrl && isVizzlyEnabled()) {
+    let serverUrl = getServerUrl();
+
+    // Auto-detect local TDD server and enable Vizzly if TDD server is found
+    if (!serverUrl) {
+      serverUrl = autoDiscoverTddServer();
+      if (serverUrl) {
+        // Automatically enable Vizzly when TDD server is detected
+        setVizzlyEnabled(true);
+      }
+    }
+
+    // If we have a server URL, create the client (regardless of initial enabled state)
+    if (serverUrl) {
       currentClient = createSimpleClient(serverUrl);
     }
   }
@@ -90,19 +137,36 @@ function createSimpleClient(serverUrl) {
             return { error: errorText };
           });
 
-          // In TDD mode, if we get 422 (visual difference), throw with clean message
+          // In TDD mode, if we get 422 (visual difference), log but DON'T throw
+          // This allows all screenshots in the test to be captured and compared
           if (
             response.status === 422 &&
             errorData.tddMode &&
             errorData.comparison
           ) {
             const comp = errorData.comparison;
-            throw new Error(
-              `Visual difference detected in "${name}"\n` +
-                `  Baseline: ${comp.baseline}\n` +
-                `  Current:  ${comp.current}\n` +
-                `  Diff:     ${comp.diff}`
+            const diffPercent = comp.diffPercentage
+              ? comp.diffPercentage.toFixed(2)
+              : '0.00';
+
+            // Extract port from serverUrl (e.g., "http://localhost:47392" -> "47392")
+            const urlMatch = serverUrl.match(/:(\d+)/);
+            const port = urlMatch ? urlMatch[1] : '47392';
+            const dashboardUrl = `http://localhost:${port}/dashboard`;
+
+            // Just log warning - don't throw by default in TDD mode
+            // This allows all screenshots to be captured
+            console.warn(
+              `⚠️  Visual diff: ${comp.name} (${diffPercent}%) → ${dashboardUrl}`
             );
+
+            // Return success so test continues and captures remaining screenshots
+            return {
+              success: true,
+              status: 'failed',
+              name: comp.name,
+              diffPercentage: comp.diffPercentage,
+            };
           }
 
           throw new Error(
@@ -113,13 +177,12 @@ function createSimpleClient(serverUrl) {
         return await response.json();
       } catch (error) {
         // In TDD mode with visual differences, throw the error to fail the test
-        if (error.message.includes('Visual difference detected')) {
+        if (error.message.toLowerCase().includes('visual diff')) {
           // Clean output for TDD mode - don't spam with additional logs
           throw error;
         }
 
-        console.error(`Failed to save screenshot "${name}":`, error.message);
-        console.error(`Vizzly screenshot failed for ${name}: ${error.message}`);
+        console.error(`Vizzly screenshot failed for ${name}:`, error.message);
 
         if (error.message.includes('fetch') || error.code === 'ECONNREFUSED') {
           console.error(`Server URL: ${serverUrl}/screenshot`);
@@ -193,7 +256,13 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
 
   const client = getClient();
   if (!client) {
-    console.warn('Vizzly client not initialized. Screenshots will be skipped.');
+    if (!hasLoggedWarning) {
+      console.warn(
+        'Vizzly client not initialized. Screenshots will be skipped.'
+      );
+      hasLoggedWarning = true;
+      disableVizzly();
+    }
     return;
   }
 

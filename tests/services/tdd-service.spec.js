@@ -6,7 +6,7 @@ import { tmpdir } from 'os';
 // Mock all external dependencies
 vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
-  readFileSync: vi.fn(),
+  readFileSync: vi.fn(() => Buffer.from('mock-image-data')),
   existsSync: vi.fn(() => true),
   mkdirSync: vi.fn(),
 }));

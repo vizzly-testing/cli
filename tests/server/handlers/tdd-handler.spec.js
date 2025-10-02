@@ -73,7 +73,7 @@ describe('createTddHandler', () => {
       expect(mockTddService.downloadBaselines).not.toHaveBeenCalled();
     });
 
-    it('should download baseline when none exists and API key available', async () => {
+    it('should NOT download baseline when none exists without baseline flags', async () => {
       // Create handler without baseline override flags
       const handlerWithoutOverride = createTddHandler(
         mockConfig,
@@ -86,12 +86,8 @@ describe('createTddHandler', () => {
       await handlerWithoutOverride.initialize();
 
       expect(mockTddService.loadBaseline).toHaveBeenCalled();
-      expect(mockTddService.downloadBaselines).toHaveBeenCalledWith(
-        'test', // environment
-        null, // branch
-        undefined, // no baseline build override
-        undefined // no baseline comparison override
-      );
+      // Should NOT download without explicit baseline flags
+      expect(mockTddService.downloadBaselines).not.toHaveBeenCalled();
     });
 
     it('should force download when baseline override flags provided', async () => {
@@ -127,33 +123,11 @@ describe('createTddHandler', () => {
     });
   });
 
-  describe('registerBuild', () => {
-    it('should register a new build', () => {
-      const buildId = 'test-build-123';
-
-      handler.registerBuild(buildId);
-
-      expect(handler.getScreenshotCount(buildId)).toBe(0);
-    });
-
-    it('should handle multiple builds', () => {
-      handler.registerBuild('build-1');
-      handler.registerBuild('build-2');
-
-      expect(handler.getScreenshotCount('build-1')).toBe(0);
-      expect(handler.getScreenshotCount('build-2')).toBe(0);
-    });
-  });
-
   describe('handleScreenshot', () => {
     const buildId = 'test-build';
     const screenshotName = 'test-screenshot';
     const imageData = 'base64-image-data';
     const properties = { viewport: '1920x1080' };
-
-    beforeEach(() => {
-      handler.registerBuild(buildId);
-    });
 
     it('should handle successful comparison', async () => {
       const mockComparison = {
@@ -173,7 +147,6 @@ describe('createTddHandler', () => {
       expect(result.body.success).toBe(true);
       expect(result.body.tddMode).toBe(true);
       expect(result.body.comparison).toEqual(mockComparison);
-      expect(handler.getScreenshotCount(buildId)).toBe(1);
     });
 
     it('should handle failed comparison', async () => {
@@ -296,99 +269,9 @@ describe('createTddHandler', () => {
     });
   });
 
-  describe('getScreenshotCount', () => {
-    it('should return 0 for non-existent build', () => {
-      expect(handler.getScreenshotCount('non-existent')).toBe(0);
-    });
-
-    it('should return correct count after screenshots', async () => {
-      const buildId = 'test-build';
-      handler.registerBuild(buildId);
-
-      mockTddService.compareScreenshot.mockResolvedValue({ status: 'passed' });
-
-      await handler.handleScreenshot(buildId, 'screenshot1', 'data1');
-      expect(handler.getScreenshotCount(buildId)).toBe(1);
-
-      await handler.handleScreenshot(buildId, 'screenshot2', 'data2');
-      expect(handler.getScreenshotCount(buildId)).toBe(2);
-    });
-  });
-
-  describe('finishBuild', () => {
-    const buildId = 'test-build';
-
-    beforeEach(() => {
-      handler.registerBuild(buildId);
-    });
-
-    it('should finish build successfully with screenshots', async () => {
-      const mockResults = {
-        total: 2,
-        passed: 1,
-        failed: 1,
-        new: 0,
-        errors: 0,
-      };
-      mockTddService.printResults.mockResolvedValue(mockResults);
-      mockTddService.compareScreenshot.mockResolvedValue({ status: 'passed' });
-
-      // Add a screenshot first
-      await handler.handleScreenshot(buildId, 'test', 'data');
-
-      const result = await handler.finishBuild(buildId);
-
-      expect(result.id).toBe(buildId);
-      expect(result.tddMode).toBe(true);
-      expect(result.results).toEqual(mockResults);
-      expect(result.url).toBe(null);
-      expect(result.passed).toBe(false); // Because 1 failed
-      expect(mockTddService.printResults).toHaveBeenCalled();
-    });
-
-    it('should determine passed status correctly', async () => {
-      const mockResults = {
-        total: 2,
-        passed: 2,
-        failed: 0,
-        new: 0,
-        errors: 0,
-      };
-      mockTddService.printResults.mockResolvedValue(mockResults);
-      mockTddService.compareScreenshot.mockResolvedValue({ status: 'passed' });
-
-      await handler.handleScreenshot(buildId, 'test', 'data');
-
-      const result = await handler.finishBuild(buildId);
-
-      expect(result.passed).toBe(true);
-    });
-
-    it('should throw error for build without screenshots', async () => {
-      await expect(handler.finishBuild(buildId)).rejects.toThrow(
-        'No screenshots to process. Make sure your tests are calling the Vizzly screenshot function.'
-      );
-    });
-
-    it('should throw error for non-existent build', async () => {
-      await expect(handler.finishBuild('non-existent')).rejects.toThrow(
-        'Build non-existent not found'
-      );
-    });
-  });
-
   describe('cleanup', () => {
-    it('should clear all builds', () => {
-      handler.registerBuild('build1');
-      handler.registerBuild('build2');
-
-      expect(handler.getScreenshotCount('build1')).toBe(0);
-      expect(handler.getScreenshotCount('build2')).toBe(0);
-
-      handler.cleanup();
-
-      expect(handler.getScreenshotCount('build1')).toBe(0);
-      expect(handler.getScreenshotCount('build2')).toBe(0);
+    it('should cleanup without errors', () => {
+      expect(() => handler.cleanup()).not.toThrow();
     });
   });
 });

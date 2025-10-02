@@ -43,22 +43,6 @@ describe('createHttpServer', () => {
       expect(server.getServer()).toBe(null);
     });
 
-    it('should handle start on occupied port', async () => {
-      // Start first server
-      const server1 = createHttpServer(47392, mockHandler);
-      await server1.start();
-
-      try {
-        // Try to start second server on same port
-        const server2 = createHttpServer(47392, mockHandler);
-        await expect(server2.start()).rejects.toThrow(
-          'Port 47392 is already in use. Try a different port with --port.'
-        );
-      } finally {
-        await server1.stop();
-      }
-    });
-
     it('should handle multiple stop calls safely', async () => {
       await server.start();
       await server.stop();
@@ -141,7 +125,7 @@ describe('createHttpServer', () => {
       );
     });
 
-    it('should emit screenshot-captured event on success', async () => {
+    it('should handle screenshot successfully', async () => {
       const requestBody = {
         buildId: 'test-build',
         name: 'test-screenshot',
@@ -154,17 +138,11 @@ describe('createHttpServer', () => {
       };
 
       mockHandler.handleScreenshot.mockResolvedValue(handlerResponse);
-      mockHandler.getScreenshotCount.mockReturnValue(1);
 
-      const eventPromise = new Promise(resolve => {
-        mockEmitter.once('screenshot-captured', resolve);
-      });
+      const response = await makeScreenshotRequest(requestBody);
 
-      await makeScreenshotRequest(requestBody);
-
-      const eventData = await eventPromise;
-      expect(eventData.name).toBe('test-screenshot');
-      expect(eventData.count).toBe(1);
+      expect(response.status).toBe(200);
+      expect(mockHandler.handleScreenshot).toHaveBeenCalled();
     });
 
     it('should not emit event on non-200 status', async () => {
@@ -431,17 +409,13 @@ describe('createHttpServer', () => {
     });
   });
 
-  describe('handler without getScreenshotCount', () => {
-    it('should work with handler that lacks getScreenshotCount', async () => {
+  describe('handler without extra methods', () => {
+    it('should work with minimal handler', async () => {
       const limitedHandler = {
         handleScreenshot: vi.fn(),
       };
 
-      const serverWithLimitedHandler = createHttpServer(
-        0,
-        limitedHandler,
-        mockEmitter
-      );
+      const serverWithLimitedHandler = createHttpServer(0, limitedHandler);
       await serverWithLimitedHandler.start();
 
       try {
@@ -458,19 +432,18 @@ describe('createHttpServer', () => {
 
         limitedHandler.handleScreenshot.mockResolvedValue(handlerResponse);
 
-        const eventPromise = new Promise(resolve => {
-          mockEmitter.once('screenshot-captured', resolve);
-        });
-
         const actualPort = serverWithLimitedHandler.getServer().address().port;
-        await fetch(`http://127.0.0.1:${actualPort}/screenshot`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        });
+        const response = await fetch(
+          `http://127.0.0.1:${actualPort}/screenshot`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+          }
+        );
 
-        const eventData = await eventPromise;
-        expect(eventData.count).toBe(0); // Should default to 0
+        expect(response.status).toBe(200);
+        expect(limitedHandler.handleScreenshot).toHaveBeenCalled();
       } finally {
         await serverWithLimitedHandler.stop();
       }

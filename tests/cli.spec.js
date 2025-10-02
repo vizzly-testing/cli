@@ -118,8 +118,9 @@ describe('Vizzly CLI', () => {
     });
 
     it('should validate tdd command arguments', async () => {
-      const result = await runCLI(['tdd']);
+      const result = await runCLI(['tdd', 'run']);
 
+      // TDD run requires a command argument
       expect(result.code).toBe(1);
       expect(result.stderr).toContain(
         "error: missing required argument 'command'"
@@ -163,9 +164,10 @@ describe('Vizzly CLI', () => {
     });
 
     it('should parse tdd command options', async () => {
-      const result = await runCLI(['tdd', '--help']);
+      const result = await runCLI(['tdd', 'run', '--help']);
 
       expect(result.code).toBe(0);
+      // Should show TDD run command options
       expect(result.stdout).toContain('--port');
       expect(result.stdout).toContain('--baseline-build');
       expect(result.stdout).toContain('--set-baseline');

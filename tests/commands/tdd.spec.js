@@ -141,11 +141,11 @@ describe('tddCommand', () => {
 
       const { cleanup } = await tddCommand('npm test', {}, {});
 
-      expect(mockUI.warning).toHaveBeenCalledWith(
-        'No API token detected - running in local-only mode'
+      expect(mockUI.info).toHaveBeenCalledWith(
+        'Running in local-only mode (no API token)'
       );
-      expect(mockUI.warning).toHaveBeenCalledWith(
-        'Running without API token - all screenshots will be marked as new'
+      expect(mockUI.info).toHaveBeenCalledWith(
+        '📁 Will use local baselines or create new ones when screenshots differ'
       );
 
       // Test cleanup
@@ -465,16 +465,19 @@ describe('tddCommand', () => {
   });
 
   describe('API token handling', () => {
-    it('should show baseline fetch message when API token is available', async () => {
+    it('should show local mode message when API token is available', async () => {
       const { cleanup } = await tddCommand('npm test', {}, {});
       await cleanup();
 
       expect(mockUI.info).toHaveBeenCalledWith(
-        'API token available - will use existing local baselines or create new ones'
+        'Running in local mode (API token available but not needed)'
+      );
+      expect(mockUI.info).toHaveBeenCalledWith(
+        '📁 Will use local baselines or create new ones when screenshots differ'
       );
     });
 
-    it('should show new screenshot warning when no API token', async () => {
+    it('should show local-only mode message when no API token', async () => {
       const { loadConfig } = await import('../../src/utils/config-loader.js');
       loadConfig.mockResolvedValue({
         apiKey: null,
@@ -487,8 +490,11 @@ describe('tddCommand', () => {
       const { cleanup } = await tddCommand('npm test', {}, {});
       await cleanup();
 
-      expect(mockUI.warning).toHaveBeenCalledWith(
-        'Running without API token - all screenshots will be marked as new'
+      expect(mockUI.info).toHaveBeenCalledWith(
+        'Running in local-only mode (no API token)'
+      );
+      expect(mockUI.info).toHaveBeenCalledWith(
+        '📁 Will use local baselines or create new ones when screenshots differ'
       );
     });
   });

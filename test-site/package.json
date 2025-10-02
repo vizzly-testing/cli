@@ -1,6 +1,7 @@
 {
   "name": "fluffycloud-test-site",
   "version": "1.0.0",
+  "type": "module",
   "description": "A silly SaaS marketing site for testing Vizzly visual testing CLI",
   "scripts": {
     "test": "playwright test",

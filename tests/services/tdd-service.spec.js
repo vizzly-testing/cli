@@ -240,6 +240,123 @@ describe('TddService', () => {
 
       expect(result.properties).toEqual(properties);
     });
+
+    it('uses different baselines for same name with different viewport widths', async () => {
+      const { existsSync } = await import('fs');
+      const { compare } = await import('odiff-bin');
+
+      existsSync.mockReturnValue(false);
+      compare.mockResolvedValue({ match: true, reason: 'identical' });
+
+      // First screenshot at 1920px width
+      const result1 = await tddService.compareScreenshot(
+        'homepage',
+        mockImageBuffer,
+        { viewport: { width: 1920, height: 1080 } }
+      );
+
+      // Second screenshot at 768px width (same name, different viewport)
+      const result2 = await tddService.compareScreenshot(
+        'homepage',
+        mockImageBuffer,
+        { viewport: { width: 768, height: 1024 } }
+      );
+
+      // Should have different file paths (different baselines)
+      expect(result1.baseline).not.toBe(result2.baseline);
+      expect(result1.baseline).toContain('homepage_1920');
+      expect(result2.baseline).toContain('homepage_768');
+
+      // Should have two separate comparisons
+      expect(tddService.comparisons).toHaveLength(2);
+    });
+
+    it('uses different baselines for same name with different browsers', async () => {
+      const { existsSync } = await import('fs');
+      const { compare } = await import('odiff-bin');
+
+      existsSync.mockReturnValue(false);
+      compare.mockResolvedValue({ match: true, reason: 'identical' });
+
+      // First screenshot in Chrome
+      const result1 = await tddService.compareScreenshot(
+        'homepage',
+        mockImageBuffer,
+        { browser: 'Chrome', viewport: { width: 1920, height: 1080 } }
+      );
+
+      // Second screenshot in Firefox (same name and viewport, different browser)
+      const result2 = await tddService.compareScreenshot(
+        'homepage',
+        mockImageBuffer,
+        { browser: 'Firefox', viewport: { width: 1920, height: 1080 } }
+      );
+
+      // Should have different file paths (different baselines)
+      expect(result1.baseline).not.toBe(result2.baseline);
+      expect(result1.baseline).toContain('Chrome');
+      expect(result2.baseline).toContain('Firefox');
+
+      // Should have two separate comparisons
+      expect(tddService.comparisons).toHaveLength(2);
+    });
+
+    it('uses same baseline for identical name, viewport, and browser', async () => {
+      const { existsSync } = await import('fs');
+      const { compare } = await import('odiff-bin');
+
+      let callCount = 0;
+      existsSync.mockImplementation(() => {
+        callCount++;
+        // First call: baseline doesn't exist, second call: baseline exists
+        return callCount > 1;
+      });
+      compare.mockResolvedValue({ match: true, reason: 'identical' });
+
+      let properties = {
+        browser: 'Chrome',
+        viewport: { width: 1920, height: 1080 },
+      };
+
+      // First screenshot creates baseline
+      const result1 = await tddService.compareScreenshot(
+        'homepage',
+        mockImageBuffer,
+        properties
+      );
+
+      // Second screenshot with same properties should use same baseline
+      const result2 = await tddService.compareScreenshot(
+        'homepage',
+        mockImageBuffer,
+        properties
+      );
+
+      // Should have same baseline path
+      expect(result1.baseline).toBe(result2.baseline);
+    });
+
+    it('strips browser version from signature', async () => {
+      const { existsSync } = await import('fs');
+      existsSync.mockReturnValue(false);
+
+      const result = await tddService.compareScreenshot(
+        'homepage',
+        mockImageBuffer,
+        {
+          browser: 'Chrome/139.0.7258.138',
+          viewport: { width: 1920, height: 1080 },
+        }
+      );
+
+      // Should strip version, keeping only "Chrome"
+      expect(result.baseline).toContain('Chrome');
+      expect(result.baseline).not.toContain('139.0.7258.138');
+
+      // Get just the filename from the path
+      let filename = result.baseline.split('/').pop();
+      expect(filename).toBe('homepage_1920_Chrome.png');
+    });
   });
 
   describe('loadBaseline', () => {

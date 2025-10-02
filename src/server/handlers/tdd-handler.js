@@ -157,47 +157,15 @@ export const createTddHandler = (
       };
     }
 
-    // Create unique screenshot name based on properties
-    let uniqueName = sanitizedName;
-    const relevantProps = [];
-
-    // Add browser to name if provided (already validated)
-    if (validatedProperties.browser) {
-      relevantProps.push(validatedProperties.browser);
-    }
-
-    // Add viewport info if provided (already validated)
-    if (
-      validatedProperties.viewport &&
-      validatedProperties.viewport.width &&
-      validatedProperties.viewport.height
-    ) {
-      relevantProps.push(
-        `${validatedProperties.viewport.width}x${validatedProperties.viewport.height}`
-      );
-    }
-
-    // Combine base name with relevant properties and sanitize the result
-    if (relevantProps.length > 0) {
-      let proposedUniqueName = `${sanitizedName}-${relevantProps.join('-')}`;
-      try {
-        uniqueName = sanitizeScreenshotName(proposedUniqueName);
-      } catch (error) {
-        // If the combined name is invalid, fall back to the base sanitized name
-        uniqueName = sanitizedName;
-        logger.warn(
-          `Combined screenshot name invalid (${error.message}), using base name: ${uniqueName}`
-        );
-      }
-    }
-
     const imageBuffer = Buffer.from(image, 'base64');
-    logger.debug(`Received screenshot: ${name} → unique: ${uniqueName}`);
+    logger.debug(`Received screenshot: ${name}`);
     logger.debug(`Image size: ${imageBuffer.length} bytes`);
     logger.debug(`Properties: ${JSON.stringify(validatedProperties)}`);
 
+    // Use the sanitized name as-is (no modification with browser/viewport)
+    // Baseline matching uses signature logic (name + viewport_width + browser)
     const comparison = await tddService.compareScreenshot(
-      uniqueName,
+      sanitizedName,
       imageBuffer,
       validatedProperties
     );

@@ -1,57 +1,62 @@
 # TDD Mode Guide
 
-TDD (Test-Driven Development) Mode enables fast local development by comparing screenshots locally without uploading to Vizzly. Perfect for rapid iteration and debugging visual changes.
+TDD (Test-Driven Development) Mode enables fast local development with an interactive dashboard for real-time visual comparison feedback.
 
 ## What is TDD Mode?
 
-TDD Mode transforms your visual testing workflow by:
+TDD Mode transforms your visual testing workflow with:
 
-- **Local comparison** - Compares screenshots on your machine using `odiff`
-- **Fast feedback** - No network uploads during development
-- **Immediate results** - Tests fail instantly when visual differences are detected
-- **Auto-baseline creation** - Creates baselines locally when none exist
-- **No token required** - Works entirely offline for local development
+- **Interactive Dashboard** - Real-time visual feedback as tests run
+- **Local Comparison** - Compares screenshots on your machine using `odiff`
+- **Live Updates** - See comparisons instantly in the browser
+- **Baseline Management** - Accept/reject changes directly from the UI
+- **Fast Feedback** - No network uploads during development
+- **No Token Required** - Works entirely offline for local development
 
 ## Quick Start
 
-### 1. First Run (Creates Baseline)
+### 1. Start the TDD Dashboard
 
-Start TDD mode with any test - no setup required:
+Start the interactive dashboard server:
 
 ```bash
-npx vizzly tdd "npm test"
+npx vizzly tdd start
 ```
 
-🐻 **First run behavior:**
-- Auto-detects missing API token (no `--allow-no-token` needed)
-- Creates baseline from first screenshots
-- Stores them in `.vizzly/baselines/`
-- All tests pass (baseline creation)
+🐻 **Dashboard starts:**
+- Opens at `http://localhost:47392` (or custom `--port`)
+- Shows empty state ready for comparisons
+- Runs in foreground (use `--daemon` for background)
 
-### 2. Subsequent Runs (Compare Against Baseline)
+### 2. Run Your Tests in Watch Mode
 
-Make changes and test again:
+In a separate terminal, run your tests in watch mode:
 
 ```bash
-# Make changes to your UI
-vim src/components/Header.js
-
-# Test immediately with local comparison
-npx vizzly tdd "npm test"
+npm test -- --watch
 ```
 
-🐻 **Comparison behavior:**
-- Compares new screenshots against local baselines
-- **Tests fail immediately** when visual differences detected
-- Generates interactive HTML report for visual analysis
-- Creates diff images in `.vizzly/diffs/`
+🐻 **As tests run:**
+- Screenshots sent to dashboard in real-time
+- Comparisons appear instantly
+- Live pass/fail statistics update
+- Filter by status (all/changed/identical/new)
 
-### 3. Accept Changes (Update Baseline)
+### 3. Review Changes in the Dashboard
 
-When you're happy with changes, accept them as new baselines:
+Open your browser to `http://localhost:47392`:
+
+- **Visual Diff Modes** - Overlay, side-by-side, onion skin, toggle
+- **Accept Baselines** - Click to accept individual or all changes
+- **Test Statistics** - Total tests, pass rate, change detection
+- **Dark Theme** - Easy on the eyes during development
+
+### 4. Accept Changes (Update Baseline)
+
+Accept changes directly in the dashboard UI, or via CLI:
 
 ```bash
-npx vizzly tdd "npm test" --set-baseline
+npx vizzly tdd run "npm test" --set-baseline
 ```
 
 🐻 **Baseline update behavior:**
@@ -60,24 +65,34 @@ npx vizzly tdd "npm test" --set-baseline
 - All tests pass (baseline accepted)
 - Future runs use updated baselines
 
-### 4. Upload When Ready (Optional)
+### 5. Stop the Dashboard
 
-When you're satisfied with changes, upload to Vizzly:
+When done developing:
 
 ```bash
-npx vizzly run "npm test" --wait
+npx vizzly tdd stop
 ```
+
+Or press `Ctrl+C` if running in foreground.
 
 ## How It Works
 
-TDD Mode creates a local development environment:
+TDD Mode provides two workflows:
 
-1. **Downloads baselines** - Gets approved screenshots from Vizzly
-2. **Runs tests** - Executes your test suite normally
-3. **Captures screenshots** - Collects new screenshots via `vizzlyScreenshot()`
-4. **Compares locally** - Uses `odiff` for pixel-perfect comparison
-5. **Fails immediately** - Tests fail when differences exceed threshold
-6. **Saves comparisons** - Stores diff images for inspection
+### Interactive Dashboard Workflow
+
+1. **Start dashboard** - `vizzly tdd start` launches persistent server
+2. **Run tests in watch** - Tests run continuously as you code
+3. **Live updates** - Screenshots compared and displayed in real-time
+4. **Review in browser** - Visual diff modes help analyze changes
+5. **Accept baselines** - Click to update baselines from UI
+
+### Single-Shot Workflow
+
+1. **Run tests** - `vizzly tdd run "npm test"` executes once
+2. **Compares locally** - Uses `odiff` for pixel-perfect comparison
+3. **Generates report** - Creates HTML report with visual comparisons
+4. **Exit with status** - Fails if differences exceed threshold
 
 ## Directory Structure
 
@@ -101,44 +116,51 @@ TDD Mode creates a `.vizzly/` directory:
 
 **Important**: Add `.vizzly/` to your `.gitignore` file as it contains local development artifacts.
 
-## Interactive HTML Report
+## Interactive Dashboard
 
-Each TDD run automatically generates a comprehensive HTML report at `.vizzly/report/index.html`. This report provides advanced visual comparison tools to analyze differences:
+The TDD dashboard provides real-time visual comparison feedback as you develop.
 
-### 🐻 **Viewing Modes**
+### 🐻 **Dashboard Features**
 
-**Overlay Mode** (Default)
-- Shows current screenshot as base layer
-- Click to toggle diff overlay on/off
-- Perfect for spotting subtle changes
+**Live Updates**
+- Screenshots appear as tests run
+- Comparisons processed in real-time
+- No page refresh needed
 
-**Side-by-Side Mode**
-- Displays baseline and current screenshots horizontally
-- Easy to compare layout and content changes
-- Great for reviewing larger modifications
+**Visual Diff Modes**
+- **Overlay** - Toggle diff overlay on/off
+- **Side-by-Side** - Compare baseline and current horizontally
+- **Onion Skin** - Drag to reveal baseline underneath
+- **Toggle** - Click to switch between baseline and current
 
-**Onion Skin Mode**
-- Drag across image to reveal baseline underneath
-- Interactive reveal lets you control comparison area
-- Ideal for precise change inspection
+**Baseline Management**
+- Accept individual screenshots as baseline
+- Accept all changes at once
+- Reset baselines to previous state
 
-**Toggle Mode**
-- Click image to switch between baseline and current
-- Quick back-and-forth comparison
-- Simple way to see before/after
+**Statistics Dashboard**
+- Total tests run
+- Pass/fail counts
+- Visual change detection rate
+- Filter by test status
 
-### 🐻 **Report Features**
-
-- **Dark Theme** - Easy on the eyes during long debugging sessions
-- **Mobile Responsive** - Works on any screen size
-- **Clickable File Paths** - Click from terminal to open instantly
-- **Clean Status Display** - Shows "Visual differences detected" instead of technical metrics
-- **Test Summary** - Total, passed, failed counts and pass rate
-
-### 🐻 **Opening the Report**
+### 🐻 **Dashboard UI**
 
 ```bash
-# Report path is shown after each run
+# Start the dashboard
+npx vizzly tdd start
+
+# Opens at http://localhost:47392
+# Shows real-time comparisons as tests run
+# Dark theme optimized for development
+```
+
+### 🐻 **Static HTML Report**
+
+When using `vizzly tdd run`, a static HTML report is generated at `.vizzly/report/index.html`:
+
+```bash
+# Report path shown after each run
 🐻 View detailed report: file:///path/to/.vizzly/report/index.html
 
 # Click the link in your terminal, or open manually
@@ -147,82 +169,96 @@ open .vizzly/report/index.html  # macOS
 
 ## Command Options
 
-### Basic TDD Mode
+### TDD Subcommands
 
+**Start Dashboard Server**
 ```bash
-vizzly tdd "npm test"
+vizzly tdd start [options]
 ```
 
-### Accept Changes (Update Baseline)
+Options:
+- `--port <port>` - Server port (default: 47392)
+- `--threshold <number>` - Comparison threshold (default: 0.1)
+- `--baseline-build <id>` - Use specific build as baseline
+- `--daemon` - Run in background mode
 
+**Run Tests (Single-Shot)**
 ```bash
-vizzly tdd "npm test" --set-baseline
+vizzly tdd run "npm test" [options]
 ```
 
-🐻 Use this when you want to accept current screenshots as the new baseline.
+Options:
+- `--set-baseline` - Accept screenshots as new baseline
+- `--port <port>` - Server port (default: 47392)
+- `--threshold <number>` - Comparison threshold (default: 0.1)
+- `--baseline-build <id>` - Use specific build as baseline
+- `--timeout <ms>` - Server timeout (default: 30000)
 
-### Custom Baseline Source (With API Token)
-
-**`--baseline-build <id>`** - Use specific build as baseline
+**Stop Dashboard Server**
 ```bash
-VIZZLY_TOKEN=your-token vizzly tdd "npm test" --baseline-build build-abc123
+vizzly tdd stop
 ```
 
-**`--baseline-comparison <id>`** - Use specific comparison as baseline
-```bash
-VIZZLY_TOKEN=your-token vizzly tdd "npm test" --baseline-comparison comparison-xyz789
-```
+### Legacy Command
 
-### Server Configuration
-
-TDD Mode runs a local server for screenshot capture:
+The legacy command format is still supported:
 
 ```bash
-vizzly tdd "npm test" --port 3002
-vizzly tdd "npm test" --timeout 60000
+vizzly tdd "npm test"  # Equivalent to: vizzly tdd run "npm test"
 ```
 
 ## Development Workflow
 
-### Initial Development
+### Interactive Development (Recommended)
 
 ```bash
-# 1. Create initial baselines
-npx vizzly run "npm test" --wait
+# Terminal 1: Start dashboard
+npx vizzly tdd start
 
-# 2. Start TDD development
-npx vizzly tdd "npm test"
+# Terminal 2: Run tests in watch mode
+npm test -- --watch
 
-# 3. Make changes and iterate
-# Edit code...
-npx vizzly tdd "npm test"
+# Browser: Open http://localhost:47392
+# See live comparisons as you code
 
-# 4. Upload when satisfied
+# Accept changes from dashboard UI when ready
+# Or stop when done: npx vizzly tdd stop
+```
+
+### Single-Shot Testing
+
+```bash
+# Run tests once with comparison
+npx vizzly tdd run "npm test"
+
+# Accept changes as new baseline
+npx vizzly tdd run "npm test" --set-baseline
+
+# Upload to Vizzly when satisfied
 npx vizzly run "npm test" --wait
 ```
 
 ### Feature Development
 
 ```bash
-# Start with latest baselines
-npx vizzly tdd "npm test"
+# Start interactive dashboard
+npx vizzly tdd start
 
-# Develop new feature with immediate feedback
-while [ $? -ne 0 ]; do
-  # Edit code to fix visual differences
-  vim src/components/NewFeature.js
-  npx vizzly tdd "npm test"
-done
+# In another terminal, run tests in watch mode
+npm test -- --watch
 
-# Upload completed feature
+# Make changes and see live feedback in browser
+# Accept baselines directly from dashboard UI
+
+# When feature complete, upload to Vizzly
 npx vizzly run "npm test" --build-name "Feature: New Dashboard"
 ```
 
 ### Bug Fixing
 
 ```bash
-# Use TDD mode to verify fixes
-npx vizzly tdd "npm test"
+# Quick verification with single-shot mode
+npx vizzly tdd run "npm test"
 
 # Tests should pass when bug is fixed
 # Then upload the fix

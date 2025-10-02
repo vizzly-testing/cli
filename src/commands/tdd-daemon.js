@@ -41,10 +41,6 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       mkdirSync(vizzlyDir, { recursive: true });
     }
 
-    ui.info('Starting TDD daemon server...');
-
-    // For now, let's just use the same approach as the original but with proper lifecycle
-    // Store the intention to run as daemon
     const port = options.port || 47392;
 
     // Use existing tddCommand but with daemon mode - this will start and keep running
@@ -73,9 +69,17 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     );
 
     ui.success(`TDD server started at http://localhost:${port}`);
-    ui.info(`Dashboard: http://localhost:${port}/dashboard`);
-    ui.info('Use "npm test --watch" or similar in another terminal');
-    ui.info('Stop with: npx vizzly tdd stop (from another terminal)');
+    ui.info('');
+    ui.info('Dashboard URLs:');
+    ui.info(`  Comparisons: http://localhost:${port}/`);
+    ui.info(`  Stats:       http://localhost:${port}/stats`);
+    ui.info('');
+    ui.info('Next steps:');
+    ui.info('  1. Run your tests (any test runner)');
+    ui.info('  2. Open the dashboard in your browser');
+    ui.info('  3. Manage baselines in the Stats view');
+    ui.info('');
+    ui.info('Stop server: npx vizzly tdd stop');
 
     if (options.open) {
       openDashboard(port);

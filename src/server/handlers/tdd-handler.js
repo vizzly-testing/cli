@@ -77,12 +77,12 @@ export const createTddHandler = (
   };
 
   const initialize = async () => {
-    logger.info('🔄 TDD mode enabled - setting up local comparison...');
+    logger.debug('TDD mode enabled - setting up local comparison');
 
     // In baseline update mode, skip all baseline loading/downloading
     if (setBaseline) {
-      logger.info(
-        '📁 Ready for new baseline creation - all screenshots will be treated as new baselines'
+      logger.debug(
+        'Ready for new baseline creation - all screenshots will be treated as new baselines'
       );
       return;
     }
@@ -92,8 +92,8 @@ export const createTddHandler = (
       (baselineBuild || baselineComparison) && config.apiKey;
 
     if (shouldForceDownload) {
-      logger.info(
-        '📥 Baseline override specified, downloading fresh baselines from Vizzly...'
+      logger.debug(
+        'Baseline override specified, downloading fresh baselines from Vizzly'
       );
       await tddService.downloadBaselines(
         config.build?.environment || 'test',
@@ -109,7 +109,7 @@ export const createTddHandler = (
     if (!baseline) {
       // Only download baselines if explicitly requested via baseline flags
       if ((baselineBuild || baselineComparison) && config.apiKey) {
-        logger.info('📥 No local baseline found, downloading from Vizzly...');
+        logger.debug('No local baseline found, downloading from Vizzly');
         await tddService.downloadBaselines(
           config.build?.environment || 'test',
           config.build?.branch || null,
@@ -117,12 +117,12 @@ export const createTddHandler = (
           baselineComparison
         );
       } else {
-        logger.info(
-          '📝 No local baseline found - will create new baselines from first screenshots'
+        logger.debug(
+          'No local baseline found - will create new baselines from first screenshots'
         );
       }
     } else {
-      logger.info(`✅ Using existing baseline: ${baseline.buildName}`);
+      logger.debug(`Using existing baseline: ${baseline.buildName}`);
     }
   };
 
@@ -192,11 +192,9 @@ export const createTddHandler = (
     }
 
     const imageBuffer = Buffer.from(image, 'base64');
-    logger.info(
-      `🔍 [SCREENSHOT] Received screenshot: ${name} → unique: ${uniqueName}`
-    );
-    logger.info(`   Image size: ${imageBuffer.length} bytes`);
-    logger.info(`   Properties: ${JSON.stringify(validatedProperties)}`);
+    logger.debug(`Received screenshot: ${name} → unique: ${uniqueName}`);
+    logger.debug(`Image size: ${imageBuffer.length} bytes`);
+    logger.debug(`Properties: ${JSON.stringify(validatedProperties)}`);
 
     const comparison = await tddService.compareScreenshot(
       uniqueName,
@@ -204,7 +202,7 @@ export const createTddHandler = (
       validatedProperties
     );
 
-    logger.info(`✓ [SCREENSHOT] Comparison result: ${comparison.status}`);
+    logger.debug(`Comparison result: ${comparison.status}`);
 
     // Convert absolute file paths to web-accessible URLs
     const convertPathToUrl = filePath => {
@@ -302,31 +300,18 @@ export const createTddHandler = (
 
   const acceptBaseline = async screenshotName => {
     try {
-      logger.info(
-        `🔍 [HANDLER] Accepting baseline for screenshot: ${screenshotName}`
-      );
+      logger.debug(`Accepting baseline for screenshot: ${screenshotName}`);
 
       // Use TDD service to accept the baseline
       const result = await tddService.acceptBaseline(screenshotName);
-      logger.info(
-        `✓ [HANDLER] TDD service accept completed: ${JSON.stringify(result)}`
-      );
 
       // Read current report data and update the comparison status
       const reportData = readReportData();
-      logger.info(
-        `🔍 [HANDLER] Report data has ${reportData.comparisons.length} comparisons`
-      );
-
       const comparison = reportData.comparisons.find(
         c => c.name === screenshotName
       );
 
       if (comparison) {
-        logger.info(
-          `✓ [HANDLER] Found comparison in report: ${JSON.stringify({ name: comparison.name, status: comparison.status, diffPercentage: comparison.diffPercentage })}`
-        );
-
         // Update the comparison to passed status
         const updatedComparison = {
           ...comparison,
@@ -334,25 +319,80 @@ export const createTddHandler = (
           diffPercentage: 0,
           diff: null,
         };
-        logger.info(
-          `🔍 [HANDLER] Updating comparison to: ${JSON.stringify({ name: updatedComparison.name, status: updatedComparison.status, diffPercentage: updatedComparison.diffPercentage })}`
-        );
 
         updateComparison(updatedComparison);
-        logger.info(`✓ [HANDLER] Comparison updated in report-data.json`);
+        logger.debug('Comparison updated in report-data.json');
       } else {
         logger.error(
-          `❌ [HANDLER] Comparison not found in report data for: ${screenshotName}`
+          `Comparison not found in report data for: ${screenshotName}`
         );
       }
 
-      logger.info(`✅ [HANDLER] Baseline accepted for ${screenshotName}`);
+      logger.info(`Baseline accepted for ${screenshotName}`);
       return result;
     } catch (error) {
-      logger.error(
-        `❌ [HANDLER] Failed to accept baseline for ${screenshotName}:`,
-        error
-      );
+      logger.error(`Failed to accept baseline for ${screenshotName}:`, error);
+      throw error;
+    }
+  };
+
+  const acceptAllBaselines = async () => {
+    try {
+      logger.debug('Accepting all baselines');
+
+      const reportData = readReportData();
+      let acceptedCount = 0;
+
+      // Accept all failed or new comparisons
+      for (const comparison of reportData.comparisons) {
+        if (comparison.status === 'failed' || comparison.status === 'new') {
+          await tddService.acceptBaseline(comparison.name);
+
+          // Update the comparison to passed status
+          updateComparison({
+            ...comparison,
+            status: 'passed',
+            diffPercentage: 0,
+            diff: null,
+          });
+
+          acceptedCount++;
+        }
+      }
+
+      logger.info(`Accepted ${acceptedCount} baselines`);
+      return { count: acceptedCount };
+    } catch (error) {
+      logger.error('Failed to accept all baselines:', error);
+      throw error;
+    }
+  };
+
+  const resetBaselines = async () => {
+    try {
+      logger.debug('Resetting baselines');
+
+      // Reset by clearing current screenshots and reverting report data
+      const reportData = readReportData();
+
+      // Reset all comparisons to their original state
+      for (const comparison of reportData.comparisons) {
+        if (comparison.status === 'passed') {
+          // Keep passed comparisons
+          continue;
+        }
+
+        // For failed/new comparisons, we need to restore from baseline
+        updateComparison({
+          ...comparison,
+          status: 'new', // Mark as new to re-run comparison
+        });
+      }
+
+      logger.info('Baselines reset');
+      return { success: true };
+    } catch (error) {
+      logger.error('Failed to reset baselines:', error);
       throw error;
     }
   };
@@ -367,6 +407,8 @@ export const createTddHandler = (
     handleScreenshot,
     getResults,
     acceptBaseline,
+    acceptAllBaselines,
+    resetBaselines,
     cleanup,
   };
 };

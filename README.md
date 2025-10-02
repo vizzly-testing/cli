@@ -125,29 +125,42 @@ vizzly run "npm test" --parallel-id "ci-run-123"  # For parallel CI builds
 For local visual testing with immediate feedback, use the dedicated `tdd` command:
 
 ```bash
-# First run - creates local baselines
-vizzly tdd "npm test"
+# Start interactive TDD dashboard
+vizzly tdd start
 
-# Make changes and test - fails if visual differences detected
-vizzly tdd "npm test"
+# Run your tests in watch mode
+npm test -- --watch
 
-# Accept changes as new baseline
-vizzly tdd "npm test" --set-baseline
+# View the dashboard at http://localhost:47392
 ```
 
-**Interactive HTML Report:** Each TDD run generates a detailed HTML report with visual comparison tools:
-- **Overlay mode** - Toggle between baseline and current screenshots
-- **Side-by-side mode** - Compare baseline and current images horizontally
-- **Onion skin mode** - Drag to reveal differences interactively
-- **Toggle mode** - Click to switch between baseline and current
+**Interactive Dashboard:** The TDD dashboard provides real-time visual feedback:
+- **Live Updates** - See comparisons as tests run
+- **Visual Diff Modes** - Overlay, side-by-side, onion skin, and toggle views
+- **Baseline Management** - Accept/reject changes directly from the UI
+- **Test Statistics** - Real-time pass/fail metrics
+- **Dark Theme** - Easy on the eyes during long sessions
+
+**TDD Subcommands:**
+
+```bash
+# Start the TDD dashboard server
+vizzly tdd start [options]
+
+# Run tests in single-shot mode
+vizzly tdd run "npm test" [options]
+
+# Stop a running TDD server
+vizzly tdd stop
+```
 
 **TDD Command Options:**
 - `--set-baseline` - Accept current screenshots as new baseline
 - `--baseline-build <id>` - Use specific build as baseline (requires API token)
-- `--baseline-comparison <id>` - Use specific comparison as baseline (requires API token)
 - `--threshold <number>` - Comparison threshold (0-1, default: 0.1)
 - `--port <port>` - Server port (default: 47392)
 - `--timeout <ms>` - Server timeout (default: 30000)
+- `--daemon` - Run server in background (start command only)
 
 ### Setup and Status Commands
 ```bash

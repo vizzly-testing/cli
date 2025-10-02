@@ -21,7 +21,7 @@ export default function DashboardStats({ summary, baseline }) {
             {summary.total}
           </div>
           <div className="text-sm text-gray-400 uppercase tracking-wider">
-            Total Tests
+            Total Screenshots
           </div>
         </div>
         <div className="text-center">

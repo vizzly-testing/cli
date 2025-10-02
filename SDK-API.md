@@ -4,6 +4,10 @@ This document describes the public API endpoints available for Vizzly SDKs and C
 
 ## Base URL
 
+```
+https://vizzly.dev/api/sdk/
+```
+
 All SDK endpoints are prefixed with `/api/sdk/`
 
 ## Authentication

@@ -598,9 +598,9 @@ export class TddService {
       // Log file sizes for debugging
       const baselineSize = readFileSync(baselineImagePath).length;
       const currentSize = readFileSync(currentImagePath).length;
-      logger.info(`🔍 [COMPARE] Comparing ${sanitizedName}`);
-      logger.info(`   Baseline: ${baselineImagePath} (${baselineSize} bytes)`);
-      logger.info(`   Current:  ${currentImagePath} (${currentSize} bytes)`);
+      logger.debug(`Comparing ${sanitizedName}`);
+      logger.debug(`Baseline: ${baselineImagePath} (${baselineSize} bytes)`);
+      logger.debug(`Current:  ${currentImagePath} (${currentSize} bytes)`);
 
       const result = await compare(
         baselineImagePath,
@@ -624,7 +624,7 @@ export class TddService {
           threshold: this.threshold,
         };
 
-        logger.info(`✅ ${colors.green('PASSED')} ${sanitizedName}`);
+        logger.debug(`PASSED ${sanitizedName}`);
         this.comparisons.push(comparison);
         return comparison;
       } else {

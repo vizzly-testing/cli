@@ -50,19 +50,68 @@ export const createHttpServer = (port, screenshotHandler) => {
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
 
     if (req.method === 'GET' && parsedUrl.pathname === '/health') {
+      // Enhanced health endpoint with diagnostics
+      const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+      const baselineMetadataPath = join(
+        process.cwd(),
+        '.vizzly',
+        'baselines',
+        'metadata.json'
+      );
+
+      let reportData = null;
+      let baselineInfo = null;
+
+      if (existsSync(reportDataPath)) {
+        try {
+          reportData = JSON.parse(readFileSync(reportDataPath, 'utf8'));
+        } catch {
+          // Ignore read errors
+        }
+      }
+
+      if (existsSync(baselineMetadataPath)) {
+        try {
+          baselineInfo = JSON.parse(readFileSync(baselineMetadataPath, 'utf8'));
+        } catch {
+          // Ignore read errors
+        }
+      }
+
       res.statusCode = 200;
       res.end(
         JSON.stringify({
           status: 'ok',
           port: port,
           uptime: process.uptime(),
+          mode: screenshotHandler ? 'tdd' : 'upload',
+          baseline: baselineInfo
+            ? {
+                buildName: baselineInfo.buildName,
+                createdAt: baselineInfo.createdAt,
+              }
+            : null,
+          stats: reportData
+            ? {
+                total: reportData.summary?.total || 0,
+                passed: reportData.summary?.passed || 0,
+                failed: reportData.summary?.failed || 0,
+                errors: reportData.summary?.errors || 0,
+              }
+            : null,
         })
       );
       return;
     }
 
-    if (req.method === 'GET' && parsedUrl.pathname === '/dashboard') {
-      // Serve React-powered dashboard (with any query params preserved)
+    // Serve the main React app for all non-API routes
+    if (
+      req.method === 'GET' &&
+      (parsedUrl.pathname === '/' ||
+        parsedUrl.pathname === '/dashboard' ||
+        parsedUrl.pathname === '/stats')
+    ) {
+      // Serve React-powered dashboard
       const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
 
       // Try to read existing report data
@@ -178,6 +227,148 @@ export const createHttpServer = (port, screenshotHandler) => {
       } else {
         res.statusCode = 200;
         res.end(JSON.stringify(null)); // No data available yet
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/status') {
+      // Real-time status endpoint
+      const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+      const baselineMetadataPath = join(
+        process.cwd(),
+        '.vizzly',
+        'baselines',
+        'metadata.json'
+      );
+
+      let reportData = null;
+      let baselineInfo = null;
+
+      if (existsSync(reportDataPath)) {
+        try {
+          reportData = JSON.parse(readFileSync(reportDataPath, 'utf8'));
+        } catch {
+          // Ignore
+        }
+      }
+
+      if (existsSync(baselineMetadataPath)) {
+        try {
+          baselineInfo = JSON.parse(readFileSync(baselineMetadataPath, 'utf8'));
+        } catch {
+          // Ignore
+        }
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          timestamp: Date.now(),
+          baseline: baselineInfo,
+          comparisons: reportData?.comparisons || [],
+          summary: reportData?.summary || {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            errors: 0,
+          },
+        })
+      );
+      return;
+    }
+
+    if (
+      req.method === 'POST' &&
+      parsedUrl.pathname === '/api/baseline/accept'
+    ) {
+      // Accept a single screenshot as baseline
+      if (!screenshotHandler?.acceptBaseline) {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: 'Baseline management not available' }));
+        return;
+      }
+
+      try {
+        const { name } = await parseRequestBody(req);
+        if (!name) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'Screenshot name required' }));
+          return;
+        }
+
+        await screenshotHandler.acceptBaseline(name);
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify({
+            success: true,
+            message: `Baseline accepted for ${name}`,
+          })
+        );
+      } catch (error) {
+        logger.error('Error accepting baseline:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (
+      req.method === 'POST' &&
+      parsedUrl.pathname === '/api/baseline/accept-all'
+    ) {
+      // Accept all screenshots as baseline
+      if (!screenshotHandler?.acceptAllBaselines) {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: 'Baseline management not available' }));
+        return;
+      }
+
+      try {
+        const result = await screenshotHandler.acceptAllBaselines();
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify({
+            success: true,
+            message: `Accepted ${result.count} baselines`,
+            count: result.count,
+          })
+        );
+      } catch (error) {
+        logger.error('Error accepting all baselines:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/baseline/reset') {
+      // Reset baselines to previous state
+      if (!screenshotHandler?.resetBaselines) {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ error: 'Baseline management not available' }));
+        return;
+      }
+
+      try {
+        await screenshotHandler.resetBaselines();
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify({
+            success: true,
+            message: 'Baselines reset to previous state',
+          })
+        );
+      } catch (error) {
+        logger.error('Error resetting baselines:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
       }
       return;
     }

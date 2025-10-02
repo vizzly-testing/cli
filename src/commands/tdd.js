@@ -52,9 +52,9 @@ export async function tddCommand(
     // Always allow no-token mode for TDD unless baseline flags are used
     config.allowNoToken = true;
 
-    if (!config.apiKey) {
+    if (!config.apiKey && !options.daemon) {
       ui.info('Running in local-only mode (no API token)');
-    } else if (!needsToken) {
+    } else if (!needsToken && !options.daemon) {
       ui.info('Running in local mode (API token available but not needed)');
     }
 
@@ -99,8 +99,11 @@ export async function tddCommand(
     });
 
     testRunner.on('server-ready', serverInfo => {
-      ui.info(`TDD screenshot server running on port ${serverInfo.port}`);
-      ui.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
+      // Only show in non-daemon mode (daemon shows its own startup message)
+      if (!options.daemon) {
+        ui.info(`TDD screenshot server running on port ${serverInfo.port}`);
+        ui.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
+      }
       if (globalOptions.verbose) {
         ui.info('Server details', serverInfo);
       }
@@ -127,19 +130,21 @@ export async function tddCommand(
       ui.error('TDD test runner error occurred', error, 0); // Don't exit immediately
     });
 
-    // Show informational messages about baseline behavior
-    if (options.setBaseline) {
-      ui.info(
-        '🐻 Baseline update mode - will ignore existing baselines and create new ones'
-      );
-    } else if (options.baselineBuild || options.baselineComparison) {
-      ui.info(
-        '📥 Will fetch remote baselines from Vizzly for local comparison'
-      );
-    } else {
-      ui.info(
-        '📁 Will use local baselines or create new ones when screenshots differ'
-      );
+    // Show informational messages about baseline behavior (skip in daemon mode)
+    if (!options.daemon) {
+      if (options.setBaseline) {
+        ui.info(
+          '🐻 Baseline update mode - will ignore existing baselines and create new ones'
+        );
+      } else if (options.baselineBuild || options.baselineComparison) {
+        ui.info(
+          '📥 Will fetch remote baselines from Vizzly for local comparison'
+        );
+      } else {
+        ui.info(
+          '📁 Will use local baselines or create new ones when screenshots differ'
+        );
+      }
     }
 
     const runOptions = {
@@ -161,7 +166,6 @@ export async function tddCommand(
 
     // In daemon mode, just start the server without running tests
     if (options.daemon) {
-      ui.info('Starting TDD server in daemon mode...');
       await testRunner.initialize(runOptions);
 
       // Return immediately so daemon can set up its lifecycle

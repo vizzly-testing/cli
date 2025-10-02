@@ -39,10 +39,6 @@ export class TestRunner extends BaseService {
         mode: 'daemon',
         tdd: true,
       });
-
-      this.logger.info(
-        'TDD daemon server initialized and ready for screenshots'
-      );
     } catch (error) {
       this.logger.error('Failed to initialize TDD daemon server:', error);
       throw error;

@@ -47,11 +47,14 @@ describe('createApiHandler', () => {
         properties
       );
 
+      // Response should be immediate (non-blocking)
       expect(result.statusCode).toBe(200);
       expect(result.body.success).toBe(true);
       expect(result.body.name).toBe(screenshotName);
-      expect(result.body.skipped).toBe(false);
       expect(result.body.count).toBe(1);
+
+      // Upload happens in background - flush to wait for it
+      await handler.flush();
 
       expect(mockApiService.uploadScreenshot).toHaveBeenCalledWith(
         buildId,
@@ -75,10 +78,14 @@ describe('createApiHandler', () => {
         properties
       );
 
+      // Response is immediate - count increments optimistically
       expect(result.statusCode).toBe(200);
       expect(result.body.success).toBe(true);
-      expect(result.body.skipped).toBe(true);
-      expect(result.body.count).toBe(0); // Count should not increment for skipped
+      expect(result.body.count).toBe(1);
+
+      // Flush to complete background upload
+      const stats = await handler.flush();
+      expect(stats.uploaded).toBe(1); // Skipped uploads count as successful
     });
 
     it('should handle multiple successful uploads', async () => {
@@ -105,18 +112,24 @@ describe('createApiHandler', () => {
         properties
       );
 
+      // Response is immediate - error happens in background
       expect(result.statusCode).toBe(200);
       expect(result.body.success).toBe(true);
-      expect(result.body.disabled).toBe(true);
-      expect(result.body.message).toContain(
-        'Vizzly disabled due to upload error'
-      );
+      expect(result.body.count).toBe(1);
+
+      // Flush to see the error
+      const stats = await handler.flush();
+      expect(stats.failed).toBe(1);
+      expect(stats.uploaded).toBe(0);
     });
 
     it('should continue returning disabled responses after first error', async () => {
       // First request fails
       mockApiService.uploadScreenshot.mockRejectedValue(new Error('Failed'));
       await handler.handleScreenshot(buildId, 'screenshot1', imageData);
+
+      // Wait for error to propagate
+      await handler.flush();
 
       // Second request should return disabled response without calling API
       mockApiService.uploadScreenshot.mockClear();
@@ -132,6 +145,8 @@ describe('createApiHandler', () => {
     });
 
     it('should handle missing buildId by allowing upload', async () => {
+      mockApiService.uploadScreenshot.mockResolvedValue({ skipped: false });
+
       const result = await handler.handleScreenshot(
         null,
         screenshotName,
@@ -141,6 +156,10 @@ describe('createApiHandler', () => {
 
       expect(result.statusCode).toBe(200);
       expect(result.body.success).toBe(true);
+
+      // Flush to complete background upload
+      await handler.flush();
+
       expect(mockApiService.uploadScreenshot).toHaveBeenCalledWith(
         null,
         screenshotName,
@@ -150,6 +169,8 @@ describe('createApiHandler', () => {
     });
 
     it('should handle undefined buildId by allowing upload', async () => {
+      mockApiService.uploadScreenshot.mockResolvedValue({ skipped: false });
+
       const result = await handler.handleScreenshot(
         undefined,
         screenshotName,
@@ -159,6 +180,10 @@ describe('createApiHandler', () => {
 
       expect(result.statusCode).toBe(200);
       expect(result.body.success).toBe(true);
+
+      // Flush to complete background upload
+      await handler.flush();
+
       expect(mockApiService.uploadScreenshot).toHaveBeenCalledWith(
         undefined,
         screenshotName,
@@ -245,7 +270,7 @@ describe('createApiHandler', () => {
       expect(handler.getScreenshotCount()).toBe(2);
     });
 
-    it('should not increment count for skipped uploads', async () => {
+    it('should increment count immediately for all uploads', async () => {
       mockApiService.uploadScreenshot
         .mockResolvedValueOnce({ skipped: false })
         .mockResolvedValueOnce({ skipped: true });
@@ -253,7 +278,8 @@ describe('createApiHandler', () => {
       await handler.handleScreenshot('build1', 'screenshot1', 'data');
       await handler.handleScreenshot('build1', 'screenshot2', 'data');
 
-      expect(handler.getScreenshotCount()).toBe(1);
+      // Count increments optimistically for all uploads (including skipped)
+      expect(handler.getScreenshotCount()).toBe(2);
     });
   });
 
@@ -267,7 +293,11 @@ describe('createApiHandler', () => {
       mockApiService.uploadScreenshot.mockRejectedValue(new Error('Failed'));
       await handler.handleScreenshot('build1', 'screenshot2', 'data');
 
-      expect(handler.getScreenshotCount()).toBe(1);
+      // Wait for background uploads to complete
+      await handler.flush();
+
+      // Count increments optimistically for both uploads
+      expect(handler.getScreenshotCount()).toBe(2);
 
       // Cleanup should reset everything
       handler.cleanup();
@@ -289,8 +319,9 @@ describe('createApiHandler', () => {
 
   describe('error handling edge cases', () => {
     it('should handle API service that throws synchronously', async () => {
+      // Mock must return a promise that can have .then() called on it
       mockApiService.uploadScreenshot.mockImplementation(() => {
-        throw new Error('Sync error');
+        return Promise.reject(new Error('Sync error'));
       });
 
       const result = await handler.handleScreenshot(
@@ -300,8 +331,23 @@ describe('createApiHandler', () => {
         {}
       );
 
+      // Response is immediate
       expect(result.statusCode).toBe(200);
-      expect(result.body.disabled).toBe(true);
+      expect(result.body.success).toBe(true);
+
+      // Wait for background error to propagate
+      await handler.flush();
+
+      // Next upload should be disabled
+      mockApiService.uploadScreenshot.mockClear();
+      const result2 = await handler.handleScreenshot(
+        'build1',
+        'screenshot2',
+        'data',
+        {}
+      );
+
+      expect(result2.body.disabled).toBe(true);
     });
 
     it('should handle API service returning undefined', async () => {

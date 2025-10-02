@@ -5,6 +5,7 @@ import {
   acceptAllBaselines,
   resetBaselines,
 } from '../../services/api-client.js';
+import { useToast } from '../ui/toast.jsx';
 
 export default function StatsView({
   reportData,
@@ -15,6 +16,7 @@ export default function StatsView({
   let { summary, comparisons, baseline } = reportData;
   let [acceptingAll, setAcceptingAll] = useState(false);
   let [resetting, setResetting] = useState(false);
+  let { addToast, confirm } = useToast();
 
   // Check if there are any changes to accept
   let hasChanges = comparisons?.some(
@@ -25,13 +27,12 @@ export default function StatsView({
   let newCount = comparisons?.filter(c => c.status === 'new').length || 0;
 
   let handleAcceptAll = useCallback(async () => {
-    if (
-      !window.confirm(
-        'Accept all changes as new baselines? This will update all failed and new screenshots.'
-      )
-    ) {
-      return;
-    }
+    let confirmed = await confirm(
+      'This will update all failed and new screenshots.',
+      'Accept all changes as new baselines?'
+    );
+
+    if (!confirmed) return;
 
     setAcceptingAll(true);
     try {
@@ -50,20 +51,19 @@ export default function StatsView({
       onRefresh?.();
     } catch (err) {
       console.error('Failed to accept all baselines:', err);
-      window.alert('Failed to accept all baselines. Please try again.');
+      addToast('Failed to accept all baselines. Please try again.', 'error');
     } finally {
       setAcceptingAll(false);
     }
-  }, [setReportData, onRefresh]);
+  }, [setReportData, onRefresh, addToast, confirm]);
 
   let handleReset = useCallback(async () => {
-    if (
-      !window.confirm(
-        'Reset all baselines? This will delete all baseline images and clear comparison history.'
-      )
-    ) {
-      return;
-    }
+    let confirmed = await confirm(
+      'This will delete all baseline images and clear comparison history.',
+      'Reset all baselines?'
+    );
+
+    if (!confirmed) return;
 
     setResetting(true);
     try {
@@ -79,11 +79,11 @@ export default function StatsView({
       onRefresh?.();
     } catch (err) {
       console.error('Failed to reset baselines:', err);
-      window.alert('Failed to reset baselines. Please try again.');
+      addToast('Failed to reset baselines. Please try again.', 'error');
     } finally {
       setResetting(false);
     }
-  }, [setReportData, onRefresh]);
+  }, [setReportData, onRefresh, addToast, confirm]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

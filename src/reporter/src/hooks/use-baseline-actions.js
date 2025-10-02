@@ -1,8 +1,10 @@
 import { useState, useCallback } from 'react';
 import { acceptBaseline } from '../services/api-client.js';
+import { useToast } from '../components/ui/toast.jsx';
 
 export default function useBaselineActions(onUpdate) {
   let [loadingStates, setLoadingStates] = useState({});
+  let { addToast } = useToast();
 
   let accept = useCallback(
     async screenshotName => {
@@ -30,7 +32,7 @@ export default function useBaselineActions(onUpdate) {
         });
       } catch (err) {
         console.error('Failed to accept baseline:', err);
-        window.alert('Failed to accept baseline. Please try again.');
+        addToast('Failed to accept baseline. Please try again.', 'error');
         setLoadingStates(prev => {
           let next = { ...prev };
           delete next[screenshotName];

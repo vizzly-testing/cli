@@ -5,6 +5,7 @@ import DashboardFilters from '../dashboard/dashboard-filters.jsx';
 import ComparisonList from '../comparison/comparison-list.jsx';
 import { acceptAllBaselines } from '../../services/api-client.js';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
+import { useToast } from '../ui/toast.jsx';
 
 export default function ComparisonsView({
   reportData,
@@ -13,6 +14,7 @@ export default function ComparisonsView({
   loading,
 }) {
   let [acceptingAll, setAcceptingAll] = useState(false);
+  let { addToast, confirm } = useToast();
 
   let {
     filteredComparisons,
@@ -33,13 +35,12 @@ export default function ComparisonsView({
   let { accept, reject, loadingStates } = useBaselineActions(setReportData);
 
   let handleAcceptAll = useCallback(async () => {
-    if (
-      !window.confirm(
-        'Accept all changes as new baselines? This will update all failed and new screenshots.'
-      )
-    ) {
-      return;
-    }
+    let confirmed = await confirm(
+      'This will update all failed and new screenshots.',
+      'Accept all changes as new baselines?'
+    );
+
+    if (!confirmed) return;
 
     setAcceptingAll(true);
     try {
@@ -58,11 +59,11 @@ export default function ComparisonsView({
       onRefresh?.();
     } catch (err) {
       console.error('Failed to accept all baselines:', err);
-      window.alert('Failed to accept all baselines. Please try again.');
+      addToast('Failed to accept all baselines. Please try again.', 'error');
     } finally {
       setAcceptingAll(false);
     }
-  }, [setReportData, onRefresh]);
+  }, [setReportData, onRefresh, addToast, confirm]);
 
   // Check if there are NO comparisons in the raw data (not filtered)
   let hasNoComparisons =

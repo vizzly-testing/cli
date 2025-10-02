@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import AppRouter from './components/app-router.jsx';
+import { ToastProvider } from './components/ui/toast.jsx';
 import './reporter.css';
 
 let initializeReporter = () => {
@@ -17,7 +18,9 @@ let initializeReporter = () => {
 
   ReactDOM.createRoot(root).render(
     <StrictMode>
-      <AppRouter initialData={initialData} />
+      <ToastProvider>
+        <AppRouter initialData={initialData} />
+      </ToastProvider>
     </StrictMode>
   );
 };

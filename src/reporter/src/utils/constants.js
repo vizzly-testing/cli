@@ -27,7 +27,8 @@ export const CONNECTION_STATUS = {
 export const COMPARISON_STATUS = {
   PASSED: 'passed',
   FAILED: 'failed',
-  NEW: 'baseline-created',
+  NEW: 'new',
+  BASELINE_CREATED: 'baseline-created',
   ERROR: 'error',
 };
 

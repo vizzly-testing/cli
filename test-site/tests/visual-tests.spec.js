@@ -48,6 +48,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     // Tablet portrait view
     await page.setViewportSize({ width: 768, height: 1024 });
+    await expect(page.locator('h1')).toContainText('Every Pet Deserves');
     const tabletPortraitScreenshot = await page.screenshot({ fullPage: true });
     await vizzlyScreenshot('homepage-full', tabletPortraitScreenshot, {
       browser: browserName,
@@ -70,6 +71,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     // Mobile landscape view
     await page.setViewportSize({ width: 812, height: 375 });
+    await expect(page.locator('h1')).toBeVisible();
     const mobileLandscapeScreenshot = await page.screenshot({ fullPage: false });
     await vizzlyScreenshot('homepage-full', mobileLandscapeScreenshot, {
       browser: browserName,
@@ -81,7 +83,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
   test('Features Page - Desktop and Mobile', async ({ page, browserName }) => {
     // Desktop full page
-    await page.goto('/features.html');
+    await page.goto('/features.html', { waitUntil: 'networkidle' });
     await expect(page.locator('h1')).toBeVisible();
 
     const desktopScreenshot = await page.screenshot({ fullPage: true });
@@ -103,6 +105,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     // Tablet view
     await page.setViewportSize({ width: 768, height: 1024 });
+    await expect(page.locator('h1')).toBeVisible();
     const tabletScreenshot = await page.screenshot({ fullPage: true });
     await vizzlyScreenshot('features-full', tabletScreenshot, {
       browser: browserName,
@@ -113,6 +116,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     // Mobile view
     await page.setViewportSize({ width: 375, height: 812 });
+    await expect(page.locator('h1')).toBeVisible();
     const mobileScreenshot = await page.screenshot({ fullPage: true });
     await vizzlyScreenshot('features-full', mobileScreenshot, {
       browser: browserName,
@@ -124,9 +128,8 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
   test('Pricing Page - Multiple states and viewports', async ({ page, browserName }) => {
     // Desktop - Monthly view
-    await page.goto('/pricing.html');
+    await page.goto('/pricing.html', { waitUntil: 'networkidle' });
     await expect(page.locator('h1')).toBeVisible();
-    await page.waitForTimeout(300); // Let pricing cards/animations load
 
     const monthlyDesktopScreenshot = await page.screenshot({ fullPage: true });
     await vizzlyScreenshot('pricing-monthly', monthlyDesktopScreenshot, {
@@ -140,7 +143,6 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
     const yearlyToggle = page.locator('button:has-text("Yearly"), button:has-text("Annual"), [data-testid="yearly-toggle"]').first();
     if (await yearlyToggle.count() > 0) {
       await yearlyToggle.click();
-      await page.waitForTimeout(500); // Wait for animation/price updates
 
       const yearlyDesktopScreenshot = await page.screenshot({ fullPage: true });
       await vizzlyScreenshot('pricing-yearly', yearlyDesktopScreenshot, {
@@ -153,8 +155,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     // Tablet view - reset to monthly if we toggled
     await page.setViewportSize({ width: 768, height: 1024 });
-    await page.reload(); // Ensure clean monthly state
-    await page.waitForTimeout(300); // Let page load
+    await page.reload({ waitUntil: 'networkidle' });
     const tabletScreenshot = await page.screenshot({ fullPage: true });
     await vizzlyScreenshot('pricing-monthly', tabletScreenshot, {
       browser: browserName,
@@ -165,7 +166,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     // Mobile view - pricing cards often stack vertically
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.waitForTimeout(200); // Let viewport change settle
+    await expect(page.locator('h1')).toBeVisible();
     const mobileScreenshot = await page.screenshot({ fullPage: true });
     await vizzlyScreenshot('pricing-monthly', mobileScreenshot, {
       browser: browserName,
@@ -178,7 +179,6 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
     const firstCard = page.locator('.pricing-card, .price-card, [data-testid="pricing-card"]').first();
     if (await firstCard.count() > 0) {
       await firstCard.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(100); // Let scroll complete
       const cardScreenshot = await page.screenshot({ fullPage: false });
       await vizzlyScreenshot('pricing-card', cardScreenshot, {
         browser: browserName,
@@ -191,7 +191,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
   test('Contact Page - Form states and viewports', async ({ page, browserName }) => {
     // Desktop - Empty form
-    await page.goto('/contact.html');
+    await page.goto('/contact.html', { waitUntil: 'networkidle' });
     await expect(page.locator('h1')).toBeVisible();
 
     const emptyFormScreenshot = await page.screenshot({ fullPage: true });
@@ -206,7 +206,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
     const firstInput = page.locator('input[type="text"], input[type="email"]').first();
     if (await firstInput.count() > 0) {
       await firstInput.focus();
-      await page.waitForTimeout(100); // Let focus state settle
+      await expect(firstInput).toBeFocused();
       const focusScreenshot = await page.screenshot({ fullPage: false });
       await vizzlyScreenshot('contact-form-focus', focusScreenshot, {
         browser: browserName,
@@ -222,11 +222,11 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     if (await nameInput.count() > 0) {
       await nameInput.fill('John Doe');
-      await page.waitForTimeout(50); // Let input settle
+      await expect(nameInput).toHaveValue('John Doe');
     }
     if (await emailInput.count() > 0) {
       await emailInput.fill('john@example.com');
-      await page.waitForTimeout(50); // Let input settle
+      await expect(emailInput).toHaveValue('john@example.com');
     }
 
     const partialFormScreenshot = await page.screenshot({ fullPage: true });
@@ -239,6 +239,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     // Tablet view
     await page.setViewportSize({ width: 768, height: 1024 });
+    await expect(page.locator('h1')).toBeVisible();
     const tabletScreenshot = await page.screenshot({ fullPage: true });
     await vizzlyScreenshot('contact-form-filled-tablet', tabletScreenshot, {
       browser: browserName,
@@ -249,8 +250,8 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
 
     // Mobile view - empty form
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.reload(); // Reset form
-    await page.waitForTimeout(200); // Let page fully reload and settle
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator('h1')).toBeVisible();
     const mobileEmptyScreenshot = await page.screenshot({ fullPage: true });
     await vizzlyScreenshot('contact-form-empty-mobile', mobileEmptyScreenshot, {
       browser: browserName,
@@ -263,7 +264,7 @@ test.describe('FluffyCloud SAAS - Visual Tests', () => {
     const mobileInput = page.locator('input').first();
     if (await mobileInput.count() > 0) {
       await mobileInput.focus();
-      await page.waitForTimeout(300); // Wait for keyboard animation
+      await expect(mobileInput).toBeFocused();
       const keyboardScreenshot = await page.screenshot({ fullPage: false });
       await vizzlyScreenshot('contact-form-keyboard', keyboardScreenshot, {
         browser: browserName,

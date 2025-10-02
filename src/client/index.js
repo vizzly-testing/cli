@@ -15,6 +15,7 @@ import { join, parse, dirname } from 'path';
 // Internal client state
 let currentClient = null;
 let isDisabled = false;
+let hasLoggedWarning = false;
 
 /**
  * Check if Vizzly is currently disabled
@@ -255,7 +256,13 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
 
   const client = getClient();
   if (!client) {
-    console.warn('Vizzly client not initialized. Screenshots will be skipped.');
+    if (!hasLoggedWarning) {
+      console.warn(
+        'Vizzly client not initialized. Screenshots will be skipped.'
+      );
+      hasLoggedWarning = true;
+      disableVizzly();
+    }
     return;
   }
 

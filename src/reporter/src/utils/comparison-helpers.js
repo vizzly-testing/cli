@@ -8,14 +8,21 @@ import { COMPARISON_STATUS } from './constants.js';
 const STATUS_CONFIG = {
   [COMPARISON_STATUS.NEW]: {
     type: 'success',
-    label: 'New Baseline Created',
+    label: 'New Baseline',
+    description: 'First screenshot - baseline created',
+    icon: CheckCircleIcon,
+    colorClass: 'green',
+  },
+  [COMPARISON_STATUS.BASELINE_CREATED]: {
+    type: 'success',
+    label: 'Baseline Created',
     description: 'This is the first screenshot for this test',
     icon: CheckCircleIcon,
     colorClass: 'green',
   },
   [COMPARISON_STATUS.PASSED]: {
     type: 'success',
-    label: 'Comparison Passed',
+    label: 'Passed',
     description: 'Screenshot matches the baseline',
     icon: CheckCircleIcon,
     colorClass: 'green',
@@ -92,7 +99,11 @@ export function filterComparisons(comparisons, filter) {
     return comparisons.filter(c => c.status === COMPARISON_STATUS.PASSED);
   }
   if (filter === 'new') {
-    return comparisons.filter(c => c.status === COMPARISON_STATUS.NEW);
+    return comparisons.filter(
+      c =>
+        c.status === COMPARISON_STATUS.NEW ||
+        c.status === COMPARISON_STATUS.BASELINE_CREATED
+    );
   }
   return comparisons;
 }

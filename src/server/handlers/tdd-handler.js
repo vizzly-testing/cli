@@ -372,25 +372,106 @@ export const createTddHandler = (
     try {
       logger.debug('Resetting baselines');
 
-      // Reset by clearing current screenshots and reverting report data
       const reportData = readReportData();
+      let deletedBaselines = 0;
+      let deletedCurrents = 0;
+      let deletedDiffs = 0;
 
-      // Reset all comparisons to their original state
+      // Delete all baseline, current, and diff images
       for (const comparison of reportData.comparisons) {
-        if (comparison.status === 'passed') {
-          // Keep passed comparisons
-          continue;
+        // Delete baseline image if it exists
+        if (comparison.baseline) {
+          const baselinePath = join(
+            workingDir,
+            '.vizzly',
+            comparison.baseline.replace('/images/', '')
+          );
+          if (existsSync(baselinePath)) {
+            try {
+              const { unlinkSync } = await import('fs');
+              unlinkSync(baselinePath);
+              deletedBaselines++;
+              logger.debug(`Deleted baseline for ${comparison.name}`);
+            } catch (error) {
+              logger.warn(
+                `Failed to delete baseline for ${comparison.name}: ${error.message}`
+              );
+            }
+          }
         }
 
-        // For failed/new comparisons, we need to restore from baseline
-        updateComparison({
-          ...comparison,
-          status: 'new', // Mark as new to re-run comparison
-        });
+        // Delete current screenshot if it exists
+        if (comparison.current) {
+          const currentPath = join(
+            workingDir,
+            '.vizzly',
+            comparison.current.replace('/images/', '')
+          );
+          if (existsSync(currentPath)) {
+            try {
+              const { unlinkSync } = await import('fs');
+              unlinkSync(currentPath);
+              deletedCurrents++;
+              logger.debug(`Deleted current screenshot for ${comparison.name}`);
+            } catch (error) {
+              logger.warn(
+                `Failed to delete current screenshot for ${comparison.name}: ${error.message}`
+              );
+            }
+          }
+        }
+
+        // Delete diff image if it exists
+        if (comparison.diff) {
+          const diffPath = join(
+            workingDir,
+            '.vizzly',
+            comparison.diff.replace('/images/', '')
+          );
+          if (existsSync(diffPath)) {
+            try {
+              const { unlinkSync } = await import('fs');
+              unlinkSync(diffPath);
+              deletedDiffs++;
+              logger.debug(`Deleted diff for ${comparison.name}`);
+            } catch (error) {
+              logger.warn(
+                `Failed to delete diff for ${comparison.name}: ${error.message}`
+              );
+            }
+          }
+        }
       }
 
-      logger.info('Baselines reset');
-      return { success: true };
+      // Delete baseline metadata
+      const metadataPath = join(
+        workingDir,
+        '.vizzly',
+        'baselines',
+        'metadata.json'
+      );
+      if (existsSync(metadataPath)) {
+        try {
+          const { unlinkSync } = await import('fs');
+          unlinkSync(metadataPath);
+          logger.debug('Deleted baseline metadata');
+        } catch (error) {
+          logger.warn(`Failed to delete baseline metadata: ${error.message}`);
+        }
+      }
+
+      // Clear the report data entirely - fresh start
+      const freshReportData = {
+        timestamp: Date.now(),
+        comparisons: [],
+        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
+      };
+      writeFileSync(reportPath, JSON.stringify(freshReportData, null, 2));
+
+      logger.info(
+        `Baselines reset - ${deletedBaselines} baselines deleted, ${deletedCurrents} current screenshots deleted, ${deletedDiffs} diffs deleted`
+      );
+      return { success: true, deletedBaselines, deletedCurrents, deletedDiffs };
     } catch (error) {
       logger.error('Failed to reset baselines:', error);
       throw error;

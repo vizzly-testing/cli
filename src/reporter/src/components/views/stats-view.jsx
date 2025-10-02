@@ -35,7 +35,7 @@ export default function StatsView({
 
     setAcceptingAll(true);
     try {
-      let result = await acceptAllBaselines();
+      await acceptAllBaselines();
 
       // Update all failed/new comparisons to passed
       setReportData(prevData => ({
@@ -47,7 +47,6 @@ export default function StatsView({
         ),
       }));
 
-      window.alert(`Successfully accepted ${result.count} baselines!`);
       onRefresh?.();
     } catch (err) {
       console.error('Failed to accept all baselines:', err);
@@ -60,7 +59,7 @@ export default function StatsView({
   let handleReset = useCallback(async () => {
     if (
       !window.confirm(
-        'Reset all baselines? This will revert all changes and restore previous baselines.'
+        'Reset all baselines? This will delete all baseline images and clear comparison history.'
       )
     ) {
       return;
@@ -70,17 +69,13 @@ export default function StatsView({
     try {
       await resetBaselines();
 
-      // Update all comparisons to new status to trigger re-comparison
-      setReportData(prevData => ({
-        ...prevData,
-        comparisons: prevData.comparisons.map(c =>
-          c.status === 'failed' || c.status === 'new'
-            ? { ...c, status: 'new' }
-            : c
-        ),
-      }));
+      // Clear all report data since baselines are deleted
+      setReportData({
+        timestamp: Date.now(),
+        comparisons: [],
+        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
+      });
 
-      window.alert('Baselines reset successfully!');
       onRefresh?.();
     } catch (err) {
       console.error('Failed to reset baselines:', err);

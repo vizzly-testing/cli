@@ -222,8 +222,8 @@ export class TddService {
 
       if (existingBaseline) {
         existingBaseline.screenshots.forEach(s => {
-          if (s.sha256) {
-            existingShaMap.set(s.name, s.sha256);
+          if (s.sha256 && s.signature) {
+            existingShaMap.set(s.signature, s.sha256);
           }
         });
       }
@@ -250,11 +250,18 @@ export class TddService {
           continue;
         }
 
-        const imagePath = safePath(this.baselinePath, `${sanitizedName}.png`);
+        // Generate signature for baseline matching (same as compareScreenshot)
+        let properties = validateScreenshotProperties(
+          screenshot.metadata || screenshot.properties || {}
+        );
+        let signature = generateScreenshotSignature(sanitizedName, properties);
+        let filename = signatureToFilename(signature);
+
+        const imagePath = safePath(this.baselinePath, `${filename}.png`);
 
         // Check if we already have this file with the same SHA (using metadata)
         if (existsSync(imagePath) && screenshot.sha256) {
-          const storedSha = existingShaMap.get(sanitizedName);
+          const storedSha = existingShaMap.get(signature);
 
           if (storedSha === screenshot.sha256) {
             logger.debug(
@@ -286,6 +293,9 @@ export class TddService {
           sanitizedName,
           imagePath,
           downloadUrl,
+          signature,
+          filename,
+          properties,
         });
       }
 
@@ -403,15 +413,23 @@ export class TddService {
               return null; // Skip invalid screenshots
             }
 
+            let properties = validateScreenshotProperties(
+              s.metadata || s.properties || {}
+            );
+            let signature = generateScreenshotSignature(
+              sanitizedName,
+              properties
+            );
+            let filename = signatureToFilename(signature);
+
             return {
               name: sanitizedName,
               originalName: s.name,
               sha256: s.sha256, // Store remote SHA for quick comparison
               id: s.id,
-              properties: validateScreenshotProperties(
-                s.metadata || s.properties || {}
-              ),
-              path: safePath(this.baselinePath, `${sanitizedName}.png`),
+              properties: properties,
+              path: safePath(this.baselinePath, `${filename}.png`),
+              signature: signature,
               originalUrl: s.original_url,
               fileSize: s.file_size_bytes,
               dimensions: {

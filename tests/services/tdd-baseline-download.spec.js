@@ -171,6 +171,7 @@ describe('TDD Service - Baseline Download', () => {
             id: 'screenshot1',
             properties: {},
             path: join(testDir, '.vizzly', 'baselines', 'homepage.png'),
+            signature: 'homepage',
             originalUrl: 'https://example.com/homepage.png',
             fileSize: 12345,
             dimensions: {
@@ -185,6 +186,7 @@ describe('TDD Service - Baseline Download', () => {
             id: 'screenshot2',
             properties: {},
             path: join(testDir, '.vizzly', 'baselines', 'login.png'),
+            signature: 'login',
             originalUrl: 'https://example.com/login.png',
             fileSize: 67890,
             dimensions: {

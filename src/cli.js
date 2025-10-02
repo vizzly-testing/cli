@@ -5,6 +5,11 @@ import { init } from './commands/init.js';
 import { uploadCommand, validateUploadOptions } from './commands/upload.js';
 import { runCommand, validateRunOptions } from './commands/run.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
+import {
+  tddStartCommand,
+  tddStopCommand,
+  tddStatusCommand,
+} from './commands/tdd-daemon.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
 import {
   finalizeCommand,
@@ -65,10 +70,50 @@ program
     await uploadCommand(path, options, globalOptions);
   });
 
-program
+// TDD command with subcommands
+const tddCmd = program
   .command('tdd')
-  .description('Run tests in TDD mode with local visual comparisons')
-  .argument('<command>', 'Test command to run')
+  .description('Run tests in TDD mode with local visual comparisons');
+
+// TDD Start - Background server
+tddCmd
+  .command('start')
+  .description('Start background TDD server')
+  .option('--port <port>', 'Port for screenshot server', '47392')
+  .option('--open', 'Open dashboard in browser')
+  .option('--baseline-build <id>', 'Use specific build as baseline')
+  .option('--baseline-comparison <id>', 'Use specific comparison as baseline')
+  .option('--environment <env>', 'Environment name', 'test')
+  .option('--threshold <number>', 'Comparison threshold', parseFloat)
+  .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
+  .option('--token <token>', 'API token override')
+  .action(async options => {
+    const globalOptions = program.opts();
+    await tddStartCommand(options, globalOptions);
+  });
+
+// TDD Stop - Kill background server
+tddCmd
+  .command('stop')
+  .description('Stop background TDD server')
+  .action(async options => {
+    const globalOptions = program.opts();
+    await tddStopCommand(options, globalOptions);
+  });
+
+// TDD Status - Check server status
+tddCmd
+  .command('status')
+  .description('Check TDD server status')
+  .action(async options => {
+    const globalOptions = program.opts();
+    await tddStatusCommand(options, globalOptions);
+  });
+
+// TDD Run - One-off test run (primary workflow)
+tddCmd
+  .command('run <command>')
+  .description('Run tests once in TDD mode with local visual comparisons')
   .option('--port <port>', 'Port for screenshot server', '47392')
   .option('--branch <branch>', 'Git branch override')
   .option('--environment <env>', 'Environment name', 'test')
@@ -81,7 +126,6 @@ program
     '--set-baseline',
     'Accept current screenshots as new baseline (overwrites existing)'
   )
-  .option('--allow-no-token', 'Allow running without API token (no baselines)')
   .action(async (command, options) => {
     const globalOptions = program.opts();
 

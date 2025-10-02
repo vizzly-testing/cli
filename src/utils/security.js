@@ -12,9 +12,14 @@ const logger = createServiceLogger('SECURITY');
  * Sanitizes a screenshot name to prevent path traversal and ensure safe file naming
  * @param {string} name - Original screenshot name
  * @param {number} maxLength - Maximum allowed length (default: 255)
+ * @param {boolean} allowSlashes - Whether to allow forward slashes (for browser version strings)
  * @returns {string} Sanitized screenshot name
  */
-export function sanitizeScreenshotName(name, maxLength = 255) {
+export function sanitizeScreenshotName(
+  name,
+  maxLength = 255,
+  allowSlashes = false
+) {
   if (typeof name !== 'string' || name.length === 0) {
     throw new Error('Screenshot name must be a non-empty string');
   }
@@ -26,7 +31,12 @@ export function sanitizeScreenshotName(name, maxLength = 255) {
   }
 
   // Block directory traversal patterns
-  if (name.includes('..') || name.includes('/') || name.includes('\\')) {
+  if (name.includes('..') || name.includes('\\')) {
+    throw new Error('Screenshot name contains invalid path characters');
+  }
+
+  // Block forward slashes unless explicitly allowed (e.g., for browser version strings)
+  if (!allowSlashes && name.includes('/')) {
     throw new Error('Screenshot name contains invalid path characters');
   }
 
@@ -35,9 +45,10 @@ export function sanitizeScreenshotName(name, maxLength = 255) {
     throw new Error('Screenshot name cannot be an absolute path');
   }
 
-  // Allow only safe characters: alphanumeric, hyphens, underscores, and dots
+  // Allow only safe characters: alphanumeric, hyphens, underscores, dots, and optionally slashes
   // Replace other characters with underscores
-  let sanitized = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  let allowedChars = allowSlashes ? /[^a-zA-Z0-9._/-]/g : /[^a-zA-Z0-9._-]/g;
+  let sanitized = name.replace(allowedChars, '_');
 
   // Prevent names that start with dots (hidden files)
   if (sanitized.startsWith('.')) {
@@ -128,7 +139,9 @@ export function validateScreenshotProperties(properties = {}) {
   // Validate common properties with safe constraints
   if (properties.browser && typeof properties.browser === 'string') {
     try {
-      validated.browser = sanitizeScreenshotName(properties.browser, 50);
+      // Extract browser name without version (e.g., "Chrome/139.0.7258.138" -> "Chrome")
+      let browserName = properties.browser.split('/')[0];
+      validated.browser = sanitizeScreenshotName(browserName, 50);
     } catch (error) {
       // Skip invalid browser names, don't include them
       logger.warn(

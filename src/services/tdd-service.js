@@ -18,6 +18,34 @@ import {
 const logger = createServiceLogger('TDD');
 
 /**
+ * Generate a screenshot signature for baseline matching
+ * Uses same logic as screenshot-identity.js: name + viewport_width + browser
+ */
+function generateScreenshotSignature(name, properties = {}) {
+  let parts = [name];
+
+  // Add viewport width if present
+  if (properties.viewport?.width) {
+    parts.push(properties.viewport.width.toString());
+  }
+
+  // Add browser if present
+  if (properties.browser) {
+    parts.push(properties.browser);
+  }
+
+  return parts.join('|');
+}
+
+/**
+ * Create a safe filename from signature
+ */
+function signatureToFilename(signature) {
+  // Replace pipe separators with underscores for filesystem safety
+  return signature.replace(/\|/g, '_');
+}
+
+/**
  * Create a new TDD service instance
  */
 export function createTDDService(config, options = {}) {
@@ -507,12 +535,16 @@ export class TddService {
       validatedProperties = {};
     }
 
-    const currentImagePath = safePath(this.currentPath, `${sanitizedName}.png`);
-    const baselineImagePath = safePath(
-      this.baselinePath,
-      `${sanitizedName}.png`
+    // Generate signature for baseline matching (name + viewport_width + browser)
+    const signature = generateScreenshotSignature(
+      sanitizedName,
+      validatedProperties
     );
-    const diffImagePath = safePath(this.diffPath, `${sanitizedName}.png`);
+    const filename = signatureToFilename(signature);
+
+    const currentImagePath = safePath(this.currentPath, `${filename}.png`);
+    const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
+    const diffImagePath = safePath(this.diffPath, `${filename}.png`);
 
     // Save current screenshot
     writeFileSync(currentImagePath, imageBuffer);
@@ -558,10 +590,11 @@ export class TddService {
         name: sanitizedName,
         properties: validatedProperties,
         path: baselineImagePath,
+        signature: signature,
       };
 
       const existingIndex = this.baselineData.screenshots.findIndex(
-        s => s.name === sanitizedName
+        s => s.signature === signature
       );
       if (existingIndex >= 0) {
         this.baselineData.screenshots[existingIndex] = screenshotEntry;
@@ -842,10 +875,16 @@ export class TddService {
         continue;
       }
 
-      const baselineImagePath = safePath(
-        this.baselinePath,
-        `${sanitizedName}.png`
+      let validatedProperties = validateScreenshotProperties(
+        comparison.properties || {}
       );
+      let signature = generateScreenshotSignature(
+        sanitizedName,
+        validatedProperties
+      );
+      let filename = signatureToFilename(signature);
+
+      const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
 
       try {
         // Copy current screenshot to baseline
@@ -855,12 +894,13 @@ export class TddService {
         // Update baseline metadata
         const screenshotEntry = {
           name: sanitizedName,
-          properties: validateScreenshotProperties(comparison.properties || {}),
+          properties: validatedProperties,
           path: baselineImagePath,
+          signature: signature,
         };
 
         const existingIndex = this.baselineData.screenshots.findIndex(
-          s => s.name === sanitizedName
+          s => s.signature === signature
         );
         if (existingIndex >= 0) {
           this.baselineData.screenshots[existingIndex] = screenshotEntry;
@@ -919,15 +959,19 @@ export class TddService {
       };
     }
 
+    // Generate signature for this screenshot
+    let signature = generateScreenshotSignature(name, properties || {});
+
     // Add screenshot to baseline metadata
     const screenshotEntry = {
       name,
       properties: properties || {},
       path: baselineImagePath,
+      signature: signature,
     };
 
     const existingIndex = this.baselineData.screenshots.findIndex(
-      s => s.name === name
+      s => s.signature === signature
     );
     if (existingIndex >= 0) {
       this.baselineData.screenshots[existingIndex] = screenshotEntry;
@@ -981,15 +1025,19 @@ export class TddService {
       };
     }
 
+    // Generate signature for this screenshot
+    let signature = generateScreenshotSignature(name, properties || {});
+
     // Add screenshot to baseline metadata
     const screenshotEntry = {
       name,
       properties: properties || {},
       path: baselineImagePath,
+      signature: signature,
     };
 
     const existingIndex = this.baselineData.screenshots.findIndex(
-      s => s.name === name
+      s => s.signature === signature
     );
     if (existingIndex >= 0) {
       this.baselineData.screenshots[existingIndex] = screenshotEntry;
@@ -1024,8 +1072,18 @@ export class TddService {
     const sanitizedName = sanitizeScreenshotName(name);
     logger.debug(`Starting accept baseline for: ${sanitizedName}`);
 
+    // Find the comparison to get properties
+    let comparison = this.comparisons.find(c => c.name === sanitizedName);
+    if (!comparison) {
+      throw new Error(`No comparison found for screenshot: ${name}`);
+    }
+
+    let properties = comparison.properties || {};
+    let signature = generateScreenshotSignature(sanitizedName, properties);
+    let filename = signatureToFilename(signature);
+
     // Find the current screenshot file
-    const currentImagePath = safePath(this.currentPath, `${sanitizedName}.png`);
+    const currentImagePath = safePath(this.currentPath, `${filename}.png`);
     logger.debug(`Looking for current screenshot at: ${currentImagePath}`);
 
     if (!existsSync(currentImagePath)) {
@@ -1046,10 +1104,7 @@ export class TddService {
     }
 
     // Update the baseline
-    const baselineImagePath = safePath(
-      this.baselinePath,
-      `${sanitizedName}.png`
-    );
+    const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
     logger.debug(`Writing baseline to: ${baselineImagePath}`);
 
     // Write the baseline image directly
@@ -1080,12 +1135,13 @@ export class TddService {
     // Add or update screenshot in baseline metadata
     const screenshotEntry = {
       name: sanitizedName,
-      properties: {},
+      properties: properties,
       path: baselineImagePath,
+      signature: signature,
     };
 
     const existingIndex = this.baselineData.screenshots.findIndex(
-      s => s.name === sanitizedName
+      s => s.signature === signature
     );
     if (existingIndex >= 0) {
       this.baselineData.screenshots[existingIndex] = screenshotEntry;

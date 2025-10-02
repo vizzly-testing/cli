@@ -23,89 +23,123 @@ jobs:
     permissions:
       contents: write
       id-token: write
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        registry-url: 'https://registry.npmjs.org'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Run tests
-      run: npm test
-    
-    - name: Run linter
-      run: npm run lint
-    
-    - name: Build
-      run: npm run build
-    
-    - name: Configure git
-      run: |
-        git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
-        git config --local user.name "${{ secrets.GIT_USER_NAME }}"
-    
-    - name: Bump version and create tag
-      id: version
-      run: |
-        # Bump version in package.json
-        npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
-        
-        # Get the new version
-        NEW_VERSION=$(node -p "require('./package.json').version")
-        echo "new_version=v$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "version_number=$NEW_VERSION" >> $GITHUB_OUTPUT
-        
-        # Commit the version change
-        git add package.json
-        git commit -m "🔖 v$NEW_VERSION"
-        
-        # Create and push tag
-        git tag "v$NEW_VERSION"
-        git push origin main
-        git push origin "v$NEW_VERSION"
-    
-    - name: Generate release notes
-      id: release_notes
-      run: |
-        if [ -n "${{ github.event.inputs.release_notes }}" ]; then
-          echo "notes=${{ github.event.inputs.release_notes }}" >> $GITHUB_OUTPUT
-        else
-          # Generate basic release notes from commits since last tag
-          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          if [ -n "$LAST_TAG" ]; then
-            COMMITS=$(git log $LAST_TAG..HEAD --oneline --pretty=format:"- %s")
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git
+        run: |
+          git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
+          git config --local user.name "${{ secrets.GIT_USER_NAME }}"
+
+      - name: Bump version
+        id: version
+        run: |
+          # Bump version in package.json
+          npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
+
+          # Get the new version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "new_version=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "version_number=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          if [ -n "${{ github.event.inputs.release_notes }}" ]; then
+            echo "notes=${{ github.event.inputs.release_notes }}" >> $GITHUB_OUTPUT
           else
-            COMMITS=$(git log --oneline --pretty=format:"- %s" | head -10)
+            # Generate basic release notes from commits since last tag
+            LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+            if [ -n "$LAST_TAG" ]; then
+              COMMITS=$(git log $LAST_TAG..HEAD --oneline --pretty=format:"- %s")
+            else
+              COMMITS=$(git log --oneline --pretty=format:"- %s" | head -10)
+            fi
+            echo "notes<<EOF" >> $GITHUB_OUTPUT
+            echo "## What's Changed" >> $GITHUB_OUTPUT
+            echo "$COMMITS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           fi
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "## What's Changed" >> $GITHUB_OUTPUT
-          echo "$COMMITS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        fi
-    
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.version.outputs.new_version }}
-        release_name: ✨ ${{ steps.version.outputs.new_version }}
-        body: ${{ steps.release_notes.outputs.notes }}
-        draft: false
-        prerelease: false
-    
-    - name: Publish to NPM
-      run: npm publish
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create Pull Request
+        id: pr
+        run: |
+          git checkout -b release/v${{ steps.version.outputs.version_number }}
+          git add package.json
+          git commit -m "🔖 v${{ steps.version.outputs.version_number }}"
+          git push origin release/v${{ steps.version.outputs.version_number }}
+          PR_URL=$(gh pr create \
+            --title "🔖 v${{ steps.version.outputs.version_number }}" \
+            --body "${{ steps.release_notes.outputs.notes }}" \
+            --base main \
+            --head release/v${{ steps.version.outputs.version_number }})
+          PR_NUMBER=$(echo $PR_URL | grep -oE '[0-9]+$')
+          echo "pull-request-number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "pull-request-url=$PR_URL" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-merge Pull Request
+        run: gh pr merge ${{ steps.pr.outputs.pull-request-number }} --auto --squash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for PR to merge
+        run: |
+          PR_NUMBER=${{ steps.pr.outputs.pull-request-number }}
+          echo "Waiting for PR #$PR_NUMBER to merge..."
+          for i in {1..60}; do
+            STATE=$(gh pr view $PR_NUMBER --json state --jq '.state')
+            if [ "$STATE" = "MERGED" ]; then
+              echo "PR merged successfully"
+              exit 0
+            fi
+            echo "PR state: $STATE, waiting..."
+            sleep 5
+          done
+          echo "Timeout waiting for PR to merge"
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout merged main
+        run: |
+          git fetch origin main
+          git checkout main
+          git pull origin main
+
+      - name: Create and push tag
+        run: |
+          git tag "v${{ steps.version.outputs.version_number }}"
+          git push origin "v${{ steps.version.outputs.version_number }}"
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          release_name: ✨ ${{ steps.version.outputs.new_version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
+
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

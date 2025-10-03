@@ -69,6 +69,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
       {
         browser: browserName,
         viewport: page.viewportSize(),
+        marketing: true,
       }
     );
 
@@ -156,6 +157,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
       {
         browser: browserName,
         viewport: page.viewportSize(),
+        marketing: true,
       }
     );
 

@@ -9,6 +9,7 @@ import {
   tddStartCommand,
   tddStopCommand,
   tddStatusCommand,
+  runDaemonChild,
 } from './commands/tdd-daemon.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
 import {
@@ -87,8 +88,16 @@ tddCmd
   .option('--threshold <number>', 'Comparison threshold', parseFloat)
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
   .option('--token <token>', 'API token override')
+  .option('--daemon-child', 'Internal: run as daemon child process')
   .action(async options => {
     const globalOptions = program.opts();
+
+    // If this is a daemon child process, run the server directly
+    if (options.daemonChild) {
+      await runDaemonChild(options, globalOptions);
+      return;
+    }
+
     await tddStartCommand(options, globalOptions);
   });
 

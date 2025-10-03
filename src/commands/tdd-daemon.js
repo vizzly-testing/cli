@@ -43,30 +43,40 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
     const port = options.port || 47392;
 
-    // Use existing tddCommand but with daemon mode - this will start and keep running
-    const { cleanup } = await tddCommand(
-      null, // No test command - server only
+    // Spawn detached child process to run the server
+    const child = spawn(
+      process.execPath,
+      [
+        process.argv[1], // CLI entry point
+        'tdd',
+        'start',
+        '--daemon-child', // Special flag for child process
+        '--port',
+        port.toString(),
+        ...(options.open ? ['--open'] : []),
+        ...(globalOptions.json ? ['--json'] : []),
+        ...(globalOptions.verbose ? ['--verbose'] : []),
+        ...(globalOptions.noColor ? ['--no-color'] : []),
+      ],
       {
-        ...options,
-        daemon: true, // Flag to indicate daemon mode
-      },
-      globalOptions
+        detached: true,
+        stdio: 'ignore',
+        cwd: process.cwd(),
+      }
     );
 
-    // The server is now running in this process
-    // Store our PID for the stop command
-    const pidFile = join(vizzlyDir, 'server.pid');
-    writeFileSync(pidFile, process.pid.toString());
+    // Unref so parent can exit
+    child.unref();
 
-    const serverInfo = {
-      pid: process.pid,
-      port: port,
-      startTime: Date.now(),
-    };
-    writeFileSync(
-      join(vizzlyDir, 'server.json'),
-      JSON.stringify(serverInfo, null, 2)
-    );
+    // Wait a moment for server to start
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Verify server started
+    const running = await isServerRunning(port);
+    if (!running) {
+      ui.error('Failed to start TDD server');
+      process.exit(1);
+    }
 
     ui.success(`TDD server started at http://localhost:${port}`);
     ui.info('');
@@ -84,11 +94,48 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     if (options.open) {
       openDashboard(port);
     }
+  } catch (error) {
+    ui.error('Failed to start TDD daemon', error);
+    process.exit(1);
+  }
+}
+
+/**
+ * Internal function to run server in child process
+ * This is called when --daemon-child flag is present
+ * @private
+ */
+export async function runDaemonChild(options = {}, globalOptions = {}) {
+  const vizzlyDir = join(process.cwd(), '.vizzly');
+  const port = options.port || 47392;
+
+  try {
+    // Use existing tddCommand but with daemon mode
+    const { cleanup } = await tddCommand(
+      null, // No test command - server only
+      {
+        ...options,
+        daemon: true,
+      },
+      globalOptions
+    );
+
+    // Store our PID for the stop command
+    const pidFile = join(vizzlyDir, 'server.pid');
+    writeFileSync(pidFile, process.pid.toString());
+
+    const serverInfo = {
+      pid: process.pid,
+      port: port,
+      startTime: Date.now(),
+    };
+    writeFileSync(
+      join(vizzlyDir, 'server.json'),
+      JSON.stringify(serverInfo, null, 2)
+    );
 
     // Set up graceful shutdown
-    const handleShutdown = async signal => {
-      ui.info(`\nReceived ${signal}, shutting down gracefully...`);
-
+    const handleShutdown = async () => {
       try {
         // Clean up PID files
         if (existsSync(pidFile)) unlinkSync(pidFile);
@@ -97,23 +144,20 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
         // Use the cleanup function from tddCommand
         await cleanup();
-
-        ui.success('TDD server stopped');
-      } catch (error) {
-        ui.error('Error during shutdown:', error);
+      } catch {
+        // Silent cleanup in daemon
       }
 
       process.exit(0);
     };
 
     // Register signal handlers
-    process.on('SIGINT', () => handleShutdown('SIGINT'));
-    process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+    process.on('SIGINT', () => handleShutdown());
+    process.on('SIGTERM', () => handleShutdown());
 
     // Keep process alive
     process.stdin.resume();
-  } catch (error) {
-    ui.error('Failed to start TDD daemon', error);
+  } catch {
     process.exit(1);
   }
 }

@@ -4,6 +4,7 @@ import {
   existsSync,
   unlinkSync,
   mkdirSync,
+  openSync,
 } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
@@ -43,6 +44,10 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
     const port = options.port || 47392;
 
+    // Prepare log files for daemon output
+    const logFile = join(vizzlyDir, 'daemon.log');
+    const errorFile = join(vizzlyDir, 'daemon-error.log');
+
     // Spawn detached child process to run the server
     const child = spawn(
       process.execPath,
@@ -54,13 +59,25 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
         '--port',
         port.toString(),
         ...(options.open ? ['--open'] : []),
+        ...(options.baselineBuild
+          ? ['--baseline-build', options.baselineBuild]
+          : []),
+        ...(options.baselineComparison
+          ? ['--baseline-comparison', options.baselineComparison]
+          : []),
+        ...(options.environment ? ['--environment', options.environment] : []),
+        ...(options.threshold !== undefined
+          ? ['--threshold', options.threshold.toString()]
+          : []),
+        ...(options.timeout ? ['--timeout', options.timeout] : []),
+        ...(options.token ? ['--token', options.token] : []),
         ...(globalOptions.json ? ['--json'] : []),
         ...(globalOptions.verbose ? ['--verbose'] : []),
         ...(globalOptions.noColor ? ['--no-color'] : []),
       ],
       {
         detached: true,
-        stdio: 'ignore',
+        stdio: ['ignore', openSync(logFile, 'a'), openSync(errorFile, 'a')],
         cwd: process.cwd(),
       }
     );
@@ -68,13 +85,20 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     // Unref so parent can exit
     child.unref();
 
-    // Wait a moment for server to start
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Verify server started with retries
+    const maxRetries = 10;
+    const retryDelay = 200; // Start with 200ms
+    let running = false;
 
-    // Verify server started
-    const running = await isServerRunning(port);
+    for (let i = 0; i < maxRetries && !running; i++) {
+      await new Promise(resolve => setTimeout(resolve, retryDelay * (i + 1)));
+      running = await isServerRunning(port);
+    }
+
     if (!running) {
-      ui.error('Failed to start TDD server');
+      ui.error(
+        'Failed to start TDD server - server not responding to health checks'
+      );
       process.exit(1);
     }
 
@@ -157,7 +181,18 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
 
     // Keep process alive
     process.stdin.resume();
-  } catch {
+  } catch (error) {
+    // Log error to file for debugging
+    const logFile = join(vizzlyDir, 'daemon-error.log');
+    try {
+      writeFileSync(
+        logFile,
+        `[${new Date().toISOString()}] ${error.stack || error}\n`,
+        { flag: 'a' }
+      );
+    } catch {
+      // Silent failure if we can't write log
+    }
     process.exit(1);
   }
 }

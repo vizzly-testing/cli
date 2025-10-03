@@ -125,10 +125,10 @@ vizzly run "npm test" --parallel-id "ci-run-123"  # For parallel CI builds
 For local visual testing with immediate feedback, use the dedicated `tdd` command:
 
 ```bash
-# Start interactive TDD dashboard
+# Start interactive TDD dashboard (runs in background)
 vizzly tdd start
 
-# Run your tests in watch mode
+# Run your tests in watch mode (same terminal or new one)
 npm test -- --watch
 
 # View the dashboard at http://localhost:47392
@@ -160,7 +160,7 @@ vizzly tdd stop
 - `--threshold <number>` - Comparison threshold (0-1, default: 0.1)
 - `--port <port>` - Server port (default: 47392)
 - `--timeout <ms>` - Server timeout (default: 30000)
-- `--daemon` - Run server in background (start command only)
+- `--open` - Auto-open dashboard in browser (start command only)
 
 ### Setup and Status Commands
 ```bash

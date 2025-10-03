@@ -26,11 +26,11 @@ npx vizzly tdd start
 🐻 **Dashboard starts:**
 - Opens at `http://localhost:47392` (or custom `--port`)
 - Shows empty state ready for comparisons
-- Runs in foreground (use `--daemon` for background)
+- Runs in the background and returns your terminal immediately
 
 ### 2. Run Your Tests in Watch Mode
 
-In a separate terminal, run your tests in watch mode:
+In the same terminal or a new one, run your tests in watch mode:
 
 ```bash
 npm test -- --watch
@@ -204,11 +204,13 @@ open .vizzly/report/index.html  # macOS
 vizzly tdd start [options]
 ```
 
+Starts the dashboard server in the background as a detached process and returns your terminal immediately.
+
 Options:
 - `--port <port>` - Server port (default: 47392)
 - `--threshold <number>` - Comparison threshold (default: 0.1)
 - `--baseline-build <id>` - Use specific build as baseline
-- `--daemon` - Run in background mode
+- `--open` - Auto-open dashboard in browser
 
 **Run Tests (Single-Shot)**
 ```bash
@@ -240,17 +242,17 @@ vizzly tdd "npm test"  # Equivalent to: vizzly tdd run "npm test"
 ### Interactive Development (Recommended)
 
 ```bash
-# Terminal 1: Start dashboard
+# Start dashboard (runs in background)
 npx vizzly tdd start
 
-# Terminal 2: Run tests in watch mode
+# Run tests in watch mode (same terminal or new one)
 npm test -- --watch
 
 # Browser: Open http://localhost:47392
 # See live comparisons as you code
 
 # Accept changes from dashboard UI when ready
-# Or stop when done: npx vizzly tdd stop
+# Stop when done: npx vizzly tdd stop
 ```
 
 ### Single-Shot Testing
@@ -269,10 +271,10 @@ npx vizzly run "npm test" --wait
 ### Feature Development
 
 ```bash
-# Start interactive dashboard
+# Start interactive dashboard (runs in background)
 npx vizzly tdd start
 
-# In another terminal, run tests in watch mode
+# Run tests in watch mode (same terminal or new one)
 npm test -- --watch
 
 # Make changes and see live feedback in browser

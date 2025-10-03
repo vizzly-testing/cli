@@ -31,6 +31,6 @@ Thumbs.db
 
 .vizzly
 tests/client/
-test-site/playwright-report/
-test-site/test-results/
+playwright-report/
+test-results/
 .claude

@@ -6,6 +6,7 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 8000,
     include: ['tests/**/*.spec.js', 'tests/**/*.spec.jsx'],
+    exclude: ['tests/reporter/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json'],

@@ -164,4 +164,56 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     // Cleanup
     await server.stop();
   });
+
+  test('Failed Comparison with Onion Mode on Diff', async ({
+    page,
+    browserName,
+  }) => {
+    let server;
+
+    // Load failed state fixture
+    let fixtureData = JSON.parse(
+      readFileSync(join(__dirname, 'fixtures', 'failed-state.json'), 'utf8')
+    );
+
+    // Start test server with fixture (unique port for this test)
+    server = createReporterTestServer(fixtureData, 3460);
+    await server.start();
+
+    // Navigate to reporter
+    await page.goto('http://localhost:3460/', { waitUntil: 'networkidle' });
+
+    // Click on the failed comparison to open it
+    await page.locator('text=homepage-desktop').click();
+
+    // Wait for comparison viewer to load
+    await expect(page.locator('text=Overlay')).toBeVisible();
+    await expect(page.locator('text=Side by Side')).toBeVisible();
+    await expect(page.locator('text=Onion')).toBeVisible();
+
+    // Click on Onion mode
+    await page.locator('button:has-text("Onion")').click();
+
+    // Verify onion mode is active
+    await expect(page.locator('button:has-text("Onion")').first()).toHaveClass(
+      /bg-amber-500/
+    );
+
+    // Click on Diff tab
+    await page.locator('button:has-text("Diff")').click();
+
+    // Take screenshot of onion mode on diff
+    await vizzlyScreenshot(
+      'reporter-onion-mode-diff',
+      await page.screenshot({ fullPage: true }),
+      {
+        browser: browserName,
+        viewport: page.viewportSize(),
+        marketing: true,
+      }
+    );
+
+    // Cleanup
+    await server.stop();
+  });
 });

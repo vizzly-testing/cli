@@ -10,14 +10,13 @@
   @apply relative cursor-pointer inline-block;
 }
 
-.overlay-mode .current-image,
-.overlay-mode .baseline-image,
-.overlay-mode .diff-image {
-  @apply absolute top-0 left-0 w-full h-full object-contain border border-gray-600 rounded;
-}
-
 .overlay-mode .current-image {
   @apply relative z-10 max-w-full h-auto border border-gray-600 rounded;
+}
+
+.overlay-mode .baseline-image,
+.overlay-mode .diff-image {
+  @apply absolute top-0 left-0 max-w-full h-auto border border-gray-600 rounded;
 }
 
 .overlay-mode .baseline-image {
@@ -54,7 +53,7 @@
 }
 
 .onion-mode .onion-current {
-  @apply absolute top-0 left-0;
+  @apply absolute top-0 left-0 max-w-full h-auto;
   clip-path: inset(0 50% 0 0);
 }
 

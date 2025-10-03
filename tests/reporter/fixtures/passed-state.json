@@ -1,0 +1,45 @@
+{
+  "timestamp": 1696000000000,
+  "comparisons": [
+    {
+      "name": "homepage-desktop-firefox-1920x1080",
+      "originalName": "homepage-desktop",
+      "status": "passed",
+      "baseline": "/images/baselines/homepage-desktop.png",
+      "current": "/images/screenshots/homepage-desktop.png",
+      "diff": null,
+      "threshold": 0.1,
+      "properties": {
+        "browser": "firefox",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "timestamp": 1696000001000
+    },
+    {
+      "name": "homepage-mobile-firefox-375x812",
+      "originalName": "homepage-mobile",
+      "status": "passed",
+      "baseline": "/images/baselines/homepage-mobile.png",
+      "current": "/images/screenshots/homepage-mobile.png",
+      "diff": null,
+      "threshold": 0.1,
+      "properties": {
+        "browser": "firefox",
+        "viewport": {
+          "width": 375,
+          "height": 812
+        }
+      },
+      "timestamp": 1696000002000
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "errors": 0
+  }
+}

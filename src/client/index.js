@@ -124,7 +124,6 @@ function createSimpleClient(serverUrl) {
             image: imageBuffer.toString('base64'),
             properties: options,
             threshold: options.threshold || 0,
-            variant: options.variant,
             fullPage: options.fullPage || false,
           }),
         });
@@ -225,7 +224,6 @@ function createSimpleClient(serverUrl) {
  * @param {Object} [options] - Optional configuration
  * @param {Record<string, any>} [options.properties] - Additional properties to attach to the screenshot
  * @param {number} [options.threshold=0] - Pixel difference threshold (0-100)
- * @param {string} [options.variant] - Variant name for organizing screenshots
  * @param {boolean} [options.fullPage=false] - Whether this is a full page screenshot
  *
  * @returns {Promise<void>}

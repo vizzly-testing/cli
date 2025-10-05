@@ -146,14 +146,52 @@ jobs:
         VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
         VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
+  test-ruby-client:
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      matrix:
+        ruby-version: ['3.0', '3.1', '3.2', '3.3']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby ${{ matrix.ruby-version }}
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby-version }}
+
+    - name: Use Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'npm'
+
+    - name: Install CLI dependencies
+      run: npm ci
+
+    - name: Build CLI
+      run: npm run build
+
+    - name: Run Ruby unit tests
+      working-directory: ./clients/ruby
+      run: ruby test/vizzly_test.rb
+
+    - name: Run Ruby integration tests
+      working-directory: ./clients/ruby
+      run: VIZZLY_INTEGRATION=1 ruby test/integration_test.rb
+      env:
+        CI: true
+
   ci-check:
     runs-on: ubuntu-latest
-    needs: [lint, test, test-site, test-reporter]
+    needs: [lint, test, test-site, test-reporter, test-ruby-client]
     if: always()
     steps:
       - name: Check if all jobs passed
         run: |
-          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.test-site.result }}" == "failure" || "${{ needs.test-reporter.result }}" == "failure" ]]; then
+          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.test-site.result }}" == "failure" || "${{ needs.test-reporter.result }}" == "failure" || "${{ needs.test-ruby-client.result }}" == "failure" ]]; then
             echo "One or more jobs failed"
             exit 1
           fi

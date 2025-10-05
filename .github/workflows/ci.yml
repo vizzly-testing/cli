@@ -174,13 +174,23 @@ jobs:
     - name: Build CLI
       run: npm run build
 
+    - name: Install Ruby dependencies
+      working-directory: ./clients/ruby
+      run: |
+        gem install bundler
+        bundle install
+
+    - name: Run RuboCop
+      working-directory: ./clients/ruby
+      run: bundle exec rubocop
+
     - name: Run Ruby unit tests
       working-directory: ./clients/ruby
-      run: ruby test/vizzly_test.rb
+      run: ruby -I lib test/vizzly_test.rb
 
     - name: Run Ruby integration tests
       working-directory: ./clients/ruby
-      run: VIZZLY_INTEGRATION=1 ruby test/integration_test.rb
+      run: VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb
       env:
         CI: true
 

@@ -3,7 +3,6 @@
 require 'net/http'
 require 'json'
 require 'base64'
-require 'fileutils'
 
 # Vizzly visual regression testing client
 module Vizzly
@@ -53,7 +52,7 @@ module Vizzly
       payload = {
         name: name,
         image: image_base64,
-        buildId: ENV['VIZZLY_BUILD_ID'],
+        buildId: ENV.fetch('VIZZLY_BUILD_ID', nil),
         threshold: options[:threshold] || 0,
         fullPage: options[:full_page] || false,
         properties: options[:properties] || {}
@@ -70,8 +69,12 @@ module Vizzly
       begin
         response = http.request(request)
 
-        unless response.code == '200'
-          error_data = JSON.parse(response.body) rescue {}
+        unless response.is_a?(Net::HTTPSuccess)
+          error_data = begin
+            JSON.parse(response.body)
+          rescue JSON::ParserError, StandardError
+            {}
+          end
 
           # In TDD mode with visual differences, log but don't raise
           if response.code == '422' && error_data['tddMode'] && error_data['comparison']
@@ -79,7 +82,11 @@ module Vizzly
             diff_percent = comp['diffPercentage']&.round(2) || 0.0
 
             # Extract port from server_url
-            port = @server_url.match(/:(\d+)/)[1] rescue '47392'
+            port = begin
+              @server_url.match(/:(\d+)/)[1]
+            rescue StandardError
+              '47392'
+            end
             dashboard_url = "http://localhost:#{port}/dashboard"
 
             warn "⚠️  Visual diff: #{comp['name']} (#{diff_percent}%) → #{dashboard_url}"
@@ -92,7 +99,8 @@ module Vizzly
             }
           end
 
-          raise Error, "Screenshot failed: #{response.code} #{response.message} - #{error_data['error'] || 'Unknown error'}"
+          raise Error,
+                "Screenshot failed: #{response.code} #{response.message} - #{error_data['error'] || 'Unknown error'}"
         end
 
         JSON.parse(response.body)
@@ -142,7 +150,9 @@ module Vizzly
     # @param reason [String] Optional reason for disabling
     def disable!(reason = 'disabled')
       @disabled = true
-      warn "Vizzly SDK disabled due to #{reason}. Screenshots will be skipped for the remainder of this session." unless reason == 'disabled'
+      return if reason == 'disabled'
+
+      warn "Vizzly SDK disabled due to #{reason}. Screenshots will be skipped for the remainder of this session."
     end
 
     # Check if screenshot capture is disabled
@@ -160,7 +170,7 @@ module Vizzly
         enabled: !disabled?,
         server_url: @server_url,
         ready: ready?,
-        build_id: ENV['VIZZLY_BUILD_ID'],
+        build_id: ENV.fetch('VIZZLY_BUILD_ID', nil),
         disabled: disabled?
       }
     end
@@ -169,6 +179,7 @@ module Vizzly
 
     def warn_once(message)
       return if @warned
+
       warn message
       @warned = true
     end
@@ -194,8 +205,8 @@ module Vizzly
           begin
             server_info = JSON.parse(File.read(server_json_path))
             return "http://localhost:#{server_info['port']}" if server_info['port']
-          rescue StandardError
-            # Invalid JSON, continue searching
+          rescue JSON::ParserError, Errno::ENOENT
+            # Invalid JSON or file disappeared, continue searching
           end
         end
 

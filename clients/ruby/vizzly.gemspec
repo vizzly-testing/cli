@@ -7,7 +7,8 @@ Gem::Specification.new do |spec|
   spec.email = ['support@vizzly.dev']
 
   spec.summary = 'Vizzly visual regression testing client for Ruby'
-  spec.description = 'A lightweight client SDK for capturing screenshots and sending them to Vizzly for visual regression testing'
+  spec.description = 'A lightweight client SDK for capturing screenshots and sending them to Vizzly for visual ' \
+                     'regression testing'
   spec.homepage = 'https://github.com/vizzly-testing/vizzly-cli'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.0.0'
@@ -15,6 +16,7 @@ Gem::Specification.new do |spec|
   spec.metadata['homepage_uri'] = spec.homepage
   spec.metadata['source_code_uri'] = 'https://github.com/vizzly-testing/vizzly-cli'
   spec.metadata['changelog_uri'] = 'https://github.com/vizzly-testing/vizzly-cli/blob/main/clients/ruby/CHANGELOG.md'
+  spec.metadata['rubygems_mfa_required'] = 'true'
 
   spec.files = Dir['lib/**/*', 'README.md', 'LICENSE']
   spec.require_paths = ['lib']

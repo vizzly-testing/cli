@@ -22,7 +22,7 @@ class VizzlyTest < Minitest::Test
   def test_auto_discovery
     # Create .vizzly/server.json
     FileUtils.mkdir_p('.vizzly')
-    File.write('.vizzly/server.json', JSON.generate({ port: 47392 }))
+    File.write('.vizzly/server.json', JSON.generate({ port: 47_392 }))
 
     client = Vizzly::Client.new
     assert_equal 'http://localhost:47392', client.server_url
@@ -31,7 +31,7 @@ class VizzlyTest < Minitest::Test
   def test_auto_discovery_in_parent_directory
     # Create .vizzly/server.json in temp dir
     FileUtils.mkdir_p('.vizzly')
-    File.write('.vizzly/server.json', JSON.generate({ port: 47392 }))
+    File.write('.vizzly/server.json', JSON.generate({ port: 47_392 }))
 
     # Create subdirectory and change to it
     FileUtils.mkdir_p('subdir')
@@ -43,7 +43,7 @@ class VizzlyTest < Minitest::Test
 
   def test_environment_variable_takes_precedence
     FileUtils.mkdir_p('.vizzly')
-    File.write('.vizzly/server.json', JSON.generate({ port: 47392 }))
+    File.write('.vizzly/server.json', JSON.generate({ port: 47_392 }))
 
     ENV['VIZZLY_SERVER_URL'] = 'http://localhost:9999'
 
@@ -55,7 +55,7 @@ class VizzlyTest < Minitest::Test
 
   def test_ready_when_server_url_available
     FileUtils.mkdir_p('.vizzly')
-    File.write('.vizzly/server.json', JSON.generate({ port: 47392 }))
+    File.write('.vizzly/server.json', JSON.generate({ port: 47_392 }))
 
     client = Vizzly::Client.new
     assert client.ready?

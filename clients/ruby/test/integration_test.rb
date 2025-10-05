@@ -37,8 +37,7 @@ class IntegrationTest < Minitest::Test
 
     # Take a screenshot
     result = Vizzly.screenshot('test-screenshot', image_data,
-      properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } }
-    )
+                               properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } })
 
     assert result
     assert_equal true, result['success']
@@ -74,14 +73,16 @@ class IntegrationTest < Minitest::Test
 
   def start_server
     # Start vizzly tdd in background
-    @server_output, @server_err = '', ''
+    @server_output = ''
+    @server_err = ''
 
-    stdin, stdout, stderr, wait_thread = Open3.popen3("#{@vizzly_cli} tdd start --daemon")
+    _, _, _, wait_thread = Open3.popen3("#{@vizzly_cli} tdd start --daemon")
     @server_pid = wait_thread.pid
 
     # Wait for server to be ready
     30.times do
       break if File.exist?('.vizzly/server.json')
+
       sleep 0.1
     end
 
@@ -99,14 +100,14 @@ class IntegrationTest < Minitest::Test
   def create_test_png
     [
       137, 80, 78, 71, 13, 10, 26, 10, # PNG signature
-      0, 0, 0, 13, 73, 72, 68, 82,    # IHDR chunk
-      0, 0, 0, 1, 0, 0, 0, 1,          # 1x1 dimensions
+      0, 0, 0, 13, 73, 72, 68, 82, # IHDR chunk
+      0, 0, 0, 1, 0, 0, 0, 1, # 1x1 dimensions
       8, 2, 0, 0, 0, 144, 119, 83, 222, # bit depth, color type, etc
-      0, 0, 0, 12, 73, 68, 65, 84,    # IDAT chunk
+      0, 0, 0, 12, 73, 68, 65, 84, # IDAT chunk
       8, 215, 99, 248, 207, 192, 0, 0, 3, 1, 1, 0, # compressed data
-      24, 221, 141, 176,               # CRC
-      0, 0, 0, 0, 73, 69, 78, 68,     # IEND chunk
-      174, 66, 96, 130                 # CRC
+      24, 221, 141, 176, # CRC
+      0, 0, 0, 0, 73, 69, 78, 68, # IEND chunk
+      174, 66, 96, 130 # CRC
     ].pack('C*')
   end
 end

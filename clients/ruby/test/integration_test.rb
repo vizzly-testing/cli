@@ -72,12 +72,10 @@ class IntegrationTest < Minitest::Test
   end
 
   def start_server
-    # Start vizzly tdd in background
-    @server_output = ''
-    @server_err = ''
+    # Start vizzly tdd in background (it daemonizes itself)
+    success = system("#{@vizzly_cli} tdd start > /dev/null 2>&1")
 
-    _, _, _, wait_thread = Open3.popen3("#{@vizzly_cli} tdd start --daemon")
-    @server_pid = wait_thread.pid
+    raise 'Failed to execute vizzly tdd start' unless success
 
     # Wait for server to be ready
     30.times do
@@ -86,7 +84,14 @@ class IntegrationTest < Minitest::Test
       sleep 0.1
     end
 
-    raise 'Server failed to start' unless File.exist?('.vizzly/server.json')
+    unless File.exist?('.vizzly/server.json')
+      # Try to read error log if it exists
+      error_log = File.join('.vizzly', 'daemon-error.log')
+      puts "Error log: #{File.read(error_log)}" if File.exist?(error_log)
+      raise 'Server failed to start'
+    end
+
+    @server_pid = true # Flag that server is running
   end
 
   def stop_server

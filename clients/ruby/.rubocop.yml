@@ -77,3 +77,7 @@ Naming/PredicateMethod:
 # Lint
 Lint/ShadowedException:
   Enabled: false
+
+# Port numbers don't need thousands separators
+Style/NumericLiterals:
+  Enabled: false

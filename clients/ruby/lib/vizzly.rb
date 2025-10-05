@@ -8,6 +8,9 @@ require 'base64'
 module Vizzly
   class Error < StandardError; end
 
+  # Default port for local TDD server
+  DEFAULT_TDD_PORT = 47392
+
   class Client
     attr_reader :server_url, :disabled
 
@@ -59,15 +62,14 @@ module Vizzly
       }.compact
 
       uri = URI("#{@server_url}/screenshot")
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.read_timeout = 30
-
-      request = Net::HTTP::Post.new(uri)
-      request['Content-Type'] = 'application/json'
-      request.body = JSON.generate(payload)
 
       begin
-        response = http.request(request)
+        response = Net::HTTP.start(uri.host, uri.port, read_timeout: 30) do |http|
+          request = Net::HTTP::Post.new(uri)
+          request['Content-Type'] = 'application/json'
+          request.body = JSON.generate(payload)
+          http.request(request)
+        end
 
         unless response.is_a?(Net::HTTPSuccess)
           error_data = begin
@@ -85,7 +87,7 @@ module Vizzly
             port = begin
               @server_url.match(/:(\d+)/)[1]
             rescue StandardError
-              '47392'
+              DEFAULT_TDD_PORT.to_s
             end
             dashboard_url = "http://localhost:#{port}/dashboard"
 
@@ -204,7 +206,8 @@ module Vizzly
         if File.exist?(server_json_path)
           begin
             server_info = JSON.parse(File.read(server_json_path))
-            return "http://localhost:#{server_info['port']}" if server_info['port']
+            port = server_info['port'] || DEFAULT_TDD_PORT
+            return "http://localhost:#{port}"
           rescue JSON::ParserError, Errno::ENOENT
             # Invalid JSON or file disappeared, continue searching
           end

@@ -48,6 +48,13 @@ jobs:
         id: new_version
         run: |
           CURRENT="${{ steps.current_version.outputs.version }}"
+
+          # Validate version format (X.Y.Z)
+          if ! [[ "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Invalid version format '$CURRENT'. Expected X.Y.Z"
+            exit 1
+          fi
+
           IFS='.' read -r -a parts <<< "$CURRENT"
 
           case "${{ github.event.inputs.version_type }}" in
@@ -112,17 +119,27 @@ jobs:
       - name: Update CHANGELOG.md
         working-directory: ./clients/ruby
         run: |
-          # Prepend new release to CHANGELOG.md
-          if [ -f CHANGELOG-RELEASE.md ]; then
-            echo -e "# Vizzly Ruby Client Changelog\n" > CHANGELOG-NEW.md
-            echo "## [${{ steps.new_version.outputs.version }}] - $(date +%Y-%m-%d)" >> CHANGELOG-NEW.md
-            echo "" >> CHANGELOG-NEW.md
-            cat CHANGELOG-RELEASE.md >> CHANGELOG-NEW.md
-            echo "" >> CHANGELOG-NEW.md
-            tail -n +2 CHANGELOG.md >> CHANGELOG-NEW.md
-            mv CHANGELOG-NEW.md CHANGELOG.md
-            rm CHANGELOG-RELEASE.md
+          # Check if changelog was generated successfully
+          if [ ! -f CHANGELOG-RELEASE.md ]; then
+            echo "Warning: CHANGELOG-RELEASE.md not found, creating fallback changelog"
+            cat > CHANGELOG-RELEASE.md << 'EOF'
+          ## What's Changed
+
+          Release v${{ steps.new_version.outputs.version }}
+
+          See the full diff for detailed changes.
+          EOF
           fi
+
+          # Prepend new release to CHANGELOG.md
+          echo -e "# Vizzly Ruby Client Changelog\n" > CHANGELOG-NEW.md
+          echo "## [${{ steps.new_version.outputs.version }}] - $(date +%Y-%m-%d)" >> CHANGELOG-NEW.md
+          echo "" >> CHANGELOG-NEW.md
+          cat CHANGELOG-RELEASE.md >> CHANGELOG-NEW.md
+          echo "" >> CHANGELOG-NEW.md
+          tail -n +2 CHANGELOG.md >> CHANGELOG-NEW.md
+          mv CHANGELOG-NEW.md CHANGELOG.md
+          rm CHANGELOG-RELEASE.md
 
       - name: Commit and push changes
         run: |

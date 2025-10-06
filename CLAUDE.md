@@ -19,6 +19,7 @@ thing*. It enables teams to collaborate on visual changes through an intuitive w
 2. **Local TDD Mode** - Fast feedback loop with local comparisons and live dashboard
 3. **Cloud Integration** - Upload screenshots to Vizzly's web platform for team review
 4. **CI/CD Support** - Run tests in parallel, wait for results, handle visual regressions
+5. **Plugin System** - Extensible architecture for adding custom commands and integrations
 
 ## Two Modes of Operation
 
@@ -86,6 +87,18 @@ The interactive dashboard is a React SPA (`src/reporter/`) built with Vite. It s
 2. Static HTML reports with embedded JSON data
 
 Same codebase, different data sources.
+
+**Plugin Architecture:**
+The CLI supports a plugin system (`src/plugin-loader.js`) that enables extensibility while keeping the
+core lean. Plugins are ESM modules that register Commander.js commands and receive access to the
+service container, config, and logger.
+
+- **Auto-discovery**: Plugins under `@vizzly-testing/*` scope are automatically discovered from node_modules
+- **Config-based**: Plugins can be explicitly loaded via `vizzly.config.js`
+- **Security**: Path validation prevents directory traversal, scope restriction limits auto-discovery
+- **Graceful errors**: Plugin failures don't crash the CLI
+- **Timeout protection**: 5-second timeout prevents infinite loops during registration
+- **Deduplication**: Same plugin won't load twice (warns on version conflicts)
 
 ## Key Workflows
 
@@ -184,3 +197,11 @@ The package provides multiple entry points for different use cases:
 
 **Modifying screenshot comparison:**
 Remember to update both local (TDD) and cloud comparison logic to keep behavior consistent.
+
+**Creating a plugin:**
+1. Create ESM module that exports `{ name, version?, register(program, context) }`
+2. Plugin receives `program` (Commander instance), `config`, `logger`, and `services` container
+3. For official plugins: Publish under `@vizzly-testing/*` scope with `vizzly.plugin` field in package.json
+4. For community/local plugins: Add path to `plugins` array in `vizzly.config.js`
+5. Add tests in plugin's own package or in `tests/integration/`
+6. See `docs/plugins.md` and `examples/custom-plugin/` for complete guide

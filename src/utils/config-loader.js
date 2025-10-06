@@ -36,6 +36,9 @@ const DEFAULT_CONFIG = {
   tdd: {
     openReport: false, // Whether to auto-open HTML report in browser
   },
+
+  // Plugins
+  plugins: [],
 };
 
 export async function loadConfig(configPath = null, cliOverrides = {}) {
@@ -47,6 +50,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     upload: { ...DEFAULT_CONFIG.upload },
     comparison: { ...DEFAULT_CONFIG.comparison },
     tdd: { ...DEFAULT_CONFIG.tdd },
+    plugins: [...DEFAULT_CONFIG.plugins],
   };
 
   // 1. Load from config file using cosmiconfig
@@ -54,7 +58,9 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   const result = configPath ? explorer.load(configPath) : explorer.search();
 
   if (result && result.config) {
-    mergeConfig(config, result.config);
+    // Handle ESM default export (cosmiconfig wraps it in { default: {...} })
+    let fileConfig = result.config.default || result.config;
+    mergeConfig(config, fileConfig);
   }
 
   // 2. Override with environment variables

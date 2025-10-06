@@ -7,9 +7,13 @@
 
 ## What is Vizzly?
 
-Vizzly is a visual review platform designed for how modern teams work. Instead of recreating your components in a sandboxed environment, Vizzly captures screenshots directly from your functional tests. This means you test the *real thing*, not a snapshot.
+Vizzly is a visual review platform designed for how modern teams work. Instead of recreating your
+components in a sandboxed environment, Vizzly captures screenshots directly from your functional
+tests. This means you test the *real thing*, not a snapshot.
 
-It's fast because we don't render anything—we process the images you provide from any source. Bring screenshots from web apps, mobile apps, or even design mockups, and use our collaborative dashboard to streamline the review process between developers and designers.
+It's fast because we don't render anything—we process the images you provide from any source. Bring
+screenshots from web apps, mobile apps, or even design mockups, and use our collaborative dashboard
+to streamline the review process between developers and designers.
 
 ## Features
 
@@ -73,7 +77,9 @@ await vizzlyScreenshot('homepage', screenshot, {
 });
 ```
 
-> **Multi-Language Support**: Currently available as a JavaScript/Node.js SDK with Python, Ruby, and other language bindings coming soon. The client SDK is lightweight and simply POSTs screenshot data to the CLI for processing.
+> **Multi-Language Support**: Currently available as a JavaScript/Node.js SDK with Python, Ruby, and
+> other language bindings coming soon. The client SDK is lightweight and simply POSTs screenshot
+> data to the CLI for processing.
 
 ## Commands
 
@@ -174,7 +180,8 @@ vizzly doctor --api                 # Include API connectivity checks
 ```
 
 #### Init Command
-Creates a basic `vizzly.config.js` configuration file with sensible defaults. No interactive prompts - just generates a clean config you can customize.
+Creates a basic `vizzly.config.js` configuration file with sensible defaults. No interactive
+prompts - just generates a clean config you can customize.
 
 ```bash
 vizzly init           # Create config file
@@ -217,7 +224,8 @@ VIZZLY_TOKEN=your-token vizzly doctor --api
 vizzly doctor --json
 ```
 
-The dedicated `tdd` command provides fast local development with immediate visual feedback. See the [TDD Mode Guide](./docs/tdd-mode.md) for complete details on local visual testing.
+The dedicated `tdd` command provides fast local development with immediate visual feedback. See the
+[TDD Mode Guide](./docs/tdd-mode.md) for complete details on local visual testing.
 
 ## Configuration
 
@@ -368,14 +376,71 @@ Send a screenshot to Vizzly.
 ### `isVizzlyEnabled()`
 Check if Vizzly is enabled in the current environment.
 
+## Plugin Ecosystem
+
+Vizzly supports a powerful plugin system that allows you to extend the CLI with custom
+commands. Plugins are automatically discovered from `@vizzly-testing/*` packages or can be
+explicitly configured.
+
+### Official Plugins
+
+- **[@vizzly-testing/storybook](https://npmjs.com/package/@vizzly-testing/storybook)** *(coming
+  soon)* - Capture screenshots from Storybook builds
+
+### Using Plugins
+
+Plugins under the `@vizzly-testing/*` scope are auto-discovered:
+
+```bash
+# Install plugin
+npm install @vizzly-testing/storybook
+
+# Use immediately - commands are automatically available!
+vizzly storybook ./storybook-static
+
+# Plugin commands show in help
+vizzly --help
+```
+
+### Creating Plugins
+
+You can create your own plugins to add custom commands:
+
+```javascript
+// plugin.js
+export default {
+  name: 'my-plugin',
+  version: '1.0.0',
+  register(program, { config, logger, services }) {
+    program
+      .command('my-command')
+      .description('My custom command')
+      .action(async () => {
+        logger.info('Running my command!');
+      });
+  }
+};
+```
+
+Add to your `vizzly.config.js`:
+
+```javascript
+export default {
+  plugins: ['./plugin.js']
+};
+```
+
+See the [Plugin Development Guide](./docs/plugins.md) for complete documentation and examples.
+
 ## Documentation
 
 - [Getting Started](./docs/getting-started.md)
 - [Upload Command Guide](./docs/upload-command.md)
 - [Test Integration Guide](./docs/test-integration.md)
 - [TDD Mode Guide](./docs/tdd-mode.md)
- - [API Reference](./docs/api-reference.md)
- - [Doctor Command](./docs/doctor-command.md)
+- [Plugin Development](./docs/plugins.md)
+- [API Reference](./docs/api-reference.md)
+- [Doctor Command](./docs/doctor-command.md)
 
 ## Environment Variables
 
@@ -408,7 +473,8 @@ These variables take highest priority over both CLI arguments and automatic git 
 
 ## Contributing
 
-We welcome contributions! Whether you're fixing bugs, adding features, or improving documentation, your help makes Vizzly better for everyone.
+We welcome contributions! Whether you're fixing bugs, adding features, or improving documentation,
+your help makes Vizzly better for everyone.
 
 ### Getting Started
 
@@ -437,7 +503,8 @@ Found a bug or have a feature request? Please [open an issue](https://github.com
 
 ### Development Setup
 
-The CLI is built with modern JavaScript and requires Node.js 20+ (LTS). See the development scripts in `package.json` for available commands.
+The CLI is built with modern JavaScript and requires Node.js 20+ (LTS). See the development scripts
+in `package.json` for available commands.
 
 ## License
 

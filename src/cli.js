@@ -18,6 +18,10 @@ import {
 } from './commands/finalize.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import { getPackageVersion } from './utils/package-info.js';
+import { loadPlugins } from './plugin-loader.js';
+import { loadConfig } from './utils/config-loader.js';
+import { createComponentLogger } from './utils/logger-factory.js';
+import { createServiceContainer } from './container/index.js';
 
 program
   .name('vizzly')
@@ -28,6 +32,44 @@ program
   .option('-v, --verbose', 'Verbose output')
   .option('--json', 'Machine-readable output')
   .option('--no-color', 'Disable colored output');
+
+// Load plugins before defining commands
+// We need to manually parse to get the config option early
+let configPath = null;
+let verboseMode = false;
+for (let i = 0; i < process.argv.length; i++) {
+  if (
+    (process.argv[i] === '-c' || process.argv[i] === '--config') &&
+    process.argv[i + 1]
+  ) {
+    configPath = process.argv[i + 1];
+  }
+  if (process.argv[i] === '-v' || process.argv[i] === '--verbose') {
+    verboseMode = true;
+  }
+}
+
+let config = await loadConfig(configPath, {});
+let logger = createComponentLogger('CLI', {
+  level: config.logLevel || (verboseMode ? 'debug' : 'warn'),
+  verbose: verboseMode || false,
+});
+let container = await createServiceContainer(config);
+
+try {
+  let plugins = await loadPlugins(configPath, config, logger);
+
+  for (let plugin of plugins) {
+    try {
+      await plugin.register(program, { config, logger, services: container });
+      logger.debug(`Registered plugin: ${plugin.name}`);
+    } catch (error) {
+      logger.warn(`Failed to register plugin ${plugin.name}: ${error.message}`);
+    }
+  }
+} catch (error) {
+  logger.debug(`Plugin loading failed: ${error.message}`);
+}
 
 program
   .command('init')

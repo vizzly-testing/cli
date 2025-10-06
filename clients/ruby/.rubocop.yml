@@ -1,0 +1,83 @@
+AllCops:
+  TargetRubyVersion: 3.0
+  NewCops: enable
+  Exclude:
+    - 'vendor/**/*'
+    - 'tmp/**/*'
+    - '.vizzly/**/*'
+
+# Prefer double quotes for consistency with JS/JSON
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+
+# Allow longer lines for readability
+Layout/LineLength:
+  Max: 120
+
+# Don't require documentation for every class/module
+Style/Documentation:
+  Enabled: false
+
+# Allow compact class definitions
+Style/ClassAndModuleChildren:
+  Enabled: false
+
+# Allow both hash styles
+Style/HashSyntax:
+  EnforcedStyle: ruby19
+
+# Prefer compact module/class definitions
+Style/NestedParenthesizedCalls:
+  Enabled: false
+
+# Allow non-ASCII characters in comments (for emoji)
+Style/AsciiComments:
+  Enabled: false
+
+# Allow compact method definitions
+Style/EmptyMethod:
+  EnforcedStyle: compact
+
+# Metrics
+Metrics/ClassLength:
+  Max: 150
+
+Metrics/MethodLength:
+  Max: 70
+  Exclude:
+    - 'test/**/*'
+
+Metrics/AbcSize:
+  Max: 70
+  Exclude:
+    - 'test/**/*'
+
+Metrics/BlockLength:
+  Exclude:
+    - 'test/**/*'
+    - '*.gemspec'
+
+Metrics/CyclomaticComplexity:
+  Max: 25
+
+Metrics/PerceivedComplexity:
+  Max: 25
+
+# Allow rescue without specific exception in some cases
+Lint/RescueException:
+  Enabled: true
+
+# Naming
+Naming/MethodParameterName:
+  MinNameLength: 1
+
+Naming/PredicateMethod:
+  Enabled: false
+
+# Lint
+Lint/ShadowedException:
+  Enabled: false
+
+# Port numbers don't need thousands separators
+Style/NumericLiterals:
+  Enabled: false

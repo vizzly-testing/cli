@@ -3,6 +3,11 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this
 repository.
 
+## Critical: Repository Information
+
+**NEVER use `vizzly-co` as the GitHub organization. It is ALWAYS `vizzly-testing`.**
+**The product URL is `vizzly.dev` (NOT vizzly.com or any other domain).**
+
 ## What is Vizzly?
 
 Vizzly is a visual review platform for UI developers and designers. Unlike tools that render

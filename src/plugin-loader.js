@@ -48,7 +48,11 @@ export async function loadPlugins(configPath, config, logger) {
             `Loaded plugin from config: ${plugin.name}@${plugin.version || 'unknown'}`
           );
         } else if (plugin && loadedNames.has(plugin.name)) {
-          logger.debug(`Skipping duplicate plugin: ${plugin.name}`);
+          let existingPlugin = plugins.find(p => p.name === plugin.name);
+          logger.warn(
+            `Plugin ${plugin.name} already loaded (v${existingPlugin.version || 'unknown'}), ` +
+              `skipping v${plugin.version || 'unknown'} from config`
+          );
         }
       } catch (error) {
         logger.warn(
@@ -102,13 +106,21 @@ async function discoverInstalledPlugins(logger) {
           let packageDir = dirname(pkgPath);
           let pluginPath = resolve(packageDir, pluginRelativePath);
 
+          // Additional security: Ensure resolved path is still within package directory
+          if (!pluginPath.startsWith(packageDir)) {
+            logger.warn(
+              `Plugin path escapes package directory: ${packageJson.name}`
+            );
+            continue;
+          }
+
           plugins.push({
             packageName: packageJson.name,
             path: pluginPath,
           });
         }
       } catch (error) {
-        logger.debug(
+        logger.warn(
           `Failed to parse package.json at ${pkgPath}: ${error.message}`
         );
       }
@@ -141,9 +153,11 @@ async function loadPlugin(pluginPath) {
 
     return plugin;
   } catch (error) {
-    throw new Error(
+    let newError = new Error(
       `Failed to load plugin from ${pluginPath}: ${error.message}`
     );
+    newError.cause = error;
+    throw newError;
   }
 }
 

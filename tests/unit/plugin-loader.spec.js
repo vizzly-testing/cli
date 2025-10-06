@@ -255,8 +255,8 @@ describe('Plugin Loader', () => {
 
       // Should only load once
       expect(plugins).toHaveLength(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('Skipping duplicate plugin')
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('already loaded')
       );
     });
   });

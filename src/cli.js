@@ -61,7 +61,20 @@ try {
 
   for (let plugin of plugins) {
     try {
-      await plugin.register(program, { config, logger, services: container });
+      // Add timeout protection for plugin registration (5 seconds)
+      let registerPromise = plugin.register(program, {
+        config,
+        logger,
+        services: container,
+      });
+      let timeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error('Plugin registration timeout (5s)')),
+          5000
+        )
+      );
+
+      await Promise.race([registerPromise, timeoutPromise]);
       logger.debug(`Registered plugin: ${plugin.name}`);
     } catch (error) {
       logger.warn(`Failed to register plugin ${plugin.name}: ${error.message}`);

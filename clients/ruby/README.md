@@ -111,7 +111,7 @@ ruby test/vizzly_test.rb
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/vizzly-testing/vizzly-cli.
+Bug reports and pull requests are welcome on GitHub at https://github.com/vizzly-testing/cli.
 
 ## License
 

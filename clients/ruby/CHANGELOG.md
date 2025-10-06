@@ -26,5 +26,5 @@ This changelog is automatically generated when releasing new versions.
 - Graceful error handling and auto-disable on failure
 - TDD mode visual diff warnings with dashboard links
 
-[Unreleased]: https://github.com/vizzly-testing/vizzly-cli/compare/ruby/v0.1.0...HEAD
-[0.1.0]: https://github.com/vizzly-testing/vizzly-cli/releases/tag/ruby/v0.1.0
+[Unreleased]: https://github.com/vizzly-testing/cli/compare/ruby/v0.1.0...HEAD
+[0.1.0]: https://github.com/vizzly-testing/cli/releases/tag/ruby/v0.1.0

@@ -1,13 +1,14 @@
 # Vizzly Plugin System
 
 The Vizzly CLI supports a powerful plugin system that allows you to extend its functionality with
-custom commands. This enables packages like `@vizzly-testing/storybook` to ship independently while
-integrating seamlessly with the CLI.
+custom commands. This enables community contributions and specialized integrations while keeping the
+core CLI lean and focused.
 
 ## Overview
 
-Plugins are npm packages that export a simple registration function. The CLI automatically discovers
-plugins from `node_modules/@vizzly-testing/*` or loads them explicitly from your config file.
+Plugins are JavaScript modules that export a simple registration function. The CLI automatically
+discovers plugins from `node_modules/@vizzly-testing/*` or loads them explicitly from your config
+file.
 
 ## Benefits
 
@@ -15,19 +16,57 @@ plugins from `node_modules/@vizzly-testing/*` or loads them explicitly from your
 - **Shared Infrastructure** - Plugins get access to config, logger, and services
 - **Independent Releases** - Plugins can iterate without requiring CLI updates
 - **Smaller Core** - Keep the main CLI lean by moving optional features to plugins
-- **Extensible** - Community can build and share plugins
+- **Community Extensible** - Anyone can build and share plugins
+
+## Using Plugins
+
+### Official Plugins
+
+Official Vizzly plugins are published under the `@vizzly-testing/*` scope and are automatically
+discovered:
+
+```bash
+# Install plugin
+npm install @vizzly-testing/storybook
+
+# Use immediately - no configuration needed!
+vizzly storybook ./storybook-static
+
+# Plugin commands appear in help
+vizzly --help
+```
+
+### Community Plugins
+
+You can use community plugins or your own local plugins by configuring them explicitly:
+
+```javascript
+// vizzly.config.js
+export default {
+  plugins: [
+    './my-custom-plugin.js',        // Local file path
+    'npm-package-name',             // npm package name
+  ],
+};
+```
+
+This is useful for:
+- Local plugin development and testing
+- Private/internal company plugins
+- Community plugins not in the `@vizzly-testing` scope
+- Custom workflow automation
 
 ## Creating a Plugin
 
 ### Basic Plugin Structure
 
-A plugin is a JavaScript module that exports an object with `name`, optional `version`, and a `register` function:
+A plugin is a JavaScript module that exports an object with `name` and a `register` function:
 
 ```javascript
-// plugin.js
+// my-plugin.js
 export default {
   name: 'my-plugin',
-  version: '1.0.0',
+  version: '1.0.0', // Optional but recommended
 
   register(program, { config, logger, services }) {
     // Register your command with Commander.js
@@ -38,7 +77,7 @@ export default {
       .action(async (arg, options) => {
         logger.info(`Running my-command with ${arg}`);
 
-        // Access shared services
+        // Access shared services if needed
         let apiService = await services.get('apiService');
 
         // Your command logic here
@@ -52,28 +91,28 @@ export default {
 #### Required Fields
 
 - **`name`** (string) - Unique identifier for your plugin
-- **`register`** (function) - Called during CLI initialization
+- **`register`** (function) - Called during CLI initialization to register commands
 
 #### Optional Fields
 
-- **`version`** (string) - Plugin version (recommended for debugging)
+- **`version`** (string) - Plugin version (recommended for debugging and compatibility)
 
 #### Register Function Parameters
 
 The `register` function receives two arguments:
 
-1. **`program`** - Commander.js program instance for registering commands
+1. **`program`** - [Commander.js](https://github.com/tj/commander.js) program instance for registering commands
 2. **`context`** - Object containing:
-   - `config` - Merged Vizzly configuration
-   - `logger` - Shared logger instance
-   - `services` - Service container with API client, uploader, etc.
+   - `config` - Merged Vizzly configuration object
+   - `logger` - Shared logger instance with `.debug()`, `.info()`, `.warn()`, `.error()` methods
+   - `services` - Service container with access to internal Vizzly services
 
 ### Available Services
 
 Plugins can access these services from the container:
 
 - **`logger`** - Component logger for consistent output
-- **`apiService`** - Vizzly API client
+- **`apiService`** - Vizzly API client for interacting with the platform
 - **`uploader`** - Screenshot upload service
 - **`buildManager`** - Build lifecycle management
 - **`serverManager`** - Screenshot server management
@@ -85,35 +124,79 @@ Example accessing a service:
 ```javascript
 register(program, { config, logger, services }) {
   program
-    .command('upload-storybook')
-    .action(async () => {
+    .command('upload-screenshots <dir>')
+    .action(async (dir) => {
       let uploader = await services.get('uploader');
       await uploader.uploadScreenshots(screenshots);
     });
 }
 ```
 
-## Publishing a Plugin
+## Local Plugin Development
 
-### 1. Package Structure
+### Setup
+
+1. Create your plugin file:
+
+```bash
+mkdir -p plugins
+touch plugins/my-plugin.js
+```
+
+2. Write your plugin:
+
+```javascript
+// plugins/my-plugin.js
+export default {
+  name: 'my-plugin',
+  version: '1.0.0',
+  register(program, { config, logger }) {
+    program
+      .command('greet <name>')
+      .description('Greet someone')
+      .action((name) => {
+        logger.info(`Hello, ${name}!`);
+      });
+  }
+};
+```
+
+3. Configure Vizzly to load your plugin:
+
+```javascript
+// vizzly.config.js
+export default {
+  plugins: ['./plugins/my-plugin.js'],
+};
+```
+
+4. Test your plugin:
+
+```bash
+vizzly --help          # See your command listed
+vizzly greet World     # Test your command
+```
+
+### Package Structure (For Distribution)
+
+If you want to share your plugin via npm:
 
 ```
-@vizzly-testing/my-plugin/
+my-vizzly-plugin/
 ├── package.json
-├── plugin.js       # Main plugin file
-├── lib/            # Plugin implementation
-└── README.md
+├── plugin.js          # Main plugin file
+├── lib/               # Plugin implementation
+├── README.md
+└── tests/
 ```
 
-### 2. Package.json Configuration
-
-Add a `vizzly.plugin` field pointing to your plugin entry file:
+Add a `vizzly.plugin` field to your `package.json`:
 
 ```json
 {
-  "name": "@vizzly-testing/my-plugin",
+  "name": "vizzly-plugin-custom",
   "version": "1.0.0",
-  "description": "Vizzly plugin for ...",
+  "description": "My custom Vizzly plugin",
   "main": "./lib/index.js",
   "vizzly": {
     "plugin": "./plugin.js"
@@ -125,155 +208,117 @@ Add a `vizzly.plugin` field pointing to your plugin entry file:
 }
 ```
 
-### 3. Publish to npm
-
-Plugins must be published under the `@vizzly-testing` scope to be auto-discovered:
+Users can then install and use your plugin:
 
 ```bash
-npm publish --access public
+npm install vizzly-plugin-custom
 ```
-
-## Using Plugins
-
-### Auto-Discovery (Recommended)
-
-Plugins under `@vizzly-testing/*` are automatically discovered:
-
-```bash
-# Install plugin
-npm install @vizzly-testing/storybook
-
-# Use immediately - no configuration needed!
-vizzly storybook ./storybook-static
-
-# Plugin commands appear in help
-vizzly --help
-```
-
-### Explicit Configuration
-
-You can also explicitly configure plugins in `vizzly.config.js`:
-
-```javascript
-export default {
-  plugins: [
-    '@vizzly-testing/my-plugin',  // Package name
-    './custom-plugin.js',          // Local file path
-  ],
-};
-```
-
-This is useful for:
-- Local plugin development
-- Private/unpublished plugins
-- Third-party plugins not under the `@vizzly-testing` scope
-- Controlling plugin load order (though rarely needed)
-
-## Plugin Development
-
-### Local Development Setup
-
-1. Create your plugin directory:
-
-```bash
-mkdir my-plugin
-cd my-plugin
-npm init
-```
-
-2. Create `plugin.js`:
-
-```javascript
-export default {
-  name: 'my-plugin',
-  version: '1.0.0',
-  register(program, { config, logger, services }) {
-    program
-      .command('my-command')
-      .description('My custom command')
-      .action(async () => {
-        logger.info('Hello from my plugin!');
-      });
-  }
-};
-```
-
-3. Test locally by adding to config:
 
 ```javascript
 // vizzly.config.js
 export default {
-  plugins: ['./my-plugin/plugin.js'],
+  plugins: ['vizzly-plugin-custom'],
 };
 ```
 
-4. Run `vizzly --help` to see your command
+## Best Practices
 
-### Best Practices
+### Error Handling
 
-#### Error Handling
-
-Always handle errors gracefully:
+Always handle errors gracefully and provide helpful error messages:
 
 ```javascript
-register(program, { config, logger }) {
+register(program, { logger }) {
   program
-    .command('my-command')
-    .action(async () => {
+    .command('process <file>')
+    .action(async (file) => {
       try {
-        // Your logic
+        if (!existsSync(file)) {
+          logger.error(`File not found: ${file}`);
+          process.exit(1);
+        }
+        // Process file...
       } catch (error) {
-        logger.error(`Command failed: ${error.message}`);
+        logger.error(`Failed to process file: ${error.message}`);
         process.exit(1);
       }
     });
 }
 ```
 
-#### Logging
+### Logging
 
-Use the provided logger for consistent output:
+Use the provided logger for consistent output across all CLI commands:
 
 ```javascript
-logger.debug('Detailed debug info');
-logger.info('Normal information');
-logger.warn('Warning message');
-logger.error('Error message');
+logger.debug('Detailed debug info');   // Only shown with --verbose
+logger.info('Normal information');     // Standard output
+logger.warn('Warning message');        // Warning output
+logger.error('Error message');         // Error output
 ```
 
-#### Async Operations
+### Async Operations
 
 Use async/await for asynchronous operations:
 
 ```javascript
 .action(async (options) => {
   let service = await services.get('apiService');
-  await service.doSomething();
+  let result = await service.doSomething();
+  logger.info(`Result: ${result}`);
 });
 ```
 
-#### Command Naming
+### Command Naming
 
 Choose clear, descriptive command names that don't conflict with core commands:
 
-- ✅ `vizzly storybook`
-- ✅ `vizzly import-chromatic`
-- ❌ `vizzly run` (conflicts with core)
-- ❌ `vizzly upload` (conflicts with core)
+✅ **Good command names:**
+- `vizzly storybook`
+- `vizzly import-chromatic`
+- `vizzly generate-report`
 
-#### Validation
+❌ **Avoid these (conflicts with core):**
+- `vizzly run`
+- `vizzly upload`
+- `vizzly init`
+- `vizzly tdd`
+
+### Input Validation
 
 Validate user input and provide helpful error messages:
 
 ```javascript
 .action(async (path, options) => {
+  if (!path) {
+    logger.error('Path is required');
+    process.exit(1);
+  }
+
   if (!existsSync(path)) {
     logger.error(`Path not found: ${path}`);
+    logger.info('Please provide a valid path to your build directory');
     process.exit(1);
   }
 
   // Continue with logic
 });
+```
+
+### Lazy Loading
+
+Import heavy dependencies only when needed to keep CLI startup fast:
+
+```javascript
+register(program, { logger }) {
+  program
+    .command('process-images <dir>')
+    .action(async (dir) => {
+      // Only import when command runs
+      let { processImages } = await import('./heavy-dependency.js');
+      await processImages(dir);
+    });
+}
 ```
 
 ## Examples
@@ -288,14 +333,19 @@ export default {
     program
       .command('hello <name>')
       .description('Say hello')
-      .action((name) => {
-        logger.info(`Hello, ${name}!`);
+      .option('-l, --loud', 'Say it loudly')
+      .action((name, options) => {
+        let greeting = `Hello, ${name}!`;
+        if (options.loud) {
+          greeting = greeting.toUpperCase();
+        }
+        logger.info(greeting);
       });
   }
 };
 ```
 
-### Screenshot Upload Plugin
+### Screenshot Capture Plugin
 
 ```javascript
 export default {
@@ -304,25 +354,55 @@ export default {
   register(program, { config, logger, services }) {
     program
       .command('storybook <path>')
-      .description('Capture Storybook screenshots')
-      .option('--viewports <list>', 'Comma-separated viewports')
+      .description('Capture screenshots from Storybook build')
+      .option('--viewports <list>', 'Comma-separated viewports', '1280x720')
       .action(async (path, options) => {
         logger.info(`Crawling Storybook at ${path}`);
 
-        // Import heavy dependencies only when needed
+        // Import dependencies lazily
         let { crawlStorybook } = await import('./crawler.js');
 
         // Capture screenshots
         let screenshots = await crawlStorybook(path, {
-          viewports: options.viewports?.split(',') || ['1280x720'],
+          viewports: options.viewports.split(','),
           logger,
         });
 
-        // Use uploader service
+        logger.info(`Captured ${screenshots.length} screenshots`);
+
+        // Upload using Vizzly's uploader service
         let uploader = await services.get('uploader');
         await uploader.uploadScreenshots(screenshots);
 
-        logger.info(`Uploaded ${screenshots.length} screenshots`);
+        logger.info('Upload complete!');
+      });
+  }
+};
+```
+
+### Multi-Command Plugin
+
+```javascript
+export default {
+  name: 'reports',
+  version: '1.0.0',
+  register(program, { logger }) {
+    let reports = program
+      .command('reports')
+      .description('Report generation commands');
+
+    reports
+      .command('generate')
+      .description('Generate a new report')
+      .action(() => {
+        logger.info('Generating report...');
+      });
+
+    reports
+      .command('list')
+      .description('List all reports')
+      .action(() => {
+        logger.info('Listing reports...');
       });
   }
 };
@@ -330,47 +410,87 @@ export default {
 
 ## Troubleshooting
 
-### Plugin Not Discovered
+### Plugin Not Loading
 
-Check that:
-1. Package is under `@vizzly-testing/*` scope
-2. `package.json` has `vizzly.plugin` field
-3. Plugin path in `vizzly.plugin` exists and is relative
-4. Plugin exports valid structure
-
-Run with `--verbose` to see plugin loading debug logs:
+**Check plugin configuration:**
 
 ```bash
 vizzly --verbose --help
 ```
 
-### Plugin Registration Fails
+This will show debug output about plugin loading.
 
-Check browser/terminal for error messages. Common issues:
-- Missing `name` or `register` function
-- Syntax errors in plugin code
-- Missing dependencies
+**Common issues:**
+- File path is incorrect (should be relative to `vizzly.config.js`)
+- Plugin file has syntax errors
+- Missing `export default` statement
 
 ### Plugin Command Not Showing
 
-Ensure:
-- Command was registered with `program.command()`
-- Plugin loaded successfully (check `--verbose` output)
-- No command name conflicts with core commands
+**Verify plugin loaded successfully:**
 
-## Plugin Ecosystem
+```bash
+vizzly --verbose --help 2>&1 | grep -i plugin
+```
 
-### Official Plugins
+**Common issues:**
+- Missing `name` or `register` function
+- Command name conflicts with existing commands
+- Plugin threw an error during registration
 
-- **[@vizzly-testing/storybook](https://npmjs.com/package/@vizzly-testing/storybook)** - Storybook
-  screenshot capture
+### Type Errors in Editor
 
-### Community Plugins
+If you're using TypeScript or want better IDE support, you can add JSDoc types:
 
-Want to share your plugin? Open a PR to add it to this list!
+```javascript
+/**
+ * @param {import('commander').Command} program
+ * @param {Object} context
+ * @param {Object} context.config
+ * @param {Object} context.logger
+ * @param {Object} context.services
+ */
+function register(program, { config, logger, services }) {
+  // Your plugin code with full autocomplete!
+}
+
+export default {
+  name: 'my-plugin',
+  register,
+};
+```
+
+## Contributing a Plugin
+
+### Share Your Plugin
+
+Built a useful plugin? We'd love to feature it! Here's how to share:
+
+1. **Publish to npm** (optional but recommended for reusability)
+2. **Add documentation** - Include a clear README with usage examples
+3. **Open an issue** on the [Vizzly CLI repository](https://github.com/vizzly-testing/cli/issues) with:
+   - Plugin name and description
+   - Link to repository or npm package
+   - Usage example
+   - Screenshots/demo if applicable
+
+### Plugin Ideas
+
+Here are some plugin ideas the community might find useful:
+
+- **Playwright integration** - Automated screenshot capture from Playwright tests
+- **Cypress integration** - Screenshot capture from Cypress tests
+- **Percy migration** - Import screenshots from Percy
+- **Chromatic migration** - Import screenshots from Chromatic
+- **Figma comparison** - Compare designs with Figma files
+- **Image optimization** - Compress screenshots before upload
+- **Custom reporters** - Generate custom HTML/PDF reports
+- **CI/CD integrations** - Specialized workflows for different CI platforms
 
 ## Support
 
-- [GitHub Issues](https://github.com/vizzly-testing/cli/issues)
-- [Documentation](https://docs.vizzly.dev/)
-- [Discord Community](https://discord.gg/vizzly)
+Need help building a plugin?
+
+- 📖 [View example plugin source](https://github.com/vizzly-testing/cli/tree/main/examples/custom-plugin)
+- 🐛 [Report issues](https://github.com/vizzly-testing/cli/issues)
+- 📧 [Email support](https://vizzly.dev/support/)

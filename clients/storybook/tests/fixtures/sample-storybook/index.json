@@ -1,0 +1,49 @@
+{
+  "v": 7,
+  "entries": {
+    "button--primary": {
+      "id": "button--primary",
+      "title": "Button",
+      "name": "Primary",
+      "type": "story",
+      "tags": ["component"],
+      "importPath": "./src/Button.stories.js"
+    },
+    "button--secondary": {
+      "id": "button--secondary",
+      "title": "Button",
+      "name": "Secondary",
+      "type": "story",
+      "tags": ["component"],
+      "importPath": "./src/Button.stories.js"
+    },
+    "card--default": {
+      "id": "card--default",
+      "title": "Card",
+      "name": "Default",
+      "type": "story",
+      "tags": ["component"],
+      "importPath": "./src/Card.stories.js",
+      "parameters": {
+        "vizzly": {
+          "viewports": [
+            { "name": "mobile", "width": 375, "height": 667 }
+          ]
+        }
+      }
+    },
+    "card--with-image": {
+      "id": "card--with-image",
+      "title": "Card",
+      "name": "WithImage",
+      "type": "story",
+      "tags": ["component"],
+      "importPath": "./src/Card.stories.js",
+      "parameters": {
+        "vizzly": {
+          "skip": true
+        }
+      }
+    }
+  }
+}

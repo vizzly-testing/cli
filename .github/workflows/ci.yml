@@ -146,9 +146,25 @@ jobs:
         VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
         VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
+  changes-ruby:
+    runs-on: ubuntu-latest
+    outputs:
+      ruby: ${{ steps.filter.outputs.ruby }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ruby:
+              - 'clients/ruby/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release-ruby-client.yml'
+
   test-ruby-client:
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, changes-ruby]
+    if: needs.changes-ruby.outputs.ruby == 'true'
 
     strategy:
       matrix:
@@ -194,15 +210,84 @@ jobs:
       env:
         CI: true
 
+  changes-storybook:
+    runs-on: ubuntu-latest
+    outputs:
+      storybook: ${{ steps.filter.outputs.storybook }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            storybook:
+              - 'clients/storybook/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release-storybook-client.yml'
+
+  test-storybook-client:
+    runs-on: ubuntu-latest
+    needs: [lint, changes-storybook]
+    if: needs.changes-storybook.outputs.storybook == 'true'
+
+    strategy:
+      matrix:
+        node-version: [20, 22, 24]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install CLI dependencies
+      run: npm ci
+
+    - name: Build CLI
+      run: npm run build
+
+    - name: Install Storybook client dependencies
+      working-directory: ./clients/storybook
+      run: npm install
+
+    - name: Run linter
+      working-directory: ./clients/storybook
+      run: npm run lint
+
+    - name: Run tests
+      working-directory: ./clients/storybook
+      run: npm test
+      env:
+        CI: true
+
+    - name: Build package
+      working-directory: ./clients/storybook
+      run: npm run build
+
   ci-check:
     runs-on: ubuntu-latest
-    needs: [lint, test, test-site, test-reporter, test-ruby-client]
+    needs: [lint, test, test-site, test-reporter, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client]
     if: always()
     steps:
       - name: Check if all jobs passed
         run: |
-          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.test-site.result }}" == "failure" || "${{ needs.test-reporter.result }}" == "failure" || "${{ needs.test-ruby-client.result }}" == "failure" ]]; then
-            echo "One or more jobs failed"
+          # Required jobs that always run
+          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.test-site.result }}" == "failure" || "${{ needs.test-reporter.result }}" == "failure" ]]; then
+            echo "One or more required jobs failed"
             exit 1
           fi
+
+          # Conditional jobs - only check if they ran
+          if [[ "${{ needs.changes-ruby.outputs.ruby }}" == "true" && "${{ needs.test-ruby-client.result }}" == "failure" ]]; then
+            echo "Ruby client tests failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.changes-storybook.outputs.storybook }}" == "true" && "${{ needs.test-storybook-client.result }}" == "failure" ]]; then
+            echo "Storybook client tests failed"
+            exit 1
+          fi
+
           echo "All jobs passed"

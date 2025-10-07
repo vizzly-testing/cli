@@ -1,6 +1,8 @@
 # @vizzly-testing/storybook
 
-Storybook plugin for Vizzly - auto-discover and capture screenshots of all your Storybook stories.
+Seamlessly integrate your Storybook stories into Vizzly's visual development workflow. Iterate
+locally with `vizzly tdd`, automatically create team builds from CI/CD, and collaborate on visual
+changes with position-based comments and review rules.
 
 ## Installation
 
@@ -200,9 +202,10 @@ Examples:
 - `Card/WithImage@desktop`
 - `Components/Atoms/Input/Default@tablet`
 
-## Integration with Vizzly
+## Visual Development Workflow
 
-This plugin uses the Vizzly client SDK to send screenshots. It works in both TDD and Run modes:
+This plugin integrates Storybook into Vizzly's visual development workflow, enabling both local TDD
+iteration and seamless team collaboration:
 
 ### TDD Mode (Local Development)
 
@@ -261,11 +264,12 @@ vizzly storybook ./storybook-static --browser-args "--no-sandbox,--disable-dev-s
 
 ### Screenshots are blank
 
-Increase the wait time by adding a custom hook:
+If your component needs time to render, wait for specific elements from your component to appear:
 ```javascript
 interactions: {
   '**': async (page) => {
-    await page.waitForTimeout(1000);
+    // Wait for your component's content to be visible
+    await page.waitForSelector('.your-component-class', { visible: true });
   },
 }
 ```

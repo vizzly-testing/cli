@@ -57,15 +57,30 @@ export function filterByPattern(stories, includePattern, excludePattern) {
  * Find matching interaction hook for a story
  * Patterns are tried in order, first match wins
  * @param {Object} story - Story object with id/title
- * @param {Object} interactions - Map of pattern -> function
+ * @param {Object} interactions - Interactions config with patterns array or simple map
  * @returns {Function|null} Matching interaction function or null
  */
 export function findMatchingHook(story, interactions) {
-  if (!interactions || Object.keys(interactions).length === 0) {
+  if (!interactions) {
     return null;
   }
 
   let id = story.id || story.title;
+
+  // Handle patterns array format: { patterns: [{ match, beforeScreenshot }] }
+  if (interactions.patterns && Array.isArray(interactions.patterns)) {
+    for (let pattern of interactions.patterns) {
+      if (matchPattern(id, pattern.match)) {
+        return pattern.beforeScreenshot;
+      }
+    }
+    return null;
+  }
+
+  // Handle simple object map format: { pattern: hook }
+  if (Object.keys(interactions).length === 0) {
+    return null;
+  }
 
   for (let [pattern, hook] of Object.entries(interactions)) {
     if (matchPattern(id, pattern)) {

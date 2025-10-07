@@ -9,24 +9,26 @@ import { discoverStories, generateStoryUrl } from './crawler.js';
 import { launchBrowser, closeBrowser, prepareStoryPage, closePage } from './browser.js';
 import { captureAndSendScreenshot } from './screenshot.js';
 import { getBeforeScreenshotHook, getStoryConfig } from './hooks.js';
+import { startStaticServer, stopStaticServer } from './server.js';
 
 /**
  * Process a single story across all configured viewports
  * @param {Object} story - Story object
  * @param {Object} browser - Browser instance
+ * @param {string} baseUrl - Base URL for Storybook (HTTP server)
  * @param {Object} config - Configuration
  * @param {Object} context - Plugin context
  * @returns {Promise<Object>} Result object with success count and errors
  */
-async function processStory(story, browser, config, context) {
+async function processStory(story, browser, baseUrl, config, context) {
   let { logger } = context;
   let storyConfig = getStoryConfig(story, config);
-  let baseUrl = `file://${resolve(config.storybookPath)}`;
   let storyUrl = generateStoryUrl(baseUrl, story.id);
   let hook = getBeforeScreenshotHook(story, config);
   let errors = [];
 
   logger?.info?.(`Processing story: ${story.title}/${story.name}`);
+  logger?.info?.(`  Story URL: ${storyUrl}`);
 
   // Process each viewport for this story
   for (let viewport of storyConfig.viewports) {
@@ -93,17 +95,18 @@ async function mapWithConcurrency(items, fn, concurrency) {
  * Process all stories with concurrency control
  * @param {Array<Object>} stories - Array of story objects
  * @param {Object} browser - Browser instance
+ * @param {string} baseUrl - Base URL for Storybook (HTTP server)
  * @param {Object} config - Configuration
  * @param {Object} context - Plugin context
  * @returns {Promise<Array>} Array of all errors encountered
  */
-async function processStories(stories, browser, config, context) {
+async function processStories(stories, browser, baseUrl, config, context) {
   let allErrors = [];
 
   await mapWithConcurrency(
     stories,
     async (story) => {
-      let { errors } = await processStory(story, browser, config, context);
+      let { errors } = await processStory(story, browser, baseUrl, config, context);
       allErrors.push(...errors);
     },
     config.concurrency
@@ -122,6 +125,7 @@ async function processStories(stories, browser, config, context) {
 export async function run(storybookPath, options = {}, context = {}) {
   let { logger } = context;
   let browser = null;
+  let serverInfo = null;
 
   try {
     // Load and merge configuration
@@ -129,6 +133,11 @@ export async function run(storybookPath, options = {}, context = {}) {
 
     logger?.info?.('Starting Storybook screenshot capture...');
     logger?.info?.(`Storybook path: ${config.storybookPath}`);
+
+    // Start HTTP server to serve Storybook static files
+    logger?.info?.('Starting static file server...');
+    serverInfo = await startStaticServer(config.storybookPath);
+    logger?.info?.(`Server running at ${serverInfo.url}`);
 
     // Discover stories
     logger?.info?.('Discovering stories...');
@@ -146,7 +155,7 @@ export async function run(storybookPath, options = {}, context = {}) {
 
     // Process all stories
     logger?.info?.('Processing stories...');
-    let errors = await processStories(stories, browser, config, context);
+    let errors = await processStories(stories, browser, serverInfo.url, config, context);
 
     // Report summary
     if (errors.length > 0) {
@@ -165,6 +174,10 @@ export async function run(storybookPath, options = {}, context = {}) {
     // Cleanup
     if (browser) {
       await closeBrowser(browser);
+    }
+    if (serverInfo) {
+      await stopStaticServer(serverInfo);
+      logger?.info?.('Static file server stopped');
     }
   }
 }

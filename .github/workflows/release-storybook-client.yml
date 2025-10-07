@@ -45,31 +45,11 @@ jobs:
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Calculate new version
-        id: new_version
+      - name: Bump version
+        id: version
+        working-directory: ./clients/storybook
         run: |
-          CURRENT="${{ steps.current_version.outputs.version }}"
-
-          # Validate version format (X.Y.Z)
-          if ! [[ "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Invalid version format '$CURRENT'. Expected X.Y.Z"
-            exit 1
-          fi
-
-          IFS='.' read -r -a parts <<< "$CURRENT"
-
-          case "${{ github.event.inputs.version_type }}" in
-            major)
-              NEW_VERSION="$((parts[0] + 1)).0.0"
-              ;;
-            minor)
-              NEW_VERSION="${parts[0]}.$((parts[1] + 1)).0"
-              ;;
-            patch)
-              NEW_VERSION="${parts[0]}.${parts[1]}.$((parts[2] + 1)}"
-              ;;
-          esac
-
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version | sed 's/v//')
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "tag=storybook/v$NEW_VERSION" >> $GITHUB_OUTPUT
 
@@ -79,12 +59,12 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            Generate release notes for the Vizzly Storybook Plugin v${{ steps.new_version.outputs.version }}.
+            Generate release notes for the Vizzly Storybook Plugin v${{ steps.version.outputs.version }}.
 
             Context:
             - Client location: `clients/storybook/`
             - Previous tag: `storybook/v${{ steps.current_version.outputs.version }}`
-            - New version: `${{ steps.new_version.outputs.version }}`
+            - New version: `${{ steps.version.outputs.version }}`
             - This is a monorepo with multiple clients and a CLI
 
             Instructions:
@@ -108,7 +88,7 @@ jobs:
             ### Fixed
             - Bug fixes
 
-            **Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v${{ steps.current_version.outputs.version }}...storybook/v${{ steps.new_version.outputs.version }}
+            **Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v${{ steps.current_version.outputs.version }}...storybook/v${{ steps.version.outputs.version }}
           claude_args: '--allowed-tools "Bash(git:*)"'
 
       - name: Install dependencies
@@ -123,11 +103,6 @@ jobs:
         working-directory: ./clients/storybook
         run: npm run lint
 
-      - name: Update version in package.json
-        working-directory: ./clients/storybook
-        run: |
-          npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version
-
       - name: Update CHANGELOG.md
         working-directory: ./clients/storybook
         run: |
@@ -137,7 +112,7 @@ jobs:
             cat > CHANGELOG-RELEASE.md << 'EOF'
           ## What's Changed
 
-          Release v${{ steps.new_version.outputs.version }}
+          Release v${{ steps.version.outputs.version }}
 
           See the full diff for detailed changes.
           EOF
@@ -150,7 +125,7 @@ jobs:
           echo "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)," >> CHANGELOG-NEW.md
           echo "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)." >> CHANGELOG-NEW.md
           echo "" >> CHANGELOG-NEW.md
-          echo "## [${{ steps.new_version.outputs.version }}] - $(date +%Y-%m-%d)" >> CHANGELOG-NEW.md
+          echo "## [${{ steps.version.outputs.version }}] - $(date +%Y-%m-%d)" >> CHANGELOG-NEW.md
           echo "" >> CHANGELOG-NEW.md
           cat CHANGELOG-RELEASE.md >> CHANGELOG-NEW.md
           echo "" >> CHANGELOG-NEW.md
@@ -165,10 +140,10 @@ jobs:
       - name: Commit and push changes
         run: |
           git add clients/storybook/package.json clients/storybook/CHANGELOG.md
-          git commit -m "🔖 Storybook plugin v${{ steps.new_version.outputs.version }}"
+          git commit -m "🔖 Storybook plugin v${{ steps.version.outputs.version }}"
           git push origin main
-          git tag "${{ steps.new_version.outputs.tag }}"
-          git push origin "${{ steps.new_version.outputs.tag }}"
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Publish to npm
         working-directory: ./clients/storybook
@@ -181,7 +156,7 @@ jobs:
         working-directory: ./clients/storybook
         run: |
           # Extract just this version's changelog
-          CHANGELOG=$(sed -n '/## \[${{ steps.new_version.outputs.version }}\]/,/## \[/p' CHANGELOG.md | sed '$ d')
+          CHANGELOG=$(sed -n '/## \[${{ steps.version.outputs.version }}\]/,/## \[/p' CHANGELOG.md | sed '$ d')
           {
             echo 'notes<<CHANGELOG_EOF'
             echo "$CHANGELOG"
@@ -191,8 +166,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.new_version.outputs.tag }}
-          name: 📚 Storybook Plugin v${{ steps.new_version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: 📚 Storybook Plugin v${{ steps.version.outputs.version }}
           body: ${{ steps.release_notes.outputs.notes }}
           files: ./clients/storybook/*.tgz
           draft: false

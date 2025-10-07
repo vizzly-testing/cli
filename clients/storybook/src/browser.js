@@ -60,25 +60,6 @@ export async function navigateToUrl(page, url, options = {}) {
 }
 
 /**
- * Wait for story to be ready
- * Storybook stories may need time to render
- * @param {Object} page - Puppeteer page instance
- * @param {number} [delay=500] - Delay in milliseconds
- * @returns {Promise<void>}
- */
-export async function waitForStoryReady(page, delay = 500) {
-  // Wait for Storybook root element
-  try {
-    await page.waitForSelector('#storybook-root', { timeout: 5000 });
-  } catch {
-    // Fallback: just wait a bit if root element not found
-  }
-
-  // Additional delay to ensure animations/transitions complete
-  await page.waitForTimeout(delay);
-}
-
-/**
  * Process a single story - navigate, wait, and prepare for screenshot
  * @param {Object} browser - Browser instance
  * @param {string} url - Story URL
@@ -97,11 +78,8 @@ export async function prepareStoryPage(
   // Set viewport
   await setViewport(page, viewport);
 
-  // Navigate to story
+  // Navigate to story (waits for networkidle2)
   await navigateToUrl(page, url);
-
-  // Wait for story to be ready
-  await waitForStoryReady(page);
 
   // Run custom interaction hook if provided
   if (beforeScreenshot && typeof beforeScreenshot === 'function') {

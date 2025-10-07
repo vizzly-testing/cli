@@ -23,7 +23,6 @@ export default {
       .option('--concurrency <n>', 'Number of parallel stories to process', parseInt, 3)
       .option('--include <pattern>', 'Include story pattern (glob)')
       .option('--exclude <pattern>', 'Exclude story pattern (glob)')
-      .option('--config <path>', 'Path to custom config file')
       .option('--browser-args <args>', 'Additional Puppeteer browser arguments')
       .option('--headless', 'Run browser in headless mode (default: true)', true)
       .option('--full-page', 'Capture full page screenshots', false)
@@ -31,7 +30,11 @@ export default {
         try {
           let { run } = await import('./index.js');
 
-          await run(path, options, {
+          // Merge global options (like --config) with command options
+          let globalOptions = program.opts();
+          let mergedOptions = { ...globalOptions, ...options };
+
+          await run(path, mergedOptions, {
             logger,
             config,
             services,

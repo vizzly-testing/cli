@@ -1,7 +1,7 @@
 {
   "name": "@vizzly-testing/storybook",
   "version": "1.0.0",
-  "description": "Storybook plugin for Vizzly - auto-discover and capture screenshots of all stories",
+  "description": "Storybook plugin for Vizzly - seamlessly integrate Storybook stories into your visual development workflow",
   "keywords": [
     "vizzly",
     "storybook",
@@ -60,7 +60,8 @@
   },
   "dependencies": {
     "cosmiconfig": "^9.0.0",
-    "puppeteer": "^24.5.0"
+    "puppeteer": "^24.5.0",
+    "serve-handler": "^6.1.5"
   },
   "devDependencies": {
     "@babel/cli": "^7.28.0",

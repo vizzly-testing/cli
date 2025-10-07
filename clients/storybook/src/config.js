@@ -41,7 +41,8 @@ export async function loadConfigFile(configPath) {
 
     return result?.config || {};
   } catch (error) {
-    // Config file not found or invalid - return empty config
+    // Log error for debugging
+    console.warn(`[Config] Failed to load config: ${error.message}`);
     return {};
   }
 }

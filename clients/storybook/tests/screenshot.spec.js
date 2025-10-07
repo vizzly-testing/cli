@@ -12,7 +12,7 @@ describe('generateScreenshotName', () => {
 
     let name = generateScreenshotName(story, viewport);
 
-    expect(name).toBe('Button/Primary@mobile');
+    expect(name).toBe('Button-Primary@mobile');
   });
 
   it('should handle complex component names', () => {
@@ -21,7 +21,7 @@ describe('generateScreenshotName', () => {
 
     let name = generateScreenshotName(story, viewport);
 
-    expect(name).toBe('Components/Atoms/Button/WithIcon@desktop');
+    expect(name).toBe('Components-Atoms-Button-WithIcon@desktop');
   });
 
   it('should handle special characters', () => {
@@ -30,6 +30,6 @@ describe('generateScreenshotName', () => {
 
     let name = generateScreenshotName(story, viewport);
 
-    expect(name).toBe('Form/Input Field/With Label & Error@tablet');
+    expect(name).toBe('Form-Input Field-With Label & Error@tablet');
   });
 });

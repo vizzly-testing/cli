@@ -9,14 +9,16 @@ let vizzlyScreenshot;
 try {
   let module = await import('@vizzly-testing/cli/client');
   vizzlyScreenshot = module.vizzlyScreenshot;
-} catch {
+} catch (error) {
+  console.warn('Warning: Could not import Vizzly client SDK:', error.message);
   // Mock for testing
   vizzlyScreenshot = async () => {};
 }
 
 /**
  * Generate screenshot name from story and viewport
- * Format: "ComponentName/StoryName@viewportName"
+ * Format: "ComponentName-StoryName@viewportName"
+ * Replaces slashes with hyphens to avoid path issues
  * @param {Object} story - Story object with title and name
  * @param {Object} viewport - Viewport object with name
  * @returns {string} Screenshot name
@@ -25,7 +27,10 @@ export function generateScreenshotName(story, viewport) {
   let { title, name } = story;
   let viewportName = viewport.name;
 
-  return `${title}/${name}@${viewportName}`;
+  // Replace slashes with hyphens to create valid screenshot names
+  let sanitizedTitle = title.replace(/\//g, '-');
+
+  return `${sanitizedTitle}-${name}@${viewportName}`;
 }
 
 /**

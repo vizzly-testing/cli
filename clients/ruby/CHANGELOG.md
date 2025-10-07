@@ -6,7 +6,7 @@ This changelog is automatically generated when releasing new versions.
 
 ## [Unreleased]
 
-## [0.1.0] - Initial Release
+## [0.1.0] - 2025-10-07
 
 ### Added
 - Initial release of Vizzly Ruby client SDK

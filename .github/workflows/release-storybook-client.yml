@@ -108,7 +108,7 @@ jobs:
             ### Fixed
             - Bug fixes
 
-            **Full Changelog**: https://github.com/vizzly-testing/vizzly-cli/compare/storybook/v${{ steps.current_version.outputs.version }}...storybook/v${{ steps.new_version.outputs.version }}
+            **Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v${{ steps.current_version.outputs.version }}...storybook/v${{ steps.new_version.outputs.version }}
           claude_args: '--allowed-tools "Bash(git:*)"'
 
       - name: Install dependencies

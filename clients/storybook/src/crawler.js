@@ -122,6 +122,13 @@ export function filterStories(stories, config) {
  * @returns {string} Full story URL
  */
 export function generateStoryUrl(baseUrl, storyId) {
+  if (!baseUrl || typeof baseUrl !== 'string') {
+    throw new Error('baseUrl must be a non-empty string');
+  }
+  if (!storyId || typeof storyId !== 'string') {
+    throw new Error('storyId must be a non-empty string');
+  }
+
   return `${baseUrl}/iframe.html?id=${encodeURIComponent(storyId)}&viewMode=story`;
 }
 

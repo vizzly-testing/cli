@@ -54,6 +54,7 @@ export async function createPage(browser) {
 export async function navigateToUrl(page, url, options = {}) {
   await page.goto(url, {
     waitUntil: 'networkidle2',
+    timeout: 30000, // 30 second timeout
     ...options,
   });
 }

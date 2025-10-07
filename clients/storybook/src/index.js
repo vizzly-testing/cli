@@ -3,7 +3,6 @@
  * Functional orchestration of story discovery and screenshot capture
  */
 
-import pMap from 'p-map';
 import { resolve } from 'path';
 import { loadConfig } from './config.js';
 import { discoverStories, generateStoryUrl } from './crawler.js';
@@ -17,7 +16,7 @@ import { getBeforeScreenshotHook, getStoryConfig } from './hooks.js';
  * @param {Object} browser - Browser instance
  * @param {Object} config - Configuration
  * @param {Object} context - Plugin context
- * @returns {Promise<void>}
+ * @returns {Promise<Object>} Result object with success count and errors
  */
 async function processStory(story, browser, config, context) {
   let { logger } = context;
@@ -25,6 +24,7 @@ async function processStory(story, browser, config, context) {
   let baseUrl = `file://${resolve(config.storybookPath)}`;
   let storyUrl = generateStoryUrl(baseUrl, story.id);
   let hook = getBeforeScreenshotHook(story, config);
+  let errors = [];
 
   logger?.info?.(`Processing story: ${story.title}/${story.name}`);
 
@@ -48,11 +48,45 @@ async function processStory(story, browser, config, context) {
       logger?.error?.(
         `  ✗ Failed to capture ${story.title}/${story.name}@${viewport.name}: ${error.message}`
       );
-      throw error;
+      errors.push({
+        story: `${story.title}/${story.name}`,
+        viewport: viewport.name,
+        error: error.message,
+      });
     } finally {
       await closePage(page);
     }
   }
+
+  return { errors };
+}
+
+/**
+ * Simple concurrency control - process items with limited parallelism
+ * @param {Array} items - Items to process
+ * @param {Function} fn - Async function to process each item
+ * @param {number} concurrency - Max parallel operations
+ * @returns {Promise<void>}
+ */
+async function mapWithConcurrency(items, fn, concurrency) {
+  let results = [];
+  let executing = [];
+
+  for (let item of items) {
+    let promise = fn(item).then((result) => {
+      executing.splice(executing.indexOf(promise), 1);
+      return result;
+    });
+
+    results.push(promise);
+    executing.push(promise);
+
+    if (executing.length >= concurrency) {
+      await Promise.race(executing);
+    }
+  }
+
+  await Promise.all(results);
 }
 
 /**
@@ -61,16 +95,21 @@ async function processStory(story, browser, config, context) {
  * @param {Object} browser - Browser instance
  * @param {Object} config - Configuration
  * @param {Object} context - Plugin context
- * @returns {Promise<void>}
+ * @returns {Promise<Array>} Array of all errors encountered
  */
 async function processStories(stories, browser, config, context) {
-  await pMap(
+  let allErrors = [];
+
+  await mapWithConcurrency(
     stories,
     async (story) => {
-      await processStory(story, browser, config, context);
+      let { errors } = await processStory(story, browser, config, context);
+      allErrors.push(...errors);
     },
-    { concurrency: config.concurrency }
+    config.concurrency
   );
+
+  return allErrors;
 }
 
 /**
@@ -107,9 +146,18 @@ export async function run(storybookPath, options = {}, context = {}) {
 
     // Process all stories
     logger?.info?.('Processing stories...');
-    await processStories(stories, browser, config, context);
+    let errors = await processStories(stories, browser, config, context);
 
-    logger?.info?.('✓ All stories processed successfully');
+    // Report summary
+    if (errors.length > 0) {
+      logger?.warn?.(`\n⚠️  ${errors.length} screenshot(s) failed`);
+      logger?.error?.('Failed screenshots:');
+      errors.forEach(({ story, viewport, error }) => {
+        logger?.error?.(`  - ${story}@${viewport}: ${error}`);
+      });
+    } else {
+      logger?.info?.('✓ All stories processed successfully');
+    }
   } catch (error) {
     logger?.error?.('Failed to process stories:', error.message);
     throw error;

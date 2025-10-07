@@ -1,0 +1,11 @@
+src/
+tests/
+examples/
+coverage/
+.vizzly/
+*.log
+.DS_Store
+.babelrc
+.gitignore
+vitest.config.js
+node_modules/

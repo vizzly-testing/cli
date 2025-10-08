@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+# Use the locally built gem
+gem 'vizzly', path: '..'
+
+# Test framework
+gem 'minitest', '~> 5.0'
+
+# Browser automation
+gem 'selenium-webdriver', '~> 4.0'

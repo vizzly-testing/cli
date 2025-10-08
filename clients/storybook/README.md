@@ -205,26 +205,58 @@ Examples:
 ## Visual Development Workflow
 
 This plugin integrates Storybook into Vizzly's visual development workflow, enabling both local TDD
-iteration and seamless team collaboration:
+iteration and seamless team collaboration. The plugin **automatically detects** which mode to use:
 
 ### TDD Mode (Local Development)
+
+When a TDD server is running, screenshots are compared locally for fast iteration:
 
 ```bash
 # Start TDD server
 vizzly tdd start
 
-# Capture Storybook screenshots
+# Capture Storybook screenshots (automatically uses TDD mode)
 vizzly storybook ./storybook-static
 
-# View results at http://localhost:47392
+# View live results at http://localhost:47392
 ```
 
-### Run Mode (CI/CD)
+**Output:**
+```
+ℹ 📍 TDD mode: Using local server
+ℹ 📚 Found 5 stories in ./storybook-static
+ℹ    ✓ Components/Button/Primary@default
+ℹ ✅ Captured 5 screenshots successfully
+```
+
+### Run Mode (CI/CD & Cloud)
+
+When a `VIZZLY_TOKEN` is set, screenshots are uploaded to the cloud for team review:
 
 ```bash
-# Capture and upload to Vizzly cloud
-VIZZLY_TOKEN=your-token vizzly run "vizzly storybook ./storybook-static"
+# Capture and upload to Vizzly cloud (automatically uses Run mode)
+VIZZLY_TOKEN=your-token vizzly storybook ./storybook-static
 ```
+
+**Output:**
+```
+ℹ ☁️  Run mode: Uploading to cloud
+ℹ 🔗 https://app.vizzly.dev/your-org/project/builds/...
+ℹ 📚 Found 5 stories in ./storybook-static
+ℹ    ✓ Components/Button/Primary@default
+ℹ ✅ Captured 5 screenshots successfully
+ℹ 🔗 View results: https://app.vizzly.dev/your-org/project/builds/...
+```
+
+### Mode Detection
+
+The plugin automatically chooses the mode:
+
+1. **TDD mode** - If a TDD server is running (`.vizzly/server.json` found)
+2. **Run mode** - If `VIZZLY_TOKEN` environment variable is set
+3. **Warning** - If neither is available, warns and skips screenshots
+
+No need to wrap with `vizzly run` - the plugin handles everything!
 
 ## Supported Storybook Versions
 

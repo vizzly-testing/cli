@@ -26,9 +26,7 @@
       "importPath": "./src/Card.stories.js",
       "parameters": {
         "vizzly": {
-          "viewports": [
-            { "name": "mobile", "width": 375, "height": 667 }
-          ]
+          "viewports": [{ "name": "mobile", "width": 375, "height": 667 }]
         }
       }
     },

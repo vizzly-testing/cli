@@ -16,6 +16,10 @@ export default {
    * @param {Object} context.services - Service container
    */
   register(program, { config, logger, services }) {
+    // Override logger level to 'info' for storybook command
+    // The CLI logger defaults to 'warn' but storybook needs 'info' for progress
+    logger.level = 'info';
+
     program
       .command('storybook <path>')
       .description('Capture screenshots from static Storybook build')
@@ -52,8 +56,11 @@ export default {
             services,
           });
         } catch (error) {
-          logger?.error?.('Failed to run Storybook plugin:', error.message);
-          throw error;
+          console.error('Failed to run Storybook plugin:', error);
+          if (logger && logger.error) {
+            logger.error('Failed to run Storybook plugin:', error.message);
+          }
+          process.exit(1);
         }
       });
   },

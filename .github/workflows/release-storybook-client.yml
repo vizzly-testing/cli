@@ -38,6 +38,11 @@ jobs:
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
           git config --local user.name "${{ secrets.GIT_USER_NAME }}"
 
+      - name: Ensure we have latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
       - name: Get current version
         id: current_version
         working-directory: ./clients/storybook

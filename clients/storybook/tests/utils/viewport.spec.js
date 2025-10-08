@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseViewport, formatViewport, getCommonViewports } from '../../src/utils/viewport.js';
+import {
+  parseViewport,
+  formatViewport,
+  getCommonViewports,
+} from '../../src/utils/viewport.js';
 
 describe('parseViewport', () => {
   it('should parse valid viewport string', () => {

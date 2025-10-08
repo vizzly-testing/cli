@@ -53,14 +53,14 @@ describe('filterByPattern', () => {
     let filtered = filterByPattern(stories, 'button*', null);
 
     expect(filtered).toHaveLength(2);
-    expect(filtered.every((s) => s.id.startsWith('button'))).toBe(true);
+    expect(filtered.every(s => s.id.startsWith('button'))).toBe(true);
   });
 
   it('should filter by exclude pattern', () => {
     let filtered = filterByPattern(stories, null, 'button*');
 
     expect(filtered).toHaveLength(2);
-    expect(filtered.find((s) => s.id.startsWith('button'))).toBeUndefined();
+    expect(filtered.find(s => s.id.startsWith('button'))).toBeUndefined();
   });
 
   it('should apply both include and exclude', () => {
@@ -73,7 +73,7 @@ describe('filterByPattern', () => {
     let filtered = filterByPattern(allButtons, 'button*', 'button--disabled');
 
     expect(filtered).toHaveLength(2);
-    expect(filtered.find((s) => s.id === 'button--disabled')).toBeUndefined();
+    expect(filtered.find(s => s.id === 'button--disabled')).toBeUndefined();
   });
 
   it('should return all stories with no patterns', () => {

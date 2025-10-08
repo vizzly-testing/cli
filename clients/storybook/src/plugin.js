@@ -19,12 +19,24 @@ export default {
     program
       .command('storybook <path>')
       .description('Capture screenshots from static Storybook build')
-      .option('--viewports <list>', 'Comma-separated viewport definitions (name:WxH)')
-      .option('--concurrency <n>', 'Number of parallel stories to process', parseInt, 3)
+      .option(
+        '--viewports <list>',
+        'Comma-separated viewport definitions (name:WxH)'
+      )
+      .option(
+        '--concurrency <n>',
+        'Number of parallel stories to process',
+        parseInt,
+        3
+      )
       .option('--include <pattern>', 'Include story pattern (glob)')
       .option('--exclude <pattern>', 'Exclude story pattern (glob)')
       .option('--browser-args <args>', 'Additional Puppeteer browser arguments')
-      .option('--headless', 'Run browser in headless mode (default: true)', true)
+      .option(
+        '--headless',
+        'Run browser in headless mode (default: true)',
+        true
+      )
       .option('--full-page', 'Capture full page screenshots', false)
       .action(async (path, options) => {
         try {

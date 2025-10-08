@@ -107,7 +107,7 @@ export function filterStories(stories, config) {
   let filtered = filterByPattern(stories, config.include, config.exclude);
 
   // Then filter out stories marked to skip
-  filtered = filtered.filter((story) => {
+  filtered = filtered.filter(story => {
     let storyConfig = extractStoryConfig(story);
     return !storyConfig?.skip;
   });

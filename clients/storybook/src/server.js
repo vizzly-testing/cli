@@ -51,7 +51,7 @@ export async function stopStaticServer(serverInfo) {
     return;
   }
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     serverInfo.server.close(() => resolve());
   });
 }

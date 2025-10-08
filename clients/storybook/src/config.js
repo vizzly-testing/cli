@@ -58,7 +58,7 @@ export function parseCliOptions(options) {
   if (options.viewports) {
     config.viewports = options.viewports
       .split(',')
-      .map((v) => parseViewport(v.trim()))
+      .map(v => parseViewport(v.trim()))
       .filter(Boolean);
   }
 
@@ -79,7 +79,7 @@ export function parseCliOptions(options) {
   }
 
   if (options.browserArgs) {
-    let args = options.browserArgs.split(',').map((arg) => arg.trim());
+    let args = options.browserArgs.split(',').map(arg => arg.trim());
     config.browser = { ...config.browser, args };
   }
 
@@ -140,7 +140,8 @@ export function mergeStoryConfig(globalConfig, storyConfig) {
       ...globalConfig.screenshot,
       ...storyConfig.screenshot,
     },
-    beforeScreenshot: storyConfig.beforeScreenshot || globalConfig.beforeScreenshot,
+    beforeScreenshot:
+      storyConfig.beforeScreenshot || globalConfig.beforeScreenshot,
   };
 }
 

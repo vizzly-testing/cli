@@ -36,7 +36,7 @@ export function matchPattern(str, pattern) {
  * @returns {Array<Object>} Filtered stories
  */
 export function filterByPattern(stories, includePattern, excludePattern) {
-  return stories.filter((story) => {
+  return stories.filter(story => {
     let id = story.id || story.title;
 
     // Check include pattern

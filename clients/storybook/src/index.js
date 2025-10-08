@@ -3,10 +3,14 @@
  * Functional orchestration of story discovery and screenshot capture
  */
 
-import { resolve } from 'path';
 import { loadConfig } from './config.js';
 import { discoverStories, generateStoryUrl } from './crawler.js';
-import { launchBrowser, closeBrowser, prepareStoryPage, closePage } from './browser.js';
+import {
+  launchBrowser,
+  closeBrowser,
+  prepareStoryPage,
+  closePage,
+} from './browser.js';
 import { captureAndSendScreenshot } from './screenshot.js';
 import { getBeforeScreenshotHook, getStoryConfig } from './hooks.js';
 import { startStaticServer, stopStaticServer } from './server.js';
@@ -75,7 +79,7 @@ async function mapWithConcurrency(items, fn, concurrency) {
   let executing = [];
 
   for (let item of items) {
-    let promise = fn(item).then((result) => {
+    let promise = fn(item).then(result => {
       executing.splice(executing.indexOf(promise), 1);
       return result;
     });
@@ -105,8 +109,14 @@ async function processStories(stories, browser, baseUrl, config, context) {
 
   await mapWithConcurrency(
     stories,
-    async (story) => {
-      let { errors } = await processStory(story, browser, baseUrl, config, context);
+    async story => {
+      let { errors } = await processStory(
+        story,
+        browser,
+        baseUrl,
+        config,
+        context
+      );
       allErrors.push(...errors);
     },
     config.concurrency
@@ -155,7 +165,13 @@ export async function run(storybookPath, options = {}, context = {}) {
 
     // Process all stories
     logger?.info?.('Processing stories...');
-    let errors = await processStories(stories, browser, serverInfo.url, config, context);
+    let errors = await processStories(
+      stories,
+      browser,
+      serverInfo.url,
+      config,
+      context
+    );
 
     // Report summary
     if (errors.length > 0) {

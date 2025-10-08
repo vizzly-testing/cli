@@ -137,7 +137,7 @@ describe('filterStories', () => {
     let filtered = filterStories(stories, config);
 
     expect(filtered).toHaveLength(2);
-    expect(filtered.every((s) => s.id.startsWith('button'))).toBe(true);
+    expect(filtered.every(s => s.id.startsWith('button'))).toBe(true);
   });
 
   it('should filter by exclude pattern', () => {
@@ -153,7 +153,7 @@ describe('filterStories', () => {
     let filtered = filterStories(stories, config);
 
     expect(filtered).toHaveLength(3);
-    expect(filtered.find((s) => s.id === 'card--skipped')).toBeUndefined();
+    expect(filtered.find(s => s.id === 'card--skipped')).toBeUndefined();
   });
 
   it('should apply both include and skip filters', () => {

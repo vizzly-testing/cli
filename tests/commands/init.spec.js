@@ -135,11 +135,6 @@ describe('InitCommand', () => {
       );
       expect(fs.writeFile).toHaveBeenCalledWith(
         configPath,
-        expect.stringContaining('apiKey:'),
-        'utf8'
-      );
-      expect(fs.writeFile).toHaveBeenCalledWith(
-        configPath,
         expect.stringContaining('build:'),
         'utf8'
       );
@@ -156,6 +151,18 @@ describe('InitCommand', () => {
       expect(fs.writeFile).toHaveBeenCalledWith(
         configPath,
         expect.stringContaining('upload:'),
+        'utf8'
+      );
+      // Ensure apiKey comment is NOT present
+      expect(fs.writeFile).not.toHaveBeenCalledWith(
+        configPath,
+        expect.stringContaining('apiKey'),
+        'utf8'
+      );
+      // Ensure screenshotPath is NOT present
+      expect(fs.writeFile).not.toHaveBeenCalledWith(
+        configPath,
+        expect.stringContaining('screenshotPath'),
         'utf8'
       );
 

@@ -11,7 +11,6 @@ const DEFAULT_CONFIG = {
   server: {
     port: 47392,
     timeout: 30000,
-    screenshotPath: '/screenshot',
   },
 
   // Build Configuration

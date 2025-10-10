@@ -476,8 +476,7 @@ Configuration loaded via cosmiconfig in this order:
   // Server Configuration (for run command)
   server: {
     port: number,              // Server port (default: 47392)
-    timeout: number,           // Timeout in ms (default: 30000)
-    screenshotPath: string     // Screenshot endpoint path
+    timeout: number            // Timeout in ms (default: 30000)
   },
 
   // Build Configuration

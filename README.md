@@ -233,20 +233,10 @@ Create a `vizzly.config.js` file with `vizzly init` or manually:
 
 ```javascript
 export default {
-  // API configuration
-  // Set VIZZLY_TOKEN environment variable or uncomment and set here:
-  // apiToken: 'your-token-here',
-
-  // Screenshot configuration
-  screenshots: {
-    directory: './screenshots',
-    formats: ['png']
-  },
-
   // Server configuration
   server: {
     port: 47392,
-    screenshotPath: '/screenshot'
+    timeout: 30000
   },
 
   // Comparison configuration

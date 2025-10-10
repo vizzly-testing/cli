@@ -1,13 +1,8 @@
 export default {
-  // API configuration
-  // Set VIZZLY_TOKEN environment variable or uncomment and set here:
-  // apiKey: 'your-token-here',
-
   // Server configuration (for run command)
   server: {
     port: 47392,
-    timeout: 30000,
-    screenshotPath: '/screenshot'
+    timeout: 30000
   },
 
   // Build configuration

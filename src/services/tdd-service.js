@@ -441,6 +441,28 @@ export class TddService {
       const metadataPath = join(this.baselinePath, 'metadata.json');
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
+      // Save baseline build metadata for MCP plugin
+      const baselineMetadataPath = join(
+        this.baselinePath,
+        '..',
+        'baseline-metadata.json'
+      );
+      const buildMetadata = {
+        buildId: baselineBuild.id,
+        buildName: baselineBuild.name,
+        branch: branch,
+        environment: environment,
+        commitSha: baselineBuild.commit_sha,
+        commitMessage: baselineBuild.commit_message,
+        approvalStatus: baselineBuild.approval_status,
+        completedAt: baselineBuild.completed_at,
+        downloadedAt: new Date().toISOString(),
+      };
+      writeFileSync(
+        baselineMetadataPath,
+        JSON.stringify(buildMetadata, null, 2)
+      );
+
       // Final summary
       const actualDownloads = downloadedCount - skippedCount;
 

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sample Page - Vizzly Static Site Example</title>
+
+  <!-- Vizzly meta tags for per-page configuration -->
+  <!-- Only capture mobile and desktop viewports for this page -->
+  <meta name="vizzly:viewports" content="mobile,desktop">
+
+  <!-- Reference named interaction from config -->
+  <meta name="vizzly:interaction" content="scroll-to-footer">
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+    header {
+      background: #0066cc;
+      color: white;
+      padding: 2rem;
+      margin: -2rem -2rem 2rem;
+    }
+    h1 {
+      margin: 0;
+    }
+    .content {
+      margin: 2rem 0;
+    }
+    .card {
+      border: 1px solid #ddd;
+      padding: 1.5rem;
+      margin: 1rem 0;
+      border-radius: 8px;
+    }
+    footer {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid #ddd;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sample Static Site Page</h1>
+    <p>Demonstrating Vizzly screenshot capture with meta tag configuration</p>
+  </header>
+
+  <main class="content">
+    <section>
+      <h2>About This Page</h2>
+      <p>This page demonstrates how to configure Vizzly screenshot capture using HTML meta tags.</p>
+
+      <div class="card">
+        <h3>Viewport Configuration</h3>
+        <p>This page uses custom viewport configuration:</p>
+        <code>&lt;meta name="vizzly:viewports" content="mobile,desktop"&gt;</code>
+        <p>Only mobile and desktop viewports will be captured.</p>
+      </div>
+
+      <div class="card">
+        <h3>Interaction Hooks</h3>
+        <p>This page references a named interaction hook:</p>
+        <code>&lt;meta name="vizzly:interaction" content="scroll-to-footer"&gt;</code>
+        <p>The page will scroll to the footer before the screenshot is taken.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Features</h2>
+      <ul>
+        <li>Automatic page discovery from sitemap.xml</li>
+        <li>Direct HTML file scanning</li>
+        <li>Per-page viewport configuration</li>
+        <li>Interaction hooks for dynamic content</li>
+        <li>Pattern-based filtering</li>
+        <li>TDD and Run mode support</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Vizzly Static Site Example</p>
+    <p>This footer will be visible in the screenshot due to the scroll-to-footer interaction.</p>
+  </footer>
+</body>
+</html>

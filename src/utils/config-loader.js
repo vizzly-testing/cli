@@ -1,6 +1,7 @@
 import { cosmiconfigSync } from 'cosmiconfig';
 import { resolve } from 'path';
 import { getApiToken, getApiUrl, getParallelId } from './environment-config.js';
+import { validateVizzlyConfigWithDefaults } from './config-schema.js';
 
 const DEFAULT_CONFIG = {
   // API Configuration
@@ -41,6 +42,19 @@ const DEFAULT_CONFIG = {
 };
 
 export async function loadConfig(configPath = null, cliOverrides = {}) {
+  // 1. Load from config file using cosmiconfig
+  const explorer = cosmiconfigSync('vizzly');
+  const result = configPath ? explorer.load(configPath) : explorer.search();
+
+  let fileConfig = {};
+  if (result && result.config) {
+    // Handle ESM default export (cosmiconfig wraps it in { default: {...} })
+    fileConfig = result.config.default || result.config;
+  }
+
+  // 2. Validate config file using Zod schema
+  const validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
+
   // Create a proper clone of the default config to avoid shared object references
   const config = {
     ...DEFAULT_CONFIG,
@@ -52,17 +66,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     plugins: [...DEFAULT_CONFIG.plugins],
   };
 
-  // 1. Load from config file using cosmiconfig
-  const explorer = cosmiconfigSync('vizzly');
-  const result = configPath ? explorer.load(configPath) : explorer.search();
+  // Merge validated file config
+  mergeConfig(config, validatedFileConfig);
 
-  if (result && result.config) {
-    // Handle ESM default export (cosmiconfig wraps it in { default: {...} })
-    let fileConfig = result.config.default || result.config;
-    mergeConfig(config, fileConfig);
-  }
-
-  // 2. Override with environment variables
+  // 3. Override with environment variables
   const envApiKey = getApiToken();
   const envApiUrl = getApiUrl();
   const envParallelId = getParallelId();
@@ -70,7 +77,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
   if (envParallelId) config.parallelId = envParallelId;
 
-  // 3. Apply CLI overrides (highest priority)
+  // 4. Apply CLI overrides (highest priority)
   applyCLIOverrides(config, cliOverrides);
 
   return config;

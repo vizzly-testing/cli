@@ -56,7 +56,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "peerDependencies": {
-    "@vizzly-testing/cli": "^0.9.0"
+    "@vizzly-testing/cli": ">=0.9.0"
   },
   "dependencies": {
     "cosmiconfig": "^9.0.0",

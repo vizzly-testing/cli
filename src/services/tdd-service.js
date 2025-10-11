@@ -442,9 +442,9 @@ export class TddService {
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
       // Save baseline build metadata for MCP plugin
-      const baselineMetadataPath = join(
-        this.baselinePath,
-        '..',
+      const baselineMetadataPath = safePath(
+        this.workingDir,
+        '.vizzly',
         'baseline-metadata.json'
       );
       const buildMetadata = {

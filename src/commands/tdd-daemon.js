@@ -102,6 +102,14 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
           resolve();
         }
       });
+
+      // Timeout after 30 seconds to prevent indefinite wait
+      setTimeout(() => {
+        if (!initComplete && !initFailed) {
+          initFailed = true;
+          resolve();
+        }
+      }, 30000);
     });
 
     if (initFailed) {
@@ -221,9 +229,9 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
 
     // Keep process alive
     process.stdin.resume();
-  } catch {
-    // Error already shown to user via inherited stdio
-    // Just exit with error code
+  } catch (error) {
+    // Most errors shown via inherited stdio, but catch any that weren't
+    console.error(`Fatal error: ${error.message}`);
     process.exit(1);
   }
 }

@@ -1,0 +1,203 @@
+name: Release Static Site Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Configure git
+        run: |
+          git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
+          git config --local user.name "${{ secrets.GIT_USER_NAME }}"
+
+      - name: Ensure we have latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Get current version
+        id: current_version
+        working-directory: ./clients/static-site
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Bump version
+        id: version
+        working-directory: ./clients/static-site
+        run: |
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version | sed 's/v//')
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=static-site/v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog with Claude
+        id: changelog
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Generate release notes for the Vizzly Static Site Plugin v${{ steps.version.outputs.version }}.
+
+            Context:
+            - Client location: `clients/static-site/`
+            - Previous tag: `static-site/v${{ steps.current_version.outputs.version }}`
+            - New version: `${{ steps.version.outputs.version }}`
+            - This is a monorepo with multiple clients and a CLI
+
+            Instructions:
+            1. Use git commands (via Bash tool) to get commits since last static-site/* tag
+            2. Analyze which commits are relevant to `clients/static-site/`
+            3. Read the code changes if needed to understand impact
+            4. Generate user-friendly release notes with categories: Added, Changed, Fixed
+            5. Focus on user-facing changes only
+            6. If no relevant changes, output: "No changes to Static Site plugin in this release"
+
+            Save the changelog to `clients/static-site/CHANGELOG-RELEASE.md` with this format:
+
+            ## What's Changed
+
+            ### Added
+            - New features
+
+            ### Changed
+            - Breaking or notable changes
+
+            ### Fixed
+            - Bug fixes
+
+            **Full Changelog**: https://github.com/vizzly-testing/cli/compare/static-site/v${{ steps.current_version.outputs.version }}...static-site/v${{ steps.version.outputs.version }}
+          claude_args: '--allowed-tools "Bash(git:*),Write"'
+
+      - name: Install dependencies
+        working-directory: ./clients/static-site
+        run: npm install
+
+      - name: Run tests
+        working-directory: ./clients/static-site
+        run: npm test
+
+      - name: Run linter
+        working-directory: ./clients/static-site
+        run: npm run lint
+
+      - name: Update CHANGELOG.md
+        working-directory: ./clients/static-site
+        run: |
+          # Check if changelog was generated successfully
+          if [ ! -f CHANGELOG-RELEASE.md ]; then
+            echo "Warning: CHANGELOG-RELEASE.md not found, creating fallback changelog"
+            cat > CHANGELOG-RELEASE.md << 'EOF'
+          ## What's Changed
+
+          Release v${{ steps.version.outputs.version }}
+
+          See the full diff for detailed changes.
+          EOF
+          fi
+
+          # Extract old releases (everything after the first version heading, excluding Unreleased)
+          PREVIOUS_RELEASES=""
+          if grep -q "^## \[" CHANGELOG.md 2>/dev/null; then
+            # Get everything starting from first version (not Unreleased)
+            PREVIOUS_RELEASES=$(awk '/^## \[[0-9]/{found=1} found' CHANGELOG.md)
+          fi
+
+          # Create new CHANGELOG.md
+          cat > CHANGELOG.md << EOF
+          # Changelog
+
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          ## [${{ steps.version.outputs.version }}] - $(date +%Y-%m-%d)
+
+          EOF
+
+          # Append the generated release notes
+          cat CHANGELOG-RELEASE.md >> CHANGELOG.md
+
+          # Append previous releases if they exist
+          if [ -n "$PREVIOUS_RELEASES" ]; then
+            echo "" >> CHANGELOG.md
+            echo "$PREVIOUS_RELEASES" >> CHANGELOG.md
+          fi
+
+          rm -f CHANGELOG-RELEASE.md
+
+      - name: Build package
+        working-directory: ./clients/static-site
+        run: npm run build
+
+      - name: Reconfigure git auth
+        run: |
+          git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
+          git config --local user.name "${{ secrets.GIT_USER_NAME }}"
+          git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n x-access-token:${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }} | base64)"
+
+      - name: Commit and push changes
+        run: |
+          git add clients/static-site/package.json clients/static-site/CHANGELOG.md
+          git commit -m "🔖 Static site plugin v${{ steps.version.outputs.version }}"
+          git push origin main
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Publish to npm
+        working-directory: ./clients/static-site
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Read changelog for release
+        id: release_notes
+        working-directory: ./clients/static-site
+        run: |
+          # Extract just this version's changelog
+          CHANGELOG=$(sed -n '/## \[${{ steps.version.outputs.version }}\]/,/## \[/p' CHANGELOG.md | sed '$ d')
+          {
+            echo 'notes<<CHANGELOG_EOF'
+            echo "$CHANGELOG"
+            echo 'CHANGELOG_EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: 🏗️ Static Site Plugin v${{ steps.version.outputs.version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          files: ./clients/static-site/*.tgz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

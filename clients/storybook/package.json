@@ -1,6 +1,6 @@
 {
   "name": "@vizzly-testing/storybook",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Storybook plugin for Vizzly - seamlessly integrate Storybook stories into your visual development workflow",
   "keywords": [
     "vizzly",

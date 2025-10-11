@@ -358,6 +358,19 @@ export async function run(buildPath, options = {}, context = {}) {
 }
 
 /**
+ * Configuration helper function for vizzly.config.js
+ * Returns a configuration object for the static-site SDK
+ * @param {Object} options - Configuration options
+ * @returns {Object} Configuration object
+ */
+export function staticSite(options = {}) {
+  return {
+    name: 'static-site',
+    ...options,
+  };
+}
+
+/**
  * Programmatic API export
  * Allows users to run static site screenshot capture programmatically
  */

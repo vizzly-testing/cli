@@ -5,7 +5,8 @@
       {
         "targets": {
           "node": "20"
-        }
+        },
+        "modules": false
       }
     ]
   ]

@@ -4,7 +4,6 @@ import {
   existsSync,
   unlinkSync,
   mkdirSync,
-  openSync,
 } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
@@ -44,11 +43,14 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
     const port = options.port || 47392;
 
-    // Prepare log files for daemon output
-    const logFile = join(vizzlyDir, 'daemon.log');
-    const errorFile = join(vizzlyDir, 'daemon-error.log');
+    // Show loading indicator if downloading baselines (but not in verbose mode since child shows progress)
+    if (options.baselineBuild && !globalOptions.verbose) {
+      ui.startSpinner(
+        `Downloading baselines from build ${options.baselineBuild}...`
+      );
+    }
 
-    // Spawn detached child process to run the server
+    // Spawn child process with stdio inherited during init for direct error visibility
     const child = spawn(
       process.execPath,
       [
@@ -77,10 +79,38 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       ],
       {
         detached: true,
-        stdio: ['ignore', openSync(logFile, 'a'), openSync(errorFile, 'a')],
+        stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
         cwd: process.cwd(),
       }
     );
+
+    // Wait for child to signal successful init or exit with error
+    let initComplete = false;
+    let initFailed = false;
+
+    await new Promise(resolve => {
+      // Child disconnects IPC when initialization succeeds
+      child.on('disconnect', () => {
+        initComplete = true;
+        resolve();
+      });
+
+      // Child exits before disconnecting = initialization failed
+      child.on('exit', () => {
+        if (!initComplete) {
+          initFailed = true;
+          resolve();
+        }
+      });
+    });
+
+    if (initFailed) {
+      if (options.baselineBuild && !globalOptions.verbose) {
+        ui.stopSpinner();
+      }
+      ui.error('TDD server failed to start');
+      process.exit(1);
+    }
 
     // Unref so parent can exit
     child.unref();
@@ -95,6 +125,10 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       running = await isServerRunning(port);
     }
 
+    if (options.baselineBuild && !globalOptions.verbose) {
+      ui.stopSpinner();
+    }
+
     if (!running) {
       ui.error(
         'Failed to start TDD server - server not responding to health checks'
@@ -103,6 +137,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     }
 
     ui.success(`TDD server started at http://localhost:${port}`);
+
     ui.info('');
     ui.info('Dashboard URLs:');
     ui.info(`  Comparisons: http://localhost:${port}/`);
@@ -144,6 +179,11 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
       globalOptions
     );
 
+    // Disconnect IPC after successful initialization to signal parent
+    if (process.send) {
+      process.disconnect();
+    }
+
     // Store our PID for the stop command
     const pidFile = join(vizzlyDir, 'server.pid');
     writeFileSync(pidFile, process.pid.toString());
@@ -181,18 +221,9 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
 
     // Keep process alive
     process.stdin.resume();
-  } catch (error) {
-    // Log error to file for debugging
-    const logFile = join(vizzlyDir, 'daemon-error.log');
-    try {
-      writeFileSync(
-        logFile,
-        `[${new Date().toISOString()}] ${error.stack || error}\n`,
-        { flag: 'a' }
-      );
-    } catch {
-      // Silent failure if we can't write log
-    }
+  } catch {
+    // Error already shown to user via inherited stdio
+    // Just exit with error code
     process.exit(1);
   }
 }

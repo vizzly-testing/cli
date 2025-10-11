@@ -2,6 +2,7 @@ import { glob } from 'glob';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
+import { z } from 'zod';
 
 /**
  * Load and register plugins from node_modules and config
@@ -162,25 +163,51 @@ async function loadPlugin(pluginPath) {
 }
 
 /**
+ * Zod schema for validating plugin structure
+ */
+const pluginSchema = z.object({
+  name: z.string().min(1, 'Plugin name is required'),
+  version: z.string().optional(),
+  register: z.function(z.tuple([z.any(), z.any()]), z.void()),
+  configSchema: z.record(z.any()).optional(),
+});
+
+/**
+ * Zod schema for validating plugin config values
+ * Supports: string, number, boolean, null, arrays, and nested objects
+ */
+const configValueSchema = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(configValueSchema),
+    z.record(configValueSchema),
+  ])
+);
+
+/**
  * Validate plugin has required structure
  * @param {Object} plugin - Plugin object
  * @throws {Error} If plugin structure is invalid
  */
 function validatePluginStructure(plugin) {
-  if (!plugin || typeof plugin !== 'object') {
-    throw new Error('Plugin must export an object');
-  }
+  try {
+    // Validate basic plugin structure
+    pluginSchema.parse(plugin);
 
-  if (!plugin.name || typeof plugin.name !== 'string') {
-    throw new Error('Plugin must have a name (string)');
-  }
-
-  if (!plugin.register || typeof plugin.register !== 'function') {
-    throw new Error('Plugin must have a register function');
-  }
-
-  if (plugin.version && typeof plugin.version !== 'string') {
-    throw new Error('Plugin version must be a string');
+    // If configSchema exists, validate it contains valid config values
+    if (plugin.configSchema) {
+      let configSchemaValidator = z.record(configValueSchema);
+      configSchemaValidator.parse(plugin.configSchema);
+    }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      let messages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      throw new Error(`Invalid plugin structure: ${messages.join(', ')}`);
+    }
+    throw error;
   }
 }
 

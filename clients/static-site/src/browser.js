@@ -60,7 +60,10 @@ export async function navigateToUrl(page, url, options = {}) {
     });
   } catch (error) {
     // Fallback to domcontentloaded if networkidle2 times out
-    if (error.message.includes('timeout') || error.message.includes('Navigation timeout')) {
+    if (
+      error.message.includes('timeout') ||
+      error.message.includes('Navigation timeout')
+    ) {
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: 30000,

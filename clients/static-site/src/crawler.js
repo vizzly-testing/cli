@@ -3,7 +3,7 @@
  * Functions for finding and parsing HTML pages in static site builds
  */
 
-import { readdir, readFile, stat } from 'fs/promises';
+import { readdir } from 'fs/promises';
 import { join, relative, sep, resolve } from 'path';
 import {
   parseSitemapFile,
@@ -152,7 +152,7 @@ async function discoverPagesFromSitemap(buildPath, config) {
       title: path,
       source: 'sitemap',
     }));
-  } catch (error) {
+  } catch {
     // Non-fatal: sitemap parsing failed, return empty array
     return [];
   }
@@ -164,7 +164,7 @@ async function discoverPagesFromSitemap(buildPath, config) {
  * @param {Object} config - Configuration object
  * @returns {Promise<Array<Object>>} Array of page objects
  */
-async function discoverPagesFromHtml(buildPath, config) {
+async function discoverPagesFromHtml(buildPath, _config) {
   try {
     let htmlFiles = await scanHtmlFiles(buildPath, buildPath);
 

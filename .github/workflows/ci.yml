@@ -225,6 +225,21 @@ jobs:
               - '.github/workflows/ci.yml'
               - '.github/workflows/release-storybook-client.yml'
 
+  changes-static-site:
+    runs-on: ubuntu-latest
+    outputs:
+      static-site: ${{ steps.filter.outputs.static-site }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            static-site:
+              - 'clients/static-site/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release-static-site-client.yml'
+
   test-storybook-client:
     runs-on: ubuntu-latest
     needs: [lint, changes-storybook]
@@ -266,9 +281,50 @@ jobs:
       working-directory: ./clients/storybook
       run: npm run build
 
+  test-static-site-client:
+    runs-on: ubuntu-latest
+    needs: [lint, changes-static-site]
+    if: needs.changes-static-site.outputs.static-site == 'true'
+
+    strategy:
+      matrix:
+        node-version: [20, 22, 24]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install CLI dependencies
+      run: npm ci
+
+    - name: Build CLI
+      run: npm run build
+
+    - name: Install static-site client dependencies
+      working-directory: ./clients/static-site
+      run: npm install
+
+    - name: Run linter
+      working-directory: ./clients/static-site
+      run: npm run lint
+
+    - name: Run tests
+      working-directory: ./clients/static-site
+      run: npm test
+      env:
+        CI: true
+
+    - name: Build package
+      working-directory: ./clients/static-site
+      run: npm run build
+
   ci-check:
     runs-on: ubuntu-latest
-    needs: [lint, test, test-site, test-reporter, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client]
+    needs: [lint, test, test-site, test-reporter, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client]
     if: always()
     steps:
       - name: Check if all jobs passed
@@ -287,6 +343,11 @@ jobs:
 
           if [[ "${{ needs.changes-storybook.outputs.storybook }}" == "true" && "${{ needs.test-storybook-client.result }}" == "failure" ]]; then
             echo "Storybook client tests failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.changes-static-site.outputs.static-site }}" == "true" && "${{ needs.test-static-site-client.result }}" == "failure" ]]; then
+            echo "Static site client tests failed"
             exit 1
           fi
 

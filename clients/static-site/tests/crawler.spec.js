@@ -2,12 +2,16 @@
  * Tests for page discovery and crawling
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdir, writeFile, symlink, rm } from 'fs/promises';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import {
   filePathToUrlPath,
   filterPages,
   generatePageUrl,
 } from '../src/crawler.js';
+import { discoverPages } from '../src/crawler.js';
 
 describe('crawler', () => {
   describe('filePathToUrlPath', () => {
@@ -127,6 +131,145 @@ describe('crawler', () => {
 
       expect(() => generatePageUrl('', page)).toThrow();
       expect(() => generatePageUrl(null, page)).toThrow();
+    });
+  });
+
+  describe('path traversal security', () => {
+    let testDir;
+    let outsideDir;
+
+    beforeEach(async () => {
+      // Create unique temp directory for each test
+      let uniqueId = `vizzly-test-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      testDir = join(tmpdir(), uniqueId, 'build');
+      outsideDir = join(tmpdir(), uniqueId, 'outside');
+
+      await mkdir(testDir, { recursive: true });
+      await mkdir(outsideDir, { recursive: true });
+
+      // Create legitimate pages inside build directory
+      await writeFile(join(testDir, 'index.html'), '<html><body>Home</body></html>');
+      await mkdir(join(testDir, 'blog'), { recursive: true });
+      await writeFile(join(testDir, 'blog', 'post.html'), '<html><body>Post</body></html>');
+
+      // Create sensitive file outside build directory
+      await writeFile(join(outsideDir, 'secret.html'), '<html><body>Secret</body></html>');
+    });
+
+    afterEach(async () => {
+      // Clean up test directories
+      await rm(join(tmpdir(), testDir.split('/').slice(0, -1).pop()), { recursive: true, force: true }).catch(() => {});
+    });
+
+    it('should not discover HTML files outside build directory via symlink', async () => {
+      // Create symlink pointing outside build directory
+      let symlinkPath = join(testDir, 'evil-link');
+      try {
+        await symlink(outsideDir, symlinkPath, 'dir');
+      } catch (error) {
+        // Skip test if symlinks not supported (e.g., Windows without admin)
+        if (error.code === 'EPERM' || error.code === 'EACCES') {
+          return;
+        }
+        throw error;
+      }
+
+      let config = {
+        buildPath: testDir,
+        pageDiscovery: {
+          useSitemap: false,
+          scanHtml: true,
+          sitemapPath: 'sitemap.xml',
+        },
+        include: null,
+        exclude: null,
+      };
+
+      let pages = await discoverPages(testDir, config);
+
+      // Should only find pages inside build directory
+      expect(pages).toHaveLength(2);
+      expect(pages.some(p => p.path.includes('secret'))).toBe(false);
+    });
+
+    it('should not be affected by path traversal in directory names', async () => {
+      // Create directory with path traversal pattern (should be treated as literal)
+      let traversalDir = join(testDir, '..', 'fake-escape');
+      await mkdir(traversalDir, { recursive: true });
+      await writeFile(join(traversalDir, 'page.html'), '<html><body>Page</body></html>');
+
+      let config = {
+        buildPath: testDir,
+        pageDiscovery: {
+          useSitemap: false,
+          scanHtml: true,
+          sitemapPath: 'sitemap.xml',
+        },
+        include: null,
+        exclude: null,
+      };
+
+      let pages = await discoverPages(testDir, config);
+
+      // Should find legitimate pages but validate paths stay in bounds
+      expect(pages.length).toBeGreaterThan(0);
+      pages.forEach(page => {
+        expect(page.filePath).not.toContain('../outside');
+      });
+    });
+
+    it('should handle deeply nested legitimate directories', async () => {
+      // Create deeply nested legitimate structure
+      let deepPath = join(testDir, 'docs', 'api', 'v1', 'reference');
+      await mkdir(deepPath, { recursive: true });
+      await writeFile(join(deepPath, 'endpoint.html'), '<html><body>API</body></html>');
+
+      let config = {
+        buildPath: testDir,
+        pageDiscovery: {
+          useSitemap: false,
+          scanHtml: true,
+          sitemapPath: 'sitemap.xml',
+        },
+        include: null,
+        exclude: null,
+      };
+
+      let pages = await discoverPages(testDir, config);
+
+      // Should find all legitimate pages including deeply nested ones
+      let apiPage = pages.find(p => p.path.includes('endpoint'));
+      expect(apiPage).toBeDefined();
+      expect(apiPage.path).toBe('/docs/api/v1/reference/endpoint');
+    });
+
+    it('should not follow symlinks pointing to parent directories', async () => {
+      // Create symlink to parent directory
+      let parentLink = join(testDir, 'parent-link');
+      try {
+        await symlink(join(testDir, '..'), parentLink, 'dir');
+      } catch (error) {
+        if (error.code === 'EPERM' || error.code === 'EACCES') {
+          return;
+        }
+        throw error;
+      }
+
+      let config = {
+        buildPath: testDir,
+        pageDiscovery: {
+          useSitemap: false,
+          scanHtml: true,
+          sitemapPath: 'sitemap.xml',
+        },
+        include: null,
+        exclude: null,
+      };
+
+      let pages = await discoverPages(testDir, config);
+
+      // Should only find pages directly in build, not through parent symlink
+      expect(pages).toHaveLength(2);
     });
   });
 });

@@ -4,13 +4,27 @@
  */
 
 import { readdir, readFile, stat } from 'fs/promises';
-import { join, relative, sep } from 'path';
+import { join, relative, sep, resolve } from 'path';
 import {
   parseSitemapFile,
   urlsToRelativePaths,
   discoverSitemap,
 } from './utils/sitemap.js';
 import { filterByPattern } from './utils/patterns.js';
+
+/**
+ * Check if a path is within the base directory
+ * Prevents path traversal attacks by validating resolved paths
+ * @param {string} targetPath - Path to validate
+ * @param {string} baseDir - Base directory that should contain the target
+ * @returns {boolean} True if targetPath is within baseDir
+ */
+function isWithinDirectory(targetPath, baseDir) {
+  let resolvedBase = resolve(baseDir);
+  let resolvedTarget = resolve(targetPath);
+
+  return resolvedTarget.startsWith(resolvedBase + sep) || resolvedTarget === resolvedBase;
+}
 
 /**
  * Recursively scan directory for HTML files
@@ -26,6 +40,12 @@ async function scanHtmlFiles(dir, baseDir) {
 
     for (let entry of entries) {
       let fullPath = join(dir, entry.name);
+
+      // Security: Validate path stays within baseDir
+      if (!isWithinDirectory(fullPath, baseDir)) {
+        // Skip entries that escape the base directory (symlinks, path traversal, etc.)
+        continue;
+      }
 
       if (entry.isDirectory()) {
         // Skip common non-public directories

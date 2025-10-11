@@ -44,14 +44,18 @@ export async function startStaticServer(rootDir, port = 0) {
 /**
  * Stop a static server
  * @param {Object} serverInfo - Server info from startStaticServer
+ * @param {number} [timeout=5000] - Max time to wait for server to close (ms)
  * @returns {Promise<void>}
  */
-export async function stopStaticServer(serverInfo) {
+export async function stopStaticServer(serverInfo, timeout = 5000) {
   if (!serverInfo || !serverInfo.server) {
     return;
   }
 
-  return new Promise(resolve => {
-    serverInfo.server.close(() => resolve());
-  });
+  return Promise.race([
+    new Promise(resolve => {
+      serverInfo.server.close(() => resolve());
+    }),
+    new Promise(resolve => setTimeout(resolve, timeout)),
+  ]);
 }

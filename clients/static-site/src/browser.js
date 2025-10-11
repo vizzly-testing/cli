@@ -52,11 +52,24 @@ export async function createPage(browser) {
  * @returns {Promise<void>}
  */
 export async function navigateToUrl(page, url, options = {}) {
-  await page.goto(url, {
-    waitUntil: 'networkidle2',
-    timeout: 30000, // 30 second timeout
-    ...options,
-  });
+  try {
+    await page.goto(url, {
+      waitUntil: 'networkidle2',
+      timeout: 30000, // 30 second timeout
+      ...options,
+    });
+  } catch (error) {
+    // Fallback to domcontentloaded if networkidle2 times out
+    if (error.message.includes('timeout') || error.message.includes('Navigation timeout')) {
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+        ...options,
+      });
+    } else {
+      throw error;
+    }
+  }
 }
 
 /**

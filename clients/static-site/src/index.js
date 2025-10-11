@@ -69,18 +69,18 @@ async function processPage(page, browser, baseUrl, config, context) {
  */
 async function mapWithConcurrency(items, fn, concurrency) {
   let results = [];
-  let executing = [];
+  let executing = new Set();
 
   for (let item of items) {
     let promise = fn(item).then(result => {
-      executing.splice(executing.indexOf(promise), 1);
+      executing.delete(promise);
       return result;
     });
 
     results.push(promise);
-    executing.push(promise);
+    executing.add(promise);
 
-    if (executing.length >= concurrency) {
+    if (executing.size >= concurrency) {
       await Promise.race(executing);
     }
   }
@@ -275,6 +275,8 @@ export async function run(buildPath, options = {}, context = {}) {
       } catch (error) {
         // Log the error and continue without cloud mode
         logger.error(`Failed to initialize cloud mode: ${error.message}`);
+        logger.warn('⚠️  Falling back to local-only mode');
+        logger.info('   Screenshots will not be uploaded to cloud');
         testRunner = null;
       }
     }

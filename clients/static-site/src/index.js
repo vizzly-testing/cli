@@ -26,7 +26,7 @@ import { startStaticServer, stopStaticServer } from './server.js';
  */
 async function processPage(page, browser, baseUrl, config, context) {
   let { logger } = context;
-  let pageConfig = getPageConfig(page, config);
+  let pageConfig = getPageConfig(config, page);
   let pageUrl = generatePageUrl(baseUrl, page);
   let hook = getBeforeScreenshotHook(page, config);
   let errors = [];

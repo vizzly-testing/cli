@@ -23,7 +23,9 @@ function isWithinDirectory(targetPath, baseDir) {
   let resolvedBase = resolve(baseDir);
   let resolvedTarget = resolve(targetPath);
 
-  return resolvedTarget.startsWith(resolvedBase + sep) || resolvedTarget === resolvedBase;
+  return (
+    resolvedTarget.startsWith(resolvedBase + sep) || resolvedTarget === resolvedBase
+  );
 }
 
 /**
@@ -221,6 +223,18 @@ export function generatePageUrl(baseUrl, page) {
     throw new Error('baseUrl must be a non-empty string');
   }
 
+  // If page has filePath from HTML discovery, use it directly
+  if (page.filePath) {
+    let urlPath = page.filePath;
+    // Normalize separators
+    urlPath = urlPath.replace(/\\/g, '/');
+    if (sep !== '/') {
+      urlPath = urlPath.split(sep).join('/');
+    }
+    return `${baseUrl}/${urlPath}`;
+  }
+
+  // Fallback for pages from sitemap without filePath
   let path = page.path;
 
   // Handle root path
@@ -233,7 +247,7 @@ export function generatePageUrl(baseUrl, page) {
     path = path.slice(0, -1);
   }
 
-  // Try direct .html file first, fallback to /index.html
+  // Try /path.html first (most common convention)
   return `${baseUrl}${path}.html`;
 }
 

@@ -56,8 +56,9 @@ let logger = createComponentLogger('CLI', {
 });
 let container = await createServiceContainer(config);
 
+let plugins = [];
 try {
-  let plugins = await loadPlugins(configPath, config, logger);
+  plugins = await loadPlugins(configPath, config, logger);
 
   for (let plugin of plugins) {
     try {
@@ -90,7 +91,7 @@ program
   .option('--force', 'Overwrite existing configuration')
   .action(async options => {
     const globalOptions = program.opts();
-    await init({ ...globalOptions, ...options });
+    await init({ ...globalOptions, ...options, plugins });
   });
 
 program

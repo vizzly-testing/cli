@@ -8,6 +8,35 @@ export default {
   version: '0.1.0',
 
   /**
+   * Default configuration schema for init command
+   * This will be added to vizzly.config.js when running `vizzly init`
+   */
+  configSchema: {
+    staticSite: {
+      viewports: [
+        { name: 'mobile', width: 375, height: 667 },
+        { name: 'desktop', width: 1920, height: 1080 },
+      ],
+      browser: {
+        headless: true,
+        args: [],
+      },
+      screenshot: {
+        fullPage: false,
+        omitBackground: false,
+      },
+      concurrency: 3,
+      include: null,
+      exclude: null,
+      pageDiscovery: {
+        useSitemap: true,
+        sitemapPath: 'sitemap.xml',
+        scanHtml: true,
+      },
+    },
+  },
+
+  /**
    * Register the static-site command with the CLI
    * @param {import('commander').Command} program - Commander program instance
    * @param {Object} context - Plugin context

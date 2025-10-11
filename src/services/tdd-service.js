@@ -105,8 +105,6 @@ export class TddService {
     buildId = null,
     comparisonId = null
   ) {
-    logger.info('🔍 Looking for baseline build...');
-
     // If no branch specified, try to detect the default branch
     if (!branch) {
       branch = await getDefaultBranch();
@@ -126,7 +124,6 @@ export class TddService {
 
       if (buildId) {
         // Use specific build ID - get it with screenshots in one call
-        logger.info(`📌 Using specified build: ${buildId}`);
         const apiResponse = await this.api.getBuild(buildId, 'screenshots');
 
         // Debug the full API response (only in debug mode)
@@ -189,9 +186,6 @@ export class TddService {
 
         baselineBuild = builds.data[0];
       }
-      logger.info(
-        `📥 Found baseline build: ${colors.cyan(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
-      );
 
       // For specific buildId, we already have screenshots, otherwise get build details
       let buildDetails = baselineBuild;
@@ -207,7 +201,10 @@ export class TddService {
       }
 
       logger.info(
-        `📸 Downloading ${colors.cyan(buildDetails.screenshots.length)} baseline screenshots...`
+        `Using baseline from build: ${colors.cyan(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
+      );
+      logger.info(
+        `Checking ${colors.cyan(buildDetails.screenshots.length)} baseline screenshots...`
       );
 
       // Debug screenshots structure (only in debug mode)
@@ -444,25 +441,52 @@ export class TddService {
       const metadataPath = join(this.baselinePath, 'metadata.json');
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
+      // Save baseline build metadata for MCP plugin
+      const baselineMetadataPath = safePath(
+        this.workingDir,
+        '.vizzly',
+        'baseline-metadata.json'
+      );
+      const buildMetadata = {
+        buildId: baselineBuild.id,
+        buildName: baselineBuild.name,
+        branch: branch,
+        environment: environment,
+        commitSha: baselineBuild.commit_sha,
+        commitMessage: baselineBuild.commit_message,
+        approvalStatus: baselineBuild.approval_status,
+        completedAt: baselineBuild.completed_at,
+        downloadedAt: new Date().toISOString(),
+      };
+      writeFileSync(
+        baselineMetadataPath,
+        JSON.stringify(buildMetadata, null, 2)
+      );
+
       // Final summary
       const actualDownloads = downloadedCount - skippedCount;
-      const totalAttempted = downloadedCount + errorCount;
 
-      if (skippedCount > 0 || errorCount > 0) {
-        let summaryParts = [];
-        if (actualDownloads > 0)
-          summaryParts.push(`${actualDownloads} downloaded`);
-        if (skippedCount > 0)
-          summaryParts.push(`${skippedCount} skipped (matching SHA)`);
-        if (errorCount > 0) summaryParts.push(`${errorCount} failed`);
-
-        logger.info(
-          `✅ Baseline ready - ${summaryParts.join(', ')} - ${totalAttempted}/${buildDetails.screenshots.length} total`
-        );
+      if (skippedCount > 0) {
+        // All skipped (up-to-date)
+        if (actualDownloads === 0) {
+          logger.info(
+            `✅ All ${skippedCount} baselines up-to-date (matching local SHA)`
+          );
+        } else {
+          // Mixed: some downloaded, some skipped
+          logger.info(
+            `✅ Downloaded ${actualDownloads} new screenshots, ${skippedCount} already up-to-date`
+          );
+        }
       } else {
+        // Fresh download
         logger.info(
-          `✅ Baseline downloaded successfully - ${downloadedCount}/${buildDetails.screenshots.length} screenshots`
+          `✅ Downloaded ${downloadedCount}/${buildDetails.screenshots.length} screenshots successfully`
         );
+      }
+
+      if (errorCount > 0) {
+        logger.warn(`⚠️  ${errorCount} screenshots failed to download`);
       }
       return this.baselineData;
     } catch (error) {

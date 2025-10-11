@@ -62,7 +62,8 @@ export async function tddCommand(
     const branch = await detectBranch(options.branch);
     const commit = await detectCommit(options.commit);
 
-    if (globalOptions.verbose) {
+    // Only show config in verbose mode for non-daemon (daemon shows baseline info instead)
+    if (globalOptions.verbose && !options.daemon) {
       ui.info('TDD Configuration loaded', {
         testCommand,
         port: config.server.port,
@@ -104,8 +105,13 @@ export async function tddCommand(
         ui.info(`TDD screenshot server running on port ${serverInfo.port}`);
         ui.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
       }
-      if (globalOptions.verbose) {
-        ui.info('Server details', serverInfo);
+      // Verbose server details only in non-daemon mode
+      if (globalOptions.verbose && !options.daemon) {
+        ui.info('Server started', {
+          port: serverInfo.port,
+          pid: serverInfo.pid,
+          uptime: serverInfo.uptime,
+        });
       }
     });
 

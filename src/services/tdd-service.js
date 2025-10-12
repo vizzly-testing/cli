@@ -682,6 +682,7 @@ export class TddService {
         {
           threshold: this.threshold,
           outputDiffMask: true,
+          failOnLayoutDiff: true, // Fail if image dimensions differ
         }
       );
 

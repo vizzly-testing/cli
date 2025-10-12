@@ -55,17 +55,13 @@ export default {
         'Capture screenshots from static site build (Gatsby, Astro, Jekyll, Next.js, etc.)'
       )
       .option('--viewports <list>', 'Comma-separated viewport definitions (name:WxH)')
-      .option('--concurrency <n>', 'Number of parallel pages to process', parseInt, 3)
+      .option('--concurrency <n>', 'Number of parallel pages to process', parseInt)
       .option('--include <pattern>', 'Include page pattern (glob)')
       .option('--exclude <pattern>', 'Exclude page pattern (glob)')
       .option('--browser-args <args>', 'Additional Puppeteer browser arguments')
-      .option('--headless', 'Run browser in headless mode (default: true)', true)
-      .option('--full-page', 'Capture full page screenshots', false)
-      .option(
-        '--use-sitemap',
-        'Use sitemap.xml for page discovery (default: true)',
-        true
-      )
+      .option('--headless', 'Run browser in headless mode')
+      .option('--full-page', 'Capture full page screenshots')
+      .option('--use-sitemap', 'Use sitemap.xml for page discovery')
       .option(
         '--sitemap-path <path>',
         'Path to sitemap.xml relative to build directory'

@@ -64,7 +64,9 @@ The CLI automatically sets these variables for your test process:
 
 ## Adding Screenshots to Tests
 
-Import the client and use `vizzlyScreenshot()` in your tests:
+Import the client and use `vizzlyScreenshot()` in your tests. You can pass either a **Buffer** or a **file path**:
+
+### Using a Buffer
 
 ```javascript
 import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
@@ -81,6 +83,28 @@ await vizzlyScreenshot('homepage', screenshot, {
 });
 ```
 
+### Using a File Path
+
+```javascript
+import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
+
+// Save screenshot to file first
+await page.screenshot({ path: './screenshots/homepage.png' });
+
+// Send to Vizzly using file path
+await vizzlyScreenshot('homepage', './screenshots/homepage.png', {
+  properties: {
+    browser: 'chrome',
+    viewport: '1920x1080'
+  }
+});
+```
+
+**File path support:**
+- Accepts both absolute and relative paths
+- Works with any tool that generates PNG files
+- Useful when screenshots are already saved to disk
+
 ## Framework Examples
 
 ### Playwright
@@ -91,9 +115,20 @@ import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
 
 test('homepage test', async ({ page }) => {
   await page.goto('/');
-  
+
+  // Using a Buffer
   const screenshot = await page.screenshot();
   await vizzlyScreenshot('homepage', screenshot, {
+    properties: {
+      browser: 'chrome',
+      viewport: '1920x1080',
+      page: 'home'
+    }
+  });
+
+  // Using a file path
+  await page.screenshot({ path: './screenshots/homepage.png' });
+  await vizzlyScreenshot('homepage', './screenshots/homepage.png', {
     properties: {
       browser: 'chrome',
       viewport: '1920x1080',
@@ -108,20 +143,25 @@ test('homepage test', async ({ page }) => {
 ```javascript
 // cypress/support/commands.js
 import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
+import { join } from 'path';
 
+// Using file paths
 Cypress.Commands.add('vizzlyScreenshot', (name, properties = {}) => {
+  // Cypress saves screenshots to cypress/screenshots by default
   cy.screenshot(name, { capture: 'viewport' });
-  
-  cy.readFile(`cypress/screenshots/${name}.png`, 'base64').then((imageBase64) => {
-    const imageBuffer = Buffer.from(imageBase64, 'base64');
-    return vizzlyScreenshot(name, imageBuffer, {
+
+  // Use file path directly
+  const screenshotPath = join(Cypress.config('screenshotsFolder'), `${name}.png`);
+
+  return cy.wrap(
+    vizzlyScreenshot(name, screenshotPath, {
       properties: {
         browser: Cypress.browser.name,
         framework: 'cypress',
         ...properties
       }
-    });
-  });
+    })
+  );
 });
 
 // In your test
@@ -147,7 +187,8 @@ describe('Visual tests', () => {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
     await page.goto('/');
-    
+
+    // Using a Buffer
     const screenshot = await page.screenshot();
     await vizzlyScreenshot('homepage', screenshot, {
       properties: {
@@ -155,7 +196,16 @@ describe('Visual tests', () => {
         framework: 'puppeteer'
       }
     });
-    
+
+    // Using a file path
+    await page.screenshot({ path: './screenshots/homepage.png' });
+    await vizzlyScreenshot('homepage', './screenshots/homepage.png', {
+      properties: {
+        browser: 'chrome',
+        framework: 'puppeteer'
+      }
+    });
+
     await browser.close();
   });
 });

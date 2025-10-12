@@ -12,7 +12,7 @@ Capture a screenshot for visual regression testing.
 
 **Parameters:**
 - `name` (string) - Unique screenshot identifier
-- `imageBuffer` (Buffer) - PNG image data as Buffer
+- `imageBuffer` (Buffer | string) - PNG image data as Buffer, or file path to an image
 - `options` (object, optional) - Configuration and metadata
 
 **Options:**
@@ -20,7 +20,7 @@ Capture a screenshot for visual regression testing.
 {
   // Comparison settings
   threshold: 0.01,           // Pixel difference threshold (0-1)
-  
+
   // Metadata for organization (all optional)
   properties: {
     browser: 'chrome',       // Browser name
@@ -39,7 +39,10 @@ Capture a screenshot for visual regression testing.
 
 **Returns:** `Promise<void>`
 
-**Example:**
+**Examples:**
+
+Using a Buffer:
+
 ```javascript
 import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
 
@@ -53,6 +56,31 @@ await vizzlyScreenshot('homepage', screenshot, {
   }
 });
 ```
+
+Using a file path:
+
+```javascript
+import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
+
+// Save screenshot to file
+await page.screenshot({ path: './screenshots/homepage.png' });
+
+// Send to Vizzly using file path
+await vizzlyScreenshot('homepage', './screenshots/homepage.png', {
+  threshold: 0.02,
+  properties: {
+    browser: 'chrome',
+    viewport: '1920x1080',
+    component: 'hero-section'
+  }
+});
+```
+
+**File Path Support:**
+- Accepts both absolute and relative paths
+- Automatically reads the file and converts to Buffer internally
+- Throws error if file doesn't exist or cannot be read
+- Works with any PNG image file
 
 ### `vizzlyFlush()`
 
@@ -201,9 +229,23 @@ Stop the Vizzly server and cleanup resources.
 **Returns:** `Promise<void>`
 
 ##### `screenshot(name, imageBuffer, options)`
-Capture a screenshot (same as client API).
+Capture a screenshot.
+
+**Parameters:**
+- `name` (string) - Unique screenshot identifier
+- `imageBuffer` (Buffer | string) - PNG image data as Buffer, or file path to an image
+- `options` (object, optional) - Configuration and metadata
 
 **Returns:** `Promise<void>`
+
+**Example:**
+```javascript
+// Using a Buffer
+await vizzly.screenshot('homepage', buffer);
+
+// Using a file path
+await vizzly.screenshot('homepage', './screenshots/homepage.png');
+```
 
 ##### `upload(options)`
 Upload screenshots to Vizzly.
@@ -224,7 +266,20 @@ Upload screenshots to Vizzly.
 ##### `compare(name, imageBuffer)`
 Run local comparison (TDD mode).
 
+**Parameters:**
+- `name` (string) - Screenshot name
+- `imageBuffer` (Buffer | string) - PNG image data as Buffer, or file path to an image
+
 **Returns:** `Promise<ComparisonResult>`
+
+**Example:**
+```javascript
+// Using a Buffer
+const result = await vizzly.compare('homepage', buffer);
+
+// Using a file path
+const result = await vizzly.compare('homepage', './screenshots/homepage.png');
+```
 
 ##### `getConfig()`
 Get current SDK configuration.

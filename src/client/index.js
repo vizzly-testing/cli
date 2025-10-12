@@ -220,7 +220,7 @@ function createSimpleClient(serverUrl) {
  * Take a screenshot for visual regression testing
  *
  * @param {string} name - Unique name for the screenshot
- * @param {Buffer} imageBuffer - PNG image data as a Buffer
+ * @param {Buffer|string} imageBuffer - PNG image data as a Buffer, or a file path to an image
  * @param {Object} [options] - Optional configuration
  * @param {Record<string, any>} [options.properties] - Additional properties to attach to the screenshot
  * @param {number} [options.threshold=0] - Pixel difference threshold (0-100)
@@ -229,11 +229,15 @@ function createSimpleClient(serverUrl) {
  * @returns {Promise<void>}
  *
  * @example
- * // Basic usage
+ * // Basic usage with Buffer
  * import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
  *
  * const screenshot = await page.screenshot();
  * await vizzlyScreenshot('homepage', screenshot);
+ *
+ * @example
+ * // Basic usage with file path
+ * await vizzlyScreenshot('homepage', './screenshots/homepage.png');
  *
  * @example
  * // With properties and threshold
@@ -264,7 +268,26 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
     return;
   }
 
-  return client.screenshot(name, imageBuffer, options);
+  // Support both Buffer and file path
+  let buffer = imageBuffer;
+  if (typeof imageBuffer === 'string') {
+    // File path provided - read the file
+    const filePath = imageBuffer;
+
+    if (!existsSync(filePath)) {
+      throw new Error(`Screenshot file not found: ${filePath}`);
+    }
+
+    try {
+      buffer = readFileSync(filePath);
+    } catch (error) {
+      throw new Error(
+        `Failed to read screenshot file: ${filePath} - ${error.message}`
+      );
+    }
+  }
+
+  return client.screenshot(name, buffer, options);
 }
 
 /**

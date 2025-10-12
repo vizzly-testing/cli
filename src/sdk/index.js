@@ -11,6 +11,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { existsSync, readFileSync } from 'fs';
 import { createUploader } from '../services/uploader.js';
 import { createTDDService } from '../services/tdd-service.js';
 import { ScreenshotServer } from '../services/screenshot-server.js';
@@ -228,7 +229,7 @@ export class VizzlySDK extends EventEmitter {
   /**
    * Capture a screenshot
    * @param {string} name - Screenshot name
-   * @param {Buffer} imageBuffer - Image data
+   * @param {Buffer|string} imageBuffer - Image data as a Buffer, or a file path to an image
    * @param {import('../types').ScreenshotOptions} [options] - Options
    * @returns {Promise<void>}
    */
@@ -240,12 +241,37 @@ export class VizzlySDK extends EventEmitter {
       );
     }
 
+    // Support both Buffer and file path
+    let buffer = imageBuffer;
+    if (typeof imageBuffer === 'string') {
+      // File path provided - read the file
+      const filePath = imageBuffer;
+
+      if (!existsSync(filePath)) {
+        throw new VizzlyError(
+          `Screenshot file not found: ${filePath}`,
+          'FILE_NOT_FOUND',
+          { name, filePath }
+        );
+      }
+
+      try {
+        buffer = readFileSync(filePath);
+      } catch (error) {
+        throw new VizzlyError(
+          `Failed to read screenshot file: ${filePath} - ${error.message}`,
+          'FILE_READ_ERROR',
+          { name, filePath, originalError: error.message }
+        );
+      }
+    }
+
     // Generate or use provided build ID
     const buildId = options.buildId || this.currentBuildId || 'default';
     this.currentBuildId = buildId;
 
     // Convert Buffer to base64 for JSON transport
-    const imageBase64 = imageBuffer.toString('base64');
+    const imageBase64 = buffer.toString('base64');
 
     const screenshotData = {
       buildId,
@@ -346,7 +372,7 @@ export class VizzlySDK extends EventEmitter {
   /**
    * Run local comparison in TDD mode
    * @param {string} name - Screenshot name
-   * @param {Buffer} imageBuffer - Current image
+   * @param {Buffer|string} imageBuffer - Current image as a Buffer, or a file path to an image
    * @returns {Promise<import('../types').ComparisonResult>} Comparison result
    */
   async compare(name, imageBuffer) {
@@ -357,10 +383,35 @@ export class VizzlySDK extends EventEmitter {
       });
     }
 
+    // Support both Buffer and file path
+    let buffer = imageBuffer;
+    if (typeof imageBuffer === 'string') {
+      // File path provided - read the file
+      const filePath = imageBuffer;
+
+      if (!existsSync(filePath)) {
+        throw new VizzlyError(
+          `Screenshot file not found: ${filePath}`,
+          'FILE_NOT_FOUND',
+          { name, filePath }
+        );
+      }
+
+      try {
+        buffer = readFileSync(filePath);
+      } catch (error) {
+        throw new VizzlyError(
+          `Failed to read screenshot file: ${filePath} - ${error.message}`,
+          'FILE_READ_ERROR',
+          { name, filePath, originalError: error.message }
+        );
+      }
+    }
+
     try {
       const result = await this.services.tddService.compareScreenshot(
         name,
-        imageBuffer
+        buffer
       );
       this.emit('comparison:completed', result);
       return result;

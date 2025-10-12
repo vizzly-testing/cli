@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createVizzly, VizzlySDK } from '../../src/sdk/index.js';
+import { writeFileSync, mkdirSync, rmSync } from 'fs';
+import { join } from 'path';
 
 // Mock all dependencies with simple mocks
 vi.mock('../../src/services/uploader.js');
@@ -357,6 +359,135 @@ describe('Vizzly SDK Core Functionality', () => {
           ),
         })
       );
+    });
+  });
+
+  describe('File Path Support', () => {
+    let sdk;
+    let testDir;
+    let testImagePath;
+
+    beforeEach(() => {
+      // Create test directory and test image file
+      testDir = join(process.cwd(), 'tests', 'fixtures', 'temp-screenshots');
+      mkdirSync(testDir, { recursive: true });
+
+      testImagePath = join(testDir, 'test-screenshot.png');
+      const testImageBuffer = Buffer.from('fake-png-data');
+      writeFileSync(testImagePath, testImageBuffer);
+
+      sdk = new VizzlySDK(
+        { server: { port: 3000 } },
+        { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
+        {}
+      );
+      sdk.server = { isRunning: () => true };
+
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true }),
+      });
+    });
+
+    afterEach(() => {
+      // Clean up test files
+      try {
+        rmSync(testDir, { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+    });
+
+    it('should accept file path and read screenshot from file', async () => {
+      await sdk.screenshot('test-from-file', testImagePath);
+
+      const expectedBase64 = Buffer.from('fake-png-data').toString('base64');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/screenshot',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining(`"image":"${expectedBase64}"`),
+        })
+      );
+    });
+
+    it('should accept relative file paths', async () => {
+      const relativePath = join(
+        'tests',
+        'fixtures',
+        'temp-screenshots',
+        'test-screenshot.png'
+      );
+
+      await sdk.screenshot('test-relative-path', relativePath);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/screenshot',
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
+    it('should throw error for non-existent file', async () => {
+      const nonExistentPath = join(testDir, 'does-not-exist.png');
+      const { VizzlyError } = await import('../../src/errors/vizzly-error.js');
+
+      await expect(
+        sdk.screenshot('test-missing-file', nonExistentPath)
+      ).rejects.toThrow(VizzlyError);
+
+      await expect(
+        sdk.screenshot('test-missing-file', nonExistentPath)
+      ).rejects.toThrow(/Screenshot file not found/);
+    });
+
+    it('should maintain backward compatibility with Buffer', async () => {
+      const imageBuffer = Buffer.from('direct-buffer-data');
+
+      await sdk.screenshot('test-buffer', imageBuffer);
+
+      const expectedBase64 = imageBuffer.toString('base64');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/screenshot',
+        expect.objectContaining({
+          body: expect.stringContaining(`"image":"${expectedBase64}"`),
+        })
+      );
+    });
+
+    it('should support file paths in compare method', async () => {
+      const mockCompareScreenshot = vi.fn().mockResolvedValue({
+        status: 'passed',
+        diffPercentage: 0,
+      });
+
+      // Set up the tddService mock on the SDK instance
+      sdk.services = {
+        tddService: {
+          compareScreenshot: mockCompareScreenshot,
+        },
+      };
+
+      await sdk.compare('test-compare-file', testImagePath);
+
+      expect(mockCompareScreenshot).toHaveBeenCalledWith(
+        'test-compare-file',
+        expect.any(Buffer)
+      );
+    });
+
+    it('should throw error for missing file in compare method', async () => {
+      const nonExistentPath = join(testDir, 'does-not-exist.png');
+      const { VizzlyError } = await import('../../src/errors/vizzly-error.js');
+
+      await expect(
+        sdk.compare('test-compare-missing', nonExistentPath)
+      ).rejects.toThrow(VizzlyError);
+
+      await expect(
+        sdk.compare('test-compare-missing', nonExistentPath)
+      ).rejects.toThrow(/Screenshot file not found/);
     });
   });
 

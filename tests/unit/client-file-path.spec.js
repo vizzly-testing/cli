@@ -1,0 +1,135 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { writeFileSync, mkdirSync, rmSync } from 'fs';
+import { join } from 'path';
+
+// Mock fetch globally
+global.fetch = vi.fn();
+
+describe('Client SDK - File Path Support', () => {
+  let testDir;
+  let testImagePath;
+  let vizzlyScreenshot;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    // Create test directory and test image file
+    testDir = join(
+      process.cwd(),
+      'tests',
+      'fixtures',
+      'temp-client-screenshots'
+    );
+    mkdirSync(testDir, { recursive: true });
+
+    testImagePath = join(testDir, 'test-screenshot.png');
+    const testImageBuffer = Buffer.from('fake-png-data');
+    writeFileSync(testImagePath, testImageBuffer);
+
+    // Mock server.json for auto-discovery
+    const vizzlyDir = join(process.cwd(), '.vizzly');
+    mkdirSync(vizzlyDir, { recursive: true });
+    writeFileSync(
+      join(vizzlyDir, 'server.json'),
+      JSON.stringify({ port: 47392 })
+    );
+
+    // Import fresh module
+    const clientModule = await import('../../src/client/index.js');
+    vizzlyScreenshot = clientModule.vizzlyScreenshot;
+
+    // Mock successful response
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+  });
+
+  afterEach(() => {
+    // Clean up test files
+    try {
+      rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+
+    try {
+      rmSync(join(process.cwd(), '.vizzly'), { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+
+    vi.resetModules();
+  });
+
+  it('should accept file path and read screenshot from file', async () => {
+    await vizzlyScreenshot('test-from-file', testImagePath);
+
+    const expectedBase64 = Buffer.from('fake-png-data').toString('base64');
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:47392/screenshot',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(`"image":"${expectedBase64}"`),
+      })
+    );
+  });
+
+  it('should accept relative file paths', async () => {
+    const relativePath = join(
+      'tests',
+      'fixtures',
+      'temp-client-screenshots',
+      'test-screenshot.png'
+    );
+
+    await vizzlyScreenshot('test-relative-path', relativePath);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/screenshot'),
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+  });
+
+  it('should throw error for non-existent file', async () => {
+    const nonExistentPath = join(testDir, 'does-not-exist.png');
+
+    await expect(
+      vizzlyScreenshot('test-missing-file', nonExistentPath)
+    ).rejects.toThrow(/Screenshot file not found/);
+  });
+
+  it('should maintain backward compatibility with Buffer', async () => {
+    const imageBuffer = Buffer.from('direct-buffer-data');
+
+    await vizzlyScreenshot('test-buffer', imageBuffer);
+
+    const expectedBase64 = imageBuffer.toString('base64');
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/screenshot'),
+      expect.objectContaining({
+        body: expect.stringContaining(`"image":"${expectedBase64}"`),
+      })
+    );
+  });
+
+  it('should pass options correctly with file path', async () => {
+    await vizzlyScreenshot('test-with-options', testImagePath, {
+      properties: {
+        browser: 'chrome',
+        viewport: { width: 1920, height: 1080 },
+      },
+      threshold: 5,
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/screenshot'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"browser":"chrome"'),
+      })
+    );
+  });
+});

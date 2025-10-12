@@ -1,0 +1,28 @@
+{
+  "name": "vizzly-marketplace",
+  "owner": {
+    "name": "Vizzly Team",
+    "email": "team@vizzly.dev"
+  },
+  "metadata": {
+    "description": "Official Vizzly plugin for Claude Code - visual regression testing integration with TDD workflow support",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "vizzly",
+      "source": "./",
+      "description": "Visual regression testing integration for Vizzly - TDD workflow support and debugging tools",
+      "version": "0.1.0",
+      "author": {
+        "name": "Vizzly Team",
+        "url": "https://vizzly.dev"
+      },
+      "homepage": "https://vizzly.dev",
+      "repository": "https://github.com/vizzly-testing/vizzly-cli",
+      "license": "MIT",
+      "keywords": ["visual-testing", "regression-testing", "tdd", "screenshot-testing", "vizzly"],
+      "category": "testing"
+    }
+  ]
+}

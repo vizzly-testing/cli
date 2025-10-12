@@ -11,7 +11,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { existsSync, readFileSync } from 'fs';
+import { resolveImageBuffer } from '../utils/file-helpers.js';
 import { createUploader } from '../services/uploader.js';
 import { createTDDService } from '../services/tdd-service.js';
 import { ScreenshotServer } from '../services/screenshot-server.js';
@@ -232,6 +232,9 @@ export class VizzlySDK extends EventEmitter {
    * @param {Buffer|string} imageBuffer - Image data as a Buffer, or a file path to an image
    * @param {import('../types').ScreenshotOptions} [options] - Options
    * @returns {Promise<void>}
+   * @throws {VizzlyError} When server is not running
+   * @throws {VizzlyError} When file path is provided but file doesn't exist
+   * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
    */
   async screenshot(name, imageBuffer, options = {}) {
     if (!this.server || !this.server.isRunning()) {
@@ -241,30 +244,8 @@ export class VizzlySDK extends EventEmitter {
       );
     }
 
-    // Support both Buffer and file path
-    let buffer = imageBuffer;
-    if (typeof imageBuffer === 'string') {
-      // File path provided - read the file
-      const filePath = imageBuffer;
-
-      if (!existsSync(filePath)) {
-        throw new VizzlyError(
-          `Screenshot file not found: ${filePath}`,
-          'FILE_NOT_FOUND',
-          { name, filePath }
-        );
-      }
-
-      try {
-        buffer = readFileSync(filePath);
-      } catch (error) {
-        throw new VizzlyError(
-          `Failed to read screenshot file: ${filePath} - ${error.message}`,
-          'FILE_READ_ERROR',
-          { name, filePath, originalError: error.message }
-        );
-      }
-    }
+    // Resolve Buffer or file path using shared utility
+    const buffer = resolveImageBuffer(imageBuffer, 'screenshot');
 
     // Generate or use provided build ID
     const buildId = options.buildId || this.currentBuildId || 'default';
@@ -374,6 +355,8 @@ export class VizzlySDK extends EventEmitter {
    * @param {string} name - Screenshot name
    * @param {Buffer|string} imageBuffer - Current image as a Buffer, or a file path to an image
    * @returns {Promise<import('../types').ComparisonResult>} Comparison result
+   * @throws {VizzlyError} When file path is provided but file doesn't exist
+   * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
    */
   async compare(name, imageBuffer) {
     if (!this.services?.tddService) {
@@ -383,30 +366,8 @@ export class VizzlySDK extends EventEmitter {
       });
     }
 
-    // Support both Buffer and file path
-    let buffer = imageBuffer;
-    if (typeof imageBuffer === 'string') {
-      // File path provided - read the file
-      const filePath = imageBuffer;
-
-      if (!existsSync(filePath)) {
-        throw new VizzlyError(
-          `Screenshot file not found: ${filePath}`,
-          'FILE_NOT_FOUND',
-          { name, filePath }
-        );
-      }
-
-      try {
-        buffer = readFileSync(filePath);
-      } catch (error) {
-        throw new VizzlyError(
-          `Failed to read screenshot file: ${filePath} - ${error.message}`,
-          'FILE_READ_ERROR',
-          { name, filePath, originalError: error.message }
-        );
-      }
-    }
+    // Resolve Buffer or file path using shared utility
+    const buffer = resolveImageBuffer(imageBuffer, 'compare');
 
     try {
       const result = await this.services.tddService.compareScreenshot(

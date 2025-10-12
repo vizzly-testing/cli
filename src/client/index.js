@@ -9,6 +9,7 @@ import {
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
+import { resolveImageBuffer } from '../utils/file-helpers.js';
 import { existsSync, readFileSync } from 'fs';
 import { join, parse, dirname } from 'path';
 
@@ -250,6 +251,8 @@ function createSimpleClient(serverUrl) {
  * });
  *
  * @throws {VizzlyError} When screenshot capture fails or client is not initialized
+ * @throws {VizzlyError} When file path is provided but file doesn't exist
+ * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
  */
 export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
   if (isVizzlyDisabled()) {
@@ -268,24 +271,8 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
     return;
   }
 
-  // Support both Buffer and file path
-  let buffer = imageBuffer;
-  if (typeof imageBuffer === 'string') {
-    // File path provided - read the file
-    const filePath = imageBuffer;
-
-    if (!existsSync(filePath)) {
-      throw new Error(`Screenshot file not found: ${filePath}`);
-    }
-
-    try {
-      buffer = readFileSync(filePath);
-    } catch (error) {
-      throw new Error(
-        `Failed to read screenshot file: ${filePath} - ${error.message}`
-      );
-    }
-  }
+  // Resolve Buffer or file path using shared utility
+  const buffer = resolveImageBuffer(imageBuffer, 'screenshot');
 
   return client.screenshot(name, buffer, options);
 }

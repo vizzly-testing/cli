@@ -95,7 +95,7 @@
     "@babel/preset-typescript": "^7.23.6",
     "@eslint/js": "^9.31.0",
     "@heroicons/react": "^2.2.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.0.4",
     "@playwright/test": "^1.55.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^5.0.3",

@@ -7,7 +7,7 @@
     "url": "https://vizzly.dev"
   },
   "homepage": "https://vizzly.dev",
-  "repository": "https://github.com/vizzly-testing/claude-plugin",
+  "repository": "https://github.com/vizzly-testing/cli",
   "license": "MIT",
   "keywords": ["visual-testing", "regression-testing", "tdd", "screenshot-testing", "vizzly"]
 }

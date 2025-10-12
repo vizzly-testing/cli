@@ -36,6 +36,10 @@ export class CloudAPIProvider {
    * Get build status and details
    */
   async getBuildStatus(buildId, apiToken, apiUrl) {
+    if (!buildId || typeof buildId !== 'string') {
+      throw new Error('buildId is required and must be a non-empty string');
+    }
+
     let data = await this.makeRequest(
       `/api/sdk/builds/${buildId}?include=comparisons`,
       apiToken,
@@ -132,6 +136,10 @@ export class CloudAPIProvider {
    * Get comparison details
    */
   async getComparison(comparisonId, apiToken, apiUrl) {
+    if (!comparisonId || typeof comparisonId !== 'string') {
+      throw new Error('comparisonId is required and must be a non-empty string');
+    }
+
     let data = await this.makeRequest(`/api/sdk/comparisons/${comparisonId}`, apiToken, apiUrl);
 
     return data.comparison;
@@ -145,6 +153,13 @@ export class CloudAPIProvider {
    * Create a comment on a build
    */
   async createBuildComment(buildId, content, type, apiToken, apiUrl) {
+    if (!buildId || typeof buildId !== 'string') {
+      throw new Error('buildId is required and must be a non-empty string');
+    }
+    if (!content || typeof content !== 'string') {
+      throw new Error('content is required and must be a non-empty string');
+    }
+
     let url = `${apiUrl || this.defaultApiUrl}/api/sdk/builds/${buildId}/comments`;
     let response = await fetch(url, {
       method: 'POST',
@@ -168,6 +183,10 @@ export class CloudAPIProvider {
    * List comments for a build
    */
   async listBuildComments(buildId, apiToken, apiUrl) {
+    if (!buildId || typeof buildId !== 'string') {
+      throw new Error('buildId is required and must be a non-empty string');
+    }
+
     let data = await this.makeRequest(`/api/sdk/builds/${buildId}/comments`, apiToken, apiUrl);
 
     // Filter out unnecessary fields from comments for MCP
@@ -195,6 +214,10 @@ export class CloudAPIProvider {
    * Approve a comparison
    */
   async approveComparison(comparisonId, comment, apiToken, apiUrl) {
+    if (!comparisonId || typeof comparisonId !== 'string') {
+      throw new Error('comparisonId is required and must be a non-empty string');
+    }
+
     let url = `${apiUrl || this.defaultApiUrl}/api/sdk/comparisons/${comparisonId}/approve`;
     let response = await fetch(url, {
       method: 'POST',
@@ -218,6 +241,13 @@ export class CloudAPIProvider {
    * Reject a comparison
    */
   async rejectComparison(comparisonId, reason, apiToken, apiUrl) {
+    if (!comparisonId || typeof comparisonId !== 'string') {
+      throw new Error('comparisonId is required and must be a non-empty string');
+    }
+    if (!reason || typeof reason !== 'string') {
+      throw new Error('reason is required and must be a non-empty string');
+    }
+
     let url = `${apiUrl || this.defaultApiUrl}/api/sdk/comparisons/${comparisonId}/reject`;
     let response = await fetch(url, {
       method: 'POST',
@@ -268,6 +298,10 @@ export class CloudAPIProvider {
    * Get review summary for a build
    */
   async getReviewSummary(buildId, apiToken, apiUrl) {
+    if (!buildId || typeof buildId !== 'string') {
+      throw new Error('buildId is required and must be a non-empty string');
+    }
+
     let data = await this.makeRequest(
       `/api/sdk/builds/${buildId}/review-summary`,
       apiToken,
@@ -286,6 +320,10 @@ export class CloudAPIProvider {
    * Returns screenshot data that can be saved locally
    */
   async downloadBaselines(buildId, screenshotNames, apiToken, apiUrl) {
+    if (!buildId || typeof buildId !== 'string') {
+      throw new Error('buildId is required and must be a non-empty string');
+    }
+
     let data = await this.makeRequest(
       `/api/sdk/builds/${buildId}?include=screenshots`,
       apiToken,

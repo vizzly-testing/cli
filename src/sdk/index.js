@@ -11,6 +11,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { resolveImageBuffer } from '../utils/file-helpers.js';
 import { createUploader } from '../services/uploader.js';
 import { createTDDService } from '../services/tdd-service.js';
 import { ScreenshotServer } from '../services/screenshot-server.js';
@@ -228,9 +229,12 @@ export class VizzlySDK extends EventEmitter {
   /**
    * Capture a screenshot
    * @param {string} name - Screenshot name
-   * @param {Buffer} imageBuffer - Image data
+   * @param {Buffer|string} imageBuffer - Image data as a Buffer, or a file path to an image
    * @param {import('../types').ScreenshotOptions} [options] - Options
    * @returns {Promise<void>}
+   * @throws {VizzlyError} When server is not running
+   * @throws {VizzlyError} When file path is provided but file doesn't exist
+   * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
    */
   async screenshot(name, imageBuffer, options = {}) {
     if (!this.server || !this.server.isRunning()) {
@@ -240,12 +244,15 @@ export class VizzlySDK extends EventEmitter {
       );
     }
 
+    // Resolve Buffer or file path using shared utility
+    const buffer = resolveImageBuffer(imageBuffer, 'screenshot');
+
     // Generate or use provided build ID
     const buildId = options.buildId || this.currentBuildId || 'default';
     this.currentBuildId = buildId;
 
     // Convert Buffer to base64 for JSON transport
-    const imageBase64 = imageBuffer.toString('base64');
+    const imageBase64 = buffer.toString('base64');
 
     const screenshotData = {
       buildId,
@@ -346,8 +353,10 @@ export class VizzlySDK extends EventEmitter {
   /**
    * Run local comparison in TDD mode
    * @param {string} name - Screenshot name
-   * @param {Buffer} imageBuffer - Current image
+   * @param {Buffer|string} imageBuffer - Current image as a Buffer, or a file path to an image
    * @returns {Promise<import('../types').ComparisonResult>} Comparison result
+   * @throws {VizzlyError} When file path is provided but file doesn't exist
+   * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
    */
   async compare(name, imageBuffer) {
     if (!this.services?.tddService) {
@@ -357,10 +366,13 @@ export class VizzlySDK extends EventEmitter {
       });
     }
 
+    // Resolve Buffer or file path using shared utility
+    const buffer = resolveImageBuffer(imageBuffer, 'compare');
+
     try {
       const result = await this.services.tddService.compareScreenshot(
         name,
-        imageBuffer
+        buffer
       );
       this.emit('comparison:completed', result);
       return result;

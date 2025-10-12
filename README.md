@@ -67,11 +67,16 @@ vizzly tdd run "npm test"
 ```javascript
 import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
 
-// Your test framework takes the screenshot
+// Option 1: Using a Buffer
 const screenshot = await page.screenshot();
-
-// Send to Vizzly for review
 await vizzlyScreenshot('homepage', screenshot, {
+  browser: 'chrome',
+  viewport: '1920x1080'
+});
+
+// Option 2: Using a file path
+await page.screenshot({ path: './screenshots/homepage.png' });
+await vizzlyScreenshot('homepage', './screenshots/homepage.png', {
   browser: 'chrome',
   viewport: '1920x1080'
 });
@@ -360,8 +365,13 @@ The `--wait` flag ensures the process:
 ### `vizzlyScreenshot(name, imageBuffer, properties)`
 Send a screenshot to Vizzly.
 - `name` (string): Screenshot identifier
-- `imageBuffer` (Buffer): Image data
+- `imageBuffer` (Buffer | string): Image data as Buffer, or file path to an image
 - `properties` (object): Metadata for organization
+
+**File Path Support:**
+- Accepts both absolute and relative paths
+- Automatically reads the file and converts to Buffer internally
+- Works with any PNG image file
 
 ### `isVizzlyEnabled()`
 Check if Vizzly is enabled in the current environment.

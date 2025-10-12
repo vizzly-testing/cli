@@ -9,6 +9,7 @@ import {
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
+import { resolveImageBuffer } from '../utils/file-helpers.js';
 import { existsSync, readFileSync } from 'fs';
 import { join, parse, dirname } from 'path';
 
@@ -220,7 +221,7 @@ function createSimpleClient(serverUrl) {
  * Take a screenshot for visual regression testing
  *
  * @param {string} name - Unique name for the screenshot
- * @param {Buffer} imageBuffer - PNG image data as a Buffer
+ * @param {Buffer|string} imageBuffer - PNG image data as a Buffer, or a file path to an image
  * @param {Object} [options] - Optional configuration
  * @param {Record<string, any>} [options.properties] - Additional properties to attach to the screenshot
  * @param {number} [options.threshold=0] - Pixel difference threshold (0-100)
@@ -229,11 +230,15 @@ function createSimpleClient(serverUrl) {
  * @returns {Promise<void>}
  *
  * @example
- * // Basic usage
+ * // Basic usage with Buffer
  * import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
  *
  * const screenshot = await page.screenshot();
  * await vizzlyScreenshot('homepage', screenshot);
+ *
+ * @example
+ * // Basic usage with file path
+ * await vizzlyScreenshot('homepage', './screenshots/homepage.png');
  *
  * @example
  * // With properties and threshold
@@ -246,6 +251,8 @@ function createSimpleClient(serverUrl) {
  * });
  *
  * @throws {VizzlyError} When screenshot capture fails or client is not initialized
+ * @throws {VizzlyError} When file path is provided but file doesn't exist
+ * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
  */
 export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
   if (isVizzlyDisabled()) {
@@ -264,7 +271,10 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
     return;
   }
 
-  return client.screenshot(name, imageBuffer, options);
+  // Resolve Buffer or file path using shared utility
+  const buffer = resolveImageBuffer(imageBuffer, 'screenshot');
+
+  return client.screenshot(name, buffer, options);
 }
 
 /**

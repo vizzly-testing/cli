@@ -22,6 +22,33 @@ file.
 
 ### Official Plugins
 
+#### Claude Code Integration (Built-in)
+
+Vizzly includes a built-in plugin for [Claude Code](https://claude.com/code), providing AI-powered visual testing workflows:
+
+**Installation via Claude Code:**
+```
+/plugin marketplace add vizzly-testing/cli
+```
+
+**Available Commands:**
+- `/vizzly:tdd-status` - Check TDD dashboard status with AI insights
+- `/vizzly:debug-diff <screenshot-name>` - Analyze visual failures with AI assistance
+- `/vizzly:suggest-screenshots` - Get framework-specific test coverage suggestions
+- `/vizzly:setup` - Interactive setup wizard for Vizzly configuration
+
+The plugin automatically detects whether you're in local TDD mode or working with cloud builds, providing contextual help for your workflow.
+
+**Features:**
+- MCP (Model Context Protocol) server for tool integration
+- 15+ specialized tools for local TDD and cloud API workflows
+- Intelligent context detection and mode switching
+- Image analysis without API errors (safe baseline/current image handling)
+
+**Location:** `.claude-plugin/` directory in the repository
+
+#### Other Official Plugins
+
 Official Vizzly plugins are published under the `@vizzly-testing/*` scope and are automatically
 discovered:
 

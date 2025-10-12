@@ -366,6 +366,41 @@ Send a screenshot to Vizzly.
 ### `isVizzlyEnabled()`
 Check if Vizzly is enabled in the current environment.
 
+## AI & Editor Integrations
+
+### Claude Code Plugin
+
+Vizzly includes built-in support for [Claude Code](https://claude.com/code), Anthropic's official CLI tool. The integration brings AI-powered visual testing workflows directly into your development environment.
+
+**Features:**
+- 🤖 **AI-assisted debugging** - Get intelligent analysis of visual regressions
+- 📊 **TDD status insights** - Check dashboard status with contextual suggestions
+- 🔍 **Smart diff analysis** - AI helps determine if changes should be accepted or fixed
+- ✨ **Test coverage suggestions** - Get framework-specific screenshot recommendations
+- 🛠️ **Interactive setup** - Guided configuration and CI/CD integration help
+
+**Getting Started with Claude Code:**
+
+1. **Install Claude Code** (if you haven't already):
+   ```bash
+   npm install -g @anthropic-ai/claude-code
+   ```
+
+2. **Install the Vizzly plugin** via Claude Code marketplace:
+   ```
+   /plugin marketplace add vizzly-testing/cli
+   ```
+
+3. **Use AI-powered workflows** with slash commands:
+   ```
+   /vizzly:tdd-status              # Check TDD dashboard with AI insights
+   /vizzly:debug-diff homepage     # Analyze visual failures with AI
+   /vizzly:suggest-screenshots     # Find test coverage gaps
+   /vizzly:setup                   # Interactive setup wizard
+   ```
+
+The plugin works seamlessly with both local TDD mode and cloud builds, providing contextual help based on your current workflow.
+
 ## Plugin Ecosystem
 
 Vizzly supports a powerful plugin system that allows you to extend the CLI with custom
@@ -374,6 +409,7 @@ explicitly configured.
 
 ### Official Plugins
 
+- **Claude Code Integration** *(built-in)* - AI-powered visual testing workflows for Claude Code
 - **[@vizzly-testing/storybook](https://npmjs.com/package/@vizzly-testing/storybook)** *(coming
   soon)* - Capture screenshots from Storybook builds
 
@@ -431,6 +467,9 @@ See the [Plugin Development Guide](./docs/plugins.md) for complete documentation
 - [Plugin Development](./docs/plugins.md)
 - [API Reference](./docs/api-reference.md)
 - [Doctor Command](./docs/doctor-command.md)
+
+**AI & Editor Integrations:**
+- Claude Code Plugin - Built-in support (see [AI & Editor Integrations](#ai--editor-integrations) above)
 
 ## Environment Variables
 

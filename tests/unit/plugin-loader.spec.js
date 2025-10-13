@@ -272,7 +272,7 @@ describe('Plugin Loader', () => {
 
       expect(plugins).toHaveLength(0);
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('name: Required')
+        expect.stringContaining('name:')
       );
     });
 
@@ -286,7 +286,7 @@ describe('Plugin Loader', () => {
 
       expect(plugins).toHaveLength(0);
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('register: Required')
+        expect.stringContaining('register:')
       );
     });
 

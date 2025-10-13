@@ -168,7 +168,9 @@ async function loadPlugin(pluginPath) {
 const pluginSchema = z.object({
   name: z.string().min(1, 'Plugin name is required'),
   version: z.string().optional(),
-  register: z.function(z.tuple([z.any(), z.any()]), z.void()),
+  register: z.custom((val) => typeof val === 'function', {
+    message: 'register must be a function',
+  }),
   configSchema: z.record(z.any()).optional(),
 });
 
@@ -204,7 +206,7 @@ function validatePluginStructure(plugin) {
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      let messages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+      let messages = error.issues.map(e => `${e.path.join('.')}: ${e.message}`);
       throw new Error(`Invalid plugin structure: ${messages.join(', ')}`);
     }
     throw error;

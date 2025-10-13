@@ -168,7 +168,7 @@ async function loadPlugin(pluginPath) {
 const pluginSchema = z.object({
   name: z.string().min(1, 'Plugin name is required'),
   version: z.string().optional(),
-  register: z.custom((val) => typeof val === 'function', {
+  register: z.custom(val => typeof val === 'function', {
     message: 'register must be a function',
   }),
   configSchema: z.record(z.any()).optional(),

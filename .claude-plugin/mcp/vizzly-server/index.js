@@ -15,6 +15,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { LocalTDDProvider } from './local-tdd-provider.js';
 import { CloudAPIProvider } from './cloud-api-provider.js';
+import { TokenResolver } from './token-resolver.js';
 
 class VizzlyMCPServer {
   constructor() {
@@ -33,6 +34,7 @@ class VizzlyMCPServer {
 
     this.localProvider = new LocalTDDProvider();
     this.cloudProvider = new CloudAPIProvider();
+    this.tokenResolver = new TokenResolver();
 
     this.setupHandlers();
   }
@@ -44,7 +46,10 @@ class VizzlyMCPServer {
     let context = {
       hasLocalTDD: false,
       hasApiToken: false,
-      mode: null
+      hasAuthentication: false,
+      mode: null,
+      tokenSource: null,
+      user: null
     };
 
     // Check for local TDD setup
@@ -54,15 +59,49 @@ class VizzlyMCPServer {
       context.mode = 'local';
     }
 
-    // Check for API token in environment
-    if (process.env.VIZZLY_TOKEN) {
+    // Check for API token using token resolver
+    let token = await this.tokenResolver.resolveToken({ workingDirectory });
+    if (token) {
       context.hasApiToken = true;
+      context.hasAuthentication = true;
+
+      // Determine token source
+      if (process.env.VIZZLY_TOKEN) {
+        context.tokenSource = 'environment';
+      } else if (token.startsWith('vzt_')) {
+        context.tokenSource = 'project_mapping';
+      } else {
+        context.tokenSource = 'user_login';
+        // Include user info if available
+        let userInfo = await this.tokenResolver.getUserInfo();
+        if (userInfo) {
+          context.user = {
+            email: userInfo.email,
+            name: userInfo.name
+          };
+        }
+      }
+
       if (!context.mode) {
         context.mode = 'cloud';
       }
     }
 
     return context;
+  }
+
+  /**
+   * Resolve API token from various sources
+   * @param {Object} args - Tool arguments that may contain apiToken
+   * @param {string} args.apiToken - Explicitly provided token
+   * @param {string} args.workingDirectory - Working directory for project mapping
+   * @returns {Promise<string|null>} Resolved token
+   */
+  async resolveApiToken(args = {}) {
+    return await this.tokenResolver.resolveToken({
+      providedToken: args.apiToken,
+      workingDirectory: args.workingDirectory || process.cwd()
+    });
   }
 
   setupHandlers() {
@@ -115,7 +154,7 @@ class VizzlyMCPServer {
               apiToken: {
                 type: 'string',
                 description:
-                  'Vizzly API token (optional, for cloud mode, defaults to VIZZLY_TOKEN env var)'
+                  'Vizzly API token (optional, auto-resolves from: CLI flag > env var > project mapping > user login)'
               },
               apiUrl: {
                 type: 'string',
@@ -151,7 +190,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -177,7 +216,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -199,7 +238,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -229,7 +268,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -251,7 +290,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -277,7 +316,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -303,7 +342,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -325,7 +364,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -396,7 +435,7 @@ class VizzlyMCPServer {
               },
               apiToken: {
                 type: 'string',
-                description: 'Vizzly API token'
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
               },
               apiUrl: {
                 type: 'string',
@@ -508,7 +547,7 @@ class VizzlyMCPServer {
               mode = 'local';
             } catch (localError) {
               // If local fails and we have API token, try cloud mode
-              let apiToken = args.apiToken || process.env.VIZZLY_TOKEN;
+              let apiToken = await this.resolveApiToken(args);
               if (apiToken && args.identifier.startsWith('cmp_')) {
                 try {
                   let cloudComparison = await this.cloudProvider.getComparison(
@@ -577,9 +616,10 @@ class VizzlyMCPServer {
           }
 
           case 'get_build_status': {
+            let apiToken = await this.resolveApiToken(args);
             let buildStatus = await this.cloudProvider.getBuildStatus(
               args.buildId,
-              args.apiToken || process.env.VIZZLY_TOKEN,
+              apiToken,
               args.apiUrl
             );
             return {
@@ -593,8 +633,9 @@ class VizzlyMCPServer {
           }
 
           case 'list_recent_builds': {
+            let apiToken = await this.resolveApiToken(args);
             let builds = await this.cloudProvider.listRecentBuilds(
-              args.apiToken || process.env.VIZZLY_TOKEN,
+              apiToken,
               {
                 limit: args.limit,
                 branch: args.branch,
@@ -612,9 +653,10 @@ class VizzlyMCPServer {
           }
 
           case 'get_comparison': {
+            let apiToken = await this.resolveApiToken(args);
             let comparison = await this.cloudProvider.getComparison(
               args.comparisonId,
-              args.apiToken || process.env.VIZZLY_TOKEN,
+              apiToken,
               args.apiUrl
             );
             return {
@@ -628,11 +670,12 @@ class VizzlyMCPServer {
           }
 
           case 'create_build_comment': {
+            let apiToken = await this.resolveApiToken(args);
             let result = await this.cloudProvider.createBuildComment(
               args.buildId,
               args.content,
               args.type || 'general',
-              args.apiToken || process.env.VIZZLY_TOKEN,
+              apiToken,
               args.apiUrl
             );
             return {
@@ -646,9 +689,10 @@ class VizzlyMCPServer {
           }
 
           case 'list_build_comments': {
+            let apiToken = await this.resolveApiToken(args);
             let comments = await this.cloudProvider.listBuildComments(
               args.buildId,
-              args.apiToken || process.env.VIZZLY_TOKEN,
+              apiToken,
               args.apiUrl
             );
             return {
@@ -662,10 +706,11 @@ class VizzlyMCPServer {
           }
 
           case 'approve_comparison': {
+            let apiToken = await this.resolveApiToken(args);
             let result = await this.cloudProvider.approveComparison(
               args.comparisonId,
               args.comment,
-              args.apiToken || process.env.VIZZLY_TOKEN,
+              apiToken,
               args.apiUrl
             );
             return {
@@ -679,10 +724,11 @@ class VizzlyMCPServer {
           }
 
           case 'reject_comparison': {
+            let apiToken = await this.resolveApiToken(args);
             let result = await this.cloudProvider.rejectComparison(
               args.comparisonId,
               args.reason,
-              args.apiToken || process.env.VIZZLY_TOKEN,
+              apiToken,
               args.apiUrl
             );
             return {
@@ -696,9 +742,10 @@ class VizzlyMCPServer {
           }
 
           case 'get_review_summary': {
+            let apiToken = await this.resolveApiToken(args);
             let summary = await this.cloudProvider.getReviewSummary(
               args.buildId,
-              args.apiToken || process.env.VIZZLY_TOKEN,
+              apiToken,
               args.apiUrl
             );
             return {
@@ -744,7 +791,7 @@ class VizzlyMCPServer {
 
           case 'download_baselines': {
             // First get build metadata and screenshot data from cloud
-            let apiToken = args.apiToken || process.env.VIZZLY_TOKEN;
+            let apiToken = await this.resolveApiToken(args);
 
             // Get full build status for metadata
             let buildStatus = await this.cloudProvider.getBuildStatus(

@@ -71,13 +71,37 @@ The plugin provides an MCP server with direct access to Vizzly data:
 - `reject_comparison` - Reject a comparison with reason
 - `create_build_comment` - Add comment to build
 
+## Authentication
+
+The plugin automatically uses your Vizzly authentication with the following priority:
+
+1. **Explicitly provided token** (via tool parameters)
+2. **Environment variable** (`VIZZLY_TOKEN`)
+3. **Project mapping** (configured via `vizzly project:select`)
+4. **User access token** (from `vizzly login`)
+
+### Getting Started
+
+**For local development:**
+```bash
+vizzly login                # Authenticate with your Vizzly account
+vizzly project:select       # Optional: set project-specific token
+```
+
+**For CI/CD:**
+```bash
+export VIZZLY_TOKEN=vzt_your_project_token
+```
+
+The plugin will automatically use the appropriate token based on your context.
+
 ## Requirements
 
 - Claude Code
 - Node.js 20+
 - Vizzly CLI (`@vizzly-testing/cli`) installed in your project
 - TDD mode running for local features
-- API token for cloud features (optional)
+- Authentication configured (see above) for cloud features
 
 ## Documentation
 

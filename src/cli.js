@@ -17,6 +17,16 @@ import {
   validateFinalizeOptions,
 } from './commands/finalize.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
+import { loginCommand, validateLoginOptions } from './commands/login.js';
+import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
+import { whoamiCommand, validateWhoamiOptions } from './commands/whoami.js';
+import {
+  projectSelectCommand,
+  projectListCommand,
+  projectTokenCommand,
+  projectRemoveCommand,
+  validateProjectOptions,
+} from './commands/project.js';
 import { getPackageVersion } from './utils/package-info.js';
 import { loadPlugins } from './plugin-loader.js';
 import { loadConfig } from './utils/config-loader.js';
@@ -322,6 +332,105 @@ program
     }
 
     await doctorCommand(options, globalOptions);
+  });
+
+program
+  .command('login')
+  .description('Authenticate with your Vizzly account')
+  .option('--api-url <url>', 'API URL override')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateLoginOptions(options);
+    if (validationErrors.length > 0) {
+      console.error('Validation errors:');
+      validationErrors.forEach(error => console.error(`  - ${error}`));
+      process.exit(1);
+    }
+
+    await loginCommand(options, globalOptions);
+  });
+
+program
+  .command('logout')
+  .description('Clear stored authentication tokens')
+  .option('--api-url <url>', 'API URL override')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateLogoutOptions(options);
+    if (validationErrors.length > 0) {
+      console.error('Validation errors:');
+      validationErrors.forEach(error => console.error(`  - ${error}`));
+      process.exit(1);
+    }
+
+    await logoutCommand(options, globalOptions);
+  });
+
+program
+  .command('whoami')
+  .description('Show current authentication status and user information')
+  .option('--api-url <url>', 'API URL override')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateWhoamiOptions(options);
+    if (validationErrors.length > 0) {
+      console.error('Validation errors:');
+      validationErrors.forEach(error => console.error(`  - ${error}`));
+      process.exit(1);
+    }
+
+    await whoamiCommand(options, globalOptions);
+  });
+
+program
+  .command('project:select')
+  .description('Configure project for current directory')
+  .option('--api-url <url>', 'API URL override')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateProjectOptions(options);
+    if (validationErrors.length > 0) {
+      console.error('Validation errors:');
+      validationErrors.forEach(error => console.error(`  - ${error}`));
+      process.exit(1);
+    }
+
+    await projectSelectCommand(options, globalOptions);
+  });
+
+program
+  .command('project:list')
+  .description('Show all configured projects')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    await projectListCommand(options, globalOptions);
+  });
+
+program
+  .command('project:token')
+  .description('Show project token for current directory')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    await projectTokenCommand(options, globalOptions);
+  });
+
+program
+  .command('project:remove')
+  .description('Remove project configuration for current directory')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    await projectRemoveCommand(options, globalOptions);
   });
 
 program.parse();

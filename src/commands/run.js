@@ -74,7 +74,39 @@ export async function runCommand(
   try {
     // Load configuration with CLI overrides
     const allOptions = { ...globalOptions, ...options };
+
+    // Debug: Check options before loadConfig
+    if (process.env.DEBUG_CONFIG) {
+      console.log(
+        '[RUN] allOptions.token:',
+        allOptions.token ? allOptions.token.substring(0, 8) + '***' : 'NONE'
+      );
+    }
+
     const config = await loadConfig(globalOptions.config, allOptions);
+
+    // Debug: Check config immediately after loadConfig
+    if (process.env.DEBUG_CONFIG) {
+      console.log('[RUN] Config after loadConfig:', {
+        hasApiKey: !!config.apiKey,
+        apiKeyPrefix: config.apiKey
+          ? config.apiKey.substring(0, 8) + '***'
+          : 'NONE',
+      });
+    }
+
+    if (globalOptions.verbose) {
+      ui.info('Token check:', {
+        hasApiKey: !!config.apiKey,
+        apiKeyType: typeof config.apiKey,
+        apiKeyPrefix:
+          typeof config.apiKey === 'string' && config.apiKey
+            ? config.apiKey.substring(0, 10) + '...'
+            : 'none',
+        projectSlug: config.projectSlug || 'none',
+        organizationSlug: config.organizationSlug || 'none',
+      });
+    }
 
     // Validate API token (unless --allow-no-token is set)
     if (!config.apiKey && !config.allowNoToken) {
@@ -112,6 +144,17 @@ export async function runCommand(
       verbose: globalOptions.verbose,
       uploadAll: options.uploadAll || false,
     };
+
+    // Debug: Check config before creating container
+    if (process.env.DEBUG_CONFIG) {
+      console.log('[RUN] Config before container:', {
+        hasApiKey: !!configWithVerbose.apiKey,
+        apiKeyPrefix: configWithVerbose.apiKey
+          ? configWithVerbose.apiKey.substring(0, 8) + '***'
+          : 'NONE',
+      });
+    }
+
     const command = 'run';
     const container = await createServiceContainer(configWithVerbose, command);
     testRunner = await container.get('testRunner'); // Assign to outer scope variable

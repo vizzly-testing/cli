@@ -22,11 +22,30 @@ npx vizzly init
 
 This creates a basic `vizzly.config.js` file with sensible defaults.
 
-### 2. Set up your API token
+### 2. Authenticate
+
+**Option 1: User Authentication (Recommended for local development)**
 
 ```bash
-export VIZZLY_TOKEN=your-api-token
+# Authenticate with your Vizzly account
+npx vizzly login
+
+# Optional: Configure project-specific token for this directory
+npx vizzly project:select
 ```
+
+**Option 2: API Token (Recommended for CI/CD)**
+
+```bash
+export VIZZLY_TOKEN=your-project-token
+```
+
+**Token Priority:**
+The CLI resolves tokens in this order:
+1. CLI flag (`--token`)
+2. Environment variable (`VIZZLY_TOKEN`)
+3. Project mapping (from `vizzly project:select`)
+4. User access token (from `vizzly login`)
 
 ### 3. Verify your setup
 

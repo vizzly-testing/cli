@@ -326,6 +326,117 @@ vizzly.on('comparison:failed', (error) => {
 
 ## CLI Commands
 
+### Authentication Commands
+
+#### `vizzly login`
+
+Authenticate using OAuth 2.0 device flow.
+
+**Options:**
+- `--json` - Machine-readable JSON output
+- `--verbose` - Verbose output
+
+**Exit Codes:**
+- `0` - Login successful
+- `1` - Login failed
+
+**Example:**
+```bash
+vizzly login
+```
+
+#### `vizzly logout`
+
+Clear stored authentication tokens.
+
+**Options:**
+- `--json` - Machine-readable JSON output
+- `--verbose` - Verbose output
+
+**Exit Codes:**
+- `0` - Logout successful
+- `1` - Logout failed
+
+**Example:**
+```bash
+vizzly logout
+```
+
+#### `vizzly whoami`
+
+Display current user and authentication status.
+
+**Options:**
+- `--json` - Machine-readable JSON output
+
+**Exit Codes:**
+- `0` - Success
+- `1` - Not authenticated or error
+
+**Example:**
+```bash
+vizzly whoami
+```
+
+#### `vizzly project:select`
+
+Configure project-specific token for current directory.
+
+**Options:**
+- `--json` - Machine-readable JSON output
+
+**Exit Codes:**
+- `0` - Project configured successfully
+- `1` - Configuration failed
+
+**Example:**
+```bash
+cd /path/to/project
+vizzly project:select
+```
+
+#### `vizzly project:list`
+
+Show all configured projects.
+
+**Exit Codes:**
+- `0` - Success
+- `1` - Error
+
+**Example:**
+```bash
+vizzly project:list
+```
+
+#### `vizzly project:token`
+
+Display project token for current directory.
+
+**Options:**
+- `--json` - Machine-readable JSON output
+
+**Exit Codes:**
+- `0` - Success
+- `1` - No project configured or error
+
+**Example:**
+```bash
+vizzly project:token
+```
+
+#### `vizzly project:remove`
+
+Remove project configuration for current directory.
+
+**Exit Codes:**
+- `0` - Success
+- `1` - No project configured or error
+
+**Example:**
+```bash
+vizzly project:remove
+```
+
 ### `vizzly upload <path>`
 
 Upload screenshots from a directory.
@@ -557,9 +668,14 @@ Configuration loaded via cosmiconfig in this order:
 
 ### Environment Variables
 
+**Authentication:**
+- `VIZZLY_TOKEN` - API authentication token (project token or access token)
+  - For local development: Use `vizzly login` instead of manually managing tokens
+  - For CI/CD: Use project tokens from environment variables
+  - Token priority: CLI flag → env var → project mapping → user access token
+
 **Core Configuration:**
-- `VIZZLY_TOKEN` - API authentication token
-- `VIZZLY_API_URL` - API base URL override
+- `VIZZLY_API_URL` - API base URL override (default: `https://app.vizzly.dev`)
 - `VIZZLY_LOG_LEVEL` - Logger level (`debug`, `info`, `warn`, `error`)
 
 **Parallel Builds:**

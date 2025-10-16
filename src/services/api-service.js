@@ -12,18 +12,21 @@ import {
   getApiToken,
   getUserAgent,
 } from '../utils/environment-config.js';
+import { getAuthTokens, saveAuthTokens } from '../utils/global-config.js';
 
 /**
  * ApiService class for direct API communication
  */
 export class ApiService {
   constructor(options = {}) {
-    this.baseUrl = options.baseUrl || getApiUrl();
-    this.token = options.token || getApiToken();
+    // Accept config as-is, no fallbacks to environment
+    // Config-loader handles all env/file resolution
+    this.baseUrl = options.apiUrl || options.baseUrl || getApiUrl();
+    this.token = options.apiKey || options.token || getApiToken(); // Accept both apiKey and token
     this.uploadAll = options.uploadAll || false;
 
     // Build User-Agent string
-    const command = options.command || 'run'; // Default to 'run' for API service
+    const command = options.command || 'run';
     const baseUserAgent = `vizzly-cli/${getPackageVersion()} (${command})`;
     const sdkUserAgent = options.userAgent || getUserAgent();
     this.userAgent = sdkUserAgent
@@ -32,7 +35,7 @@ export class ApiService {
 
     if (!this.token && !options.allowNoToken) {
       throw new VizzlyError(
-        'No API token provided. Set VIZZLY_TOKEN environment variable.'
+        'No API token provided. Set VIZZLY_TOKEN environment variable or run "vizzly login".'
       );
     }
   }
@@ -41,9 +44,10 @@ export class ApiService {
    * Make an API request
    * @param {string} endpoint - API endpoint
    * @param {Object} options - Fetch options
+   * @param {boolean} isRetry - Internal flag to prevent infinite retry loops
    * @returns {Promise<Object>} Response data
    */
-  async request(endpoint, options = {}) {
+  async request(endpoint, options = {}, isRetry = false) {
     const url = `${this.baseUrl}${endpoint}`;
     const headers = {
       'User-Agent': this.userAgent,
@@ -71,10 +75,56 @@ export class ApiService {
         // ignore
       }
 
-      // Handle authentication errors with user-friendly messages
+      // Handle authentication errors with automatic token refresh
+      if (response.status === 401 && !isRetry) {
+        // Attempt to refresh token if we have refresh token in global config
+        let auth = await getAuthTokens();
+
+        if (auth && auth.refreshToken) {
+          try {
+            // Attempt token refresh
+            let refreshResponse = await fetch(
+              `${this.baseUrl}/api/auth/cli/refresh`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'User-Agent': this.userAgent,
+                },
+                body: JSON.stringify({ refreshToken: auth.refreshToken }),
+              }
+            );
+
+            if (refreshResponse.ok) {
+              let refreshData = await refreshResponse.json();
+
+              // Save new tokens to global config
+              await saveAuthTokens({
+                accessToken: refreshData.accessToken,
+                refreshToken: refreshData.refreshToken,
+                expiresAt: refreshData.expiresAt,
+                user: auth.user, // Keep existing user data
+              });
+
+              // Update token for this service instance
+              this.token = refreshData.accessToken;
+
+              // Retry the original request with new token
+              return this.request(endpoint, options, true);
+            }
+          } catch {
+            // Token refresh failed, fall through to auth error
+          }
+        }
+
+        throw new AuthError(
+          'Invalid or expired API token. Please run "vizzly login" to authenticate.'
+        );
+      }
+
       if (response.status === 401) {
         throw new AuthError(
-          'Invalid or expired API token. Please check your VIZZLY_TOKEN environment variable and ensure it is valid.'
+          'Invalid or expired API token. Please run "vizzly login" to authenticate.'
         );
       }
 

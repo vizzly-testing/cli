@@ -36,15 +36,43 @@ npm install -g @vizzly-testing/cli
 vizzly init
 ```
 
-### Set up your API token
+### Authentication
 
-For local development, create a `.env` file in your project root and add your token:
+Vizzly supports two authentication methods:
 
+**Option 1: User Authentication (Recommended for local development)**
+```bash
+# Authenticate with your Vizzly account
+vizzly login
+
+# Optional: Configure project-specific token
+vizzly project:select
+
+# Run tests
+vizzly run "npm test"
 ```
-VIZZLY_TOKEN=your-api-token
+
+**Option 2: API Token (Recommended for CI/CD)**
+```bash
+# Set via environment variable
+export VIZZLY_TOKEN=your-project-token
+
+# Run tests
+vizzly run "npm test"
+```
+
+For local development with `.env` files:
+```
+VIZZLY_TOKEN=your-project-token
 ```
 
 Then add `.env` to your `.gitignore` file. For CI/CD, use your provider's secret management system.
+
+**Token Priority:**
+1. CLI flag (`--token`)
+2. Environment variable (`VIZZLY_TOKEN`)
+3. Project mapping (configured via `vizzly project:select`)
+4. User access token (from `vizzly login`)
 
 ### Upload existing screenshots
 
@@ -87,6 +115,84 @@ await vizzlyScreenshot('homepage', './screenshots/homepage.png', {
 > data to the CLI for processing.
 
 ## Commands
+
+### Authentication Commands
+
+```bash
+vizzly login                        # Authenticate with your Vizzly account
+vizzly logout                       # Clear stored authentication tokens
+vizzly whoami                       # Show current user and authentication status
+vizzly project:select               # Configure project-specific token
+vizzly project:list                 # Show all configured projects
+vizzly project:token                # Display project token for current directory
+vizzly project:remove               # Remove project configuration
+```
+
+#### Login Command
+Authenticate using OAuth 2.0 device flow. Opens your browser to authorize the CLI with your Vizzly account.
+
+```bash
+# Interactive browser-based login
+vizzly login
+
+# JSON output for scripting
+vizzly login --json
+```
+
+**Features:**
+- Browser auto-opens with pre-filled device code
+- Secure OAuth 2.0 device authorization flow
+- 30-day token expiry with automatic refresh
+- Tokens stored securely in `~/.vizzly/config.json` with 0600 permissions
+
+#### Logout Command
+Clear all stored authentication tokens from your machine.
+
+```bash
+# Clear all tokens
+vizzly logout
+
+# JSON output
+vizzly logout --json
+```
+
+Revokes tokens on the server and removes them from local storage.
+
+#### Whoami Command
+Display current authentication status, user information, and organizations.
+
+```bash
+# Show user and authentication info
+vizzly whoami
+
+# JSON output for scripting
+vizzly whoami --json
+```
+
+Shows:
+- Current user email and name
+- Organizations you belong to
+- Token status and expiry
+- Project mappings (if any)
+
+#### Project Commands
+Configure directory-specific project tokens for multi-project workflows.
+
+```bash
+# Select a project for current directory
+vizzly project:select
+
+# List all configured projects
+vizzly project:list
+
+# Show token for current directory
+vizzly project:token
+
+# Remove project configuration
+vizzly project:remove
+```
+
+**Use case:** Working on multiple Vizzly projects? Configure each project directory with its specific token. The CLI automatically uses the right token based on your current directory.
 
 ### Upload Screenshots
 ```bash
@@ -471,6 +577,7 @@ See the [Plugin Development Guide](./docs/plugins.md) for complete documentation
 ## Documentation
 
 - [Getting Started](./docs/getting-started.md)
+- [Authentication Guide](./docs/authentication.md)
 - [Upload Command Guide](./docs/upload-command.md)
 - [Test Integration Guide](./docs/test-integration.md)
 - [TDD Mode Guide](./docs/tdd-mode.md)
@@ -483,8 +590,12 @@ See the [Plugin Development Guide](./docs/plugins.md) for complete documentation
 
 ## Environment Variables
 
+### Authentication
+- `VIZZLY_TOKEN`: API authentication token (project token or access token). Example: `export VIZZLY_TOKEN=your-token`.
+  - For local development: Use `vizzly login` instead of manually managing tokens
+  - For CI/CD: Use project tokens from environment variables
+
 ### Core Configuration
-- `VIZZLY_TOKEN`: API authentication token. Example: `export VIZZLY_TOKEN=your-token`.
 - `VIZZLY_API_URL`: Override API base URL. Default: `https://app.vizzly.dev`.
 - `VIZZLY_LOG_LEVEL`: Logger level. One of `debug`, `info`, `warn`, `error`. Example: `export VIZZLY_LOG_LEVEL=debug`.
 

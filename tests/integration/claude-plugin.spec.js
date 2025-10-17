@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CloudAPIProvider } from '../../.claude-plugin/mcp/vizzly-server/cloud-api-provider.js';
-import { LocalTDDProvider } from '../../.claude-plugin/mcp/vizzly-server/local-tdd-provider.js';
+import { CloudAPIProvider } from '../../claude-plugin/mcp/vizzly-server/cloud-api-provider.js';
+import { LocalTDDProvider } from '../../claude-plugin/mcp/vizzly-server/local-tdd-provider.js';
 
 describe('Claude Plugin - Cloud API Provider', () => {
   let provider;

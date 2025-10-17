@@ -48,7 +48,7 @@
     "bin",
     "dist",
     "docs",
-    ".claude-plugin",
+    "claude-plugin",
     "README.md",
     "LICENSE"
   ],

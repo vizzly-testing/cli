@@ -93,95 +93,93 @@ async function getProjectMapping(directoryPath) {
 }
 
 /**
- * TokenResolver class
- * Resolves API tokens with the same priority as the CLI:
+ * Resolve token with priority system
+ * Priority order:
  * 1. Explicitly provided token parameter
  * 2. Environment variable (VIZZLY_TOKEN)
  * 3. Project mapping for working directory
  * 4. User access token from global config
+ *
+ * @param {Object} options - Resolution options
+ * @param {string} options.providedToken - Explicitly provided token (highest priority)
+ * @param {string} options.workingDirectory - Working directory for project mapping lookup
+ * @returns {Promise<string|null>} Resolved token or null
  */
-export class TokenResolver {
-  /**
-   * Resolve token with priority system
-   * @param {Object} options - Resolution options
-   * @param {string} options.providedToken - Explicitly provided token (highest priority)
-   * @param {string} options.workingDirectory - Working directory for project mapping lookup
-   * @returns {Promise<string|null>} Resolved token or null
-   */
-  async resolveToken(options = {}) {
-    let { providedToken, workingDirectory } = options;
+export async function resolveToken(options = {}) {
+  let { providedToken, workingDirectory } = options;
 
-    // Priority 1: Explicitly provided token
-    if (providedToken) {
-      return providedToken;
-    }
+  // Priority 1: Explicitly provided token
+  if (providedToken) {
+    return providedToken;
+  }
 
-    // Priority 2: Environment variable
-    if (process.env.VIZZLY_TOKEN) {
-      return process.env.VIZZLY_TOKEN;
-    }
+  // Priority 2: Environment variable
+  if (process.env.VIZZLY_TOKEN) {
+    return process.env.VIZZLY_TOKEN;
+  }
 
-    // Priority 3: Project mapping (if working directory provided)
-    if (workingDirectory) {
-      try {
-        let projectMapping = await getProjectMapping(workingDirectory);
-        if (projectMapping && projectMapping.token) {
-          // Handle both string tokens and token objects
-          let token = typeof projectMapping.token === 'string'
-            ? projectMapping.token
-            : projectMapping.token.token;
-          if (token) {
-            return token;
-          }
-        }
-      } catch (error) {
-        console.error('Warning: Failed to load project mapping:', error.message);
-      }
-    }
-
-    // Priority 4: User access token
+  // Priority 3: Project mapping (if working directory provided)
+  if (workingDirectory) {
     try {
-      let accessToken = await getAccessToken();
-      if (accessToken) {
-        return accessToken;
+      let projectMapping = await getProjectMapping(workingDirectory);
+      if (projectMapping && projectMapping.token) {
+        // Handle both string tokens and token objects
+        let token = typeof projectMapping.token === 'string'
+          ? projectMapping.token
+          : projectMapping.token.token;
+        if (token) {
+          return token;
+        }
       }
     } catch (error) {
-      console.error('Warning: Failed to load user access token:', error.message);
+      console.error('Warning: Failed to load project mapping:', error.message);
     }
-
-    return null;
   }
 
-  /**
-   * Check if the user has valid authentication
-   */
-  async hasValidAuth() {
-    let auth = await getAuthTokens();
+  // Priority 4: User access token
+  try {
+    let accessToken = await getAccessToken();
+    if (accessToken) {
+      return accessToken;
+    }
+  } catch (error) {
+    console.error('Warning: Failed to load user access token:', error.message);
+  }
 
-    if (!auth || !auth.accessToken) {
+  return null;
+}
+
+/**
+ * Check if the user has valid authentication
+ * @returns {Promise<boolean>} True if user has valid, non-expired authentication
+ */
+export async function hasValidAuth() {
+  let auth = await getAuthTokens();
+
+  if (!auth || !auth.accessToken) {
+    return false;
+  }
+
+  // Check if token is expired
+  if (auth.expiresAt) {
+    let expiresAt = new Date(auth.expiresAt);
+    let now = new Date();
+
+    // Consider expired if within 5 minutes of expiry
+    let bufferMs = 5 * 60 * 1000;
+    if (now.getTime() >= expiresAt.getTime() - bufferMs) {
       return false;
     }
-
-    // Check if token is expired
-    if (auth.expiresAt) {
-      let expiresAt = new Date(auth.expiresAt);
-      let now = new Date();
-
-      // Consider expired if within 5 minutes of expiry
-      let bufferMs = 5 * 60 * 1000;
-      if (now.getTime() >= expiresAt.getTime() - bufferMs) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
-  /**
-   * Get user information from global config
-   */
-  async getUserInfo() {
-    let auth = await getAuthTokens();
-    return auth?.user || null;
-  }
+  return true;
+}
+
+/**
+ * Get user information from global config
+ * @returns {Promise<Object|null>} User object or null if not authenticated
+ */
+export async function getUserInfo() {
+  let auth = await getAuthTokens();
+  return auth?.user || null;
 }

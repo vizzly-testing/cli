@@ -15,7 +15,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { LocalTDDProvider } from './local-tdd-provider.js';
 import { CloudAPIProvider } from './cloud-api-provider.js';
-import { TokenResolver } from './token-resolver.js';
+import { resolveToken, getUserInfo } from './token-resolver.js';
 
 class VizzlyMCPServer {
   constructor() {
@@ -34,7 +34,6 @@ class VizzlyMCPServer {
 
     this.localProvider = new LocalTDDProvider();
     this.cloudProvider = new CloudAPIProvider();
-    this.tokenResolver = new TokenResolver();
 
     this.setupHandlers();
   }
@@ -60,7 +59,7 @@ class VizzlyMCPServer {
     }
 
     // Check for API token using token resolver
-    let token = await this.tokenResolver.resolveToken({ workingDirectory });
+    let token = await resolveToken({ workingDirectory });
     if (token) {
       context.hasApiToken = true;
       context.hasAuthentication = true;
@@ -73,7 +72,7 @@ class VizzlyMCPServer {
       } else {
         context.tokenSource = 'user_login';
         // Include user info if available
-        let userInfo = await this.tokenResolver.getUserInfo();
+        let userInfo = await getUserInfo();
         if (userInfo) {
           context.user = {
             email: userInfo.email,
@@ -98,7 +97,7 @@ class VizzlyMCPServer {
    * @returns {Promise<string|null>} Resolved token
    */
   async resolveApiToken(args = {}) {
-    return await this.tokenResolver.resolveToken({
+    return await resolveToken({
       providedToken: args.apiToken,
       workingDirectory: args.workingDirectory || process.cwd()
     });

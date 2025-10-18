@@ -50,42 +50,47 @@ await run('./storybook-static', {
 
 ### Config File
 
-Create a `vizzly-storybook.config.js` file in your project root:
+Add a `storybook` section to your `vizzly.config.js` file:
 
 ```javascript
+// vizzly.config.js
 export default {
-  viewports: [
-    { name: 'mobile', width: 375, height: 667 },
-    { name: 'tablet', width: 768, height: 1024 },
-    { name: 'desktop', width: 1920, height: 1080 },
-  ],
+  storybook: {
+    viewports: [
+      { name: 'mobile', width: 375, height: 667 },
+      { name: 'tablet', width: 768, height: 1024 },
+      { name: 'desktop', width: 1920, height: 1080 },
+    ],
 
-  browser: {
-    headless: true,
-    args: ['--no-sandbox'],
-  },
-
-  screenshot: {
-    fullPage: false,
-    omitBackground: false,
-  },
-
-  concurrency: 3,
-
-  include: 'components/**',
-  exclude: '**/*.test',
-
-  interactions: {
-    // Pattern-based hooks
-    'Button/*': async (page) => {
-      await page.hover('button');
+    browser: {
+      headless: true,
+      args: ['--no-sandbox'],
     },
-    'Tooltip/*': async (page) => {
-      await page.click('.tooltip-trigger');
+
+    screenshot: {
+      fullPage: false,
+      omitBackground: false,
+    },
+
+    concurrency: 3,
+
+    include: 'components/**',
+    exclude: '**/*.test',
+
+    interactions: {
+      // Pattern-based hooks
+      'Button/*': async (page) => {
+        await page.hover('button');
+      },
+      'Tooltip/*': async (page) => {
+        await page.click('.tooltip-trigger');
+      },
     },
   },
 };
 ```
+
+Run `vizzly init` to generate a config file with sensible defaults.
 
 ### Per-Story Configuration
 
@@ -121,8 +126,8 @@ export let Disabled = {
 
 Configuration is merged in this order (later overrides earlier):
 
-1. Default configuration
-2. Config file (`vizzly-storybook.config.js`)
+1. Default configuration (from plugin's `configSchema`)
+2. Config file (`storybook` key in `vizzly.config.js`)
 3. CLI options
 4. Per-story parameters
 
@@ -144,9 +149,10 @@ Interaction hooks allow you to interact with stories before capturing screenshot
 ### Global Hooks (Pattern-Based)
 
 ```javascript
-// vizzly-storybook.config.js
+// vizzly.config.js
 export default {
-  interactions: {
+  storybook: {
+    interactions: {
     'Button/*': async (page) => {
       // Apply to all Button stories
       await page.hover('button');
@@ -159,6 +165,7 @@ export default {
     'Dropdown/WithOptions': async (page) => {
       // Specific story
       await page.click('.dropdown-toggle');
+    },
     },
   },
 };

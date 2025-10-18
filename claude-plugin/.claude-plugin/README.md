@@ -30,6 +30,55 @@ cd vizzly-cli
 /plugin install vizzly@vizzly-marketplace
 ```
 
+## Migration Guide (v0.0.x → v0.1.0)
+
+**⚠️ Breaking Changes:** Slash commands for status checking and debugging have been replaced with Agent Skills.
+
+### What Changed
+
+**Before (v0.0.x):**
+```bash
+# Manually invoke slash commands
+/vizzly:tdd-status
+/vizzly:debug-diff homepage
+```
+
+**After (v0.1.0):**
+```bash
+# Just ask naturally - Skills activate automatically
+"How are my visual tests?"
+"The homepage screenshot is failing"
+```
+
+### Command Migration
+
+| Old Slash Command | New Approach | How It Works |
+|-------------------|--------------|--------------|
+| `/vizzly:tdd-status` | Ask: "How are my tests?" | `check-visual-tests` Skill activates automatically |
+| `/vizzly:debug-diff <name>` | Say: "Debug the homepage screenshot" | `debug-visual-regression` Skill activates automatically |
+| `/vizzly:setup` | Still `/vizzly:setup` | ✅ No change - explicit setup workflow |
+| `/vizzly:suggest-screenshots` | Still `/vizzly:suggest-screenshots` | ✅ No change - explicit suggestions workflow |
+
+### Why This Change?
+
+**Better UX:**
+- No need to memorize command syntax
+- Just describe what you need in natural language
+- Claude understands your intent and activates the right Skill
+- More intuitive and conversational workflow
+
+**What Are Agent Skills?**
+
+Agent Skills are model-invoked capabilities that Claude uses autonomously based on your request. Instead of explicitly typing `/command`, you simply ask questions or describe problems, and Claude will automatically use the appropriate Skill.
+
+**Still Prefer Explicit Commands?**
+
+You can still be explicit in your requests:
+- "Check my Vizzly test status" → Activates `check-visual-tests` Skill
+- "Debug the login screenshot failure" → Activates `debug-visual-regression` Skill
+
+The Skills will activate based on your intent, not rigid command syntax.
+
 ## Features
 
 ### ✨ **Agent Skills** (Model-Invoked)

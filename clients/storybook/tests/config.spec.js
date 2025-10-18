@@ -7,6 +7,7 @@ import {
   parseCliOptions,
   mergeConfigs,
   mergeStoryConfig,
+  loadConfig,
   defaultConfig,
 } from '../src/config.js';
 
@@ -143,5 +144,81 @@ describe('mergeStoryConfig', () => {
     let merged = mergeStoryConfig(globalConfig, storyConfig);
 
     expect(merged.beforeScreenshot).toBe(hook);
+  });
+});
+
+describe('loadConfig', () => {
+  it('should use vizzlyConfig.storybook when provided', async () => {
+    let vizzlyConfig = {
+      storybook: {
+        concurrency: 10,
+        viewports: [{ name: 'custom', width: 800, height: 600 }],
+      },
+    };
+
+    let config = await loadConfig('./storybook-static', {}, vizzlyConfig);
+
+    expect(config.concurrency).toBe(10);
+    expect(config.viewports).toHaveLength(1);
+    expect(config.viewports[0].name).toBe('custom');
+  });
+
+  it('should prefer CLI options over vizzlyConfig.storybook', async () => {
+    let vizzlyConfig = {
+      storybook: {
+        concurrency: 10,
+        include: 'from-config',
+      },
+    };
+    let cliOptions = { concurrency: 5, include: 'from-cli' };
+
+    let config = await loadConfig(
+      './storybook-static',
+      cliOptions,
+      vizzlyConfig
+    );
+
+    expect(config.concurrency).toBe(5);
+    expect(config.include).toBe('from-cli');
+  });
+
+  it('should use defaults when no vizzlyConfig provided', async () => {
+    let config = await loadConfig('./storybook-static', {}, {});
+
+    expect(config.concurrency).toBe(defaultConfig.concurrency);
+    expect(config.viewports).toHaveLength(2);
+    expect(config.viewports).toEqual(defaultConfig.viewports);
+  });
+
+  it('should handle missing storybook key in vizzlyConfig', async () => {
+    let vizzlyConfig = {
+      otherPlugin: { foo: 'bar' },
+    };
+
+    let config = await loadConfig('./storybook-static', {}, vizzlyConfig);
+
+    expect(config.concurrency).toBe(defaultConfig.concurrency);
+  });
+
+  it('should deep merge browser config from vizzlyConfig', async () => {
+    let vizzlyConfig = {
+      storybook: {
+        browser: {
+          headless: false,
+          args: ['--disable-gpu'],
+        },
+      },
+    };
+
+    let config = await loadConfig('./storybook-static', {}, vizzlyConfig);
+
+    expect(config.browser.headless).toBe(false);
+    expect(config.browser.args).toEqual(['--disable-gpu']);
+  });
+
+  it('should set storybookPath from argument', async () => {
+    let config = await loadConfig('/path/to/storybook', {}, {});
+
+    expect(config.storybookPath).toBe('/path/to/storybook');
   });
 });

@@ -28,6 +28,7 @@ export default {
       concurrency: 3,
       include: null,
       exclude: null,
+      interactions: {},
     },
   },
 

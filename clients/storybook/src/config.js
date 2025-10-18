@@ -11,7 +11,10 @@ import { parseViewport } from './utils/viewport.js';
  */
 export let defaultConfig = {
   storybookPath: null,
-  viewports: [{ name: 'default', width: 1920, height: 1080 }],
+  viewports: [
+    { name: 'mobile', width: 375, height: 667 },
+    { name: 'desktop', width: 1920, height: 1080 },
+  ],
   browser: {
     headless: true,
     args: [],

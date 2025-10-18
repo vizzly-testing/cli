@@ -21,7 +21,7 @@ class VizzlyMCPServer {
   constructor() {
     this.server = new Server(
       {
-        name: 'vizzly-server',
+        name: 'vizzly',
         version: '0.1.0'
       },
       {

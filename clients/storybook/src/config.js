@@ -26,7 +26,6 @@ export let defaultConfig = {
   interactions: {},
 };
 
-
 /**
  * Parse CLI options into config format
  * @param {Object} options - CLI options from Commander
@@ -133,7 +132,11 @@ export function mergeStoryConfig(globalConfig, storyConfig) {
  * @param {Object} vizzlyConfig - Main Vizzly configuration object
  * @returns {Promise<Object>} Final merged configuration
  */
-export async function loadConfig(storybookPath, cliOptions = {}, vizzlyConfig = {}) {
+export async function loadConfig(
+  storybookPath,
+  cliOptions = {},
+  vizzlyConfig = {}
+) {
   // Extract storybook config from main vizzly config
   let pluginConfig = vizzlyConfig?.storybook || {};
 

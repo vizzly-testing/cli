@@ -51,6 +51,46 @@ describe('generateScreenshotName', () => {
     let name = generateScreenshotName(page);
     expect(name).toBe('index');
   });
+
+  it('should handle backslashes', () => {
+    let page = { path: 'foo\\bar' };
+    let name = generateScreenshotName(page);
+    expect(name).toBe('foo-bar');
+    expect(name).not.toContain('\\');
+  });
+
+  it('should handle path traversal attempts', () => {
+    let testCases = [
+      { path: '../../etc/passwd', expected: '.-.-etc-passwd' }, // .. becomes .
+      { path: '../../../sensitive', expected: '.-.-.-sensitive' }, // .. becomes ., extra / becomes -
+      { path: '/path/../secret', expected: 'path-.-secret' }, // .. becomes .
+    ];
+
+    for (let testCase of testCases) {
+      let page = { path: testCase.path };
+      let name = generateScreenshotName(page);
+      expect(name).toBe(testCase.expected);
+      // Ensure no path traversal sequences remain
+      expect(name).not.toContain('..');
+      // Ensure no unescaped slashes remain
+      expect(name).not.toContain('/');
+      expect(name).not.toContain('\\');
+    }
+  });
+
+  it('should handle triple dots', () => {
+    let page = { path: '/normal/.../path' };
+    let name = generateScreenshotName(page);
+    // Triple dots contain .., which gets replaced: ... -> .
+    expect(name).toBe('normal-..-path');
+    expect(name).not.toContain('...');
+  });
+
+  it('should handle trailing slashes', () => {
+    let page = { path: '/about/' };
+    let name = generateScreenshotName(page);
+    expect(name).toBe('about-');
+  });
 });
 
 describe('generateScreenshotProperties', () => {

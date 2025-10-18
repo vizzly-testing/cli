@@ -190,7 +190,7 @@ export async function run(storybookPath, options = {}, context = {}) {
 
   try {
     // Load and merge configuration
-    let config = await loadConfig(storybookPath, options);
+    let config = await loadConfig(storybookPath, options, vizzlyConfig);
 
     // Determine mode: TDD or Run
     let isTdd = await isTddModeAvailable();

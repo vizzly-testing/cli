@@ -1,9 +1,9 @@
 /**
  * Configuration loading and merging for Storybook plugin
  * Pure functions for managing configuration
+ * Reads from config.storybook section of main vizzly.config.js
  */
 
-import { cosmiconfig } from 'cosmiconfig';
 import { parseViewport } from './utils/viewport.js';
 
 /**
@@ -11,7 +11,10 @@ import { parseViewport } from './utils/viewport.js';
  */
 export let defaultConfig = {
   storybookPath: null,
-  viewports: [{ name: 'default', width: 1920, height: 1080 }],
+  viewports: [
+    { name: 'mobile', width: 375, height: 667 },
+    { name: 'desktop', width: 1920, height: 1080 },
+  ],
   browser: {
     headless: true,
     args: [],
@@ -25,27 +28,6 @@ export let defaultConfig = {
   exclude: null,
   interactions: {},
 };
-
-/**
- * Load configuration from file
- * @param {string} [configPath] - Optional path to config file
- * @returns {Promise<Object>} Loaded configuration or empty object
- */
-export async function loadConfigFile(configPath) {
-  let explorer = cosmiconfig('vizzly-storybook');
-
-  try {
-    let result = configPath
-      ? await explorer.load(configPath)
-      : await explorer.search();
-
-    return result?.config || {};
-  } catch (error) {
-    // Log error for debugging
-    console.warn(`[Config] Failed to load config: ${error.message}`);
-    return {};
-  }
-}
 
 /**
  * Parse CLI options into config format
@@ -147,18 +129,25 @@ export function mergeStoryConfig(globalConfig, storyConfig) {
 
 /**
  * Load and merge all configuration sources
- * Priority: CLI options > config file > defaults
+ * Priority: CLI options > vizzlyConfig.storybook > defaults
  * @param {string} storybookPath - Path to Storybook build
  * @param {Object} cliOptions - Options from CLI
+ * @param {Object} vizzlyConfig - Main Vizzly configuration object
  * @returns {Promise<Object>} Final merged configuration
  */
-export async function loadConfig(storybookPath, cliOptions = {}) {
-  let fileConfig = await loadConfigFile(cliOptions.config);
+export async function loadConfig(
+  storybookPath,
+  cliOptions = {},
+  vizzlyConfig = {}
+) {
+  // Extract storybook config from main vizzly config
+  let pluginConfig = vizzlyConfig?.storybook || {};
+
   let parsedCliOptions = parseCliOptions(cliOptions);
 
   let config = mergeConfigs(
     defaultConfig,
-    fileConfig,
+    pluginConfig,
     parsedCliOptions,
     { storybookPath } // Always set storybookPath from argument
   );

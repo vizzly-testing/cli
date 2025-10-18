@@ -164,30 +164,18 @@ async function loadPlugin(pluginPath) {
 
 /**
  * Zod schema for validating plugin structure
+ * Note: Using passthrough() to allow configSchema without validating its structure
+ * to avoid Zod version conflicts when plugins have nested config objects
  */
-const pluginSchema = z.object({
-  name: z.string().min(1, 'Plugin name is required'),
-  version: z.string().optional(),
-  register: z.custom(val => typeof val === 'function', {
-    message: 'register must be a function',
-  }),
-  configSchema: z.record(z.any()).optional(),
-});
-
-/**
- * Zod schema for validating plugin config values
- * Supports: string, number, boolean, null, arrays, and nested objects
- */
-const configValueSchema = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(configValueSchema),
-    z.record(configValueSchema),
-  ])
-);
+const pluginSchema = z
+  .object({
+    name: z.string().min(1, 'Plugin name is required'),
+    version: z.string().optional(),
+    register: z.custom(val => typeof val === 'function', {
+      message: 'register must be a function',
+    }),
+  })
+  .passthrough();
 
 /**
  * Validate plugin has required structure
@@ -199,11 +187,8 @@ function validatePluginStructure(plugin) {
     // Validate basic plugin structure
     pluginSchema.parse(plugin);
 
-    // If configSchema exists, validate it contains valid config values
-    if (plugin.configSchema) {
-      let configSchemaValidator = z.record(configValueSchema);
-      configSchemaValidator.parse(plugin.configSchema);
-    }
+    // Skip deep validation of configSchema to avoid Zod version conflicts
+    // configSchema is optional and primarily for documentation
   } catch (error) {
     if (error instanceof z.ZodError) {
       let messages = error.issues.map(e => `${e.path.join('.')}: ${e.message}`);

@@ -230,16 +230,18 @@ Patterns support glob-like syntax:
 
 ## Screenshot Naming
 
-Screenshots are named using the format:
+Screenshots are named based on the page path, with viewport information stored as properties for better grouping:
 
-```
-path/to/page@viewportName
-```
+**Name format:** `path-to-page` (slashes replaced with hyphens)
+
+**Properties:** Viewport metadata (`viewport`, `viewportWidth`, `viewportHeight`)
 
 Examples:
-- `index@mobile`
-- `blog/post-1@desktop`
-- `docs/getting-started@tablet`
+- Name: `index`, Properties: `{ viewport: 'mobile', viewportWidth: 375, viewportHeight: 667 }`
+- Name: `blog-post-1`, Properties: `{ viewport: 'desktop', viewportWidth: 1920, viewportHeight: 1080 }`
+- Name: `docs-getting-started`, Properties: `{ viewport: 'tablet', viewportWidth: 768, viewportHeight: 1024 }`
+
+This approach allows Vizzly to group screenshots by viewport while keeping names clean and compatible with file system restrictions.
 
 ## Visual Development Workflow
 

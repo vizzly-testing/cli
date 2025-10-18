@@ -16,15 +16,13 @@ try {
 }
 
 /**
- * Generate screenshot name from page and viewport
- * Format: "path/to/page@viewportName"
+ * Generate screenshot name from page path
+ * Viewport info goes in properties for grouping
  * @param {Object} page - Page object with path property
- * @param {Object} viewport - Viewport object with name
  * @returns {string} Screenshot name
  */
-export function generateScreenshotName(page, viewport) {
+export function generateScreenshotName(page) {
   let { path } = page;
-  let viewportName = viewport.name;
 
   // Remove leading slash for cleaner names
   let cleanPath = path.startsWith('/') ? path.slice(1) : path;
@@ -34,7 +32,27 @@ export function generateScreenshotName(page, viewport) {
     cleanPath = 'index';
   }
 
-  return `${cleanPath}@${viewportName}`;
+  // Replace slashes and backslashes with hyphens to create valid filename
+  cleanPath = cleanPath.replace(/[/\\]/g, '-');
+
+  // Replace double dots (path traversal sequences) with single dots
+  cleanPath = cleanPath.replace(/\.\./g, '.');
+
+  return cleanPath;
+}
+
+/**
+ * Generate screenshot properties from viewport
+ * Properties are used by Vizzly for grouping and identification
+ * @param {Object} viewport - Viewport object with name, width, height
+ * @returns {Object} Screenshot properties
+ */
+export function generateScreenshotProperties(viewport) {
+  return {
+    viewport: viewport.name,
+    viewportWidth: viewport.width,
+    viewportHeight: viewport.height,
+  };
 }
 
 /**
@@ -70,8 +88,9 @@ export async function captureAndSendScreenshot(
   viewport,
   screenshotOptions = {}
 ) {
-  let name = generateScreenshotName(pageObj, viewport);
+  let name = generateScreenshotName(pageObj);
+  let properties = generateScreenshotProperties(viewport);
   let screenshot = await captureScreenshot(page, screenshotOptions);
 
-  await vizzlyScreenshot(name, screenshot);
+  await vizzlyScreenshot(name, screenshot, { properties });
 }

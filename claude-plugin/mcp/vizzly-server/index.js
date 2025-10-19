@@ -248,6 +248,41 @@ class VizzlyMCPServer {
           }
         },
         {
+          name: 'search_comparisons',
+          description:
+            'Search for comparisons by screenshot name across recent builds in the cloud. Returns matching comparisons with their build context and screenshot URLs. Use this to find all instances of a specific screenshot across different builds for debugging.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              name: {
+                type: 'string',
+                description: 'Screenshot/comparison name to search for (supports partial matching)'
+              },
+              branch: {
+                type: 'string',
+                description: 'Optional branch name to filter results'
+              },
+              limit: {
+                type: 'number',
+                description: 'Maximum number of results to return (default: 50)'
+              },
+              offset: {
+                type: 'number',
+                description: 'Offset for pagination (default: 0)'
+              },
+              apiToken: {
+                type: 'string',
+                description: 'Vizzly API token (optional, auto-resolves from user login or env)'
+              },
+              apiUrl: {
+                type: 'string',
+                description: 'API base URL (optional)'
+              }
+            },
+            required: ['name']
+          }
+        },
+        {
           name: 'create_build_comment',
           description: 'Create a comment on a build for collaboration',
           inputSchema: {
@@ -663,6 +698,24 @@ class VizzlyMCPServer {
                 {
                   type: 'text',
                   text: JSON.stringify(comparison, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'search_comparisons': {
+            let apiToken = await this.resolveApiToken(args);
+            let results = await this.cloudProvider.searchComparisons(args.name, apiToken, {
+              branch: args.branch,
+              limit: args.limit,
+              offset: args.offset,
+              apiUrl: args.apiUrl
+            });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(results, null, 2)
                 }
               ]
             };

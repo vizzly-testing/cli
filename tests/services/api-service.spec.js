@@ -325,4 +325,170 @@ describe('ApiService', () => {
       );
     });
   });
+
+  describe('searchComparisons', () => {
+    it('should search comparisons with name only', async () => {
+      const service = new ApiService({ token: 'test-token' });
+      const mockResponse = {
+        comparisons: [
+          {
+            id: 'cmp-123',
+            name: 'homepage_desktop',
+            status: 'completed',
+            diff_percentage: 2.5,
+          },
+        ],
+        pagination: {
+          total: 1,
+          limit: 50,
+          offset: 0,
+          hasMore: false,
+        },
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await service.searchComparisons('homepage_desktop');
+
+      const url = global.fetch.mock.calls[0][0];
+      expect(url).toContain('name=homepage_desktop');
+      expect(url).toContain('limit=50'); // Default value
+      expect(url).toContain('offset=0'); // Default value
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        })
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should search comparisons with all filters', async () => {
+      const service = new ApiService({ token: 'test-token' });
+      const mockResponse = {
+        comparisons: [],
+        pagination: {
+          total: 25,
+          limit: 20,
+          offset: 10,
+          hasMore: true,
+        },
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await service.searchComparisons('dashboard', {
+        branch: 'main',
+        limit: 20,
+        offset: 10,
+      });
+
+      const url = global.fetch.mock.calls[0][0];
+      expect(url).toContain('name=dashboard');
+      expect(url).toContain('branch=main');
+      expect(url).toContain('limit=20');
+      expect(url).toContain('offset=10');
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should search comparisons with only some filters', async () => {
+      const service = new ApiService({ token: 'test-token' });
+      const mockResponse = {
+        comparisons: [],
+        pagination: {
+          total: 0,
+          limit: 50,
+          offset: 0,
+          hasMore: false,
+        },
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await service.searchComparisons('login', {
+        branch: 'feature/auth',
+      });
+
+      const url = global.fetch.mock.calls[0][0];
+      expect(url).toContain('name=login');
+      expect(url).toContain('branch=feature%2Fauth');
+      expect(url).toContain('limit=50'); // Default value applied
+      expect(url).toContain('offset=0'); // Default value applied
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should throw error for missing name', async () => {
+      const service = new ApiService({ token: 'test-token' });
+
+      await expect(service.searchComparisons('')).rejects.toThrow(VizzlyError);
+      await expect(service.searchComparisons('')).rejects.toThrow(
+        'name is required and must be a non-empty string'
+      );
+    });
+
+    it('should throw error for invalid name type', async () => {
+      const service = new ApiService({ token: 'test-token' });
+
+      await expect(service.searchComparisons(null)).rejects.toThrow(
+        VizzlyError
+      );
+      await expect(service.searchComparisons(undefined)).rejects.toThrow(
+        VizzlyError
+      );
+      await expect(service.searchComparisons(123)).rejects.toThrow(VizzlyError);
+    });
+
+    it('should handle limit and offset as zero', async () => {
+      const service = new ApiService({ token: 'test-token' });
+      const mockResponse = {
+        comparisons: [],
+        pagination: {
+          total: 0,
+          limit: 0,
+          offset: 0,
+          hasMore: false,
+        },
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await service.searchComparisons('test', {
+        limit: 0,
+        offset: 0,
+      });
+
+      const url = global.fetch.mock.calls[0][0];
+      expect(url).toContain('limit=0');
+      expect(url).toContain('offset=0');
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should handle API errors', async () => {
+      const service = new ApiService({ token: 'test-token' });
+
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('Internal server error'),
+      });
+
+      await expect(service.searchComparisons('homepage')).rejects.toThrow(
+        VizzlyError
+      );
+    });
+  });
 });

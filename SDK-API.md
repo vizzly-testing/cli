@@ -442,6 +442,74 @@ Retrieves detailed information about a specific comparison, including diff image
 }
 ```
 
+### Search Comparisons
+
+Search for comparisons by screenshot name across builds. Useful for debugging visual regressions by tracking a specific screenshot across multiple builds.
+
+**Endpoint:** `GET /api/sdk/comparisons/search`
+
+**Query Parameters:**
+
+- `name` (required): Screenshot name to search for (supports partial matching with LIKE)
+- `branch` (optional): Filter results by branch name
+- `limit` (optional, default: 50): Maximum number of results to return
+- `offset` (optional, default: 0): Number of results to skip for pagination
+
+**Response (200):**
+
+```json
+{
+  "comparisons": [
+    {
+      "id": "comparison-uuid",
+      "name": "homepage-desktop-chrome",
+      "status": "completed",
+      "diff_percentage": 2.5,
+      "threshold": 0.1,
+      "has_diff": true,
+      "build_id": "build-uuid",
+      "build_name": "CLI Build",
+      "build_branch": "feature/new-ui",
+      "build_status": "completed",
+      "build_created_at": "2024-01-15T10:30:00Z",
+      "current_screenshot": {
+        "id": "current-screenshot-uuid",
+        "original_url": "https://storage.example.com/current.png"
+      },
+      "baseline_screenshot": {
+        "id": "baseline-screenshot-uuid",
+        "original_url": "https://storage.example.com/baseline.png"
+      },
+      "diff_image": {
+        "id": "diff-image-uuid",
+        "url": "https://storage.example.com/diff.png"
+      },
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "pagination": {
+    "total": 25,
+    "limit": 50,
+    "offset": 0,
+    "hasMore": false
+  }
+}
+```
+
+**Usage Example:**
+
+```bash
+# Search for all comparisons of "homepage" screenshot
+curl -X GET "/api/sdk/comparisons/search?name=homepage" \
+  -H "Authorization: Bearer your-api-token" \
+  -H "User-Agent: Vizzly-CLI/1.0.0"
+
+# Search with branch filter and pagination
+curl -X GET "/api/sdk/comparisons/search?name=dashboard&branch=main&limit=20&offset=0" \
+  -H "Authorization: Bearer your-api-token" \
+  -H "User-Agent: Vizzly-CLI/1.0.0"
+```
+
 ## Token Management
 
 ### Get Token Context

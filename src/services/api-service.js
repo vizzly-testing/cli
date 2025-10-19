@@ -159,6 +159,34 @@ export class ApiService {
   }
 
   /**
+   * Search for comparisons by name across builds
+   * @param {string} name - Screenshot name to search for
+   * @param {Object} filters - Optional filters (branch, limit, offset)
+   * @param {string} [filters.branch] - Filter by branch name
+   * @param {number} [filters.limit=50] - Maximum number of results (default: 50)
+   * @param {number} [filters.offset=0] - Pagination offset (default: 0)
+   * @returns {Promise<Object>} Search results with comparisons and pagination
+   */
+  async searchComparisons(name, filters = {}) {
+    if (!name || typeof name !== 'string') {
+      throw new VizzlyError('name is required and must be a non-empty string');
+    }
+
+    let { branch, limit = 50, offset = 0 } = filters;
+
+    const queryParams = new URLSearchParams({
+      name,
+      limit: String(limit),
+      offset: String(offset),
+    });
+
+    // Only add branch if provided
+    if (branch) queryParams.append('branch', branch);
+
+    return this.request(`/api/sdk/comparisons/search?${queryParams}`);
+  }
+
+  /**
    * Get builds for a project
    * @param {Object} filters - Filter options
    * @returns {Promise<Array>} List of builds

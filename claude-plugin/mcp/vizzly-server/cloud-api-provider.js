@@ -145,6 +145,35 @@ export class CloudAPIProvider {
     return data.comparison;
   }
 
+  /**
+   * Search for comparisons by name across builds
+   */
+  async searchComparisons(name, apiToken, options = {}) {
+    if (!name || typeof name !== 'string') {
+      throw new Error('name is required and must be a non-empty string');
+    }
+
+    let { branch, limit = 50, offset = 0, apiUrl } = options;
+
+    let queryParams = new URLSearchParams({
+      name,
+      limit: limit.toString(),
+      offset: offset.toString()
+    });
+
+    if (branch) {
+      queryParams.append('branch', branch);
+    }
+
+    let data = await this.makeRequest(
+      `/api/sdk/comparisons/search?${queryParams}`,
+      apiToken,
+      apiUrl
+    );
+
+    return data;
+  }
+
   // ==================================================================
   // BUILD COMMENTS
   // ==================================================================

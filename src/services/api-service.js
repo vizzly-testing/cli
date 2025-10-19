@@ -159,6 +159,20 @@ export class ApiService {
   }
 
   /**
+   * Search for comparisons by name across builds
+   * @param {string} name - Screenshot name to search for
+   * @param {Object} filters - Optional filters (branch, limit, offset)
+   * @returns {Promise<Object>} Search results with comparisons and pagination
+   */
+  async searchComparisons(name, filters = {}) {
+    const queryParams = new URLSearchParams({
+      name,
+      ...filters,
+    }).toString();
+    return this.request(`/api/sdk/comparisons/search?${queryParams}`);
+  }
+
+  /**
    * Get builds for a project
    * @param {Object} filters - Filter options
    * @returns {Promise<Array>} List of builds

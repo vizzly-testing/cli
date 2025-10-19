@@ -1,7 +1,7 @@
 ---
 name: Debug Visual Regression
 description: Analyze visual regression test failures in Vizzly. Use when the user mentions failing visual tests, screenshot differences, visual bugs, diffs, or asks to debug/investigate/analyze visual changes. Works with both local TDD and cloud modes.
-allowed-tools: Read, WebFetch, mcp__plugin_vizzly_vizzly__read_comparison_details, mcp__plugin_vizzly_vizzly__accept_baseline, mcp__plugin_vizzly_vizzly__approve_comparison, mcp__plugin_vizzly_vizzly__reject_comparison
+allowed-tools: Read, WebFetch, mcp__plugin_vizzly_vizzly__read_comparison_details, mcp__plugin_vizzly_vizzly__search_comparisons, mcp__plugin_vizzly_vizzly__accept_baseline, mcp__plugin_vizzly_vizzly__approve_comparison, mcp__plugin_vizzly_vizzly__reject_comparison
 ---
 
 # Debug Visual Regression
@@ -205,9 +205,62 @@ Approve with: approve_comparison tool
 Or adjust threshold to 1% if these variations are expected
 ```
 
+## Cross-Build Debugging (Cloud Only)
+
+When debugging visual regressions in cloud mode, you can track a screenshot across multiple builds to identify when changes were introduced.
+
+### When to Use Search
+
+Use `search_comparisons` when:
+- The user asks "when did this screenshot start failing?"
+- They want to track a visual change across builds
+- They're investigating a regression that appeared recently
+- They want to see the history of a specific screenshot
+
+### How to Search
+
+```javascript
+// Search for all comparisons of a screenshot
+search_comparisons({
+  name: "homepage_desktop",
+  branch: "main",  // optional: filter by branch
+  limit: 10        // optional: limit results
+})
+```
+
+### Example Workflow
+
+```
+User: "When did the homepage screenshot start failing?"
+
+Step 1: Search for the screenshot across builds
+Tool: search_comparisons({ name: "homepage", branch: "main", limit: 10 })
+
+Response shows 10 comparisons from most recent to oldest, each with:
+- Build name, branch, and creation date
+- Diff percentage and status
+- Screenshot URLs
+
+Step 2: Analyze the timeline
+- Build #45 (today): 5.2% diff - FAILED
+- Build #44 (yesterday): 5.1% diff - FAILED
+- Build #43 (2 days ago): 0.3% diff - PASSED
+- Build #42 (3 days ago): 0.2% diff - PASSED
+
+Step 3: Report findings
+"The homepage screenshot started failing between Build #43 and #44
+(approximately 1-2 days ago). The diff jumped from 0.3% to 5.1%,
+suggesting a significant visual change was introduced."
+
+Step 4: Deep dive into the failing build
+Tool: read_comparison_details({ identifier: "cmp_xyz_from_build44" })
+[View images and provide detailed analysis as usual]
+```
+
 ## Important Notes
 
 - **Always use `read_comparison_details`** - it automatically detects the mode
+- **Use `search_comparisons` for cloud debugging** - to track changes across builds
 - **Check the `mode` field** to know which viewing tool to use (Read vs WebFetch)
 - **Never view diff images** - only baseline and current
 - **Visual inspection is critical** - don't rely solely on diff percentages

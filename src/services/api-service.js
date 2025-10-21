@@ -155,7 +155,8 @@ export class ApiService {
    * @returns {Promise<Object>} Comparison data
    */
   async getComparison(comparisonId) {
-    return this.request(`/api/sdk/comparisons/${comparisonId}`);
+    let response = await this.request(`/api/sdk/comparisons/${comparisonId}`);
+    return response.comparison;
   }
 
   /**

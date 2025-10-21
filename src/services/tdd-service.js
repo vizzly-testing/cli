@@ -161,10 +161,44 @@ export class TddService {
           );
         }
       } else if (comparisonId) {
-        // Use specific comparison ID
+        // Use specific comparison ID - download only this comparison's baseline screenshot
         logger.info(`📌 Using comparison: ${comparisonId}`);
         const comparison = await this.api.getComparison(comparisonId);
-        baselineBuild = comparison.baselineBuild;
+
+        // A comparison doesn't have baselineBuild directly - we need to get it
+        // The comparison has baseline_screenshot which contains the build_id
+        if (!comparison.baseline_screenshot) {
+          throw new Error(
+            `Comparison ${comparisonId} has no baseline screenshot. This comparison may be a "new" screenshot with no baseline to compare against.`
+          );
+        }
+
+        // The original_url might be in baseline_screenshot.original_url or comparison.baseline_screenshot_url
+        let baselineUrl =
+          comparison.baseline_screenshot.original_url ||
+          comparison.baseline_screenshot_url;
+
+        if (!baselineUrl) {
+          throw new Error(
+            `Baseline screenshot for comparison ${comparisonId} has no download URL`
+          );
+        }
+
+        // For a specific comparison, we only download that one baseline screenshot
+        // Create a mock build structure with just this one screenshot
+        baselineBuild = {
+          id: comparison.baseline_screenshot.build_id || 'comparison-baseline',
+          name: `Comparison ${comparisonId.substring(0, 8)}`,
+          screenshots: [
+            {
+              id: comparison.baseline_screenshot.id,
+              name: comparison.baseline_name || comparison.current_name,
+              original_url: baselineUrl,
+              metadata: {},
+              properties: {},
+            },
+          ],
+        };
       } else {
         // Get the latest passed build for this environment and branch
         const builds = await this.api.getBuilds({
@@ -187,10 +221,12 @@ export class TddService {
         baselineBuild = builds.data[0];
       }
 
-      // For specific buildId, we already have screenshots, otherwise get build details
+      // For specific buildId, we already have screenshots
+      // For comparisonId, we created a mock build with just the one screenshot
+      // Otherwise, get build details with screenshots
       let buildDetails = baselineBuild;
-      if (!buildId) {
-        // Get build details with screenshots for non-buildId cases
+      if (!buildId && !comparisonId) {
+        // Get build details with screenshots for non-buildId/non-comparisonId cases
         const actualBuildId = baselineBuild.id;
         buildDetails = await this.api.getBuild(actualBuildId, 'screenshots');
       }

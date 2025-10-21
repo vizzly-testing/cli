@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TddService } from '../../src/services/tdd-service.js';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { compare } from '@vizzly-testing/honeydiff';
 
 // Mock all external dependencies
 vi.mock('fs', () => ({
@@ -28,9 +29,22 @@ vi.mock('../../src/utils/logger.js', () => ({
 vi.mock('../../src/utils/git.js');
 vi.mock('../../src/utils/fetch-utils.js');
 
-// Mock odiff-bin dynamic import
-vi.mock('odiff-bin', () => ({
-  compare: vi.fn(async () => ({ match: true, reason: 'identical' })),
+// Mock @vizzly-testing/honeydiff dynamic import
+vi.mock('@vizzly-testing/honeydiff', () => ({
+  compare: vi.fn(async () => ({
+    isDifferent: false,
+    diffPercentage: 0,
+    totalPixels: 1000000,
+    diffPixels: 0,
+    aaPixelsIgnored: 0,
+    aaPercentage: 0,
+    boundingBox: null,
+    heightDiff: null,
+    diffPixelsList: null,
+    diffClusters: null,
+    intensityStats: null,
+    perceptualScore: null,
+  })),
 }));
 
 describe('TddService', () => {
@@ -145,10 +159,22 @@ describe('TddService', () => {
 
     it('compares screenshots successfully when they match', async () => {
       const { existsSync } = await import('fs');
-      const { compare } = await import('odiff-bin');
 
       existsSync.mockReturnValue(true);
-      compare.mockResolvedValue({ match: true, reason: 'identical' });
+      compare.mockResolvedValue({
+        isDifferent: false,
+        diffPercentage: 0,
+        totalPixels: 1000000,
+        diffPixels: 0,
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: null,
+        heightDiff: null,
+        diffPixelsList: null,
+        diffClusters: null,
+        intensityStats: null,
+        perceptualScore: null,
+      });
 
       const result = await tddService.compareScreenshot(
         'test-screenshot',
@@ -163,6 +189,9 @@ describe('TddService', () => {
         diff: null,
         properties: {},
         threshold: 0.1,
+        totalPixels: 1000000,
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
       });
 
       expect(tddService.comparisons).toHaveLength(1);
@@ -170,13 +199,21 @@ describe('TddService', () => {
 
     it('detects differences when screenshots do not match', async () => {
       const { existsSync } = await import('fs');
-      const { compare } = await import('odiff-bin');
 
       existsSync.mockReturnValue(true);
       compare.mockResolvedValue({
-        match: false,
-        reason: 'pixel-diff',
+        isDifferent: true,
         diffPercentage: 5.2,
+        totalPixels: 1000000,
+        diffPixels: 52000,
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: { x: 0, y: 0, width: 100, height: 100 },
+        heightDiff: null,
+        diffPixelsList: null,
+        diffClusters: null,
+        intensityStats: null,
+        perceptualScore: null,
       });
 
       const result = await tddService.compareScreenshot(
@@ -192,18 +229,24 @@ describe('TddService', () => {
         diff: join(testDir, '.vizzly', 'diffs', 'test-screenshot.png'),
         properties: {},
         threshold: 0.1,
-        diffCount: undefined,
+        diffCount: 52000,
         diffPercentage: 5.2,
         reason: 'pixel-diff',
+        totalPixels: 1000000,
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: { x: 0, y: 0, width: 100, height: 100 },
+        heightDiff: null,
+        intensityStats: null,
+        diffClusters: null,
       });
     });
 
-    it('handles odiff execution errors', async () => {
+    it('handles honeydiff execution errors', async () => {
       const { existsSync } = await import('fs');
-      const { compare } = await import('odiff-bin');
 
       existsSync.mockReturnValue(true);
-      compare.mockRejectedValue(new Error('odiff not found'));
+      compare.mockRejectedValue(new Error('honeydiff not found'));
 
       const result = await tddService.compareScreenshot(
         'test-screenshot',
@@ -217,7 +260,7 @@ describe('TddService', () => {
         current: join(testDir, '.vizzly', 'current', 'test-screenshot.png'),
         diff: null,
         properties: {},
-        error: 'odiff not found',
+        error: 'honeydiff not found',
       });
     });
 
@@ -243,10 +286,22 @@ describe('TddService', () => {
 
     it('uses different baselines for same name with different viewport widths', async () => {
       const { existsSync } = await import('fs');
-      const { compare } = await import('odiff-bin');
 
       existsSync.mockReturnValue(false);
-      compare.mockResolvedValue({ match: true, reason: 'identical' });
+      compare.mockResolvedValue({
+        isDifferent: false,
+        diffPercentage: 0,
+        totalPixels: 1000000,
+        diffPixels: 0,
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: null,
+        heightDiff: null,
+        diffPixelsList: null,
+        diffClusters: null,
+        intensityStats: null,
+        perceptualScore: null,
+      });
 
       // First screenshot at 1920px width
       const result1 = await tddService.compareScreenshot(
@@ -273,10 +328,22 @@ describe('TddService', () => {
 
     it('uses different baselines for same name with different browsers', async () => {
       const { existsSync } = await import('fs');
-      const { compare } = await import('odiff-bin');
 
       existsSync.mockReturnValue(false);
-      compare.mockResolvedValue({ match: true, reason: 'identical' });
+      compare.mockResolvedValue({
+        isDifferent: false,
+        diffPercentage: 0,
+        totalPixels: 1000000,
+        diffPixels: 0,
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: null,
+        heightDiff: null,
+        diffPixelsList: null,
+        diffClusters: null,
+        intensityStats: null,
+        perceptualScore: null,
+      });
 
       // First screenshot in Chrome
       const result1 = await tddService.compareScreenshot(
@@ -303,7 +370,6 @@ describe('TddService', () => {
 
     it('uses same baseline for identical name, viewport, and browser', async () => {
       const { existsSync } = await import('fs');
-      const { compare } = await import('odiff-bin');
 
       let callCount = 0;
       existsSync.mockImplementation(() => {
@@ -311,7 +377,20 @@ describe('TddService', () => {
         // First call: baseline doesn't exist, second call: baseline exists
         return callCount > 1;
       });
-      compare.mockResolvedValue({ match: true, reason: 'identical' });
+      compare.mockResolvedValue({
+        isDifferent: false,
+        diffPercentage: 0,
+        totalPixels: 1000000,
+        diffPixels: 0,
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: null,
+        heightDiff: null,
+        diffPixelsList: null,
+        diffClusters: null,
+        intensityStats: null,
+        perceptualScore: null,
+      });
 
       let properties = {
         browser: 'Chrome',

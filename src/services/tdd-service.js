@@ -1,5 +1,6 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { compare } from '@vizzly-testing/honeydiff';
 
 import { ApiService } from '../services/api-service.js';
 import { createServiceLogger } from '../utils/logger-factory.js';
@@ -701,9 +702,6 @@ export class TddService {
 
     // Baseline exists - compare with it
     try {
-      // Use odiff Node.js API to compare images
-      const { compare } = await import('odiff-bin');
-
       // Log file sizes for debugging
       const baselineSize = readFileSync(baselineImagePath).length;
       const currentSize = readFileSync(currentImagePath).length;
@@ -711,18 +709,15 @@ export class TddService {
       logger.debug(`Baseline: ${baselineImagePath} (${baselineSize} bytes)`);
       logger.debug(`Current:  ${currentImagePath} (${currentSize} bytes)`);
 
-      const result = await compare(
-        baselineImagePath,
-        currentImagePath,
-        diffImagePath,
-        {
-          threshold: this.threshold,
-          outputDiffMask: true,
-          failOnLayoutDiff: true, // Fail if image dimensions differ
-        }
-      );
+      const result = await compare(baselineImagePath, currentImagePath, {
+        colorThreshold: this.threshold, // YIQ color threshold (0.0-1.0), default 0.1
+        antialiasing: true,
+        diffPath: diffImagePath,
+        overwrite: true,
+        includeClusters: true, // Enable spatial clustering analysis
+      });
 
-      if (result.match) {
+      if (!result.isDifferent) {
         // Images match
         const comparison = {
           name: sanitizedName,
@@ -732,6 +727,10 @@ export class TddService {
           diff: null,
           properties: validatedProperties,
           threshold: this.threshold,
+          // Include honeydiff metrics even for passing comparisons
+          totalPixels: result.totalPixels,
+          aaPixelsIgnored: result.aaPixelsIgnored,
+          aaPercentage: result.aaPercentage,
         };
 
         logger.debug(`PASSED ${sanitizedName}`);
@@ -739,11 +738,11 @@ export class TddService {
         return comparison;
       } else {
         // Images differ
-        let diffInfo = '';
-        if (result.reason === 'pixel-diff') {
-          diffInfo = ` (${result.diffPercentage.toFixed(2)}% different, ${result.diffCount} pixels)`;
-        } else if (result.reason === 'layout-diff') {
-          diffInfo = ' (layout difference)';
+        let diffInfo = ` (${result.diffPercentage.toFixed(2)}% different, ${result.diffPixels} pixels)`;
+
+        // Add cluster info to log if available
+        if (result.diffClusters && result.diffClusters.length > 0) {
+          diffInfo += `, ${result.diffClusters.length} region${result.diffClusters.length > 1 ? 's' : ''}`;
         }
 
         const comparison = {
@@ -754,10 +753,17 @@ export class TddService {
           diff: diffImagePath,
           properties: validatedProperties,
           threshold: this.threshold,
-          diffPercentage:
-            result.reason === 'pixel-diff' ? result.diffPercentage : null,
-          diffCount: result.reason === 'pixel-diff' ? result.diffCount : null,
-          reason: result.reason,
+          diffPercentage: result.diffPercentage,
+          diffCount: result.diffPixels,
+          reason: 'pixel-diff',
+          // Honeydiff metrics
+          totalPixels: result.totalPixels,
+          aaPixelsIgnored: result.aaPixelsIgnored,
+          aaPercentage: result.aaPercentage,
+          boundingBox: result.boundingBox,
+          heightDiff: result.heightDiff,
+          intensityStats: result.intensityStats,
+          diffClusters: result.diffClusters,
         };
 
         logger.warn(

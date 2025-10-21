@@ -7,7 +7,7 @@ TDD (Test-Driven Development) Mode enables fast local development with an intera
 TDD Mode transforms your visual testing workflow with:
 
 - **Interactive Dashboard** - Real-time visual feedback as tests run
-- **Local Comparison** - Compares screenshots on your machine using `odiff`
+- **Local Comparison** - Compares screenshots on your machine using `honeydiff`
 - **Live Updates** - See comparisons instantly in the browser
 - **Baseline Management** - Accept/reject changes directly from the UI
 - **Fast Feedback** - No network uploads during development
@@ -90,7 +90,7 @@ TDD Mode provides two workflows:
 ### Single-Shot Workflow
 
 1. **Run tests** - `vizzly tdd run "npm test"` executes once
-2. **Compares locally** - Uses `odiff` for pixel-perfect comparison
+2. **Compares locally** - Uses `honeydiff` for high-performance comparison
 3. **Generates report** - Creates HTML report with visual comparisons
 4. **Exit with status** - Fails if differences exceed threshold
 
@@ -452,14 +452,14 @@ rm -rf .vizzly/baselines/
 npx vizzly tdd run "npm test"
 ```
 
-### Odiff Not Found
+### Honeydiff Not Found
 ```
-Error: odiff binary not found
+Error: Cannot find module '@vizzly-testing/honeydiff'
 ```
 
-**Solution**: The `odiff-bin` package should be installed automatically. Try:
+**Solution**: The `@vizzly-testing/honeydiff` package should be installed automatically. Try:
 ```bash
-npm install odiff-bin
+npm install @vizzly-testing/honeydiff
 ```
 
 ## Best Practices

@@ -25,7 +25,7 @@ thing*. It enables teams to collaborate on visual changes through an intuitive w
 
 **TDD Mode (Local Development):**
 - No API token required
-- Screenshots compared locally using `odiff`
+- Screenshots compared locally using `honeydiff` (high-performance Rust-based diffing)
 - Interactive dashboard at `http://localhost:47392`
 - Accept/reject baselines directly in UI
 - Fast iteration cycle
@@ -105,7 +105,7 @@ service container, config, and logger.
 **TDD Workflow:**
 1. Developer runs `vizzly tdd start` → Background server starts
 2. Developer runs tests in watch mode → `vizzlyScreenshot()` sends images to server
-3. Server compares using `odiff` → Saves results to `.vizzly/`
+3. Server compares using `honeydiff` → Saves results to `.vizzly/`
 4. Dashboard shows live comparisons → Developer accepts/rejects in UI
 5. Baselines updated → Tests pass on next run
 

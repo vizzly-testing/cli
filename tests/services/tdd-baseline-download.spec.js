@@ -408,35 +408,19 @@ describe('TDD Service - Baseline Download', () => {
     });
 
     it('should download baselines using comparison ID', async () => {
-      // Mock comparison API response
+      // Mock comparison API response - matches actual API structure
       const mockComparison = {
         id: 'comp123',
-        baselineBuild: {
-          id: 'baseline-build-789',
-          name: 'Comparison Baseline',
-          status: 'passed',
+        baseline_name: 'profile',
+        current_name: 'profile',
+        baseline_screenshot: {
+          id: 'screenshot1',
+          build_id: 'baseline-build-789',
         },
-      };
-
-      const mockBuildDetails = {
-        id: 'baseline-build-789',
-        screenshots: [
-          {
-            name: 'profile',
-            url: 'https://example.com/profile.png',
-            original_url: 'https://example.com/profile.png',
-            sha256: 'sha256-profile',
-            id: 'screenshot1',
-            file_size_bytes: 12345,
-            width: 1920,
-            height: 1080,
-            properties: { viewport: { width: 1920, height: 1080 } },
-          },
-        ],
+        baseline_screenshot_url: 'https://example.com/profile.png',
       };
 
       mockApiService.getComparison.mockResolvedValueOnce(mockComparison);
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildDetails);
 
       // Mock successful image download
       const mockImageBuffer = Buffer.from('profile-image-data');
@@ -455,10 +439,8 @@ describe('TDD Service - Baseline Download', () => {
 
       // Verify API calls
       expect(mockApiService.getComparison).toHaveBeenCalledWith('comp123');
-      expect(mockApiService.getBuild).toHaveBeenCalledWith(
-        'baseline-build-789',
-        'screenshots'
-      );
+      // Should NOT call getBuild when using comparison ID - we create a mock build
+      expect(mockApiService.getBuild).not.toHaveBeenCalled();
 
       // Verify download
       expect(global.fetch).toHaveBeenCalledWith(
@@ -470,9 +452,8 @@ describe('TDD Service - Baseline Download', () => {
 
       expect(result).not.toBeNull();
       expect(tddService.baselineData.buildId).toBe('baseline-build-789');
-      expect(tddService.baselineData.screenshots[0].properties).toEqual({
-        viewport: { width: 1920, height: 1080 },
-      });
+      expect(tddService.baselineData.screenshots).toHaveLength(1);
+      expect(tddService.baselineData.screenshots[0].name).toBe('profile');
     });
   });
 });

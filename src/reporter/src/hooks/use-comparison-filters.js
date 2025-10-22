@@ -51,7 +51,11 @@ export default function useComparisonFilters(comparisons = []) {
       if (c.properties?.browser) {
         browsers.add(c.properties.browser);
       }
-      if (c.properties?.viewport) {
+      // Support both nested viewport and top-level viewport_width/viewport_height
+      if (c.properties?.viewport_width && c.properties?.viewport_height) {
+        let viewport = `${c.properties.viewport_width}x${c.properties.viewport_height}`;
+        viewports.add(viewport);
+      } else if (c.properties?.viewport) {
         let viewport = `${c.properties.viewport.width}x${c.properties.viewport.height}`;
         viewports.add(viewport);
       }
@@ -86,8 +90,13 @@ export default function useComparisonFilters(comparisons = []) {
     // Apply viewport filter
     if (selectedViewport !== 'all') {
       filtered = filtered.filter(c => {
-        if (!c.properties?.viewport) return false;
-        let viewport = `${c.properties.viewport.width}x${c.properties.viewport.height}`;
+        let viewport = null;
+        // Support both top-level viewport_width/viewport_height and nested viewport
+        if (c.properties?.viewport_width && c.properties?.viewport_height) {
+          viewport = `${c.properties.viewport_width}x${c.properties.viewport_height}`;
+        } else if (c.properties?.viewport) {
+          viewport = `${c.properties.viewport.width}x${c.properties.viewport.height}`;
+        }
         return viewport === selectedViewport;
       });
     }

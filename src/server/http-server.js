@@ -290,21 +290,21 @@ export const createHttpServer = (port, screenshotHandler) => {
       }
 
       try {
-        const { name } = await parseRequestBody(req);
-        if (!name) {
+        const { id } = await parseRequestBody(req);
+        if (!id) {
           res.statusCode = 400;
-          res.end(JSON.stringify({ error: 'Screenshot name required' }));
+          res.end(JSON.stringify({ error: 'Comparison ID required' }));
           return;
         }
 
-        await screenshotHandler.acceptBaseline(name);
+        await screenshotHandler.acceptBaseline(id);
 
         res.setHeader('Content-Type', 'application/json');
         res.statusCode = 200;
         res.end(
           JSON.stringify({
             success: true,
-            message: `Baseline accepted for ${name}`,
+            message: `Baseline accepted for comparison ${id}`,
           })
         );
       } catch (error) {
@@ -430,17 +430,17 @@ export const createHttpServer = (port, screenshotHandler) => {
     if (req.method === 'POST' && parsedUrl.pathname === '/accept-baseline') {
       try {
         const body = await parseRequestBody(req);
-        const { name } = body;
+        const { id } = body;
 
-        if (!name) {
+        if (!id) {
           res.statusCode = 400;
-          res.end(JSON.stringify({ error: 'screenshot name is required' }));
+          res.end(JSON.stringify({ error: 'comparison ID is required' }));
           return;
         }
 
         // Call the screenshot handler's accept baseline method if it exists
         if (screenshotHandler.acceptBaseline) {
-          const result = await screenshotHandler.acceptBaseline(name);
+          const result = await screenshotHandler.acceptBaseline(id);
           res.statusCode = 200;
           res.end(JSON.stringify({ success: true, ...result }));
         } else {

@@ -409,7 +409,7 @@ Uploads multiple screenshot files and/or references existing screenshots by SHA2
 
 ### Get Comparison Details
 
-Retrieves detailed information about a specific comparison, including diff images.
+Retrieves detailed information about a specific comparison, including diff images and screenshot properties.
 
 **Endpoint:** `GET /api/sdk/comparisons/:comparisonId`
 
@@ -426,21 +426,23 @@ Retrieves detailed information about a specific comparison, including diff image
     "diff_percentage": 2.5,
     "threshold": 0.1,
     "has_diff": true,
-    "current_screenshot": {
-      "id": "current-screenshot-uuid",
-      "url": "https://storage.example.com/current.png"
-    },
-    "baseline_screenshot": {
-      "id": "baseline-screenshot-uuid",
-      "url": "https://storage.example.com/baseline.png"
-    },
-    "diff_image": {
-      "url": "https://storage.example.com/diff.png"
-    },
+    "current_name": "homepage-desktop-chrome",
+    "current_browser": "chrome",
+    "current_viewport_width": 1920,
+    "current_viewport_height": 1080,
+    "baseline_name": "homepage-desktop-chrome",
+    "baseline_browser": "chrome",
+    "baseline_viewport_width": 1920,
+    "baseline_viewport_height": 1080,
+    "current_screenshot_url": "https://storage.example.com/current.png",
+    "baseline_screenshot_url": "https://storage.example.com/baseline.png",
+    "diff_url": "https://storage.example.com/diff.png",
     "created_at": "2024-01-15T10:30:00Z"
   }
 }
 ```
+
+**Note:** The `current_browser`, `current_viewport_width`, `current_viewport_height`, `baseline_browser`, `baseline_viewport_width`, and `baseline_viewport_height` fields are essential for matching screenshots with the same name but different dimensions or browsers. These fields are used to generate unique screenshot signatures (name|viewport_width|browser) for proper baseline matching.
 
 ### Search Comparisons
 

@@ -7,18 +7,18 @@ export default function useBaselineActions(onUpdate) {
   let { addToast } = useToast();
 
   let accept = useCallback(
-    async screenshotName => {
-      setLoadingStates(prev => ({ ...prev, [screenshotName]: 'accepting' }));
+    async comparisonId => {
+      setLoadingStates(prev => ({ ...prev, [comparisonId]: 'accepting' }));
 
       try {
-        await acceptBaseline(screenshotName);
+        await acceptBaseline(comparisonId);
 
         // Update comparison status to passed instead of removing
         if (onUpdate) {
           onUpdate(prevData => ({
             ...prevData,
             comparisons: prevData.comparisons.map(c =>
-              c.name === screenshotName
+              c.id === comparisonId
                 ? { ...c, status: 'passed', diffPercentage: 0, diff: null }
                 : c
             ),
@@ -27,7 +27,7 @@ export default function useBaselineActions(onUpdate) {
 
         setLoadingStates(prev => {
           let next = { ...prev };
-          delete next[screenshotName];
+          delete next[comparisonId];
           return next;
         });
       } catch (err) {
@@ -35,23 +35,23 @@ export default function useBaselineActions(onUpdate) {
         addToast('Failed to accept baseline. Please try again.', 'error');
         setLoadingStates(prev => {
           let next = { ...prev };
-          delete next[screenshotName];
+          delete next[comparisonId];
           return next;
         });
       }
     },
-    [onUpdate]
+    [onUpdate, addToast]
   );
 
   let reject = useCallback(
-    screenshotName => {
-      setLoadingStates(prev => ({ ...prev, [screenshotName]: 'rejected' }));
+    comparisonId => {
+      setLoadingStates(prev => ({ ...prev, [comparisonId]: 'rejected' }));
 
       if (onUpdate) {
         onUpdate(prevData => ({
           ...prevData,
           comparisons: prevData.comparisons.map(c =>
-            c.name === screenshotName ? { ...c, userAction: 'rejected' } : c
+            c.id === comparisonId ? { ...c, userAction: 'rejected' } : c
           ),
         }));
       }

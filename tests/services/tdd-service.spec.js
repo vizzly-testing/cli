@@ -144,7 +144,7 @@ describe('TddService', () => {
         mockImageBuffer
       );
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         name: 'new-screenshot',
         status: 'new',
         baseline: join(testDir, '.vizzly', 'baselines', 'new-screenshot.png'),
@@ -152,6 +152,8 @@ describe('TddService', () => {
         diff: null,
         properties: {},
       });
+      expect(result.id).toBeDefined();
+      expect(result.signature).toBe('new-screenshot');
 
       expect(tddService.comparisons).toHaveLength(1);
       expect(tddService.comparisons[0]).toEqual(result);
@@ -181,7 +183,7 @@ describe('TddService', () => {
         mockImageBuffer
       );
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'passed',
         baseline: join(testDir, '.vizzly', 'baselines', 'test-screenshot.png'),
@@ -193,6 +195,8 @@ describe('TddService', () => {
         aaPixelsIgnored: 0,
         aaPercentage: 0,
       });
+      expect(result.id).toBeDefined();
+      expect(result.signature).toBe('test-screenshot');
 
       expect(tddService.comparisons).toHaveLength(1);
     });
@@ -221,7 +225,7 @@ describe('TddService', () => {
         mockImageBuffer
       );
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'failed',
         baseline: join(testDir, '.vizzly', 'baselines', 'test-screenshot.png'),
@@ -240,6 +244,8 @@ describe('TddService', () => {
         intensityStats: null,
         diffClusters: null,
       });
+      expect(result.id).toBeDefined();
+      expect(result.signature).toBe('test-screenshot');
     });
 
     it('handles honeydiff execution errors', async () => {
@@ -253,7 +259,7 @@ describe('TddService', () => {
         mockImageBuffer
       );
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'error',
         baseline: join(testDir, '.vizzly', 'baselines', 'test-screenshot.png'),
@@ -262,6 +268,8 @@ describe('TddService', () => {
         properties: {},
         error: 'honeydiff not found',
       });
+      expect(result.id).toBeDefined();
+      expect(result.signature).toBe('test-screenshot');
     });
 
     it('includes custom properties in comparison result', async () => {
@@ -281,7 +289,11 @@ describe('TddService', () => {
         properties
       );
 
-      expect(result.properties).toEqual(properties);
+      // Properties now get normalized with viewport_width at top level
+      expect(result.properties).toMatchObject({
+        viewport: { width: 1920, height: 1080 },
+        device: 'desktop',
+      });
     });
 
     it('uses different baselines for same name with different viewport widths', async () => {

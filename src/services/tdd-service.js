@@ -189,27 +189,8 @@ export class TddService {
         }
       } else if (comparisonId) {
         // Use specific comparison ID - download only this comparison's baseline screenshot
-        logger.info(`📌 Using comparison: ${comparisonId}`);
+        logger.info(`Using comparison: ${comparisonId}`);
         const comparison = await this.api.getComparison(comparisonId);
-
-        // Debug: log what we got from the API
-        logger.info(
-          `📊 Comparison API response keys: ${Object.keys(comparison).join(', ')}`
-        );
-        logger.info(
-          `📊 current_viewport_width: ${comparison.current_viewport_width}`
-        );
-        logger.info(
-          `📊 current_viewport_height: ${comparison.current_viewport_height}`
-        );
-        logger.info(`📊 current_browser: ${comparison.current_browser}`);
-        logger.info(
-          `📊 baseline_viewport_width: ${comparison.baseline_viewport_width}`
-        );
-        logger.info(
-          `📊 baseline_viewport_height: ${comparison.baseline_viewport_height}`
-        );
-        logger.info(`📊 baseline_browser: ${comparison.baseline_browser}`);
 
         // A comparison doesn't have baselineBuild directly - we need to get it
         // The comparison has baseline_screenshot which contains the build_id
@@ -327,17 +308,6 @@ export class TddService {
         `Checking ${colors.cyan(buildDetails.screenshots.length)} baseline screenshots...`
       );
 
-      // Debug: Show all screenshot names and properties
-      logger.info(`📊 Screenshots in baseline build:`);
-      buildDetails.screenshots.forEach((s, idx) => {
-        let props = s.metadata || s.properties || {};
-        let sig = generateScreenshotSignature(
-          s.name,
-          validateScreenshotProperties(props)
-        );
-        logger.info(`   ${idx + 1}. ${s.name} → signature: ${sig}`);
-      });
-
       // Check existing baseline metadata for efficient SHA comparison
       const existingBaseline = await this.loadBaseline();
       const existingShaMap = new Map();
@@ -378,15 +348,6 @@ export class TddService {
         );
         let signature = generateScreenshotSignature(sanitizedName, properties);
         let filename = signatureToFilename(signature);
-
-        // Log signature generation for first screenshot to verify it's working
-        if (downloadedCount + skippedCount === 0) {
-          logger.info(`📊 First screenshot signature generation:`);
-          logger.info(`   Name: ${sanitizedName}`);
-          logger.info(`   Properties: ${JSON.stringify(properties)}`);
-          logger.info(`   Signature: ${signature}`);
-          logger.info(`   Filename: ${filename}.png`);
-        }
 
         const imagePath = safePath(this.baselinePath, `${filename}.png`);
 
@@ -726,12 +687,6 @@ export class TddService {
       validatedProperties
     );
     const filename = signatureToFilename(signature);
-
-    logger.info(`📊 TDD Screenshot signature:`);
-    logger.info(`   Name: ${sanitizedName}`);
-    logger.info(`   Properties: ${JSON.stringify(validatedProperties)}`);
-    logger.info(`   Signature: ${signature}`);
-    logger.info(`   Filename: ${filename}.png`);
 
     const currentImagePath = safePath(this.currentPath, `${filename}.png`);
     const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);

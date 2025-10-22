@@ -246,19 +246,6 @@ export const createTddHandler = (
   };
 
   const handleScreenshot = async (buildId, name, image, properties = {}) => {
-    // Debug: Log raw properties structure to understand what we're receiving
-    logger.debug(
-      `📦 Raw properties structure:`,
-      JSON.stringify(properties, null, 2)
-    );
-    logger.debug(`📦 Has nested properties?: ${!!properties.properties}`);
-    if (properties.properties) {
-      logger.debug(
-        `📦 Nested properties content:`,
-        JSON.stringify(properties.properties, null, 2)
-      );
-    }
-
     // Validate and sanitize screenshot name
     let sanitizedName;
     try {
@@ -279,7 +266,6 @@ export const createTddHandler = (
     // and client SDK wraps it as { properties: options }
     let unwrappedProperties = properties;
     if (properties.properties && typeof properties.properties === 'object') {
-      logger.debug(`📦 Unwrapping double-nested properties`);
       // Merge top-level properties with nested properties
       unwrappedProperties = {
         ...properties,

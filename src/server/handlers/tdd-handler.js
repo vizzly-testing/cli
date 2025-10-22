@@ -305,8 +305,6 @@ export const createTddHandler = (
     };
 
     const imageBuffer = Buffer.from(image, 'base64');
-    logger.info(`📸 Received screenshot: ${name}`);
-    logger.info(`   Image size: ${imageBuffer.length} bytes`);
 
     // Auto-detect image dimensions from PNG header if viewport not provided
     // This matches cloud API behavior but without requiring Sharp
@@ -340,10 +338,6 @@ export const createTddHandler = (
         );
       }
     }
-
-    logger.info(
-      `   Properties received: ${JSON.stringify(extractedProperties)}`
-    );
 
     // Use the sanitized name as-is (no modification with browser/viewport)
     // Baseline matching uses signature logic (name + viewport_width + browser)

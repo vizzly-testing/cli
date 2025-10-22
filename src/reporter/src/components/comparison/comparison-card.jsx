@@ -9,6 +9,7 @@ import {
 import ComparisonViewer from './comparison-viewer.jsx';
 import ComparisonActions from './comparison-actions.jsx';
 import ViewModeSelector from './view-mode-selector.jsx';
+import VariantSelector from './variant-selector.jsx';
 import StatusBadge from '../ui/status-badge.jsx';
 import { getStatusInfo } from '../../utils/comparison-helpers.js';
 import { VIEW_MODES, USER_ACTION } from '../../utils/constants.js';
@@ -18,6 +19,7 @@ export default function ComparisonCard({
   onAccept,
   onReject,
   userAction,
+  variantSelector = null, // { group, selectedIndex, onSelect } when variants exist
 }) {
   let [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
   let [isExpanded, setIsExpanded] = useState(comparison.status === 'failed'); // Auto-expand failed tests
@@ -38,11 +40,11 @@ export default function ComparisonCard({
   };
 
   let handleAccept = () => {
-    onAccept(comparison.name);
+    onAccept(comparison.id);
   };
 
   let handleReject = () => {
-    onReject(comparison.name);
+    onReject(comparison.id);
   };
 
   return (
@@ -89,12 +91,19 @@ export default function ComparisonCard({
                 {comparison.properties?.browser && (
                   <span>• {comparison.properties.browser}</span>
                 )}
-                {comparison.properties?.viewport && (
+                {/* Support both top-level viewport_width/viewport_height and nested viewport */}
+                {comparison.properties?.viewport_width &&
+                comparison.properties?.viewport_height ? (
+                  <span>
+                    • {comparison.properties.viewport_width}×
+                    {comparison.properties.viewport_height}
+                  </span>
+                ) : comparison.properties?.viewport ? (
                   <span>
                     • {comparison.properties.viewport.width}×
                     {comparison.properties.viewport.height}
                   </span>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -141,9 +150,20 @@ export default function ComparisonCard({
       {/* Expandable Content */}
       {isExpanded && (
         <div className="px-4 pb-4 space-y-4 border-t border-gray-700/50">
+          {/* Variant Selector - shown first when multiple variants exist */}
+          {variantSelector && (
+            <div className="pt-4">
+              <VariantSelector
+                group={variantSelector.group}
+                selectedIndex={variantSelector.selectedIndex}
+                onSelect={variantSelector.onSelect}
+              />
+            </div>
+          )}
+
           {/* Action Buttons */}
           {showActions && (
-            <div className="pt-4">
+            <div className={variantSelector ? '' : 'pt-4'}>
               <ComparisonActions
                 onAccept={handleAccept}
                 onReject={handleReject}
@@ -153,7 +173,7 @@ export default function ComparisonCard({
           )}
 
           {/* View Mode Controls */}
-          <div className="pt-2">
+          <div className={variantSelector || showActions ? '' : 'pt-2'}>
             <ViewModeSelector viewMode={viewMode} onChange={setViewMode} />
           </div>
 

@@ -1,6 +1,7 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { compare } from '@vizzly-testing/honeydiff';
+import crypto from 'crypto';
 
 import { ApiService } from '../services/api-service.js';
 import { createServiceLogger } from '../utils/logger-factory.js';
@@ -21,13 +22,26 @@ const logger = createServiceLogger('TDD');
 /**
  * Generate a screenshot signature for baseline matching
  * Uses same logic as screenshot-identity.js: name + viewport_width + browser
+ *
+ * Matches backend signature generation which uses:
+ * - screenshot.name
+ * - screenshot.viewport_width (top-level property)
+ * - screenshot.browser (top-level property)
  */
 function generateScreenshotSignature(name, properties = {}) {
   let parts = [name];
 
+  // Check for viewport_width as top-level property first (backend format)
+  let viewportWidth = properties.viewport_width;
+
+  // Fallback to nested viewport.width (SDK format)
+  if (!viewportWidth && properties.viewport?.width) {
+    viewportWidth = properties.viewport.width;
+  }
+
   // Add viewport width if present
-  if (properties.viewport?.width) {
-    parts.push(properties.viewport.width.toString());
+  if (viewportWidth) {
+    parts.push(viewportWidth.toString());
   }
 
   // Add browser if present
@@ -44,6 +58,18 @@ function generateScreenshotSignature(name, properties = {}) {
 function signatureToFilename(signature) {
   // Replace pipe separators with underscores for filesystem safety
   return signature.replace(/\|/g, '_');
+}
+
+/**
+ * Generate a stable unique ID from signature for TDD comparisons
+ * This allows UI to reference specific variants without database IDs
+ */
+function generateComparisonId(signature) {
+  return crypto
+    .createHash('sha256')
+    .update(signature)
+    .digest('hex')
+    .slice(0, 16);
 }
 
 /**
@@ -166,6 +192,25 @@ export class TddService {
         logger.info(`📌 Using comparison: ${comparisonId}`);
         const comparison = await this.api.getComparison(comparisonId);
 
+        // Debug: log what we got from the API
+        logger.info(
+          `📊 Comparison API response keys: ${Object.keys(comparison).join(', ')}`
+        );
+        logger.info(
+          `📊 current_viewport_width: ${comparison.current_viewport_width}`
+        );
+        logger.info(
+          `📊 current_viewport_height: ${comparison.current_viewport_height}`
+        );
+        logger.info(`📊 current_browser: ${comparison.current_browser}`);
+        logger.info(
+          `📊 baseline_viewport_width: ${comparison.baseline_viewport_width}`
+        );
+        logger.info(
+          `📊 baseline_viewport_height: ${comparison.baseline_viewport_height}`
+        );
+        logger.info(`📊 baseline_browser: ${comparison.baseline_browser}`);
+
         // A comparison doesn't have baselineBuild directly - we need to get it
         // The comparison has baseline_screenshot which contains the build_id
         if (!comparison.baseline_screenshot) {
@@ -185,6 +230,44 @@ export class TddService {
           );
         }
 
+        // Extract properties from the current screenshot to ensure signature matching
+        // The baseline should use the same properties (viewport/browser) as the current screenshot
+        // so that generateScreenshotSignature produces the correct filename
+        // Use current screenshot properties since we're downloading baseline to compare against current
+        let screenshotProperties = {};
+
+        // Build properties from comparison API fields (added in backend update)
+        // Use current_* fields since we're matching against the current screenshot being tested
+        if (comparison.current_viewport_width || comparison.current_browser) {
+          if (comparison.current_viewport_width) {
+            screenshotProperties.viewport = {
+              width: comparison.current_viewport_width,
+              height: comparison.current_viewport_height,
+            };
+          }
+          if (comparison.current_browser) {
+            screenshotProperties.browser = comparison.current_browser;
+          }
+        } else if (
+          comparison.baseline_viewport_width ||
+          comparison.baseline_browser
+        ) {
+          // Fallback to baseline properties if current not available
+          if (comparison.baseline_viewport_width) {
+            screenshotProperties.viewport = {
+              width: comparison.baseline_viewport_width,
+              height: comparison.baseline_viewport_height,
+            };
+          }
+          if (comparison.baseline_browser) {
+            screenshotProperties.browser = comparison.baseline_browser;
+          }
+        }
+
+        logger.info(
+          `📊 Extracted properties for signature: ${JSON.stringify(screenshotProperties)}`
+        );
+
         // For a specific comparison, we only download that one baseline screenshot
         // Create a mock build structure with just this one screenshot
         baselineBuild = {
@@ -195,8 +278,8 @@ export class TddService {
               id: comparison.baseline_screenshot.id,
               name: comparison.baseline_name || comparison.current_name,
               original_url: baselineUrl,
-              metadata: {},
-              properties: {},
+              metadata: screenshotProperties,
+              properties: screenshotProperties,
             },
           ],
         };
@@ -244,10 +327,15 @@ export class TddService {
         `Checking ${colors.cyan(buildDetails.screenshots.length)} baseline screenshots...`
       );
 
-      // Debug screenshots structure (only in debug mode)
-      logger.debug(`📊 Screenshots array structure:`, {
-        screenshotSample: buildDetails.screenshots.slice(0, 2),
-        totalCount: buildDetails.screenshots.length,
+      // Debug: Show all screenshot names and properties
+      logger.info(`📊 Screenshots in baseline build:`);
+      buildDetails.screenshots.forEach((s, idx) => {
+        let props = s.metadata || s.properties || {};
+        let sig = generateScreenshotSignature(
+          s.name,
+          validateScreenshotProperties(props)
+        );
+        logger.info(`   ${idx + 1}. ${s.name} → signature: ${sig}`);
       });
 
       // Check existing baseline metadata for efficient SHA comparison
@@ -290,6 +378,15 @@ export class TddService {
         );
         let signature = generateScreenshotSignature(sanitizedName, properties);
         let filename = signatureToFilename(signature);
+
+        // Log signature generation for first screenshot to verify it's working
+        if (downloadedCount + skippedCount === 0) {
+          logger.info(`📊 First screenshot signature generation:`);
+          logger.info(`   Name: ${sanitizedName}`);
+          logger.info(`   Properties: ${JSON.stringify(properties)}`);
+          logger.info(`   Signature: ${signature}`);
+          logger.info(`   Filename: ${filename}.png`);
+        }
 
         const imagePath = safePath(this.baselinePath, `${filename}.png`);
 
@@ -614,12 +711,27 @@ export class TddService {
       validatedProperties = {};
     }
 
+    // Normalize properties to match backend format (viewport_width at top level)
+    // This ensures signature generation matches backend's screenshot-identity.js
+    if (
+      validatedProperties.viewport?.width &&
+      !validatedProperties.viewport_width
+    ) {
+      validatedProperties.viewport_width = validatedProperties.viewport.width;
+    }
+
     // Generate signature for baseline matching (name + viewport_width + browser)
     const signature = generateScreenshotSignature(
       sanitizedName,
       validatedProperties
     );
     const filename = signatureToFilename(signature);
+
+    logger.info(`📊 TDD Screenshot signature:`);
+    logger.info(`   Name: ${sanitizedName}`);
+    logger.info(`   Properties: ${JSON.stringify(validatedProperties)}`);
+    logger.info(`   Signature: ${signature}`);
+    logger.info(`   Filename: ${filename}.png`);
 
     const currentImagePath = safePath(this.currentPath, `${filename}.png`);
     const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
@@ -688,12 +800,14 @@ export class TddService {
       logger.debug(`✅ Created baseline for ${sanitizedName}`);
 
       const result = {
+        id: generateComparisonId(signature),
         name: sanitizedName,
         status: 'new',
         baseline: baselineImagePath,
         current: currentImagePath,
         diff: null,
         properties: validatedProperties,
+        signature,
       };
 
       this.comparisons.push(result);
@@ -709,6 +823,7 @@ export class TddService {
       logger.debug(`Baseline: ${baselineImagePath} (${baselineSize} bytes)`);
       logger.debug(`Current:  ${currentImagePath} (${currentSize} bytes)`);
 
+      // Try to compare - honeydiff will throw if dimensions don't match
       const result = await compare(baselineImagePath, currentImagePath, {
         colorThreshold: this.threshold, // YIQ color threshold (0.0-1.0), default 0.1
         antialiasing: true,
@@ -720,12 +835,14 @@ export class TddService {
       if (!result.isDifferent) {
         // Images match
         const comparison = {
+          id: generateComparisonId(signature),
           name: sanitizedName,
           status: 'passed',
           baseline: baselineImagePath,
           current: currentImagePath,
           diff: null,
           properties: validatedProperties,
+          signature,
           threshold: this.threshold,
           // Include honeydiff metrics even for passing comparisons
           totalPixels: result.totalPixels,
@@ -746,12 +863,14 @@ export class TddService {
         }
 
         const comparison = {
+          id: generateComparisonId(signature),
           name: sanitizedName,
           status: 'failed',
           baseline: baselineImagePath,
           current: currentImagePath,
           diff: diffImagePath,
           properties: validatedProperties,
+          signature,
           threshold: this.threshold,
           diffPercentage: result.diffPercentage,
           diffCount: result.diffPixels,
@@ -774,16 +893,86 @@ export class TddService {
         return comparison;
       }
     } catch (error) {
-      // Handle file errors or other issues
+      // Check if error is due to dimension mismatch
+      const isDimensionMismatch =
+        error.message && error.message.includes("Image dimensions don't match");
+
+      if (isDimensionMismatch) {
+        // Different dimensions = different screenshot signature
+        // This shouldn't happen if signatures are working correctly, but handle gracefully
+        logger.warn(
+          `⚠️  Dimension mismatch for ${sanitizedName} - baseline file exists but has different dimensions`
+        );
+        logger.warn(
+          `   This indicates a signature collision. Creating new baseline with correct signature.`
+        );
+        logger.debug(`   Error: ${error.message}`);
+
+        // Create a new baseline for this screenshot (overwriting the incorrect one)
+        writeFileSync(baselineImagePath, imageBuffer);
+
+        // Update baseline metadata
+        if (!this.baselineData) {
+          this.baselineData = {
+            buildId: 'local-baseline',
+            buildName: 'Local TDD Baseline',
+            environment: 'test',
+            branch: 'local',
+            threshold: this.threshold,
+            screenshots: [],
+          };
+        }
+
+        const screenshotEntry = {
+          name: sanitizedName,
+          properties: validatedProperties,
+          path: baselineImagePath,
+          signature: signature,
+        };
+
+        const existingIndex = this.baselineData.screenshots.findIndex(
+          s => s.signature === signature
+        );
+        if (existingIndex >= 0) {
+          this.baselineData.screenshots[existingIndex] = screenshotEntry;
+        } else {
+          this.baselineData.screenshots.push(screenshotEntry);
+        }
+
+        const metadataPath = join(this.baselinePath, 'metadata.json');
+        writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
+
+        logger.info(
+          `✅ Created new baseline for ${sanitizedName} (different dimensions)`
+        );
+
+        const comparison = {
+          id: generateComparisonId(signature),
+          name: sanitizedName,
+          status: 'new',
+          baseline: baselineImagePath,
+          current: currentImagePath,
+          diff: null,
+          properties: validatedProperties,
+          signature,
+        };
+
+        this.comparisons.push(comparison);
+        return comparison;
+      }
+
+      // Handle other file errors or issues
       logger.error(`❌ Error comparing ${sanitizedName}: ${error.message}`);
 
       const comparison = {
+        id: generateComparisonId(signature),
         name: sanitizedName,
         status: 'error',
         baseline: baselineImagePath,
         current: currentImagePath,
         diff: null,
         properties: validatedProperties,
+        signature,
         error: error.message,
       };
 
@@ -1069,12 +1258,14 @@ export class TddService {
     writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
     const result = {
+      id: generateComparisonId(signature),
       name,
       status: 'new',
       baseline: baselineImagePath,
       current: currentImagePath,
       diff: null,
       properties,
+      signature,
     };
 
     this.comparisons.push(result);
@@ -1135,12 +1326,14 @@ export class TddService {
     writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
     const result = {
+      id: generateComparisonId(signature),
       name,
       status: 'baseline-updated',
       baseline: baselineImagePath,
       current: currentImagePath,
       diff: null,
       properties,
+      signature,
     };
 
     this.comparisons.push(result);
@@ -1150,18 +1343,17 @@ export class TddService {
 
   /**
    * Accept a current screenshot as the new baseline
-   * @param {string} name - Screenshot name to accept
+   * @param {string} id - Comparison ID to accept (generated from signature)
    * @returns {Object} Result object
    */
-  async acceptBaseline(name) {
-    const sanitizedName = sanitizeScreenshotName(name);
-    logger.debug(`Starting accept baseline for: ${sanitizedName}`);
-
-    // Find the comparison to get properties
-    let comparison = this.comparisons.find(c => c.name === sanitizedName);
+  async acceptBaseline(id) {
+    // Find the comparison by ID
+    let comparison = this.comparisons.find(c => c.id === id);
     if (!comparison) {
-      throw new Error(`No comparison found for screenshot: ${name}`);
+      throw new Error(`No comparison found with ID: ${id}`);
     }
+
+    const sanitizedName = comparison.name;
 
     let properties = comparison.properties || {};
     let signature = generateScreenshotSignature(sanitizedName, properties);
@@ -1169,38 +1361,30 @@ export class TddService {
 
     // Find the current screenshot file
     const currentImagePath = safePath(this.currentPath, `${filename}.png`);
-    logger.debug(`Looking for current screenshot at: ${currentImagePath}`);
 
     if (!existsSync(currentImagePath)) {
       logger.error(`Current screenshot not found at: ${currentImagePath}`);
       throw new Error(
-        `Current screenshot not found: ${name} (looked at ${currentImagePath})`
+        `Current screenshot not found: ${sanitizedName} (looked at ${currentImagePath})`
       );
     }
 
     // Read the current image
     const imageBuffer = readFileSync(currentImagePath);
-    logger.debug(`Read current image: ${imageBuffer.length} bytes`);
 
     // Create baseline directory if it doesn't exist
     if (!existsSync(this.baselinePath)) {
       mkdirSync(this.baselinePath, { recursive: true });
-      logger.debug(`Created baseline directory: ${this.baselinePath}`);
     }
 
     // Update the baseline
     const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
-    logger.debug(`Writing baseline to: ${baselineImagePath}`);
 
     // Write the baseline image directly
     writeFileSync(baselineImagePath, imageBuffer);
-    logger.debug(`Wrote baseline image: ${imageBuffer.length} bytes`);
 
     // Verify the write
-    if (existsSync(baselineImagePath)) {
-      const writtenSize = readFileSync(baselineImagePath).length;
-      logger.debug(`Verified baseline file exists: ${writtenSize} bytes`);
-    } else {
+    if (!existsSync(baselineImagePath)) {
       logger.error(`Baseline file does not exist after write!`);
     }
 
@@ -1214,7 +1398,6 @@ export class TddService {
         threshold: this.threshold,
         screenshots: [],
       };
-      logger.debug(`Created new baseline metadata`);
     }
 
     // Add or update screenshot in baseline metadata
@@ -1230,20 +1413,13 @@ export class TddService {
     );
     if (existingIndex >= 0) {
       this.baselineData.screenshots[existingIndex] = screenshotEntry;
-      logger.debug(`Updated existing metadata entry at index ${existingIndex}`);
     } else {
       this.baselineData.screenshots.push(screenshotEntry);
-      logger.debug(
-        `Added new metadata entry (total: ${this.baselineData.screenshots.length})`
-      );
     }
 
     // Save updated metadata
     const metadataPath = join(this.baselinePath, 'metadata.json');
     writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
-    logger.debug(`Saved metadata to: ${metadataPath}`);
-
-    logger.debug(`Accepted ${sanitizedName} as new baseline`);
     return {
       name: sanitizedName,
       status: 'accepted',

@@ -195,6 +195,7 @@ export default function ComparisonsView({
           ) : (
             <ComparisonList
               comparisons={filteredComparisons}
+              groups={reportData?.groups}
               onAccept={accept}
               onReject={reject}
               loadingStates={loadingStates}

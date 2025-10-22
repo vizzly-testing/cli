@@ -10,6 +10,105 @@ import {
 
 const logger = createServiceLogger('TDD-HANDLER');
 
+/**
+ * Group comparisons by screenshot name with variant structure
+ * Matches cloud product's grouping logic from comparison.js
+ */
+const groupComparisons = comparisons => {
+  const groups = new Map();
+
+  // Group by screenshot name
+  for (const comp of comparisons) {
+    if (!groups.has(comp.name)) {
+      groups.set(comp.name, {
+        name: comp.name,
+        comparisons: [],
+        browsers: new Set(),
+        viewports: new Set(),
+        devices: new Set(),
+        totalVariants: 0,
+      });
+    }
+
+    const group = groups.get(comp.name);
+    group.comparisons.push(comp);
+    group.totalVariants++;
+
+    // Track unique browsers, viewports, devices
+    if (comp.properties?.browser) {
+      group.browsers.add(comp.properties.browser);
+    }
+    if (comp.properties?.viewport_width && comp.properties?.viewport_height) {
+      group.viewports.add(
+        `${comp.properties.viewport_width}x${comp.properties.viewport_height}`
+      );
+    }
+    if (comp.properties?.device) {
+      group.devices.add(comp.properties.device);
+    }
+  }
+
+  // Convert to final structure
+  return Array.from(groups.values())
+    .map(group => {
+      const browsers = Array.from(group.browsers);
+      const viewports = Array.from(group.viewports);
+      const devices = Array.from(group.devices);
+
+      // Build variants structure (browser -> viewport -> comparisons)
+      const variants = {};
+      group.comparisons.forEach(comp => {
+        const browser = comp.properties?.browser || null;
+        const viewport =
+          comp.properties?.viewport_width && comp.properties?.viewport_height
+            ? `${comp.properties.viewport_width}x${comp.properties.viewport_height}`
+            : null;
+
+        if (!variants[browser]) variants[browser] = {};
+        if (!variants[browser][viewport]) variants[browser][viewport] = [];
+        variants[browser][viewport].push(comp);
+      });
+
+      // Determine grouping strategy
+      let groupingStrategy = 'flat';
+      if (browsers.length > 1) groupingStrategy = 'browser';
+      else if (viewports.length > 1) groupingStrategy = 'viewport';
+
+      // Sort comparisons by viewport area (largest first)
+      group.comparisons.sort((a, b) => {
+        const aArea =
+          (a.properties?.viewport_width || 0) *
+          (a.properties?.viewport_height || 0);
+        const bArea =
+          (b.properties?.viewport_width || 0) *
+          (b.properties?.viewport_height || 0);
+        if (bArea !== aArea) return bArea - aArea;
+        return (
+          (b.properties?.viewport_width || 0) -
+          (a.properties?.viewport_width || 0)
+        );
+      });
+
+      return {
+        ...group,
+        browsers,
+        viewports,
+        devices: Array.from(devices),
+        variants,
+        groupingStrategy,
+      };
+    })
+    .sort((a, b) => {
+      // Sort groups: multi-variant first (by variant count), then singles alphabetically
+      if (a.totalVariants > 1 && b.totalVariants === 1) return -1;
+      if (a.totalVariants === 1 && b.totalVariants > 1) return 1;
+      if (a.totalVariants > 1 && b.totalVariants > 1) {
+        return b.totalVariants - a.totalVariants;
+      }
+      return a.name.localeCompare(b.name);
+    });
+};
+
 export const createTddHandler = (
   config,
   workingDir,
@@ -25,8 +124,9 @@ export const createTddHandler = (
       if (!existsSync(reportPath)) {
         return {
           timestamp: Date.now(),
-          comparisons: [],
-          summary: { total: 0, passed: 0, failed: 0, errors: 0 },
+          comparisons: [], // Internal flat list for easy updates
+          groups: [], // Grouped structure for UI
+          summary: { total: 0, groups: 0, passed: 0, failed: 0, errors: 0 },
         };
       }
       const data = readFileSync(reportPath, 'utf8');
@@ -36,7 +136,8 @@ export const createTddHandler = (
       return {
         timestamp: Date.now(),
         comparisons: [],
-        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
+        groups: [],
+        summary: { total: 0, groups: 0, passed: 0, failed: 0, errors: 0 },
       };
     }
   };
@@ -45,24 +146,42 @@ export const createTddHandler = (
     try {
       const reportData = readReportData();
 
-      // Find existing comparison with same name and replace it, or add new one
+      // Ensure comparisons array exists (backward compatibility)
+      if (!reportData.comparisons) {
+        reportData.comparisons = [];
+      }
+
+      // Find existing comparison by unique ID
+      // This ensures we update the correct variant even with same name
       const existingIndex = reportData.comparisons.findIndex(
-        c => c.name === newComparison.name
+        c => c.id === newComparison.id
       );
+
       if (existingIndex >= 0) {
         reportData.comparisons[existingIndex] = newComparison;
-        logger.debug(`Updated comparison for ${newComparison.name}`);
+        logger.debug(
+          `Updated comparison for ${newComparison.name} (${newComparison.properties?.viewport_width}x${newComparison.properties?.viewport_height})`
+        );
       } else {
         reportData.comparisons.push(newComparison);
-        logger.debug(`Added new comparison for ${newComparison.name}`);
+        logger.debug(
+          `Added new comparison for ${newComparison.name} (${newComparison.properties?.viewport_width}x${newComparison.properties?.viewport_height})`
+        );
       }
+
+      // Generate grouped structure from flat comparisons
+      reportData.groups = groupComparisons(reportData.comparisons);
 
       // Update summary
       reportData.timestamp = Date.now();
       reportData.summary = {
         total: reportData.comparisons.length,
+        groups: reportData.groups.length,
         passed: reportData.comparisons.filter(
-          c => c.status === 'passed' || c.status === 'baseline-created'
+          c =>
+            c.status === 'passed' ||
+            c.status === 'baseline-created' ||
+            c.status === 'new'
         ).length,
         failed: reportData.comparisons.filter(c => c.status === 'failed')
           .length,
@@ -70,7 +189,7 @@ export const createTddHandler = (
       };
 
       writeFileSync(reportPath, JSON.stringify(reportData, null, 2));
-      logger.debug('Report data saved to report-data.json');
+      logger.debug('Report data saved with grouped structure');
     } catch (error) {
       logger.error('Failed to update comparison:', error);
     }
@@ -127,6 +246,19 @@ export const createTddHandler = (
   };
 
   const handleScreenshot = async (buildId, name, image, properties = {}) => {
+    // Debug: Log raw properties structure to understand what we're receiving
+    logger.debug(
+      `📦 Raw properties structure:`,
+      JSON.stringify(properties, null, 2)
+    );
+    logger.debug(`📦 Has nested properties?: ${!!properties.properties}`);
+    if (properties.properties) {
+      logger.debug(
+        `📦 Nested properties content:`,
+        JSON.stringify(properties.properties, null, 2)
+      );
+    }
+
     // Validate and sanitize screenshot name
     let sanitizedName;
     try {
@@ -142,10 +274,25 @@ export const createTddHandler = (
       };
     }
 
+    // Unwrap double-nested properties if needed (client SDK wraps options in properties field)
+    // This happens when test helper passes { properties: {...}, threshold: 0.1 }
+    // and client SDK wraps it as { properties: options }
+    let unwrappedProperties = properties;
+    if (properties.properties && typeof properties.properties === 'object') {
+      logger.debug(`📦 Unwrapping double-nested properties`);
+      // Merge top-level properties with nested properties
+      unwrappedProperties = {
+        ...properties,
+        ...properties.properties,
+      };
+      // Remove the nested properties field to avoid confusion
+      delete unwrappedProperties.properties;
+    }
+
     // Validate and sanitize properties
     let validatedProperties;
     try {
-      validatedProperties = validateScreenshotProperties(properties);
+      validatedProperties = validateScreenshotProperties(unwrappedProperties);
     } catch (error) {
       return {
         statusCode: 400,
@@ -157,17 +304,67 @@ export const createTddHandler = (
       };
     }
 
+    // Extract viewport/browser to top-level properties (matching cloud API behavior)
+    // This ensures signature generation works correctly with: name|viewport_width|browser
+    const extractedProperties = {
+      viewport_width: validatedProperties.viewport?.width || null,
+      viewport_height: validatedProperties.viewport?.height || null,
+      browser: validatedProperties.browser || null,
+      device: validatedProperties.device || null,
+      url: validatedProperties.url || null,
+      selector: validatedProperties.selector || null,
+      threshold: validatedProperties.threshold,
+      // Preserve full nested structure in metadata for compatibility
+      metadata: validatedProperties,
+    };
+
     const imageBuffer = Buffer.from(image, 'base64');
-    logger.debug(`Received screenshot: ${name}`);
-    logger.debug(`Image size: ${imageBuffer.length} bytes`);
-    logger.debug(`Properties: ${JSON.stringify(validatedProperties)}`);
+    logger.info(`📸 Received screenshot: ${name}`);
+    logger.info(`   Image size: ${imageBuffer.length} bytes`);
+
+    // Auto-detect image dimensions from PNG header if viewport not provided
+    // This matches cloud API behavior but without requiring Sharp
+    if (
+      !extractedProperties.viewport_width ||
+      !extractedProperties.viewport_height
+    ) {
+      try {
+        // PNG format: width is at bytes 16-19, height at bytes 20-23 (big-endian)
+        if (
+          imageBuffer.length > 24 &&
+          imageBuffer[0] === 0x89 &&
+          imageBuffer[1] === 0x50
+        ) {
+          const width = imageBuffer.readUInt32BE(16);
+          const height = imageBuffer.readUInt32BE(20);
+          if (!extractedProperties.viewport_width) {
+            extractedProperties.viewport_width = width;
+          }
+          if (!extractedProperties.viewport_height) {
+            extractedProperties.viewport_height = height;
+          }
+          logger.debug(
+            `📐 Auto-detected dimensions from PNG header: ${width}x${height}`
+          );
+        }
+      } catch (error) {
+        logger.warn(
+          `Failed to detect image dimensions for ${name}:`,
+          error.message
+        );
+      }
+    }
+
+    logger.info(
+      `   Properties received: ${JSON.stringify(extractedProperties)}`
+    );
 
     // Use the sanitized name as-is (no modification with browser/viewport)
     // Baseline matching uses signature logic (name + viewport_width + browser)
     const comparison = await tddService.compareScreenshot(
       sanitizedName,
       imageBuffer,
-      validatedProperties
+      extractedProperties
     );
 
     logger.debug(`Comparison result: ${comparison.status}`);
@@ -186,6 +383,7 @@ export const createTddHandler = (
 
     // Record the comparison for the dashboard
     const newComparison = {
+      id: comparison.id, // Include unique ID for variant identification
       name: comparison.name,
       originalName: name,
       status: comparison.status,
@@ -194,7 +392,8 @@ export const createTddHandler = (
       diff: convertPathToUrl(comparison.diff),
       diffPercentage: comparison.diffPercentage,
       threshold: comparison.threshold,
-      properties: validatedProperties,
+      properties: extractedProperties, // Use extracted properties with top-level viewport_width/browser
+      signature: comparison.signature, // Include signature for debugging
       timestamp: Date.now(),
     };
 
@@ -266,17 +465,15 @@ export const createTddHandler = (
     return await tddService.printResults();
   };
 
-  const acceptBaseline = async screenshotName => {
+  const acceptBaseline = async comparisonId => {
     try {
-      logger.debug(`Accepting baseline for screenshot: ${screenshotName}`);
-
       // Use TDD service to accept the baseline
-      const result = await tddService.acceptBaseline(screenshotName);
+      const result = await tddService.acceptBaseline(comparisonId);
 
       // Read current report data and update the comparison status
       const reportData = readReportData();
       const comparison = reportData.comparisons.find(
-        c => c.name === screenshotName
+        c => c.id === comparisonId
       );
 
       if (comparison) {
@@ -289,17 +486,16 @@ export const createTddHandler = (
         };
 
         updateComparison(updatedComparison);
-        logger.debug('Comparison updated in report-data.json');
       } else {
         logger.error(
-          `Comparison not found in report data for: ${screenshotName}`
+          `Comparison not found in report data for ID: ${comparisonId}`
         );
       }
 
-      logger.info(`Baseline accepted for ${screenshotName}`);
+      logger.info(`Baseline accepted for comparison ${comparisonId}`);
       return result;
     } catch (error) {
-      logger.error(`Failed to accept baseline for ${screenshotName}:`, error);
+      logger.error(`Failed to accept baseline for ${comparisonId}:`, error);
       throw error;
     }
   };
@@ -314,7 +510,7 @@ export const createTddHandler = (
       // Accept all failed or new comparisons
       for (const comparison of reportData.comparisons) {
         if (comparison.status === 'failed' || comparison.status === 'new') {
-          await tddService.acceptBaseline(comparison.name);
+          await tddService.acceptBaseline(comparison.id);
 
           // Update the comparison to passed status
           updateComparison({
@@ -432,7 +628,8 @@ export const createTddHandler = (
       const freshReportData = {
         timestamp: Date.now(),
         comparisons: [],
-        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
+        groups: [],
+        summary: { total: 0, groups: 0, passed: 0, failed: 0, errors: 0 },
       };
       writeFileSync(reportPath, JSON.stringify(freshReportData, null, 2));
 

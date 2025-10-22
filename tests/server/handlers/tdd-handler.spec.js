@@ -264,7 +264,14 @@ describe('createTddHandler', () => {
       expect(mockTddService.compareScreenshot).toHaveBeenCalledWith(
         screenshotName,
         expect.any(Buffer),
-        {}
+        expect.objectContaining({
+          viewport_width: null,
+          viewport_height: null,
+          browser: null,
+          device: null,
+          url: null,
+          selector: null,
+        })
       );
     });
   });

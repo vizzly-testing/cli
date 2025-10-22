@@ -7,11 +7,11 @@ export async function fetchReportData() {
   return data;
 }
 
-export async function acceptBaseline(screenshotName) {
+export async function acceptBaseline(comparisonId) {
   let response = await fetch('/api/baseline/accept', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: screenshotName }),
+    body: JSON.stringify({ id: comparisonId }),
   });
 
   if (!response.ok) {

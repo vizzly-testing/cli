@@ -1,32 +1,35 @@
-# TDD Mode Guide
+# Dev Mode Guide
 
-TDD (Test-Driven Development) Mode enables fast local development with an interactive dashboard for real-time visual comparison feedback.
+Dev Mode is your local development environment for visual testing with an interactive dashboard, configuration management, and project tools.
 
-## What is TDD Mode?
+## What is Dev Mode?
 
-TDD Mode transforms your visual testing workflow with:
+Dev Mode transforms your visual testing workflow with:
 
 - **Interactive Dashboard** - Real-time visual feedback as tests run
 - **Local Comparison** - Compares screenshots on your machine using `honeydiff`
 - **Live Updates** - See comparisons instantly in the browser
 - **Baseline Management** - Accept/reject changes directly from the UI
+- **Configuration Editor** - Edit settings without touching config files
+- **Project Management** - Login, link directories to cloud projects
 - **Fast Feedback** - No network uploads during development
-- **No Token Required** - Works entirely offline for local development
+- **No Token Required** - Visual testing works entirely offline for local development
 
 ## Quick Start
 
-### 1. Start the TDD Dashboard
+### 1. Start the Dev Server
 
-Start the interactive dashboard server:
+Start the interactive dev server:
 
 ```bash
-npx vizzly tdd start
+npx vizzly dev start
 ```
 
-🐻 **Dashboard starts:**
+🐻 **Dev server starts:**
 - Opens at `http://localhost:47392` (or custom `--port`)
-- Shows empty state ready for comparisons
+- Dashboard shows empty state ready for comparisons
 - Runs in the background and returns your terminal immediately
+- Settings and Projects tabs available for configuration
 
 ### 2. Run Your Tests in Watch Mode
 
@@ -56,7 +59,7 @@ Open your browser to `http://localhost:47392`:
 Accept changes directly in the dashboard UI, or via CLI:
 
 ```bash
-npx vizzly tdd run "npm test" --set-baseline
+npx vizzly dev run "npm test" --set-baseline
 ```
 
 🐻 **Baseline update behavior:**
@@ -65,38 +68,49 @@ npx vizzly tdd run "npm test" --set-baseline
 - All tests pass (baseline accepted)
 - Future runs use updated baselines
 
-### 5. Stop the Dashboard
+### 5. Manage Configuration & Projects
+
+Use the dashboard tabs:
+
+- **Settings** - Edit config (threshold, ports, etc.) without touching files
+- **Projects** - Login to Vizzly cloud, link directories to projects
+- **Comparisons** - View visual diffs
+- **Stats** - See test metrics and trends
+
+### 6. Stop the Dev Server
 
 When done developing:
 
 ```bash
-npx vizzly tdd stop
+npx vizzly dev stop
 ```
 
 Or press `Ctrl+C` if running in foreground.
 
 ## How It Works
 
-TDD Mode provides two workflows:
+Dev Mode provides two workflows:
 
-### Interactive Dashboard Workflow
+### Interactive Dev Server Workflow
 
-1. **Start dashboard** - `vizzly tdd start` launches persistent server
+1. **Start dev server** - `vizzly dev start` launches persistent server
 2. **Run tests in watch** - Tests run continuously as you code
 3. **Live updates** - Screenshots compared and displayed in real-time
 4. **Review in browser** - Visual diff modes help analyze changes
-5. **Accept baselines** - Click to update baselines from UI
+5. **Manage settings** - Edit config, login, manage projects via UI
+6. **Accept baselines** - Click to update baselines from UI
 
 ### Single-Shot Workflow
 
-1. **Run tests** - `vizzly tdd run "npm test"` executes once
+1. **Run tests** - `vizzly dev run "npm test"` executes once
 2. **Compares locally** - Uses `honeydiff` for high-performance comparison
-3. **Generates report** - Creates HTML report with visual comparisons
+3. **Generates report** - Creates self-contained HTML report with React UI
 4. **Exit with status** - Fails if differences exceed threshold
+5. **Server auto-stops** - Ephemeral server cleans up automatically
 
 ## Directory Structure
 
-TDD Mode creates a `.vizzly/` directory:
+Dev Mode creates a `.vizzly/` directory:
 
 ```
 .vizzly/

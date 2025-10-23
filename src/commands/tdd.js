@@ -40,7 +40,7 @@ export async function tddCommand(
     const allOptions = { ...globalOptions, ...options };
     const config = await loadConfig(globalOptions.config, allOptions);
 
-    // TDD mode works locally by default - only needs token for baseline download
+    // Dev mode works locally by default - only needs token for baseline download
     const needsToken = options.baselineBuild || options.baselineComparison;
 
     if (!config.apiKey && needsToken) {
@@ -49,7 +49,7 @@ export async function tddCommand(
       );
     }
 
-    // Always allow no-token mode for TDD unless baseline flags are used
+    // Always allow no-token mode for dev mode unless baseline flags are used
     config.allowNoToken = true;
 
     if (!config.apiKey && !options.daemon) {
@@ -64,7 +64,7 @@ export async function tddCommand(
 
     // Only show config in verbose mode for non-daemon (daemon shows baseline info instead)
     if (globalOptions.verbose && !options.daemon) {
-      ui.info('TDD Configuration loaded', {
+      ui.info('Dev server configuration loaded', {
         testCommand,
         port: config.server.port,
         timeout: config.server.timeout,
@@ -78,7 +78,7 @@ export async function tddCommand(
     }
 
     // Create service container and get services
-    ui.startSpinner('Initializing TDD mode...');
+    ui.startSpinner('Initializing dev server...');
     const configWithVerbose = { ...config, verbose: globalOptions.verbose };
     const container = await createServiceContainer(configWithVerbose, 'tdd');
 
@@ -88,7 +88,7 @@ export async function tddCommand(
     // Set up event handlers for user feedback
     testRunner.on('progress', progressData => {
       const { message: progressMessage } = progressData;
-      ui.progress(progressMessage || 'Running TDD tests...');
+      ui.progress(progressMessage || 'Running tests...');
     });
 
     testRunner.on('test-output', output => {
@@ -102,7 +102,7 @@ export async function tddCommand(
     testRunner.on('server-ready', serverInfo => {
       // Only show in non-daemon mode (daemon shows its own startup message)
       if (!options.daemon) {
-        ui.info(`TDD screenshot server running on port ${serverInfo.port}`);
+        ui.info(`Dev server running on port ${serverInfo.port}`);
         ui.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
       }
       // Verbose server details only in non-daemon mode
@@ -116,7 +116,7 @@ export async function tddCommand(
     });
 
     testRunner.on('screenshot-captured', screenshotInfo => {
-      ui.info(`Vizzly TDD: Screenshot captured - ${screenshotInfo.name}`);
+      ui.info(`Vizzly: Screenshot captured - ${screenshotInfo.name}`);
     });
 
     testRunner.on('comparison-result', comparisonInfo => {
@@ -133,7 +133,7 @@ export async function tddCommand(
     });
 
     testRunner.on('error', error => {
-      ui.error('TDD test runner error occurred', error, 0); // Don't exit immediately
+      ui.error('Test runner error occurred', error, 0); // Don't exit immediately
     });
 
     // Show informational messages about baseline behavior (skip in daemon mode)
@@ -167,7 +167,7 @@ export async function tddCommand(
       allowNoToken: config.allowNoToken || false, // Pass through the allow-no-token setting
       baselineBuildId: config.baselineBuildId,
       baselineComparisonId: config.baselineComparisonId,
-      wait: false, // No build to wait for in TDD mode
+      wait: false, // No build to wait for in dev mode
     };
 
     // In daemon mode, just start the server without running tests
@@ -185,14 +185,14 @@ export async function tddCommand(
       };
     }
 
-    // Normal TDD mode - run tests
-    ui.info('Starting TDD test execution...');
+    // Normal dev mode - run tests
+    ui.info('Starting test execution...');
     const result = await testRunner.run(runOptions);
 
-    // Show TDD summary
+    // Show summary
     const { screenshotsCaptured, comparisons } = result;
 
-    console.log(`🐻 Vizzly TDD: Processed ${screenshotsCaptured} screenshots`);
+    console.log(`🐻 Vizzly: Processed ${screenshotsCaptured} screenshots`);
 
     if (comparisons && comparisons.length > 0) {
       const passed = comparisons.filter(c => c.status === 'passed').length;
@@ -208,7 +208,7 @@ export async function tddCommand(
       }
     }
 
-    ui.success('TDD test run completed');
+    ui.success('Test run completed');
 
     // Determine success based on comparison results
     const hasFailures =
@@ -217,7 +217,7 @@ export async function tddCommand(
         result.comparisons.some(c => c.status === 'failed'));
 
     if (hasFailures) {
-      ui.error('Visual differences detected in TDD mode', {}, 0);
+      ui.error('Visual differences detected', {}, 0);
     }
 
     // Return result and cleanup function
@@ -230,7 +230,7 @@ export async function tddCommand(
       cleanup,
     };
   } catch (error) {
-    ui.error('TDD test run failed', error);
+    ui.error('Test run failed', error);
     return {
       result: {
         success: false,

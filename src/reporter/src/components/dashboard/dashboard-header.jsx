@@ -8,7 +8,7 @@ export default function DashboardHeader({ loading, onNavigate, currentView }) {
               onClick={() => onNavigate && onNavigate('comparisons')}
               className="text-2xl font-bold text-amber-500 hover:text-amber-400 transition-colors"
             >
-              Vizzly TDD
+              Vizzly Dev
             </button>
 
             {onNavigate && (
@@ -32,6 +32,26 @@ export default function DashboardHeader({ loading, onNavigate, currentView }) {
                   }`}
                 >
                   Stats
+                </button>
+                <button
+                  onClick={() => onNavigate('projects')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    currentView === 'projects'
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                  }`}
+                >
+                  Projects
+                </button>
+                <button
+                  onClick={() => onNavigate('settings')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    currentView === 'settings'
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                  }`}
+                >
+                  Settings
                 </button>
               </div>
             )}

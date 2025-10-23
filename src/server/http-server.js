@@ -10,8 +10,13 @@ const PROJECT_ROOT = join(__dirname, '..', '..');
 
 const logger = createServiceLogger('HTTP-SERVER');
 
-export const createHttpServer = (port, screenshotHandler) => {
+export const createHttpServer = (port, screenshotHandler, services = {}) => {
   let server = null;
+
+  // Extract services for config/auth/project management
+  let configService = services.configService;
+  let authService = services.authService;
+  let projectService = services.projectService;
 
   const parseRequestBody = req => {
     return new Promise((resolve, reject) => {
@@ -109,7 +114,9 @@ export const createHttpServer = (port, screenshotHandler) => {
       req.method === 'GET' &&
       (parsedUrl.pathname === '/' ||
         parsedUrl.pathname === '/dashboard' ||
-        parsedUrl.pathname === '/stats')
+        parsedUrl.pathname === '/stats' ||
+        parsedUrl.pathname === '/settings' ||
+        parsedUrl.pathname === '/projects')
     ) {
       // Serve React-powered dashboard
       const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
@@ -129,7 +136,7 @@ export const createHttpServer = (port, screenshotHandler) => {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Vizzly TDD Dashboard</title>
+    <title>Vizzly Dev Dashboard</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/reporter-bundle.css">
@@ -139,7 +146,7 @@ export const createHttpServer = (port, screenshotHandler) => {
         <div class="reporter-loading">
             <div>
                 <div class="spinner"></div>
-                <p>Loading Vizzly TDD Dashboard...</p>
+                <p>Loading Vizzly Dev Dashboard...</p>
             </div>
         </div>
     </div>
@@ -451,6 +458,402 @@ export const createHttpServer = (port, screenshotHandler) => {
         logger.error('Accept baseline error:', error);
         res.statusCode = 500;
         res.end(JSON.stringify({ error: 'Failed to accept baseline' }));
+      }
+      return;
+    }
+
+    // ===== CONFIG MANAGEMENT ENDPOINTS =====
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/config') {
+      // Get merged config with sources
+      if (!configService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Config service not available' }));
+        return;
+      }
+
+      try {
+        const configData = await configService.getConfig('merged');
+        res.statusCode = 200;
+        res.end(JSON.stringify(configData));
+      } catch (error) {
+        logger.error('Error fetching config:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/config/project') {
+      // Get project-level config
+      if (!configService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Config service not available' }));
+        return;
+      }
+
+      try {
+        const configData = await configService.getConfig('project');
+        res.statusCode = 200;
+        res.end(JSON.stringify(configData));
+      } catch (error) {
+        logger.error('Error fetching project config:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/config/global') {
+      // Get global config
+      if (!configService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Config service not available' }));
+        return;
+      }
+
+      try {
+        const configData = await configService.getConfig('global');
+        res.statusCode = 200;
+        res.end(JSON.stringify(configData));
+      } catch (error) {
+        logger.error('Error fetching global config:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/config/project') {
+      // Update project config
+      if (!configService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Config service not available' }));
+        return;
+      }
+
+      try {
+        const body = await parseRequestBody(req);
+        const result = await configService.updateConfig('project', body);
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, ...result }));
+      } catch (error) {
+        logger.error('Error updating project config:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/config/global') {
+      // Update global config
+      if (!configService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Config service not available' }));
+        return;
+      }
+
+      try {
+        const body = await parseRequestBody(req);
+        const result = await configService.updateConfig('global', body);
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, ...result }));
+      } catch (error) {
+        logger.error('Error updating global config:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/config/validate') {
+      // Validate config
+      if (!configService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Config service not available' }));
+        return;
+      }
+
+      try {
+        const body = await parseRequestBody(req);
+        const result = await configService.validateConfig(body);
+        res.statusCode = 200;
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        logger.error('Error validating config:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    // ===== AUTH ENDPOINTS =====
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/auth/status') {
+      // Get auth status and user info
+      if (!authService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Auth service not available' }));
+        return;
+      }
+
+      try {
+        const isAuthenticated = await authService.isAuthenticated();
+        let user = null;
+
+        if (isAuthenticated) {
+          const whoami = await authService.whoami();
+          user = whoami.user;
+        }
+
+        res.statusCode = 200;
+        res.end(JSON.stringify({ authenticated: isAuthenticated, user }));
+      } catch (error) {
+        logger.error('Error getting auth status:', error);
+        res.statusCode = 200;
+        res.end(JSON.stringify({ authenticated: false, user: null }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/auth/login') {
+      // Initiate device flow login
+      if (!authService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Auth service not available' }));
+        return;
+      }
+
+      try {
+        const deviceFlow = await authService.initiateDeviceFlow();
+
+        // Transform snake_case to camelCase for frontend
+        const response = {
+          deviceCode: deviceFlow.device_code,
+          userCode: deviceFlow.user_code,
+          verificationUri: deviceFlow.verification_uri,
+          verificationUriComplete: deviceFlow.verification_uri_complete,
+          expiresIn: deviceFlow.expires_in,
+          interval: deviceFlow.interval,
+        };
+
+        res.statusCode = 200;
+        res.end(JSON.stringify(response));
+      } catch (error) {
+        logger.error('Error initiating device flow:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/auth/poll') {
+      // Poll device authorization status
+      if (!authService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Auth service not available' }));
+        return;
+      }
+
+      try {
+        const body = await parseRequestBody(req);
+        const { deviceCode } = body;
+
+        if (!deviceCode) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'deviceCode is required' }));
+          return;
+        }
+
+        let result;
+        try {
+          result = await authService.pollDeviceAuthorization(deviceCode);
+        } catch (error) {
+          // Handle "Authorization pending" as a valid response
+          if (error.message && error.message.includes('Authorization pending')) {
+            res.statusCode = 200;
+            res.end(JSON.stringify({ status: 'pending' }));
+            return;
+          }
+          // Other errors are actual failures
+          throw error;
+        }
+
+        // Check if authorization is complete by looking for tokens
+        if (result.tokens && result.tokens.accessToken) {
+          // Handle both snake_case and camelCase for token data
+          let tokensData = result.tokens;
+          let tokenExpiresIn = tokensData.expiresIn || tokensData.expires_in;
+          let tokenExpiresAt = tokenExpiresIn
+            ? new Date(Date.now() + tokenExpiresIn * 1000).toISOString()
+            : result.expires_at || result.expiresAt;
+
+          let tokens = {
+            accessToken: tokensData.accessToken || tokensData.access_token,
+            refreshToken: tokensData.refreshToken || tokensData.refresh_token,
+            expiresAt: tokenExpiresAt,
+            user: result.user,
+          };
+
+          await authService.completeDeviceFlow(tokens);
+
+          // Return a simplified response to the client
+          res.statusCode = 200;
+          res.end(JSON.stringify({ status: 'complete', user: result.user }));
+        } else {
+          // Still pending or other status
+          res.statusCode = 200;
+          res.end(JSON.stringify({ status: 'pending' }));
+        }
+      } catch (error) {
+        logger.error('Error polling device authorization:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/auth/logout') {
+      // Logout user
+      if (!authService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Auth service not available' }));
+        return;
+      }
+
+      try {
+        await authService.logout();
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, message: 'Logged out successfully' }));
+      } catch (error) {
+        logger.error('Error logging out:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    // ===== PROJECT MANAGEMENT ENDPOINTS =====
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/projects') {
+      // List all projects from API
+      if (!projectService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Project service not available' }));
+        return;
+      }
+
+      try {
+        const projects = await projectService.listProjects();
+        res.statusCode = 200;
+        res.end(JSON.stringify({ projects }));
+      } catch (error) {
+        logger.error('Error listing projects:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/projects/mappings') {
+      // List project directory mappings
+      if (!projectService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Project service not available' }));
+        return;
+      }
+
+      try {
+        const mappings = await projectService.listMappings();
+        res.statusCode = 200;
+        res.end(JSON.stringify({ mappings }));
+      } catch (error) {
+        logger.error('Error listing project mappings:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/projects/mappings') {
+      // Create or update project mapping
+      if (!projectService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Project service not available' }));
+        return;
+      }
+
+      try {
+        const body = await parseRequestBody(req);
+        const { directory, projectSlug, organizationSlug, token, projectName } = body;
+
+        const mapping = await projectService.createMapping(directory, {
+          projectSlug,
+          organizationSlug,
+          token,
+          projectName,
+        });
+
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, mapping }));
+      } catch (error) {
+        logger.error('Error creating project mapping:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'DELETE' && parsedUrl.pathname.startsWith('/api/projects/mappings/')) {
+      // Delete project mapping
+      if (!projectService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Project service not available' }));
+        return;
+      }
+
+      try {
+        const directory = decodeURIComponent(parsedUrl.pathname.replace('/api/projects/mappings/', ''));
+        await projectService.removeMapping(directory);
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, message: 'Mapping deleted' }));
+      } catch (error) {
+        logger.error('Error deleting project mapping:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/builds/recent') {
+      // Get recent builds for current project
+      if (!projectService || !configService) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Required services not available' }));
+        return;
+      }
+
+      try {
+        const config = await configService.getConfig('merged');
+        const { projectSlug, organizationSlug } = config.config;
+
+        if (!projectSlug || !organizationSlug) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'No project configured for this directory' }));
+          return;
+        }
+
+        const limit = parseInt(parsedUrl.searchParams.get('limit') || '10', 10);
+        const branch = parsedUrl.searchParams.get('branch') || undefined;
+
+        const builds = await projectService.getRecentBuilds(projectSlug, organizationSlug, { limit, branch });
+
+        res.statusCode = 200;
+        res.end(JSON.stringify({ builds }));
+      } catch (error) {
+        logger.error('Error fetching recent builds:', error);
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: error.message }));
       }
       return;
     }

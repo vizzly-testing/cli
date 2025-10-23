@@ -145,6 +145,9 @@ export async function createServiceContainer(config, command = 'run') {
     { TestRunner },
     { BuildManager },
     { ServerManager },
+    { AuthService },
+    { ConfigService },
+    { ProjectService },
   ] = await Promise.all([
     import('../utils/logger-factory.js'),
     import('../services/api-service.js'),
@@ -153,6 +156,9 @@ export async function createServiceContainer(config, command = 'run') {
     import('../services/test-runner.js'),
     import('../services/build-manager.js'),
     import('../services/server-manager.js'),
+    import('../services/auth-service.js'),
+    import('../services/config-service.js'),
+    import('../services/project-service.js'),
   ]);
 
   // Create logger instance once
@@ -164,7 +170,19 @@ export async function createServiceContainer(config, command = 'run') {
   // Register services without circular dependencies
   container.register('logger', () => logger);
 
-  container.register('apiService', () => new ApiService(config, { logger }));
+  container.register('apiService', () => new ApiService(config, { logger, allowNoToken: true }));
+
+  container.register('authService', () => new AuthService({ baseUrl: config.apiUrl }));
+
+  container.register('configService', () =>
+    new ConfigService(config, { logger, projectRoot: process.cwd() })
+  );
+
+  container.register('projectService', {
+    factory: async apiService =>
+      new ProjectService(config, { logger, apiService }),
+    dependencies: ['apiService'],
+  });
 
   container.register('uploader', () =>
     createUploader({ ...config, command }, { logger })
@@ -172,7 +190,14 @@ export async function createServiceContainer(config, command = 'run') {
 
   container.register('buildManager', () => new BuildManager(config, logger));
 
-  container.register('serverManager', () => new ServerManager(config, logger));
+  container.register('serverManager', {
+    factory: async (configService, authService, projectService) =>
+      new ServerManager(config, {
+        logger,
+        services: { configService, authService, projectService },
+      }),
+    dependencies: ['configService', 'authService', 'projectService'],
+  });
 
   container.register('tddService', () => createTDDService(config, { logger }));
 

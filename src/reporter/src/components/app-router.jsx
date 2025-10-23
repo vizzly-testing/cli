@@ -3,6 +3,8 @@ import useReportData from '../hooks/use-report-data.js';
 import DashboardHeader from './dashboard/dashboard-header.jsx';
 import StatsView from './views/stats-view.jsx';
 import ComparisonsView from './views/comparisons-view.jsx';
+import SettingsView from './views/settings-view.jsx';
+import ProjectsView from './views/projects-view.jsx';
 import {
   LoadingState,
   ErrorState,
@@ -15,14 +17,24 @@ export default function AppRouter({ initialData }) {
     useReportData(initialData);
 
   // Determine current view based on route
-  let currentView = location === '/stats' ? 'stats' : 'comparisons';
+  let currentView =
+    location === '/stats' ? 'stats' :
+    location === '/settings' ? 'settings' :
+    location === '/projects' ? 'projects' :
+    'comparisons';
 
   let navigateTo = view => {
-    setLocation(view === 'stats' ? '/stats' : '/');
+    if (view === 'stats') setLocation('/stats');
+    else if (view === 'settings') setLocation('/settings');
+    else if (view === 'projects') setLocation('/projects');
+    else setLocation('/');
   };
 
-  // Loading state
-  if (loading && !reportData) {
+  // Settings and Projects don't need screenshot data - always allow access
+  let isManagementRoute = location === '/settings' || location === '/projects';
+
+  // Loading state (but not for management routes)
+  if (loading && !reportData && !isManagementRoute) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col">
         <DashboardHeader
@@ -35,8 +47,8 @@ export default function AppRouter({ initialData }) {
     );
   }
 
-  // Error state
-  if (error && !reportData) {
+  // Error state (but not for management routes)
+  if (error && !reportData && !isManagementRoute) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col">
         <DashboardHeader
@@ -49,8 +61,8 @@ export default function AppRouter({ initialData }) {
     );
   }
 
-  // Waiting for screenshots state
-  if (!reportData) {
+  // Waiting for screenshots state (but not for management routes)
+  if (!reportData && !isManagementRoute) {
     return <WaitingForScreenshots />;
   }
 
@@ -64,20 +76,34 @@ export default function AppRouter({ initialData }) {
 
       <Switch>
         <Route path="/stats">
-          <StatsView
-            reportData={reportData}
-            setReportData={setReportData}
-            onRefresh={refetch}
-            loading={loading}
-          />
+          {reportData ? (
+            <StatsView
+              reportData={reportData}
+              setReportData={setReportData}
+              onRefresh={refetch}
+              loading={loading}
+            />
+          ) : (
+            <WaitingForScreenshots />
+          )}
+        </Route>
+        <Route path="/settings">
+          <SettingsView />
+        </Route>
+        <Route path="/projects">
+          <ProjectsView />
         </Route>
         <Route path="/">
-          <ComparisonsView
-            reportData={reportData}
-            setReportData={setReportData}
-            onRefresh={refetch}
-            loading={loading}
-          />
+          {reportData ? (
+            <ComparisonsView
+              reportData={reportData}
+              setReportData={setReportData}
+              onRefresh={refetch}
+              loading={loading}
+            />
+          ) : (
+            <WaitingForScreenshots />
+          )}
         </Route>
       </Switch>
     </div>

@@ -19,7 +19,7 @@ to streamline the review process between developers and designers.
 
 - 📸 **Smart Screenshots** - Automatic deduplication and intelligent diffing
 - 🎨 **Any Screenshot** - Web, mobile, desktop, design mockups, or any visual content
-- 🏃 **TDD Mode** - Local visual comparison for rapid development
+- 🏃 **Dev Mode** - Local development server with visual testing, config management, and auth
 - 📊 **Beautiful Dashboard** - Intuitive web interface for reviewing changes
 - 👥 **Team Collaboration** - Built for UI developers and designers to work together
 - 🔄 **CI/CD Ready** - GitHub, GitLab, CircleCI, and more
@@ -83,11 +83,12 @@ vizzly upload ./screenshots --build-name "Release v1.2.3"
 ### Integrate with your tests
 
 ```bash
-# Run tests with Vizzly integration
+# Run tests with cloud integration (CI/CD)
 vizzly run "npm test"
 
-# Use TDD mode for local development
-vizzly tdd run "npm test"
+# Use dev mode for local development
+vizzly dev start      # Start dev server
+npm test --watch      # Run tests in watch mode
 ```
 
 ### In your test code
@@ -237,13 +238,13 @@ vizzly run "npm test" --parallel-id "ci-run-123"  # For parallel CI builds
 - `--allow-no-token` - Allow running without API token (useful for local development)
 - `--token <token>` - API token override
 
-## TDD Command
+## Dev Command
 
-For local visual testing with immediate feedback, use the dedicated `tdd` command:
+For local development with visual testing, use the `dev` command:
 
 ```bash
-# Start interactive TDD dashboard (runs in background)
-vizzly tdd start
+# Start interactive dev server (runs in background)
+vizzly dev start
 
 # Run your tests in watch mode (same terminal or new one)
 npm test -- --watch
@@ -251,27 +252,31 @@ npm test -- --watch
 # View the dashboard at http://localhost:47392
 ```
 
-**Interactive Dashboard:** The TDD dashboard provides real-time visual feedback:
-- **Live Updates** - See comparisons as tests run
-- **Visual Diff Modes** - Overlay, side-by-side, onion skin, and toggle views
+**Interactive Dashboard:** The dev dashboard provides real-time feedback:
+- **Visual Comparisons** - See diffs as tests run with multiple view modes
 - **Baseline Management** - Accept/reject changes directly from the UI
+- **Configuration Editor** - Edit settings without touching config files
+- **Project Management** - Login, link directories to cloud projects
 - **Test Statistics** - Real-time pass/fail metrics
 - **Dark Theme** - Easy on the eyes during long sessions
 
-**TDD Subcommands:**
+**Dev Subcommands:**
 
 ```bash
-# Start the TDD dashboard server
-vizzly tdd start [options]
+# Start the dev server (primary workflow)
+vizzly dev start [options]
 
-# Run tests in single-shot mode
-vizzly tdd run "npm test" [options]
+# Run tests once with ephemeral server (generates static report)
+vizzly dev run "npm test" [options]
 
-# Stop a running TDD server
-vizzly tdd stop
+# Check dev server status
+vizzly dev status
+
+# Stop a running dev server
+vizzly dev stop
 ```
 
-**TDD Command Options:**
+**Dev Command Options:**
 - `--set-baseline` - Accept current screenshots as new baseline
 - `--baseline-build <id>` - Use specific build as baseline (requires API token)
 - `--threshold <number>` - Comparison threshold (0-1, default: 0.1)
@@ -335,8 +340,10 @@ VIZZLY_TOKEN=your-token vizzly doctor --api
 vizzly doctor --json
 ```
 
-The dedicated `tdd` command provides fast local development with immediate visual feedback. See the
-[TDD Mode Guide](./docs/tdd-mode.md) for complete details on local visual testing.
+The `dev` command provides fast local development with immediate visual feedback. See the
+[Dev Mode Guide](./docs/dev-mode.md) for complete details on local visual testing.
+
+> **Note:** The `vizzly tdd` command is deprecated and will be removed in the next major version. Please use `vizzly dev` instead.
 
 ## Configuration
 
@@ -509,13 +516,13 @@ Vizzly includes built-in support for [Claude Code](https://claude.com/code), Ant
 
 3. **Use AI-powered workflows** with slash commands:
    ```
-   /vizzly:tdd-status              # Check TDD dashboard with AI insights
-   /vizzly:debug-diff homepage     # Analyze visual failures with AI
+   /vizzly:check-visual-tests      # Check dev server status with AI insights
+   /vizzly:debug-visual-regression # Analyze visual failures with AI
    /vizzly:suggest-screenshots     # Find test coverage gaps
    /vizzly:setup                   # Interactive setup wizard
    ```
 
-The plugin works seamlessly with both local TDD mode and cloud builds, providing contextual help based on your current workflow.
+The plugin works seamlessly with both local dev mode and cloud builds, providing contextual help based on your current workflow.
 
 ## Plugin Ecosystem
 
@@ -580,7 +587,7 @@ See the [Plugin Development Guide](./docs/plugins.md) for complete documentation
 - [Authentication Guide](./docs/authentication.md)
 - [Upload Command Guide](./docs/upload-command.md)
 - [Test Integration Guide](./docs/test-integration.md)
-- [TDD Mode Guide](./docs/tdd-mode.md)
+- [Dev Mode Guide](./docs/dev-mode.md)
 - [Plugin Development](./docs/plugins.md)
 - [API Reference](./docs/api-reference.md)
 - [Doctor Command](./docs/doctor-command.md)

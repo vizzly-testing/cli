@@ -3,6 +3,7 @@ import { page } from 'vitest/browser';
 
 test('homepage matches screenshot', async () => {
   // Render the hero HTML directly
+  // eslint-disable-next-line no-undef
   document.body.innerHTML = `
     <style>
       body {
@@ -39,6 +40,7 @@ test('homepage matches screenshot', async () => {
 
 test('homepage with properties', async () => {
   // Render the hero HTML directly
+  // eslint-disable-next-line no-undef
   document.body.innerHTML = `
     <style>
       body {
@@ -70,13 +72,16 @@ test('homepage with properties', async () => {
     </div>
   `;
 
-  await expect(page.getByRole('heading')).toMatchScreenshot('homepage-with-props.png', {
-    comparatorOptions: {
-      properties: {
-        theme: 'dark',
-        viewport: '1920x1080'
+  await expect(page.getByRole('heading')).toMatchScreenshot(
+    'homepage-with-props.png',
+    {
+      comparatorOptions: {
+        properties: {
+          theme: 'dark',
+          viewport: '1920x1080',
+        },
+        threshold: 5,
       },
-      threshold: 5
     }
-  });
+  );
 });

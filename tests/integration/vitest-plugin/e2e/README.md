@@ -17,11 +17,13 @@ npm install
 ### Run with TDD Mode
 
 Terminal 1 - Start Vizzly TDD server:
+
 ```bash
 npx vizzly dev start
 ```
 
 Terminal 2 - Run tests:
+
 ```bash
 npx vitest
 ```

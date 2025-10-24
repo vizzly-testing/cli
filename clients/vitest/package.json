@@ -1,0 +1,67 @@
+{
+  "name": "@vizzly-testing/vitest",
+  "version": "0.1.0",
+  "description": "Vitest browser mode integration for Vizzly - custom matchers for visual regression testing",
+  "keywords": [
+    "vizzly",
+    "vitest",
+    "visual-testing",
+    "screenshot-testing",
+    "visual-regression",
+    "browser-mode",
+    "testing",
+    "matchers"
+  ],
+  "homepage": "https://vizzly.dev",
+  "bugs": "https://github.com/vizzly-testing/cli/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vizzly-testing/cli.git",
+    "directory": "clients/vitest"
+  },
+  "license": "MIT",
+  "author": "Stubborn Mule Software <support@vizzly.dev>",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "types": "./src/index.d.ts"
+    }
+  },
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "echo \"Tests run from main CLI package at tests/integration/vitest-plugin/\" && exit 0",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0"
+  },
+  "peerDependencies": {
+    "@vizzly-testing/cli": ">=0.12.0",
+    "vitest": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.1",
+    "prettier": "^3.4.2"
+  }
+}

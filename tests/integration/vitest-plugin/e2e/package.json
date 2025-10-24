@@ -1,0 +1,21 @@
+{
+  "name": "vitest-vizzly-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:ui": "vitest --ui"
+  },
+  "devDependencies": {
+    "@vitest/browser": "^4.0.0",
+    "@vitest/browser-playwright": "^4.0.2",
+    "@vitest/ui": "^4.0.0",
+    "playwright": "^1.49.1",
+    "vitest": "^4.0.0"
+  },
+  "dependencies": {
+    "@vizzly-testing/cli": "file:../../..",
+    "@vizzly-testing/vitest": "file:.."
+  }
+}

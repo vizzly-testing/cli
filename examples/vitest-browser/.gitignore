@@ -1,0 +1,5 @@
+node_modules
+.vizzly
+coverage
+dist
+*.log

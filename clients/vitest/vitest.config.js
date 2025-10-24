@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import { vizzlyPlugin } from '@vizzly-testing/vitest';
+import { vizzlyPlugin } from './src/index.js';
 import { playwright } from '@vitest/browser-playwright';
 
 export default defineConfig({

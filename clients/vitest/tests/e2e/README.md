@@ -10,7 +10,7 @@ These tests demonstrate the plugin working with real Vitest browser mode tests.
 
 ```bash
 # Install dependencies
-cd tests/integration/vitest-plugin/e2e
+# From clients/vitest directory
 npm install
 ```
 
@@ -25,7 +25,7 @@ npx vizzly dev start
 Terminal 2 - Run tests:
 
 ```bash
-npx vitest
+npm run test:e2e
 ```
 
 Visit http://localhost:47392/dashboard to see the results.
@@ -33,7 +33,7 @@ Visit http://localhost:47392/dashboard to see the results.
 ### Run with Cloud Mode
 
 ```bash
-npx vizzly run "npx vitest" --wait
+npx vizzly run "npm run test:e2e" --wait
 ```
 
 ## Test Files

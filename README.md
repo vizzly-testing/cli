@@ -401,41 +401,6 @@ Cypress.Commands.add('vizzlyScreenshot', (name, properties = {}) => {
 });
 ```
 
-### Vitest v4 Browser Mode
-
-Vizzly integrates seamlessly with Vitest v4's browser mode - use the **native `toMatchScreenshot` matcher**!
-
-```javascript
-// vitest.config.js
-import { vizzlyComparator } from '@vizzly-testing/vitest';
-
-export default defineConfig({
-  test: {
-    browser: {
-      enabled: true,
-      name: 'chromium',
-      provider: 'playwright',
-      screenshotOptions: {
-        comparator: vizzlyComparator  // One line to enable Vizzly!
-      }
-    }
-  }
-});
-
-// test file - use Vitest's native matcher!
-import { expect, test } from 'vitest';
-import { page } from '@vitest/browser/context';
-
-test('homepage looks correct', async () => {
-  await page.goto('/');
-  await expect(page).toMatchScreenshot('homepage.png');  // Native Vitest API
-});
-```
-
-Install: `npm install -D @vizzly-testing/vitest`
-
-See [Vitest Integration Guide](./docs/vitest-integration.md) and [examples/vitest-browser](./examples/vitest-browser) for complete setup.
-
 ## CI/CD Integration
 
 For CI/CD pipelines, use the `--wait` flag to wait for visual comparison results and get appropriate exit codes:

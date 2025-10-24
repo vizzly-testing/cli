@@ -90,7 +90,9 @@ async function toMatchScreenshot(element, name, options = {}) {
         message: () => '',
       };
     } else if (result.status === 'failed') {
-      let diffPercent = result.diffPercentage ? result.diffPercentage.toFixed(2) : '0.00';
+      let diffPercent = result.diffPercentage
+        ? result.diffPercentage.toFixed(2)
+        : '0.00';
 
       if (result.diffPercentage <= threshold) {
         return {

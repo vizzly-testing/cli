@@ -17,7 +17,6 @@ import { page } from 'vitest/browser';
 
 test('homepage matches screenshot', async () => {
   // Render the hero HTML directly
-  // eslint-disable-next-line no-undef
   document.body.innerHTML = `
     <style>
       body {
@@ -54,7 +53,6 @@ test('homepage matches screenshot', async () => {
 
 test('homepage with properties', async () => {
   // Render the hero HTML directly
-  // eslint-disable-next-line no-undef
   document.body.innerHTML = `
     <style>
       body {

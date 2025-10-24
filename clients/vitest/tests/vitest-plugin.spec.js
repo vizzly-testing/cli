@@ -22,7 +22,9 @@ describe('Vitest Plugin Integration', () => {
 
       expect(config.test.setupFiles).toBeDefined();
       expect(Array.isArray(config.test.setupFiles)).toBe(true);
-      expect(config.test.setupFiles.some((file) => file.includes('setup.js'))).toBe(true);
+      expect(
+        config.test.setupFiles.some(file => file.includes('setup.js'))
+      ).toBe(true);
     });
 
     it('should pass environment variables to browser context', async () => {
@@ -88,9 +90,7 @@ describe('Vitest Plugin Integration', () => {
 
   describe('Helper Functions', () => {
     it('should export getVizzlyStatus', async () => {
-      const { getVizzlyStatus } = await import(
-        '../src/index.js'
-      );
+      const { getVizzlyStatus } = await import('../src/index.js');
 
       expect(typeof getVizzlyStatus).toBe('function');
 
@@ -100,9 +100,7 @@ describe('Vitest Plugin Integration', () => {
     });
 
     it('should re-export getVizzlyInfo', async () => {
-      const { getVizzlyInfo } = await import(
-        '../src/index.js'
-      );
+      const { getVizzlyInfo } = await import('../src/index.js');
 
       expect(typeof getVizzlyInfo).toBe('function');
     });

@@ -2,12 +2,10 @@
  * TypeScript declarations for @vizzly-testing/vitest
  */
 
-import type { Comparator } from 'vitest/node';
-
 /**
  * Vizzly-specific options for screenshot comparison
  */
-export interface VizzlyOptions {
+export interface VizzlyScreenshotOptions {
   /**
    * Custom metadata properties for multi-variant testing
    * @example { theme: 'dark', viewport: '1920x1080' }
@@ -27,34 +25,25 @@ export interface VizzlyOptions {
 }
 
 /**
- * Vizzly screenshot comparator function
+ * Custom toMatchScreenshot matcher implementation
+ * This is registered automatically by the plugin via setup file
  */
-export function vizzlyComparator(
-  reference: {
-    data: TypedArray;
-    metadata: { width: number; height: number };
-  },
-  actual: {
-    data: TypedArray;
-    metadata: { width: number; height: number };
-  },
-  options?: VizzlyOptions & { name?: string }
+export function toMatchScreenshot(
+  element: any,
+  name?: string,
+  options?: VizzlyScreenshotOptions
 ): Promise<{
   pass: boolean;
-  diff: TypedArray | null;
-  message: string | null;
+  message: () => string;
 }>;
 
 /**
  * Vitest plugin for Vizzly integration
+ * Extends expect API with custom toMatchScreenshot matcher
  */
-export function vizzlyPlugin(options?: {
-  threshold?: number;
-  properties?: Record<string, any>;
-  fullPage?: boolean;
-}): {
+export function vizzlyPlugin(options?: Record<string, any>): {
   name: string;
-  config(config: any): any;
+  config(config: any, context: { mode: string }): any;
 };
 
 /**
@@ -73,10 +62,13 @@ export function getVizzlyStatus(): {
 export { getVizzlyInfo } from '@vizzly-testing/cli/client';
 
 /**
- * Module augmentation to register Vizzly comparator with Vitest
+ * Module augmentation to extend Vitest's expect with Vizzly options
  */
-declare module 'vitest/node' {
-  interface ToMatchScreenshotComparators {
-    vizzly: Comparator<VizzlyOptions>;
+declare module 'vitest' {
+  interface Assertion {
+    toMatchScreenshot(
+      name?: string,
+      options?: VizzlyScreenshotOptions
+    ): Promise<void>;
   }
 }

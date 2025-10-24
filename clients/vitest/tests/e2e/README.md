@@ -15,6 +15,7 @@ npm run test:e2e
 ```
 
 This provides:
+
 - Real-time visual feedback at http://localhost:47392/dashboard
 - Local baseline management in `.vizzly/baselines/`
 - Fast iteration cycle
@@ -27,6 +28,7 @@ npx vizzly run "npm run test:e2e"
 ```
 
 This:
+
 - Uploads screenshots to Vizzly cloud
 - Allows team review and collaboration
 - Used automatically in CI/CD pipelines
@@ -39,6 +41,7 @@ The CI workflow runs both unit tests and E2E tests:
 2. **E2E tests** - Test actual browser integration wrapped with `vizzly run` (uploads to cloud)
 
 The E2E tests in CI use Vizzly cloud mode to:
+
 - Verify the integration works end-to-end
 - Provide visual regression testing for the SDK itself
 - Serve as living documentation
@@ -46,6 +49,7 @@ The E2E tests in CI use Vizzly cloud mode to:
 ## Test Structure
 
 The example tests demonstrate:
+
 - Basic screenshot comparison with `toMatchScreenshot()`
 - Using custom properties for better screenshot organization
 - Integration with Vitest's browser mode and Playwright

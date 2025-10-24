@@ -1,7 +1,7 @@
 {
   "name": "@vizzly-testing/vitest",
   "version": "0.1.0",
-  "description": "Vitest browser mode integration for Vizzly - custom matchers for visual regression testing",
+  "description": "Drop-in replacement for Vitest visual testing - powered by Vizzly",
   "keywords": [
     "vizzly",
     "vitest",
@@ -10,7 +10,8 @@
     "visual-regression",
     "browser-mode",
     "testing",
-    "matchers"
+    "plugin",
+    "toMatchScreenshot"
   ],
   "homepage": "https://vizzly.dev",
   "bugs": "https://github.com/vizzly-testing/cli/issues",

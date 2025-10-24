@@ -37,11 +37,13 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "test": "echo \"Tests run from main CLI package at tests/integration/vitest-plugin/\" && exit 0",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
-    "format": "prettier --write src",
-    "format:check": "prettier --check src"
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "vitest run tests/vitest-plugin.spec.js",
+    "test:e2e": "cd tests/e2e && vitest run",
+    "lint": "eslint src tests",
+    "lint:fix": "eslint src tests --fix",
+    "format": "prettier --write src tests",
+    "format:check": "prettier --check src tests"
   },
   "engines": {
     "node": ">=20.0.0"

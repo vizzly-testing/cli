@@ -252,7 +252,6 @@ jobs:
           filters: |
             vitest:
               - 'clients/vitest/**'
-              - 'tests/integration/vitest-plugin/**'
               - '.github/workflows/ci.yml'
               - '.github/workflows/release-vitest-client.yml'
 
@@ -361,12 +360,12 @@ jobs:
     - name: Build CLI
       run: npm run build
 
-    - name: Install Vitest E2E test dependencies
-      working-directory: ./tests/integration/vitest-plugin/e2e
+    - name: Install Vitest client dependencies
+      working-directory: ./clients/vitest
       run: npm install
 
     - name: Get installed Playwright version
-      working-directory: ./tests/integration/vitest-plugin/e2e
+      working-directory: ./clients/vitest/tests/e2e
       id: playwright-version
       run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
 
@@ -379,16 +378,16 @@ jobs:
 
     - name: Install Playwright browsers
       if: steps.playwright-cache.outputs.cache-hit != 'true'
-      working-directory: ./tests/integration/vitest-plugin/e2e
+      working-directory: ./clients/vitest/tests/e2e
       run: npx playwright install chromium --with-deps
 
     - name: Run Vitest client linter
       working-directory: ./clients/vitest
       run: npm run lint
 
-    - name: Run Vitest E2E tests
-      working-directory: ./tests/integration/vitest-plugin/e2e
-      run: npx vitest run
+    - name: Run Vitest client tests
+      working-directory: ./clients/vitest
+      run: npm test
       env:
         CI: true
 

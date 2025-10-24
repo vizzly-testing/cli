@@ -13,7 +13,7 @@ describe('Vitest Plugin Integration', () => {
   describe('Plugin Configuration', () => {
     it('should register vizzly comparator', async () => {
       const { vizzlyPlugin } = await import(
-        '../../../clients/vitest/src/index.js'
+        '../src/index.js'
       );
 
       let config = { test: {} };
@@ -30,7 +30,7 @@ describe('Vitest Plugin Integration', () => {
 
     it('should set vizzly as default comparator', async () => {
       const { vizzlyPlugin } = await import(
-        '../../../clients/vitest/src/index.js'
+        '../src/index.js'
       );
 
       let config = { test: {} };
@@ -44,7 +44,7 @@ describe('Vitest Plugin Integration', () => {
 
     it('should override screenshot path resolution', async () => {
       const { vizzlyPlugin } = await import(
-        '../../../clients/vitest/src/index.js'
+        '../src/index.js'
       );
 
       let config = { test: {} };
@@ -63,7 +63,7 @@ describe('Vitest Plugin Integration', () => {
   describe('Comparator Function', () => {
     it('should return pass=true when Vizzly is not available', async () => {
       const { vizzlyComparator } = await import(
-        '../../../clients/vitest/src/index.js'
+        '../src/index.js'
       );
 
       // Mock data
@@ -93,7 +93,7 @@ describe('Vitest Plugin Integration', () => {
 
     it('should handle properties option', async () => {
       const { vizzlyComparator } = await import(
-        '../../../clients/vitest/src/index.js'
+        '../src/index.js'
       );
 
       const reference = {
@@ -121,7 +121,7 @@ describe('Vitest Plugin Integration', () => {
 
   describe('TypeScript Declarations', () => {
     it('should have valid TypeScript declarations', () => {
-      const dtsPath = resolve(process.cwd(), 'clients/vitest/src/index.d.ts');
+      const dtsPath = resolve(process.cwd(), 'src/index.d.ts');
       expect(existsSync(dtsPath)).toBe(true);
 
       const content = readFileSync(dtsPath, 'utf-8');
@@ -134,7 +134,7 @@ describe('Vitest Plugin Integration', () => {
 
   describe('Package Configuration', () => {
     it('should have correct package.json exports', () => {
-      const pkgPath = resolve(process.cwd(), 'clients/vitest/package.json');
+      const pkgPath = resolve(process.cwd(), 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
 
       expect(pkg.type).toBe('module');
@@ -144,14 +144,14 @@ describe('Vitest Plugin Integration', () => {
     });
 
     it('should have pngjs as dependency', () => {
-      const pkgPath = resolve(process.cwd(), 'clients/vitest/package.json');
+      const pkgPath = resolve(process.cwd(), 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
 
       expect(pkg.dependencies).toHaveProperty('pngjs');
     });
 
     it('should have correct peer dependencies', () => {
-      const pkgPath = resolve(process.cwd(), 'clients/vitest/package.json');
+      const pkgPath = resolve(process.cwd(), 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
 
       expect(pkg.peerDependencies).toHaveProperty('@vizzly-testing/cli');
@@ -162,7 +162,7 @@ describe('Vitest Plugin Integration', () => {
   describe('Helper Functions', () => {
     it('should export getVizzlyStatus', async () => {
       const { getVizzlyStatus } = await import(
-        '../../../clients/vitest/src/index.js'
+        '../src/index.js'
       );
 
       expect(typeof getVizzlyStatus).toBe('function');
@@ -174,7 +174,7 @@ describe('Vitest Plugin Integration', () => {
 
     it('should re-export getVizzlyInfo', async () => {
       const { getVizzlyInfo } = await import(
-        '../../../clients/vitest/src/index.js'
+        '../src/index.js'
       );
 
       expect(typeof getVizzlyInfo).toBe('function');

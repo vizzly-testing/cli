@@ -238,7 +238,7 @@ test('manual screenshot', async () => {
 
 ## Examples & Tests
 
-See the integration tests at [tests/integration/vitest-plugin](../../tests/integration/vitest-plugin):
+See the tests in this package at `tests/`:
 
 - **vitest-plugin.spec.js** - Unit tests for plugin configuration and comparator function
 - **e2e/** - End-to-end test project running actual Vitest tests with the plugin
@@ -246,10 +246,11 @@ See the integration tests at [tests/integration/vitest-plugin](../../tests/integ
 The E2E tests serve as both validation and a working example. Run them with:
 
 ```bash
-cd tests/integration/vitest-plugin/e2e
+# From clients/vitest directory
 npm install
-npx vizzly dev start  # Terminal 1
-npx vitest            # Terminal 2
+npm run test:unit    # Run unit tests
+npm run test:e2e     # Run E2E tests (requires vizzly dev start)
+npm test             # Run all tests
 ```
 
 ## Troubleshooting

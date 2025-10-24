@@ -385,11 +385,20 @@ jobs:
       working-directory: ./clients/vitest
       run: npm run lint
 
-    - name: Run Vitest client tests
+    - name: Run Vitest client unit tests
       working-directory: ./clients/vitest
-      run: npm test
+      run: npm run test:unit
       env:
         CI: true
+
+    - name: Run Vitest client E2E tests
+      working-directory: ./clients/vitest
+      run: ../../bin/vizzly.js run "npm run test:e2e"
+      env:
+        CI: true
+        VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
   ci-check:
     runs-on: ubuntu-latest

@@ -1,15 +1,15 @@
 # @vizzly-testing/vitest
 
-> Seamless Vitest browser mode integration - use native `toMatchScreenshot` with Vizzly
+> Drop-in replacement for Vitest visual testing - powered by Vizzly
 
 [![npm version](https://img.shields.io/npm/v/@vizzly-testing/vitest.svg)](https://www.npmjs.com/package/@vizzly-testing/vitest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 
-This package provides a **screenshot comparator** for Vitest v4's browser mode, allowing you to use Vitest's native `toMatchScreenshot` matcher with [Vizzly](https://vizzly.dev)'s powerful visual testing platform.
+This package **completely replaces** Vitest's native visual testing with [Vizzly](https://vizzly.dev)'s powerful platform. Just add the plugin and continue using Vitest's standard `toMatchScreenshot` API - no code changes required!
 
-**No custom matchers. No new API to learn. Just Vitest + Vizzly.**
+**True drop-in replacement. Zero API changes. Maximum power.**
 
 ## Features
 
@@ -55,7 +55,7 @@ export default defineConfig({
 
 ### 2. Write Tests
 
-Use Vitest's native `toMatchScreenshot` matcher:
+Use Vitest's native `toMatchScreenshot` matcher - **no changes needed**:
 
 ```javascript
 import { expect, test } from 'vitest'
@@ -68,14 +68,13 @@ test('homepage looks correct', async () => {
   // Basic screenshot
   await expect(page.getByRole('heading')).toMatchScreenshot('homepage.png')
 
-  // With custom properties for multi-variant testing
+  // With properties for multi-variant testing
   await expect(page.getByRole('heading')).toMatchScreenshot('hero-section.png', {
-    comparatorOptions: {
-      properties: {
-        theme: 'dark',
-        viewport: '1920x1080'
-      }
-    }
+    properties: {
+      theme: 'dark',
+      viewport: '1920x1080'
+    },
+    threshold: 5
   })
 })
 ```
@@ -104,44 +103,46 @@ npx vizzly run "npx vitest" --wait
 
 ### Plugin Options
 
-Configure default options for all screenshots:
+The plugin requires no configuration, but you can pass options if needed:
 
 ```javascript
 import { vizzlyPlugin } from '@vizzly-testing/vitest'
 
+// Simple - just add the plugin
+vizzlyPlugin()
+
+// Or with options (rarely needed)
 vizzlyPlugin({
-  threshold: 5,          // Default threshold (0-100)
-  properties: {          // Default properties for all screenshots
-    project: 'my-app',
-    ci: process.env.CI === 'true'
-  },
-  fullPage: false,       // Default full page capture
-  name: 'default-name'   // Default name prefix
+  // Plugin-specific options can go here
 })
 ```
 
-### Per-Screenshot Options
+### Screenshot Options
 
-Override defaults per screenshot using `toMatchScreenshot` options:
+All options are passed directly to `toMatchScreenshot`:
 
 ```javascript
-await expect(page).toMatchScreenshot('my-screenshot.png', {
-  comparatorOptions: {
-    // Vizzly properties for signature matching
-    properties: {
-      theme: 'dark',
-      language: 'en',
-      userRole: 'admin'
-    },
+await expect(page).toMatchScreenshot('screenshot.png', {
+  // Custom properties for multi-variant testing
+  properties: {
+    theme: 'dark',
+    language: 'en',
+    userRole: 'admin'
+  },
 
-    // Comparison threshold (0-100, overrides plugin default)
-    threshold: 10,
+  // Comparison threshold (0-100)
+  threshold: 5,
 
-    // Full page capture
-    fullPage: true
-  }
+  // Full page capture
+  fullPage: true
 })
 ```
+
+**Available Options:**
+
+- `properties` (object) - Custom metadata for signature-based baseline matching
+- `threshold` (number, 0-100) - Acceptable difference percentage (default: 0)
+- `fullPage` (boolean) - Capture full scrollable page instead of viewport
 
 ## Multi-Variant Testing
 
@@ -152,18 +153,14 @@ test('button variants', async () => {
   // Light theme
   document.body.classList.add('theme-light')
   await expect(page.getByRole('button')).toMatchScreenshot('button.png', {
-    comparatorOptions: {
-      properties: { theme: 'light' }
-    }
+    properties: { theme: 'light' }
   })
 
   // Dark theme
   document.body.classList.remove('theme-light')
   document.body.classList.add('theme-dark')
   await expect(page.getByRole('button')).toMatchScreenshot('button.png', {
-    comparatorOptions: {
-      properties: { theme: 'dark' }
-    }
+    properties: { theme: 'dark' }
   })
 })
 ```
@@ -172,21 +169,28 @@ Vizzly will manage separate baselines for each variant using signature-based mat
 
 ## How It Works
 
+This plugin **completely replaces** Vitest's native screenshot testing by:
+
+1. **Extending `expect` API** - Registers a custom `toMatchScreenshot` matcher that overrides Vitest's
+2. **Disabling native system** - Sets `screenshotFailures: false` to prevent conflicts
+3. **Direct HTTP communication** - Screenshots POST directly to Vizzly server from browser context
+
 ### TDD Mode
 
-1. Vitest captures screenshot → sends pixel data to comparator
-2. Comparator converts to PNG → sends to Vizzly TDD service
-3. Vizzly compares using honeydiff → saves results to `.vizzly/`
-4. Dashboard shows live results at `http://localhost:47392/dashboard`
-5. Accept/reject changes in UI → baselines updated
+1. Plugin injects setup file that extends `expect` with custom matcher
+2. Your test calls `toMatchScreenshot` → captures screenshot in browser
+3. Matcher POSTs screenshot to local Vizzly TDD server
+4. Server compares using honeydiff → returns pass/fail result
+5. Dashboard shows live results at `http://localhost:47392/dashboard`
+6. Accept/reject changes in UI → baselines updated in `.vizzly/baselines/`
 
 ### Cloud Mode
 
-1. Vitest captures screenshot → sends pixel data to comparator
-2. Comparator converts to PNG → queues for upload
+1. Same custom matcher captures screenshot in browser
+2. POSTs to Vizzly server which queues for upload
 3. After tests complete → uploads to Vizzly cloud
 4. Team reviews changes in web dashboard
-5. Comparisons happen in cloud with full collaboration features
+5. **Tests always pass** - comparison happens asynchronously in cloud
 
 ## TypeScript
 
@@ -198,15 +202,13 @@ import { page } from 'vitest/browser'
 
 test('typed screenshot', async () => {
   await expect(page).toMatchScreenshot('hero.png', {
-    comparatorOptions: {
-      properties: {
-        // Full autocomplete support
-        theme: 'dark',
-        viewport: '1920x1080'
-      },
-      threshold: 5,
-      fullPage: true
-    }
+    properties: {
+      // Full autocomplete support
+      theme: 'dark',
+      viewport: '1920x1080'
+    },
+    threshold: 5,
+    fullPage: true
   })
 })
 ```

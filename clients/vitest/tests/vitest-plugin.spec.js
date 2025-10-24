@@ -3,6 +3,8 @@
  *
  * These tests verify the @vizzly-testing/vitest package works correctly
  * with Vitest's browser mode and screenshot comparator API.
+ *
+ * These run in Node environment to test the Vite plugin configuration.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -11,111 +13,36 @@ import { resolve } from 'path';
 
 describe('Vitest Plugin Integration', () => {
   describe('Plugin Configuration', () => {
-    it('should register vizzly comparator', async () => {
-      const { vizzlyPlugin } = await import(
-        '../src/index.js'
-      );
+    it('should register setup file', async () => {
+      const { vizzlyPlugin } = await import('../src/index.js');
 
       let config = { test: {} };
       let plugin = vizzlyPlugin();
-      config = plugin.config(config);
+      config = plugin.config(config, { mode: 'test' });
 
-      expect(
-        config.test.browser.expect.toMatchScreenshot.comparators.vizzly
-      ).toBeDefined();
-      expect(
-        typeof config.test.browser.expect.toMatchScreenshot.comparators.vizzly
-      ).toBe('function');
+      expect(config.test.setupFiles).toBeDefined();
+      expect(Array.isArray(config.test.setupFiles)).toBe(true);
+      expect(config.test.setupFiles.some((file) => file.includes('setup.js'))).toBe(true);
     });
 
-    it('should set vizzly as default comparator', async () => {
-      const { vizzlyPlugin } = await import(
-        '../src/index.js'
-      );
+    it('should pass environment variables to browser context', async () => {
+      const { vizzlyPlugin } = await import('../src/index.js');
 
       let config = { test: {} };
       let plugin = vizzlyPlugin();
-      config = plugin.config(config);
+      config = plugin.config(config, { mode: 'test' });
 
-      expect(config.test.browser.expect.toMatchScreenshot.comparatorName).toBe(
-        'vizzly'
-      );
-    });
-
-    it('should override screenshot path resolution', async () => {
-      const { vizzlyPlugin } = await import(
-        '../src/index.js'
-      );
-
-      let config = { test: {} };
-      let plugin = vizzlyPlugin();
-      config = plugin.config(config);
-
-      const pathResolver =
-        config.test.browser.expect.toMatchScreenshot.resolveScreenshotPath;
-      expect(typeof pathResolver).toBe('function');
-
-      const result = pathResolver({ arg: 'test.png', ext: '' });
-      expect(result).toContain('.vizzly/baselines/test.png');
+      expect(config.define).toBeDefined();
+      expect(config.define['import.meta.env.VIZZLY_SERVER_URL']).toBeDefined();
+      expect(config.define['import.meta.env.VIZZLY_BUILD_ID']).toBeDefined();
     });
   });
 
-  describe('Comparator Function', () => {
-    it('should return pass=true when Vizzly is not available', async () => {
-      const { vizzlyComparator } = await import(
-        '../src/index.js'
-      );
+  describe('Custom Matcher', () => {
+    it('should export toMatchScreenshot function', async () => {
+      const { toMatchScreenshot } = await import('../src/index.js');
 
-      // Mock data
-      const reference = {
-        data: new Uint8Array(4),
-        metadata: { width: 1, height: 1 },
-      };
-      const actual = {
-        data: new Uint8Array(4),
-        metadata: { width: 1, height: 1 },
-      };
-
-      const result = await vizzlyComparator(reference, actual, {
-        createDiff: false,
-        name: 'test',
-      });
-
-      expect(result).toHaveProperty('pass');
-      expect(result).toHaveProperty('diff');
-      expect(result).toHaveProperty('message');
-
-      // When Vizzly is not running, should pass with a message
-      if (!result.pass) {
-        expect(result.message).toContain('Vizzly');
-      }
-    });
-
-    it('should handle properties option', async () => {
-      const { vizzlyComparator } = await import(
-        '../src/index.js'
-      );
-
-      const reference = {
-        data: new Uint8Array(4),
-        metadata: { width: 1, height: 1 },
-      };
-      const actual = {
-        data: new Uint8Array(4),
-        metadata: { width: 1, height: 1 },
-      };
-
-      // Should not throw with properties
-      const result = await vizzlyComparator(reference, actual, {
-        createDiff: false,
-        properties: {
-          theme: 'dark',
-          viewport: '1920x1080',
-        },
-        name: 'test-with-props',
-      });
-
-      expect(result).toBeDefined();
+      expect(typeof toMatchScreenshot).toBe('function');
     });
   });
 
@@ -125,10 +52,10 @@ describe('Vitest Plugin Integration', () => {
       expect(existsSync(dtsPath)).toBe(true);
 
       const content = readFileSync(dtsPath, 'utf-8');
-      expect(content).toContain('export function vizzlyComparator');
+      // Check for core exports
       expect(content).toContain('export function vizzlyPlugin');
-      expect(content).toContain("declare module 'vitest/node'");
-      expect(content).toContain('ToMatchScreenshotComparators');
+      expect(content).toContain('export function getVizzlyStatus');
+      // Note: toMatchScreenshot is defined in setup.js, not in index.d.ts
     });
   });
 

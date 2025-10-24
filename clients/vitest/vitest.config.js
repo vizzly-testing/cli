@@ -1,19 +1,10 @@
 import { defineConfig } from 'vitest/config';
-import { vizzlyPlugin } from './src/index.js';
-import { playwright } from '@vitest/browser-playwright';
 
+// Unit tests config - runs in Node environment
+// These tests verify the plugin configuration and Node.js integrations
 export default defineConfig({
-  plugins: [vizzlyPlugin()],
   test: {
-    browser: {
-      enabled: true,
-      instances: [
-        {
-          browser: 'chromium',
-          provider: playwright(),
-        },
-      ],
-      headless: true,
-    },
+    environment: 'node',
+    include: ['tests/vitest-plugin.spec.js', 'tests/**/*.node.spec.js'],
   },
 });

@@ -38,8 +38,8 @@
   ],
   "scripts": {
     "test": "npm run test:unit && npm run test:e2e",
-    "test:unit": "vitest run tests/vitest-plugin.spec.js",
-    "test:e2e": "vitest run tests/e2e/example.test.js",
+    "test:unit": "vitest run --config vitest.config.js",
+    "test:e2e": "vitest run --config vitest.e2e.config.js",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "format": "prettier --write src tests",

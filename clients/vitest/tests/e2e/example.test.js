@@ -1,3 +1,17 @@
+/**
+ * E2E Integration Tests
+ *
+ * These tests verify the Vitest plugin integration with Vizzly.
+ * They also serve as examples for documentation.
+ *
+ * Local TDD mode:
+ *   vizzly tdd start
+ *   npm run test:e2e
+ *
+ * Cloud mode (used in CI):
+ *   vizzly run "npm run test:e2e"
+ */
+
 import { expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 
@@ -72,16 +86,15 @@ test('homepage with properties', async () => {
     </div>
   `;
 
+  // New first-class API - properties at top level!
   await expect(page.getByRole('heading')).toMatchScreenshot(
     'homepage-with-props.png',
     {
-      comparatorOptions: {
-        properties: {
-          theme: 'dark',
-          viewport: '1920x1080',
-        },
-        threshold: 5,
+      properties: {
+        theme: 'dark',
+        viewport: '1920x1080',
       },
+      threshold: 5,
     }
   );
 });

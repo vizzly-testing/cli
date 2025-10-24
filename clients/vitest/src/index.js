@@ -392,36 +392,138 @@ export async function vizzlyComparator(reference, actual, options = {}) {
  *   }
  * })
  */
+/**
+ * Custom toMatchScreenshot implementation that completely replaces Vitest's
+ * This is called via expect.extend() in the setup file
+ */
+export async function toMatchScreenshot(element, name, options = {}) {
+  let isCloudMode = !!process.env.VIZZLY_BUILD_ID;
+
+  // Import page from Vitest browser context
+  const { page } = await import('@vitest/browser/context');
+
+  // Take screenshot
+  let screenshot;
+  if (typeof element === 'object' && element.locator) {
+    // It's a Playwright locator
+    screenshot = await element.screenshot(options);
+  } else {
+    // It's the page object
+    screenshot = await page.screenshot(options);
+  }
+
+  let imageBuffer = Buffer.from(screenshot);
+  let screenshotName = name || `screenshot-${Date.now()}`;
+
+  // Prepare properties
+  let properties = {
+    framework: 'vitest',
+    vitest: true,
+    ...(options.vizzly?.properties || {}),
+  };
+
+  if (isCloudMode) {
+    // ===== CLOUD MODE: Upload to Vizzly =====
+    const { vizzlyScreenshot } = await import('@vizzly-testing/cli/client');
+
+    await vizzlyScreenshot(screenshotName, imageBuffer, {
+      threshold: options.vizzly?.threshold || 0,
+      fullPage: options.vizzly?.fullPage,
+      properties,
+    });
+
+    // Always pass in cloud mode
+    return {
+      pass: true,
+      message: () => '',
+    };
+  } else {
+    // ===== TDD MODE: Local comparison =====
+    let tddService;
+    try {
+      tddService = await getTDDService();
+    } catch (error) {
+      return {
+        pass: false,
+        message: () => `Vizzly TDD service initialization failed: ${error.message}`,
+      };
+    }
+
+    // Call Vizzly's TDD service to compare
+    let comparison = await tddService.compareScreenshot(
+      screenshotName,
+      imageBuffer,
+      properties
+    );
+
+    // Handle comparison result
+    if (comparison.status === 'new') {
+      return {
+        pass: false,
+        message: () =>
+          `New screenshot baseline created: ${screenshotName}. View at http://localhost:47392/dashboard`,
+      };
+    } else if (comparison.status === 'passed') {
+      return {
+        pass: true,
+        message: () => '',
+      };
+    } else if (comparison.status === 'failed') {
+      let diffPercent = comparison.diffPercentage
+        ? comparison.diffPercentage.toFixed(2)
+        : '0.00';
+      let threshold = options.vizzly?.threshold || 0;
+
+      if (comparison.diffPercentage <= threshold) {
+        return {
+          pass: true,
+          message: () =>
+            `Screenshot within threshold: ${screenshotName} (${diffPercent}% ≤ ${threshold.toFixed(2)}%)`,
+        };
+      }
+
+      return {
+        pass: false,
+        message: () =>
+          `Visual difference detected: ${screenshotName} (${diffPercent}% difference). View at http://localhost:47392/dashboard`,
+      };
+    }
+
+    // Unknown status
+    return {
+      pass: false,
+      message: () => `Unknown comparison status: ${comparison.status}`,
+    };
+  }
+}
+
 export function vizzlyPlugin(options = {}) {
   return {
     name: 'vitest-vizzly',
-    config(config) {
-      // Prepare the config structure
-      config.test = config.test || {};
-      config.test.browser = config.test.browser || {};
-      config.test.browser.expect = config.test.browser.expect || {};
-      config.test.browser.expect.toMatchScreenshot = config.test.browser.expect.toMatchScreenshot || {};
-
-      // Initialize comparators object
-      if (!config.test.browser.expect.toMatchScreenshot.comparators) {
-        config.test.browser.expect.toMatchScreenshot.comparators = {};
+    config(config, { mode }) {
+      // Add setup file to extend expect with our custom matcher
+      let setupFiles = config?.test?.setupFiles || [];
+      if (!Array.isArray(setupFiles)) {
+        setupFiles = [setupFiles];
       }
 
-      // Register the comparator function
-      config.test.browser.expect.toMatchScreenshot.comparators.vizzly = vizzlyComparator;
-
-      // Set as default if no comparatorName is set
-      if (!config.test.browser.expect.toMatchScreenshot.comparatorName) {
-        config.test.browser.expect.toMatchScreenshot.comparatorName = 'vizzly';
-      }
-
-      // Override screenshot path resolution to use Vizzly's baseline directory
-      // This makes Vitest look for baselines in .vizzly/baselines/ instead of __screenshots__/
-      config.test.browser.expect.toMatchScreenshot.resolveScreenshotPath = (opts) => {
-        return resolve(process.cwd(), '.vizzly', 'baselines', `${opts.arg}${opts.ext}`);
+      return {
+        test: {
+          setupFiles: [...setupFiles, resolve(import.meta.dirname || __dirname, 'setup.js')],
+          browser: {
+            // Disable Vitest's native screenshot testing
+            // Our custom matcher completely replaces it
+            screenshotFailures: false,
+          },
+        },
+        // Pass Vizzly environment variables to browser context via define
+        define: {
+          'import.meta.env.VIZZLY_SERVER_URL': JSON.stringify(
+            process.env.VIZZLY_SERVER_URL || ''
+          ),
+          'import.meta.env.VIZZLY_BUILD_ID': JSON.stringify(process.env.VIZZLY_BUILD_ID || ''),
+        },
       };
-
-      return config;
     },
   };
 }

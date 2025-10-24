@@ -1,60 +1,51 @@
-# Vitest Plugin E2E Tests
+# E2E Integration Tests
 
-This directory contains end-to-end tests for the @vizzly-testing/vitest package.
+These tests verify the Vitest plugin integration with Vizzly and serve as real-world examples for users.
 
-## Running the E2E Tests
+## Running E2E Tests
 
-These tests demonstrate the plugin working with real Vitest browser mode tests.
-
-### Prerequisites
+### Local TDD Mode (Recommended for Development)
 
 ```bash
-# Install dependencies
-# From clients/vitest directory
-npm install
-```
+# Start TDD server in one terminal
+npx vizzly tdd start
 
-### Run with TDD Mode
-
-Terminal 1 - Start Vizzly TDD server:
-
-```bash
-npx vizzly dev start
-```
-
-Terminal 2 - Run tests:
-
-```bash
+# Run tests in another terminal (or in watch mode)
 npm run test:e2e
 ```
 
-Visit http://localhost:47392/dashboard to see the results.
+This provides:
+- Real-time visual feedback at http://localhost:47392/dashboard
+- Local baseline management in `.vizzly/baselines/`
+- Fast iteration cycle
 
-### Run with Cloud Mode
+### Cloud Mode (Used in CI)
 
 ```bash
-npx vizzly run "npm run test:e2e" --wait
+# Run tests with Vizzly cloud upload
+npx vizzly run "npm run test:e2e"
 ```
 
-## Test Files
+This:
+- Uploads screenshots to Vizzly cloud
+- Allows team review and collaboration
+- Used automatically in CI/CD pipelines
 
-- **example.test.js** - Contains two test cases:
-  - Basic screenshot test
-  - Screenshot with properties (multi-variant testing)
+## CI/CD
 
-## What Gets Tested
+The CI workflow runs both unit tests and E2E tests:
 
-1. **Plugin Configuration** - Vitest loads and applies the vizzlyPlugin
-2. **Screenshot Comparator** - Vitest uses the vizzly comparator for toMatchScreenshot
-3. **Baseline Creation** - First run creates baselines in `.vizzly/baselines/`
-4. **Comparison** - Subsequent runs compare against baselines
-5. **Properties** - Custom properties are properly passed through comparatorOptions
-6. **TDD Dashboard** - Results appear in the live dashboard
-7. **Path Resolution** - Screenshots stored in `.vizzly/baselines/` not `__screenshots__/`
+1. **Unit tests** - Test plugin configuration (runs in Node environment)
+2. **E2E tests** - Test actual browser integration wrapped with `vizzly run` (uploads to cloud)
 
-## Expected Results
+The E2E tests in CI use Vizzly cloud mode to:
+- Verify the integration works end-to-end
+- Provide visual regression testing for the SDK itself
+- Serve as living documentation
 
-- First run: All tests pass (baselines created)
-- Second run: All tests pass (no visual changes)
-- Check `.vizzly/baselines/` - should contain PNG files
-- Check dashboard - should show comparison results
+## Test Structure
+
+The example tests demonstrate:
+- Basic screenshot comparison with `toMatchScreenshot()`
+- Using custom properties for better screenshot organization
+- Integration with Vitest's browser mode and Playwright

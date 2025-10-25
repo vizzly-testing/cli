@@ -7,7 +7,9 @@
 
 ## Overview
 
-This package **completely replaces** Vitest's native visual testing with [Vizzly](https://vizzly.dev)'s powerful platform. Just add the plugin and continue using Vitest's standard `toMatchScreenshot` API - no code changes required!
+This package **completely replaces** Vitest's native visual testing with
+[Vizzly](https://vizzly.dev)'s powerful platform. Just add the plugin and continue using Vitest's
+standard `toMatchScreenshot` API - no code changes required!
 
 **True drop-in replacement. Zero API changes. Maximum power.**
 
@@ -23,7 +25,7 @@ This package **completely replaces** Vitest's native visual testing with [Vizzly
 ## Installation
 
 ```bash
-npm install -D @vizzly-testing/vitest @vizzly-testing/cli vitest @vitest/browser @vitest/browser-playwright
+npm install -D @vizzly-testing/vitest @vizzly-testing/cli
 ```
 
 ## Quick Start
@@ -93,7 +95,9 @@ npx vitest
 # Open dashboard at http://localhost:47392
 ```
 
-**Note:** New screenshots will fail the first time they run - this is expected! Review them in the dashboard at `http://localhost:47392/dashboard` and accept them to create the baseline. Once accepted, future runs will compare against the baseline.
+**Note:** New screenshots automatically create baselines on first run and pass! You can review them
+in the dashboard at `http://localhost:47392/dashboard`. Future runs will compare against the
+baseline.
 
 **Cloud Mode** (CI/CD with team collaboration):
 
@@ -192,7 +196,7 @@ This plugin **completely replaces** Vitest's native screenshot testing by:
 2. POSTs to Vizzly server which queues for upload
 3. After tests complete → uploads to Vizzly cloud
 4. Team reviews changes in web dashboard
-5. **Tests always pass** - comparison happens asynchronously in cloud
+5. **Tests always pass** - comparison happens asynchronously in cloud (use `--wait` flag to fail on visual changes)
 
 ## TypeScript
 
@@ -215,7 +219,7 @@ test('typed screenshot', async () => {
 })
 ```
 
-## Comparison with Direct Integration
+## Vizzly Direct Integration
 
 You can also use Vizzly without the comparator by calling `vizzlyScreenshot()` directly:
 
@@ -233,7 +237,6 @@ test('manual screenshot', async () => {
 **Comparator approach (this package):**
 - ✅ Native Vitest API (`toMatchScreenshot`)
 - ✅ Integrated with Vitest's snapshot management
-- ✅ Less verbose test code
 
 **Direct approach:**
 - ✅ Full control over screenshot capture
@@ -267,13 +270,9 @@ Make sure you're running tests with either:
 
 ### Screenshots not appearing in dashboard
 
-1. Check that `.vizzly/server.json` exists (TDD mode)
+1. Check `vizzly status` for TDD, make sure `VIZZLY_TOKEN` is set for cloud capture
 2. Verify API token is set: `npx vizzly whoami`
 3. Check console for error messages
-
-### TypeScript errors
-
-Make sure `vitest` and `@vitest/browser` are installed as dev dependencies.
 
 ## License
 

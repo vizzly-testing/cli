@@ -205,3 +205,11 @@ Remember to update both local (TDD) and cloud comparison logic to keep behavior 
 4. For community/local plugins: Add path to `plugins` array in `vizzly.config.js`
 5. Add tests in plugin's own package or in `tests/integration/`
 6. See `docs/plugins.md` and `examples/custom-plugin/` for complete guide
+
+## Git Commits & Writing
+
+**NEVER add AI attribution to commits, PRs, or any writing:**
+- ❌ "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+- ❌ "Co-Authored-By: Claude <noreply@anthropic.com>"
+
+Use gitmoji for commit messages. Keep commits clear and concise.

@@ -25,19 +25,6 @@ export interface VizzlyScreenshotOptions {
 }
 
 /**
- * Custom toMatchScreenshot matcher implementation
- * This is registered automatically by the plugin via setup file
- */
-export function toMatchScreenshot(
-  element: any,
-  name?: string,
-  options?: VizzlyScreenshotOptions
-): Promise<{
-  pass: boolean;
-  message: () => string;
-}>;
-
-/**
  * Vitest plugin for Vizzly integration
  * Extends expect API with custom toMatchScreenshot matcher
  */

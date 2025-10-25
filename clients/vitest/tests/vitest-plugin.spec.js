@@ -35,16 +35,17 @@ describe('Vitest Plugin Integration', () => {
       config = plugin.config(config, { mode: 'test' });
 
       expect(config.define).toBeDefined();
-      expect(config.define['import.meta.env.VIZZLY_SERVER_URL']).toBeDefined();
-      expect(config.define['import.meta.env.VIZZLY_BUILD_ID']).toBeDefined();
+      expect(config.define.__VIZZLY_SERVER_URL__).toBeDefined();
+      expect(config.define.__VIZZLY_BUILD_ID__).toBeDefined();
     });
   });
 
   describe('Custom Matcher', () => {
-    it('should export toMatchScreenshot function', async () => {
-      const { toMatchScreenshot } = await import('../src/index.js');
+    it('should not export toMatchScreenshot (registered via setup.js)', async () => {
+      const exports = await import('../src/index.js');
 
-      expect(typeof toMatchScreenshot).toBe('function');
+      // toMatchScreenshot is registered via expect.extend() in setup.js, not exported
+      expect(exports.toMatchScreenshot).toBeUndefined();
     });
   });
 

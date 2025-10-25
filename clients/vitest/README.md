@@ -93,6 +93,8 @@ npx vitest
 # Open dashboard at http://localhost:47392
 ```
 
+**Note:** New screenshots will fail the first time they run - this is expected! Review them in the dashboard at `http://localhost:47392/dashboard` and accept them to create the baseline. Once accepted, future runs will compare against the baseline.
+
 **Cloud Mode** (CI/CD with team collaboration):
 
 ```bash

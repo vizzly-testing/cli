@@ -121,9 +121,22 @@ async function toMatchScreenshot(element, name, options = {}) {
       message: () => `Unknown comparison status: ${comparisonStatus}`,
     };
   } catch (error) {
+    // Differentiate between error types for better debugging
+    let errorMessage;
+
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      errorMessage = `Vizzly server not reachable at ${serverUrl}. Is the TDD server running? Run 'vizzly tdd start' or 'vizzly run "npm test"'.`;
+    } else if (error.message.includes('HTTP 500') || error.message.includes('HTTP 502') || error.message.includes('HTTP 503')) {
+      errorMessage = `Vizzly server error: ${error.message}. Check the TDD server logs for details.`;
+    } else if (error.message.includes('screenshot')) {
+      errorMessage = `Screenshot capture failed: ${error.message}. Check that the element exists and is visible.`;
+    } else {
+      errorMessage = `Vizzly screenshot failed: ${error.message}`;
+    }
+
     return {
       pass: false,
-      message: () => `Vizzly screenshot failed: ${error.message}`,
+      message: () => errorMessage,
     };
   }
 }

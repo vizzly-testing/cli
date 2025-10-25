@@ -1,0 +1,5 @@
+node_modules/
+coverage/
+.vizzly/
+*.log
+.DS_Store

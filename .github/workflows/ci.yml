@@ -396,7 +396,7 @@ jobs:
       run: ../../bin/vizzly.js run "npm run test:e2e"
       env:
         CI: true
-        VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+        VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
         VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
         VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 

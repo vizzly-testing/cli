@@ -27,7 +27,9 @@ The result? Visual quality integrated into development, not bolted on afterward.
 
 ## Quick Start
 
-Requirements: Node.js 20 or newer.
+**Requirements:** Node.js 22 or newer.
+
+> **Note:** Vizzly supports [active LTS versions](https://nodejs.org/en/about/previous-releases) of Node.js.
 
 ```bash
 # Install globally

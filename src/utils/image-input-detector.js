@@ -116,12 +116,13 @@ export function looksLikeFilePath(str) {
  * - 'unknown': Cannot determine (ambiguous or invalid)
  *
  * Strategy:
- * 1. First check if it looks like a file path (more specific patterns)
- * 2. Then check if it's valid base64 (more permissive)
+ * 1. First check if it's valid base64 (can contain / which might look like paths)
+ * 2. Then check if it looks like a file path (more specific patterns)
  * 3. Otherwise return 'unknown'
  *
- * This order prevents file paths from being misidentified as base64,
- * since base64 patterns are more general.
+ * This order prevents base64 strings (which can contain /) from being
+ * misidentified as file paths. Base64 validation is stricter and should
+ * be checked first.
  *
  * @param {string} str - String to detect
  * @returns {'base64' | 'file-path' | 'unknown'} Detected input type
@@ -138,15 +139,15 @@ export function detectImageInputType(str) {
     return 'unknown';
   }
 
-  // Check file path FIRST - more specific patterns
-  // This prevents paths like "screenshot.png" from being seen as base64
-  if (looksLikeFilePath(str)) {
-    return 'file-path';
-  }
-
-  // Then check base64 - more permissive pattern
+  // Check base64 FIRST - base64 strings can contain / which looks like paths
+  // Base64 validation is stricter and more deterministic
   if (isBase64(str)) {
     return 'base64';
+  }
+
+  // Then check file path - catch patterns that aren't valid base64
+  if (looksLikeFilePath(str)) {
+    return 'file-path';
   }
 
   return 'unknown';

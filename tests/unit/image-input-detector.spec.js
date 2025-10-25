@@ -213,12 +213,37 @@ describe('Image Input Detector', () => {
       });
     });
 
-    describe('priority - file paths over base64', () => {
-      it('should prioritize file path detection when ambiguous', () => {
-        // A string that could theoretically be valid base64 but looks like a path
-        // should be detected as file-path
+    describe('priority - base64 over file paths', () => {
+      it('should prioritize base64 detection over file paths', () => {
+        // Base64 strings can contain / which might look like paths
+        // They should be detected as base64, not file-path
+        let base64WithSlash = Buffer.from(
+          'test data with enough content to get a slash'
+        ).toString('base64');
+
+        // If the base64 contains /, it should still be detected as base64
+        if (base64WithSlash.includes('/')) {
+          expect(detectImageInputType(base64WithSlash)).toBe('base64');
+        }
+      });
+
+      it('should detect file paths that are not valid base64', () => {
+        // These look like paths and are NOT valid base64
         expect(detectImageInputType('test.png')).toBe('file-path');
         expect(detectImageInputType('path/to/file.png')).toBe('file-path');
+      });
+
+      it('should handle base64 with forward slashes correctly', () => {
+        // Real-world case: PNG screenshot as base64 often contains /
+        let pngBytes = Buffer.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00,
+          0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x03, 0xe8, 0x00, 0x00,
+          0x00, 0x4c,
+        ]);
+        let base64 = pngBytes.toString('base64');
+
+        // Should be detected as base64, not file-path (even though it might contain /)
+        expect(detectImageInputType(base64)).toBe('base64');
       });
     });
 

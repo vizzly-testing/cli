@@ -44,7 +44,8 @@
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "format": "prettier --write src tests",
-    "format:check": "prettier --check src tests"
+    "format:check": "prettier --check src tests",
+    "prepublishOnly": "npm run lint && npm test"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -53,9 +54,7 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "dependencies": {
-    "pngjs": "^7.0.0"
-  },
+  "dependencies": {},
   "peerDependencies": {
     "@vizzly-testing/cli": ">=0.12.0",
     "vitest": ">=4.0.0"

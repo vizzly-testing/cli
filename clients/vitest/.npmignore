@@ -1,0 +1,10 @@
+tests/
+coverage/
+.github/
+.vizzly/
+*.spec.js
+*.test.js
+vitest.config.js
+vitest.e2e.config.js
+.gitignore
+.DS_Store

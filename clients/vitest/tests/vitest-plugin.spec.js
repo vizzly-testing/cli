@@ -73,11 +73,12 @@ describe('Vitest Plugin Integration', () => {
       expect(pkg.exports['.'].types).toBe('./src/index.d.ts');
     });
 
-    it('should have pngjs as dependency', () => {
+    it('should have no runtime dependencies', () => {
       const pkgPath = resolve(process.cwd(), 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
 
-      expect(pkg.dependencies).toHaveProperty('pngjs');
+      // Vitest plugin has no runtime dependencies - everything runs in browser context
+      expect(Object.keys(pkg.dependencies || {})).toHaveLength(0);
     });
 
     it('should have correct peer dependencies', () => {

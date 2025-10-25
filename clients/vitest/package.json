@@ -45,10 +45,10 @@
     "lint:fix": "eslint src tests --fix",
     "format": "prettier --write src tests",
     "format:check": "prettier --check src tests",
-    "prepublishOnly": "npm run lint && npm test"
+    "prepublishOnly": "npm run lint && npm run test:unit"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "access": "public",

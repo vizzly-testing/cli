@@ -240,6 +240,21 @@ jobs:
               - '.github/workflows/ci.yml'
               - '.github/workflows/release-static-site-client.yml'
 
+  changes-vitest:
+    runs-on: ubuntu-latest
+    outputs:
+      vitest: ${{ steps.filter.outputs.vitest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            vitest:
+              - 'clients/vitest/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release-vitest-client.yml'
+
   test-storybook-client:
     runs-on: ubuntu-latest
     needs: [lint, changes-storybook]
@@ -322,9 +337,72 @@ jobs:
       working-directory: ./clients/static-site
       run: npm run build
 
+  test-vitest-client:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [lint, changes-vitest]
+    if: needs.changes-vitest.outputs.vitest == 'true'
+
+    strategy:
+      matrix:
+        node-version: [20, 22, 24]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install CLI dependencies
+      run: npm ci
+
+    - name: Build CLI
+      run: npm run build
+
+    - name: Install Vitest client dependencies
+      working-directory: ./clients/vitest
+      run: npm install
+
+    - name: Get installed Playwright version
+      working-directory: ./clients/vitest
+      id: playwright-version
+      run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-browsers-${{ steps.playwright-version.outputs.version }}-chromium
+
+    - name: Install Playwright browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: ./clients/vitest
+      run: npx playwright install chromium --with-deps
+
+    - name: Run Vitest client linter
+      working-directory: ./clients/vitest
+      run: npm run lint
+
+    - name: Run Vitest client unit tests
+      working-directory: ./clients/vitest
+      run: npm run test:unit
+      env:
+        CI: true
+
+    - name: Run Vitest client E2E tests
+      working-directory: ./clients/vitest
+      run: ../../bin/vizzly.js run "npm run test:e2e"
+      env:
+        CI: true
+        VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
+        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
   ci-check:
     runs-on: ubuntu-latest
-    needs: [lint, test, test-site, test-reporter, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client]
+    needs: [lint, test, test-site, test-reporter, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client, changes-vitest, test-vitest-client]
     if: always()
     steps:
       - name: Check if all jobs passed
@@ -348,6 +426,11 @@ jobs:
 
           if [[ "${{ needs.changes-static-site.outputs.static-site }}" == "true" && "${{ needs.test-static-site-client.result }}" == "failure" ]]; then
             echo "Static site client tests failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.changes-vitest.outputs.vitest }}" == "true" && "${{ needs.test-vitest-client.result }}" == "failure" ]]; then
+            echo "Vitest client tests failed"
             exit 1
           fi
 

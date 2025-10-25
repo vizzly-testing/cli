@@ -30,7 +30,8 @@ describe('createApiHandler', () => {
   describe('handleScreenshot', () => {
     const buildId = 'test-build-123';
     const screenshotName = 'test-screenshot';
-    const imageData = 'base64-image-data';
+    // Use actual valid base64 encoded image data
+    const imageData = Buffer.from('fake-png-image-data').toString('base64');
     const properties = { viewport: '1920x1080' };
 
     it('should handle successful screenshot upload', async () => {

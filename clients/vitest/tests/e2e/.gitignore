@@ -1,0 +1,4 @@
+node_modules
+.vizzly
+.vitest-attachments
+dist

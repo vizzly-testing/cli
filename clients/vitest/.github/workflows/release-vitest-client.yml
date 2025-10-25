@@ -1,0 +1,183 @@
+name: Release Vitest Client
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Configure git
+        run: |
+          git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
+          git config --local user.name "${{ secrets.GIT_USER_NAME }}"
+
+      - name: Ensure we have latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Get current version
+        id: current_version
+        working-directory: ./clients/vitest
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Bump version
+        id: version
+        working-directory: ./clients/vitest
+        run: |
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version | sed 's/v//')
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=vitest/v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog with Claude
+        id: changelog
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Generate release notes for the Vizzly Vitest Integration v${{ steps.version.outputs.version }}.
+
+            Context:
+            - Client location: `clients/vitest/`
+            - Previous tag: `vitest/v${{ steps.current_version.outputs.version }}`
+            - New version: `${{ steps.version.outputs.version }}`
+            - This is a monorepo with multiple clients and a CLI
+
+            Instructions:
+            1. Use git commands (via Bash tool) to get commits since last vitest/* tag
+            2. Analyze which commits are relevant to `clients/vitest/`
+            3. Read the code changes if needed to understand impact
+            4. Generate user-friendly release notes with categories: Added, Changed, Fixed
+            5. Focus on user-facing changes only
+            6. If no relevant changes, output: "No changes to Vitest integration in this release"
+
+            Save the changelog to `clients/vitest/CHANGELOG-RELEASE.md` with this format:
+
+            ## What's Changed
+
+            ### Added
+            - New features
+
+            ### Changed
+            - Breaking or notable changes
+
+            ### Fixed
+            - Bug fixes
+
+            **Full Changelog**: https://github.com/vizzly-testing/cli/compare/vitest/v${{ steps.current_version.outputs.version }}...vitest/v${{ steps.version.outputs.version }}
+          claude_args: '--allowed-tools "Bash(git:*),Write"'
+
+      - name: Install dependencies
+        working-directory: ./clients/vitest
+        run: npm install
+
+      - name: Run tests
+        working-directory: ./clients/vitest
+        run: npm test
+
+      - name: Run linter
+        working-directory: ./clients/vitest
+        run: npm run lint
+
+      - name: Update CHANGELOG.md
+        working-directory: ./clients/vitest
+        run: |
+          # Check if changelog was generated successfully
+          if [ ! -f CHANGELOG-RELEASE.md ]; then
+            echo "Warning: CHANGELOG-RELEASE.md not found, creating fallback changelog"
+            cat > CHANGELOG-RELEASE.md << 'EOF'
+          ## What's Changed
+
+          Release v${{ steps.version.outputs.version }}
+
+          See the full diff for detailed changes.
+          EOF
+          fi
+
+          # Prepend new release to CHANGELOG.md
+          echo -e "# Changelog\n" > CHANGELOG-NEW.md
+          echo "All notable changes to this project will be documented in this file." >> CHANGELOG-NEW.md
+          echo "" >> CHANGELOG-NEW.md
+          echo "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)," >> CHANGELOG-NEW.md
+          echo "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)." >> CHANGELOG-NEW.md
+          echo "" >> CHANGELOG-NEW.md
+          echo "## [${{ steps.version.outputs.version }}] - $(date +%Y-%m-%d)" >> CHANGELOG-NEW.md
+          echo "" >> CHANGELOG-NEW.md
+          cat CHANGELOG-RELEASE.md >> CHANGELOG-NEW.md
+          echo "" >> CHANGELOG-NEW.md
+          tail -n +8 CHANGELOG.md >> CHANGELOG-NEW.md
+          mv CHANGELOG-NEW.md CHANGELOG.md
+          rm CHANGELOG-RELEASE.md
+
+      - name: Reconfigure git auth
+        run: |
+          git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
+          git config --local user.name "${{ secrets.GIT_USER_NAME }}"
+          git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n x-access-token:${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }} | base64)"
+
+      - name: Commit and push changes
+        run: |
+          git add clients/vitest/package.json clients/vitest/CHANGELOG.md
+          git commit -m "🔖 Vitest integration v${{ steps.version.outputs.version }}"
+          git push origin main
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Publish to npm
+        working-directory: ./clients/vitest
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Read changelog for release
+        id: release_notes
+        working-directory: ./clients/vitest
+        run: |
+          # Extract just this version's changelog
+          CHANGELOG=$(sed -n '/## \[${{ steps.version.outputs.version }}\]/,/## \[/p' CHANGELOG.md | sed '$ d')
+          {
+            echo 'notes<<CHANGELOG_EOF'
+            echo "$CHANGELOG"
+            echo 'CHANGELOG_EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: 🧪 Vitest Integration v${{ steps.version.outputs.version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          files: ./clients/vitest/*.tgz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -62,15 +62,15 @@ describe('Client SDK - File Path Support', () => {
     vi.resetModules();
   });
 
-  it('should accept file path and read screenshot from file', async () => {
+  it('should accept file path and send path directly to server', async () => {
     await vizzlyScreenshot('test-from-file', testImagePath);
 
-    const expectedBase64 = Buffer.from('fake-png-data').toString('base64');
+    // File paths are now sent directly to the server (not converted to base64)
     expect(global.fetch).toHaveBeenCalledWith(
       'http://localhost:47392/screenshot',
       expect.objectContaining({
         method: 'POST',
-        body: expect.stringContaining(`"image":"${expectedBase64}"`),
+        body: expect.stringContaining(`"image":"${testImagePath}"`),
       })
     );
   });
@@ -93,12 +93,20 @@ describe('Client SDK - File Path Support', () => {
     );
   });
 
-  it('should throw error for non-existent file', async () => {
+  it('should send non-existent file path to server (server validates)', async () => {
     const nonExistentPath = join(testDir, 'does-not-exist.png');
 
-    await expect(
-      vizzlyScreenshot('test-missing-file', nonExistentPath)
-    ).rejects.toThrow(/Screenshot file not found/);
+    // Client no longer validates file existence - sends path to server
+    // Server will return error if file doesn't exist
+    await vizzlyScreenshot('test-missing-file', nonExistentPath);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:47392/screenshot',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(`"image":"${nonExistentPath}"`),
+      })
+    );
   });
 
   it('should maintain backward compatibility with Buffer', async () => {
@@ -129,6 +137,51 @@ describe('Client SDK - File Path Support', () => {
       expect.objectContaining({
         method: 'POST',
         body: expect.stringContaining('"browser":"chrome"'),
+      })
+    );
+  });
+
+  it('should handle simple filename with extension', async () => {
+    // Create a test file in current directory
+    const simpleFilePath = join(testDir, 'simple.png');
+    writeFileSync(simpleFilePath, Buffer.from('simple-png'));
+
+    await vizzlyScreenshot('test-simple-filename', 'simple.png');
+
+    // Client sends the filename as-is, server will resolve it
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/screenshot'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"image":"simple.png"'),
+      })
+    );
+  });
+
+  it('should handle Windows-style paths', async () => {
+    const windowsPath = 'C:\\\\Users\\\\test\\\\screenshot.png';
+
+    await vizzlyScreenshot('test-windows-path', windowsPath);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/screenshot'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"image":"C:\\\\\\\\Users'),
+      })
+    );
+  });
+
+  it('should handle file:// URIs', async () => {
+    const fileUri = `file://${testImagePath}`;
+
+    await vizzlyScreenshot('test-file-uri', fileUri);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/screenshot'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(`"image":"file://${testImagePath}"`),
       })
     );
   });

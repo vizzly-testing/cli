@@ -1,9 +1,21 @@
 # Changelog
 
-All notable changes to `@vizzly-testing/vitest` will be documented in this file.
+All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.0.2] - 2025-10-25
+
+## What's Changed
+
+### Changed
+- **BREAKING**: Minimum Node.js version raised from 20.x to 22.x for compatibility with `@vizzly-testing/honeydiff`
+
+### Fixed
+- Removed unused `pngjs` runtime dependency - the plugin now has zero runtime dependencies
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/vitest/v0.0.1...vitest/v0.0.2
 
 ## [0.1.0] - 2025-01-24
 

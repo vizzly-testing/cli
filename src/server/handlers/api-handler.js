@@ -1,5 +1,8 @@
 import { Buffer } from 'buffer';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 import { createServiceLogger } from '../../utils/logger-factory.js';
+import { detectImageInputType } from '../../utils/image-input-detector.js';
 
 const logger = createServiceLogger('API-HANDLER');
 
@@ -63,7 +66,59 @@ export const createApiHandler = apiService => {
       };
     }
 
-    const imageBuffer = Buffer.from(image, 'base64');
+    // Support both base64 encoded images and file paths
+    let imageBuffer;
+    const inputType = detectImageInputType(image);
+
+    if (inputType === 'file-path') {
+      // It's a file path - resolve and read the file
+      const filePath = resolve(image.replace('file://', ''));
+
+      if (!existsSync(filePath)) {
+        return {
+          statusCode: 400,
+          body: {
+            error: `Screenshot file not found: ${filePath}`,
+            originalPath: image,
+          },
+        };
+      }
+
+      try {
+        imageBuffer = readFileSync(filePath);
+        logger.debug(`Loaded screenshot from file: ${filePath}`);
+      } catch (error) {
+        return {
+          statusCode: 500,
+          body: {
+            error: `Failed to read screenshot file: ${error.message}`,
+            filePath,
+          },
+        };
+      }
+    } else if (inputType === 'base64') {
+      // It's base64 encoded
+      try {
+        imageBuffer = Buffer.from(image, 'base64');
+      } catch (error) {
+        return {
+          statusCode: 400,
+          body: {
+            error: `Invalid base64 image data: ${error.message}`,
+          },
+        };
+      }
+    } else {
+      // Unknown input type
+      return {
+        statusCode: 400,
+        body: {
+          error:
+            'Invalid image input: must be a file path or base64 encoded image data',
+          receivedType: typeof image,
+        },
+      };
+    }
     screenshotCount++;
 
     // Fire upload in background - DON'T AWAIT!

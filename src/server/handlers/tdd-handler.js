@@ -1,12 +1,13 @@
 import { Buffer } from 'buffer';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { createServiceLogger } from '../../utils/logger-factory.js';
 import { TddService } from '../../services/tdd-service.js';
 import {
   sanitizeScreenshotName,
   validateScreenshotProperties,
 } from '../../utils/security.js';
+import { detectImageInputType } from '../../utils/image-input-detector.js';
 
 const logger = createServiceLogger('TDD-HANDLER');
 
@@ -349,7 +350,64 @@ export const createTddHandler = (
       metadata: validatedProperties,
     };
 
-    const imageBuffer = Buffer.from(image, 'base64');
+    // Support both base64 encoded images and file paths
+    // Vitest browser mode returns file paths, so we need to handle both
+    let imageBuffer;
+    const inputType = detectImageInputType(image);
+
+    if (inputType === 'file-path') {
+      // It's a file path - resolve and read the file
+      const filePath = resolve(image.replace('file://', ''));
+
+      if (!existsSync(filePath)) {
+        return {
+          statusCode: 400,
+          body: {
+            error: `Screenshot file not found: ${filePath}`,
+            originalPath: image,
+            tddMode: true,
+          },
+        };
+      }
+
+      try {
+        imageBuffer = readFileSync(filePath);
+        logger.debug(`Loaded screenshot from file: ${filePath}`);
+      } catch (error) {
+        return {
+          statusCode: 500,
+          body: {
+            error: `Failed to read screenshot file: ${error.message}`,
+            filePath,
+            tddMode: true,
+          },
+        };
+      }
+    } else if (inputType === 'base64') {
+      // It's base64 encoded
+      try {
+        imageBuffer = Buffer.from(image, 'base64');
+      } catch (error) {
+        return {
+          statusCode: 400,
+          body: {
+            error: `Invalid base64 image data: ${error.message}`,
+            tddMode: true,
+          },
+        };
+      }
+    } else {
+      // Unknown input type
+      return {
+        statusCode: 400,
+        body: {
+          error:
+            'Invalid image input: must be a file path or base64 encoded image data',
+          receivedType: typeof image,
+          tddMode: true,
+        },
+      };
+    }
 
     // Auto-detect image dimensions from PNG header if viewport not provided
     // This matches cloud API behavior but without requiring Sharp

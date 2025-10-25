@@ -48,7 +48,8 @@
  */
 
 import { getVizzlyInfo } from '@vizzly-testing/cli/client';
-import { resolve } from 'path';
+import { resolve, join } from 'path';
+import { existsSync, readFileSync } from 'fs';
 
 // For TDD mode only
 let tddService = null;
@@ -204,6 +205,31 @@ export function vizzlyPlugin(options = {}) {
         setupFiles = [setupFiles];
       }
 
+      // Auto-detect Vizzly server (TDD mode or cloud mode)
+      // Search for .vizzly/server.json from process.cwd() up to root
+      let serverUrl = process.env.VIZZLY_SERVER_URL || '';
+      let buildId = process.env.VIZZLY_BUILD_ID || '';
+
+      if (!serverUrl) {
+        // Search for .vizzly/server.json in current working directory and parent directories
+        let currentDir = process.cwd();
+        while (currentDir !== '/') {
+          let serverJsonPath = join(currentDir, '.vizzly', 'server.json');
+          if (existsSync(serverJsonPath)) {
+            try {
+              let serverConfig = JSON.parse(readFileSync(serverJsonPath, 'utf-8'));
+              serverUrl = `http://localhost:${serverConfig.port}`;
+              break;
+            } catch (e) {
+              // Ignore malformed server.json
+            }
+          }
+          let parentDir = resolve(currentDir, '..');
+          if (parentDir === currentDir) break;
+          currentDir = parentDir;
+        }
+      }
+
       return {
         test: {
           setupFiles: [
@@ -218,12 +244,8 @@ export function vizzlyPlugin(options = {}) {
         },
         // Pass Vizzly environment variables to browser context via define
         define: {
-          'import.meta.env.VIZZLY_SERVER_URL': JSON.stringify(
-            process.env.VIZZLY_SERVER_URL || ''
-          ),
-          'import.meta.env.VIZZLY_BUILD_ID': JSON.stringify(
-            process.env.VIZZLY_BUILD_ID || ''
-          ),
+          __VIZZLY_SERVER_URL__: JSON.stringify(serverUrl),
+          __VIZZLY_BUILD_ID__: JSON.stringify(buildId),
         },
       };
     },

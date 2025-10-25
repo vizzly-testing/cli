@@ -9,7 +9,6 @@ import {
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
-import { resolveImageBuffer } from '../utils/file-helpers.js';
 import { existsSync, readFileSync } from 'fs';
 import { join, parse, dirname } from 'path';
 
@@ -114,6 +113,13 @@ function createSimpleClient(serverUrl) {
   return {
     async screenshot(name, imageBuffer, options = {}) {
       try {
+        // If it's a string, assume it's a file path and send directly
+        // Otherwise it's a Buffer, so convert to base64
+        let image =
+          typeof imageBuffer === 'string'
+            ? imageBuffer
+            : imageBuffer.toString('base64');
+
         const response = await fetch(`${serverUrl}/screenshot`, {
           method: 'POST',
           headers: {
@@ -122,7 +128,7 @@ function createSimpleClient(serverUrl) {
           body: JSON.stringify({
             buildId: getBuildId(),
             name,
-            image: imageBuffer.toString('base64'),
+            image,
             properties: options,
             threshold: options.threshold || 0,
             fullPage: options.fullPage || false,
@@ -271,10 +277,9 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
     return;
   }
 
-  // Resolve Buffer or file path using shared utility
-  const buffer = resolveImageBuffer(imageBuffer, 'screenshot');
-
-  return client.screenshot(name, buffer, options);
+  // Pass through the original value (Buffer or file path)
+  // The server will handle reading file paths
+  return client.screenshot(name, imageBuffer, options);
 }
 
 /**

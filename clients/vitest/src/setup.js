@@ -7,8 +7,8 @@ import { expect } from 'vitest';
 // Custom matcher that completely replaces Vitest's toMatchScreenshot
 // This runs in browser context, so we make direct HTTP calls instead of using Node SDK
 async function toMatchScreenshot(element, name, options = {}) {
-  let serverUrl = import.meta.env.VIZZLY_SERVER_URL;
-  let buildId = import.meta.env.VIZZLY_BUILD_ID;
+  let serverUrl = typeof __VIZZLY_SERVER_URL__ !== 'undefined' ? __VIZZLY_SERVER_URL__ : '';
+  let buildId = typeof __VIZZLY_BUILD_ID__ !== 'undefined' ? __VIZZLY_BUILD_ID__ : '';
 
   // If no server URL, Vizzly is not available
   if (!serverUrl) {
@@ -22,14 +22,14 @@ async function toMatchScreenshot(element, name, options = {}) {
   // Import page from Vitest browser context
   const { page } = await import('vitest/browser');
 
-  // Take screenshot
-  let screenshot;
+  // Take screenshot - Vitest browser mode returns a file path, not the image data
+  let screenshotPath;
   if (typeof element === 'object' && element.locator) {
     // It's a Playwright locator
-    screenshot = await element.screenshot(options);
+    screenshotPath = await element.screenshot(options);
   } else {
     // It's the page object
-    screenshot = await page.screenshot(options);
+    screenshotPath = await page.screenshot(options);
   }
 
   let screenshotName = name || `screenshot-${Date.now()}`;
@@ -47,7 +47,9 @@ async function toMatchScreenshot(element, name, options = {}) {
   };
 
   try {
-    // POST screenshot to Vizzly server (works in both TDD and cloud mode)
+    // Vitest browser mode saves screenshots to disk and returns the file path
+    // The TDD server can read the file directly since it's on the same machine
+    // Just send the path as-is
     let response = await fetch(`${serverUrl}/screenshot`, {
       method: 'POST',
       headers: {
@@ -55,7 +57,7 @@ async function toMatchScreenshot(element, name, options = {}) {
       },
       body: JSON.stringify({
         name: screenshotName,
-        image: Array.from(screenshot), // Convert Uint8Array to regular array for JSON
+        image: screenshotPath, // Send file path directly
         buildId: buildId || null,
         threshold,
         fullPage,
@@ -78,23 +80,27 @@ async function toMatchScreenshot(element, name, options = {}) {
     }
 
     // In TDD mode, check comparison result
-    if (result.status === 'new') {
+    // TDD handler returns { success, comparison: { name, status } }
+    let comparison = result.comparison || result;
+    let comparisonStatus = comparison.status;
+
+    if (comparisonStatus === 'new') {
       return {
         pass: false,
         message: () =>
           `New screenshot baseline created: ${screenshotName}. View at http://localhost:47392/dashboard`,
       };
-    } else if (result.status === 'passed') {
+    } else if (comparisonStatus === 'passed') {
       return {
         pass: true,
         message: () => '',
       };
-    } else if (result.status === 'failed') {
-      let diffPercent = result.diffPercentage
-        ? result.diffPercentage.toFixed(2)
+    } else if (comparisonStatus === 'failed') {
+      let diffPercent = comparison.diffPercentage
+        ? comparison.diffPercentage.toFixed(2)
         : '0.00';
 
-      if (result.diffPercentage <= threshold) {
+      if (comparison.diffPercentage <= threshold) {
         return {
           pass: true,
           message: () =>
@@ -112,7 +118,7 @@ async function toMatchScreenshot(element, name, options = {}) {
     // Unknown status
     return {
       pass: false,
-      message: () => `Unknown comparison status: ${result.status}`,
+      message: () => `Unknown comparison status: ${comparisonStatus}`,
     };
   } catch (error) {
     return {

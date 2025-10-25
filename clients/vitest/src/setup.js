@@ -7,8 +7,10 @@ import { expect } from 'vitest';
 // Custom matcher that completely replaces Vitest's toMatchScreenshot
 // This runs in browser context, so we make direct HTTP calls instead of using Node SDK
 async function toMatchScreenshot(element, name, options = {}) {
-  let serverUrl = typeof __VIZZLY_SERVER_URL__ !== 'undefined' ? __VIZZLY_SERVER_URL__ : '';
-  let buildId = typeof __VIZZLY_BUILD_ID__ !== 'undefined' ? __VIZZLY_BUILD_ID__ : '';
+  let serverUrl =
+    typeof __VIZZLY_SERVER_URL__ !== 'undefined' ? __VIZZLY_SERVER_URL__ : '';
+  let buildId =
+    typeof __VIZZLY_BUILD_ID__ !== 'undefined' ? __VIZZLY_BUILD_ID__ : '';
 
   // If no server URL, Vizzly is not available
   if (!serverUrl) {
@@ -126,7 +128,11 @@ async function toMatchScreenshot(element, name, options = {}) {
 
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       errorMessage = `Vizzly server not reachable at ${serverUrl}. Is the TDD server running? Run 'vizzly tdd start' or 'vizzly run "npm test"'.`;
-    } else if (error.message.includes('HTTP 500') || error.message.includes('HTTP 502') || error.message.includes('HTTP 503')) {
+    } else if (
+      error.message.includes('HTTP 500') ||
+      error.message.includes('HTTP 502') ||
+      error.message.includes('HTTP 503')
+    ) {
       errorMessage = `Vizzly server error: ${error.message}. Check the TDD server logs for details.`;
     } else if (error.message.includes('screenshot')) {
       errorMessage = `Screenshot capture failed: ${error.message}. Check that the element exists and is visible.`;

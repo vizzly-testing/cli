@@ -33,6 +33,7 @@
   "types": "./src/index.d.ts",
   "files": [
     "src",
+    "eslint.config.js",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

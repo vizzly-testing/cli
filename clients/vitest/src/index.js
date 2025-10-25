@@ -51,10 +51,10 @@ import { getVizzlyInfo } from '@vizzly-testing/cli/client';
 import { resolve, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 
-export function vizzlyPlugin(options = {}) {
+export function vizzlyPlugin(_options = {}) {
   return {
     name: 'vitest-vizzly',
-    config(config, { mode }) {
+    config(config) {
       // Add setup file to extend expect with our custom matcher
       let setupFiles = config?.test?.setupFiles || [];
       if (!Array.isArray(setupFiles)) {
@@ -73,10 +73,12 @@ export function vizzlyPlugin(options = {}) {
           let serverJsonPath = join(currentDir, '.vizzly', 'server.json');
           if (existsSync(serverJsonPath)) {
             try {
-              let serverConfig = JSON.parse(readFileSync(serverJsonPath, 'utf-8'));
+              let serverConfig = JSON.parse(
+                readFileSync(serverJsonPath, 'utf-8')
+              );
               serverUrl = `http://localhost:${serverConfig.port}`;
               break;
-            } catch (e) {
+            } catch {
               // Ignore malformed server.json
             }
           }

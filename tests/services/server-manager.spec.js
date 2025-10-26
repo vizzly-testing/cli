@@ -132,7 +132,7 @@ describe('ServerManager', () => {
     createApiHandler.mockReturnValue(mockApiHandler);
     ApiService.mockImplementation(() => mockApiService);
 
-    serverManager = new ServerManager(mockConfig, mockLogger);
+    serverManager = new ServerManager(mockConfig, { logger: mockLogger });
 
     vi.clearAllMocks();
   });
@@ -172,7 +172,11 @@ describe('ServerManager', () => {
         false
       );
       expect(mockTddHandler.initialize).toHaveBeenCalled();
-      expect(createHttpServer).toHaveBeenCalledWith(47392, mockTddHandler);
+      expect(createHttpServer).toHaveBeenCalledWith(
+        47392,
+        mockTddHandler,
+        expect.any(Object)
+      );
       expect(mockHttpServer.start).toHaveBeenCalled();
     });
 
@@ -209,16 +213,19 @@ describe('ServerManager', () => {
       await serverManager.start('build-123', false);
 
       expect(createApiHandler).toHaveBeenCalledWith(mockApiService);
-      expect(createHttpServer).toHaveBeenCalledWith(47392, mockApiHandler);
+      expect(createHttpServer).toHaveBeenCalledWith(
+        47392,
+        mockApiHandler,
+        expect.any(Object)
+      );
       expect(mockHttpServer.start).toHaveBeenCalled();
     });
 
     it('should handle API mode without API key', async () => {
       const configWithoutApiKey = { ...mockConfig, apiKey: null };
-      const serverManagerWithoutKey = new ServerManager(
-        configWithoutApiKey,
-        mockLogger
-      );
+      const serverManagerWithoutKey = new ServerManager(configWithoutApiKey, {
+        logger: mockLogger,
+      });
 
       const { createApiHandler } = await import(
         '../../src/server/handlers/api-handler.js'
@@ -237,10 +244,9 @@ describe('ServerManager', () => {
       const configWithoutPort = { ...mockConfig };
       delete configWithoutPort.server;
 
-      const serverManagerWithoutPort = new ServerManager(
-        configWithoutPort,
-        mockLogger
-      );
+      const serverManagerWithoutPort = new ServerManager(configWithoutPort, {
+        logger: mockLogger,
+      });
 
       const { createHttpServer } = await import(
         '../../src/server/http-server.js'
@@ -249,7 +255,11 @@ describe('ServerManager', () => {
       mockHttpServer.start.mockResolvedValue();
       await serverManagerWithoutPort.start(null, false);
 
-      expect(createHttpServer).toHaveBeenCalledWith(47392, expect.any(Object));
+      expect(createHttpServer).toHaveBeenCalledWith(
+        47392,
+        expect.any(Object),
+        expect.any(Object)
+      );
     });
 
     it('should use custom port when specified', async () => {
@@ -258,10 +268,9 @@ describe('ServerManager', () => {
         server: { port: 8080 },
       };
 
-      const serverManagerWithCustomPort = new ServerManager(
-        customConfig,
-        mockLogger
-      );
+      const serverManagerWithCustomPort = new ServerManager(customConfig, {
+        logger: mockLogger,
+      });
 
       const { createHttpServer } = await import(
         '../../src/server/http-server.js'
@@ -270,7 +279,11 @@ describe('ServerManager', () => {
       mockHttpServer.start.mockResolvedValue();
       await serverManagerWithCustomPort.start(null, false);
 
-      expect(createHttpServer).toHaveBeenCalledWith(8080, expect.any(Object));
+      expect(createHttpServer).toHaveBeenCalledWith(
+        8080,
+        expect.any(Object),
+        expect.any(Object)
+      );
     });
   });
 
@@ -349,7 +362,9 @@ describe('ServerManager', () => {
       );
       createTddHandler.mockReturnValue(handlerWithoutCount);
 
-      const newServerManager = new ServerManager(mockConfig, mockLogger);
+      const newServerManager = new ServerManager(mockConfig, {
+        logger: mockLogger,
+      });
       handlerWithoutCount.initialize.mockResolvedValue();
       await newServerManager.start('build-123', true);
 
@@ -382,7 +397,9 @@ describe('ServerManager', () => {
       );
       createTddHandler.mockReturnValue(handlerWithoutFinish);
 
-      const newServerManager = new ServerManager(mockConfig, mockLogger);
+      const newServerManager = new ServerManager(mockConfig, {
+        logger: mockLogger,
+      });
       handlerWithoutFinish.initialize.mockResolvedValue();
       await newServerManager.start('build-123', true);
 
@@ -408,10 +425,9 @@ describe('ServerManager', () => {
 
     it('should return null when no API key', async () => {
       const configWithoutKey = { ...mockConfig, apiKey: null };
-      const serverManagerWithoutKey = new ServerManager(
-        configWithoutKey,
-        mockLogger
-      );
+      const serverManagerWithoutKey = new ServerManager(configWithoutKey, {
+        logger: mockLogger,
+      });
 
       const apiService = await serverManagerWithoutKey.createApiService();
 
@@ -456,10 +472,9 @@ describe('ServerManager', () => {
 
   describe('edge cases', () => {
     it('should handle undefined config gracefully', () => {
-      const serverManagerWithUndefinedConfig = new ServerManager(
-        undefined,
-        mockLogger
-      );
+      const serverManagerWithUndefinedConfig = new ServerManager(undefined, {
+        logger: mockLogger,
+      });
 
       expect(serverManagerWithUndefinedConfig.config).toBeUndefined();
     });
@@ -472,7 +487,7 @@ describe('ServerManager', () => {
 
       const serverManagerWithoutBaseline = new ServerManager(
         configWithoutBaseline,
-        mockLogger
+        { logger: mockLogger }
       );
 
       const { createTddHandler } = await import(

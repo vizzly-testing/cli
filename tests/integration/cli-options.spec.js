@@ -257,7 +257,7 @@ describe('CLI Options Integration', () => {
 
       expect(result.code).toBe(0);
       expect(result.stdout).toContain(
-        'Run tests once with ephemeral TDD server'
+        'Run tests once in TDD mode with local visual comparisons'
       );
       expect(result.stdout).toContain('--port <port>');
       expect(result.stdout).toContain('--branch <branch>');

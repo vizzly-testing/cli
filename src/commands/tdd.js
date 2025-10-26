@@ -102,7 +102,7 @@ export async function tddCommand(
     testRunner.on('server-ready', serverInfo => {
       // Only show in non-daemon mode (daemon shows its own startup message)
       if (!options.daemon) {
-        ui.info(`TDD server running on port ${serverInfo.port}`);
+        ui.info(`TDD screenshot server running on port ${serverInfo.port}`);
         ui.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
       }
       // Verbose server details only in non-daemon mode
@@ -116,7 +116,7 @@ export async function tddCommand(
     });
 
     testRunner.on('screenshot-captured', screenshotInfo => {
-      ui.info(`Vizzly: Screenshot captured - ${screenshotInfo.name}`);
+      ui.info(`Vizzly TDD: Screenshot captured - ${screenshotInfo.name}`);
     });
 
     testRunner.on('comparison-result', comparisonInfo => {
@@ -133,7 +133,7 @@ export async function tddCommand(
     });
 
     testRunner.on('error', error => {
-      ui.error('Test runner error occurred', error, 0); // Don't exit immediately
+      ui.error('TDD test runner error occurred', error, 0); // Don't exit immediately
     });
 
     // Show informational messages about baseline behavior (skip in daemon mode)

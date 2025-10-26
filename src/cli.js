@@ -188,9 +188,7 @@ tddCmd
 // TDD Run - One-off test run with ephemeral server (generates static report)
 tddCmd
   .command('run <command>')
-  .description(
-    'Run tests once with ephemeral TDD server (auto-starts and stops)'
-  )
+  .description('Run tests once in TDD mode with local visual comparisons')
   .option('--port <port>', 'Port for TDD server', '47392')
   .option('--branch <branch>', 'Git branch override')
   .option('--environment <env>', 'Environment name', 'test')

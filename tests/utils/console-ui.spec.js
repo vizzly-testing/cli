@@ -152,6 +152,36 @@ describe('ConsoleUI', () => {
       );
       expect(errorMessageCalls.length).toBe(1);
     });
+
+    it('should handle plain error objects', () => {
+      const ui = new ConsoleUI({ verbose: false });
+      const error = { code: 'ECONNREFUSED', syscall: 'connect', port: 3000 };
+
+      ui.error('Connection failed', error, 0);
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('✖ Connection failed')
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('ECONNREFUSED')
+      );
+    });
+
+    it('should handle circular references in error objects', () => {
+      const ui = new ConsoleUI({ verbose: false });
+      const error = { message: 'Circular error' };
+      error.self = error; // Create circular reference
+
+      ui.error('Circular reference error', error, 0);
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('✖ Circular reference error')
+      );
+      // Should fallback to String(error) which outputs "[object Object]"
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[object Object]')
+      );
+    });
   });
 
   describe('success()', () => {

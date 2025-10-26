@@ -76,15 +76,16 @@ export class ConsoleUI {
         }
       } else if (typeof error === 'string' && error) {
         console.error(this.colors.dim(error));
-      } else if (
-        error &&
-        typeof error === 'object' &&
-        Object.keys(error).length > 0
-      ) {
+      } else if (error && typeof error === 'object') {
         // Show error object details if available
-        const errorStr = JSON.stringify(error, null, 2);
-        if (errorStr !== '{}') {
-          console.error(this.colors.dim(errorStr));
+        try {
+          const errorStr = JSON.stringify(error, null, 2);
+          if (errorStr !== '{}') {
+            console.error(this.colors.dim(errorStr));
+          }
+        } catch {
+          // Fallback for circular references or other JSON.stringify errors
+          console.error(this.colors.dim(String(error)));
         }
       }
     }

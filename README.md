@@ -1,35 +1,32 @@
-# 🐻 Vizzly CLI
+# Vizzly CLI
 
-> Visual development workflow platform for UI teams
+> Visual review platform for UI developers and designers
 
 [![npm version](https://img.shields.io/npm/v/@vizzly-testing/cli.svg)](https://www.npmjs.com/package/@vizzly-testing/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What is Vizzly?
 
-Vizzly makes visual quality part of your development process, not an afterthought. Iterate locally
-with `vizzly tdd`, collaborate on automatic CI/CD builds, and ship with visual confidence.
+Vizzly is a visual review platform designed for how modern teams work. Instead of recreating your
+components in a sandboxed environment, Vizzly captures screenshots directly from your functional
+tests. This means you test the *real thing*, not a snapshot.
 
-Unlike tools that recreate your components in sandboxed environments, Vizzly works with screenshots
-from your *actual* tests - whether that's Playwright in CI, BrowserStack for cross-browser testing,
-or your local development environment. No rendering inconsistencies. No "it works in my app but not
-in the testing tool."
-
-The result? Visual quality integrated into development, not bolted on afterward.
+It's fast because we don't render anything—we process the images you provide from any source. Bring
+screenshots from web apps, mobile apps, or even design mockups, and use our collaborative dashboard
+to streamline the review process between developers and designers.
 
 ## Features
 
-- 🔄 **Local TDD Workflow** - Iterate on visual changes instantly with `vizzly tdd`, see exactly what changed as you code
-- 💬 **Advanced Collaboration** - Position-based comments, review rules, mentions, and deep links for team coordination
-- 🍯 **Honeydiff Engine** - Purpose-built diffing with dynamic content detection, SSIM scoring, and smart AA filtering
-- 📸 **Flexible Screenshots** - Works with any screenshot source: Playwright, BrowserStack, Sauce Labs, local dev
-- ✅ **Seamless CI/CD** - Automatic builds from every commit, no manual steps
+- 📸 **Smart Screenshots** - Automatic deduplication and intelligent diffing
+- 🎨 **Any Screenshot** - Web, mobile, desktop, design mockups, or any visual content
+- 🏃 **TDD Mode** - Local visual testing with interactive dashboard, settings, and project tools
+- 📊 **Beautiful Dashboard** - Intuitive web interface for reviewing changes
+- 👥 **Team Collaboration** - Built for UI developers and designers to work together
+- 🔄 **CI/CD Ready** - GitHub, GitLab, CircleCI, and more
 
 ## Quick Start
 
-**Requirements:** Node.js 22 or newer.
-
-> **Note:** Vizzly supports [active LTS versions](https://nodejs.org/en/about/previous-releases) of Node.js.
+Requirements: Node.js 20 or newer.
 
 ```bash
 # Install globally
@@ -41,163 +38,630 @@ vizzly init
 
 ### Authentication
 
-**Local Development:**
-```bash
-vizzly login                    # OAuth login with your Vizzly account
-vizzly project:select           # Optional: configure project token for this directory
-```
+Vizzly supports two authentication methods:
 
-**CI/CD:**
+**Option 1: User Authentication (Recommended for local development)**
 ```bash
-export VIZZLY_TOKEN=your-project-token
+# Authenticate with your Vizzly account
+vizzly login
+
+# Optional: Configure project-specific token
+vizzly project:select
+
+# Run tests
 vizzly run "npm test"
 ```
 
-See [authentication guide](./docs/authentication.md) for token priority and `.env` file setup.
-
-### Basic Usage
-
-**TDD Mode** (local development - the fast iteration loop):
+**Option 2: API Token (Recommended for CI/CD)**
 ```bash
-vizzly tdd start                   # Start server, see changes in real-time
-npm test -- --watch                # Run your tests
-# Open dashboard at http://localhost:47392
+# Set via environment variable
+export VIZZLY_TOKEN=your-project-token
+
+# Run tests
+vizzly run "npm test"
 ```
 
-**Run Mode** (CI/CD - for team collaboration):
-```bash
-vizzly run "npm test"              # Run tests, upload to cloud
-vizzly run "npm test" --wait       # Wait for results, fail on visual changes
+For local development with `.env` files:
+```
+VIZZLY_TOKEN=your-project-token
 ```
 
-**In your test code:**
+Then add `.env` to your `.gitignore` file. For CI/CD, use your provider's secret management system.
+
+**Token Priority:**
+1. CLI flag (`--token`)
+2. Environment variable (`VIZZLY_TOKEN`)
+3. Project mapping (configured via `vizzly project:select`)
+4. User access token (from `vizzly login`)
+
+### Upload existing screenshots
+
+```bash
+vizzly upload ./screenshots --build-name "Release v1.2.3"
+```
+
+### Integrate with your tests
+
+```bash
+# Run tests with cloud integration (CI/CD)
+vizzly run "npm test"
+
+# Use TDD mode for local development
+vizzly tdd start      # Start TDD server
+npm test --watch      # Run tests in watch mode
+```
+
+### In your test code
+
 ```javascript
 import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
 
+// Option 1: Using a Buffer
 const screenshot = await page.screenshot();
 await vizzlyScreenshot('homepage', screenshot, {
   browser: 'chrome',
   viewport: '1920x1080'
 });
+
+// Option 2: Using a file path
+await page.screenshot({ path: './screenshots/homepage.png' });
+await vizzlyScreenshot('homepage', './screenshots/homepage.png', {
+  browser: 'chrome',
+  viewport: '1920x1080'
+});
 ```
 
-See [test integration guide](./docs/test-integration.md) for Playwright, Cypress, and other frameworks.
-
-## Client SDKs & Plugins
-
-Vizzly provides specialized clients and plugins for various frameworks and languages:
-
-### Official Client SDKs
-
-- **[Ruby Client](./clients/ruby)** - Lightweight Ruby SDK for RSpec, Capybara, and other test frameworks
-- **[Vitest Plugin](./clients/vitest)** - Drop-in replacement for Vitest's native visual testing with `toMatchScreenshot`
-- **[Storybook Plugin](./clients/storybook)** - Capture screenshots from Storybook builds with interaction hooks
-- **[Static Site Plugin](./clients/static-site)** - Visual testing for static sites (Gatsby, Astro, Next.js, Jekyll, etc.)
-
-Each client is designed to integrate seamlessly with your existing workflow while providing the full
-power of Vizzly's visual testing platform.
+> **Multi-Language Support**: Currently available as a JavaScript/Node.js SDK with Python, Ruby, and
+> other language bindings coming soon. The client SDK is lightweight and simply POSTs screenshot
+> data to the CLI for processing.
 
 ## Commands
 
-### Core Commands
+### Authentication Commands
 
 ```bash
-vizzly run "npm test"               # Run tests and upload to cloud
-vizzly tdd start                    # Start local TDD server with dashboard
-vizzly upload ./screenshots         # Upload existing screenshots
-vizzly status <build-id>            # Check build status
-vizzly init                         # Create vizzly.config.js
+vizzly login                        # Authenticate with your Vizzly account
+vizzly logout                       # Clear stored authentication tokens
+vizzly whoami                       # Show current user and authentication status
+vizzly project:select               # Configure project-specific token
+vizzly project:list                 # Show all configured projects
+vizzly project:token                # Display project token for current directory
+vizzly project:remove               # Remove project configuration
 ```
 
-See [API reference](./docs/api-reference.md) for all options.
-
-### Authentication
+#### Login Command
+Authenticate using OAuth 2.0 device flow. Opens your browser to authorize the CLI with your Vizzly account.
 
 ```bash
-vizzly login                        # OAuth login
-vizzly logout                       # Clear tokens
-vizzly whoami                       # Show current user
-vizzly project:select               # Configure project token for directory
+# Interactive browser-based login
+vizzly login
+
+# JSON output for scripting
+vizzly login --json
 ```
 
-See [authentication guide](./docs/authentication.md) for details.
+**Features:**
+- Browser auto-opens with pre-filled device code
+- Secure OAuth 2.0 device authorization flow
+- 30-day token expiry with automatic refresh
+- Tokens stored securely in `~/.vizzly/config.json` with 0600 permissions
+
+#### Logout Command
+Clear all stored authentication tokens from your machine.
+
+```bash
+# Clear all tokens
+vizzly logout
+
+# JSON output
+vizzly logout --json
+```
+
+Revokes tokens on the server and removes them from local storage.
+
+#### Whoami Command
+Display current authentication status, user information, and organizations.
+
+```bash
+# Show user and authentication info
+vizzly whoami
+
+# JSON output for scripting
+vizzly whoami --json
+```
+
+Shows:
+- Current user email and name
+- Organizations you belong to
+- Token status and expiry
+- Project mappings (if any)
+
+#### Project Commands
+Configure directory-specific project tokens for multi-project workflows.
+
+```bash
+# Select a project for current directory
+vizzly project:select
+
+# List all configured projects
+vizzly project:list
+
+# Show token for current directory
+vizzly project:token
+
+# Remove project configuration
+vizzly project:remove
+```
+
+**Use case:** Working on multiple Vizzly projects? Configure each project directory with its specific token. The CLI automatically uses the right token based on your current directory.
+
+### Upload Screenshots
+```bash
+vizzly upload <directory>           # Upload screenshots from directory
+vizzly upload ./screenshots --wait  # Wait for processing
+vizzly upload ./screenshots --upload-all  # Upload all without deduplication
+vizzly upload ./screenshots --parallel-id "ci-run-123"  # For parallel CI builds
+```
+
+### Run Tests with Integration
+```bash
+vizzly run "npm test"               # Run with Vizzly integration
+vizzly run "pytest" --port 3002     # Custom port
+vizzly run "npm test" --wait        # Wait for build completion
+vizzly run "npm test" --allow-no-token  # Run without API token
+vizzly run "npm test" --parallel-id "ci-run-123"  # For parallel CI builds
+```
+
+#### Run Command Options
+
+**Server Configuration:**
+- `--port <port>` - Port for screenshot server (default: 47392)
+- `--timeout <ms>` - Server timeout in milliseconds (default: 30000)
+
+**Build Configuration:**
+- `-b, --build-name <name>` - Custom build name
+- `--branch <branch>` - Git branch override
+- `--commit <sha>` - Git commit SHA override
+- `--message <msg>` - Commit message
+- `--environment <env>` - Environment name (default: test)
+
+**Processing Options:**
+- `--wait` - Wait for build completion and exit with appropriate code
+- `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
+- `--upload-timeout <ms>` - Upload wait timeout in ms
+- `--upload-all` - Upload all screenshots without SHA deduplication
+
+**Parallel Execution:**
+- `--parallel-id <id>` - Unique identifier for parallel test execution (also via `VIZZLY_PARALLEL_ID`)
+
+**Development & Testing:**
+- `--allow-no-token` - Allow running without API token (useful for local development)
+- `--token <token>` - API token override
+
+## Dev Command
+
+For local development with visual testing, use the `dev` command:
+
+```bash
+# Start interactive dev server (runs in background)
+vizzly dev start
+
+# Run your tests in watch mode (same terminal or new one)
+npm test -- --watch
+
+# View the dashboard at http://localhost:47392
+```
+
+**Interactive Dashboard:** The dev dashboard provides real-time feedback:
+- **Visual Comparisons** - See diffs as tests run with multiple view modes
+- **Baseline Management** - Accept/reject changes directly from the UI
+- **Configuration Editor** - Edit settings without touching config files
+- **Project Management** - Login, link directories to cloud projects
+- **Test Statistics** - Real-time pass/fail metrics
+- **Dark Theme** - Easy on the eyes during long sessions
+
+**Dev Subcommands:**
+
+```bash
+# Start the dev server (primary workflow)
+vizzly dev start [options]
+
+# Run tests once with ephemeral server (generates static report)
+vizzly dev run "npm test" [options]
+
+# Check dev server status
+vizzly dev status
+
+# Stop a running dev server
+vizzly dev stop
+```
+
+**Dev Command Options:**
+- `--set-baseline` - Accept current screenshots as new baseline
+- `--baseline-build <id>` - Use specific build as baseline (requires API token)
+- `--threshold <number>` - Comparison threshold (0-1, default: 0.1)
+- `--port <port>` - Server port (default: 47392)
+- `--timeout <ms>` - Server timeout (default: 30000)
+- `--open` - Auto-open dashboard in browser (start command only)
+
+### Setup and Status Commands
+```bash
+vizzly init                         # Create vizzly.config.js with defaults
+vizzly status <build-id>            # Check build progress and results
+vizzly status <build-id> --verbose  # Detailed build information
+vizzly status <build-id> --json     # Machine-readable output
+vizzly finalize <parallel-id>       # Finalize parallel build after all shards complete
+vizzly doctor                       # Fast local preflight (no network)
+vizzly doctor --api                 # Include API connectivity checks
+```
+
+#### Init Command
+Creates a basic `vizzly.config.js` configuration file with sensible defaults. No interactive
+prompts - just generates a clean config you can customize.
+
+```bash
+vizzly init           # Create config file
+vizzly init --force   # Overwrite existing config
+```
+
+#### Status Command
+Check the progress and results of your builds. Shows comprehensive information including:
+- Build status and progress
+- Screenshot and comparison counts (new, changed, identical)
+- Git branch and commit details
+- Direct web dashboard link
+- Timing and execution information
+
+```bash
+# Basic status check
+vizzly status abc123-def456-build-id
+
+# Detailed information for debugging
+vizzly status abc123-def456-build-id --verbose
+
+# JSON output for CI/CD integration
+vizzly status abc123-def456-build-id --json
+```
+
+### Doctor
+- Purpose: Quickly validate your local setup without network calls by default.
+- Checks: Node.js version (>= 20), `apiUrl` format, comparison `threshold`, effective `port` (default 47392).
+- Optional: Add `--api` to verify connectivity using your `VIZZLY_TOKEN`.
+
+Examples:
+```bash
+# Local-only checks
+vizzly doctor
+
+# Include API connectivity
+VIZZLY_TOKEN=your-token vizzly doctor --api
+
+# JSON output for tooling
+vizzly doctor --json
+```
+
+The `dev` command provides fast local development with immediate visual feedback. See the
+[Dev Mode Guide](./docs/dev-mode.md) for complete details on local visual testing.
+
+> **Note:** The `vizzly tdd` command is deprecated and will be removed in the next major version. Please use `vizzly dev` instead.
 
 ## Configuration
 
+Create a `vizzly.config.js` file with `vizzly init` or manually:
+
 ```javascript
-// vizzly.config.js
 export default {
-  server: { port: 47392 },
-  comparison: { threshold: 0.1 },
-  upload: { concurrency: 5 }
+  // Server configuration
+  server: {
+    port: 47392,
+    timeout: 30000
+  },
+
+  // Comparison configuration
+  comparison: {
+    threshold: 0.1,
+    ignoreAntialiasing: true
+  },
+
+  // Upload configuration
+  upload: {
+    concurrency: 5,
+    timeout: 30000
+  }
 };
 ```
 
-Run `vizzly init` to generate this file. See [API reference](./docs/api-reference.md) for all options.
+Run `vizzly init` to generate this file automatically with sensible defaults.
+
+## Config Reference
+
+For the full configuration schema and CLI options, see docs/api-reference.md.
+
+## Framework Examples
+
+### Playwright
+```javascript
+import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
+
+test('homepage test', async ({ page }) => {
+  await page.goto('/');
+  const screenshot = await page.screenshot();
+  await vizzlyScreenshot('homepage', screenshot, {
+    browser: 'chrome',
+    viewport: '1920x1080'
+  });
+});
+```
+
+### Cypress
+```javascript
+// cypress/support/commands.js
+Cypress.Commands.add('vizzlyScreenshot', (name, properties = {}) => {
+  cy.screenshot(name, { capture: 'viewport' });
+  cy.readFile(`cypress/screenshots/${name}.png`, 'base64').then((imageBase64) => {
+    const imageBuffer = Buffer.from(imageBase64, 'base64');
+    return vizzlyScreenshot(name, imageBuffer, {
+      browser: Cypress.browser.name,
+      ...properties
+    });
+  });
+});
+```
 
 ## CI/CD Integration
 
-Every commit creates a team build automatically - your development workflow becomes your review workflow.
+For CI/CD pipelines, use the `--wait` flag to wait for visual comparison results and get appropriate exit codes:
 
-**GitHub Actions:**
+### GitHub Actions
 ```yaml
 - name: Visual Tests
   run: npx vizzly run "npm test" --wait
   env:
     VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+    # Optional: Provide correct git information from GitHub context
+    VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+    VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+    VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
 ```
 
-**Parallel builds** (for faster test suites):
+### Parallel Builds in CI
+
+For parallel test execution, use `--parallel-id` to ensure all shards contribute to the same build:
+
 ```yaml
-- run: npx vizzly run "npm test -- --shard=${{ matrix.shard }}" --parallel-id="${{ github.run_id }}"
-- run: npx vizzly finalize "${{ github.run_id }}"  # After all shards complete
+# GitHub Actions with parallel matrix
+jobs:
+  e2e-tests:
+    strategy:
+      matrix:
+        shard: [1/4, 2/4, 3/4, 4/4]
+    steps:
+      - name: Run tests with Vizzly
+        run: |
+          npx vizzly run "npm test -- --shard=${{ matrix.shard }}" \
+            --parallel-id="${{ github.run_id }}-${{ github.run_attempt }}"
+        env:
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+
+  finalize-e2e:
+    needs: e2e-tests
+    runs-on: ubuntu-latest
+    if: always() && needs.e2e-tests.result == 'success'
+    steps:
+      - name: Finalize parallel build
+        run: |
+          npx vizzly finalize "${{ github.run_id }}-${{ github.run_attempt }}"
+        env:
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
 ```
 
-The `--wait` flag exits non-zero on visual changes, so your CI fails appropriately. See [CI/CD
-examples](./docs/getting-started.md#cicd-integration) for GitLab, CircleCI, and more.
+### GitLab CI
+```yaml
+visual-tests:
+  stage: test
+  image: node:20
+  script:
+    - npm ci
+    - npx vizzly run "npm test" --wait
+  variables:
+    VIZZLY_TOKEN: $VIZZLY_TOKEN
+```
 
-## Plugin System
+The `--wait` flag ensures the process:
+- Waits for all screenshots to be processed
+- Exits with code `1` if visual differences are detected
+- Exits with code `0` if all comparisons pass
+- Allows your CI to fail appropriately when visual regressions occur
 
-Vizzly's plugin system allows extending the CLI with custom commands. Plugins under `@vizzly-testing/*` are auto-discovered:
+## API Reference
+
+### `vizzlyScreenshot(name, imageBuffer, properties)`
+Send a screenshot to Vizzly.
+- `name` (string): Screenshot identifier
+- `imageBuffer` (Buffer | string): Image data as Buffer, or file path to an image
+- `properties` (object): Metadata for organization
+
+**File Path Support:**
+- Accepts both absolute and relative paths
+- Automatically reads the file and converts to Buffer internally
+- Works with any PNG image file
+
+### `isVizzlyEnabled()`
+Check if Vizzly is enabled in the current environment.
+
+## AI & Editor Integrations
+
+### Claude Code Plugin
+
+Vizzly includes built-in support for [Claude Code](https://claude.com/code), Anthropic's official CLI tool. The integration brings AI-powered visual testing workflows directly into your development environment.
+
+**Features:**
+- 🤖 **AI-assisted debugging** - Get intelligent analysis of visual regressions
+- 📊 **TDD status insights** - Check dashboard status with contextual suggestions
+- 🔍 **Smart diff analysis** - AI helps determine if changes should be accepted or fixed
+- ✨ **Test coverage suggestions** - Get framework-specific screenshot recommendations
+- 🛠️ **Interactive setup** - Guided configuration and CI/CD integration help
+
+**Getting Started with Claude Code:**
+
+1. **Install Claude Code** (if you haven't already):
+   ```bash
+   npm install -g @anthropic-ai/claude-code
+   ```
+
+2. **Install the Vizzly plugin** via Claude Code marketplace:
+   ```
+   /plugin marketplace add vizzly-testing/cli
+   ```
+
+3. **Use AI-powered workflows** with slash commands:
+   ```
+   /vizzly:check-visual-tests      # Check dev server status with AI insights
+   /vizzly:debug-visual-regression # Analyze visual failures with AI
+   /vizzly:suggest-screenshots     # Find test coverage gaps
+   /vizzly:setup                   # Interactive setup wizard
+   ```
+
+The plugin works seamlessly with both local dev mode and cloud builds, providing contextual help based on your current workflow.
+
+## Plugin Ecosystem
+
+Vizzly supports a powerful plugin system that allows you to extend the CLI with custom
+commands. Plugins are automatically discovered from `@vizzly-testing/*` packages or can be
+explicitly configured.
+
+### Official Plugins
+
+- **Claude Code Integration** *(built-in)* - AI-powered visual testing workflows for Claude Code
+- **[@vizzly-testing/storybook](https://npmjs.com/package/@vizzly-testing/storybook)** *(coming
+  soon)* - Capture screenshots from Storybook builds
+
+### Using Plugins
+
+Plugins under the `@vizzly-testing/*` scope are auto-discovered:
 
 ```bash
+# Install plugin
 npm install @vizzly-testing/storybook
-vizzly storybook ./storybook-static   # Command automatically available
+
+# Use immediately - commands are automatically available!
+vizzly storybook ./storybook-static
+
+# Plugin commands show in help
+vizzly --help
 ```
 
-**Official Plugins:**
-- **Claude Code** *(built-in)* - AI-powered debugging and test suggestions
-- **[@vizzly-testing/storybook](./clients/storybook)** - Storybook screenshot capture
-- **[@vizzly-testing/static-site](./clients/static-site)** - Static site testing
-- **[@vizzly-testing/vitest](./clients/vitest)** - Vitest integration
+### Creating Plugins
 
-See [plugin development guide](./docs/plugins.md) to create your own.
+You can create your own plugins to add custom commands:
+
+```javascript
+// plugin.js
+export default {
+  name: 'my-plugin',
+  version: '1.0.0',
+  register(program, { config, logger, services }) {
+    program
+      .command('my-command')
+      .description('My custom command')
+      .action(async () => {
+        logger.info('Running my command!');
+      });
+  }
+};
+```
+
+Add to your `vizzly.config.js`:
+
+```javascript
+export default {
+  plugins: ['./plugin.js']
+};
+```
+
+See the [Plugin Development Guide](./docs/plugins.md) for complete documentation and examples.
 
 ## Documentation
 
 - [Getting Started](./docs/getting-started.md)
 - [Authentication Guide](./docs/authentication.md)
+- [Upload Command Guide](./docs/upload-command.md)
 - [Test Integration Guide](./docs/test-integration.md)
-- [TDD Mode Guide](./docs/tdd-mode.md)
-- [API Reference](./docs/api-reference.md)
+- [Dev Mode Guide](./docs/dev-mode.md)
 - [Plugin Development](./docs/plugins.md)
+- [API Reference](./docs/api-reference.md)
+- [Doctor Command](./docs/doctor-command.md)
+
+**AI & Editor Integrations:**
+- Claude Code Plugin - Built-in support (see [AI & Editor Integrations](#ai--editor-integrations) above)
 
 ## Environment Variables
 
-**Common:**
-- `VIZZLY_TOKEN` - API authentication token (use `vizzly login` for local dev)
-- `VIZZLY_PARALLEL_ID` - Identifier for parallel CI builds
+### Authentication
+- `VIZZLY_TOKEN`: API authentication token (project token or access token). Example: `export VIZZLY_TOKEN=your-token`.
+  - For local development: Use `vizzly login` instead of manually managing tokens
+  - For CI/CD: Use project tokens from environment variables
 
-**Git Overrides (for CI):**
-- `VIZZLY_COMMIT_SHA`, `VIZZLY_COMMIT_MESSAGE`, `VIZZLY_BRANCH`, `VIZZLY_PR_NUMBER`
+### Core Configuration
+- `VIZZLY_API_URL`: Override API base URL. Default: `https://app.vizzly.dev`.
+- `VIZZLY_LOG_LEVEL`: Logger level. One of `debug`, `info`, `warn`, `error`. Example: `export VIZZLY_LOG_LEVEL=debug`.
 
-See [API reference](./docs/api-reference.md) for complete list.
+### Parallel Builds
+- `VIZZLY_PARALLEL_ID`: Unique identifier for parallel test execution. Example: `export VIZZLY_PARALLEL_ID=ci-run-123`.
+
+### Git Information Override
+For enhanced CI/CD integration, you can override git detection with these environment variables:
+
+- `VIZZLY_COMMIT_SHA`: Override detected commit SHA. Useful in CI environments.
+- `VIZZLY_COMMIT_MESSAGE`: Override detected commit message. Useful in CI environments.
+- `VIZZLY_BRANCH`: Override detected branch name. Useful in CI environments.
+- `VIZZLY_PR_NUMBER`: Override detected pull request number. Useful for PR-specific builds.
+
+**Example for GitHub Actions:**
+```yaml
+env:
+  VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+  VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+  VIZZLY_BRANCH: ${{ github.head_ref || github.ref_name }}
+  VIZZLY_PR_NUMBER: ${{ github.event.pull_request.number }}
+```
+
+These variables take highest priority over both CLI arguments and automatic git detection.
 
 ## Contributing
 
-We'd love your help making Vizzly better! Whether you're fixing bugs, adding features, or improving
-docs - contributions are welcome. Check out the [GitHub repo](https://github.com/vizzly-testing/cli)
-to get started.
+We welcome contributions! Whether you're fixing bugs, adding features, or improving documentation,
+your help makes Vizzly better for everyone.
+
+### Getting Started
+
+1. Fork the repository on [GitHub](https://github.com/vizzly-testing/cli)
+2. Clone your fork locally: `git clone https://github.com/your-username/cli.git`
+3. Install dependencies: `npm install`
+4. Run tests to ensure everything works: `npm test`
+
+### Development Workflow
+
+1. Create a feature branch: `git checkout -b feature/your-feature-name`
+2. Make your changes and **add tests** for any new functionality
+3. Run the linter: `npm run lint`
+4. Run tests: `npm test`
+5. Commit your changes using [gitmoji](https://gitmoji.dev/) format: `git commit -m '✨ Add your feature'`
+6. Push to your fork: `git push origin feature/your-feature-name`
+7. Open a Pull Request
+
+### Reporting Issues
+
+Found a bug or have a feature request? Please [open an issue](https://github.com/vizzly-testing/cli/issues) with:
+
+- A clear description of the problem or request
+- Steps to reproduce (for bugs)
+- Your environment details (OS, Node.js version, etc.)
+
+### Development Setup
+
+The CLI is built with modern JavaScript and requires Node.js 20+ (LTS). See the development scripts
+in `package.json` for available commands.
 
 ## License
 

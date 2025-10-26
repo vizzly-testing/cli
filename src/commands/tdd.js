@@ -40,7 +40,7 @@ export async function tddCommand(
     const allOptions = { ...globalOptions, ...options };
     const config = await loadConfig(globalOptions.config, allOptions);
 
-    // TDD mode works locally by default - only needs token for baseline download
+    // Dev mode works locally by default - only needs token for baseline download
     const needsToken = options.baselineBuild || options.baselineComparison;
 
     if (!config.apiKey && needsToken) {
@@ -49,7 +49,7 @@ export async function tddCommand(
       );
     }
 
-    // Always allow no-token mode for TDD unless baseline flags are used
+    // Always allow no-token mode for dev mode unless baseline flags are used
     config.allowNoToken = true;
 
     if (!config.apiKey && !options.daemon) {
@@ -78,7 +78,7 @@ export async function tddCommand(
     }
 
     // Create service container and get services
-    ui.startSpinner('Initializing TDD mode...');
+    ui.startSpinner('Initializing TDD server...');
     const configWithVerbose = { ...config, verbose: globalOptions.verbose };
     const container = await createServiceContainer(configWithVerbose, 'tdd');
 
@@ -88,7 +88,7 @@ export async function tddCommand(
     // Set up event handlers for user feedback
     testRunner.on('progress', progressData => {
       const { message: progressMessage } = progressData;
-      ui.progress(progressMessage || 'Running TDD tests...');
+      ui.progress(progressMessage || 'Running tests...');
     });
 
     testRunner.on('test-output', output => {
@@ -167,7 +167,7 @@ export async function tddCommand(
       allowNoToken: config.allowNoToken || false, // Pass through the allow-no-token setting
       baselineBuildId: config.baselineBuildId,
       baselineComparisonId: config.baselineComparisonId,
-      wait: false, // No build to wait for in TDD mode
+      wait: false, // No build to wait for in dev mode
     };
 
     // In daemon mode, just start the server without running tests
@@ -185,11 +185,11 @@ export async function tddCommand(
       };
     }
 
-    // Normal TDD mode - run tests
-    ui.info('Starting TDD test execution...');
+    // Normal dev mode - run tests
+    ui.info('Starting test execution...');
     const result = await testRunner.run(runOptions);
 
-    // Show TDD summary
+    // Show summary
     const { screenshotsCaptured, comparisons } = result;
 
     console.log(`🐻 Vizzly TDD: Processed ${screenshotsCaptured} screenshots`);

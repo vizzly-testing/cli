@@ -5,7 +5,10 @@ import { loadConfig } from '../../src/utils/config-loader.js';
 describe('TestRunner Service Integration Test', () => {
   it('should be able to instantiate the test runner and call the run method', async () => {
     const config = await loadConfig();
-    const container = await createServiceContainer(config);
+    // Ensure allowNoToken is set for test environment
+    config.allowNoToken = true;
+    // Use 'tdd' mode to allow no-token operation
+    const container = await createServiceContainer(config, 'tdd');
 
     const testRunner = await container.get('testRunner');
 

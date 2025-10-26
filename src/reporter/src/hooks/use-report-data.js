@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchReportData } from '../services/api-client.js';
+import { fetchReportData, isStaticMode } from '../services/api-client.js';
 
 export default function useReportData(initialData) {
   let [reportData, setReportData] = useState(initialData);
@@ -9,6 +9,11 @@ export default function useReportData(initialData) {
 
   let refetch = useCallback(
     async (silent = false) => {
+      // In static mode, data never changes - no need to refetch
+      if (isStaticMode()) {
+        return;
+      }
+
       try {
         if (!silent) setLoading(true);
         let data = await fetchReportData();
@@ -33,9 +38,9 @@ export default function useReportData(initialData) {
     }
   }, [initialData, refetch]);
 
-  // Simple polling every 2 seconds
+  // Simple polling every 2 seconds (only in live mode)
   useEffect(() => {
-    if (!reportData) return;
+    if (!reportData || isStaticMode()) return;
 
     pollingIntervalRef.current = setInterval(() => {
       refetch(true); // Silent refetch

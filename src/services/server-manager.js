@@ -9,10 +9,11 @@ import { createTddHandler } from '../server/handlers/tdd-handler.js';
 import { createApiHandler } from '../server/handlers/api-handler.js';
 
 export class ServerManager extends BaseService {
-  constructor(config, logger) {
-    super(config, { logger });
+  constructor(config, options = {}) {
+    super(config, options);
     this.httpServer = null;
     this.handler = null;
+    this.services = options.services || {};
   }
 
   async start(buildId = null, tddMode = false, setBaseline = false) {
@@ -40,7 +41,7 @@ export class ServerManager extends BaseService {
       this.handler = createApiHandler(apiService);
     }
 
-    this.httpServer = createHttpServer(port, this.handler);
+    this.httpServer = createHttpServer(port, this.handler, this.services);
 
     if (this.httpServer) {
       await this.httpServer.start();

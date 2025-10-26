@@ -1,6 +1,6 @@
 # TDD Mode Guide
 
-TDD (Test-Driven Development) Mode enables fast local development with an interactive dashboard for real-time visual comparison feedback.
+TDD Mode enables test-driven visual development with an interactive dashboard for rapid iteration.
 
 ## What is TDD Mode?
 
@@ -10,23 +10,26 @@ TDD Mode transforms your visual testing workflow with:
 - **Local Comparison** - Compares screenshots on your machine using `honeydiff`
 - **Live Updates** - See comparisons instantly in the browser
 - **Baseline Management** - Accept/reject changes directly from the UI
+- **Settings Editor** - Adjust comparison threshold, ports, and more without touching config files
+- **Project Tools** - Login and link directories to cloud projects from the dashboard
 - **Fast Feedback** - No network uploads during development
-- **No Token Required** - Works entirely offline for local development
+- **No Token Required** - Visual testing works entirely offline for local development
 
 ## Quick Start
 
-### 1. Start the TDD Dashboard
+### 1. Start the TDD Server
 
-Start the interactive dashboard server:
+Start the interactive TDD server:
 
 ```bash
 npx vizzly tdd start
 ```
 
-🐻 **Dashboard starts:**
+🐻 **TDD server starts:**
 - Opens at `http://localhost:47392` (or custom `--port`)
-- Shows empty state ready for comparisons
+- Dashboard shows empty state ready for comparisons
 - Runs in the background and returns your terminal immediately
+- Settings and Projects tabs available for convenient configuration
 
 ### 2. Run Your Tests in Watch Mode
 
@@ -65,7 +68,18 @@ npx vizzly tdd run "npm test" --set-baseline
 - All tests pass (baseline accepted)
 - Future runs use updated baselines
 
-### 5. Stop the Dashboard
+### 5. Manage Settings & Projects (Optional)
+
+Use the dashboard tabs for convenient configuration:
+
+- **Settings** - Edit comparison thresholds, ports, and build settings without touching files
+- **Projects** - Login to Vizzly cloud and link directories to projects
+- **Comparisons** - View visual diffs (main view)
+- **Stats** - See test metrics and trends
+
+These tools are conveniences - you can always edit `vizzly.config.js` directly or use `vizzly login`/`vizzly project:select` CLI commands instead.
+
+### 6. Stop the TDD Server
 
 When done developing:
 
@@ -79,20 +93,22 @@ Or press `Ctrl+C` if running in foreground.
 
 TDD Mode provides two workflows:
 
-### Interactive Dashboard Workflow
+### Interactive TDD Workflow
 
-1. **Start dashboard** - `vizzly tdd start` launches persistent server
+1. **Start TDD server** - `vizzly tdd start` launches persistent server with dashboard
 2. **Run tests in watch** - Tests run continuously as you code
 3. **Live updates** - Screenshots compared and displayed in real-time
 4. **Review in browser** - Visual diff modes help analyze changes
-5. **Accept baselines** - Click to update baselines from UI
+5. **Manage settings (optional)** - Use Settings/Projects tabs for quick config changes
+6. **Accept baselines** - Click to update baselines from UI
 
 ### Single-Shot Workflow
 
 1. **Run tests** - `vizzly tdd run "npm test"` executes once
 2. **Compares locally** - Uses `honeydiff` for high-performance comparison
-3. **Generates report** - Creates HTML report with visual comparisons
+3. **Generates report** - Creates self-contained HTML report with React UI
 4. **Exit with status** - Fails if differences exceed threshold
+5. **Server auto-stops** - Ephemeral server cleans up automatically
 
 ## Directory Structure
 
@@ -237,9 +253,9 @@ The legacy command format is still supported:
 vizzly tdd "npm test"  # Equivalent to: vizzly tdd run "npm test"
 ```
 
-## Development Workflow
+## TDD Workflow
 
-### Interactive Development (Recommended)
+### Interactive TDD (Recommended)
 
 ```bash
 # Start dashboard (runs in background)
@@ -268,7 +284,7 @@ npx vizzly tdd run "npm test" --set-baseline
 npx vizzly run "npm test" --wait
 ```
 
-### Feature Development
+### Feature TDD Workflow
 
 ```bash
 # Start interactive dashboard (runs in background)
@@ -405,7 +421,7 @@ jobs:
 - **Immediate feedback** - See results in seconds
 - **No API rate limits** - Test as often as needed
 
-### Development Experience
+### TDD Experience
 - **Fast iteration** - Make changes and test immediately
 - **Visual debugging** - See exact pixel differences
 - **Offline capable** - Works without internet (after initial baseline download)

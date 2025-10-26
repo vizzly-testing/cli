@@ -216,4 +216,108 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     // Cleanup
     await server.stop();
   });
+
+  test('Stats View', async ({ page, browserName }) => {
+    let server;
+
+    // Load passed state fixture (has some data to show stats)
+    let fixtureData = JSON.parse(
+      readFileSync(join(__dirname, 'fixtures', 'passed-state.json'), 'utf8')
+    );
+
+    // Start test server
+    server = createReporterTestServer(fixtureData, 3461);
+    await server.start();
+
+    // Navigate directly to stats route
+    await page.goto('http://localhost:3461/stats', {
+      waitUntil: 'networkidle',
+    });
+
+    // Wait for stats content to load
+    await expect(page.locator('text=Statistics Overview')).toBeVisible();
+
+    // Take screenshot
+    await vizzlyScreenshot(
+      'reporter-stats-view',
+      await page.screenshot({ fullPage: true }),
+      {
+        browser: browserName,
+        viewport: page.viewportSize(),
+      }
+    );
+
+    // Cleanup
+    await server.stop();
+  });
+
+  test('Settings View', async ({ page, browserName }) => {
+    let server;
+
+    // Load empty state fixture (settings doesn't depend on comparison data)
+    let fixtureData = JSON.parse(
+      readFileSync(join(__dirname, 'fixtures', 'empty-state.json'), 'utf8')
+    );
+
+    // Start test server
+    server = createReporterTestServer(fixtureData, 3462);
+    await server.start();
+
+    // Navigate directly to settings route
+    await page.goto('http://localhost:3462/settings', {
+      waitUntil: 'networkidle',
+    });
+
+    // Wait for settings content to load
+    await expect(page.locator('text=General Settings')).toBeVisible();
+
+    // Take screenshot
+    await vizzlyScreenshot(
+      'reporter-settings-view',
+      await page.screenshot({ fullPage: true }),
+      {
+        browser: browserName,
+        viewport: page.viewportSize(),
+      }
+    );
+
+    // Cleanup
+    await server.stop();
+  });
+
+  test('Projects View - Not Authenticated', async ({ page, browserName }) => {
+    let server;
+
+    // Load empty state fixture
+    let fixtureData = JSON.parse(
+      readFileSync(join(__dirname, 'fixtures', 'empty-state.json'), 'utf8')
+    );
+
+    // Start test server
+    server = createReporterTestServer(fixtureData, 3463);
+    await server.start();
+
+    // Navigate directly to projects route
+    await page.goto('http://localhost:3463/projects', {
+      waitUntil: 'networkidle',
+    });
+
+    // Wait for projects content to load - should show sign in prompt since not authenticated
+    await expect(
+      page.locator('text=Sign in to access projects and team features')
+    ).toBeVisible();
+
+    // Take screenshot
+    await vizzlyScreenshot(
+      'reporter-projects-view-logged-out',
+      await page.screenshot({ fullPage: true }),
+      {
+        browser: browserName,
+        viewport: page.viewportSize(),
+      }
+    );
+
+    // Cleanup
+    await server.stop();
+  });
 });

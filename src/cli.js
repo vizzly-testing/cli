@@ -137,7 +137,7 @@ program
     await uploadCommand(path, options, globalOptions);
   });
 
-// TDD command with subcommands
+// TDD command with subcommands - Local visual testing with interactive dashboard
 const tddCmd = program
   .command('tdd')
   .description('Run tests in TDD mode with local visual comparisons');
@@ -145,8 +145,8 @@ const tddCmd = program
 // TDD Start - Background server
 tddCmd
   .command('start')
-  .description('Start background TDD server')
-  .option('--port <port>', 'Port for screenshot server', '47392')
+  .description('Start background TDD server with dashboard')
+  .option('--port <port>', 'Port for TDD server', '47392')
   .option('--open', 'Open dashboard in browser')
   .option('--baseline-build <id>', 'Use specific build as baseline')
   .option('--baseline-comparison <id>', 'Use specific comparison as baseline')
@@ -185,11 +185,11 @@ tddCmd
     await tddStatusCommand(options, globalOptions);
   });
 
-// TDD Run - One-off test run (primary workflow)
+// TDD Run - One-off test run with ephemeral server (generates static report)
 tddCmd
   .command('run <command>')
   .description('Run tests once in TDD mode with local visual comparisons')
-  .option('--port <port>', 'Port for screenshot server', '47392')
+  .option('--port <port>', 'Port for TDD server', '47392')
   .option('--branch <branch>', 'Git branch override')
   .option('--environment <env>', 'Environment name', 'test')
   .option('--threshold <number>', 'Comparison threshold', parseFloat)

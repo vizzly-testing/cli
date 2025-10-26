@@ -147,16 +147,21 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     ui.success(`TDD server started at http://localhost:${port}`);
 
     ui.info('');
-    ui.info('Dashboard URLs:');
+    ui.info('Dashboard:');
+    ui.info(`  http://localhost:${port}/`);
+    ui.info('');
+    ui.info('Available views:');
     ui.info(`  Comparisons: http://localhost:${port}/`);
     ui.info(`  Stats:       http://localhost:${port}/stats`);
+    ui.info(`  Settings:    http://localhost:${port}/settings`);
+    ui.info(`  Projects:    http://localhost:${port}/projects`);
     ui.info('');
     ui.info('Next steps:');
-    ui.info('  1. Run your tests (any test runner)');
-    ui.info('  2. Open the dashboard in your browser');
-    ui.info('  3. Manage baselines in the Stats view');
+    ui.info('  1. Run your tests in watch mode (e.g., npm test -- --watch)');
+    ui.info('  2. View live visual comparisons in the dashboard');
+    ui.info('  3. Accept/reject baselines directly in the UI');
     ui.info('');
-    ui.info('Stop server: npx vizzly tdd stop');
+    ui.info('Stop server: npx vizzly dev stop');
 
     if (options.open) {
       openDashboard(port);
@@ -376,12 +381,25 @@ export async function tddStatusCommand(options, globalOptions = {}) {
 
     if (health.running) {
       ui.success(`TDD server running (PID: ${pid})`);
-      ui.info(`Server: http://localhost:${serverInfo.port}`);
-      ui.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
+      ui.info(`Dashboard: http://localhost:${serverInfo.port}/`);
+      ui.info('');
+      ui.info('Available views:');
+      ui.info(`  Comparisons: http://localhost:${serverInfo.port}/`);
+      ui.info(`  Stats:       http://localhost:${serverInfo.port}/stats`);
+      ui.info(`  Settings:    http://localhost:${serverInfo.port}/settings`);
+      ui.info(`  Projects:    http://localhost:${serverInfo.port}/projects`);
 
       if (serverInfo.startTime) {
         const uptime = Math.floor((Date.now() - serverInfo.startTime) / 1000);
-        ui.info(`Uptime: ${uptime} seconds`);
+        const hours = Math.floor(uptime / 3600);
+        const minutes = Math.floor((uptime % 3600) / 60);
+        const seconds = uptime % 60;
+        let uptimeStr = '';
+        if (hours > 0) uptimeStr += `${hours}h `;
+        if (minutes > 0 || hours > 0) uptimeStr += `${minutes}m `;
+        uptimeStr += `${seconds}s`;
+        ui.info('');
+        ui.info(`Uptime: ${uptimeStr}`);
       }
     } else {
       ui.warning(

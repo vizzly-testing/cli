@@ -1,6 +1,7 @@
 import { Buffer } from 'buffer';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
+import honeydiff from '@vizzly-testing/honeydiff';
 import { createServiceLogger } from '../../utils/logger-factory.js';
 import { TddService } from '../../services/tdd-service.js';
 import {
@@ -9,52 +10,9 @@ import {
 } from '../../utils/security.js';
 import { detectImageInputType } from '../../utils/image-input-detector.js';
 
+let { getDimensionsSync } = honeydiff;
+
 const logger = createServiceLogger('TDD-HANDLER');
-
-/**
- * Detect PNG dimensions by reading the IHDR chunk header
- * PNG spec (ISO/IEC 15948:2004) guarantees width/height at bytes 16-23
- * @param {Buffer} buffer - PNG image buffer
- * @returns {{ width: number, height: number } | null} Dimensions or null if not a valid PNG
- */
-const detectPNGDimensions = buffer => {
-  // Full PNG signature (8 bytes): 89 50 4E 47 0D 0A 1A 0A
-  const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-
-  // Need at least 24 bytes (8 signature + 4 length + 4 type + 8 width/height)
-  if (!buffer || buffer.length < 24) {
-    return null;
-  }
-
-  // Validate full 8-byte PNG signature
-  for (let i = 0; i < PNG_SIGNATURE.length; i++) {
-    if (buffer[i] !== PNG_SIGNATURE[i]) {
-      return null;
-    }
-  }
-
-  // Validate IHDR chunk type at bytes 12-15 (should be 'IHDR')
-  // 0x49484452 = 'IHDR' in ASCII
-  if (
-    buffer[12] !== 0x49 ||
-    buffer[13] !== 0x48 ||
-    buffer[14] !== 0x44 ||
-    buffer[15] !== 0x52
-  ) {
-    return null;
-  }
-
-  // Read width and height from IHDR chunk (guaranteed positions per PNG spec)
-  const width = buffer.readUInt32BE(16); // Bytes 16-19
-  const height = buffer.readUInt32BE(20); // Bytes 20-23
-
-  // Sanity check: dimensions should be positive and reasonable
-  if (width <= 0 || height <= 0 || width > 65535 || height > 65535) {
-    return null;
-  }
-
-  return { width, height };
-};
 
 /**
  * Group comparisons by screenshot name with variant structure
@@ -409,14 +367,13 @@ export const createTddHandler = (
       };
     }
 
-    // Auto-detect image dimensions from PNG header if viewport not provided
-    // This matches cloud API behavior but without requiring Sharp
+    // Auto-detect image dimensions if viewport not provided
     if (
       !extractedProperties.viewport_width ||
       !extractedProperties.viewport_height
     ) {
-      const dimensions = detectPNGDimensions(imageBuffer);
-      if (dimensions) {
+      try {
+        const dimensions = getDimensionsSync(imageBuffer);
         if (!extractedProperties.viewport_width) {
           extractedProperties.viewport_width = dimensions.width;
         }
@@ -424,8 +381,10 @@ export const createTddHandler = (
           extractedProperties.viewport_height = dimensions.height;
         }
         logger.debug(
-          `Auto-detected dimensions from PNG: ${dimensions.width}x${dimensions.height}`
+          `Auto-detected dimensions: ${dimensions.width}x${dimensions.height}`
         );
+      } catch (err) {
+        logger.debug(`Failed to auto-detect dimensions: ${err.message}`);
       }
     }
 

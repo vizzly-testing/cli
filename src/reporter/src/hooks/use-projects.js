@@ -39,7 +39,7 @@ export default function useProjects() {
       }
       let data = await response.json();
       setMappings(data.mappings || []);
-    } catch (err) {
+    } catch {
       // Silently handle - mappings work without auth
     }
   }, []);
@@ -53,59 +53,70 @@ export default function useProjects() {
       }
       let data = await response.json();
       setRecentBuilds(data.builds || []);
-    } catch (err) {
+    } catch {
       // Silently handle - builds are optional
     }
   }, []);
 
-  let createMapping = useCallback(async (directory, projectSlug, organizationSlug, token, projectName) => {
-    try {
-      let response = await fetch('/api/projects/mappings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ directory, projectSlug, organizationSlug, token, projectName }),
-      });
+  let createMapping = useCallback(
+    async (directory, projectSlug, organizationSlug, token, projectName) => {
+      try {
+        let response = await fetch('/api/projects/mappings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            directory,
+            projectSlug,
+            organizationSlug,
+            token,
+            projectName,
+          }),
+        });
 
-      if (!response.ok) {
-        let errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create mapping');
+        if (!response.ok) {
+          let errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create mapping');
+        }
+
+        let data = await response.json();
+        await fetchMappings(); // Refresh mappings
+        return data.mapping;
+      } catch (err) {
+        setError(err.message);
+        throw err;
       }
+    },
+    [fetchMappings]
+  );
 
-      let data = await response.json();
-      await fetchMappings(); // Refresh mappings
-      return data.mapping;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  }, [fetchMappings]);
+  let deleteMapping = useCallback(
+    async directory => {
+      try {
+        let response = await fetch(
+          `/api/projects/mappings/${encodeURIComponent(directory)}`,
+          {
+            method: 'DELETE',
+          }
+        );
 
-  let deleteMapping = useCallback(async (directory) => {
-    try {
-      let response = await fetch(`/api/projects/mappings/${encodeURIComponent(directory)}`, {
-        method: 'DELETE',
-      });
+        if (!response.ok) {
+          let errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete mapping');
+        }
 
-      if (!response.ok) {
-        let errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete mapping');
+        await fetchMappings(); // Refresh mappings
+      } catch (err) {
+        setError(err.message);
+        throw err;
       }
-
-      await fetchMappings(); // Refresh mappings
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  }, [fetchMappings]);
+    },
+    [fetchMappings]
+  );
 
   let fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
-    await Promise.all([
-      fetchProjects(),
-      fetchMappings(),
-      fetchRecentBuilds(),
-    ]);
+    await Promise.all([fetchProjects(), fetchMappings(), fetchRecentBuilds()]);
     setLoading(false);
   }, [fetchProjects, fetchMappings, fetchRecentBuilds]);
 

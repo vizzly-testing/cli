@@ -6,7 +6,6 @@
 import { BaseService } from './base-service.js';
 import { cosmiconfigSync } from 'cosmiconfig';
 import { writeFile, readFile } from 'fs/promises';
-import { existsSync } from 'fs';
 import { join } from 'path';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { validateVizzlyConfigWithDefaults } from '../utils/config-schema.js';
@@ -109,7 +108,11 @@ export class ConfigService extends BaseService {
       apiUrl: 'https://app.vizzly.dev',
       server: { port: 47392, timeout: 30000 },
       build: { name: 'Build {timestamp}', environment: 'test' },
-      upload: { screenshotsDir: './screenshots', batchSize: 10, timeout: 30000 },
+      upload: {
+        screenshotsDir: './screenshots',
+        batchSize: 10,
+        timeout: 30000,
+      },
       comparison: { threshold: 0.1 },
       tdd: { openReport: false },
       plugins: [],
@@ -328,7 +331,9 @@ export class ConfigService extends BaseService {
 
     if (Array.isArray(value)) {
       if (value.length === 0) return '[]';
-      let items = value.map(item => `${indent}${this._stringifyWithIndent(item, depth + 1)}`);
+      let items = value.map(
+        item => `${indent}${this._stringifyWithIndent(item, depth + 1)}`
+      );
       return `[\n${items.join(',\n')}\n${prevIndent}]`;
     }
 
@@ -390,8 +395,16 @@ export class ConfigService extends BaseService {
     let output = { ...target };
 
     for (let key in source) {
-      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        if (target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
+      if (
+        source[key] &&
+        typeof source[key] === 'object' &&
+        !Array.isArray(source[key])
+      ) {
+        if (
+          target[key] &&
+          typeof target[key] === 'object' &&
+          !Array.isArray(target[key])
+        ) {
           output[key] = this._deepMerge(target[key], source[key]);
         } else {
           output[key] = source[key];

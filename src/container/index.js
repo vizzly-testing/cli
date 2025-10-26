@@ -170,12 +170,19 @@ export async function createServiceContainer(config, command = 'run') {
   // Register services without circular dependencies
   container.register('logger', () => logger);
 
-  container.register('apiService', () => new ApiService(config, { logger, allowNoToken: true }));
+  container.register(
+    'apiService',
+    () => new ApiService(config, { logger, allowNoToken: true })
+  );
 
-  container.register('authService', () => new AuthService({ baseUrl: config.apiUrl }));
+  container.register(
+    'authService',
+    () => new AuthService({ baseUrl: config.apiUrl })
+  );
 
-  container.register('configService', () =>
-    new ConfigService(config, { logger, projectRoot: process.cwd() })
+  container.register(
+    'configService',
+    () => new ConfigService(config, { logger, projectRoot: process.cwd() })
   );
 
   container.register('projectService', {

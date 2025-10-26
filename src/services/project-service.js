@@ -65,11 +65,17 @@ export class ProjectService extends BaseService {
     }
 
     if (!projectData.organizationSlug) {
-      throw new VizzlyError('Organization slug is required', 'INVALID_PROJECT_DATA');
+      throw new VizzlyError(
+        'Organization slug is required',
+        'INVALID_PROJECT_DATA'
+      );
     }
 
     if (!projectData.token) {
-      throw new VizzlyError('Project token is required', 'INVALID_PROJECT_DATA');
+      throw new VizzlyError(
+        'Project token is required',
+        'INVALID_PROJECT_DATA'
+      );
     }
 
     await saveProjectMapping(directory, projectData);
@@ -126,7 +132,7 @@ export class ProjectService extends BaseService {
       });
 
       return response.projects || [];
-    } catch (error) {
+    } catch {
       // Return empty array on error - likely not authenticated
       return [];
     }
@@ -176,7 +182,7 @@ export class ProjectService extends BaseService {
       return [];
     }
 
-    let queryParams = new URLSearchParams();
+    let queryParams = new globalThis.URLSearchParams();
     if (options.limit) queryParams.append('limit', String(options.limit));
     if (options.branch) queryParams.append('branch', options.branch);
 
@@ -189,7 +195,7 @@ export class ProjectService extends BaseService {
       });
 
       return response.builds || [];
-    } catch (error) {
+    } catch {
       // Return empty array on error
       return [];
     }

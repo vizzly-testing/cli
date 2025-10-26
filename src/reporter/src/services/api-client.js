@@ -25,7 +25,9 @@ export async function fetchReportData() {
 
 export async function acceptBaseline(comparisonId) {
   if (isStaticMode()) {
-    throw new Error('Cannot accept baselines in static report mode. Use the live dev server.');
+    throw new Error(
+      'Cannot accept baselines in static report mode. Use the live dev server.'
+    );
   }
 
   let response = await fetch('/api/baseline/accept', {
@@ -43,7 +45,9 @@ export async function acceptBaseline(comparisonId) {
 
 export async function acceptAllBaselines() {
   if (isStaticMode()) {
-    throw new Error('Cannot accept baselines in static report mode. Use the live dev server.');
+    throw new Error(
+      'Cannot accept baselines in static report mode. Use the live dev server.'
+    );
   }
 
   let response = await fetch('/api/baseline/accept-all', {
@@ -60,7 +64,9 @@ export async function acceptAllBaselines() {
 
 export async function resetBaselines() {
   if (isStaticMode()) {
-    throw new Error('Cannot reset baselines in static report mode. Use the live dev server.');
+    throw new Error(
+      'Cannot reset baselines in static report mode. Use the live dev server.'
+    );
   }
 
   let response = await fetch('/api/baseline/reset', {

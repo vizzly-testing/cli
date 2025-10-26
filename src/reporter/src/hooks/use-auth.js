@@ -39,7 +39,7 @@ export default function useAuth() {
     }
   }, []);
 
-  let pollAuthorization = useCallback(async (deviceCode) => {
+  let pollAuthorization = useCallback(async deviceCode => {
     try {
       let response = await fetch('/api/auth/poll', {
         method: 'POST',

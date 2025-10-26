@@ -566,7 +566,10 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
       return;
     }
 
-    if (req.method === 'POST' && parsedUrl.pathname === '/api/config/validate') {
+    if (
+      req.method === 'POST' &&
+      parsedUrl.pathname === '/api/config/validate'
+    ) {
       // Validate config
       if (!configService) {
         res.statusCode = 503;
@@ -670,7 +673,10 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
           result = await authService.pollDeviceAuthorization(deviceCode);
         } catch (error) {
           // Handle "Authorization pending" as a valid response
-          if (error.message && error.message.includes('Authorization pending')) {
+          if (
+            error.message &&
+            error.message.includes('Authorization pending')
+          ) {
             res.statusCode = 200;
             res.end(JSON.stringify({ status: 'pending' }));
             return;
@@ -724,7 +730,9 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
       try {
         await authService.logout();
         res.statusCode = 200;
-        res.end(JSON.stringify({ success: true, message: 'Logged out successfully' }));
+        res.end(
+          JSON.stringify({ success: true, message: 'Logged out successfully' })
+        );
       } catch (error) {
         logger.error('Error logging out:', error);
         res.statusCode = 500;
@@ -755,7 +763,10 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
       return;
     }
 
-    if (req.method === 'GET' && parsedUrl.pathname === '/api/projects/mappings') {
+    if (
+      req.method === 'GET' &&
+      parsedUrl.pathname === '/api/projects/mappings'
+    ) {
       // List project directory mappings
       if (!projectService) {
         res.statusCode = 503;
@@ -775,7 +786,10 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
       return;
     }
 
-    if (req.method === 'POST' && parsedUrl.pathname === '/api/projects/mappings') {
+    if (
+      req.method === 'POST' &&
+      parsedUrl.pathname === '/api/projects/mappings'
+    ) {
       // Create or update project mapping
       if (!projectService) {
         res.statusCode = 503;
@@ -785,7 +799,8 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
 
       try {
         const body = await parseRequestBody(req);
-        const { directory, projectSlug, organizationSlug, token, projectName } = body;
+        const { directory, projectSlug, organizationSlug, token, projectName } =
+          body;
 
         const mapping = await projectService.createMapping(directory, {
           projectSlug,
@@ -804,7 +819,10 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
       return;
     }
 
-    if (req.method === 'DELETE' && parsedUrl.pathname.startsWith('/api/projects/mappings/')) {
+    if (
+      req.method === 'DELETE' &&
+      parsedUrl.pathname.startsWith('/api/projects/mappings/')
+    ) {
       // Delete project mapping
       if (!projectService) {
         res.statusCode = 503;
@@ -813,7 +831,9 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
       }
 
       try {
-        const directory = decodeURIComponent(parsedUrl.pathname.replace('/api/projects/mappings/', ''));
+        const directory = decodeURIComponent(
+          parsedUrl.pathname.replace('/api/projects/mappings/', '')
+        );
         await projectService.removeMapping(directory);
         res.statusCode = 200;
         res.end(JSON.stringify({ success: true, message: 'Mapping deleted' }));
@@ -839,14 +859,22 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
 
         if (!projectSlug || !organizationSlug) {
           res.statusCode = 400;
-          res.end(JSON.stringify({ error: 'No project configured for this directory' }));
+          res.end(
+            JSON.stringify({
+              error: 'No project configured for this directory',
+            })
+          );
           return;
         }
 
         const limit = parseInt(parsedUrl.searchParams.get('limit') || '10', 10);
         const branch = parsedUrl.searchParams.get('branch') || undefined;
 
-        const builds = await projectService.getRecentBuilds(projectSlug, organizationSlug, { limit, branch });
+        const builds = await projectService.getRecentBuilds(
+          projectSlug,
+          organizationSlug,
+          { limit, branch }
+        );
 
         res.statusCode = 200;
         res.end(JSON.stringify({ builds }));

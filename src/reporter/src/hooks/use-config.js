@@ -23,36 +23,39 @@ export default function useConfig() {
     }
   }, []);
 
-  let updateConfig = useCallback(async (scope, updates) => {
-    setSaving(true);
-    setError(null);
-    try {
-      let response = await fetch(`/api/config/${scope}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
+  let updateConfig = useCallback(
+    async (scope, updates) => {
+      setSaving(true);
+      setError(null);
+      try {
+        let response = await fetch(`/api/config/${scope}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
 
-      if (!response.ok) {
-        let errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update config');
+        if (!response.ok) {
+          let errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update config');
+        }
+
+        let data = await response.json();
+
+        // Refetch the full config to get updated merged view
+        await fetchConfig();
+
+        return data;
+      } catch (err) {
+        setError(err.message);
+        throw err;
+      } finally {
+        setSaving(false);
       }
+    },
+    [fetchConfig]
+  );
 
-      let data = await response.json();
-
-      // Refetch the full config to get updated merged view
-      await fetchConfig();
-
-      return data;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setSaving(false);
-    }
-  }, [fetchConfig]);
-
-  let validateConfig = useCallback(async (configData) => {
+  let validateConfig = useCallback(async configData => {
     try {
       let response = await fetch('/api/config/validate', {
         method: 'POST',

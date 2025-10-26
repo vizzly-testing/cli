@@ -1,10 +1,25 @@
-export function FormField({ label, name, type = 'text', value, onChange, error, help, disabled, required, placeholder, options }) {
+export function FormField({
+  label,
+  name,
+  type = 'text',
+  value,
+  onChange,
+  error,
+  help,
+  disabled,
+  required,
+  placeholder,
+  options,
+}) {
   let id = `field-${name}`;
 
   if (type === 'select') {
     return (
       <div className="mb-6">
-        <label htmlFor={id} className="block text-sm font-medium text-gray-300 mb-2">
+        <label
+          htmlFor={id}
+          className="block text-sm font-medium text-gray-300 mb-2"
+        >
           {label}
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
@@ -36,7 +51,10 @@ export function FormField({ label, name, type = 'text', value, onChange, error, 
   if (type === 'number') {
     return (
       <div className="mb-6">
-        <label htmlFor={id} className="block text-sm font-medium text-gray-300 mb-2">
+        <label
+          htmlFor={id}
+          className="block text-sm font-medium text-gray-300 mb-2"
+        >
           {label}
           {required && <span className="text-red-400 ml-1">*</span>}
         </label>
@@ -74,7 +92,10 @@ export function FormField({ label, name, type = 'text', value, onChange, error, 
           className="mt-1 h-4 w-4 bg-slate-800 border-slate-700 rounded text-blue-500 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         />
         <div className="ml-3">
-          <label htmlFor={id} className="block text-sm font-medium text-gray-300">
+          <label
+            htmlFor={id}
+            className="block text-sm font-medium text-gray-300"
+          >
             {label}
             {required && <span className="text-red-400 ml-1">*</span>}
           </label>
@@ -88,7 +109,10 @@ export function FormField({ label, name, type = 'text', value, onChange, error, 
   // Default: text input
   return (
     <div className="mb-6">
-      <label htmlFor={id} className="block text-sm font-medium text-gray-300 mb-2">
+      <label
+        htmlFor={id}
+        className="block text-sm font-medium text-gray-300 mb-2"
+      >
         {label}
         {required && <span className="text-red-400 ml-1">*</span>}
       </label>
@@ -131,7 +155,9 @@ export function ConfigSourceBadge({ source }) {
   };
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[source] || colors.default}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[source] || colors.default}`}
+    >
       {labels[source] || source}
     </span>
   );

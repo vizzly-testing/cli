@@ -8,7 +8,7 @@ export default function DashboardHeader({ loading, onNavigate, currentView }) {
               onClick={() => onNavigate && onNavigate('comparisons')}
               className="text-2xl font-bold text-amber-500 hover:text-amber-400 transition-colors"
             >
-              Vizzly Dev
+              Vizzly TDD
             </button>
 
             {onNavigate && (

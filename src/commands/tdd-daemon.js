@@ -25,7 +25,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
   // Check if server already running
   if (await isServerRunning(options.port || 47392)) {
     const port = options.port || 47392;
-    ui.info(`Dev server already running at http://localhost:${port}`);
+    ui.info(`TDD server already running at http://localhost:${port}`);
     ui.info(`Dashboard: http://localhost:${port}/dashboard`);
 
     if (options.open) {
@@ -116,7 +116,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       if (options.baselineBuild && !globalOptions.verbose) {
         ui.stopSpinner();
       }
-      ui.error('Dev server failed to start');
+      ui.error('TDD server failed to start');
       process.exit(1);
     }
 
@@ -139,12 +139,12 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
     if (!running) {
       ui.error(
-        'Failed to start dev server - server not responding to health checks'
+        'Failed to start TDD server - server not responding to health checks'
       );
       process.exit(1);
     }
 
-    ui.success(`Dev server started at http://localhost:${port}`);
+    ui.success(`TDD server started at http://localhost:${port}`);
 
     ui.info('');
     ui.info('Dashboard:');
@@ -300,7 +300,7 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
   }
 
   if (!pid) {
-    ui.warning('No dev server running');
+    ui.warning('No TDD server running');
 
     // Clean up any stale files
     if (existsSync(pidFile)) unlinkSync(pidFile);
@@ -312,7 +312,7 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
     // Try to kill the process gracefully
     process.kill(pid, 'SIGTERM');
 
-    ui.info(`Stopping dev server (PID: ${pid})...`);
+    ui.info(`Stopping TDD server (PID: ${pid})...`);
 
     // Give it a moment to shut down gracefully
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -322,7 +322,7 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
       process.kill(pid, 0); // Just check if process exists
       // If we get here, process is still running, force kill it
       process.kill(pid, 'SIGKILL');
-      ui.info('Force killed dev server');
+      ui.info('Force killed TDD server');
     } catch {
       // Process is gone, which is what we want
     }
@@ -331,15 +331,15 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
     if (existsSync(pidFile)) unlinkSync(pidFile);
     if (existsSync(serverFile)) unlinkSync(serverFile);
 
-    ui.success('Dev server stopped');
+    ui.success('TDD server stopped');
   } catch (error) {
     if (error.code === 'ESRCH') {
       // Process not found - clean up stale files
-      ui.warning('Dev server was not running (cleaning up stale files)');
+      ui.warning('TDD server was not running (cleaning up stale files)');
       if (existsSync(pidFile)) unlinkSync(pidFile);
       if (existsSync(serverFile)) unlinkSync(serverFile);
     } else {
-      ui.error('Error stopping dev server', error);
+      ui.error('Error stopping TDD server', error);
     }
   }
 }
@@ -361,7 +361,7 @@ export async function tddStatusCommand(options, globalOptions = {}) {
   const serverFile = join(vizzlyDir, 'server.json');
 
   if (!existsSync(pidFile)) {
-    ui.info('Dev server not running');
+    ui.info('TDD server not running');
     return;
   }
 
@@ -380,7 +380,7 @@ export async function tddStatusCommand(options, globalOptions = {}) {
     const health = await checkServerHealth(serverInfo.port);
 
     if (health.running) {
-      ui.success(`Dev server running (PID: ${pid})`);
+      ui.success(`TDD server running (PID: ${pid})`);
       ui.info(`Dashboard: http://localhost:${serverInfo.port}/`);
       ui.info('');
       ui.info('Available views:');
@@ -403,18 +403,18 @@ export async function tddStatusCommand(options, globalOptions = {}) {
       }
     } else {
       ui.warning(
-        'Dev server process exists but not responding to health checks'
+        'TDD server process exists but not responding to health checks'
       );
     }
   } catch (error) {
     if (error.code === 'ESRCH') {
-      ui.warning('Dev server process not found (cleaning up stale files)');
+      ui.warning('TDD server process not found (cleaning up stale files)');
       unlinkSync(pidFile);
       if (existsSync(serverFile)) {
         unlinkSync(serverFile);
       }
     } else {
-      ui.error('Error checking dev server status', error);
+      ui.error('Error checking TDD server status', error);
     }
   }
 }

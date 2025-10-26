@@ -3,7 +3,7 @@
  * Generates a self-contained HTML file with the React dashboard and embedded data
  */
 
-import { writeFile, mkdir, readFile, copyFile } from 'fs/promises';
+import { writeFile, mkdir, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -38,8 +38,18 @@ export class StaticReportGenerator {
       await mkdir(this.reportDir, { recursive: true });
 
       // Copy React bundles to report directory
-      let bundlePath = join(PROJECT_ROOT, 'dist', 'reporter', 'reporter-bundle.iife.js');
-      let cssPath = join(PROJECT_ROOT, 'dist', 'reporter', 'reporter-bundle.css');
+      let bundlePath = join(
+        PROJECT_ROOT,
+        'dist',
+        'reporter',
+        'reporter-bundle.iife.js'
+      );
+      let cssPath = join(
+        PROJECT_ROOT,
+        'dist',
+        'reporter',
+        'reporter-bundle.css'
+      );
 
       if (!existsSync(bundlePath) || !existsSync(cssPath)) {
         throw new Error(
@@ -207,12 +217,16 @@ export class StaticReportGenerator {
             <code>npm run build:reporter</code>
         </div>
 
-        ${failed.length > 0 ? `
+        ${
+          failed.length > 0
+            ? `
             <h2>Failed Comparisons</h2>
             <ul>
                 ${failed.map(c => `<li>${c.name} - ${c.diffPercentage || 0}% difference</li>`).join('')}
             </ul>
-        ` : '<p style="text-align: center; font-size: 1.5rem;">✅ All tests passed!</p>'}
+        `
+            : '<p style="text-align: center; font-size: 1.5rem;">✅ All tests passed!</p>'
+        }
     </div>
 </body>
 </html>`;

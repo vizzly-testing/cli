@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { FormField, ConfigSourceBadge } from '../ui/form-field.jsx';
 import { useToast } from '../ui/toast.jsx';
 import useConfig from '../../hooks/use-config.js';
@@ -12,19 +12,35 @@ export default function SettingsView() {
   let { config, loading, error, saving, updateConfig, refetch } = useConfig();
   let { addToast } = useToast();
 
-  // Initialize form data when config loads
-  useEffect(() => {
+  // Initialize form data when config loads (compute derived state)
+  let formDataFromConfig = useMemo(() => {
     if (config?.config) {
-      setFormData({
+      return {
         threshold: config.config.comparison?.threshold ?? 0.1,
         port: config.config.server?.port ?? 47392,
         timeout: config.config.server?.timeout ?? 30000,
         buildName: config.config.build?.name ?? 'Build {timestamp}',
         environment: config.config.build?.environment ?? 'test',
         openReport: config.config.tdd?.openReport ?? false,
-      });
+      };
     }
+    return {
+      threshold: 0.1,
+      port: 47392,
+      timeout: 30000,
+      buildName: 'Build {timestamp}',
+      environment: 'test',
+      openReport: false,
+    };
   }, [config]);
+
+  // Only initialize formData if it's empty (first load)
+  if (
+    Object.keys(formData).length === 0 &&
+    Object.keys(formDataFromConfig).length > 0
+  ) {
+    setFormData(formDataFromConfig);
+  }
 
   let handleFieldChange = useCallback((name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -99,7 +115,9 @@ export default function SettingsView() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-red-500/10 border border-red-500 rounded-lg p-6 text-center">
           <XCircleIcon className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-red-400 mb-2">Failed to load settings</h3>
+          <h3 className="text-lg font-medium text-red-400 mb-2">
+            Failed to load settings
+          </h3>
           <p className="text-gray-400 mb-4">{error}</p>
           <button
             onClick={refetch}
@@ -116,7 +134,9 @@ export default function SettingsView() {
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-100 mb-2">Settings</h1>
-        <p className="text-gray-400">Configure your Vizzly local development server</p>
+        <p className="text-gray-400">
+          Configure your Vizzly local development server
+        </p>
       </div>
 
       {/* Tab Navigation */}
@@ -128,9 +148,10 @@ export default function SettingsView() {
               onClick={() => setActiveTab(tab.id)}
               className={`
                 pb-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
                 }
               `}
             >
@@ -144,7 +165,9 @@ export default function SettingsView() {
       <div className="bg-slate-800/50 rounded-lg p-8 mb-6">
         {activeTab === 'general' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-100 mb-6">General Settings</h2>
+            <h2 className="text-xl font-semibold text-gray-100 mb-6">
+              General Settings
+            </h2>
 
             <FormField
               label="Visual Comparison Threshold"
@@ -168,7 +191,9 @@ export default function SettingsView() {
             <div className="mt-6 pt-6 border-t border-slate-700">
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 <span>Source:</span>
-                <ConfigSourceBadge source={config?.sources?.comparison || 'default'} />
+                <ConfigSourceBadge
+                  source={config?.sources?.comparison || 'default'}
+                />
               </div>
             </div>
           </div>
@@ -176,7 +201,9 @@ export default function SettingsView() {
 
         {activeTab === 'server' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-100 mb-6">Server Settings</h2>
+            <h2 className="text-xl font-semibold text-gray-100 mb-6">
+              Server Settings
+            </h2>
 
             <FormField
               label="Server Port"
@@ -201,7 +228,9 @@ export default function SettingsView() {
             <div className="mt-6 pt-6 border-t border-slate-700">
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 <span>Source:</span>
-                <ConfigSourceBadge source={config?.sources?.server || 'default'} />
+                <ConfigSourceBadge
+                  source={config?.sources?.server || 'default'}
+                />
               </div>
             </div>
           </div>
@@ -209,7 +238,9 @@ export default function SettingsView() {
 
         {activeTab === 'build' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-100 mb-6">Build Settings</h2>
+            <h2 className="text-xl font-semibold text-gray-100 mb-6">
+              Build Settings
+            </h2>
 
             <FormField
               label="Build Name Template"
@@ -239,7 +270,9 @@ export default function SettingsView() {
             <div className="mt-6 pt-6 border-t border-slate-700">
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 <span>Source:</span>
-                <ConfigSourceBadge source={config?.sources?.build || 'default'} />
+                <ConfigSourceBadge
+                  source={config?.sources?.build || 'default'}
+                />
               </div>
             </div>
           </div>
@@ -249,7 +282,9 @@ export default function SettingsView() {
       {/* Save/Reset Actions */}
       {hasChanges && (
         <div className="fixed bottom-8 right-8 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 flex items-center gap-4">
-          <span className="text-sm text-gray-400">You have unsaved changes</span>
+          <span className="text-sm text-gray-400">
+            You have unsaved changes
+          </span>
           <div className="flex gap-3">
             <button
               onClick={handleReset}

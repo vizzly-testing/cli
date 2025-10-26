@@ -64,7 +64,7 @@ export async function tddCommand(
 
     // Only show config in verbose mode for non-daemon (daemon shows baseline info instead)
     if (globalOptions.verbose && !options.daemon) {
-      ui.info('Dev server configuration loaded', {
+      ui.info('TDD Configuration loaded', {
         testCommand,
         port: config.server.port,
         timeout: config.server.timeout,
@@ -78,7 +78,7 @@ export async function tddCommand(
     }
 
     // Create service container and get services
-    ui.startSpinner('Initializing dev server...');
+    ui.startSpinner('Initializing TDD server...');
     const configWithVerbose = { ...config, verbose: globalOptions.verbose };
     const container = await createServiceContainer(configWithVerbose, 'tdd');
 
@@ -102,7 +102,7 @@ export async function tddCommand(
     testRunner.on('server-ready', serverInfo => {
       // Only show in non-daemon mode (daemon shows its own startup message)
       if (!options.daemon) {
-        ui.info(`Dev server running on port ${serverInfo.port}`);
+        ui.info(`TDD server running on port ${serverInfo.port}`);
         ui.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
       }
       // Verbose server details only in non-daemon mode
@@ -192,7 +192,7 @@ export async function tddCommand(
     // Show summary
     const { screenshotsCaptured, comparisons } = result;
 
-    console.log(`🐻 Vizzly: Processed ${screenshotsCaptured} screenshots`);
+    console.log(`🐻 Vizzly TDD: Processed ${screenshotsCaptured} screenshots`);
 
     if (comparisons && comparisons.length > 0) {
       const passed = comparisons.filter(c => c.status === 'passed').length;
@@ -208,7 +208,7 @@ export async function tddCommand(
       }
     }
 
-    ui.success('Test run completed');
+    ui.success('TDD test run completed');
 
     // Determine success based on comparison results
     const hasFailures =
@@ -217,7 +217,7 @@ export async function tddCommand(
         result.comparisons.some(c => c.status === 'failed'));
 
     if (hasFailures) {
-      ui.error('Visual differences detected', {}, 0);
+      ui.error('Visual differences detected in TDD mode', {}, 0);
     }
 
     // Return result and cleanup function
@@ -230,7 +230,7 @@ export async function tddCommand(
       cleanup,
     };
   } catch (error) {
-    ui.error('Test run failed', error);
+    ui.error('TDD test run failed', error);
     return {
       result: {
         success: false,

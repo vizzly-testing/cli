@@ -18,10 +18,13 @@ export default function AppRouter({ initialData }) {
 
   // Determine current view based on route
   let currentView =
-    location === '/stats' ? 'stats' :
-    location === '/settings' ? 'settings' :
-    location === '/projects' ? 'projects' :
-    'comparisons';
+    location === '/stats'
+      ? 'stats'
+      : location === '/settings'
+        ? 'settings'
+        : location === '/projects'
+          ? 'projects'
+          : 'comparisons';
 
   let navigateTo = view => {
     if (view === 'stats') setLocation('/stats');

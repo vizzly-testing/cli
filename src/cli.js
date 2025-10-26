@@ -11,13 +11,6 @@ import {
   tddStatusCommand,
   runDaemonChild,
 } from './commands/tdd-daemon.js';
-import {
-  devCommand,
-  devStartCommand,
-  devStopCommand,
-  devStatusCommand,
-  validateDevOptions,
-} from './commands/dev.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
 import {
   finalizeCommand,
@@ -144,114 +137,16 @@ program
     await uploadCommand(path, options, globalOptions);
   });
 
-// Dev command with subcommands - PRIMARY local development workflow
-const devCmd = program
-  .command('dev')
-  .description('Start local development server for visual testing');
-
-// Dev Start - Background server (default command)
-devCmd
-  .command('start')
-  .description('Start background dev server')
-  .option('--port <port>', 'Port for dev server', '47392')
-  .option('--open', 'Open dashboard in browser')
-  .option('--baseline-build <id>', 'Use specific build as baseline')
-  .option('--baseline-comparison <id>', 'Use specific comparison as baseline')
-  .option('--environment <env>', 'Environment name', 'test')
-  .option('--threshold <number>', 'Comparison threshold', parseFloat)
-  .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
-  .option('--token <token>', 'API token override')
-  .option('--daemon-child', 'Internal: run as daemon child process')
-  .action(async options => {
-    const globalOptions = program.opts();
-
-    // If this is a daemon child process, run the server directly
-    if (options.daemonChild) {
-      await runDaemonChild(options, globalOptions);
-      return;
-    }
-
-    await devStartCommand(options, globalOptions);
-  });
-
-// Dev Stop - Kill background server
-devCmd
-  .command('stop')
-  .description('Stop background dev server')
-  .action(async options => {
-    const globalOptions = program.opts();
-    await devStopCommand(options, globalOptions);
-  });
-
-// Dev Status - Check server status
-devCmd
-  .command('status')
-  .description('Check dev server status')
-  .action(async options => {
-    const globalOptions = program.opts();
-    await devStatusCommand(options, globalOptions);
-  });
-
-// Dev Run - One-off test run with ephemeral server
-devCmd
-  .command('run <command>')
-  .description('Run tests once with ephemeral dev server (auto-starts and stops)')
-  .option('--port <port>', 'Port for dev server', '47392')
-  .option('--branch <branch>', 'Git branch override')
-  .option('--environment <env>', 'Environment name', 'test')
-  .option('--threshold <number>', 'Comparison threshold', parseFloat)
-  .option('--token <token>', 'API token override')
-  .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
-  .option('--baseline-build <id>', 'Use specific build as baseline')
-  .option('--baseline-comparison <id>', 'Use specific comparison as baseline')
-  .option(
-    '--set-baseline',
-    'Accept current screenshots as new baseline (overwrites existing)'
-  )
-  .action(async (command, options) => {
-    const globalOptions = program.opts();
-
-    // Validate options
-    const validationErrors = validateDevOptions(command, options);
-    if (validationErrors.length > 0) {
-      console.error('Validation errors:');
-      validationErrors.forEach(error => console.error(`  - ${error}`));
-      process.exit(1);
-    }
-
-    const { result, cleanup } = await devCommand(command, options, globalOptions);
-
-    // Set up cleanup on process signals
-    const handleCleanup = async () => {
-      await cleanup();
-    };
-
-    process.once('SIGINT', () => {
-      handleCleanup().then(() => process.exit(1));
-    });
-
-    process.once('SIGTERM', () => {
-      handleCleanup().then(() => process.exit(1));
-    });
-
-    if (result && !result.success && result.exitCode > 0) {
-      await cleanup();
-      process.exit(result.exitCode);
-    }
-
-    await cleanup();
-  });
-
-// TDD command with subcommands - DEPRECATED (use 'dev' instead)
+// TDD command with subcommands - Local visual testing with interactive dashboard
 const tddCmd = program
   .command('tdd')
-  .description('[DEPRECATED] Use "vizzly dev" instead - Run tests in TDD mode with local visual comparisons');
+  .description('Run tests in TDD mode with local visual comparisons');
 
 // TDD Start - Background server
 tddCmd
   .command('start')
-  .description('[DEPRECATED] Use "vizzly dev start" instead')
-  .option('--port <port>', 'Port for screenshot server', '47392')
+  .description('Start background TDD server with dashboard')
+  .option('--port <port>', 'Port for TDD server', '47392')
   .option('--open', 'Open dashboard in browser')
   .option('--baseline-build <id>', 'Use specific build as baseline')
   .option('--baseline-comparison <id>', 'Use specific comparison as baseline')
@@ -262,12 +157,6 @@ tddCmd
   .option('--daemon-child', 'Internal: run as daemon child process')
   .action(async options => {
     const globalOptions = program.opts();
-
-    // Show deprecation warning
-    if (!options.daemonChild && !globalOptions.json) {
-      console.warn('\n⚠️  Warning: "vizzly tdd" is deprecated and will be removed in the next major version.');
-      console.warn('   Please use "vizzly dev" instead.\n');
-    }
 
     // If this is a daemon child process, run the server directly
     if (options.daemonChild) {
@@ -281,36 +170,28 @@ tddCmd
 // TDD Stop - Kill background server
 tddCmd
   .command('stop')
-  .description('[DEPRECATED] Use "vizzly dev stop" instead')
+  .description('Stop background TDD server')
   .action(async options => {
     const globalOptions = program.opts();
-
-    if (!globalOptions.json) {
-      console.warn('\n⚠️  Warning: "vizzly tdd stop" is deprecated. Use "vizzly dev stop" instead.\n');
-    }
-
     await tddStopCommand(options, globalOptions);
   });
 
 // TDD Status - Check server status
 tddCmd
   .command('status')
-  .description('[DEPRECATED] Use "vizzly dev status" instead')
+  .description('Check TDD server status')
   .action(async options => {
     const globalOptions = program.opts();
-
-    if (!globalOptions.json) {
-      console.warn('\n⚠️  Warning: "vizzly tdd status" is deprecated. Use "vizzly dev status" instead.\n');
-    }
-
     await tddStatusCommand(options, globalOptions);
   });
 
-// TDD Run - One-off test run (primary workflow)
+// TDD Run - One-off test run with ephemeral server (generates static report)
 tddCmd
   .command('run <command>')
-  .description('[DEPRECATED] Use "vizzly dev run" instead')
-  .option('--port <port>', 'Port for screenshot server', '47392')
+  .description(
+    'Run tests once with ephemeral TDD server (auto-starts and stops)'
+  )
+  .option('--port <port>', 'Port for TDD server', '47392')
   .option('--branch <branch>', 'Git branch override')
   .option('--environment <env>', 'Environment name', 'test')
   .option('--threshold <number>', 'Comparison threshold', parseFloat)
@@ -324,11 +205,6 @@ tddCmd
   )
   .action(async (command, options) => {
     const globalOptions = program.opts();
-
-    // Show deprecation warning
-    if (!globalOptions.json) {
-      console.warn('\n⚠️  Warning: "vizzly tdd run" is deprecated. Use "vizzly dev run" instead.\n');
-    }
 
     // Validate options
     const validationErrors = validateTddOptions(command, options);

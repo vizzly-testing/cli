@@ -103,7 +103,7 @@ describe('tddCommand', () => {
       );
 
       expect(mockUI.startSpinner).toHaveBeenCalledWith(
-        'Initializing TDD mode...'
+        'Initializing TDD server...'
       );
       expect(mockTestRunner.run).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -8,7 +8,6 @@ import {
   ArrowLeftOnRectangleIcon,
   FolderIcon,
   TrashIcon,
-  PlusIcon,
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
@@ -81,12 +80,16 @@ function DeviceFlowLogin({ onComplete }) {
 
   return (
     <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-8 text-center">
-      <h3 className="text-2xl font-semibold text-white mb-6">Sign in to Vizzly</h3>
+      <h3 className="text-2xl font-semibold text-white mb-6">
+        Sign in to Vizzly
+      </h3>
 
       <div className="bg-slate-900/80 backdrop-blur rounded-xl p-6 mb-6 border border-gray-700/50">
         <p className="text-sm text-gray-300 mb-4">Click below to authorize:</p>
         <a
-          href={deviceFlow.verificationUriComplete || deviceFlow.verificationUri}
+          href={
+            deviceFlow.verificationUriComplete || deviceFlow.verificationUri
+          }
           target="_blank"
           rel="noopener noreferrer"
           className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors inline-flex items-center gap-2 mb-4 shadow-lg shadow-amber-500/20"
@@ -94,7 +97,9 @@ function DeviceFlowLogin({ onComplete }) {
           Open Authorization Page
         </a>
         <div className="mt-4 pt-4 border-t border-gray-700">
-          <p className="text-xs text-gray-400 mb-2">Or enter this code manually:</p>
+          <p className="text-xs text-gray-400 mb-2">
+            Or enter this code manually:
+          </p>
           <div className="text-2xl font-mono font-bold text-amber-500 tracking-wider">
             {deviceFlow.userCode}
           </div>
@@ -102,7 +107,8 @@ function DeviceFlowLogin({ onComplete }) {
       </div>
 
       <p className="text-sm text-gray-300 mb-4">
-        After authorizing in your browser, click the button below to complete sign in.
+        After authorizing in your browser, click the button below to complete
+        sign in.
       </p>
 
       <button
@@ -170,7 +176,9 @@ function AuthCard() {
       <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-8 text-center">
         <UserCircleIcon className="w-16 h-16 text-gray-500 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-white mb-2">Not signed in</h3>
-        <p className="text-gray-300 mb-6">Sign in to access projects and team features</p>
+        <p className="text-gray-300 mb-6">
+          Sign in to access projects and team features
+        </p>
         <button
           onClick={() => setShowingLogin(true)}
           className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors inline-flex items-center gap-2 shadow-lg shadow-amber-500/20"
@@ -190,10 +198,14 @@ function AuthCard() {
             <UserCircleIcon className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">{user?.name || 'User'}</h3>
+            <h3 className="text-lg font-semibold text-white">
+              {user?.name || 'User'}
+            </h3>
             <p className="text-sm text-gray-300">{user?.email}</p>
             {user?.organizationName && (
-              <p className="text-xs text-gray-400 mt-1">{user.organizationName}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {user.organizationName}
+              </p>
             )}
           </div>
         </div>
@@ -212,29 +224,35 @@ function AuthCard() {
 function ProjectMappingsTable({ mappings, onDelete }) {
   let { addToast, confirm } = useToast();
 
-  let handleDelete = useCallback(async (directory) => {
-    let confirmed = await confirm(
-      `Remove project mapping for ${directory}?`,
-      'This will not delete any files, only the project association.'
-    );
+  let handleDelete = useCallback(
+    async directory => {
+      let confirmed = await confirm(
+        `Remove project mapping for ${directory}?`,
+        'This will not delete any files, only the project association.'
+      );
 
-    if (!confirmed) return;
+      if (!confirmed) return;
 
-    try {
-      await onDelete(directory);
-      addToast('Mapping removed successfully', 'success');
-    } catch (err) {
-      addToast(`Failed to remove mapping: ${err.message}`, 'error');
-    }
-  }, [onDelete, addToast, confirm]);
+      try {
+        await onDelete(directory);
+        addToast('Mapping removed successfully', 'success');
+      } catch (err) {
+        addToast(`Failed to remove mapping: ${err.message}`, 'error');
+      }
+    },
+    [onDelete, addToast, confirm]
+  );
 
   if (mappings.length === 0) {
     return (
       <div className="text-center py-8">
         <FolderIcon className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-        <h3 className="text-lg font-medium text-white mb-2">No project mappings</h3>
+        <h3 className="text-lg font-medium text-white mb-2">
+          No project mappings
+        </h3>
         <p className="text-sm text-gray-300 mb-4 max-w-md mx-auto">
-          Link a directory to a Vizzly project using the CLI from within your project directory.
+          Link a directory to a Vizzly project using the CLI from within your
+          project directory.
         </p>
         <div className="bg-slate-900 border border-gray-700 rounded-lg p-4 max-w-md mx-auto">
           <code className="text-sm text-amber-500 font-mono">
@@ -253,18 +271,35 @@ function ProjectMappingsTable({ mappings, onDelete }) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-700">
-            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">Directory</th>
-            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">Project</th>
-            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">Organization</th>
-            <th className="text-right py-3 px-4 text-sm font-medium text-gray-300">Actions</th>
+            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">
+              Directory
+            </th>
+            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">
+              Project
+            </th>
+            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">
+              Organization
+            </th>
+            <th className="text-right py-3 px-4 text-sm font-medium text-gray-300">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
           {mappings.map((mapping, idx) => (
-            <tr key={idx} className="border-b border-gray-700/50 hover:bg-white/5">
-              <td className="py-3 px-4 text-sm text-gray-300 font-mono">{mapping.directory}</td>
-              <td className="py-3 px-4 text-sm text-white">{mapping.projectName || mapping.projectSlug}</td>
-              <td className="py-3 px-4 text-sm text-gray-400">{mapping.organizationSlug}</td>
+            <tr
+              key={idx}
+              className="border-b border-gray-700/50 hover:bg-white/5"
+            >
+              <td className="py-3 px-4 text-sm text-gray-300 font-mono">
+                {mapping.directory}
+              </td>
+              <td className="py-3 px-4 text-sm text-white">
+                {mapping.projectName || mapping.projectSlug}
+              </td>
+              <td className="py-3 px-4 text-sm text-gray-400">
+                {mapping.organizationSlug}
+              </td>
               <td className="py-3 px-4 text-right">
                 <button
                   onClick={() => handleDelete(mapping.directory)}
@@ -295,7 +330,10 @@ function RecentBuildsCard({ builds }) {
   return (
     <div className="space-y-3">
       {builds.slice(0, 5).map((build, idx) => (
-        <div key={idx} className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors border border-gray-700/50">
+        <div
+          key={idx}
+          className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors border border-gray-700/50"
+        >
           <div className="flex-1">
             <h4 className="text-sm font-medium text-white">{build.name}</h4>
             <p className="text-xs text-gray-400 mt-1">
@@ -323,8 +361,8 @@ function RecentBuildsCard({ builds }) {
 }
 
 export default function ProjectsView() {
-  let { authenticated } = useAuth();
-  let { mappings, recentBuilds, loading, deleteMapping, refetch } = useProjects();
+  let { mappings, recentBuilds, loading, deleteMapping, refetch } =
+    useProjects();
 
   if (loading) {
     return (
@@ -342,7 +380,9 @@ export default function ProjectsView() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Projects</h1>
-        <p className="text-gray-300">Manage your Vizzly projects and directory mappings</p>
+        <p className="text-gray-300">
+          Manage your Vizzly projects and directory mappings
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -358,7 +398,9 @@ export default function ProjectsView() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Recent Builds</span>
-              <span className="text-white font-medium">{recentBuilds.length}</span>
+              <span className="text-white font-medium">
+                {recentBuilds.length}
+              </span>
             </div>
           </div>
         </div>
@@ -367,7 +409,9 @@ export default function ProjectsView() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-white">Project Mappings</h2>
+            <h2 className="text-xl font-semibold text-white">
+              Project Mappings
+            </h2>
             <button
               onClick={refetch}
               className="text-sm text-amber-500 hover:text-amber-400 transition-colors font-medium"
@@ -379,7 +423,9 @@ export default function ProjectsView() {
         </div>
 
         <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-white mb-6">Recent Builds</h2>
+          <h2 className="text-xl font-semibold text-white mb-6">
+            Recent Builds
+          </h2>
           <RecentBuildsCard builds={recentBuilds} />
         </div>
       </div>

@@ -23,10 +23,14 @@ export function createReporterTestServer(fixtureData, port = 3456) {
 
     let parsedUrl = new URL(req.url, `http://${req.headers.host}`);
 
-    // Serve main dashboard
+    // Serve main dashboard for all HTML routes (client-side routing)
     if (
       req.method === 'GET' &&
-      (parsedUrl.pathname === '/' || parsedUrl.pathname === '/dashboard')
+      (parsedUrl.pathname === '/' ||
+        parsedUrl.pathname === '/dashboard' ||
+        parsedUrl.pathname === '/stats' ||
+        parsedUrl.pathname === '/settings' ||
+        parsedUrl.pathname === '/projects')
     ) {
       let dashboardHtml = `
 <!DOCTYPE html>
@@ -95,6 +99,49 @@ export function createReporterTestServer(fixtureData, port = 3456) {
       res.setHeader('Content-Type', 'application/json');
       res.statusCode = 200;
       res.end(JSON.stringify(fixtureData));
+      return;
+    }
+
+    // API endpoint for config
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/config') {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          config: {
+            comparison: { threshold: 0.1 },
+            server: { port: 47392, timeout: 30000 },
+            build: { environment: 'test' },
+          },
+          source: 'vizzly.config.js',
+        })
+      );
+      return;
+    }
+
+    // API endpoint for auth status
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/auth/status') {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          authenticated: false,
+          user: null,
+        })
+      );
+      return;
+    }
+
+    // API endpoint for projects
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/projects') {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(
+        JSON.stringify({
+          projects: [],
+          mappings: [],
+        })
+      );
       return;
     }
 

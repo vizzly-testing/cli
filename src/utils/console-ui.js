@@ -50,6 +50,7 @@ export class ConsoleUI {
         errorData.error = {
           name: error.name,
           message: errorMessage,
+          code: error.code,
           ...(this.verbose && { stack: error.stack }),
         };
       } else if (typeof error === 'object') {
@@ -59,8 +60,32 @@ export class ConsoleUI {
       console.error(JSON.stringify(errorData));
     } else {
       console.error(this.colors.red(`✖ ${message}`));
-      if (this.verbose && error.stack) {
-        console.error(this.colors.dim(error.stack));
+
+      // Always show error details (not just in verbose mode)
+      if (error instanceof Error) {
+        // Use getUserMessage() if available (VizzlyError classes), otherwise use message
+        const errorMessage = error.getUserMessage
+          ? error.getUserMessage()
+          : error.message;
+        if (errorMessage && errorMessage !== message) {
+          console.error(this.colors.dim(errorMessage));
+        }
+        // Stack traces only in verbose mode
+        if (this.verbose && error.stack) {
+          console.error(this.colors.dim(error.stack));
+        }
+      } else if (typeof error === 'string' && error) {
+        console.error(this.colors.dim(error));
+      } else if (
+        error &&
+        typeof error === 'object' &&
+        Object.keys(error).length > 0
+      ) {
+        // Show error object details if available
+        const errorStr = JSON.stringify(error, null, 2);
+        if (errorStr !== '{}') {
+          console.error(this.colors.dim(errorStr));
+        }
       }
     }
 

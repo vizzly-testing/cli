@@ -277,7 +277,7 @@ export async function runCommand(
         ui.error('Test run failed');
         return { success: false, exitCode };
       } else {
-        // Setup or other error
+        // Setup or other error - VizzlyError.getUserMessage() provides context
         ui.error('Test run failed', error);
         return { success: false, exitCode: 1 };
       }

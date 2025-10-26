@@ -306,6 +306,18 @@ describe('runCommand', () => {
 
       expect(mockUI.error).toHaveBeenCalledWith('Test run failed', error);
     });
+
+    it('should pass error object to ConsoleUI which displays error.message', async () => {
+      const error = new Error(
+        'Port 47392 is already in use. Try a different port with --port.'
+      );
+      mockTestRunner.run.mockRejectedValue(error);
+
+      await runCommand('npm test', {}, {});
+
+      // Run command passes error to ConsoleUI, which will display error.message
+      expect(mockUI.error).toHaveBeenCalledWith('Test run failed', error);
+    });
   });
 
   describe('event handling', () => {

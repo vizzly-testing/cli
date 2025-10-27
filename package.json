@@ -115,7 +115,7 @@
     "tailwindcss": "^4.1.13",
     "typescript": "^5.0.4",
     "vite": "^7.1.7",
-    "vitest": "^3.2.4",
+    "vitest": "^4.0.3",
     "wouter": "^3.7.1"
   }
 }

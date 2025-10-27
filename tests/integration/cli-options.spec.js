@@ -170,7 +170,7 @@ describe('CLI Options Integration', () => {
 
       // Should fail due to missing API token but with JSON error format
       expect(result.code).toBe(1);
-      const lines = result.stderr.split('\\n').filter(line => line.trim());
+      const lines = result.stderr.split('\n').filter(line => line.trim());
 
       // Look for JSON error output
       const jsonErrorLine = lines.find(line => {
@@ -344,7 +344,7 @@ describe('CLI Options Integration', () => {
 
       expect(result.code).toBe(1);
       // Should fail due to missing token but in JSON format
-      const lines = result.stderr.split('\\n').filter(line => line.trim());
+      const lines = result.stderr.split('\n').filter(line => line.trim());
       const jsonErrorLine = lines.find(line => {
         try {
           const parsed = JSON.parse(line);
@@ -452,7 +452,7 @@ describe('CLI Options Integration', () => {
       expect(result.code).toBe(1);
 
       // Parse stderr lines to find JSON output
-      const lines = result.stderr.split('\\n').filter(line => line.trim());
+      const lines = result.stderr.split('\n').filter(line => line.trim());
       const jsonLines = lines.filter(line => {
         try {
           JSON.parse(line);
@@ -468,7 +468,7 @@ describe('CLI Options Integration', () => {
     it('should include timestamps in JSON output', async () => {
       const result = await runCLI(['upload', './screenshots', '--json']);
 
-      const lines = result.stderr.split('\\n').filter(line => line.trim());
+      const lines = result.stderr.split('\n').filter(line => line.trim());
       const jsonLine = lines.find(line => {
         try {
           const parsed = JSON.parse(line);

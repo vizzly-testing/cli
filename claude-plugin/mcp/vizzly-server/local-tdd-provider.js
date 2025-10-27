@@ -86,8 +86,11 @@ export class LocalTDDProvider {
 
   /**
    * Get current TDD status with comparison results
+   * @param {string} workingDirectory - Path to project directory
+   * @param {string} statusFilter - Filter by status: 'failed', 'new', 'passed', 'all', or 'summary' (default)
+   * @param {number} limit - Maximum number of comparisons to return
    */
-  async getTDDStatus(workingDirectory) {
+  async getTDDStatus(workingDirectory, statusFilter = 'summary', limit) {
     let vizzlyDir = await this.findVizzlyDir(workingDirectory);
     if (!vizzlyDir) {
       return {
@@ -140,43 +143,73 @@ export class LocalTDDProvider {
     // Get baseline metadata if available
     let baselineMetadata = await this.getBaselineMetadata(workingDirectory);
 
-    return {
+    // Build base response
+    let response = {
       vizzlyDir,
       serverInfo,
       summary,
-      comparisons: comparisons.map((c) => {
-        // Convert paths from report-data.json to filesystem paths
-        // Report paths like "/images/baselines/foo.png" -> ".vizzly/baselines/foo.png"
-        let makeFilesystemPath = (path) => {
-          if (!path) return null;
-          // Strip /images/ prefix and join with vizzlyDir
-          let cleanPath = path.replace(/^\/images\//, '');
-          return join(vizzlyDir, cleanPath);
-        };
-
-        return {
-          name: c.name,
-          status: c.status,
-          diffPercentage: c.diffPercentage,
-          threshold: c.threshold,
-          hasDiff: c.diffPercentage > c.threshold,
-          currentPath: makeFilesystemPath(c.current),
-          baselinePath: makeFilesystemPath(c.baseline),
-          diffPath: makeFilesystemPath(c.diff)
-        };
-      }),
-      diffImages,
-      failedComparisons: comparisons.filter((c) => c.status === 'failed').map((c) => c.name),
-      newScreenshots: comparisons.filter((c) => c.status === 'new').map((c) => c.name),
       baselineMetadata
     };
+
+    // If summary mode (default), don't include full comparison details
+    if (statusFilter === 'summary') {
+      response.failedComparisons = comparisons
+        .filter((c) => c.status === 'failed')
+        .map((c) => c.name);
+      response.newScreenshots = comparisons.filter((c) => c.status === 'new').map((c) => c.name);
+      response.diffImages = diffImages;
+      return response;
+    }
+
+    // Filter comparisons based on statusFilter
+    let filteredComparisons = comparisons;
+    if (statusFilter !== 'all') {
+      filteredComparisons = comparisons.filter((c) => c.status === statusFilter);
+    }
+
+    // Apply limit if provided
+    if (limit && limit > 0) {
+      filteredComparisons = filteredComparisons.slice(0, limit);
+    }
+
+    // Map comparisons with full details
+    response.comparisons = filteredComparisons.map((c) => {
+      // Convert paths from report-data.json to filesystem paths
+      // Report paths like "/images/baselines/foo.png" -> ".vizzly/baselines/foo.png"
+      let makeFilesystemPath = (path) => {
+        if (!path) return null;
+        // Strip /images/ prefix and join with vizzlyDir
+        let cleanPath = path.replace(/^\/images\//, '');
+        return join(vizzlyDir, cleanPath);
+      };
+
+      return {
+        name: c.name,
+        status: c.status,
+        diffPercentage: c.diffPercentage,
+        threshold: c.threshold,
+        hasDiff: c.diffPercentage > c.threshold,
+        currentPath: makeFilesystemPath(c.current),
+        baselinePath: makeFilesystemPath(c.baseline),
+        diffPath: makeFilesystemPath(c.diff)
+      };
+    });
+
+    response.diffImages = diffImages;
+    response.failedComparisons = comparisons
+      .filter((c) => c.status === 'failed')
+      .map((c) => c.name);
+    response.newScreenshots = comparisons.filter((c) => c.status === 'new').map((c) => c.name);
+
+    return response;
   }
 
   /**
    * Get detailed information about a specific comparison
    */
   async getComparisonDetails(screenshotName, workingDirectory) {
-    let status = await this.getTDDStatus(workingDirectory);
+    // Get all comparisons to find the specific one
+    let status = await this.getTDDStatus(workingDirectory, 'all');
     if (status.error) {
       return status;
     }
@@ -289,7 +322,7 @@ export class LocalTDDProvider {
       throw new Error('No .vizzly directory found. TDD server not running.');
     }
 
-    let currentPath = join(vizzlyDir, 'screenshots', `${screenshotName}.png`);
+    let currentPath = join(vizzlyDir, 'current', `${screenshotName}.png`);
     let baselinePath = join(vizzlyDir, 'baselines', `${screenshotName}.png`);
 
     try {

@@ -10,6 +10,7 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn(() => Buffer.from('mock-image-data')),
   existsSync: vi.fn(() => true),
   mkdirSync: vi.fn(),
+  copyFileSync: vi.fn(),
 }));
 
 vi.mock('child_process', () => ({
@@ -485,6 +486,92 @@ describe('TddService', () => {
 
       const result = await tddService.loadBaseline();
       expect(result).toBeNull();
+    });
+  });
+
+  describe('acceptBaseline', () => {
+    beforeEach(() => {
+      // Add some mock comparisons to the service
+      tddService.comparisons = [
+        {
+          id: 'comp-123',
+          name: 'screenshot1',
+          signature: 'screenshot1',
+          status: 'failed',
+          current: join(testDir, '.vizzly', 'current', 'screenshot1.png'),
+          baseline: join(testDir, '.vizzly', 'baselines', 'screenshot1.png'),
+          diff: join(testDir, '.vizzly', 'diffs', 'screenshot1.png'),
+          diffPercentage: 5.2,
+        },
+        {
+          id: 'comp-456',
+          name: 'screenshot2',
+          signature: 'screenshot2',
+          status: 'new',
+          current: join(testDir, '.vizzly', 'current', 'screenshot2.png'),
+          baseline: join(testDir, '.vizzly', 'baselines', 'screenshot2.png'),
+          diff: null,
+        },
+      ];
+    });
+
+    it('accepts baseline by ID (string)', async () => {
+      let result = await tddService.acceptBaseline('comp-123');
+
+      expect(result).toMatchObject({
+        name: 'screenshot1',
+        status: 'accepted',
+      });
+    });
+
+    it('accepts baseline by comparison object', async () => {
+      // This simulates passing a comparison from report-data.json
+      let comparisonObject = {
+        id: 'comp-from-report',
+        name: 'screenshot3',
+        signature: 'screenshot3',
+        status: 'failed',
+        current: join(testDir, '.vizzly', 'current', 'screenshot3.png'),
+        baseline: join(testDir, '.vizzly', 'baselines', 'screenshot3.png'),
+        diff: join(testDir, '.vizzly', 'diffs', 'screenshot3.png'),
+        diffPercentage: 2.1,
+      };
+
+      let result = await tddService.acceptBaseline(comparisonObject);
+
+      expect(result).toMatchObject({
+        name: 'screenshot3',
+        status: 'accepted',
+      });
+    });
+
+    it('throws error when comparison ID not found', async () => {
+      await expect(
+        tddService.acceptBaseline('non-existent-id')
+      ).rejects.toThrow('No comparison found with ID: non-existent-id');
+    });
+
+    it('works with comparison object that is not in memory', async () => {
+      // This simulates the TDD handler passing a comparison from report-data.json
+      // that may not be in the service's in-memory comparisons array
+      let reportComparison = {
+        id: 'external-comp',
+        name: 'external-screenshot',
+        current: join(testDir, '.vizzly', 'current', 'external-screenshot.png'),
+        baseline: join(
+          testDir,
+          '.vizzly',
+          'baselines',
+          'external-screenshot.png'
+        ),
+      };
+
+      let result = await tddService.acceptBaseline(reportComparison);
+
+      expect(result).toMatchObject({
+        name: 'external-screenshot',
+        status: 'accepted',
+      });
     });
   });
 

@@ -496,30 +496,28 @@ export const createTddHandler = (
 
   const acceptBaseline = async comparisonId => {
     try {
-      // Use TDD service to accept the baseline
-      const result = await tddService.acceptBaseline(comparisonId);
-
-      // Read current report data and update the comparison status
+      // Read current report data to get the comparison
       const reportData = readReportData();
       const comparison = reportData.comparisons.find(
         c => c.id === comparisonId
       );
 
-      if (comparison) {
-        // Update the comparison to passed status
-        const updatedComparison = {
-          ...comparison,
-          status: 'passed',
-          diffPercentage: 0,
-          diff: null,
-        };
-
-        updateComparison(updatedComparison);
-      } else {
-        logger.error(
-          `Comparison not found in report data for ID: ${comparisonId}`
-        );
+      if (!comparison) {
+        throw new Error(`Comparison not found with ID: ${comparisonId}`);
       }
+
+      // Pass the comparison object to tddService instead of just the ID
+      const result = await tddService.acceptBaseline(comparison);
+
+      // Update the comparison to passed status
+      const updatedComparison = {
+        ...comparison,
+        status: 'passed',
+        diffPercentage: 0,
+        diff: null,
+      };
+
+      updateComparison(updatedComparison);
 
       logger.info(`Baseline accepted for comparison ${comparisonId}`);
       return result;
@@ -539,7 +537,9 @@ export const createTddHandler = (
       // Accept all failed or new comparisons
       for (const comparison of reportData.comparisons) {
         if (comparison.status === 'failed' || comparison.status === 'new') {
-          await tddService.acceptBaseline(comparison.id);
+          // Pass the comparison object directly instead of just the ID
+          // This allows tddService to work with comparisons from report-data.json
+          await tddService.acceptBaseline(comparison);
 
           // Update the comparison to passed status
           updateComparison({

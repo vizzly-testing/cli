@@ -5,6 +5,27 @@ All notable changes to the Vizzly Claude Code plugin will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- ⚡️ **Performance:** `get_tdd_status` now supports filtering and pagination
+  - New `statusFilter` parameter: `'failed'`, `'new'`, `'passed'`, `'all'`, or `'summary'` (default)
+  - New `limit` parameter for capping number of comparisons returned
+  - Default behavior (summary mode) returns only counts for better token efficiency
+- 🔧 **API Enhancement:** Cloud API provider now includes approval status and flaky screenshot detection
+  - Added approval status breakdown (pending/approved/rejected/auto_approved)
+  - Added flaky screenshot count
+  - Added hot spot coverage metadata for quick triage
+
+### Changed
+- 🔧 **Internal:** `acceptBaseline()` in TDD service now accepts both comparison ID (string) or full comparison object
+  - Enables accepting baselines from report-data.json without in-memory lookup
+  - Fixes issue where accepting from dashboard wasn't working properly
+
+### Fixed
+- 🐛 Fixed path bug in local TDD provider: `screenshots/` → `current/` directory
+- 🐛 Fixed API field mapping in cloud provider: API returns `result` not `status`
+
 ## [0.1.0] - 2025-10-18
 
 ### Added

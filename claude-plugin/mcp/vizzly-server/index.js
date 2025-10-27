@@ -131,6 +131,15 @@ class VizzlyMCPServer {
               workingDirectory: {
                 type: 'string',
                 description: 'Path to project directory (optional, defaults to current directory)'
+              },
+              statusFilter: {
+                type: 'string',
+                description: 'Filter comparisons by status: "failed", "new", "passed", or "all". Defaults to "summary" (no comparisons, just counts)',
+                enum: ['failed', 'new', 'passed', 'all', 'summary']
+              },
+              limit: {
+                type: 'number',
+                description: 'Maximum number of comparisons to return (default: unlimited when statusFilter is set)'
               }
             }
           }
@@ -556,7 +565,11 @@ class VizzlyMCPServer {
           }
 
           case 'get_tdd_status': {
-            let status = await this.localProvider.getTDDStatus(args.workingDirectory);
+            let status = await this.localProvider.getTDDStatus(
+              args.workingDirectory,
+              args.statusFilter,
+              args.limit
+            );
             return {
               content: [
                 {

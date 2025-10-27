@@ -49,27 +49,43 @@ export class CloudAPIProvider {
     let { build } = data;
 
     // Calculate comparison summary
+    // Note: API returns 'result' field (not 'status'), and doesn't have 'has_diff'
+    // result can be: 'identical', 'changed', 'new', 'removed', 'error', 'missing', 'returning'
     let comparisons = build.comparisons || [];
+
+    // Calculate basic comparison summary
+    let changedComparisons = comparisons.filter((c) => c.result === 'changed' || (c.diff_percentage && c.diff_percentage > 0));
+
     let summary = {
       total: comparisons.length,
-      new: comparisons.filter((c) => c.status === 'new').length,
-      changed: comparisons.filter((c) => c.has_diff).length,
-      identical: comparisons.filter((c) => !c.has_diff && c.status !== 'new').length
+      new: comparisons.filter((c) => c.result === 'new').length,
+      changed: changedComparisons.length,
+      identical: comparisons.filter((c) => c.result === 'identical' || (c.result !== 'new' && c.result !== 'changed' && (!c.diff_percentage || c.diff_percentage === 0))).length,
+      // Approval status breakdown
+      approval: {
+        pending: comparisons.filter((c) => c.approval_status === 'pending').length,
+        approved: comparisons.filter((c) => c.approval_status === 'approved').length,
+        rejected: comparisons.filter((c) => c.approval_status === 'rejected').length,
+        autoApproved: comparisons.filter((c) => c.approval_status === 'auto_approved').length
+      },
+      // Flaky screenshot count
+      flaky: comparisons.filter((c) => c.is_flaky).length
     };
 
-    // Group comparisons by status
+    // Keep minimal for token efficiency - use read_comparison_details for full metadata
     let failedComparisons = comparisons
-      .filter((c) => c.has_diff)
+      .filter((c) => c.result === 'changed' || (c.diff_percentage && c.diff_percentage > 0))
       .map((c) => ({
-        name: c.name,
+        id: c.id,
+        name: c.current_name || c.name,
         diffPercentage: c.diff_percentage,
-        currentUrl: c.current_screenshot?.original_url,
-        baselineUrl: c.baseline_screenshot?.original_url,
-        diffUrl: c.diff_image?.url
+        approvalStatus: c.approval_status,
+        // Include hot spot coverage % for quick triage (single number)
+        hotSpotCoverage: c.analysis_metadata?.hot_spot_coverage || null
       }));
 
     let newComparisons = comparisons
-      .filter((c) => c.status === 'new')
+      .filter((c) => c.result === 'new')
       .map((c) => ({
         name: c.name,
         currentUrl: c.current_screenshot?.original_url

@@ -1298,14 +1298,22 @@ export class TddService {
 
   /**
    * Accept a current screenshot as the new baseline
-   * @param {string} id - Comparison ID to accept (generated from signature)
+   * @param {string|Object} idOrComparison - Comparison ID or comparison object
    * @returns {Object} Result object
    */
-  async acceptBaseline(id) {
-    // Find the comparison by ID
-    let comparison = this.comparisons.find(c => c.id === id);
-    if (!comparison) {
-      throw new Error(`No comparison found with ID: ${id}`);
+  async acceptBaseline(idOrComparison) {
+    let comparison;
+
+    // Support both ID lookup and direct comparison object
+    if (typeof idOrComparison === 'string') {
+      // Find the comparison by ID in memory
+      comparison = this.comparisons.find(c => c.id === idOrComparison);
+      if (!comparison) {
+        throw new Error(`No comparison found with ID: ${idOrComparison}`);
+      }
+    } else {
+      // Use the provided comparison object directly
+      comparison = idOrComparison;
     }
 
     const sanitizedName = comparison.name;

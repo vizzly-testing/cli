@@ -130,6 +130,10 @@ The plugin provides an MCP server with direct access to Vizzly data:
 ### Local TDD Tools
 - `detect_context` - Detect if using local TDD or cloud mode
 - `get_tdd_status` - Get current TDD comparison results
+  - Parameters:
+    - `statusFilter` (optional): Filter by status - `'failed'`, `'new'`, `'passed'`, `'all'`, or `'summary'` (default)
+    - `limit` (optional): Maximum number of comparisons to return
+  - Default behavior (summary mode): Returns counts only without full comparison details for efficiency
 - `read_comparison_details` - Detailed info for specific screenshot
 - `accept_baseline` - Accept a screenshot as new baseline
 - `reject_baseline` - Reject a baseline with reason

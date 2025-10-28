@@ -9,13 +9,16 @@ import {
   projectTokenCommand,
   projectRemoveCommand,
 } from '../../src/commands/project.js';
-import { AuthService } from '../../src/services/auth-service.js';
 import * as globalConfig from '../../src/utils/global-config.js';
 import readline from 'readline';
 
 // Mock AuthService
+const mockAuthServiceStore = { mockInstance: null };
+
 vi.mock('../../src/services/auth-service.js', () => ({
-  AuthService: vi.fn(),
+  AuthService: vi.fn(function () {
+    return mockAuthServiceStore.mockInstance;
+  }),
 }));
 
 // Mock global-config
@@ -48,7 +51,7 @@ describe('Project Commands', () => {
     mockAuthService = {
       whoami: vi.fn(),
     };
-    AuthService.mockImplementation(() => mockAuthService);
+    mockAuthServiceStore.mockInstance = mockAuthService;
 
     // Mock readline interface
     mockRl = {

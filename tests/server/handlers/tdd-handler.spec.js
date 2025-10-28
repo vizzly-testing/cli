@@ -2,8 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createTddHandler } from '../../../src/server/handlers/tdd-handler.js';
 
 // Mock dependencies
+const mockTddServiceStore = { mockInstance: null };
+
 vi.mock('../../../src/services/tdd-service.js', () => ({
-  TddService: vi.fn(),
+  TddService: vi.fn(function () {
+    return mockTddServiceStore.mockInstance;
+  }),
 }));
 
 vi.mock('../../../src/utils/logger-factory.js', () => ({
@@ -41,8 +45,7 @@ describe('createTddHandler', () => {
       printResults: vi.fn(),
     };
 
-    const { TddService } = await import('../../../src/services/tdd-service.js');
-    TddService.mockImplementation(() => mockTddService);
+    mockTddServiceStore.mockInstance = mockTddService;
 
     handler = createTddHandler(
       mockConfig,

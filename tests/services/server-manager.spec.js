@@ -130,7 +130,9 @@ describe('ServerManager', () => {
     createHttpServer.mockReturnValue(mockHttpServer);
     createTddHandler.mockReturnValue(mockTddHandler);
     createApiHandler.mockReturnValue(mockApiHandler);
-    ApiService.mockImplementation(() => mockApiService);
+    ApiService.mockImplementation(function () {
+      return mockApiService;
+    });
 
     serverManager = new ServerManager(mockConfig, { logger: mockLogger });
 

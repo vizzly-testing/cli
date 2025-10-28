@@ -7,16 +7,18 @@ vi.mock('../../src/utils/config-loader.js', () => ({
 }));
 
 vi.mock('../../src/utils/console-ui.js', () => ({
-  ConsoleUI: vi.fn(() => ({
-    cleanup: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-    warning: vi.fn(),
-    progress: vi.fn(),
-    startSpinner: vi.fn(),
-    stopSpinner: vi.fn(),
-  })),
+  ConsoleUI: vi.fn(function () {
+    return {
+      cleanup: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+      success: vi.fn(),
+      warning: vi.fn(),
+      progress: vi.fn(),
+      startSpinner: vi.fn(),
+      stopSpinner: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('../../src/container/index.js', () => ({
@@ -83,7 +85,9 @@ describe('runCommand', () => {
       generateBuildNameWithGit,
     } = await import('../../src/utils/git.js');
 
-    ConsoleUI.mockReturnValue(mockUI);
+    ConsoleUI.mockImplementation(function () {
+      return mockUI;
+    });
     createServiceContainer.mockResolvedValue(mockContainer);
 
     loadConfig.mockResolvedValue({

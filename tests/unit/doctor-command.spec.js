@@ -5,9 +5,20 @@ import {
 } from '../../src/commands/doctor.js';
 
 // Mock dependencies actually used by the lean doctor
+const mockConsoleUIStore = { mockInstance: null };
+const mockApiServiceStore = { mockInstance: null };
+
 vi.mock('../../src/utils/config-loader.js');
-vi.mock('../../src/utils/console-ui.js');
-vi.mock('../../src/services/api-service.js');
+vi.mock('../../src/utils/console-ui.js', () => ({
+  ConsoleUI: vi.fn(function () {
+    return mockConsoleUIStore.mockInstance;
+  }),
+}));
+vi.mock('../../src/services/api-service.js', () => ({
+  ApiService: vi.fn(function () {
+    return mockApiServiceStore.mockInstance;
+  }),
+}));
 
 const mockConsoleUI = {
   info: vi.fn(),
@@ -37,14 +48,13 @@ describe('Doctor Command (lean preflight)', () => {
     vi.clearAllMocks();
 
     // Setup mocks
-    const { ConsoleUI } = await import('../../src/utils/console-ui.js');
-    ConsoleUI.mockImplementation(() => mockConsoleUI);
+    mockConsoleUIStore.mockInstance = mockConsoleUI;
 
     const { loadConfig } = await import('../../src/utils/config-loader.js');
     loadConfig.mockImplementation(mockLoadConfig);
 
-    const apiModule = await import('../../src/services/api-service.js');
-    apiModule.ApiService.mockImplementation(MockApiService);
+    let mockApiService = new MockApiService();
+    mockApiServiceStore.mockInstance = mockApiService;
 
     // Mock process.version
     originalNodeVersion = process.version;
@@ -162,9 +172,8 @@ describe('Doctor Command (lean preflight)', () => {
   });
 
   it('checks API connectivity when --api flag is set and token exists', async () => {
-    const apiModule = await import('../../src/services/api-service.js');
     const instance = new MockApiService();
-    apiModule.ApiService.mockImplementation(() => instance);
+    mockApiServiceStore.mockInstance = instance;
 
     await doctorCommand({ api: true }, { verbose: false, json: false });
 
@@ -196,11 +205,10 @@ describe('Doctor Command (lean preflight)', () => {
   });
 
   it('surfaces API connectivity errors when --api is set', async () => {
-    const apiModule = await import('../../src/services/api-service.js');
     class FailingApi extends MockApiService {
       getBuilds = vi.fn().mockRejectedValue(new Error('Network error'));
     }
-    apiModule.ApiService.mockImplementation(() => new FailingApi());
+    mockApiServiceStore.mockInstance = new FailingApi();
     const spyExit = vi.spyOn(process, 'exit').mockImplementation(() => {});
 
     await doctorCommand({ api: true }, { verbose: false, json: false });

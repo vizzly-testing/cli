@@ -9,8 +9,12 @@ import { AuthError } from '../../src/errors/vizzly-error.js';
 import * as globalConfig from '../../src/utils/global-config.js';
 
 // Mock AuthService
+const mockAuthServiceStore = { mockInstance: null };
+
 vi.mock('../../src/services/auth-service.js', () => ({
-  AuthService: vi.fn(),
+  AuthService: vi.fn(function () {
+    return mockAuthServiceStore.mockInstance;
+  }),
 }));
 
 // Mock global-config
@@ -28,7 +32,7 @@ describe('Whoami Command', () => {
     mockAuthService = {
       whoami: vi.fn(),
     };
-    AuthService.mockImplementation(() => mockAuthService);
+    mockAuthServiceStore.mockInstance = mockAuthService;
 
     // Spy on console.log
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});

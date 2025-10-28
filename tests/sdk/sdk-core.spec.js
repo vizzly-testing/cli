@@ -45,11 +45,13 @@ describe('Vizzly SDK Core Functionality', () => {
     }));
 
     vi.doMock('../../src/services/screenshot-server.js', () => ({
-      ScreenshotServer: vi.fn(() => ({
-        start: vi.fn(),
-        stop: vi.fn(),
-        isRunning: vi.fn(() => true),
-      })),
+      ScreenshotServer: vi.fn(function () {
+        return {
+          start: vi.fn(),
+          stop: vi.fn(),
+          isRunning: vi.fn(() => true),
+        };
+      }),
     }));
   });
 

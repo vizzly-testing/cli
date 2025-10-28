@@ -8,8 +8,12 @@ import { AuthService } from '../../src/services/auth-service.js';
 import * as globalConfig from '../../src/utils/global-config.js';
 
 // Mock AuthService
+const mockAuthServiceStore = { mockInstance: null };
+
 vi.mock('../../src/services/auth-service.js', () => ({
-  AuthService: vi.fn(),
+  AuthService: vi.fn(function () {
+    return mockAuthServiceStore.mockInstance;
+  }),
 }));
 
 // Mock global-config
@@ -27,7 +31,7 @@ describe('Logout Command', () => {
     mockAuthService = {
       logout: vi.fn(),
     };
-    AuthService.mockImplementation(() => mockAuthService);
+    mockAuthServiceStore.mockInstance = mockAuthService;
 
     // Spy on console.log
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});

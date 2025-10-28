@@ -16,11 +16,13 @@ vi.mock('../../src/services/tdd-service.js', () => ({
 }));
 
 vi.mock('../../src/services/screenshot-server.js', () => ({
-  ScreenshotServer: vi.fn(() => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-    isRunning: vi.fn(() => true),
-  })),
+  ScreenshotServer: vi.fn(function () {
+    return {
+      start: vi.fn(),
+      stop: vi.fn(),
+      isRunning: vi.fn(() => true),
+    };
+  }),
 }));
 
 vi.mock('../../src/utils/config-loader.js', () => ({
@@ -278,7 +280,9 @@ describe('Vizzly SDK', () => {
         stop: vi.fn(),
         isRunning: vi.fn(() => true),
       };
-      ScreenshotServer.mockReturnValue(mockServer);
+      ScreenshotServer.mockImplementation(function () {
+        return mockServer;
+      });
 
       mockServices = {};
 

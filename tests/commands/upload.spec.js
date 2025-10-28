@@ -10,16 +10,18 @@ vi.mock('../../src/utils/config-loader.js', () => ({
 }));
 
 vi.mock('../../src/utils/console-ui.js', () => ({
-  ConsoleUI: vi.fn(() => ({
-    cleanup: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-    warning: vi.fn(),
-    progress: vi.fn(),
-    startSpinner: vi.fn(),
-    stopSpinner: vi.fn(),
-  })),
+  ConsoleUI: vi.fn(function () {
+    return {
+      cleanup: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+      success: vi.fn(),
+      warning: vi.fn(),
+      progress: vi.fn(),
+      startSpinner: vi.fn(),
+      stopSpinner: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('../../src/container/index.js', () => ({
@@ -88,9 +90,13 @@ describe('uploadCommand', () => {
     } = await import('../../src/utils/git.js');
     const { ApiService } = await import('../../src/services/api-service.js');
 
-    ConsoleUI.mockReturnValue(mockUI);
+    ConsoleUI.mockImplementation(function () {
+      return mockUI;
+    });
     createServiceContainer.mockResolvedValue(mockContainer);
-    ApiService.mockReturnValue(mockApiService);
+    ApiService.mockImplementation(function () {
+      return mockApiService;
+    });
 
     loadConfig.mockResolvedValue({
       apiKey: 'test-api-key',

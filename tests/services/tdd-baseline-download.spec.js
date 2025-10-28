@@ -52,7 +52,9 @@ describe('TDD Service - Baseline Download', () => {
       getBuilds: vi.fn(),
       getComparison: vi.fn(),
     };
-    ApiService.mockReturnValue(mockApiService);
+    ApiService.mockImplementation(function () {
+      return mockApiService;
+    });
 
     tddService = new TddService(mockConfig, testDir);
   });

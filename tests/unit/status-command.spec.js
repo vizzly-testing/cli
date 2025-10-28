@@ -5,8 +5,14 @@ import {
 } from '../../src/commands/status.js';
 
 // Mock dependencies
+const mockConsoleUIStore = { mockInstance: null };
+
 vi.mock('../../src/utils/config-loader.js');
-vi.mock('../../src/utils/console-ui.js');
+vi.mock('../../src/utils/console-ui.js', () => ({
+  ConsoleUI: vi.fn(function () {
+    return mockConsoleUIStore.mockInstance;
+  }),
+}));
 vi.mock('../../src/container/index.js');
 vi.mock('../../src/utils/environment-config.js');
 
@@ -36,8 +42,7 @@ describe('Status Command', () => {
     vi.clearAllMocks();
 
     // Setup mocks
-    const { ConsoleUI } = await import('../../src/utils/console-ui.js');
-    ConsoleUI.mockImplementation(() => mockConsoleUI);
+    mockConsoleUIStore.mockInstance = mockConsoleUI;
 
     const { loadConfig } = await import('../../src/utils/config-loader.js');
     loadConfig.mockImplementation(mockLoadConfig);

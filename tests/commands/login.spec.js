@@ -8,8 +8,12 @@ import { AuthService } from '../../src/services/auth-service.js';
 import * as browser from '../../src/utils/browser.js';
 
 // Mock AuthService
+const mockAuthServiceStore = { mockInstance: null };
+
 vi.mock('../../src/services/auth-service.js', () => ({
-  AuthService: vi.fn(),
+  AuthService: vi.fn(function () {
+    return mockAuthServiceStore.mockInstance;
+  }),
 }));
 
 // Mock browser utils
@@ -30,7 +34,7 @@ describe('Login Command', () => {
       pollDeviceAuthorization: vi.fn(),
       completeDeviceFlow: vi.fn(),
     };
-    AuthService.mockImplementation(() => mockAuthService);
+    mockAuthServiceStore.mockInstance = mockAuthService;
 
     // Mock browser.openBrowser
     browser.openBrowser.mockResolvedValue(true);

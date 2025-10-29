@@ -422,7 +422,7 @@ jobs:
 
     strategy:
       matrix:
-        xcode-version: ['15.2', '15.4']
+        xcode-version: ['16.2', '16.4']
 
     steps:
     - uses: actions/checkout@v4

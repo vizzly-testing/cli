@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 📚 **New MCP Server:** `vizzly-docs` - Easy access to Vizzly documentation
+  - `list_docs` - Browse all docs with optional category filtering
+  - `get_doc` - Retrieve full markdown content for any doc page
+  - `search_docs` - Keyword search across titles, descriptions, and categories
+  - `get_sidebar` - View complete documentation navigation structure
+  - Fetches from live docs.vizzly.dev site with intelligent caching
 - ⚡️ **Performance:** `get_tdd_status` now supports filtering and pagination
   - New `statusFilter` parameter: `'failed'`, `'new'`, `'passed'`, `'all'`, or `'summary'` (default)
   - New `limit` parameter for capping number of comparisons returned

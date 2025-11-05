@@ -3,6 +3,10 @@
     "vizzly": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/vizzly-server/index.js"]
+    },
+    "vizzly-docs": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/vizzly-docs-server/index.js"]
     }
   }
 }

@@ -6,6 +6,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import { spawn } from 'child_process';
 import { ConsoleUI } from '../utils/console-ui.js';
 import { tddCommand } from './tdd.js';
@@ -146,6 +147,23 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
     ui.success(`TDD server started at http://localhost:${port}`);
 
+    // Write server info to global location for SDK discovery (iOS/Swift can read this)
+    try {
+      const globalVizzlyDir = join(homedir(), '.vizzly');
+      if (!existsSync(globalVizzlyDir)) {
+        mkdirSync(globalVizzlyDir, { recursive: true });
+      }
+      const globalServerFile = join(globalVizzlyDir, 'server.json');
+      const serverInfo = {
+        pid: child.pid,
+        port: port.toString(),
+        startTime: Date.now(),
+      };
+      writeFileSync(globalServerFile, JSON.stringify(serverInfo, null, 2));
+    } catch {
+      // Non-fatal, SDK can still use health check
+    }
+
     ui.info('');
     ui.info('Dashboard:');
     ui.info(`  http://localhost:${port}/`);
@@ -218,6 +236,14 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
         if (existsSync(pidFile)) unlinkSync(pidFile);
         const serverFile = join(vizzlyDir, 'server.json');
         if (existsSync(serverFile)) unlinkSync(serverFile);
+
+        // Clean up global server file
+        try {
+          const globalServerFile = join(homedir(), '.vizzly', 'server.json');
+          if (existsSync(globalServerFile)) unlinkSync(globalServerFile);
+        } catch {
+          // Non-fatal
+        }
 
         // Use the cleanup function from tddCommand
         await cleanup();

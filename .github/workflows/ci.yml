@@ -255,6 +255,21 @@ jobs:
               - '.github/workflows/ci.yml'
               - '.github/workflows/release-vitest-client.yml'
 
+  changes-swift:
+    runs-on: ubuntu-latest
+    outputs:
+      swift: ${{ steps.filter.outputs.swift }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            swift:
+              - 'clients/swift/**'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release-swift-client.yml'
+
   test-storybook-client:
     runs-on: ubuntu-latest
     needs: [lint, changes-storybook]
@@ -400,9 +415,32 @@ jobs:
         VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
         VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
+  test-swift-client:
+    runs-on: macos-latest
+    needs: [lint, changes-swift]
+    if: needs.changes-swift.outputs.swift == 'true'
+
+    strategy:
+      matrix:
+        xcode-version: ['16.2', '16.4']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode-version }}.app
+
+    - name: Build Swift package
+      working-directory: ./clients/swift
+      run: swift build
+
+    - name: Run Swift tests
+      working-directory: ./clients/swift
+      run: swift test
+
   ci-check:
     runs-on: ubuntu-latest
-    needs: [lint, test, test-site, test-reporter, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client, changes-vitest, test-vitest-client]
+    needs: [lint, test, test-site, test-reporter, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client, changes-vitest, test-vitest-client, changes-swift, test-swift-client]
     if: always()
     steps:
       - name: Check if all jobs passed
@@ -431,6 +469,11 @@ jobs:
 
           if [[ "${{ needs.changes-vitest.outputs.vitest }}" == "true" && "${{ needs.test-vitest-client.result }}" == "failure" ]]; then
             echo "Vitest client tests failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.changes-swift.outputs.swift }}" == "true" && "${{ needs.test-swift-client.result }}" == "failure" ]]; then
+            echo "Swift client tests failed"
             exit 1
           fi
 

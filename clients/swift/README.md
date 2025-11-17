@@ -251,7 +251,13 @@ class VizzlyClient {
 
 ### Auto-Discovery
 
-The SDK automatically discovers a running Vizzly TDD server by searching for `.vizzly/server.json` in the current and parent directories.
+The SDK automatically discovers a running Vizzly TDD server using this priority order:
+
+1. **VIZZLY_SERVER_URL environment variable** - Explicitly set server URL
+2. **Global server file** - `~/.vizzly/server.json` written by CLI
+3. **Default port health check** - Tests `http://localhost:47392/health`
+
+When you run `vizzly tdd start`, the CLI automatically writes server info to `~/.vizzly/server.json` in your home directory, enabling zero-config discovery from iOS tests.
 
 ### Environment Variables
 
@@ -310,16 +316,17 @@ This metadata helps differentiate screenshots across devices and configurations.
 
 ### Naming Screenshots
 
-Use descriptive, hierarchical names:
+Use descriptive, hierarchical names with dashes:
 
 ```swift
-// ✅ Good
-app.vizzlyScreenshot(name: "checkout/payment-form/valid-card")
-app.vizzlyScreenshot(name: "settings/profile/edit-mode")
+// ✅ Good - Use dashes for hierarchy
+app.vizzlyScreenshot(name: "checkout-payment-form-valid-card")
+app.vizzlyScreenshot(name: "settings-profile-edit-mode")
 
-// ❌ Avoid
+// ❌ Avoid - Generic names or slashes
 app.vizzlyScreenshot(name: "screenshot1")
 app.vizzlyScreenshot(name: "test")
+app.vizzlyScreenshot(name: "checkout/payment/form")  // slashes cause validation errors
 ```
 
 ### Use Properties for Context
@@ -374,31 +381,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install Vizzly CLI
-        run: npm install -g @vizzly-testing/cli
-
       - name: Run UI tests with Vizzly
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
         run: |
-          vizzly run "xcodebuild test \
+          npx vizzly run -- xcodebuild test \
             -scheme MyApp \
             -destination 'platform=iOS Simulator,name=iPhone 15' \
-            -resultBundlePath TestResults" \
-            --wait
+            -resultBundlePath TestResults
 ```
 
 ### Fastlane
 
 ```ruby
 lane :visual_tests do
-  scan(
-    scheme: "MyApp",
-    devices: ["iPhone 15"],
-    before_all: -> {
-      sh "vizzly run 'fastlane scan' --wait"
-    }
-  )
+  sh "npx vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15'"
 end
 ```
 
@@ -421,8 +418,9 @@ override func setUpWithError() throws {
 ### Server Not Found
 
 1. Ensure TDD server is running: `vizzly tdd start`
-2. Check `.vizzly/server.json` exists in your project
-3. Verify the port in the server JSON matches the URL
+2. Check `~/.vizzly/server.json` exists in your home directory
+3. Verify the server is reachable: `curl http://localhost:47392/health`
+4. Or explicitly set: `export VIZZLY_SERVER_URL=http://localhost:47392`
 
 ### Visual Differences Not Showing
 

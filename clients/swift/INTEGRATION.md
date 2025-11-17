@@ -308,11 +308,10 @@ jobs:
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
         run: |
-          vizzly run "xcodebuild test \
+          npx vizzly run -- xcodebuild test \
             -scheme MyApp \
             -destination 'platform=iOS Simulator,name=iPhone 15' \
-            -only-testing:MyAppUITests" \
-            --wait
+            -only-testing:MyAppUITests
 ```
 
 ### Fastlane
@@ -321,16 +320,7 @@ Add to your `Fastfile`:
 
 ```ruby
 lane :visual_tests do
-  # Start Vizzly in cloud mode
-  sh("vizzly run 'bundle exec fastlane run_ui_tests' --wait")
-end
-
-lane :run_ui_tests do
-  scan(
-    scheme: "MyApp",
-    devices: ["iPhone 15"],
-    only_testing: ["MyAppUITests"]
-  )
+  sh("npx vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15' only_testing:MyAppUITests")
 end
 ```
 
@@ -359,7 +349,7 @@ class HomePage {
 
     func screenshot(name: String) {
         app.vizzlyScreenshot(
-            name: "home/\(name)",
+            name: "home-\(name)",
             properties: ["page": "home"]
         )
     }
@@ -388,7 +378,7 @@ func testReusableComponents() {
         let button = app.buttons["\(variant)Button"]
 
         button.vizzlyScreenshot(
-            name: "components/button/\(variant)",
+            name: "components-button-\(variant)",
             properties: [
                 "component": "button",
                 "variant": variant
@@ -434,30 +424,32 @@ override func setUpWithError() throws {
 **Solution**:
 
 ```bash
+# Check if server is running
+vizzly tdd status
+
 # Check what's running on port 47392
 lsof -i :47392
 
-# Kill any existing process
-kill -9 <PID>
-
 # Restart server
+vizzly tdd stop
 vizzly tdd start
 ```
 
-### Screenshots in Wrong Directory
+### Server Not Found
 
-**Cause**: Tests running from different working directory.
+**Cause**: SDK cannot discover the running server.
 
-**Solution**: Ensure you run `vizzly tdd start` from your project root, or set `VIZZLY_SERVER_URL` explicitly:
+**Solution**:
 
-```bash
-export VIZZLY_SERVER_URL=http://localhost:47392
-```
+1. Ensure TDD server is running: `vizzly tdd start`
+2. Check `~/.vizzly/server.json` exists in your home directory
+3. Verify the server is reachable: `curl http://localhost:47392/health`
+4. Or explicitly set: `export VIZZLY_SERVER_URL=http://localhost:47392`
 
 ## Best Practices
 
 1. **Separate Visual Tests**: Keep visual regression tests in dedicated test files
-2. **Descriptive Names**: Use hierarchical names like `checkout/payment/valid-card`
+2. **Descriptive Names**: Use hierarchical names like `checkout-payment-valid-card` (use dashes, not slashes)
 3. **Wait for Content**: Always wait for elements before screenshotting
 4. **Commit Baselines**: Add `.vizzly/baselines/` to version control
 5. **Use Properties**: Tag screenshots with context (theme, user state, etc.)

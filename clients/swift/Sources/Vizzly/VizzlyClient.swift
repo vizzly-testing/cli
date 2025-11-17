@@ -197,42 +197,70 @@ public final class VizzlyClient {
     }
 
     private func discoverServerUrl() -> String? {
-        // First check environment variable
+        // 1. Check VIZZLY_SERVER_URL environment variable (highest priority, set by CLI or test runner)
         if let envUrl = ProcessInfo.processInfo.environment["VIZZLY_SERVER_URL"] {
             return envUrl
         }
 
-        // Then try auto-discovery
-        return autoDiscoverTddServer()
-    }
+        // 2. Check for global server info written by CLI (supports custom ports)
+        if let homeDir = ProcessInfo.processInfo.environment["HOME"] {
+            let serverFilePath = (homeDir as NSString).appendingPathComponent(".vizzly/server.json")
+            if let serverData = try? Data(contentsOf: URL(fileURLWithPath: serverFilePath)),
+               let serverInfo = try? JSONSerialization.jsonObject(with: serverData) as? [String: Any] {
 
-    private func autoDiscoverTddServer() -> String? {
-        let fileManager = FileManager.default
-        var currentDir = fileManager.currentDirectoryPath
+                // Handle port as either Int or String
+                let port: Int?
+                if let portInt = serverInfo["port"] as? Int {
+                    port = portInt
+                } else if let portString = serverInfo["port"] as? String {
+                    port = Int(portString)
+                } else {
+                    port = nil
+                }
 
-        while currentDir != "/" {
-            let serverJsonPath = (currentDir as NSString).appendingPathComponent(".vizzly/server.json")
-
-            if fileManager.fileExists(atPath: serverJsonPath) {
-                do {
-                    let data = try Data(contentsOf: URL(fileURLWithPath: serverJsonPath))
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let port = json["port"] as? Int {
-                        return "http://localhost:\(port)"
+                if let port = port {
+                    let url = "http://localhost:\(port)"
+                    // Verify server is actually running on this port
+                    if checkServerReachable(url) {
+                        return url
                     }
-                } catch {
-                    // Invalid JSON or file disappeared, continue searching
                 }
             }
+        }
 
-            // Move to parent directory
-            let parentDir = (currentDir as NSString).deletingLastPathComponent
-            if parentDir == currentDir { break }
-            currentDir = parentDir
+        // 3. Try default TDD port as fallback (zero-config for default setup)
+        let defaultUrl = "http://localhost:\(defaultTddPort)"
+        if checkServerReachable(defaultUrl) {
+            return defaultUrl
         }
 
         return nil
     }
+
+    private func checkServerReachable(_ urlString: String) -> Bool {
+        guard let url = URL(string: "\(urlString)/health") else { return false }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 2
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var isReachable = false
+
+        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+            defer { semaphore.signal() }
+
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                isReachable = true
+            }
+        }
+
+        task.resume()
+        _ = semaphore.wait(timeout: .now() + 2)
+
+        return isReachable
+    }
+
 
     private func handleError(name: String, error: Error) {
         print("⚠️  Vizzly screenshot failed for \(name): \(error.localizedDescription)")

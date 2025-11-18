@@ -7,6 +7,8 @@ import { BaseService } from './base-service.js';
 import { createHttpServer } from '../server/http-server.js';
 import { createTddHandler } from '../server/handlers/tdd-handler.js';
 import { createApiHandler } from '../server/handlers/api-handler.js';
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 export class ServerManager extends BaseService {
   constructor(config, options = {}) {
@@ -45,6 +47,32 @@ export class ServerManager extends BaseService {
 
     if (this.httpServer) {
       await this.httpServer.start();
+    }
+
+    // Write server info to .vizzly/server.json for SDK discovery
+    // This allows SDKs that can't access environment variables (like Swift/iOS)
+    // to discover both the server port and current build ID
+    try {
+      const vizzlyDir = join(process.cwd(), '.vizzly');
+      mkdirSync(vizzlyDir, { recursive: true });
+
+      const serverFile = join(vizzlyDir, 'server.json');
+      const serverInfo = {
+        port: port.toString(),
+        pid: process.pid,
+        startTime: Date.now(),
+      };
+
+      // Include buildId if we have one (for `vizzly run` mode)
+      if (this.buildId) {
+        serverInfo.buildId = this.buildId;
+      }
+
+      writeFileSync(serverFile, JSON.stringify(serverInfo, null, 2));
+      this.logger.debug(`Wrote server info to ${serverFile}`);
+    } catch (error) {
+      // Non-fatal - SDK can still use health check or environment variables
+      this.logger.debug(`Failed to write server.json: ${error.message}`);
     }
   }
 

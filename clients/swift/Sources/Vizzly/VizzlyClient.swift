@@ -71,7 +71,10 @@ public final class VizzlyClient {
             "fullPage": fullPage
         ]
 
-        if let buildId = ProcessInfo.processInfo.environment["VIZZLY_BUILD_ID"] {
+        // Try to get buildId from multiple sources (priority order):
+        // 1. Environment variable (for Node.js and other runtimes that support it)
+        // 2. Server info file (for iOS/Swift where env vars don't propagate to simulator)
+        if let buildId = getBuildId() {
             payload["buildId"] = buildId
         }
 
@@ -181,7 +184,7 @@ public final class VizzlyClient {
             info["serverUrl"] = serverUrl
         }
 
-        if let buildId = ProcessInfo.processInfo.environment["VIZZLY_BUILD_ID"] {
+        if let buildId = getBuildId() {
             info["buildId"] = buildId
         }
 
@@ -202,39 +205,92 @@ public final class VizzlyClient {
             return envUrl
         }
 
-        // 2. Check for global server info written by CLI (supports custom ports)
+        // 2. Check for project-local server info first (.vizzly/server.json in current directory)
+        let fileManager = FileManager.default
+        let currentDir = fileManager.currentDirectoryPath
+        let localServerFile = (currentDir as NSString).appendingPathComponent(".vizzly/server.json")
+
+        if let url = readServerInfoFile(localServerFile) {
+            return url
+        }
+
+        // 3. Check for global server info written by CLI (supports custom ports)
         if let homeDir = ProcessInfo.processInfo.environment["HOME"] {
-            let serverFilePath = (homeDir as NSString).appendingPathComponent(".vizzly/server.json")
-            if let serverData = try? Data(contentsOf: URL(fileURLWithPath: serverFilePath)),
-               let serverInfo = try? JSONSerialization.jsonObject(with: serverData) as? [String: Any] {
-
-                // Handle port as either Int or String
-                let port: Int?
-                if let portInt = serverInfo["port"] as? Int {
-                    port = portInt
-                } else if let portString = serverInfo["port"] as? String {
-                    port = Int(portString)
-                } else {
-                    port = nil
-                }
-
-                if let port = port {
-                    let url = "http://localhost:\(port)"
-                    // Verify server is actually running on this port
-                    if checkServerReachable(url) {
-                        return url
-                    }
-                }
+            let globalServerFile = (homeDir as NSString).appendingPathComponent(".vizzly/server.json")
+            if let url = readServerInfoFile(globalServerFile) {
+                return url
             }
         }
 
-        // 3. Try default TDD port as fallback (zero-config for default setup)
+        // 4. Try default TDD port as fallback (zero-config for default setup)
         let defaultUrl = "http://localhost:\(defaultTddPort)"
         if checkServerReachable(defaultUrl) {
             return defaultUrl
         }
 
         return nil
+    }
+
+    private func readServerInfoFile(_ filePath: String) -> String? {
+        guard let serverData = try? Data(contentsOf: URL(fileURLWithPath: filePath)),
+              let serverInfo = try? JSONSerialization.jsonObject(with: serverData) as? [String: Any] else {
+            return nil
+        }
+
+        // Handle port as either Int or String
+        let port: Int?
+        if let portInt = serverInfo["port"] as? Int {
+            port = portInt
+        } else if let portString = serverInfo["port"] as? String {
+            port = Int(portString)
+        } else {
+            port = nil
+        }
+
+        if let port = port {
+            let url = "http://localhost:\(port)"
+            // Verify server is actually running on this port
+            if checkServerReachable(url) {
+                return url
+            }
+        }
+
+        return nil
+    }
+
+    private func getBuildId() -> String? {
+        // 1. Check environment variable (works for Node.js and other runtimes)
+        if let buildId = ProcessInfo.processInfo.environment["VIZZLY_BUILD_ID"] {
+            return buildId
+        }
+
+        // 2. Check project-local server.json (works for iOS/Swift where env vars don't propagate)
+        let fileManager = FileManager.default
+        let currentDir = fileManager.currentDirectoryPath
+        let localServerFile = (currentDir as NSString).appendingPathComponent(".vizzly/server.json")
+
+        if let buildId = readBuildIdFromFile(localServerFile) {
+            return buildId
+        }
+
+        // 3. Check global server.json as fallback
+        if let homeDir = ProcessInfo.processInfo.environment["HOME"] {
+            let globalServerFile = (homeDir as NSString).appendingPathComponent(".vizzly/server.json")
+            if let buildId = readBuildIdFromFile(globalServerFile) {
+                return buildId
+            }
+        }
+
+        return nil
+    }
+
+    private func readBuildIdFromFile(_ filePath: String) -> String? {
+        guard let serverData = try? Data(contentsOf: URL(fileURLWithPath: filePath)),
+              let serverInfo = try? JSONSerialization.jsonObject(with: serverData) as? [String: Any],
+              let buildId = serverInfo["buildId"] as? String else {
+            return nil
+        }
+        return buildId
     }
 
     private func checkServerReachable(_ urlString: String) -> Bool {

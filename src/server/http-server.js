@@ -12,6 +12,7 @@ const logger = createServiceLogger('HTTP-SERVER');
 
 export const createHttpServer = (port, screenshotHandler, services = {}) => {
   let server = null;
+  let buildId = services.buildId || null;
 
   // Extract services for config/auth/project management
   let configService = services.configService;
@@ -414,8 +415,9 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
           return;
         }
 
-        // Use default buildId if none provided
-        const effectiveBuildId = buildId || 'default';
+        // Use buildId from request body, or fall back to server's buildId (set during server creation)
+        // If neither is available, this is an error - buildId is required for cloud uploads
+        const effectiveBuildId = body.buildId || buildId;
 
         const result = await screenshotHandler.handleScreenshot(
           effectiveBuildId,

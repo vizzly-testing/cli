@@ -43,7 +43,12 @@ export class ServerManager extends BaseService {
       this.handler = createApiHandler(apiService);
     }
 
-    this.httpServer = createHttpServer(port, this.handler, this.services);
+    // Pass buildId in services so http-server can use it as default
+    const servicesWithBuildId = {
+      ...this.services,
+      buildId: this.buildId
+    };
+    this.httpServer = createHttpServer(port, this.handler, servicesWithBuildId);
 
     if (this.httpServer) {
       await this.httpServer.start();

@@ -192,7 +192,7 @@ describe('createHttpServer', () => {
       expect(data.success).toBe(true);
 
       expect(mockHandler.handleScreenshot).toHaveBeenCalledWith(
-        'default',
+        null,
         'test-screenshot',
         'base64-image-data',
         undefined

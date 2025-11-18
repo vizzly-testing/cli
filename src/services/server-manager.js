@@ -46,7 +46,7 @@ export class ServerManager extends BaseService {
     // Pass buildId in services so http-server can use it as default
     const servicesWithBuildId = {
       ...this.services,
-      buildId: this.buildId
+      buildId: this.buildId,
     };
     this.httpServer = createHttpServer(port, this.handler, servicesWithBuildId);
 

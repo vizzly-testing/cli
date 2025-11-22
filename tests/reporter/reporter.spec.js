@@ -133,18 +133,28 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     // Click on the failed comparison to open it
     await page.locator('text=homepage-desktop').click();
 
-    // Wait for comparison viewer to load
-    await expect(page.locator('text=Overlay')).toBeVisible();
-    await expect(page.locator('text=Side by Side')).toBeVisible();
+    // Wait for fullscreen comparison viewer to load
+    await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
+
+    // Verify view mode buttons are visible
+    await expect(
+      page.getByRole('button', { name: 'Overlay', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Toggle', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Slide', exact: true })
+    ).toBeVisible();
 
     // Verify overlay mode is active by default
     await expect(
-      page.locator('button:has-text("Overlay")').first()
-    ).toHaveClass(/bg-amber-500/);
+      page.getByRole('button', { name: 'Overlay', exact: true })
+    ).toHaveClass(/bg-blue-600/);
 
-    // Verify Accept/Reject buttons are visible (individual comparison actions)
+    // Verify Approve/Reject buttons are visible (individual comparison actions)
     await expect(
-      page.getByRole('button', { name: 'Accept', exact: true })
+      page.getByRole('button', { name: 'Approve', exact: true })
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Reject', exact: true })
@@ -165,10 +175,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     await server.stop();
   });
 
-  test('Failed Comparison with Onion Mode on Diff', async ({
-    page,
-    browserName,
-  }) => {
+  test('Failed Comparison with Slide Mode', async ({ page, browserName }) => {
     let server;
 
     // Load failed state fixture
@@ -186,25 +193,31 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     // Click on the failed comparison to open it
     await page.locator('text=homepage-desktop').click();
 
-    // Wait for comparison viewer to load
-    await expect(page.locator('text=Overlay')).toBeVisible();
-    await expect(page.locator('text=Side by Side')).toBeVisible();
-    await expect(page.locator('text=Onion')).toBeVisible();
+    // Wait for fullscreen comparison viewer to load
+    await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
 
-    // Click on Onion mode
-    await page.locator('button:has-text("Onion")').click();
+    // Verify view mode buttons are visible
+    await expect(
+      page.getByRole('button', { name: 'Overlay', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Toggle', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Slide', exact: true })
+    ).toBeVisible();
 
-    // Verify onion mode is active
-    await expect(page.locator('button:has-text("Onion")').first()).toHaveClass(
-      /bg-amber-500/
-    );
+    // Click on Slide mode (formerly Onion)
+    await page.getByRole('button', { name: 'Slide', exact: true }).click();
 
-    // Click on Diff tab
-    await page.locator('button:has-text("Diff")').click();
+    // Verify slide mode is active
+    await expect(
+      page.getByRole('button', { name: 'Slide', exact: true })
+    ).toHaveClass(/bg-blue-600/);
 
-    // Take screenshot of onion mode on diff
+    // Take screenshot of slide mode
     await vizzlyScreenshot(
-      'reporter-onion-mode-diff',
+      'reporter-slide-mode',
       await page.screenshot({ fullPage: true }),
       {
         browser: browserName,
@@ -293,18 +306,21 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
       readFileSync(join(__dirname, 'fixtures', 'empty-state.json'), 'utf8')
     );
 
-    // Start test server
-    server = createReporterTestServer(fixtureData, 3463);
+    // Start test server - use same port pattern as other tests
+    server = createReporterTestServer(fixtureData, 3464);
     await server.start();
 
     // Navigate directly to projects route
-    await page.goto('http://localhost:3463/projects', {
+    await page.goto('http://localhost:3464/projects', {
       waitUntil: 'networkidle',
     });
 
     // Wait for projects content to load - should show sign in prompt since not authenticated
     await expect(
-      page.locator('text=Sign in to access projects and team features')
+      page.getByRole('heading', { name: 'Projects', level: 1 })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Not signed in', level: 3 })
     ).toBeVisible();
 
     // Take screenshot

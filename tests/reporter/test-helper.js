@@ -30,7 +30,8 @@ export function createReporterTestServer(fixtureData, port = 3456) {
         parsedUrl.pathname === '/dashboard' ||
         parsedUrl.pathname === '/stats' ||
         parsedUrl.pathname === '/settings' ||
-        parsedUrl.pathname === '/projects')
+        parsedUrl.pathname === '/projects' ||
+        parsedUrl.pathname.startsWith('/comparison/'))
     ) {
       let dashboardHtml = `
 <!DOCTYPE html>
@@ -142,6 +143,25 @@ export function createReporterTestServer(fixtureData, port = 3456) {
           mappings: [],
         })
       );
+      return;
+    }
+
+    // API endpoint for project mappings
+    if (
+      req.method === 'GET' &&
+      parsedUrl.pathname === '/api/projects/mappings'
+    ) {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(JSON.stringify({ mappings: [] }));
+      return;
+    }
+
+    // API endpoint for recent builds
+    if (req.method === 'GET' && parsedUrl.pathname === '/api/builds/recent') {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(JSON.stringify({ builds: [] }));
       return;
     }
 

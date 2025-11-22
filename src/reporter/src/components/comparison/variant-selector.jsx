@@ -7,7 +7,7 @@ import {
 /**
  * Device icon helper
  */
-const DeviceIcon = ({ viewportWidth, className = 'w-3 h-3' }) => {
+let DeviceIcon = ({ viewportWidth, className = 'w-3 h-3' }) => {
   if (!viewportWidth) return <ComputerDesktopIcon className={className} />;
 
   if (viewportWidth <= 768) {
@@ -21,7 +21,7 @@ const DeviceIcon = ({ viewportWidth, className = 'w-3 h-3' }) => {
 
 /**
  * Variant selector for toggling between different viewport sizes and browsers
- * Matches cloud product's variant selection UI
+ * Mobile-first with horizontal scroll
  */
 export default function VariantSelector({ group, selectedIndex, onSelect }) {
   if (!group || !group.comparisons || group.comparisons.length <= 1) {
@@ -29,9 +29,11 @@ export default function VariantSelector({ group, selectedIndex, onSelect }) {
   }
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-gray-400 font-medium">Variants:</span>
-      <div className="flex gap-1 flex-wrap">
+    <div className="flex flex-col md:flex-row md:items-center gap-2">
+      <span className="text-xs text-gray-400 font-medium flex-shrink-0">
+        Variants:
+      </span>
+      <div className="flex gap-1.5 md:gap-1 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1 scroll-snap-x md:flex-wrap md:overflow-visible">
         {group.comparisons.map((comparison, index) => {
           let viewport = '';
           let viewportWidth = null;
@@ -57,12 +59,12 @@ export default function VariantSelector({ group, selectedIndex, onSelect }) {
               key={comparison.id || index}
               onClick={() => onSelect(index)}
               className={`
-                relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
-                transition-all duration-200
+                relative inline-flex items-center gap-1.5 px-3 py-2 md:py-1.5 rounded-lg md:rounded-md text-xs font-medium
+                transition-all duration-200 flex-shrink-0 touch-manipulation scroll-snap-item
                 ${
                   isSelected
                     ? 'bg-blue-500 text-white shadow-md shadow-blue-500/50'
-                    : 'bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white border border-gray-600/50'
+                    : 'bg-white/5 text-gray-300 hover:bg-white/10 active:bg-white/15 hover:text-white border border-gray-600/50'
                 }
               `}
               title={`${browser || 'Unknown browser'} - ${viewport || 'Unknown size'}${hasChange ? ' (Changed)' : ''}`}
@@ -81,7 +83,7 @@ export default function VariantSelector({ group, selectedIndex, onSelect }) {
               {viewportWidth && (
                 <DeviceIcon
                   viewportWidth={viewportWidth}
-                  className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-gray-400'}`}
+                  className={`w-3.5 h-3.5 md:w-3 md:h-3 ${isSelected ? 'text-white' : 'text-gray-400'}`}
                 />
               )}
               <span className="font-mono">{label}</span>

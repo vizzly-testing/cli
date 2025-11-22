@@ -7,22 +7,24 @@ export default function ComparisonActions({
 }) {
   return (
     <div className="flex gap-2">
+      {/* Accept button - full width on mobile */}
       <button
-        className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-gray-600 text-white text-sm font-medium px-4 py-3 md:py-2 rounded-lg md:rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
         onClick={onAccept}
         disabled={disabled}
         title="Accept these changes as the new baseline"
       >
-        <CheckIcon className="w-4 h-4" />
+        <CheckIcon className="w-5 h-5 md:w-4 md:h-4" />
         <span>Accept</span>
       </button>
+      {/* Reject button - full width on mobile */}
       <button
-        className="inline-flex items-center justify-center gap-1.5 bg-slate-700 hover:bg-slate-600 disabled:bg-gray-600 text-gray-300 hover:text-white text-sm font-medium px-4 py-2 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:bg-gray-600 text-gray-300 hover:text-white text-sm font-medium px-4 py-3 md:py-2 rounded-lg md:rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
         onClick={onReject}
         disabled={disabled}
         title="Keep the current baseline (reject changes)"
       >
-        <XMarkIcon className="w-4 h-4" />
+        <XMarkIcon className="w-5 h-5 md:w-4 md:h-4" />
         <span>Reject</span>
       </button>
     </div>

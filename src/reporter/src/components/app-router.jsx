@@ -3,6 +3,7 @@ import useReportData from '../hooks/use-report-data.js';
 import DashboardHeader from './dashboard/dashboard-header.jsx';
 import StatsView from './views/stats-view.jsx';
 import ComparisonsView from './views/comparisons-view.jsx';
+import ComparisonDetailView from './views/comparison-detail-view.jsx';
 import SettingsView from './views/settings-view.jsx';
 import ProjectsView from './views/projects-view.jsx';
 import {
@@ -15,6 +16,9 @@ export default function AppRouter({ initialData }) {
   let [location, setLocation] = useLocation();
   let { reportData, setReportData, loading, error, refetch } =
     useReportData(initialData);
+
+  // Check if we're on a comparison detail route (fullscreen)
+  let isComparisonRoute = location.startsWith('/comparison/');
 
   // Determine current view based on route
   let currentView =
@@ -71,11 +75,14 @@ export default function AppRouter({ initialData }) {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      <DashboardHeader
-        loading={loading}
-        onNavigate={navigateTo}
-        currentView={currentView}
-      />
+      {/* Hide header when in fullscreen comparison view */}
+      {!isComparisonRoute && (
+        <DashboardHeader
+          loading={loading}
+          onNavigate={navigateTo}
+          currentView={currentView}
+        />
+      )}
 
       <Switch>
         <Route path="/stats">
@@ -90,12 +97,28 @@ export default function AppRouter({ initialData }) {
             <WaitingForScreenshots />
           )}
         </Route>
+
         <Route path="/settings">
           <SettingsView />
         </Route>
+
         <Route path="/projects">
           <ProjectsView />
         </Route>
+
+        {/* Comparison detail route - fullscreen viewer */}
+        <Route path="/comparison/:id">
+          {reportData ? (
+            <ComparisonDetailView
+              reportData={reportData}
+              setReportData={setReportData}
+            />
+          ) : (
+            <WaitingForScreenshots />
+          )}
+        </Route>
+
+        {/* Comparisons list route */}
         <Route path="/">
           {reportData ? (
             <ComparisonsView

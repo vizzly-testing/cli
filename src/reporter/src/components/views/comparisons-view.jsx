@@ -1,18 +1,24 @@
 import { useState, useCallback } from 'react';
+import { useLocation } from 'wouter';
 import useComparisonFilters from '../../hooks/use-comparison-filters.js';
 import useBaselineActions from '../../hooks/use-baseline-actions.js';
 import DashboardFilters from '../dashboard/dashboard-filters.jsx';
-import ComparisonList from '../comparison/comparison-list.jsx';
+import ScreenshotList from '../comparison/screenshot-list.jsx';
 import { acceptAllBaselines } from '../../services/api-client.js';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useToast } from '../ui/toast.jsx';
 
+/**
+ * Comparisons list view - displays all screenshots
+ * Clicking a screenshot navigates to /comparison/:id
+ */
 export default function ComparisonsView({
   reportData,
   setReportData,
   onRefresh,
   loading,
 }) {
+  let [, setLocation] = useLocation();
   let [acceptingAll, setAcceptingAll] = useState(false);
   let { addToast, confirm } = useToast();
 
@@ -32,7 +38,25 @@ export default function ComparisonsView({
     counts,
   } = useComparisonFilters(reportData?.comparisons);
 
-  let { accept, reject, loadingStates } = useBaselineActions(setReportData);
+  let { loadingStates } = useBaselineActions(setReportData);
+
+  // Navigate to comparison detail view
+  let handleSelectComparison = useCallback(
+    comparison => {
+      // Find the index to generate a stable ID
+      let index = filteredComparisons.findIndex(c => c === comparison);
+      // Use actual id, signature, or index-based id
+      let id =
+        comparison.id ||
+        comparison.signature ||
+        (index >= 0 ? `comparison-${index}` : null);
+
+      if (id) {
+        setLocation(`/comparison/${id}`);
+      }
+    },
+    [filteredComparisons, setLocation]
+  );
 
   let handleAcceptAll = useCallback(async () => {
     let confirmed = await confirm(
@@ -89,7 +113,7 @@ export default function ComparisonsView({
   let totalToAccept = failedCount + newCount;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 md:py-8">
       {hasNoComparisons ? (
         <div className="text-center py-16">
           <div className="w-16 h-16 bg-gray-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -141,17 +165,17 @@ export default function ComparisonsView({
 
           {/* Accept All Button - Only show when there are changes */}
           {hasChangesToAccept && (
-            <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-white font-semibold mb-1">
+            <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-3 md:p-4">
+              <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white font-semibold text-sm md:text-base mb-0.5 md:mb-1">
                     {failedCount > 0 && newCount > 0
-                      ? `${failedCount} Failed • ${newCount} New Baseline${newCount !== 1 ? 's' : ''}`
+                      ? `${failedCount} Failed • ${newCount} New`
                       : failedCount > 0
-                        ? `${failedCount} Visual Difference${failedCount !== 1 ? 's' : ''} Detected`
-                        : `${newCount} New Baseline${newCount !== 1 ? 's' : ''} Created`}
+                        ? `${failedCount} Visual Difference${failedCount !== 1 ? 's' : ''}`
+                        : `${newCount} New Baseline${newCount !== 1 ? 's' : ''}`}
                   </h3>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-xs md:text-sm text-gray-400 hidden md:block">
                     {failedCount > 0
                       ? 'Review changes and accept all to update baselines'
                       : 'All screenshots are ready to be saved as baselines'}
@@ -160,7 +184,7 @@ export default function ComparisonsView({
                 <button
                   onClick={handleAcceptAll}
                   disabled={acceptingAll}
-                  className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white font-medium px-6 py-3 rounded-lg transition-colors flex-shrink-0"
+                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 active:bg-green-700 disabled:bg-green-500/50 text-white font-medium px-4 md:px-6 py-3 rounded-lg transition-colors flex-shrink-0 touch-manipulation"
                 >
                   <CheckCircleIcon className="w-5 h-5" />
                   <span>
@@ -193,11 +217,9 @@ export default function ComparisonsView({
               )}
             </div>
           ) : (
-            <ComparisonList
+            <ScreenshotList
               comparisons={filteredComparisons}
-              groups={reportData?.groups}
-              onAccept={accept}
-              onReject={reject}
+              onSelectComparison={handleSelectComparison}
               loadingStates={loadingStates}
             />
           )}

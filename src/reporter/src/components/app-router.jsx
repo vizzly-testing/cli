@@ -1,21 +1,21 @@
 import { Route, Switch, useLocation } from 'wouter';
-import useReportData from '../hooks/use-report-data.js';
+import { useReportData } from '../hooks/queries/use-tdd-queries.js';
 import DashboardHeader from './dashboard/dashboard-header.jsx';
 import StatsView from './views/stats-view.jsx';
 import ComparisonsView from './views/comparisons-view.jsx';
 import ComparisonDetailView from './views/comparison-detail-view.jsx';
 import SettingsView from './views/settings-view.jsx';
 import ProjectsView from './views/projects-view.jsx';
+import BuildsView from './views/builds-view.jsx';
 import {
   LoadingState,
   ErrorState,
   WaitingForScreenshots,
 } from './dashboard/empty-state.jsx';
 
-export default function AppRouter({ initialData }) {
+export default function AppRouter() {
   let [location, setLocation] = useLocation();
-  let { reportData, setReportData, loading, error, refetch } =
-    useReportData(initialData);
+  let { data: reportData, isLoading, error, refetch } = useReportData();
 
   // Check if we're on a comparison detail route (fullscreen)
   let isComparisonRoute = location.startsWith('/comparison/');
@@ -28,24 +28,30 @@ export default function AppRouter({ initialData }) {
         ? 'settings'
         : location === '/projects'
           ? 'projects'
-          : 'comparisons';
+          : location === '/builds'
+            ? 'builds'
+            : 'comparisons';
 
   let navigateTo = view => {
     if (view === 'stats') setLocation('/stats');
     else if (view === 'settings') setLocation('/settings');
     else if (view === 'projects') setLocation('/projects');
+    else if (view === 'builds') setLocation('/builds');
     else setLocation('/');
   };
 
-  // Settings and Projects don't need screenshot data - always allow access
-  let isManagementRoute = location === '/settings' || location === '/projects';
+  // Settings, Projects, and Builds don't need screenshot data - always allow access
+  let isManagementRoute =
+    location === '/settings' ||
+    location === '/projects' ||
+    location === '/builds';
 
   // Loading state (but not for management routes)
-  if (loading && !reportData && !isManagementRoute) {
+  if (isLoading && !reportData && !isManagementRoute) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col">
         <DashboardHeader
-          loading={loading}
+          loading={isLoading}
           onNavigate={navigateTo}
           currentView={currentView}
         />
@@ -59,11 +65,11 @@ export default function AppRouter({ initialData }) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col">
         <DashboardHeader
-          loading={loading}
+          loading={isLoading}
           onNavigate={navigateTo}
           currentView={currentView}
         />
-        <ErrorState error={error} onRetry={refetch} />
+        <ErrorState error={error.message} onRetry={refetch} />
       </div>
     );
   }
@@ -78,7 +84,7 @@ export default function AppRouter({ initialData }) {
       {/* Hide header when in fullscreen comparison view */}
       {!isComparisonRoute && (
         <DashboardHeader
-          loading={loading}
+          loading={isLoading}
           onNavigate={navigateTo}
           currentView={currentView}
         />
@@ -86,16 +92,7 @@ export default function AppRouter({ initialData }) {
 
       <Switch>
         <Route path="/stats">
-          {reportData ? (
-            <StatsView
-              reportData={reportData}
-              setReportData={setReportData}
-              onRefresh={refetch}
-              loading={loading}
-            />
-          ) : (
-            <WaitingForScreenshots />
-          )}
+          {reportData ? <StatsView /> : <WaitingForScreenshots />}
         </Route>
 
         <Route path="/settings">
@@ -106,30 +103,18 @@ export default function AppRouter({ initialData }) {
           <ProjectsView />
         </Route>
 
+        <Route path="/builds">
+          <BuildsView />
+        </Route>
+
         {/* Comparison detail route - fullscreen viewer */}
         <Route path="/comparison/:id">
-          {reportData ? (
-            <ComparisonDetailView
-              reportData={reportData}
-              setReportData={setReportData}
-            />
-          ) : (
-            <WaitingForScreenshots />
-          )}
+          {reportData ? <ComparisonDetailView /> : <WaitingForScreenshots />}
         </Route>
 
         {/* Comparisons list route */}
         <Route path="/">
-          {reportData ? (
-            <ComparisonsView
-              reportData={reportData}
-              setReportData={setReportData}
-              onRefresh={refetch}
-              loading={loading}
-            />
-          ) : (
-            <WaitingForScreenshots />
-          )}
+          {reportData ? <ComparisonsView /> : <WaitingForScreenshots />}
         </Route>
       </Switch>
     </div>

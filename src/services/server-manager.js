@@ -43,12 +43,14 @@ export class ServerManager extends BaseService {
       this.handler = createApiHandler(apiService);
     }
 
-    // Pass buildId in services so http-server can use it as default
-    const servicesWithBuildId = {
+    // Pass buildId and tddService in services so http-server can use them
+    const servicesWithExtras = {
       ...this.services,
       buildId: this.buildId,
+      // Expose tddService for baseline download operations (TDD mode only)
+      tddService: this.tddMode ? this.handler.tddService : null,
     };
-    this.httpServer = createHttpServer(port, this.handler, servicesWithBuildId);
+    this.httpServer = createHttpServer(port, this.handler, servicesWithExtras);
 
     if (this.httpServer) {
       await this.httpServer.start();

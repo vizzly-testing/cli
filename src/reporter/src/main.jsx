@@ -1,5 +1,7 @@
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './lib/query-client.js';
 import AppRouter from './components/app-router.jsx';
 import { ToastProvider } from './components/ui/toast.jsx';
 import './reporter.css';
@@ -18,9 +20,11 @@ let initializeReporter = () => {
 
   ReactDOM.createRoot(root).render(
     <StrictMode>
-      <ToastProvider>
-        <AppRouter initialData={initialData} />
-      </ToastProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AppRouter initialData={initialData} />
+        </ToastProvider>
+      </QueryClientProvider>
     </StrictMode>
   );
 };

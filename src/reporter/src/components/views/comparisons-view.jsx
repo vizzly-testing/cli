@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useLocation } from 'wouter';
+import {
+  useReportData,
+  useAcceptAllBaselines,
+} from '../../hooks/queries/use-tdd-queries.js';
 import useComparisonFilters from '../../hooks/use-comparison-filters.js';
-import useBaselineActions from '../../hooks/use-baseline-actions.js';
 import DashboardFilters from '../dashboard/dashboard-filters.jsx';
 import ScreenshotList from '../comparison/screenshot-list.jsx';
-import { acceptAllBaselines } from '../../services/api-client.js';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useToast } from '../ui/toast.jsx';
 
@@ -12,15 +14,13 @@ import { useToast } from '../ui/toast.jsx';
  * Comparisons list view - displays all screenshots
  * Clicking a screenshot navigates to /comparison/:id
  */
-export default function ComparisonsView({
-  reportData,
-  setReportData,
-  onRefresh,
-  loading,
-}) {
+export default function ComparisonsView() {
   let [, setLocation] = useLocation();
-  let [acceptingAll, setAcceptingAll] = useState(false);
   let { addToast, confirm } = useToast();
+
+  // Use TanStack Query for data
+  let { data: reportData, isLoading, refetch } = useReportData();
+  let acceptAllMutation = useAcceptAllBaselines();
 
   let {
     filteredComparisons,
@@ -37,8 +37,6 @@ export default function ComparisonsView({
     availableFilters,
     counts,
   } = useComparisonFilters(reportData?.comparisons);
-
-  let { loadingStates } = useBaselineActions(setReportData);
 
   // Navigate to comparison detail view
   let handleSelectComparison = useCallback(
@@ -66,32 +64,20 @@ export default function ComparisonsView({
 
     if (!confirmed) return;
 
-    setAcceptingAll(true);
-    try {
-      await acceptAllBaselines();
-
-      // Update all failed/new comparisons to passed
-      setReportData(prevData => ({
-        ...prevData,
-        comparisons: prevData.comparisons.map(c =>
-          c.status === 'failed' || c.status === 'new'
-            ? { ...c, status: 'passed', diffPercentage: 0, diff: null }
-            : c
-        ),
-      }));
-
-      onRefresh?.();
-    } catch (err) {
-      console.error('Failed to accept all baselines:', err);
-      addToast('Failed to accept all baselines. Please try again.', 'error');
-    } finally {
-      setAcceptingAll(false);
-    }
-  }, [setReportData, onRefresh, addToast, confirm]);
+    acceptAllMutation.mutate(undefined, {
+      onSuccess: () => {
+        addToast('All baselines accepted successfully', 'success');
+      },
+      onError: err => {
+        console.error('Failed to accept all baselines:', err);
+        addToast('Failed to accept all baselines. Please try again.', 'error');
+      },
+    });
+  }, [acceptAllMutation, addToast, confirm]);
 
   // Check if there are NO comparisons in the raw data (not filtered)
   let hasNoComparisons =
-    !reportData.comparisons || reportData.comparisons.length === 0;
+    !reportData?.comparisons || reportData.comparisons.length === 0;
 
   // Check if filters are active
   let hasActiveFilters =
@@ -101,15 +87,15 @@ export default function ComparisonsView({
     selectedViewport !== 'all';
 
   // Check if there are changes to accept (failed or new comparisons)
-  let hasChangesToAccept = reportData.comparisons?.some(
+  let hasChangesToAccept = reportData?.comparisons?.some(
     c => c.status === 'failed' || c.status === 'new'
   );
 
   // Count failed and new comparisons for the button label
   let failedCount =
-    reportData.comparisons?.filter(c => c.status === 'failed').length || 0;
+    reportData?.comparisons?.filter(c => c.status === 'failed').length || 0;
   let newCount =
-    reportData.comparisons?.filter(c => c.status === 'new').length || 0;
+    reportData?.comparisons?.filter(c => c.status === 'new').length || 0;
   let totalToAccept = failedCount + newCount;
 
   return (
@@ -159,8 +145,8 @@ export default function ComparisonsView({
             setSelectedViewport={setSelectedViewport}
             availableFilters={availableFilters}
             counts={counts}
-            onRefresh={onRefresh}
-            loading={loading}
+            onRefresh={refetch}
+            loading={isLoading}
           />
 
           {/* Accept All Button - Only show when there are changes */}
@@ -183,12 +169,12 @@ export default function ComparisonsView({
                 </div>
                 <button
                   onClick={handleAcceptAll}
-                  disabled={acceptingAll}
+                  disabled={acceptAllMutation.isPending}
                   className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 active:bg-green-700 disabled:bg-green-500/50 text-white font-medium px-4 md:px-6 py-3 rounded-lg transition-colors flex-shrink-0 touch-manipulation"
                 >
                   <CheckCircleIcon className="w-5 h-5" />
                   <span>
-                    {acceptingAll
+                    {acceptAllMutation.isPending
                       ? 'Accepting...'
                       : `Accept All (${totalToAccept})`}
                   </span>
@@ -220,7 +206,7 @@ export default function ComparisonsView({
             <ScreenshotList
               comparisons={filteredComparisons}
               onSelectComparison={handleSelectComparison}
-              loadingStates={loadingStates}
+              loadingStates={{}}
             />
           )}
         </div>

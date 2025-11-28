@@ -79,6 +79,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.11",
     "@vizzly-testing/honeydiff": "^0.3.1",
     "commander": "^14.0.0",
     "cosmiconfig": "^9.0.0",

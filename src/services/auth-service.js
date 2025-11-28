@@ -127,7 +127,7 @@ export class AuthService {
       }
 
       throw new VizzlyError(
-        `API request failed: ${response.status}${errorText ? ` - ${errorText}` : ''}`,
+        `API request failed: ${response.status}${errorText ? ` - ${errorText}` : ''} (${endpoint})`,
         'API_REQUEST_ERROR'
       );
     }

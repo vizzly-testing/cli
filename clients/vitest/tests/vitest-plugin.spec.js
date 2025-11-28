@@ -27,6 +27,74 @@ describe('Vitest Plugin Integration', () => {
       ).toBe(true);
     });
 
+    it('should not duplicate user setupFiles (vitest merges them automatically)', async () => {
+      const { vizzlyPlugin } = await import('../src/index.js');
+
+      // Simulate user config with existing setupFiles
+      let userConfig = {
+        test: {
+          setupFiles: ['./user-setup.js', './another-setup.js'],
+        },
+      };
+
+      let plugin = vizzlyPlugin();
+      let pluginConfig = plugin.config(userConfig, { mode: 'test' });
+
+      // Plugin should ONLY return its own setup file
+      // Vitest handles merging user config with plugin config
+      // If plugin spreads ...setupFiles, user's files would run twice after Vitest merges
+      expect(pluginConfig.test.setupFiles).toHaveLength(1);
+      expect(pluginConfig.test.setupFiles[0]).toContain('setup.js');
+
+      // Verify user's files are NOT in plugin's returned config
+      // (they'll be merged by Vitest from the original user config)
+      expect(
+        pluginConfig.test.setupFiles.some(f => f.includes('user-setup'))
+      ).toBe(false);
+    });
+
+    it('should not duplicate user setupFiles when given as string', async () => {
+      const { vizzlyPlugin } = await import('../src/index.js');
+
+      // User might specify setupFiles as a single string
+      let userConfig = {
+        test: {
+          setupFiles: './user-setup.js',
+        },
+      };
+
+      let plugin = vizzlyPlugin();
+      let pluginConfig = plugin.config(userConfig, { mode: 'test' });
+
+      // Plugin should still only return its own setup file
+      expect(pluginConfig.test.setupFiles).toHaveLength(1);
+      expect(pluginConfig.test.setupFiles[0]).toContain('setup.js');
+    });
+
+    it('should result in correct merged config after vitest merging', async () => {
+      const { vizzlyPlugin } = await import('../src/index.js');
+
+      let userConfig = {
+        test: {
+          setupFiles: ['./user-setup.js'],
+        },
+      };
+
+      let plugin = vizzlyPlugin();
+      let pluginConfig = plugin.config(userConfig, { mode: 'test' });
+
+      // Simulate Vitest's merging behavior
+      let mergedSetupFiles = [
+        ...(userConfig.test.setupFiles || []),
+        ...(pluginConfig.test.setupFiles || []),
+      ];
+
+      // Should have exactly 2 files (user's + plugin's), not 3
+      expect(mergedSetupFiles).toHaveLength(2);
+      expect(mergedSetupFiles).toContain('./user-setup.js');
+      expect(mergedSetupFiles.some(f => f.includes('setup.js'))).toBe(true);
+    });
+
     it('should pass environment variables to browser context', async () => {
       const { vizzlyPlugin } = await import('../src/index.js');
 

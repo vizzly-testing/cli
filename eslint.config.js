@@ -36,7 +36,8 @@ export default [
         Blob: 'readonly',
         createReadStream: 'readonly',
         createVizzly: 'readonly',
-        URL: 'readonly'
+        URL: 'readonly',
+        URLSearchParams: 'readonly'
       }
     },
     plugins: {

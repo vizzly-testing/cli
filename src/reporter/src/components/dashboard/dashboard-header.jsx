@@ -7,6 +7,7 @@ export default function DashboardHeader({ loading, onNavigate, currentView }) {
   let navItems = [
     { key: 'comparisons', label: 'Comparisons' },
     { key: 'stats', label: 'Stats' },
+    { key: 'builds', label: 'Builds' },
     { key: 'projects', label: 'Projects' },
     { key: 'settings', label: 'Settings' },
   ];

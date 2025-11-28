@@ -76,13 +76,24 @@ function generateComparisonId(signature) {
  * Create a new TDD service instance
  */
 export function createTDDService(config, options = {}) {
-  return new TddService(config, options.workingDir, options.setBaseline);
+  return new TddService(
+    config,
+    options.workingDir,
+    options.setBaseline,
+    options.authService
+  );
 }
 
 export class TddService {
-  constructor(config, workingDir = process.cwd(), setBaseline = false) {
+  constructor(
+    config,
+    workingDir = process.cwd(),
+    setBaseline = false,
+    authService = null
+  ) {
     this.config = config;
     this.setBaseline = setBaseline;
+    this.authService = authService;
     this.api = new ApiService({
       baseUrl: config.apiUrl,
       token: config.apiKey,
@@ -586,6 +597,210 @@ export class TddService {
       return this.baselineData;
     } catch (error) {
       logger.error(`❌ Failed to download baseline: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Download baselines using OAuth authentication
+   * Used when user is logged in via device flow but no API token is configured
+   * @param {string} buildId - Build ID to download from
+   * @param {string} organizationSlug - Organization slug
+   * @param {string} projectSlug - Project slug
+   * @param {Object} authService - Auth service for OAuth requests
+   * @returns {Promise<Object>} Download result
+   */
+  async downloadBaselinesWithAuth(
+    buildId,
+    organizationSlug,
+    projectSlug,
+    authService
+  ) {
+    logger.info(`Downloading baselines using OAuth from build ${buildId}...`);
+    logger.debug(
+      `Request details: org=${organizationSlug}, project=${projectSlug}, build=${buildId}`
+    );
+
+    try {
+      // Fetch build with screenshots via OAuth endpoint
+      let endpoint = `/api/build/${projectSlug}/${buildId}/tdd-baselines`;
+      logger.debug(`Calling endpoint: ${endpoint}`);
+
+      let response = await authService.authenticatedRequest(endpoint, {
+        method: 'GET',
+        headers: { 'X-Organization': organizationSlug },
+      });
+
+      let { build, screenshots } = response;
+
+      if (!screenshots || screenshots.length === 0) {
+        logger.warn('⚠️  No screenshots found in build');
+        return { downloadedCount: 0, skippedCount: 0, errorCount: 0 };
+      }
+
+      logger.info(
+        `Using baseline from build: ${colors.cyan(build.name || 'Unknown')} (${build.id})`
+      );
+      logger.info(
+        `Checking ${colors.cyan(screenshots.length)} baseline screenshots...`
+      );
+
+      // Load existing baseline metadata for SHA comparison
+      let existingBaseline = await this.loadBaseline();
+      let existingShaMap = new Map();
+      if (existingBaseline) {
+        existingBaseline.screenshots.forEach(s => {
+          if (s.sha256 && s.signature) {
+            existingShaMap.set(s.signature, s.sha256);
+          }
+        });
+      }
+
+      // Process and download screenshots
+      let downloadedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+      let downloadedScreenshots = [];
+
+      for (let screenshot of screenshots) {
+        let sanitizedName;
+        try {
+          sanitizedName = sanitizeScreenshotName(screenshot.name);
+        } catch (error) {
+          logger.warn(
+            `Screenshot name sanitization failed for '${screenshot.name}': ${error.message}`
+          );
+          errorCount++;
+          continue;
+        }
+
+        let properties = validateScreenshotProperties(
+          screenshot.metadata || {}
+        );
+        let signature = generateScreenshotSignature(sanitizedName, properties);
+        let filename = signatureToFilename(signature);
+        let filePath = safePath(this.baselinePath, `${filename}.png`);
+
+        // Check if we can skip via SHA comparison
+        if (
+          screenshot.sha256 &&
+          existingShaMap.get(signature) === screenshot.sha256
+        ) {
+          skippedCount++;
+          downloadedScreenshots.push({
+            name: sanitizedName,
+            sha256: screenshot.sha256,
+            signature,
+            path: filePath,
+            properties,
+          });
+          continue;
+        }
+
+        // Download the screenshot
+        let downloadUrl = screenshot.original_url;
+        if (!downloadUrl) {
+          logger.warn(`⚠️  No download URL for screenshot: ${sanitizedName}`);
+          errorCount++;
+          continue;
+        }
+
+        try {
+          let imageResponse = await fetchWithTimeout(downloadUrl, {}, 30000);
+          if (!imageResponse.ok) {
+            throw new Error(`HTTP ${imageResponse.status}`);
+          }
+
+          let imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+
+          // Calculate SHA256 of downloaded content
+          let sha256 = crypto
+            .createHash('sha256')
+            .update(imageBuffer)
+            .digest('hex');
+
+          writeFileSync(filePath, imageBuffer);
+          downloadedCount++;
+
+          downloadedScreenshots.push({
+            name: sanitizedName,
+            sha256,
+            signature,
+            path: filePath,
+            properties,
+            originalUrl: downloadUrl,
+          });
+        } catch (error) {
+          logger.warn(
+            `⚠️  Failed to download ${sanitizedName}: ${error.message}`
+          );
+          errorCount++;
+        }
+      }
+
+      // Store baseline metadata
+      this.baselineData = {
+        buildId: build.id,
+        buildName: build.name,
+        branch: build.branch,
+        threshold: this.threshold,
+        screenshots: downloadedScreenshots,
+      };
+
+      let metadataPath = join(this.baselinePath, 'metadata.json');
+      writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
+
+      // Save baseline build metadata
+      let baselineMetadataPath = safePath(
+        this.workingDir,
+        '.vizzly',
+        'baseline-metadata.json'
+      );
+      writeFileSync(
+        baselineMetadataPath,
+        JSON.stringify(
+          {
+            buildId: build.id,
+            buildName: build.name,
+            branch: build.branch,
+            commitSha: build.commit_sha,
+            downloadedAt: new Date().toISOString(),
+          },
+          null,
+          2
+        )
+      );
+
+      // Summary
+      if (skippedCount > 0 && downloadedCount === 0) {
+        logger.info(
+          `✅ All ${skippedCount} baselines up-to-date (matching local SHA)`
+        );
+      } else if (skippedCount > 0) {
+        logger.info(
+          `✅ Downloaded ${downloadedCount} new screenshots, ${skippedCount} already up-to-date`
+        );
+      } else {
+        logger.info(
+          `✅ Downloaded ${downloadedCount}/${screenshots.length} screenshots successfully`
+        );
+      }
+
+      if (errorCount > 0) {
+        logger.warn(`⚠️  ${errorCount} screenshots failed to download`);
+      }
+
+      return {
+        downloadedCount,
+        skippedCount,
+        errorCount,
+        buildId: build.id,
+        buildName: build.name,
+      };
+    } catch (error) {
+      logger.error(
+        `❌ OAuth download failed: ${error.message} (org=${organizationSlug}, project=${projectSlug}, build=${buildId})`
+      );
       throw error;
     }
   }

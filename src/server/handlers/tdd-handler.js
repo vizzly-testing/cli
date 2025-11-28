@@ -685,5 +685,7 @@ export const createTddHandler = (
     acceptAllBaselines,
     resetBaselines,
     cleanup,
+    // Expose tddService for baseline download operations
+    tddService,
   };
 };

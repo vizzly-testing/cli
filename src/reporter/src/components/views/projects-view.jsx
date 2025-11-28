@@ -1,30 +1,38 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../ui/toast.jsx';
-import useAuth from '../../hooks/use-auth.js';
-import useProjects from '../../hooks/use-projects.js';
+import {
+  useAuthStatus,
+  useInitiateLogin,
+  usePollAuthorization,
+  useLogout,
+} from '../../hooks/queries/use-auth-queries.js';
+import {
+  useProjectMappings,
+  useDeleteProjectMapping,
+} from '../../hooks/queries/use-cloud-queries.js';
+import { queryKeys } from '../../lib/query-keys.js';
 import {
   UserCircleIcon,
   ArrowRightOnRectangleIcon,
   ArrowLeftOnRectangleIcon,
   FolderIcon,
   TrashIcon,
-  CheckCircleIcon,
   XCircleIcon,
-  ClockIcon,
 } from '@heroicons/react/24/outline';
 
 function DeviceFlowLogin({ onComplete }) {
   let [deviceFlow, setDeviceFlow] = useState(null);
-  let [checking, setChecking] = useState(false);
   let [error, setError] = useState(null);
 
-  let { initiateLogin, pollAuthorization } = useAuth();
+  let initiateLoginMutation = useInitiateLogin();
+  let pollMutation = usePollAuthorization();
   let { addToast } = useToast();
 
   useEffect(() => {
     async function startDeviceFlow() {
       try {
-        let flow = await initiateLogin();
+        let flow = await initiateLoginMutation.mutateAsync();
         setDeviceFlow(flow);
       } catch (err) {
         setError(err.message);
@@ -33,16 +41,16 @@ function DeviceFlowLogin({ onComplete }) {
     }
 
     startDeviceFlow();
-  }, [initiateLogin, addToast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function checkAuthorization() {
     if (!deviceFlow?.deviceCode) return;
 
-    setChecking(true);
     setError(null);
 
     try {
-      let result = await pollAuthorization(deviceFlow.deviceCode);
+      let result = await pollMutation.mutateAsync(deviceFlow.deviceCode);
 
       if (result.status === 'complete') {
         addToast('Login successful!', 'success');
@@ -55,8 +63,6 @@ function DeviceFlowLogin({ onComplete }) {
     } catch (err) {
       setError(err.message);
       addToast(`Check failed: ${err.message}`, 'error');
-    } finally {
-      setChecking(false);
     }
   }
 
@@ -113,10 +119,10 @@ function DeviceFlowLogin({ onComplete }) {
 
       <button
         onClick={checkAuthorization}
-        disabled={checking}
+        disabled={pollMutation.isPending}
         className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed text-white rounded-lg transition-colors inline-flex items-center gap-2 border border-gray-700"
       >
-        {checking ? (
+        {pollMutation.isPending ? (
           <>
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             Checking...
@@ -131,24 +137,29 @@ function DeviceFlowLogin({ onComplete }) {
 
 function AuthCard() {
   let [showingLogin, setShowingLogin] = useState(false);
-  let { user, authenticated, loading, logout, refetch } = useAuth();
+  let queryClient = useQueryClient();
+  let { data: authData, isLoading } = useAuthStatus();
+  let logoutMutation = useLogout();
   let { addToast } = useToast();
+
+  let user = authData?.user;
+  let authenticated = authData?.authenticated;
 
   let handleLogout = useCallback(async () => {
     try {
-      await logout();
+      await logoutMutation.mutateAsync();
       addToast('Logged out successfully', 'success');
     } catch (err) {
       addToast(`Logout failed: ${err.message}`, 'error');
     }
-  }, [logout, addToast]);
+  }, [logoutMutation, addToast]);
 
   let handleLoginComplete = useCallback(() => {
     setShowingLogin(false);
-    refetch();
-  }, [refetch]);
+    queryClient.invalidateQueries({ queryKey: queryKeys.auth });
+  }, [queryClient]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 animate-pulse">
         <div className="h-6 bg-slate-700 rounded w-32 mb-4"></div>
@@ -211,7 +222,8 @@ function AuthCard() {
         </div>
         <button
           onClick={handleLogout}
-          className="px-4 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors inline-flex items-center gap-2 border border-gray-700"
+          disabled={logoutMutation.isPending}
+          className="px-4 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors inline-flex items-center gap-2 border border-gray-700 disabled:opacity-50"
         >
           <ArrowLeftOnRectangleIcon className="w-5 h-5" />
           Sign Out
@@ -221,7 +233,7 @@ function AuthCard() {
   );
 }
 
-function ProjectMappingsTable({ mappings, onDelete }) {
+function ProjectMappingsTable({ mappings, onDelete, deleting }) {
   let { addToast, confirm } = useToast();
 
   let handleDelete = useCallback(
@@ -303,7 +315,8 @@ function ProjectMappingsTable({ mappings, onDelete }) {
               <td className="py-3 px-4 text-right">
                 <button
                   onClick={() => handleDelete(mapping.directory)}
-                  className="text-red-400 hover:text-red-300 transition-colors"
+                  disabled={deleting}
+                  className="text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
                   title="Remove mapping"
                 >
                   <TrashIcon className="w-5 h-5" />
@@ -317,54 +330,24 @@ function ProjectMappingsTable({ mappings, onDelete }) {
   );
 }
 
-function RecentBuildsCard({ builds }) {
-  if (builds.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-400">
-        <ClockIcon className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-        <p>No recent builds</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {builds.slice(0, 5).map((build, idx) => (
-        <div
-          key={idx}
-          className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors border border-gray-700/50"
-        >
-          <div className="flex-1">
-            <h4 className="text-sm font-medium text-white">{build.name}</h4>
-            <p className="text-xs text-gray-400 mt-1">
-              {build.branch} • {new Date(build.createdAt).toLocaleString()}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {build.status === 'passed' && (
-              <span className="text-green-400 text-sm flex items-center gap-1">
-                <CheckCircleIcon className="w-4 h-4" />
-                Passed
-              </span>
-            )}
-            {build.status === 'failed' && (
-              <span className="text-red-400 text-sm flex items-center gap-1">
-                <XCircleIcon className="w-4 h-4" />
-                Failed
-              </span>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function ProjectsView() {
-  let { mappings, recentBuilds, loading, deleteMapping, refetch } =
-    useProjects();
+  let {
+    data: mappingsData,
+    isLoading: mappingsLoading,
+    refetch,
+  } = useProjectMappings();
+  let deleteMappingMutation = useDeleteProjectMapping();
 
-  if (loading) {
+  let mappings = mappingsData?.mappings || [];
+
+  let handleDeleteMapping = useCallback(
+    async directory => {
+      await deleteMappingMutation.mutateAsync(directory);
+    },
+    [deleteMappingMutation]
+  );
+
+  if (mappingsLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="animate-pulse space-y-6">
@@ -381,7 +364,7 @@ export default function ProjectsView() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Projects</h1>
         <p className="text-gray-300">
-          Manage your Vizzly projects and directory mappings
+          Manage your Vizzly account and directory mappings
         </p>
       </div>
 
@@ -396,38 +379,25 @@ export default function ProjectsView() {
               <span className="text-gray-300">Project Mappings</span>
               <span className="text-white font-medium">{mappings.length}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Recent Builds</span>
-              <span className="text-white font-medium">
-                {recentBuilds.length}
-              </span>
-            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-white">
-              Project Mappings
-            </h2>
-            <button
-              onClick={refetch}
-              className="text-sm text-amber-500 hover:text-amber-400 transition-colors font-medium"
-            >
-              Refresh
-            </button>
-          </div>
-          <ProjectMappingsTable mappings={mappings} onDelete={deleteMapping} />
+      <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-white">Project Mappings</h2>
+          <button
+            onClick={() => refetch()}
+            className="text-sm text-amber-500 hover:text-amber-400 transition-colors font-medium"
+          >
+            Refresh
+          </button>
         </div>
-
-        <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-white mb-6">
-            Recent Builds
-          </h2>
-          <RecentBuildsCard builds={recentBuilds} />
-        </div>
+        <ProjectMappingsTable
+          mappings={mappings}
+          onDelete={handleDeleteMapping}
+          deleting={deleteMappingMutation.isPending}
+        />
       </div>
     </div>
   );

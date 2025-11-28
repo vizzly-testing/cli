@@ -20,6 +20,7 @@ export class ProjectService extends BaseService {
   constructor(config, options = {}) {
     super(config, options);
     this.apiService = options.apiService;
+    this.authService = options.authService;
   }
 
   /**
@@ -118,24 +119,72 @@ export class ProjectService extends BaseService {
 
   /**
    * List all projects from API
-   * @returns {Promise<Array>} Array of projects
+   * Uses OAuth authentication (authService) when available, falls back to API token
+   * @returns {Promise<Array>} Array of projects with organization info
    */
   async listProjects() {
-    if (!this.apiService) {
-      // Return empty array if not authenticated - this is expected in local mode
-      return [];
+    // Try OAuth-based request first (user login via device flow)
+    if (this.authService) {
+      try {
+        // First get the user's organizations via whoami
+        let whoami = await this.authService.authenticatedRequest(
+          '/api/auth/cli/whoami',
+          { method: 'GET' }
+        );
+
+        let organizations = whoami.organizations || [];
+        if (organizations.length === 0) {
+          return [];
+        }
+
+        // Fetch projects for each organization
+        let allProjects = [];
+        for (let org of organizations) {
+          try {
+            let response = await this.authService.authenticatedRequest(
+              '/api/project',
+              {
+                method: 'GET',
+                headers: { 'X-Organization': org.slug },
+              }
+            );
+
+            // Add organization info to each project
+            let projects = (response.projects || []).map(project => ({
+              ...project,
+              organizationSlug: org.slug,
+              organizationName: org.name,
+            }));
+
+            allProjects.push(...projects);
+          } catch (error) {
+            this.logger.debug(
+              `Failed to fetch projects for org ${org.slug}: ${error.message}`
+            );
+          }
+        }
+
+        return allProjects;
+      } catch (error) {
+        this.logger.debug(`OAuth project list failed: ${error.message}`);
+      }
     }
 
-    try {
-      let response = await this.apiService.request('/api/cli/projects', {
-        method: 'GET',
-      });
-
-      return response.projects || [];
-    } catch {
-      // Return empty array on error - likely not authenticated
-      return [];
+    // Fall back to API token-based request (tokens are org-scoped, so no org header needed)
+    if (this.apiService) {
+      try {
+        let response = await this.apiService.request('/api/project', {
+          method: 'GET',
+        });
+        return response.projects || [];
+      } catch (error) {
+        this.logger.debug(`API token project list failed: ${error.message}`);
+        return [];
+      }
     }
+
+    // No authentication available
+    return [];
   }
 
   /**
@@ -145,30 +194,48 @@ export class ProjectService extends BaseService {
    * @returns {Promise<Object>} Project details
    */
   async getProject(projectSlug, organizationSlug) {
-    if (!this.apiService) {
-      throw new VizzlyError('API service not available', 'NO_API_SERVICE');
+    // Try OAuth-based request first
+    if (this.authService) {
+      try {
+        let response = await this.authService.authenticatedRequest(
+          `/api/project/${projectSlug}`,
+          {
+            method: 'GET',
+            headers: { 'X-Organization': organizationSlug },
+          }
+        );
+        return response.project || response;
+      } catch (error) {
+        this.logger.debug(`OAuth get project failed: ${error.message}`);
+      }
     }
 
-    try {
-      let response = await this.apiService.request(
-        `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}`,
-        {
-          method: 'GET',
-        }
-      );
-
-      return response.project;
-    } catch (error) {
-      throw new VizzlyError(
-        `Failed to fetch project: ${error.message}`,
-        'PROJECT_FETCH_FAILED',
-        { originalError: error }
-      );
+    // Fall back to API token
+    if (this.apiService) {
+      try {
+        let response = await this.apiService.request(
+          `/api/project/${projectSlug}`,
+          {
+            method: 'GET',
+            headers: { 'X-Organization': organizationSlug },
+          }
+        );
+        return response.project || response;
+      } catch (error) {
+        throw new VizzlyError(
+          `Failed to fetch project: ${error.message}`,
+          'PROJECT_FETCH_FAILED',
+          { originalError: error }
+        );
+      }
     }
+
+    throw new VizzlyError('No authentication available', 'NO_AUTH_SERVICE');
   }
 
   /**
    * Get recent builds for a project
+   * Uses OAuth authentication (authService) when available, falls back to API token
    * @param {string} projectSlug - Project slug
    * @param {string} organizationSlug - Organization slug
    * @param {Object} options - Query options
@@ -177,28 +244,42 @@ export class ProjectService extends BaseService {
    * @returns {Promise<Array>} Array of builds
    */
   async getRecentBuilds(projectSlug, organizationSlug, options = {}) {
-    if (!this.apiService) {
-      // Return empty array if not authenticated
-      return [];
-    }
-
     let queryParams = new globalThis.URLSearchParams();
     if (options.limit) queryParams.append('limit', String(options.limit));
     if (options.branch) queryParams.append('branch', options.branch);
 
     let query = queryParams.toString();
-    let url = `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/builds${query ? `?${query}` : ''}`;
+    let url = `/api/build/${projectSlug}${query ? `?${query}` : ''}`;
 
-    try {
-      let response = await this.apiService.request(url, {
-        method: 'GET',
-      });
-
-      return response.builds || [];
-    } catch {
-      // Return empty array on error
-      return [];
+    // Try OAuth-based request first (user login via device flow)
+    if (this.authService) {
+      try {
+        let response = await this.authService.authenticatedRequest(url, {
+          method: 'GET',
+          headers: { 'X-Organization': organizationSlug },
+        });
+        return response.builds || [];
+      } catch (error) {
+        this.logger.debug(`OAuth get builds failed: ${error.message}`);
+      }
     }
+
+    // Fall back to API token-based request
+    if (this.apiService) {
+      try {
+        let response = await this.apiService.request(url, {
+          method: 'GET',
+          headers: { 'X-Organization': organizationSlug },
+        });
+        return response.builds || [];
+      } catch (error) {
+        this.logger.debug(`API token get builds failed: ${error.message}`);
+        return [];
+      }
+    }
+
+    // No authentication available
+    return [];
   }
 
   /**

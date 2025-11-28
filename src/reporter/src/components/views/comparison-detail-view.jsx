@@ -1,17 +1,24 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { useLocation, useRoute } from 'wouter';
-import useBaselineActions from '../../hooks/use-baseline-actions.js';
+import {
+  useReportData,
+  useAcceptBaseline,
+  useRejectBaseline,
+} from '../../hooks/queries/use-tdd-queries.js';
 import FullscreenViewer from '../comparison/fullscreen-viewer.jsx';
 
 /**
  * Route-driven comparison detail view
  * The route parameter :id determines which comparison to show
  */
-export default function ComparisonDetailView({ reportData, setReportData }) {
+export default function ComparisonDetailView() {
   let [, setLocation] = useLocation();
   let [, params] = useRoute('/comparison/:id');
+  let [loadingStates, setLoadingStates] = useState({});
 
-  let { accept, reject, loadingStates } = useBaselineActions(setReportData);
+  let { data: reportData } = useReportData();
+  let acceptMutation = useAcceptBaseline();
+  let rejectMutation = useRejectBaseline();
 
   // Memoize comparisons array to prevent dependency warnings
   let comparisons = useMemo(
@@ -76,16 +83,26 @@ export default function ComparisonDetailView({ reportData, setReportData }) {
   // Handle accept/reject with the stable ID
   let handleAccept = useCallback(
     id => {
-      accept(id);
+      setLoadingStates(prev => ({ ...prev, [id]: 'accepting' }));
+      acceptMutation.mutate(id, {
+        onSettled: () => {
+          setLoadingStates(prev => ({ ...prev, [id]: undefined }));
+        },
+      });
     },
-    [accept]
+    [acceptMutation]
   );
 
   let handleReject = useCallback(
     id => {
-      reject(id);
+      setLoadingStates(prev => ({ ...prev, [id]: 'rejecting' }));
+      rejectMutation.mutate(id, {
+        onSettled: () => {
+          setLoadingStates(prev => ({ ...prev, [id]: undefined }));
+        },
+      });
     },
-    [reject]
+    [rejectMutation]
   );
 
   // If no comparison found, show not found state

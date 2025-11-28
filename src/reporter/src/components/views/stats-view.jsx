@@ -1,22 +1,24 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { CheckIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import DashboardStats from '../dashboard/dashboard-stats.jsx';
 import {
-  acceptAllBaselines,
-  resetBaselines,
-} from '../../services/api-client.js';
+  useReportData,
+  useAcceptAllBaselines,
+  useResetBaselines,
+} from '../../hooks/queries/use-tdd-queries.js';
+import DashboardStats from '../dashboard/dashboard-stats.jsx';
 import { useToast } from '../ui/toast.jsx';
 
-export default function StatsView({
-  reportData,
-  setReportData,
-  onRefresh,
-  loading,
-}) {
-  let { summary, comparisons, baseline } = reportData;
-  let [acceptingAll, setAcceptingAll] = useState(false);
-  let [resetting, setResetting] = useState(false);
+export default function StatsView() {
   let { addToast, confirm } = useToast();
+
+  // Use TanStack Query for data
+  let { data: reportData, isLoading, refetch } = useReportData();
+  let acceptAllMutation = useAcceptAllBaselines();
+  let resetMutation = useResetBaselines();
+
+  let summary = reportData?.summary;
+  let comparisons = reportData?.comparisons;
+  let baseline = reportData?.baseline;
 
   // Check if there are any changes to accept
   let hasChanges = comparisons?.some(
@@ -34,28 +36,16 @@ export default function StatsView({
 
     if (!confirmed) return;
 
-    setAcceptingAll(true);
-    try {
-      await acceptAllBaselines();
-
-      // Update all failed/new comparisons to passed
-      setReportData(prevData => ({
-        ...prevData,
-        comparisons: prevData.comparisons.map(c =>
-          c.status === 'failed' || c.status === 'new'
-            ? { ...c, status: 'passed', diffPercentage: 0, diff: null }
-            : c
-        ),
-      }));
-
-      onRefresh?.();
-    } catch (err) {
-      console.error('Failed to accept all baselines:', err);
-      addToast('Failed to accept all baselines. Please try again.', 'error');
-    } finally {
-      setAcceptingAll(false);
-    }
-  }, [setReportData, onRefresh, addToast, confirm]);
+    acceptAllMutation.mutate(undefined, {
+      onSuccess: () => {
+        addToast('All baselines accepted successfully', 'success');
+      },
+      onError: err => {
+        console.error('Failed to accept all baselines:', err);
+        addToast('Failed to accept all baselines. Please try again.', 'error');
+      },
+    });
+  }, [acceptAllMutation, addToast, confirm]);
 
   let handleReset = useCallback(async () => {
     let confirmed = await confirm(
@@ -65,25 +55,16 @@ export default function StatsView({
 
     if (!confirmed) return;
 
-    setResetting(true);
-    try {
-      await resetBaselines();
-
-      // Clear all report data since baselines are deleted
-      setReportData({
-        timestamp: Date.now(),
-        comparisons: [],
-        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
-      });
-
-      onRefresh?.();
-    } catch (err) {
-      console.error('Failed to reset baselines:', err);
-      addToast('Failed to reset baselines. Please try again.', 'error');
-    } finally {
-      setResetting(false);
-    }
-  }, [setReportData, onRefresh, addToast, confirm]);
+    resetMutation.mutate(undefined, {
+      onSuccess: () => {
+        addToast('Baselines reset successfully', 'success');
+      },
+      onError: err => {
+        console.error('Failed to reset baselines:', err);
+        addToast('Failed to reset baselines. Please try again.', 'error');
+      },
+    });
+  }, [resetMutation, addToast, confirm]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -139,12 +120,12 @@ export default function StatsView({
         <div className="flex gap-4">
           <button
             onClick={handleAcceptAll}
-            disabled={!hasChanges || acceptingAll || loading}
+            disabled={!hasChanges || acceptAllMutation.isPending || isLoading}
             className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             <CheckIcon className="w-5 h-5" />
             <span>
-              {acceptingAll
+              {acceptAllMutation.isPending
                 ? 'Accepting...'
                 : hasChanges
                   ? 'Accept All Changes'
@@ -154,20 +135,22 @@ export default function StatsView({
 
           <button
             onClick={handleReset}
-            disabled={resetting || loading}
+            disabled={resetMutation.isPending || isLoading}
             className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 disabled:bg-gray-600 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ArrowPathIcon className="w-5 h-5" />
-            <span>{resetting ? 'Resetting...' : 'Reset Baselines'}</span>
+            <span>
+              {resetMutation.isPending ? 'Resetting...' : 'Reset Baselines'}
+            </span>
           </button>
 
           <button
-            onClick={onRefresh}
-            disabled={loading}
+            onClick={() => refetch()}
+            disabled={isLoading}
             className="ml-auto inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg
-              className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`}
+              className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`}
               fill="none"
               viewBox="0 0 24 24"
             >

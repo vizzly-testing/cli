@@ -48,15 +48,21 @@ export class ServiceContainer extends EventEmitter {
       );
     }
 
-    const definition = this.services.get(name);
+    let definition = this.services.get(name);
 
     // Return cached instance for singletons
     if (definition.singleton && this.instances.has(name)) {
       return this.instances.get(name);
     }
 
-    // Prevent circular dependencies during startup
+    // If service is currently being created, wait for it (handles concurrent access)
     if (this.starting.has(name)) {
+      let pending = this.starting.get(name);
+      // If it's a promise, wait for it (concurrent request for same service)
+      if (pending && typeof pending.then === 'function') {
+        return pending;
+      }
+      // If it's true (legacy), we have a real circular dependency
       throw new VizzlyError(
         `Circular dependency detected for service '${name}'`,
         'CIRCULAR_DEPENDENCY',
@@ -64,27 +70,38 @@ export class ServiceContainer extends EventEmitter {
       );
     }
 
+    // Create a promise for this service resolution and store it
+    let resolutionPromise = this._createService(name, definition);
+    this.starting.set(name, resolutionPromise);
+
     try {
-      this.starting.set(name, true);
-
-      // Resolve dependencies
-      const deps = await Promise.all(
-        (definition.dependencies || []).map(dep => this.get(dep))
-      );
-
-      // Create instance
-      const instance = await definition.factory(...deps);
-
-      // Cache singleton instances
-      if (definition.singleton) {
-        this.instances.set(name, instance);
-      }
-
-      this.emit('service:created', { name, instance });
+      let instance = await resolutionPromise;
       return instance;
     } finally {
       this.starting.delete(name);
     }
+  }
+
+  /**
+   * Internal method to create a service instance
+   * @private
+   */
+  async _createService(name, definition) {
+    // Resolve dependencies
+    let deps = await Promise.all(
+      (definition.dependencies || []).map(dep => this.get(dep))
+    );
+
+    // Create instance
+    let instance = await definition.factory(...deps);
+
+    // Cache singleton instances
+    if (definition.singleton) {
+      this.instances.set(name, instance);
+    }
+
+    this.emit('service:created', { name, instance });
+    return instance;
   }
 
   /**
@@ -186,9 +203,9 @@ export async function createServiceContainer(config, command = 'run') {
   );
 
   container.register('projectService', {
-    factory: async apiService =>
-      new ProjectService(config, { logger, apiService }),
-    dependencies: ['apiService'],
+    factory: async (apiService, authService) =>
+      new ProjectService(config, { logger, apiService, authService }),
+    dependencies: ['apiService', 'authService'],
   });
 
   container.register('uploader', () =>
@@ -206,7 +223,11 @@ export async function createServiceContainer(config, command = 'run') {
     dependencies: ['configService', 'authService', 'projectService'],
   });
 
-  container.register('tddService', () => createTDDService(config, { logger }));
+  container.register('tddService', {
+    factory: async authService =>
+      createTDDService(config, { logger, authService }),
+    dependencies: ['authService'],
+  });
 
   container.register('testRunner', {
     factory: async (buildManager, serverManager, tddService) =>

@@ -157,14 +157,16 @@ export class ProjectService extends BaseService {
             }));
 
             allProjects.push(...projects);
-          } catch {
-            // Skip org on error, continue with others
+          } catch (error) {
+            this.logger.debug(
+              `Failed to fetch projects for org ${org.slug}: ${error.message}`
+            );
           }
         }
 
         return allProjects;
-      } catch {
-        // Fall through to try apiService
+      } catch (error) {
+        this.logger.debug(`OAuth project list failed: ${error.message}`);
       }
     }
 
@@ -175,8 +177,8 @@ export class ProjectService extends BaseService {
           method: 'GET',
         });
         return response.projects || [];
-      } catch {
-        // Return empty array on error
+      } catch (error) {
+        this.logger.debug(`API token project list failed: ${error.message}`);
         return [];
       }
     }
@@ -203,8 +205,8 @@ export class ProjectService extends BaseService {
           }
         );
         return response.project || response;
-      } catch {
-        // Fall through to apiService
+      } catch (error) {
+        this.logger.debug(`OAuth get project failed: ${error.message}`);
       }
     }
 
@@ -257,8 +259,8 @@ export class ProjectService extends BaseService {
           headers: { 'X-Organization': organizationSlug },
         });
         return response.builds || [];
-      } catch {
-        // Fall through to try apiService
+      } catch (error) {
+        this.logger.debug(`OAuth get builds failed: ${error.message}`);
       }
     }
 
@@ -270,8 +272,8 @@ export class ProjectService extends BaseService {
           headers: { 'X-Organization': organizationSlug },
         });
         return response.builds || [];
-      } catch {
-        // Return empty array on error
+      } catch (error) {
+        this.logger.debug(`API token get builds failed: ${error.message}`);
         return [];
       }
     }

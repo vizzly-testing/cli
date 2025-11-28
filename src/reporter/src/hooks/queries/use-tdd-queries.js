@@ -115,7 +115,7 @@ export function useResetBaselines() {
 
 export function useRejectBaseline() {
   // Rejection in TDD mode is essentially "don't accept" - the default state
-  // This is a no-op mutation that could be extended for logging or future features
+  // This is a no-op mutation that could be extended for future features
   return useMutation({
     mutationFn: async id => {
       if (isStaticMode()) {
@@ -124,7 +124,6 @@ export function useRejectBaseline() {
         );
       }
       // Rejection is a no-op in TDD mode - it just means "keep the current baseline"
-      console.log(`Rejected comparison: ${id}`);
       return { success: true, id };
     },
   });

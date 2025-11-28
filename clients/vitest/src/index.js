@@ -55,12 +55,6 @@ export function vizzlyPlugin(_options = {}) {
   return {
     name: 'vitest-vizzly',
     config(config) {
-      // Add setup file to extend expect with our custom matcher
-      let setupFiles = config?.test?.setupFiles || [];
-      if (!Array.isArray(setupFiles)) {
-        setupFiles = [setupFiles];
-      }
-
       // Auto-detect Vizzly server (TDD mode or cloud mode)
       // Search for .vizzly/server.json from process.cwd() up to root
       let serverUrl = process.env.VIZZLY_SERVER_URL || '';
@@ -91,7 +85,6 @@ export function vizzlyPlugin(_options = {}) {
       return {
         test: {
           setupFiles: [
-            ...setupFiles,
             resolve(import.meta.dirname || __dirname, 'setup.js'),
           ],
           browser: {

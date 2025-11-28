@@ -17,10 +17,7 @@ export { vizzlyScreenshot, configure, setEnabled } from './client/index.js';
 // Core services (for advanced usage)
 export { createUploader } from './services/uploader.js';
 export { createTDDService } from './services/tdd-service.js';
-
-// Service container
-export { ServiceContainer, container } from './container/index.js';
-export { BaseService } from './services/base-service.js';
+export { createServices } from './services/index.js';
 
 // Utilities
 export { loadConfig } from './utils/config-loader.js';

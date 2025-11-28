@@ -3,13 +3,15 @@
  * Orchestrates the test execution flow
  */
 
-import { BaseService } from './base-service.js';
+import { EventEmitter } from 'events';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { spawn } from 'child_process';
 
-export class TestRunner extends BaseService {
+export class TestRunner extends EventEmitter {
   constructor(config, logger, buildManager, serverManager, tddService) {
-    super(config, logger);
+    super();
+    this.config = config;
+    this.logger = logger;
     this.buildManager = buildManager;
     this.serverManager = serverManager;
     this.tddService = tddService;

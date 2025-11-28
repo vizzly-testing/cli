@@ -24,8 +24,8 @@ vi.mock('../../src/utils/console-ui.js', () => ({
   }),
 }));
 
-vi.mock('../../src/container/index.js', () => ({
-  createServiceContainer: vi.fn(),
+vi.mock('../../src/services/index.js', () => ({
+  createServices: vi.fn(),
 }));
 
 vi.mock('../../src/utils/git.js', () => ({
@@ -66,20 +66,19 @@ describe('uploadCommand', () => {
       waitForBuild: vi.fn(),
     };
 
-    mockContainer = {
-      get: vi.fn(() => mockUploader),
-    };
-
     mockApiService = {
       getTokenContext: vi.fn(),
+    };
+
+    mockContainer = {
+      uploader: mockUploader,
+      apiService: mockApiService,
     };
 
     // Import and setup mocks
     const { ConsoleUI } = await import('../../src/utils/console-ui.js');
     const { loadConfig } = await import('../../src/utils/config-loader.js');
-    const { createServiceContainer } = await import(
-      '../../src/container/index.js'
-    );
+    const { createServices } = await import('../../src/services/index.js');
     const {
       detectBranch,
       detectCommit,
@@ -93,7 +92,7 @@ describe('uploadCommand', () => {
     ConsoleUI.mockImplementation(function () {
       return mockUI;
     });
-    createServiceContainer.mockResolvedValue(mockContainer);
+    createServices.mockReturnValue(mockContainer);
     ApiService.mockImplementation(function () {
       return mockApiService;
     });
@@ -341,17 +340,17 @@ describe('uploadCommand', () => {
       expect(mockUI.error).toHaveBeenCalledWith('Config load failed', error);
     });
 
-    it('should handle container creation errors', async () => {
-      const { createServiceContainer } = await import(
-        '../../src/container/index.js'
-      );
-      const error = new Error('Container creation failed');
-      createServiceContainer.mockRejectedValue(error);
+    it('should handle service creation errors', async () => {
+      const { createServices } = await import('../../src/services/index.js');
+      const error = new Error('Service creation failed');
+      createServices.mockImplementation(() => {
+        throw error;
+      });
 
       await uploadCommand('./screenshots', {}, {});
 
       expect(mockUI.error).toHaveBeenCalledWith(
-        'Container creation failed',
+        'Service creation failed',
         error
       );
     });

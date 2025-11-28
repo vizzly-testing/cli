@@ -21,8 +21,8 @@ vi.mock('../../src/utils/console-ui.js', () => ({
   }),
 }));
 
-vi.mock('../../src/container/index.js', () => ({
-  createServiceContainer: vi.fn(),
+vi.mock('../../src/services/index.js', () => ({
+  createServices: vi.fn(),
 }));
 
 vi.mock('../../src/utils/git.js', () => ({
@@ -63,19 +63,14 @@ describe('runCommand', () => {
     };
 
     mockContainer = {
-      get: vi.fn(service => {
-        if (service === 'testRunner') return mockTestRunner;
-        if (service === 'uploader') return mockUploader;
-        return null;
-      }),
+      testRunner: mockTestRunner,
+      uploader: mockUploader,
     };
 
     // Import and setup mocks
     const { ConsoleUI } = await import('../../src/utils/console-ui.js');
     const { loadConfig } = await import('../../src/utils/config-loader.js');
-    const { createServiceContainer } = await import(
-      '../../src/container/index.js'
-    );
+    const { createServices } = await import('../../src/services/index.js');
     const {
       detectBranch,
       detectCommit,
@@ -88,7 +83,7 @@ describe('runCommand', () => {
     ConsoleUI.mockImplementation(function () {
       return mockUI;
     });
-    createServiceContainer.mockResolvedValue(mockContainer);
+    createServices.mockReturnValue(mockContainer);
 
     loadConfig.mockResolvedValue({
       apiKey: 'test-api-key',
@@ -299,12 +294,12 @@ describe('runCommand', () => {
       expect(mockUI.error).toHaveBeenCalledWith('Test run failed', error);
     });
 
-    it('should handle container creation errors', async () => {
-      const { createServiceContainer } = await import(
-        '../../src/container/index.js'
-      );
-      const error = new Error('Container creation failed');
-      createServiceContainer.mockRejectedValue(error);
+    it('should handle service creation errors', async () => {
+      const { createServices } = await import('../../src/services/index.js');
+      const error = new Error('Service creation failed');
+      createServices.mockImplementation(() => {
+        throw error;
+      });
 
       await runCommand('npm test', {}, {});
 

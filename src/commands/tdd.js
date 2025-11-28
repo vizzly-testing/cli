@@ -1,6 +1,6 @@
 import { loadConfig } from '../utils/config-loader.js';
 import { ConsoleUI } from '../utils/console-ui.js';
-import { createServiceContainer } from '../container/index.js';
+import { createServices } from '../services/index.js';
 import { detectBranch, detectCommit } from '../utils/git.js';
 
 /**
@@ -77,12 +77,11 @@ export async function tddCommand(
       });
     }
 
-    // Create service container and get services
+    // Create services
     ui.startSpinner('Initializing TDD server...');
-    const configWithVerbose = { ...config, verbose: globalOptions.verbose };
-    const container = await createServiceContainer(configWithVerbose, 'tdd');
-
-    testRunner = await container.get('testRunner');
+    let configWithVerbose = { ...config, verbose: globalOptions.verbose };
+    let services = createServices(configWithVerbose, 'tdd');
+    testRunner = services.testRunner;
     ui.stopSpinner();
 
     // Set up event handlers for user feedback

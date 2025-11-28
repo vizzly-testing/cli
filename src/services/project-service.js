@@ -3,7 +3,6 @@
  * Manages project mappings and project-related operations
  */
 
-import { BaseService } from './base-service.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import {
   getProjectMappings,
@@ -14,11 +13,11 @@ import {
 
 /**
  * ProjectService for managing project mappings and operations
- * @extends BaseService
  */
-export class ProjectService extends BaseService {
+export class ProjectService {
   constructor(config, options = {}) {
-    super(config, options);
+    this.config = config;
+    this.logger = options.logger;
     this.apiService = options.apiService;
     this.authService = options.authService;
   }

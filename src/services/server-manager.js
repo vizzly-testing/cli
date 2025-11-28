@@ -3,29 +3,29 @@
  * Manages the HTTP server with functional handlers
  */
 
-import { BaseService } from './base-service.js';
 import { createHttpServer } from '../server/http-server.js';
 import { createTddHandler } from '../server/handlers/tdd-handler.js';
 import { createApiHandler } from '../server/handlers/api-handler.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-export class ServerManager extends BaseService {
+export class ServerManager {
   constructor(config, options = {}) {
-    super(config, options);
+    this.config = config;
+    this.logger = options.logger;
     this.httpServer = null;
     this.handler = null;
     this.services = options.services || {};
+    this.buildId = null;
+    this.tddMode = false;
+    this.setBaseline = false;
   }
 
   async start(buildId = null, tddMode = false, setBaseline = false) {
     this.buildId = buildId;
     this.tddMode = tddMode;
     this.setBaseline = setBaseline;
-    return super.start();
-  }
 
-  async onStart() {
     const port = this.config?.server?.port || 47392;
 
     if (this.tddMode) {
@@ -93,7 +93,7 @@ export class ServerManager extends BaseService {
     );
   }
 
-  async onStop() {
+  async stop() {
     if (this.httpServer) {
       await this.httpServer.stop();
     }

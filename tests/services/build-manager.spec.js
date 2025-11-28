@@ -11,16 +11,6 @@ import {
 } from '../../src/services/build-manager.js';
 
 // Mock dependencies
-vi.mock('../../src/services/base-service.js', () => ({
-  BaseService: class {
-    constructor(config, logger) {
-      this.config = config;
-      this.logger = logger;
-    }
-    emitProgress = vi.fn();
-  },
-}));
-
 vi.mock('../../src/errors/vizzly-error.js', () => ({
   VizzlyError: class extends Error {
     constructor(message, code = 'VIZZLY_ERROR') {
@@ -289,47 +279,6 @@ describe('BuildManager', () => {
       });
     });
 
-    describe('onStart', () => {
-      it('emits initialization progress', async () => {
-        await buildManager.onStart();
-        expect(buildManager.emitProgress).toHaveBeenCalledWith(
-          'initializing',
-          0
-        );
-      });
-    });
-
-    describe('onStop', () => {
-      it('cleans up current build and queue', async () => {
-        buildManager.currentBuild = { id: 'test', status: 'completed' };
-        buildManager.buildQueue = [{ name: 'queued' }];
-
-        await buildManager.onStop();
-
-        expect(buildManager.currentBuild).toBe(null);
-        expect(buildManager.buildQueue).toEqual([]);
-      });
-
-      it('cancels pending build on stop', async () => {
-        buildManager.currentBuild = { id: 'pending-build', status: 'pending' };
-        buildManager.updateBuildStatus = vi.fn();
-
-        await buildManager.onStop();
-
-        expect(buildManager.updateBuildStatus).toHaveBeenCalledWith(
-          'pending-build',
-          'cancelled'
-        );
-      });
-
-      it('handles no current build gracefully', async () => {
-        buildManager.currentBuild = null;
-        await buildManager.onStop();
-
-        expect(buildManager.currentBuild).toBe(null);
-      });
-    });
-
     describe('createBuild', () => {
       it('creates and stores new build', async () => {
         const buildOptions = { name: 'Test Build', branch: 'main' };
@@ -342,15 +291,6 @@ describe('BuildManager', () => {
           status: 'pending',
         });
         expect(buildManager.currentBuild).toBe(build);
-        expect(buildManager.emitProgress).toHaveBeenCalledWith(
-          'creating',
-          'Creating new build...'
-        );
-        expect(buildManager.emitProgress).toHaveBeenCalledWith(
-          'created',
-          'Build created: Test Build',
-          { build }
-        );
       });
     });
 
@@ -367,15 +307,6 @@ describe('BuildManager', () => {
         expect(updated.status).toBe('running');
         expect(updated.progress).toBe(50);
         expect(buildManager.currentBuild.status).toBe('running');
-        expect(buildManager.emitProgress).toHaveBeenCalledWith(
-          'updated',
-          'Build status: running',
-          {
-            buildId: build.id,
-            status: 'running',
-            build: updated,
-          }
-        );
       });
 
       it('throws error for non-existent build', async () => {
@@ -405,15 +336,6 @@ describe('BuildManager', () => {
           name: 'test.png',
           image: 'data',
         });
-        expect(buildManager.emitProgress).toHaveBeenCalledWith(
-          'screenshot-added',
-          'Screenshot added to build',
-          {
-            buildId: build.id,
-            screenshotCount: 1,
-            screenshot,
-          }
-        );
       });
 
       it('throws error for non-existent build', async () => {
@@ -433,15 +355,6 @@ describe('BuildManager', () => {
         expect(finalized.status).toBe('completed');
         expect(finalized.result).toEqual(result);
         expect(finalized.completedAt).toBeDefined();
-        expect(buildManager.emitProgress).toHaveBeenCalledWith(
-          'finalized',
-          'Build completed',
-          {
-            buildId: build.id,
-            build: finalized,
-            result,
-          }
-        );
       });
 
       it('finalizes current build with failure result', async () => {
@@ -451,11 +364,6 @@ describe('BuildManager', () => {
         const finalized = await buildManager.finalizeBuild(build.id, result);
 
         expect(finalized.status).toBe('failed');
-        expect(buildManager.emitProgress).toHaveBeenCalledWith(
-          'finalized',
-          'Build failed',
-          expect.any(Object)
-        );
       });
 
       it('throws error for non-existent build', async () => {
@@ -485,13 +393,6 @@ describe('BuildManager', () => {
           name: 'Queued Build',
           queuedAt: expect.any(String),
         });
-        expect(buildManager.emitProgress).toHaveBeenCalledWith(
-          'queued',
-          'Build queued for processing',
-          {
-            queueLength: 1,
-          }
-        );
       });
 
       it('processes next build from queue', async () => {

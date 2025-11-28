@@ -3,7 +3,6 @@
  * Manages reading and writing Vizzly configuration files
  */
 
-import { BaseService } from './base-service.js';
 import { cosmiconfigSync } from 'cosmiconfig';
 import { writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
@@ -17,11 +16,11 @@ import {
 
 /**
  * ConfigService for reading and writing configuration
- * @extends BaseService
  */
-export class ConfigService extends BaseService {
+export class ConfigService {
   constructor(config, options = {}) {
-    super(config, options);
+    this.config = config;
+    this.logger = options.logger;
     this.projectRoot = options.projectRoot || process.cwd();
     this.explorer = cosmiconfigSync('vizzly');
   }

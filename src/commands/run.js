@@ -1,6 +1,6 @@
 import { loadConfig } from '../utils/config-loader.js';
 import { ConsoleUI } from '../utils/console-ui.js';
-import { createServiceContainer } from '../container/index.js';
+import { createServices } from '../services/index.js';
 import {
   detectBranch,
   detectCommit,
@@ -155,9 +155,8 @@ export async function runCommand(
       });
     }
 
-    const command = 'run';
-    const container = await createServiceContainer(configWithVerbose, command);
-    testRunner = await container.get('testRunner'); // Assign to outer scope variable
+    let services = createServices(configWithVerbose, 'run');
+    testRunner = services.testRunner;
     ui.stopSpinner();
 
     // Track build URL for display
@@ -290,7 +289,7 @@ export async function runCommand(
         ui.info('Waiting for build completion...');
         ui.startSpinner('Processing comparisons...');
 
-        const uploader = await container.get('uploader');
+        let { uploader } = services;
         const buildResult = await uploader.waitForBuild(result.buildId);
 
         ui.success('Build processing completed');

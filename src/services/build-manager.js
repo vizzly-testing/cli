@@ -186,7 +186,11 @@ export class BuildManager {
     this.logger.debug(`Build queued (${this.buildQueue.length} in queue)`);
   }
 
-  clear() {
+  async clear() {
+    // Cancel pending build if exists
+    if (this.currentBuild && this.currentBuild.status === 'pending') {
+      await this.updateBuildStatus(this.currentBuild.id, 'cancelled');
+    }
     this.buildQueue.length = 0;
     this.currentBuild = null;
   }

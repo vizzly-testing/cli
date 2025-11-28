@@ -479,5 +479,43 @@ describe('BuildManager', () => {
         expect(buildManager.getQueueStatus().length).toBe(0);
       });
     });
+
+    describe('clear', () => {
+      it('clears queue and current build', async () => {
+        await buildManager.createBuild({ name: 'Test' });
+        await buildManager.updateBuildStatus(
+          buildManager.currentBuild.id,
+          'running'
+        );
+        buildManager.queueBuild({ name: 'Queued' });
+
+        await buildManager.clear();
+
+        expect(buildManager.currentBuild).toBe(null);
+        expect(buildManager.buildQueue).toHaveLength(0);
+      });
+
+      it('cancels pending builds before clearing', async () => {
+        let build = await buildManager.createBuild({ name: 'Pending Build' });
+        expect(build.status).toBe('pending');
+
+        await buildManager.clear();
+
+        // Build was cancelled before clearing
+        expect(buildManager.currentBuild).toBe(null);
+      });
+
+      it('does not cancel non-pending builds', async () => {
+        await buildManager.createBuild({ name: 'Running Build' });
+        await buildManager.updateBuildStatus(
+          buildManager.currentBuild.id,
+          'running'
+        );
+
+        await buildManager.clear();
+
+        expect(buildManager.currentBuild).toBe(null);
+      });
+    });
   });
 });

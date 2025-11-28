@@ -16,9 +16,6 @@ export class ServerManager {
     this.httpServer = null;
     this.handler = null;
     this.services = options.services || {};
-    this.buildId = null;
-    this.tddMode = false;
-    this.setBaseline = false;
   }
 
   async start(buildId = null, tddMode = false, setBaseline = false) {

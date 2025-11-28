@@ -2,19 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TestRunner } from '../../src/services/test-runner.js';
 
 // Mock dependencies
-vi.mock('../../src/services/base-service.js', () => ({
-  BaseService: class {
-    constructor(config, logger) {
-      this.config = config;
-      this.logger = logger;
-    }
-
-    emit() {
-      // Mock emit function
-    }
-  },
-}));
-
 vi.mock('../../src/errors/vizzly-error.js', () => ({
   VizzlyError: class extends Error {
     constructor(message, code = 'VIZZLY_ERROR') {

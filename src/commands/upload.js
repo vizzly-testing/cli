@@ -1,6 +1,6 @@
 import { loadConfig } from '../utils/config-loader.js';
 import { ConsoleUI } from '../utils/console-ui.js';
-import { createServiceContainer } from '../container/index.js';
+import { createServices } from '../services/index.js';
 import {
   detectBranch,
   detectCommit,
@@ -102,8 +102,8 @@ export async function uploadCommand(
 
     // Get uploader service
     ui.startSpinner('Initializing uploader...');
-    const container = await createServiceContainer(config, 'upload');
-    const uploader = await container.get('uploader');
+    const services = createServices(config, 'upload');
+    const uploader = services.uploader;
 
     // Prepare upload options with progress callback
     const uploadOptions = {

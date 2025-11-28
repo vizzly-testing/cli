@@ -31,7 +31,7 @@ import { getPackageVersion } from './utils/package-info.js';
 import { loadPlugins } from './plugin-loader.js';
 import { loadConfig } from './utils/config-loader.js';
 import { createComponentLogger } from './utils/logger-factory.js';
-import { createServiceContainer } from './container/index.js';
+import { createServices } from './services/index.js';
 
 program
   .name('vizzly')
@@ -64,7 +64,7 @@ let logger = createComponentLogger('CLI', {
   level: config.logLevel || (verboseMode ? 'debug' : 'warn'),
   verbose: verboseMode || false,
 });
-let container = await createServiceContainer(config);
+let services = createServices(config);
 
 let plugins = [];
 try {
@@ -76,7 +76,7 @@ try {
       let registerPromise = plugin.register(program, {
         config,
         logger,
-        services: container,
+        services,
       });
       let timeoutPromise = new Promise((_, reject) =>
         setTimeout(

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createServiceContainer } from '../../src/container/index.js';
+import { createServices } from '../../src/services/index.js';
 import { loadConfig } from '../../src/utils/config-loader.js';
 
 // Mock global fetch
@@ -16,9 +16,10 @@ describe('Uploader Service Integration Test', () => {
 
   it('should be able to instantiate the uploader and call the upload method', async () => {
     const config = await loadConfig();
-    const container = await createServiceContainer(config);
+    config.allowNoToken = true; // Allow test to run without API token
+    const services = createServices(config);
 
-    const uploader = await container.get('uploader');
+    const uploader = services.uploader;
 
     const uploadSpy = vi.spyOn(uploader, 'upload').mockResolvedValue();
 
@@ -38,8 +39,8 @@ describe('Uploader Service Integration Test', () => {
       config.apiKey = 'test-api-key';
       config.apiUrl = 'https://api.test.com';
 
-      const container = await createServiceContainer(config);
-      const uploader = await container.get('uploader');
+      const services = createServices(config);
+      const uploader = services.uploader;
 
       // Mock API response with comparison data
       const mockBuildResponse = {
@@ -78,8 +79,8 @@ describe('Uploader Service Integration Test', () => {
       config.apiKey = 'test-api-key';
       config.apiUrl = 'https://api.test.com';
 
-      const container = await createServiceContainer(config);
-      const uploader = await container.get('uploader');
+      const services = createServices(config);
+      const uploader = services.uploader;
 
       // Mock API response for failed build
       global.fetch.mockResolvedValue({
@@ -104,8 +105,8 @@ describe('Uploader Service Integration Test', () => {
       config.apiKey = 'test-api-key';
       config.apiUrl = 'https://api.test.com';
 
-      const container = await createServiceContainer(config);
-      const uploader = await container.get('uploader');
+      const services = createServices(config);
+      const uploader = services.uploader;
 
       global.fetch.mockResolvedValue({
         ok: false,

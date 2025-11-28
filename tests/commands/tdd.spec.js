@@ -21,8 +21,8 @@ vi.mock('../../src/utils/console-ui.js', () => ({
   }),
 }));
 
-vi.mock('../../src/container/index.js', () => ({
-  createServiceContainer: vi.fn(),
+vi.mock('../../src/services/index.js', () => ({
+  createServices: vi.fn(),
 }));
 
 vi.mock('../../src/utils/git.js', () => ({
@@ -53,15 +53,13 @@ describe('tddCommand', () => {
     };
 
     mockContainer = {
-      get: vi.fn(() => mockTestRunner),
+      testRunner: mockTestRunner,
     };
 
     // Import and setup mocks
     const { ConsoleUI } = await import('../../src/utils/console-ui.js');
     const { loadConfig } = await import('../../src/utils/config-loader.js');
-    const { createServiceContainer } = await import(
-      '../../src/container/index.js'
-    );
+    const { createServices } = await import('../../src/services/index.js');
     const { detectBranch, detectCommit } = await import(
       '../../src/utils/git.js'
     );
@@ -69,7 +67,7 @@ describe('tddCommand', () => {
     ConsoleUI.mockImplementation(function () {
       return mockUI;
     });
-    createServiceContainer.mockResolvedValue(mockContainer);
+    createServices.mockReturnValue(mockContainer);
 
     loadConfig.mockResolvedValue({
       apiKey: 'test-api-key',
@@ -254,12 +252,12 @@ describe('tddCommand', () => {
       expect(mockUI.error).toHaveBeenCalledWith('TDD test run failed', error);
     });
 
-    it('should handle container creation errors', async () => {
-      const { createServiceContainer } = await import(
-        '../../src/container/index.js'
-      );
-      const error = new Error('Container creation failed');
-      createServiceContainer.mockRejectedValue(error);
+    it('should handle service creation errors', async () => {
+      const { createServices } = await import('../../src/services/index.js');
+      const error = new Error('Service creation failed');
+      createServices.mockImplementation(() => {
+        throw error;
+      });
 
       const { cleanup } = await tddCommand('npm test', {}, {});
       await cleanup();

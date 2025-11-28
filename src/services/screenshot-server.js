@@ -4,17 +4,17 @@
  */
 
 import { createServer } from 'http';
-import { BaseService } from './base-service.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
 
-export class ScreenshotServer extends BaseService {
+export class ScreenshotServer {
   constructor(config, logger, buildManager) {
-    super(config, logger);
+    this.config = config;
+    this.logger = logger;
     this.buildManager = buildManager;
     this.server = null;
   }
 
-  async onStart() {
+  async start() {
     this.server = createServer(this.handleRequest.bind(this));
     return new Promise((resolve, reject) => {
       this.server.listen(this.config.server.port, '127.0.0.1', error => {
@@ -35,7 +35,7 @@ export class ScreenshotServer extends BaseService {
     });
   }
 
-  async onStop() {
+  async stop() {
     if (this.server) {
       return new Promise(resolve => {
         this.server.close(() => {

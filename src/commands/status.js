@@ -1,6 +1,6 @@
 import { loadConfig } from '../utils/config-loader.js';
 import { ConsoleUI } from '../utils/console-ui.js';
-import { createServiceContainer } from '../container/index.js';
+import { createServices } from '../services/index.js';
 import { getApiUrl } from '../utils/environment-config.js';
 
 /**
@@ -36,8 +36,8 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
 
     // Get API service
     ui.startSpinner('Fetching build status...');
-    const container = await createServiceContainer(config, 'status');
-    const apiService = await container.get('apiService');
+    let services = createServices(config, 'status');
+    let { apiService } = services;
 
     // Get build details via unified ApiService
     const buildStatus = await apiService.getBuild(buildId);

@@ -5,7 +5,6 @@
 
 import crypto from 'crypto';
 import { VizzlyError } from '../errors/vizzly-error.js';
-import { BaseService } from './base-service.js';
 
 /**
  * Generate unique build ID for local build management only.
@@ -133,30 +132,18 @@ export function validateBuildOptions(buildOptions) {
   };
 }
 
-export class BuildManager extends BaseService {
+export class BuildManager {
   constructor(config, logger) {
-    super(config, { logger });
+    this.config = config;
+    this.logger = logger;
     this.currentBuild = null;
     this.buildQueue = [];
   }
 
-  async onStart() {
-    this.emitProgress('initializing', 0);
-  }
-
-  async onStop() {
-    if (this.currentBuild && this.currentBuild.status === 'pending') {
-      await this.updateBuildStatus(this.currentBuild.id, 'cancelled');
-    }
-    this.buildQueue.length = 0;
-    this.currentBuild = null;
-  }
-
   async createBuild(buildOptions) {
-    this.emitProgress('creating', 'Creating new build...');
-    const build = createBuildObject(buildOptions);
+    let build = createBuildObject(buildOptions);
     this.currentBuild = build;
-    this.emitProgress('created', `Build created: ${build.name}`, { build });
+    this.logger.debug(`Build created: ${build.name}`);
     return build;
   }
 
@@ -165,11 +152,7 @@ export class BuildManager extends BaseService {
       throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
     }
     this.currentBuild = updateBuild(this.currentBuild, status, updates);
-    this.emitProgress('updated', `Build status: ${status}`, {
-      buildId,
-      status,
-      build: this.currentBuild,
-    });
+    this.logger.debug(`Build status: ${status}`);
     return this.currentBuild;
   }
 
@@ -178,11 +161,9 @@ export class BuildManager extends BaseService {
       throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
     }
     this.currentBuild = addScreenshotToBuild(this.currentBuild, screenshot);
-    this.emitProgress('screenshot-added', 'Screenshot added to build', {
-      buildId,
-      screenshotCount: this.currentBuild.screenshots.length,
-      screenshot,
-    });
+    this.logger.debug(
+      `Screenshot added to build (${this.currentBuild.screenshots.length} total)`
+    );
     return this.currentBuild;
   }
 
@@ -191,11 +172,7 @@ export class BuildManager extends BaseService {
       throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
     }
     this.currentBuild = finalizeBuildObject(this.currentBuild, result);
-    this.emitProgress('finalized', `Build ${this.currentBuild.status}`, {
-      buildId,
-      build: this.currentBuild,
-      result,
-    });
+    this.logger.debug(`Build ${this.currentBuild.status}`);
     return this.currentBuild;
   }
 
@@ -204,11 +181,18 @@ export class BuildManager extends BaseService {
   }
 
   queueBuild(buildOptions) {
-    const queuedBuild = createQueuedBuild(buildOptions);
+    let queuedBuild = createQueuedBuild(buildOptions);
     this.buildQueue.push(queuedBuild);
-    this.emitProgress('queued', 'Build queued for processing', {
-      queueLength: this.buildQueue.length,
-    });
+    this.logger.debug(`Build queued (${this.buildQueue.length} in queue)`);
+  }
+
+  async clear() {
+    // Cancel pending build if exists
+    if (this.currentBuild && this.currentBuild.status === 'pending') {
+      await this.updateBuildStatus(this.currentBuild.id, 'cancelled');
+    }
+    this.buildQueue.length = 0;
+    this.currentBuild = null;
   }
 
   async processNextBuild() {

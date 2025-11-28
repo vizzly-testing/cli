@@ -6,15 +6,6 @@ vi.mock('http', () => ({
   createServer: vi.fn(),
 }));
 
-vi.mock('../../src/services/base-service.js', () => ({
-  BaseService: class {
-    constructor(config, logger) {
-      this.config = config;
-      this.logger = logger;
-    }
-  },
-}));
-
 vi.mock('../../src/errors/vizzly-error.js', () => ({
   VizzlyError: class extends Error {
     constructor(message, code = 'VIZZLY_ERROR') {
@@ -96,13 +87,13 @@ describe('ScreenshotServer', () => {
     });
   });
 
-  describe('onStart', () => {
+  describe('start', () => {
     it('starts server successfully', async () => {
       mockServer.listen.mockImplementation((port, host, callback) => {
         callback(null); // Success
       });
 
-      await screenshotServer.onStart();
+      await screenshotServer.start();
 
       expect(mockServer.listen).toHaveBeenCalledWith(
         3001,
@@ -121,7 +112,7 @@ describe('ScreenshotServer', () => {
         callback(error);
       });
 
-      await expect(screenshotServer.onStart()).rejects.toThrow(
+      await expect(screenshotServer.start()).rejects.toThrow(
         'Failed to start screenshot server: Port already in use'
       );
     });
@@ -132,20 +123,20 @@ describe('ScreenshotServer', () => {
         callback(null);
       });
 
-      await screenshotServer.onStart();
+      await screenshotServer.start();
 
       expect(createServer).toHaveBeenCalledWith(expect.any(Function));
     });
   });
 
-  describe('onStop', () => {
+  describe('stop', () => {
     it('stops server successfully', async () => {
       screenshotServer.server = mockServer;
       mockServer.close.mockImplementation(callback => {
         callback();
       });
 
-      await screenshotServer.onStop();
+      await screenshotServer.stop();
 
       expect(mockServer.close).toHaveBeenCalledWith(expect.any(Function));
       expect(mockLogger.info).toHaveBeenCalledWith('Screenshot server stopped');
@@ -154,7 +145,7 @@ describe('ScreenshotServer', () => {
     it('handles case when no server is running', async () => {
       screenshotServer.server = null;
 
-      const result = await screenshotServer.onStop();
+      const result = await screenshotServer.stop();
 
       expect(result).toBeUndefined();
       expect(mockServer.close).not.toHaveBeenCalled();
@@ -379,11 +370,11 @@ describe('ScreenshotServer', () => {
       });
 
       // Start server
-      await screenshotServer.onStart();
+      await screenshotServer.start();
       expect(screenshotServer.server).toBe(mockServer);
 
       // Stop server
-      await screenshotServer.onStop();
+      await screenshotServer.stop();
       expect(mockLogger.info).toHaveBeenCalledWith('Screenshot server stopped');
     });
 

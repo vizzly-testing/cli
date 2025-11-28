@@ -13,7 +13,7 @@ vi.mock('../../src/utils/console-ui.js', () => ({
     return mockConsoleUIStore.mockInstance;
   }),
 }));
-vi.mock('../../src/container/index.js');
+vi.mock('../../src/services/index.js');
 vi.mock('../../src/utils/environment-config.js');
 
 const mockConsoleUI = {
@@ -28,9 +28,9 @@ const mockConsoleUI = {
 
 const mockApiService = { getBuild: vi.fn() };
 
-const mockCreateServiceContainer = vi.fn();
-const mockContainer = {
-  get: vi.fn(),
+const mockCreateServices = vi.fn();
+const mockServices = {
+  apiService: mockApiService,
 };
 
 const mockGetApiUrl = vi.fn();
@@ -47,10 +47,8 @@ describe('Status Command', () => {
     const { loadConfig } = await import('../../src/utils/config-loader.js');
     loadConfig.mockImplementation(mockLoadConfig);
 
-    const { createServiceContainer } = await import(
-      '../../src/container/index.js'
-    );
-    createServiceContainer.mockImplementation(mockCreateServiceContainer);
+    const { createServices } = await import('../../src/services/index.js');
+    createServices.mockImplementation(mockCreateServices);
 
     const { getApiUrl } = await import('../../src/utils/environment-config.js');
     getApiUrl.mockImplementation(mockGetApiUrl);
@@ -61,8 +59,7 @@ describe('Status Command', () => {
       apiUrl: 'https://api.test.com',
     });
 
-    mockCreateServiceContainer.mockResolvedValue(mockContainer);
-    mockContainer.get.mockResolvedValue(mockApiService);
+    mockCreateServices.mockReturnValue(mockServices);
     mockGetApiUrl.mockReturnValue('http://localhost:3000');
 
     // Mock API response matching real structure
@@ -113,11 +110,10 @@ describe('Status Command', () => {
         'Checking status for build: build-123'
       );
       expect(mockLoadConfig).toHaveBeenCalled();
-      expect(mockCreateServiceContainer).toHaveBeenCalledWith(
+      expect(mockCreateServices).toHaveBeenCalledWith(
         expect.any(Object),
         'status'
       );
-      expect(mockContainer.get).toHaveBeenCalledWith('apiService');
       expect(mockApiService.getBuild).toHaveBeenCalledWith('build-123');
 
       // Check for the new UI output format

@@ -1,6 +1,6 @@
 import { loadConfig } from '../utils/config-loader.js';
 import { ConsoleUI } from '../utils/console-ui.js';
-import { createServiceContainer } from '../container/index.js';
+import { createServices } from '../services/index.js';
 
 /**
  * Finalize command implementation
@@ -40,10 +40,10 @@ export async function finalizeCommand(
       });
     }
 
-    // Create service container and get API service
+    // Create services and get API service
     ui.startSpinner('Finalizing parallel build...');
-    const container = await createServiceContainer(config, 'finalize');
-    const apiService = await container.get('apiService');
+    const services = createServices(config, 'finalize');
+    const apiService = services.apiService;
     ui.stopSpinner();
 
     // Call finalize endpoint

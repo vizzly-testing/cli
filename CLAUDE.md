@@ -210,16 +210,16 @@ The package provides multiple entry points for different use cases:
 4. Add tests in `tests/commands/`
 
 **Adding a new service:**
-1. Extend `BaseService` for lifecycle hooks (`onStart`, `onStop`)
-2. Register in service container with dependencies
-3. Inject via container in commands that need it
+1. Create a plain class in `src/services/`
+2. Add it to `createServices()` in `src/services/index.js` with its dependencies
+3. Access via `services.myService` in commands
 
 **Modifying screenshot comparison:**
 Remember to update both local (TDD) and cloud comparison logic to keep behavior consistent.
 
 **Creating a plugin:**
 1. Create ESM module that exports `{ name, version?, register(program, context) }`
-2. Plugin receives `program` (Commander instance), `config`, `logger`, and `services` container
+2. Plugin receives `program` (Commander instance), `config`, `logger`, and `services` object
 3. For official plugins: Publish under `@vizzly-testing/*` scope with `vizzly.plugin` field in package.json
 4. For community/local plugins: Add path to `plugins` array in `vizzly.config.js`
 5. Add tests in plugin's own package or in `tests/integration/`

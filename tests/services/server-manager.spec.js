@@ -26,46 +26,6 @@ vi.mock('events', () => ({
   })),
 }));
 
-// Mock BaseService to avoid complex inheritance issues in tests
-vi.mock('../../src/services/base-service.js', () => ({
-  BaseService: class MockBaseService {
-    constructor(config, options = {}) {
-      this.config = config;
-      this.logger = options.logger || {
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-      };
-      this.started = false;
-    }
-
-    async start() {
-      if (this.started) {
-        this.logger.warn(`${this.constructor.name} already started`);
-        return;
-      }
-      await this.onStart();
-      this.started = true;
-    }
-
-    async stop() {
-      if (this.started) {
-        await this.onStop();
-        this.started = false;
-      }
-    }
-
-    async onStart() {
-      // Override in child classes
-    }
-
-    async onStop() {
-      // Override in child classes
-    }
-  },
-}));
-
 describe('ServerManager', () => {
   let serverManager;
   let mockConfig;
@@ -315,23 +275,20 @@ describe('ServerManager', () => {
       expect(mockApiHandler.cleanup).toHaveBeenCalledTimes(1);
     });
 
-    it('should prevent multiple starts', async () => {
+    it('should allow multiple starts (overwrites previous state)', async () => {
       mockTddHandler.initialize.mockResolvedValue();
       mockHttpServer.start.mockResolvedValue();
 
       await serverManager.start('build-123', true);
 
-      // Second start should warn and return early
+      // Second start creates a new server instance
       await serverManager.start('build-456', true);
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        'ServerManager already started'
-      );
-      expect(mockHttpServer.start).toHaveBeenCalledTimes(1);
+      expect(mockHttpServer.start).toHaveBeenCalledTimes(2);
     });
 
     it('should handle stop without start', async () => {
-      await serverManager.onStop();
+      await serverManager.stop();
 
       expect(mockHttpServer.stop).not.toHaveBeenCalled();
     });
@@ -339,7 +296,7 @@ describe('ServerManager', () => {
     it('should handle cleanup when handler is null', async () => {
       serverManager.handler = null;
 
-      await serverManager.onStop();
+      await serverManager.stop();
 
       // Should not throw
     });
@@ -454,7 +411,7 @@ describe('ServerManager', () => {
 
       await serverManager.start('build-123', true);
 
-      await expect(serverManager.onStop()).rejects.toThrow('Stop failed');
+      await expect(serverManager.stop()).rejects.toThrow('Stop failed');
     });
 
     it('should handle handler cleanup errors gracefully', async () => {
@@ -468,7 +425,7 @@ describe('ServerManager', () => {
       await serverManager.start('build-123', true);
 
       // Should not throw despite cleanup error
-      await expect(serverManager.onStop()).resolves.toBeUndefined();
+      await expect(serverManager.stop()).resolves.toBeUndefined();
     });
   });
 

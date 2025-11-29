@@ -317,7 +317,7 @@ When connected to Vizzly cloud, TDD mode automatically filters out "noise" from 
 
 ### How It Works
 
-1. **Sync baselines** - Run `vizzly tdd sync` to download baselines and hotspot data from the cloud
+1. **Download baselines** - Use the TDD dashboard's Builds page to download baselines from the cloud (hotspot data is included automatically)
 2. **Automatic filtering** - During comparisons, if a diff falls within a known hotspot region, it's automatically marked as passed
 3. **Visual feedback** - You'll see output like:
    ```
@@ -328,7 +328,7 @@ When connected to Vizzly cloud, TDD mode automatically filters out "noise" from 
 
 Hotspot filtering activates automatically when:
 - You have an API token configured (`vizzly login` or `VIZZLY_TOKEN`)
-- You've synced baselines from the cloud (`vizzly tdd sync`)
+- You've downloaded baselines from the cloud (via the TDD dashboard's Builds page)
 - The cloud has enough historical build data to calculate hotspot regions
 
 ### Filtering Criteria

@@ -74,7 +74,9 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
           return;
         }
       } catch (error) {
-        output.debug(`Router error for ${pathname}:`, { error: error.message });
+        output.debug('server', `router error: ${pathname}`, {
+          error: error.message,
+        });
         sendError(res, 500, 'Internal server error');
         return;
       }
@@ -90,7 +92,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
         try {
           await handleRequest(req, res);
         } catch (error) {
-          output.debug('Server error:', { error: error.message });
+          output.debug('server', 'error', { error: error.message });
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ error: 'Internal server error' }));
@@ -101,7 +103,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
         if (error) {
           reject(error);
         } else {
-          output.debug(`HTTP server listening on http://127.0.0.1:${port}`);
+          output.debug('server', `listening on :${port}`);
           resolve();
         }
       });
@@ -125,7 +127,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
       return new Promise(resolve => {
         server.close(() => {
           server = null;
-          output.debug('HTTP server stopped');
+          output.debug('server', 'stopped');
           resolve();
         });
       });
@@ -137,20 +139,19 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
    * Finish build - flush any pending background operations
    * Call this before finalizing a build to ensure all uploads complete
    */
-  let finishBuild = async buildId => {
-    output.debug(`Finishing build ${buildId}...`);
-
+  let finishBuild = async _buildId => {
     // Flush screenshot handler if it has a flush method (API mode)
     if (screenshotHandler?.flush) {
       let stats = await screenshotHandler.flush();
-      output.debug(`Build ${buildId} uploads complete`, {
-        uploaded: stats.uploaded,
-        failed: stats.failed,
-      });
+      if (stats.uploaded > 0 || stats.failed > 0) {
+        output.debug('upload', 'flushed', {
+          uploaded: stats.uploaded,
+          failed: stats.failed,
+        });
+      }
       return stats;
     }
 
-    output.debug(`Build ${buildId} finished (no flush needed)`);
     return null;
   };
 

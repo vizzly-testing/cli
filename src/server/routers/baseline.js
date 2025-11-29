@@ -9,6 +9,7 @@ import {
   sendError,
   sendServiceUnavailable,
 } from '../middleware/response.js';
+import * as output from '../../utils/output.js';
 
 /**
  * Create baseline router
@@ -16,14 +17,12 @@ import {
  * @param {Object} context.screenshotHandler - Screenshot handler
  * @param {Object} context.tddService - TDD service for baseline downloads
  * @param {Object} context.authService - Auth service for OAuth requests
- * @param {Object} context.logger - Logger instance
  * @returns {Function} Route handler
  */
 export function createBaselineRouter({
   screenshotHandler,
   tddService,
   authService,
-  logger,
 }) {
   return async function handleBaselineRoute(req, res, pathname) {
     // Accept a single screenshot as baseline
@@ -48,7 +47,7 @@ export function createBaselineRouter({
         });
         return true;
       } catch (error) {
-        logger.error('Error accepting baseline:', error);
+        output.error('Error accepting baseline:', error);
         sendError(res, 500, error.message);
         return true;
       }
@@ -71,7 +70,7 @@ export function createBaselineRouter({
         });
         return true;
       } catch (error) {
-        logger.error('Error accepting all baselines:', error);
+        output.error('Error accepting all baselines:', error);
         sendError(res, 500, error.message);
         return true;
       }
@@ -93,7 +92,7 @@ export function createBaselineRouter({
         });
         return true;
       } catch (error) {
-        logger.error('Error resetting baselines:', error);
+        output.error('Error resetting baselines:', error);
         sendError(res, 500, error.message);
         return true;
       }
@@ -118,7 +117,7 @@ export function createBaselineRouter({
           return true;
         }
 
-        logger.info(`Downloading baselines from build ${buildId}...`);
+        output.info(`Downloading baselines from build ${buildId}...`);
 
         // If organizationSlug and projectSlug are provided, use OAuth-based download
         if (organizationSlug && projectSlug && authService) {
@@ -138,7 +137,7 @@ export function createBaselineRouter({
             return true;
           } catch (authError) {
             // Log the OAuth error with details
-            logger.warn(
+            output.warn(
               `OAuth download failed (org=${organizationSlug}, project=${projectSlug}): ${authError.message}`
             );
 
@@ -177,7 +176,7 @@ export function createBaselineRouter({
         });
         return true;
       } catch (error) {
-        logger.error('Error downloading baselines:', error);
+        output.error('Error downloading baselines:', error);
         sendError(res, 500, error.message);
         return true;
       }

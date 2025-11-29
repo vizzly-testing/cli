@@ -74,7 +74,6 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 3. Check project mapping for current directory (if no CLI flag)
   if (!cliOverrides.token) {
     let currentDir = process.cwd();
-    output.debug('[CONFIG] Looking up project mapping', { dir: currentDir });
 
     let projectMapping = await getProjectMapping(currentDir);
     if (projectMapping && projectMapping.token) {
@@ -96,14 +95,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
       config.projectSlug = projectMapping.projectSlug;
       config.organizationSlug = projectMapping.organizationSlug;
 
-      output.debug('[CONFIG] Found project mapping', {
-        dir: currentDir,
-        projectSlug: projectMapping.projectSlug,
-        hasToken: !!projectMapping.token,
-        tokenPrefix: token ? token.substring(0, 8) + '***' : 'none',
+      output.debug('Using project mapping', {
+        project: projectMapping.projectSlug,
+        org: projectMapping.organizationSlug,
       });
-    } else {
-      output.debug('[CONFIG] No project mapping found', { dir: currentDir });
     }
   }
 
@@ -120,35 +115,19 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   let envApiUrl = getApiUrl();
   let envParallelId = getParallelId();
 
-  output.debug('[CONFIG] Checking environment variables', {
-    hasEnvApiKey: !!envApiKey,
-    envApiKeyPrefix: envApiKey ? envApiKey.substring(0, 8) + '***' : 'none',
-    configApiKeyBefore: config.apiKey
-      ? config.apiKey.substring(0, 8) + '***'
-      : 'NONE',
-  });
-
-  if (envApiKey) config.apiKey = envApiKey;
+  if (envApiKey) {
+    config.apiKey = envApiKey;
+    output.debug('Using API token from environment');
+  }
   if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
   if (envParallelId) config.parallelId = envParallelId;
 
   // 5. Apply CLI overrides (highest priority)
-  output.debug('[CONFIG] Applying CLI overrides', {
-    configApiKey: config.apiKey
-      ? config.apiKey.substring(0, 8) + '***'
-      : 'NONE',
-    cliToken: cliOverrides.token
-      ? cliOverrides.token.substring(0, 8) + '***'
-      : 'none',
-  });
+  if (cliOverrides.token) {
+    output.debug('Using API token from --token flag');
+  }
 
   applyCLIOverrides(config, cliOverrides);
-
-  output.debug('[CONFIG] Final config', {
-    configApiKey: config.apiKey
-      ? config.apiKey.substring(0, 8) + '***'
-      : 'NONE',
-  });
 
   return config;
 }

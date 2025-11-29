@@ -20,7 +20,6 @@ import {
 export class ConfigService {
   constructor(config, options = {}) {
     this.config = config;
-    this.logger = options.logger;
     this.projectRoot = options.projectRoot || process.cwd();
     this.explorer = cosmiconfigSync('vizzly');
   }

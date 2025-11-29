@@ -13,7 +13,7 @@ file.
 ## Benefits
 
 - **Zero Configuration** - Just `npm install` and the plugin is available
-- **Shared Infrastructure** - Plugins get access to config, logger, and services
+- **Shared Infrastructure** - Plugins get access to config, output utilities, and services
 - **Independent Releases** - Plugins can iterate without requiring CLI updates
 - **Smaller Core** - Keep the main CLI lean by moving optional features to plugins
 - **Community Extensible** - Anyone can build and share plugins
@@ -95,14 +95,14 @@ export default {
   name: 'my-plugin',
   version: '1.0.0', // Optional but recommended
 
-  register(program, { config, logger, services }) {
+  register(program, { config, output, services }) {
     // Register your command with Commander.js
     program
       .command('my-command <arg>')
       .description('Description of my command')
       .option('--option <value>', 'An option')
       .action(async (arg, options) => {
-        logger.info(`Running my-command with ${arg}`);
+        output.info(`Running my-command with ${arg}`);
 
         // Access shared services if needed
         let apiService = await services.get('apiService');
@@ -131,14 +131,13 @@ The `register` function receives two arguments:
 1. **`program`** - [Commander.js](https://github.com/tj/commander.js) program instance for registering commands
 2. **`context`** - Object containing:
    - `config` - Merged Vizzly configuration object
-   - `logger` - Shared logger instance with `.debug()`, `.info()`, `.warn()`, `.error()` methods
+   - `output` - Unified output module with `.debug()`, `.info()`, `.warn()`, `.error()`, `.success()` methods
    - `services` - Service container with access to internal Vizzly services
 
 ### Available Services
 
 Plugins can access these services from the container:
 
-- **`logger`** - Component logger for consistent output
 - **`apiService`** - Vizzly API client for interacting with the platform
 - **`uploader`** - Screenshot upload service
 - **`buildManager`** - Build lifecycle management
@@ -149,7 +148,7 @@ Plugins can access these services from the container:
 Example accessing a service:
 
 ```javascript
-register(program, { config, logger, services }) {
+register(program, { config, output, services }) {
   program
     .command('upload-screenshots <dir>')
     .action(async (dir) => {
@@ -177,12 +176,12 @@ touch plugins/my-plugin.js
 export default {
   name: 'my-plugin',
   version: '1.0.0',
-  register(program, { config, logger }) {
+  register(program, { config, output }) {
     program
       .command('greet <name>')
       .description('Greet someone')
       .action((name) => {
-        logger.info(`Hello, ${name}!`);
+        output.info(`Hello, ${name}!`);
       });
   }
 };
@@ -255,33 +254,34 @@ export default {
 Always handle errors gracefully and provide helpful error messages:
 
 ```javascript
-register(program, { logger }) {
+register(program, { output }) {
   program
     .command('process <file>')
     .action(async (file) => {
       try {
         if (!existsSync(file)) {
-          logger.error(`File not found: ${file}`);
+          output.error(`File not found: ${file}`);
           process.exit(1);
         }
         // Process file...
       } catch (error) {
-        logger.error(`Failed to process file: ${error.message}`);
+        output.error(`Failed to process file: ${error.message}`);
         process.exit(1);
       }
     });
 }
 ```
 
-### Logging
+### Output
 
-Use the provided logger for consistent output across all CLI commands:
+Use the provided output module for consistent CLI output:
 
 ```javascript
-logger.debug('Detailed debug info');   // Only shown with --verbose
-logger.info('Normal information');     // Standard output
-logger.warn('Warning message');        // Warning output
-logger.error('Error message');         // Error output
+output.debug('Detailed debug info');   // Only shown with --verbose (stderr)
+output.info('Normal information');     // Info messages (stdout)
+output.success('Completed!');          // Success messages (stdout)
+output.warn('Warning message');        // Warning messages (stderr)
+output.error('Error message');         // Error messages (stderr)
 ```
 
 ### Async Operations
@@ -292,7 +292,7 @@ Use async/await for asynchronous operations:
 .action(async (options) => {
   let service = await services.get('apiService');
   let result = await service.doSomething();
-  logger.info(`Result: ${result}`);
+  output.info(`Result: ${result}`);
 });
 ```
 
@@ -318,13 +318,13 @@ Validate user input and provide helpful error messages:
 ```javascript
 .action(async (path, options) => {
   if (!path) {
-    logger.error('Path is required');
+    output.error('Path is required');
     process.exit(1);
   }
 
   if (!existsSync(path)) {
-    logger.error(`Path not found: ${path}`);
-    logger.info('Please provide a valid path to your build directory');
+    output.error(`Path not found: ${path}`);
+    output.info('Please provide a valid path to your build directory');
     process.exit(1);
   }
 
@@ -337,7 +337,7 @@ Validate user input and provide helpful error messages:
 Import heavy dependencies only when needed to keep CLI startup fast:
 
 ```javascript
-register(program, { logger }) {
+register(program, { output }) {
   program
     .command('process-images <dir>')
     .action(async (dir) => {

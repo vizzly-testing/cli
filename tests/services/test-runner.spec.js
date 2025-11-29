@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TestRunner } from '../../src/services/test-runner.js';
 
+// Mock output module
+vi.mock('../../src/utils/output.js', () => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  success: vi.fn(),
+}));
+
 // Mock dependencies
 vi.mock('../../src/errors/vizzly-error.js', () => ({
   VizzlyError: class extends Error {
@@ -29,7 +38,6 @@ vi.mock('../../src/services/api-service.js', () => ({
 describe('TestRunner', () => {
   let testRunner;
   let mockConfig;
-  let mockLogger;
   let mockBuildManager;
   let mockServerManager;
   let mockTddService;
@@ -41,13 +49,6 @@ describe('TestRunner', () => {
         port: 3000,
       },
       apiKey: 'test-api-key',
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
     };
 
     mockBuildManager = {
@@ -83,7 +84,6 @@ describe('TestRunner', () => {
 
     testRunner = new TestRunner(
       mockConfig,
-      mockLogger,
       mockBuildManager,
       mockServerManager,
       mockTddService
@@ -99,7 +99,6 @@ describe('TestRunner', () => {
   describe('constructor', () => {
     it('initializes with all required dependencies', () => {
       expect(testRunner.config).toBe(mockConfig);
-      expect(testRunner.logger).toBe(mockLogger);
       expect(testRunner.buildManager).toBe(mockBuildManager);
       expect(testRunner.serverManager).toBe(mockServerManager);
       expect(testRunner.tddService).toBe(mockTddService);

@@ -151,7 +151,7 @@ export class TddService {
           `⚠️  Could not detect default branch, using 'main' as fallback`
         );
       } else {
-        output.debug(`Using detected default branch: ${branch}`);
+        output.debug('tdd', `detected default branch: ${branch}`);
       }
     }
 
@@ -162,8 +162,10 @@ export class TddService {
         // Use specific build ID - get it with screenshots in one call
         const apiResponse = await this.api.getBuild(buildId, 'screenshots');
 
-        // Debug the full API response (only in debug mode)
-        output.debug(`📊 Raw API response:`, { apiResponse });
+        // API response available in verbose mode
+        output.debug('tdd', 'fetched baseline build', {
+          id: apiResponse?.build?.id || apiResponse?.id,
+        });
 
         if (!apiResponse) {
           throw new Error(`Build ${buildId} not found or API returned null`);
@@ -365,16 +367,9 @@ export class TddService {
           const storedSha = existingShaMap.get(signature);
 
           if (storedSha === screenshot.sha256) {
-            output.debug(
-              `⚡ Skipping ${sanitizedName} - SHA match from metadata`
-            );
             downloadedCount++; // Count as "downloaded" since we have it
             skippedCount++;
             continue;
-          } else if (storedSha) {
-            output.debug(
-              `🔄 SHA mismatch for ${sanitizedName} - will re-download (stored: ${storedSha?.slice(0, 8)}..., remote: ${screenshot.sha256?.slice(0, 8)}...)`
-            );
           }
         }
 
@@ -422,8 +417,6 @@ export class TddService {
           const downloadPromises = batch.map(
             async ({ sanitizedName, imagePath, downloadUrl }) => {
               try {
-                output.debug(`📥 Downloading: ${sanitizedName}`);
-
                 const response = await fetchWithTimeout(downloadUrl);
                 if (!response.ok) {
                   throw new NetworkError(
@@ -435,7 +428,6 @@ export class TddService {
                 const imageBuffer = Buffer.from(arrayBuffer);
                 writeFileSync(imagePath, imageBuffer);
 
-                output.debug(`✓ Downloaded ${sanitizedName}.png`);
                 return { success: true, name: sanitizedName };
               } catch (error) {
                 output.warn(
@@ -615,14 +607,10 @@ export class TddService {
     authService
   ) {
     output.info(`Downloading baselines using OAuth from build ${buildId}...`);
-    output.debug(
-      `Request details: org=${organizationSlug}, project=${projectSlug}, build=${buildId}`
-    );
 
     try {
       // Fetch build with screenshots via OAuth endpoint
       let endpoint = `/api/build/${projectSlug}/${buildId}/tdd-baselines`;
-      output.debug(`Calling endpoint: ${endpoint}`);
 
       let response = await authService.authenticatedRequest(endpoint, {
         method: 'GET',
@@ -844,7 +832,7 @@ export class TddService {
   async loadBaseline() {
     // In baseline update mode, never load existing baselines
     if (this.setBaseline) {
-      output.debug('🐻 Baseline update mode - skipping baseline loading');
+      output.debug('tdd', 'baseline update mode - skipping loading');
       return null;
     }
 
@@ -922,15 +910,8 @@ export class TddService {
     // Check if baseline exists
     const baselineExists = existsSync(baselineImagePath);
     if (!baselineExists) {
-      output.debug(
-        `No baseline found for ${sanitizedName} - creating baseline`
-      );
-      output.debug(`Path: ${baselineImagePath}`);
-      output.debug(`Size: ${imageBuffer.length} bytes`);
-
       // Copy current screenshot to baseline directory for future comparisons
       writeFileSync(baselineImagePath, imageBuffer);
-      output.debug(`Created baseline: ${imageBuffer.length} bytes`);
 
       // Update or create baseline metadata
       if (!this.baselineData) {
@@ -965,7 +946,7 @@ export class TddService {
       const metadataPath = join(this.baselinePath, 'metadata.json');
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
-      output.debug(`✅ Created baseline for ${sanitizedName}`);
+      // Baseline creation tracked by event handler
 
       const result = {
         id: generateComparisonId(signature),
@@ -984,13 +965,6 @@ export class TddService {
 
     // Baseline exists - compare with it
     try {
-      // Log file sizes for debugging
-      const baselineSize = readFileSync(baselineImagePath).length;
-      const currentSize = readFileSync(currentImagePath).length;
-      output.debug(`Comparing ${sanitizedName}`);
-      output.debug(`Baseline: ${baselineImagePath} (${baselineSize} bytes)`);
-      output.debug(`Current:  ${currentImagePath} (${currentSize} bytes)`);
-
       // Try to compare - honeydiff will throw if dimensions don't match
       const result = await compare(baselineImagePath, currentImagePath, {
         colorThreshold: this.threshold, // YIQ color threshold (0.0-1.0), default 0.1
@@ -1018,7 +992,7 @@ export class TddService {
           aaPercentage: result.aaPercentage,
         };
 
-        output.debug(`PASSED ${sanitizedName}`);
+        // Result tracked by event handler
         this.comparisons.push(comparison);
         return comparison;
       } else {
@@ -1074,7 +1048,7 @@ export class TddService {
         output.warn(
           `   This indicates a signature collision. Creating new baseline with correct signature.`
         );
-        output.debug(`   Error: ${error.message}`);
+        output.debug('tdd', 'dimension mismatch', { error: error.message });
 
         // Create a new baseline for this screenshot (overwriting the incorrect one)
         writeFileSync(baselineImagePath, imageBuffer);
@@ -1269,8 +1243,8 @@ export class TddService {
 
       await execAsync(command);
       output.info('📖 Report opened in browser');
-    } catch (error) {
-      output.debug(`Failed to open report: ${error.message}`);
+    } catch {
+      // Browser open may fail silently
     }
   }
 

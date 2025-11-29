@@ -171,7 +171,7 @@ export function createUploader(
         },
       };
     } catch (error) {
-      output.debug('Upload failed', { error: error.message });
+      output.debug('upload', 'failed', { error: error.message });
 
       // Re-throw if already a VizzlyError
       if (error.name && error.name.includes('Error') && error.code) {

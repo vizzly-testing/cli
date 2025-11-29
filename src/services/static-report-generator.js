@@ -64,7 +64,7 @@ export class StaticReportGenerator {
 
       await writeFile(this.reportPath, htmlContent, 'utf8');
 
-      output.debug(`Static report generated: ${this.reportPath}`);
+      output.debug('report', 'generated static report');
       return this.reportPath;
     } catch (error) {
       output.error(`Failed to generate static report: ${error.message}`);

@@ -41,7 +41,7 @@ export const createApiHandler = apiService => {
 
   const handleScreenshot = async (buildId, name, image, properties = {}) => {
     if (vizzlyDisabled) {
-      output.debug(`Screenshot captured (Vizzly disabled): ${name}`);
+      output.debug('upload', `${name} (disabled)`);
       return {
         statusCode: 200,
         body: {
@@ -84,7 +84,6 @@ export const createApiHandler = apiService => {
 
       try {
         imageBuffer = readFileSync(filePath);
-        output.debug(`Loaded screenshot from file: ${filePath}`);
       } catch (error) {
         return {
           statusCode: 500,
@@ -123,15 +122,13 @@ export const createApiHandler = apiService => {
     const uploadPromise = apiService
       .uploadScreenshot(buildId, name, imageBuffer, properties ?? {})
       .then(result => {
-        if (result.skipped) {
-          output.debug(`Screenshot already exists, skipped: ${name}`);
-        } else {
-          output.debug(`Screenshot uploaded: ${name}`);
+        if (!result.skipped) {
+          output.debug('upload', name);
         }
         return { success: true, name, result };
       })
       .catch(uploadError => {
-        output.debug(`Failed to upload screenshot ${name}`, {
+        output.debug('upload', `${name} failed`, {
           error: uploadError.message,
         });
         vizzlyDisabled = true;
@@ -163,11 +160,10 @@ export const createApiHandler = apiService => {
    */
   const flush = async () => {
     if (uploadPromises.length === 0) {
-      output.debug('No uploads to flush');
       return { uploaded: 0, failed: 0, total: 0 };
     }
 
-    output.debug(`Flushing ${uploadPromises.length} background uploads...`);
+    output.debug('upload', `flushing ${uploadPromises.length} uploads`);
     const results = await Promise.allSettled(uploadPromises);
 
     let uploaded = 0;
@@ -181,7 +177,7 @@ export const createApiHandler = apiService => {
       }
     });
 
-    output.debug('Upload flush complete', { uploaded, failed });
+    output.debug('upload', 'flush complete', { uploaded, failed });
 
     // Clear promises array
     uploadPromises = [];
@@ -193,7 +189,7 @@ export const createApiHandler = apiService => {
     vizzlyDisabled = false;
     screenshotCount = 0;
     uploadPromises = [];
-    output.debug('API handler cleanup completed');
+    // Silent cleanup
   };
 
   return {

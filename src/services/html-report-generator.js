@@ -104,10 +104,12 @@ export class HtmlReportGenerator {
 
       await writeFile(this.reportPath, htmlContent, 'utf8');
 
-      output.debug(`HTML report generated: ${this.reportPath}`);
+      output.debug('report', 'generated html report');
       return this.reportPath;
     } catch (error) {
-      output.debug(`Failed to generate HTML report: ${error.message}`);
+      output.debug('report', 'html generation failed', {
+        error: error.message,
+      });
       throw new Error(`Report generation failed: ${error.message}`);
     }
   }

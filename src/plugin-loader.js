@@ -45,9 +45,6 @@ export async function loadPlugins(configPath, config) {
         if (plugin && !loadedNames.has(plugin.name)) {
           plugins.push(plugin);
           loadedNames.add(plugin.name);
-          output.debug(
-            `Loaded plugin from config: ${plugin.name}@${plugin.version || 'unknown'}`
-          );
         } else if (plugin && loadedNames.has(plugin.name)) {
           let existingPlugin = plugins.find(p => p.name === plugin.name);
           output.warn(
@@ -125,8 +122,8 @@ async function discoverInstalledPlugins() {
         );
       }
     }
-  } catch (error) {
-    output.debug(`Failed to discover plugins: ${error.message}`);
+  } catch {
+    // Plugin discovery is optional
   }
 
   return plugins;

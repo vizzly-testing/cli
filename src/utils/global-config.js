@@ -182,7 +182,6 @@ export async function getAccessToken() {
 export async function getProjectMapping(directoryPath) {
   let config = await loadGlobalConfig();
   if (!config.projects) {
-    output.debug('[MAPPING] No projects in global config');
     return null;
   }
 
@@ -190,16 +189,8 @@ export async function getProjectMapping(directoryPath) {
   let currentPath = directoryPath;
   let { root } = parse(currentPath);
 
-  output.debug('[MAPPING] Starting lookup', {
-    from: currentPath,
-    availableMappings: Object.keys(config.projects),
-  });
-
   while (currentPath !== root) {
-    output.debug('[MAPPING] Checking', { path: currentPath });
-
     if (config.projects[currentPath]) {
-      output.debug('[MAPPING] Found match', { path: currentPath });
       return config.projects[currentPath];
     }
 
@@ -211,8 +202,6 @@ export async function getProjectMapping(directoryPath) {
     }
     currentPath = parentPath;
   }
-
-  output.debug('[MAPPING] No mapping found');
 
   return null;
 }

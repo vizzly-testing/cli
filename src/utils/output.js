@@ -25,6 +25,10 @@ let colors = createColors({ useColor: config.color });
 let spinnerInterval = null;
 let spinnerMessage = '';
 let lastSpinnerLine = '';
+let startTime = Date.now();
+
+// Track if we've shown the header
+let headerShown = false;
 
 /**
  * Configure output settings
@@ -39,10 +43,30 @@ export function configure(options = {}) {
 
   colors = createColors({ useColor: config.color });
 
+  // Reset state
+  startTime = Date.now();
+  headerShown = false;
+
   // Initialize log file if specified
   if (config.logFile) {
     initLogFile();
   }
+}
+
+/**
+ * Show command header (e.g., "vizzly · tdd · local")
+ * Only shows once per command execution
+ */
+export function header(command, mode = null) {
+  if (config.json || config.silent || headerShown) return;
+  headerShown = true;
+
+  let parts = ['vizzly', command];
+  if (mode) parts.push(mode);
+
+  console.error('');
+  console.error(colors.dim(parts.join(' · ')));
+  console.error('');
 }
 
 /**
@@ -66,7 +90,28 @@ export function success(message, data = {}) {
   if (config.json) {
     console.log(JSON.stringify({ status: 'success', message, ...data }));
   } else {
-    console.log(colors.green('✓'), message);
+    console.error('');
+    console.error(colors.green('✓'), message);
+  }
+}
+
+/**
+ * Show final result summary (e.g., "✓ 5 screenshots · 234ms")
+ */
+export function result(message) {
+  stopSpinner();
+  if (config.silent) return;
+
+  let elapsed = getElapsedTime();
+
+  if (config.json) {
+    console.log(JSON.stringify({ status: 'complete', message, elapsed }));
+  } else {
+    console.error('');
+    console.error(
+      colors.green('✓'),
+      `${message} ${colors.dim(`· ${elapsed}`)}`
+    );
   }
 }
 
@@ -258,22 +303,92 @@ export function progress(message, current = 0, total = 0) {
 // ============================================================================
 
 /**
- * Log debug message (only shown in verbose mode)
+ * Format elapsed time since CLI start
  */
-export function debug(message, data = {}) {
+function getElapsedTime() {
+  let elapsed = Date.now() - startTime;
+  if (elapsed < 1000) {
+    return `${elapsed}ms`;
+  }
+  return `${(elapsed / 1000).toFixed(1)}s`;
+}
+
+/**
+ * Format a data object for human-readable output
+ * Only shows meaningful values, skips nulls/undefined/empty
+ */
+function formatData(data) {
+  if (!data || typeof data !== 'object') return '';
+
+  let entries = Object.entries(data).filter(([, v]) => {
+    if (v === null || v === undefined) return false;
+    if (typeof v === 'string' && v === '') return false;
+    if (Array.isArray(v) && v.length === 0) return false;
+    return true;
+  });
+
+  if (entries.length === 0) return '';
+
+  // For simple key-value pairs, show inline
+  if (entries.length <= 4 && entries.every(([, v]) => typeof v !== 'object')) {
+    return entries.map(([k, v]) => `${k}=${v}`).join(' ');
+  }
+
+  // For complex objects, show on multiple lines
+  return entries
+    .map(([k, v]) => {
+      if (typeof v === 'object') {
+        return `${k}: ${JSON.stringify(v)}`;
+      }
+      return `${k}: ${v}`;
+    })
+    .join('\n');
+}
+
+/**
+ * Log debug message with component prefix (only shown in verbose mode)
+ *
+ * @param {string} component - Component name (e.g., 'server', 'config', 'build')
+ * @param {string} message - Debug message
+ * @param {Object} data - Optional data object to display inline
+ */
+export function debug(component, message, data = {}) {
   if (!config.verbose) return;
 
+  // Handle legacy calls: debug('message') or debug('message', {data})
+  if (typeof message === 'object' || message === undefined) {
+    data = message || {};
+    message = component;
+    component = null;
+  }
+
+  let elapsed = getElapsedTime();
+
   if (config.json) {
-    console.error(JSON.stringify({ status: 'debug', message, ...data }));
+    console.error(
+      JSON.stringify({
+        status: 'debug',
+        time: elapsed,
+        component,
+        message,
+        ...data,
+      })
+    );
   } else {
-    let prefix = colors.dim(colors.magenta('⋯'));
-    console.error(prefix, colors.dim(message));
-    if (Object.keys(data).length > 0) {
-      console.error(colors.dim('  ' + JSON.stringify(data)));
+    let formattedData = formatData(data);
+    let dataStr = formattedData ? ` ${colors.dim(formattedData)}` : '';
+
+    if (component) {
+      // Component-based format: "  server    listening on :47392"
+      let paddedComponent = component.padEnd(8);
+      console.error(`  ${colors.cyan(paddedComponent)} ${message}${dataStr}`);
+    } else {
+      // Simple format for legacy calls
+      console.error(`  ${colors.dim('•')} ${colors.dim(message)}${dataStr}`);
     }
   }
 
-  writeLog('debug', message, data);
+  writeLog('debug', message, { component, ...data });
 }
 
 // ============================================================================

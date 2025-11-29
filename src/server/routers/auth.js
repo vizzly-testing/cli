@@ -9,15 +9,15 @@ import {
   sendError,
   sendServiceUnavailable,
 } from '../middleware/response.js';
+import * as output from '../../utils/output.js';
 
 /**
  * Create auth router
  * @param {Object} context - Router context
  * @param {Object} context.authService - Auth service
- * @param {Object} context.logger - Logger instance
  * @returns {Function} Route handler
  */
-export function createAuthRouter({ authService, logger }) {
+export function createAuthRouter({ authService }) {
   return async function handleAuthRoute(req, res, pathname) {
     // Check if auth service is available for all auth routes
     if (pathname.startsWith('/api/auth') && !authService) {
@@ -39,7 +39,7 @@ export function createAuthRouter({ authService, logger }) {
         sendSuccess(res, { authenticated: isAuthenticated, user });
         return true;
       } catch (error) {
-        logger.error('Error getting auth status:', error);
+        output.error('Error getting auth status:', error);
         sendSuccess(res, { authenticated: false, user: null });
         return true;
       }
@@ -63,7 +63,7 @@ export function createAuthRouter({ authService, logger }) {
         sendSuccess(res, response);
         return true;
       } catch (error) {
-        logger.error('Error initiating device flow:', error);
+        output.error('Error initiating device flow:', error);
         sendError(res, 500, error.message);
         return true;
       }
@@ -118,7 +118,7 @@ export function createAuthRouter({ authService, logger }) {
         }
         return true;
       } catch (error) {
-        logger.error('Error polling device authorization:', error);
+        output.error('Error polling device authorization:', error);
         sendError(res, 500, error.message);
         return true;
       }
@@ -131,7 +131,7 @@ export function createAuthRouter({ authService, logger }) {
         sendSuccess(res, { success: true, message: 'Logged out successfully' });
         return true;
       } catch (error) {
-        logger.error('Error logging out:', error);
+        output.error('Error logging out:', error);
         sendError(res, 500, error.message);
         return true;
       }

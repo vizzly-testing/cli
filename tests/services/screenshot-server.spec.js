@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ScreenshotServer } from '../../src/services/screenshot-server.js';
 
+// Mock output module
+vi.mock('../../src/utils/output.js', () => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  success: vi.fn(),
+}));
+
 // Mock dependencies
 vi.mock('http', () => ({
   createServer: vi.fn(),
@@ -19,24 +28,17 @@ vi.mock('../../src/errors/vizzly-error.js', () => ({
 describe('ScreenshotServer', () => {
   let screenshotServer;
   let mockConfig;
-  let mockLogger;
   let mockBuildManager;
   let mockServer;
   let mockRequest;
   let mockResponse;
+  let mockOutput;
 
   beforeEach(async () => {
     mockConfig = {
       server: {
         port: 3001,
       },
-    };
-
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
     };
 
     mockBuildManager = {
@@ -65,11 +67,10 @@ describe('ScreenshotServer', () => {
     const { createServer } = await import('http');
     createServer.mockReturnValue(mockServer);
 
-    screenshotServer = new ScreenshotServer(
-      mockConfig,
-      mockLogger,
-      mockBuildManager
-    );
+    // Get the mocked output module
+    mockOutput = await import('../../src/utils/output.js');
+
+    screenshotServer = new ScreenshotServer(mockConfig, mockBuildManager);
 
     vi.clearAllMocks();
   });
@@ -81,7 +82,6 @@ describe('ScreenshotServer', () => {
   describe('constructor', () => {
     it('initializes with correct dependencies', () => {
       expect(screenshotServer.config).toBe(mockConfig);
-      expect(screenshotServer.logger).toBe(mockLogger);
       expect(screenshotServer.buildManager).toBe(mockBuildManager);
       expect(screenshotServer.server).toBe(null);
     });
@@ -100,7 +100,7 @@ describe('ScreenshotServer', () => {
         '127.0.0.1',
         expect.any(Function)
       );
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockOutput.info).toHaveBeenCalledWith(
         'Screenshot server listening on http://127.0.0.1:3001'
       );
       expect(screenshotServer.server).toBe(mockServer);
@@ -139,7 +139,7 @@ describe('ScreenshotServer', () => {
       await screenshotServer.stop();
 
       expect(mockServer.close).toHaveBeenCalledWith(expect.any(Function));
-      expect(mockLogger.info).toHaveBeenCalledWith('Screenshot server stopped');
+      expect(mockOutput.info).toHaveBeenCalledWith('Screenshot server stopped');
     });
 
     it('handles case when no server is running', async () => {
@@ -229,7 +229,7 @@ describe('ScreenshotServer', () => {
 
       await screenshotServer.handleRequest(mockRequest, mockResponse);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(mockOutput.error).toHaveBeenCalledWith(
         'Failed to process screenshot:',
         expect.any(Error)
       );
@@ -273,7 +273,7 @@ describe('ScreenshotServer', () => {
 
       await screenshotServer.handleRequest(mockRequest, mockResponse);
 
-      expect(mockLogger.error).toHaveBeenCalled();
+      expect(mockOutput.error).toHaveBeenCalled();
       expect(mockResponse.statusCode).toBe(500);
       expect(mockResponse.end).toHaveBeenCalledWith(
         JSON.stringify({ error: 'Internal server error' })
@@ -375,7 +375,7 @@ describe('ScreenshotServer', () => {
 
       // Stop server
       await screenshotServer.stop();
-      expect(mockLogger.info).toHaveBeenCalledWith('Screenshot server stopped');
+      expect(mockOutput.info).toHaveBeenCalledWith('Screenshot server stopped');
     });
 
     it('processes multiple screenshot requests correctly', async () => {

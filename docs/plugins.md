@@ -356,7 +356,7 @@ register(program, { output }) {
 export default {
   name: 'hello',
   version: '1.0.0',
-  register(program, { logger }) {
+  register(program, { output }) {
     program
       .command('hello <name>')
       .description('Say hello')
@@ -366,7 +366,7 @@ export default {
         if (options.loud) {
           greeting = greeting.toUpperCase();
         }
-        logger.info(greeting);
+        output.info(greeting);
       });
   }
 };
@@ -378,13 +378,13 @@ export default {
 export default {
   name: 'storybook',
   version: '1.0.0',
-  register(program, { config, logger, services }) {
+  register(program, { config, output, services }) {
     program
       .command('storybook <path>')
       .description('Capture screenshots from Storybook build')
       .option('--viewports <list>', 'Comma-separated viewports', '1280x720')
       .action(async (path, options) => {
-        logger.info(`Crawling Storybook at ${path}`);
+        output.info(`Crawling Storybook at ${path}`);
 
         // Import dependencies lazily
         let { crawlStorybook } = await import('./crawler.js');
@@ -392,16 +392,15 @@ export default {
         // Capture screenshots
         let screenshots = await crawlStorybook(path, {
           viewports: options.viewports.split(','),
-          logger,
         });
 
-        logger.info(`Captured ${screenshots.length} screenshots`);
+        output.info(`Captured ${screenshots.length} screenshots`);
 
         // Upload using Vizzly's uploader service
         let uploader = await services.get('uploader');
         await uploader.uploadScreenshots(screenshots);
 
-        logger.info('Upload complete!');
+        output.success('Upload complete!');
       });
   }
 };
@@ -413,7 +412,7 @@ export default {
 export default {
   name: 'reports',
   version: '1.0.0',
-  register(program, { logger }) {
+  register(program, { output }) {
     let reports = program
       .command('reports')
       .description('Report generation commands');
@@ -422,14 +421,14 @@ export default {
       .command('generate')
       .description('Generate a new report')
       .action(() => {
-        logger.info('Generating report...');
+        output.info('Generating report...');
       });
 
     reports
       .command('list')
       .description('List all reports')
       .action(() => {
-        logger.info('Listing reports...');
+        output.info('Listing reports...');
       });
   }
 };
@@ -474,10 +473,10 @@ If you're using TypeScript or want better IDE support, you can add JSDoc types:
  * @param {import('commander').Command} program
  * @param {Object} context
  * @param {Object} context.config
- * @param {Object} context.logger
+ * @param {Object} context.output
  * @param {Object} context.services
  */
-function register(program, { config, logger, services }) {
+function register(program, { config, output, services }) {
   // Your plugin code with full autocomplete!
 }
 

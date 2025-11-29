@@ -7,8 +7,8 @@ import SmartImage from '../ui/smart-image.jsx';
 /**
  * Get a stable ID for a comparison, falling back to signature or index
  */
-function getComparisonId(comparison, index) {
-  return comparison.id || comparison.signature || `comparison-${index}`;
+function getComparisonId(comparison) {
+  return comparison.id || comparison.signature || comparison.name;
 }
 
 /**
@@ -209,8 +209,8 @@ export default function ScreenshotList({
 
   return (
     <div className="space-y-2">
-      {comparisons.map((comparison, index) => {
-        let stableId = getComparisonId(comparison, index);
+      {comparisons.map(comparison => {
+        let stableId = getComparisonId(comparison);
         return (
           <ScreenshotRow
             key={stableId}

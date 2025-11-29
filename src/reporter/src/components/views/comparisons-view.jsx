@@ -52,19 +52,15 @@ export default function ComparisonsView() {
   // Navigate to comparison detail view
   let handleSelectComparison = useCallback(
     comparison => {
-      // Find the index to generate a stable ID
-      let index = filteredComparisons.findIndex(c => c === comparison);
-      // Use actual id, signature, or index-based id
-      let id =
-        comparison.id ||
-        comparison.signature ||
-        (index >= 0 ? `comparison-${index}` : null);
+      // Use stable ID - prefer id/signature, fall back to name (always present)
+      // Never use array index as it changes with filters
+      let id = comparison.id || comparison.signature || comparison.name;
 
       if (id) {
-        setLocation(`/comparison/${id}`);
+        setLocation(`/comparison/${encodeURIComponent(id)}`);
       }
     },
-    [filteredComparisons, setLocation]
+    [setLocation]
   );
 
   let handleAcceptAll = useCallback(async () => {

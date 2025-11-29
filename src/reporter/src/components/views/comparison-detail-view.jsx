@@ -27,45 +27,31 @@ export default function ComparisonDetailView() {
   );
 
   // Find the comparison by ID from route params
-  // Support multiple ID formats: actual id, signature, or index-based
-  let { comparison, currentIndex } = useMemo(() => {
-    let targetId = params?.id;
+  // Uses stable IDs (id, signature, or name) - not array indices which change with filters
+  let comparison = useMemo(() => {
+    let targetId = params?.id ? decodeURIComponent(params.id) : null;
     if (!targetId || comparisons.length === 0) {
-      return { comparison: null, currentIndex: -1 };
+      return null;
     }
 
-    // Try to find by various ID formats
-    let index = comparisons.findIndex((c, i) => {
-      // Check actual id
-      if (c.id === targetId) return true;
-      // Check signature
-      if (c.signature === targetId) return true;
-      // Check index-based id
-      if (`comparison-${i}` === targetId) return true;
-      return false;
-    });
-
-    return {
-      comparison: index >= 0 ? comparisons[index] : null,
-      currentIndex: index,
-    };
+    // Find by stable ID (id, signature, or name)
+    return comparisons.find(
+      c => c.id === targetId || c.signature === targetId || c.name === targetId
+    );
   }, [params, comparisons]);
 
-  // Simple navigation - just change the URL
+  // Simple navigation - just change the URL using stable IDs
   let handleNavigate = useCallback(
     targetComparison => {
-      // Find the index of the target comparison to generate a stable URL
-      let index = comparisons.findIndex(c => c === targetComparison);
-      if (index >= 0) {
-        // Prefer actual id, then signature, then index-based
-        let id =
-          targetComparison.id ||
-          targetComparison.signature ||
-          `comparison-${index}`;
-        setLocation(`/comparison/${id}`);
+      let id =
+        targetComparison.id ||
+        targetComparison.signature ||
+        targetComparison.name;
+      if (id) {
+        setLocation(`/comparison/${encodeURIComponent(id)}`);
       }
     },
-    [comparisons, setLocation]
+    [setLocation]
   );
 
   let handleClose = useCallback(() => {
@@ -75,10 +61,8 @@ export default function ComparisonDetailView() {
   // Get the stable ID for current comparison (for actions)
   let comparisonId = useMemo(() => {
     if (!comparison) return null;
-    return (
-      comparison.id || comparison.signature || `comparison-${currentIndex}`
-    );
-  }, [comparison, currentIndex]);
+    return comparison.id || comparison.signature || comparison.name;
+  }, [comparison]);
 
   // Handle accept/reject with the stable ID
   let handleAccept = useCallback(

@@ -537,6 +537,9 @@ export class TddService {
       const metadataPath = join(this.baselinePath, 'metadata.json');
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
+      // Download hotspot data for noise filtering
+      await this.downloadHotspots(buildDetails.screenshots);
+
       // Save baseline build metadata for MCP plugin
       const baselineMetadataPath = safePath(
         this.workingDir,
@@ -589,6 +592,174 @@ export class TddService {
       output.error(`❌ Failed to download baseline: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Download hotspot data for screenshots from the cloud
+   * Hotspots identify regions that frequently change (timestamps, IDs, etc.)
+   * Used to filter out known dynamic content during comparisons
+   * @param {Array} screenshots - Array of screenshot objects with name property
+   */
+  async downloadHotspots(screenshots) {
+    // Only attempt if we have an API token
+    if (!this.config.apiKey) {
+      output.debug(
+        'tdd',
+        'Skipping hotspot download - no API token configured'
+      );
+      return;
+    }
+
+    try {
+      // Get unique screenshot names
+      let screenshotNames = [...new Set(screenshots.map(s => s.name))];
+
+      if (screenshotNames.length === 0) {
+        return;
+      }
+
+      output.info(
+        `🔥 Fetching hotspot data for ${screenshotNames.length} screenshots...`
+      );
+
+      // Use batch endpoint for efficiency
+      let response = await this.api.getBatchHotspots(screenshotNames);
+
+      if (!response.hotspots || Object.keys(response.hotspots).length === 0) {
+        output.debug('tdd', 'No hotspot data available from cloud');
+        return;
+      }
+
+      // Store hotspots in a separate file for easy access during comparisons
+      this.hotspotData = response.hotspots;
+
+      let hotspotsPath = safePath(this.workingDir, '.vizzly', 'hotspots.json');
+      writeFileSync(
+        hotspotsPath,
+        JSON.stringify(
+          {
+            downloadedAt: new Date().toISOString(),
+            summary: response.summary,
+            hotspots: response.hotspots,
+          },
+          null,
+          2
+        )
+      );
+
+      let hotspotCount = Object.keys(response.hotspots).length;
+      let totalRegions = Object.values(response.hotspots).reduce(
+        (sum, h) => sum + (h.regions?.length || 0),
+        0
+      );
+
+      output.info(
+        `✅ Downloaded hotspot data for ${hotspotCount} screenshots (${totalRegions} regions total)`
+      );
+    } catch (error) {
+      // Don't fail baseline download if hotspot fetch fails
+      output.debug('tdd', `Hotspot download failed: ${error.message}`);
+      output.warn(
+        '⚠️  Could not fetch hotspot data - comparisons will run without noise filtering'
+      );
+    }
+  }
+
+  /**
+   * Load hotspot data from disk
+   * @returns {Object|null} Hotspot data keyed by screenshot name, or null if not available
+   */
+  loadHotspots() {
+    try {
+      let hotspotsPath = safePath(this.workingDir, '.vizzly', 'hotspots.json');
+      if (!existsSync(hotspotsPath)) {
+        return null;
+      }
+      let data = JSON.parse(readFileSync(hotspotsPath, 'utf8'));
+      return data.hotspots || null;
+    } catch (error) {
+      output.debug('tdd', `Failed to load hotspots: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get hotspot analysis for a specific screenshot
+   * @param {string} screenshotName - Name of the screenshot
+   * @returns {Object|null} Hotspot analysis or null if not available
+   */
+  getHotspotForScreenshot(screenshotName) {
+    // Check memory cache first
+    if (this.hotspotData && this.hotspotData[screenshotName]) {
+      return this.hotspotData[screenshotName];
+    }
+
+    // Try loading from disk
+    if (!this.hotspotData) {
+      this.hotspotData = this.loadHotspots();
+    }
+
+    return this.hotspotData?.[screenshotName] || null;
+  }
+
+  /**
+   * Calculate what percentage of diff falls within hotspot regions
+   * Uses 1D Y-coordinate matching (same algorithm as cloud)
+   * @param {Array} diffClusters - Array of diff clusters from honeydiff
+   * @param {Object} hotspotAnalysis - Hotspot data with regions array
+   * @returns {Object} Coverage info { coverage, linesInHotspots, totalLines }
+   */
+  calculateHotspotCoverage(diffClusters, hotspotAnalysis) {
+    if (!diffClusters || diffClusters.length === 0) {
+      return { coverage: 0, linesInHotspots: 0, totalLines: 0 };
+    }
+
+    if (
+      !hotspotAnalysis ||
+      !hotspotAnalysis.regions ||
+      hotspotAnalysis.regions.length === 0
+    ) {
+      return { coverage: 0, linesInHotspots: 0, totalLines: 0 };
+    }
+
+    // Extract Y-coordinates (diff lines) from clusters
+    // Each cluster has a boundingBox with y and height
+    let diffLines = [];
+    for (let cluster of diffClusters) {
+      if (cluster.boundingBox) {
+        let { y, height } = cluster.boundingBox;
+        // Add all Y lines covered by this cluster
+        for (let line = y; line < y + height; line++) {
+          diffLines.push(line);
+        }
+      }
+    }
+
+    if (diffLines.length === 0) {
+      return { coverage: 0, linesInHotspots: 0, totalLines: 0 };
+    }
+
+    // Remove duplicates and sort
+    diffLines = [...new Set(diffLines)].sort((a, b) => a - b);
+
+    // Check how many diff lines fall within hotspot regions
+    let linesInHotspots = 0;
+    for (let line of diffLines) {
+      let inHotspot = hotspotAnalysis.regions.some(
+        region => line >= region.y1 && line <= region.y2
+      );
+      if (inHotspot) {
+        linesInHotspots++;
+      }
+    }
+
+    let coverage = linesInHotspots / diffLines.length;
+
+    return {
+      coverage,
+      linesInHotspots,
+      totalLines: diffLines.length,
+    };
   }
 
   /**
@@ -996,7 +1167,34 @@ export class TddService {
         this.comparisons.push(comparison);
         return comparison;
       } else {
-        // Images differ
+        // Images differ - check if differences are in known hotspot regions
+        let hotspotAnalysis = this.getHotspotForScreenshot(name);
+        let hotspotCoverage = null;
+        let isHotspotFiltered = false;
+
+        if (
+          hotspotAnalysis &&
+          result.diffClusters &&
+          result.diffClusters.length > 0
+        ) {
+          hotspotCoverage = this.calculateHotspotCoverage(
+            result.diffClusters,
+            hotspotAnalysis
+          );
+
+          // Consider it filtered if:
+          // 1. High confidence hotspot data (score >= 70)
+          // 2. 80%+ of the diff is within hotspot regions
+          let isHighConfidence =
+            hotspotAnalysis.confidence === 'high' ||
+            (hotspotAnalysis.confidence_score &&
+              hotspotAnalysis.confidence_score >= 70);
+
+          if (isHighConfidence && hotspotCoverage.coverage >= 0.8) {
+            isHotspotFiltered = true;
+          }
+        }
+
         let diffInfo = ` (${result.diffPercentage.toFixed(2)}% different, ${result.diffPixels} pixels)`;
 
         // Add cluster info to log if available
@@ -1004,10 +1202,15 @@ export class TddService {
           diffInfo += `, ${result.diffClusters.length} region${result.diffClusters.length > 1 ? 's' : ''}`;
         }
 
+        // Add hotspot info if applicable
+        if (hotspotCoverage && hotspotCoverage.coverage > 0) {
+          diffInfo += `, ${Math.round(hotspotCoverage.coverage * 100)}% in hotspots`;
+        }
+
         const comparison = {
           id: generateComparisonId(signature),
           name: sanitizedName,
-          status: 'failed',
+          status: isHotspotFiltered ? 'passed' : 'failed',
           baseline: baselineImagePath,
           current: currentImagePath,
           diff: diffImagePath,
@@ -1016,7 +1219,7 @@ export class TddService {
           threshold: this.threshold,
           diffPercentage: result.diffPercentage,
           diffCount: result.diffPixels,
-          reason: 'pixel-diff',
+          reason: isHotspotFiltered ? 'hotspot-filtered' : 'pixel-diff',
           // Honeydiff metrics
           totalPixels: result.totalPixels,
           aaPixelsIgnored: result.aaPixelsIgnored,
@@ -1025,12 +1228,35 @@ export class TddService {
           heightDiff: result.heightDiff,
           intensityStats: result.intensityStats,
           diffClusters: result.diffClusters,
+          // Hotspot analysis data
+          hotspotAnalysis: hotspotCoverage
+            ? {
+                coverage: hotspotCoverage.coverage,
+                linesInHotspots: hotspotCoverage.linesInHotspots,
+                totalLines: hotspotCoverage.totalLines,
+                confidence: hotspotAnalysis?.confidence,
+                confidenceScore: hotspotAnalysis?.confidence_score,
+                regionCount: hotspotAnalysis?.regions?.length || 0,
+                isFiltered: isHotspotFiltered,
+              }
+            : null,
         };
 
-        output.warn(
-          `❌ ${colors.red('FAILED')} ${sanitizedName} - differences detected${diffInfo}`
-        );
-        output.info(`    Diff saved to: ${diffImagePath}`);
+        if (isHotspotFiltered) {
+          output.info(
+            `✅ ${colors.green('PASSED')} ${sanitizedName} - differences in known hotspots${diffInfo}`
+          );
+          output.debug(
+            'tdd',
+            `Hotspot filtered: ${Math.round(hotspotCoverage.coverage * 100)}% coverage, confidence: ${hotspotAnalysis.confidence}`
+          );
+        } else {
+          output.warn(
+            `❌ ${colors.red('FAILED')} ${sanitizedName} - differences detected${diffInfo}`
+          );
+          output.info(`    Diff saved to: ${diffImagePath}`);
+        }
+
         this.comparisons.push(comparison);
         return comparison;
       }

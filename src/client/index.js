@@ -17,6 +17,9 @@ let currentClient = null;
 let isDisabled = false;
 let hasLoggedWarning = false;
 
+// Default timeout for screenshot requests (30 seconds)
+const DEFAULT_TIMEOUT_MS = 30000;
+
 /**
  * Check if Vizzly is currently disabled
  * @private
@@ -112,6 +115,9 @@ function getClient() {
 function createSimpleClient(serverUrl) {
   return {
     async screenshot(name, imageBuffer, options = {}) {
+      let controller = new AbortController();
+      let timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
       try {
         // If it's a string, assume it's a file path and send directly
         // Otherwise it's a Buffer, so convert to base64
@@ -133,6 +139,7 @@ function createSimpleClient(serverUrl) {
             threshold: options.threshold || 0,
             fullPage: options.fullPage || false,
           }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -180,17 +187,32 @@ function createSimpleClient(serverUrl) {
           );
         }
 
+        clearTimeout(timeoutId);
         return await response.json();
       } catch (error) {
+        clearTimeout(timeoutId);
+
+        // Handle timeout (AbortError)
+        if (error.name === 'AbortError') {
+          console.error(
+            `Vizzly screenshot timed out for "${name}" after ${DEFAULT_TIMEOUT_MS / 1000}s`
+          );
+          console.error(
+            'The server may be overloaded or unresponsive. Check server health.'
+          );
+          disableVizzly('timeout');
+          return null;
+        }
+
         // In TDD mode with visual differences, throw the error to fail the test
-        if (error.message.toLowerCase().includes('visual diff')) {
+        if (error.message?.toLowerCase().includes('visual diff')) {
           // Clean output for TDD mode - don't spam with additional logs
           throw error;
         }
 
         console.error(`Vizzly screenshot failed for ${name}:`, error.message);
 
-        if (error.message.includes('fetch') || error.code === 'ECONNREFUSED') {
+        if (error.message?.includes('fetch') || error.code === 'ECONNREFUSED') {
           console.error(`Server URL: ${serverUrl}/screenshot`);
           console.error(
             'This usually means the Vizzly server is not running or not accessible'
@@ -199,8 +221,8 @@ function createSimpleClient(serverUrl) {
             'Check that the server is started and the port is correct'
           );
         } else if (
-          error.message.includes('404') ||
-          error.message.includes('Not Found')
+          error.message?.includes('404') ||
+          error.message?.includes('Not Found')
         ) {
           console.error(`Server URL: ${serverUrl}/screenshot`);
           console.error(

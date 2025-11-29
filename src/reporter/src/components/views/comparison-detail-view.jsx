@@ -109,14 +109,16 @@ export default function ComparisonDetailView() {
   if (!comparison) {
     return (
       <div className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center">
-        <div className="text-center text-gray-400">
-          <div className="text-lg mb-2">Comparison not found</div>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="text-center">
+          <div className="text-lg text-white font-medium mb-2">
+            Comparison not found
+          </div>
+          <p className="text-sm text-gray-400 mb-4">
             ID: {params?.id || 'none'}
           </p>
           <button
             onClick={handleClose}
-            className="text-blue-400 hover:text-blue-300"
+            className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >
             Return to list
           </button>

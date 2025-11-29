@@ -1,17 +1,44 @@
 import { Route, Switch, useLocation } from 'wouter';
 import { useReportData } from '../hooks/queries/use-tdd-queries.js';
-import DashboardHeader from './dashboard/dashboard-header.jsx';
+import { Layout } from './layout/index.js';
+import { EmptyState, Spinner } from './design-system/index.js';
 import StatsView from './views/stats-view.jsx';
 import ComparisonsView from './views/comparisons-view.jsx';
 import ComparisonDetailView from './views/comparison-detail-view.jsx';
 import SettingsView from './views/settings-view.jsx';
 import ProjectsView from './views/projects-view.jsx';
 import BuildsView from './views/builds-view.jsx';
-import {
-  LoadingState,
-  ErrorState,
-  WaitingForScreenshots,
-} from './dashboard/empty-state.jsx';
+import WaitingForScreenshots from './waiting-for-screenshots.jsx';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+
+function LoadingState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-32">
+      <Spinner size="lg" className="text-amber-400 mb-4" />
+      <p className="text-slate-400 text-sm">Loading report data...</p>
+    </div>
+  );
+}
+
+function ErrorState({ error, onRetry }) {
+  return (
+    <EmptyState
+      icon={ExclamationTriangleIcon}
+      title="Failed to load report"
+      description={
+        error || 'An unexpected error occurred while loading the report data.'
+      }
+      action={
+        <button
+          onClick={onRetry}
+          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium rounded-lg transition-colors"
+        >
+          Try Again
+        </button>
+      }
+    />
+  );
+}
 
 export default function AppRouter() {
   let [location, setLocation] = useLocation();
@@ -49,47 +76,73 @@ export default function AppRouter() {
   // Loading state (but not for management routes)
   if (isLoading && !reportData && !isManagementRoute) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col">
-        <DashboardHeader
-          loading={isLoading}
-          onNavigate={navigateTo}
-          currentView={currentView}
-        />
+      <Layout
+        currentView={currentView}
+        onNavigate={navigateTo}
+        loading={isLoading}
+      >
         <LoadingState />
-      </div>
+      </Layout>
     );
   }
 
   // Error state (but not for management routes)
   if (error && !reportData && !isManagementRoute) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col">
-        <DashboardHeader
-          loading={isLoading}
-          onNavigate={navigateTo}
-          currentView={currentView}
-        />
+      <Layout
+        currentView={currentView}
+        onNavigate={navigateTo}
+        loading={isLoading}
+      >
         <ErrorState error={error.message} onRetry={refetch} />
-      </div>
+      </Layout>
     );
   }
 
   // Waiting for screenshots state (but not for management routes)
+  // Now wrapped in Layout so users can still navigate
   if (!reportData && !isManagementRoute) {
-    return <WaitingForScreenshots />;
+    return (
+      <Layout
+        currentView={currentView}
+        onNavigate={navigateTo}
+        loading={isLoading}
+      >
+        <WaitingForScreenshots />
+      </Layout>
+    );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-900">
-      {/* Hide header when in fullscreen comparison view */}
-      {!isComparisonRoute && (
-        <DashboardHeader
-          loading={isLoading}
+  // Fullscreen comparison view - no layout wrapper
+  // If no report data, redirect to home (with layout) instead of showing orphaned waiting state
+  if (isComparisonRoute) {
+    if (!reportData) {
+      return (
+        <Layout
+          currentView="comparisons"
           onNavigate={navigateTo}
-          currentView={currentView}
-        />
-      )}
+          loading={isLoading}
+        >
+          <WaitingForScreenshots />
+        </Layout>
+      );
+    }
+    return (
+      <Switch>
+        <Route path="/comparison/:id">
+          <ComparisonDetailView />
+        </Route>
+      </Switch>
+    );
+  }
 
+  // Normal routes with layout
+  return (
+    <Layout
+      currentView={currentView}
+      onNavigate={navigateTo}
+      loading={isLoading}
+    >
       <Switch>
         <Route path="/stats">
           {reportData ? <StatsView /> : <WaitingForScreenshots />}
@@ -107,16 +160,11 @@ export default function AppRouter() {
           <BuildsView />
         </Route>
 
-        {/* Comparison detail route - fullscreen viewer */}
-        <Route path="/comparison/:id">
-          {reportData ? <ComparisonDetailView /> : <WaitingForScreenshots />}
-        </Route>
-
         {/* Comparisons list route */}
         <Route path="/">
           {reportData ? <ComparisonsView /> : <WaitingForScreenshots />}
         </Route>
       </Switch>
-    </div>
+    </Layout>
   );
 }

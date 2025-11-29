@@ -1,11 +1,29 @@
 import { useState, useCallback } from 'react';
-import { FormField, ConfigSourceBadge } from '../ui/form-field.jsx';
+import {
+  Cog6ToothIcon,
+  ServerIcon,
+  WrenchScrewdriverIcon,
+  CheckCircleIcon,
+} from '@heroicons/react/24/outline';
 import { useToast } from '../ui/toast.jsx';
 import {
   useConfig,
   useUpdateProjectConfig,
 } from '../../hooks/queries/use-config-queries.js';
-import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  Input,
+  Select,
+  Toggle,
+  Tabs,
+  Badge,
+  Alert,
+  Skeleton,
+  SkeletonCard,
+} from '../design-system/index.js';
 
 function getInitialFormData(config) {
   return {
@@ -18,10 +36,35 @@ function getInitialFormData(config) {
   };
 }
 
+function SourceBadge({ source }) {
+  let variants = {
+    default: 'default',
+    project: 'info',
+    global: 'purple',
+    env: 'success',
+    cli: 'warning',
+  };
+
+  let labels = {
+    default: 'Default',
+    project: 'Project',
+    global: 'Global',
+    env: 'Environment',
+    cli: 'CLI Flag',
+  };
+
+  return (
+    <Badge variant={variants[source] || 'default'} size="sm">
+      {labels[source] || source}
+    </Badge>
+  );
+}
+
 function SettingsForm({ config, sources, onSave, isSaving }) {
   let initialFormData = getInitialFormData(config);
   let [formData, setFormData] = useState(initialFormData);
   let [hasChanges, setHasChanges] = useState(false);
+  let [activeTab, setActiveTab] = useState('general');
 
   let handleFieldChange = useCallback((name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -53,132 +96,119 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
     onSave(updates, () => setHasChanges(false));
   }, [formData, onSave]);
 
-  let [activeTab, setActiveTab] = useState('general');
-
   let tabs = [
-    { id: 'general', label: 'General' },
-    { id: 'server', label: 'Server' },
-    { id: 'build', label: 'Build' },
+    { key: 'general', label: 'General', icon: Cog6ToothIcon },
+    { key: 'server', label: 'Server', icon: ServerIcon },
+    { key: 'build', label: 'Build', icon: WrenchScrewdriverIcon },
   ];
 
   return (
-    <>
+    <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="border-b border-slate-700 mb-8">
-        <nav className="flex space-x-8">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`
-                pb-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-400'
-                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
-                }
-              `}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Tabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        variant="default"
+      />
 
       {/* Tab Content */}
-      <div className="bg-slate-800/50 rounded-lg p-8 mb-6">
-        {activeTab === 'general' && (
-          <div>
-            <h2 className="text-xl font-semibold text-gray-100 mb-6">
-              General Settings
-            </h2>
-
-            <FormField
+      {activeTab === 'general' && (
+        <Card hover={false}>
+          <CardHeader
+            icon={Cog6ToothIcon}
+            title="General Settings"
+            description="Configure visual comparison and TDD behavior"
+            iconColor="bg-amber-500/10 text-amber-400"
+          />
+          <CardBody className="space-y-6">
+            <Input
               label="Visual Comparison Threshold"
-              name="threshold"
               type="number"
               value={formData.threshold}
-              onChange={handleFieldChange}
-              help="Percentage of pixel difference allowed before marking as failed (0.0 - 1.0)"
-              placeholder="0.1"
+              onChange={e =>
+                handleFieldChange('threshold', parseFloat(e.target.value))
+              }
+              hint="Percentage of pixel difference allowed before marking as failed (0.0 - 1.0)"
+              step="0.01"
+              min="0"
+              max="1"
             />
 
-            <FormField
+            <Toggle
               label="Auto-open Report"
-              name="openReport"
-              type="checkbox"
-              value={formData.openReport}
-              onChange={handleFieldChange}
-              help="Automatically open the dashboard in your browser when starting TDD mode"
+              description="Automatically open the dashboard in your browser when starting TDD mode"
+              checked={formData.openReport}
+              onChange={e => handleFieldChange('openReport', e.target.checked)}
             />
 
-            <div className="mt-6 pt-6 border-t border-slate-700">
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <span>Source:</span>
-                <ConfigSourceBadge source={sources?.comparison || 'default'} />
-              </div>
+            <div className="pt-4 border-t border-slate-700/50 flex items-center gap-2">
+              <span className="text-sm text-slate-500">Config source:</span>
+              <SourceBadge source={sources?.comparison || 'default'} />
             </div>
-          </div>
-        )}
+          </CardBody>
+        </Card>
+      )}
 
-        {activeTab === 'server' && (
-          <div>
-            <h2 className="text-xl font-semibold text-gray-100 mb-6">
-              Server Settings
-            </h2>
-
-            <FormField
+      {activeTab === 'server' && (
+        <Card hover={false}>
+          <CardHeader
+            icon={ServerIcon}
+            title="Server Settings"
+            description="Local screenshot server configuration"
+            iconColor="bg-blue-500/10 text-blue-400"
+          />
+          <CardBody className="space-y-6">
+            <Input
               label="Server Port"
-              name="port"
               type="number"
               value={formData.port}
-              onChange={handleFieldChange}
-              help="Port for the local screenshot server"
-              placeholder="47392"
+              onChange={e =>
+                handleFieldChange('port', parseInt(e.target.value, 10))
+              }
+              hint="Port for the local screenshot server"
             />
 
-            <FormField
+            <Input
               label="Server Timeout"
-              name="timeout"
               type="number"
               value={formData.timeout}
-              onChange={handleFieldChange}
-              help="Request timeout in milliseconds"
-              placeholder="30000"
+              onChange={e =>
+                handleFieldChange('timeout', parseInt(e.target.value, 10))
+              }
+              hint="Request timeout in milliseconds"
             />
 
-            <div className="mt-6 pt-6 border-t border-slate-700">
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <span>Source:</span>
-                <ConfigSourceBadge source={sources?.server || 'default'} />
-              </div>
+            <div className="pt-4 border-t border-slate-700/50 flex items-center gap-2">
+              <span className="text-sm text-slate-500">Config source:</span>
+              <SourceBadge source={sources?.server || 'default'} />
             </div>
-          </div>
-        )}
+          </CardBody>
+        </Card>
+      )}
 
-        {activeTab === 'build' && (
-          <div>
-            <h2 className="text-xl font-semibold text-gray-100 mb-6">
-              Build Settings
-            </h2>
-
-            <FormField
+      {activeTab === 'build' && (
+        <Card hover={false}>
+          <CardHeader
+            icon={WrenchScrewdriverIcon}
+            title="Build Settings"
+            description="Configure build naming and environment"
+            iconColor="bg-purple-500/10 text-purple-400"
+          />
+          <CardBody className="space-y-6">
+            <Input
               label="Build Name Template"
-              name="buildName"
               type="text"
               value={formData.buildName}
-              onChange={handleFieldChange}
-              help="Template for build names (use {timestamp} for current time)"
-              placeholder="Build {timestamp}"
+              onChange={e => handleFieldChange('buildName', e.target.value)}
+              hint="Template for build names (use {timestamp} for current time)"
             />
 
-            <FormField
+            <Select
               label="Environment"
-              name="environment"
-              type="select"
               value={formData.environment}
-              onChange={handleFieldChange}
-              help="Target environment for builds"
+              onChange={e => handleFieldChange('environment', e.target.value)}
+              hint="Target environment for builds"
               options={[
                 { value: 'test', label: 'Test' },
                 { value: 'development', label: 'Development' },
@@ -187,51 +217,44 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
               ]}
             />
 
-            <div className="mt-6 pt-6 border-t border-slate-700">
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <span>Source:</span>
-                <ConfigSourceBadge source={sources?.build || 'default'} />
-              </div>
+            <div className="pt-4 border-t border-slate-700/50 flex items-center gap-2">
+              <span className="text-sm text-slate-500">Config source:</span>
+              <SourceBadge source={sources?.build || 'default'} />
             </div>
-          </div>
-        )}
-      </div>
+          </CardBody>
+        </Card>
+      )}
 
-      {/* Save/Reset Actions */}
+      {/* Floating Save Bar */}
       {hasChanges && (
-        <div className="fixed bottom-8 right-8 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 flex items-center gap-4">
-          <span className="text-sm text-gray-400">
-            You have unsaved changes
-          </span>
-          <div className="flex gap-3">
-            <button
-              onClick={handleReset}
-              disabled={isSaving}
-              className="px-4 py-2 text-gray-300 hover:text-gray-100 transition-colors disabled:opacity-50"
-            >
-              Reset
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <CheckCircleIcon className="w-5 h-5" />
-                  Save Changes
-                </>
-              )}
-            </button>
+        <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-auto">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-4 flex items-center gap-4">
+            <span className="text-sm text-slate-400 hidden md:inline">
+              Unsaved changes
+            </span>
+            <div className="flex gap-3 flex-1 md:flex-initial">
+              <Button
+                variant="ghost"
+                onClick={handleReset}
+                disabled={isSaving}
+                className="flex-1 md:flex-initial"
+              >
+                Reset
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSave}
+                loading={isSaving}
+                icon={CheckCircleIcon}
+                className="flex-1 md:flex-initial"
+              >
+                Save Changes
+              </Button>
+            </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -257,44 +280,52 @@ export default function SettingsView() {
 
   if (isLoading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-slate-700 rounded w-48 mb-8"></div>
-          <div className="space-y-4">
-            <div className="h-12 bg-slate-700 rounded"></div>
-            <div className="h-12 bg-slate-700 rounded"></div>
-            <div className="h-12 bg-slate-700 rounded"></div>
-          </div>
+      <div className="space-y-6">
+        <div>
+          <Skeleton variant="heading" className="w-32 mb-2" />
+          <Skeleton variant="text" className="w-64" />
         </div>
+        <Skeleton variant="text" className="w-96 h-10" />
+        <SkeletonCard />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-red-500/10 border border-red-500 rounded-lg p-6 text-center">
-          <XCircleIcon className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-red-400 mb-2">
-            Failed to load settings
-          </h3>
-          <p className="text-gray-400 mb-4">{error.message}</p>
-          <button
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Settings</h1>
+          <p className="text-slate-400 mt-1">
+            Configure your Vizzly local development server
+          </p>
+        </div>
+        <Alert
+          variant="danger"
+          title="Failed to load settings"
+          dismissible
+          onDismiss={() => refetch()}
+        >
+          {error.message}
+          <Button
+            variant="danger"
+            size="sm"
             onClick={() => refetch()}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            className="mt-3"
           >
             Retry
-          </button>
-        </div>
+          </Button>
+        </Alert>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-100 mb-2">Settings</h1>
-        <p className="text-gray-400">
+    <div className="space-y-6 pb-24">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Settings</h1>
+        <p className="text-slate-400 mt-1">
           Configure your Vizzly local development server
         </p>
       </div>

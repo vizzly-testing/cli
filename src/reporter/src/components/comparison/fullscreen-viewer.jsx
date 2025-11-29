@@ -3,13 +3,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   XMarkIcon,
-  CheckIcon,
-  ExclamationTriangleIcon,
   ChevronDownIcon,
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
+  ArrowsPointingInIcon,
 } from '@heroicons/react/24/outline';
-import ComparisonViewer from './comparison-viewer.jsx';
+import { ScreenshotDisplay } from './screenshot-display.jsx';
 import { VIEW_MODES } from '../../utils/constants.js';
 
 /**
@@ -20,7 +19,91 @@ function getComparisonId(comparison, index = 0) {
 }
 
 /**
- * Filmstrip thumbnail component
+ * Zoom Controls Component - matches Observatory design exactly
+ */
+function ZoomControls({ zoom, onZoomChange }) {
+  let zoomIn = useCallback(() => {
+    if (zoom === 'fit') {
+      onZoomChange(0.75);
+    } else {
+      onZoomChange(Math.min(3, zoom + 0.25));
+    }
+  }, [zoom, onZoomChange]);
+
+  let zoomOut = useCallback(() => {
+    if (zoom === 'fit') {
+      onZoomChange(0.5);
+    } else {
+      onZoomChange(Math.max(0.1, zoom - 0.25));
+    }
+  }, [zoom, onZoomChange]);
+
+  let fitToScreen = useCallback(() => {
+    onZoomChange('fit');
+  }, [onZoomChange]);
+
+  let actualSize = useCallback(() => {
+    onZoomChange(1);
+  }, [onZoomChange]);
+
+  let displayValue = zoom === 'fit' ? 'Fit' : `${Math.round(zoom * 100)}%`;
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* Compact zoom controls */}
+      <div className="flex items-center bg-gray-800/90 backdrop-blur-md rounded-lg border border-gray-600/40 shadow-lg">
+        <button
+          onClick={zoomOut}
+          className="p-2 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-l-lg transition-colors"
+          title="Zoom out (−)"
+        >
+          <MagnifyingGlassMinusIcon className="w-4 h-4" />
+        </button>
+
+        <div className="px-3 py-1.5 min-w-[60px] text-center text-sm font-medium text-gray-200">
+          {displayValue}
+        </div>
+
+        <button
+          onClick={zoomIn}
+          className="p-2 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-r-lg transition-colors"
+          title="Zoom in (+)"
+        >
+          <MagnifyingGlassPlusIcon className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Quick action buttons */}
+      <button
+        onClick={fitToScreen}
+        className={`p-2 rounded-lg transition-colors ${
+          zoom === 'fit'
+            ? 'bg-blue-600/30 text-blue-400 border border-blue-500/40'
+            : 'bg-gray-800/90 text-gray-300 hover:text-white hover:bg-gray-700/60 border border-gray-600/40'
+        }`}
+        title="Fit to screen"
+      >
+        <ArrowsPointingInIcon className="w-4 h-4" />
+      </button>
+      <button
+        onClick={actualSize}
+        className={`p-2 rounded-lg transition-colors ${
+          zoom === 1
+            ? 'bg-blue-600/30 text-blue-400 border border-blue-500/40'
+            : 'bg-gray-800/90 text-gray-300 hover:text-white hover:bg-gray-700/60 border border-gray-600/40'
+        }`}
+        title="Actual size"
+      >
+        <span className="text-xs font-bold w-4 h-4 flex items-center justify-center">
+          1:1
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Filmstrip thumbnail component - matches Observatory design
  */
 function FilmstripThumbnail({ comparison, isActive, onClick, index }) {
   let thumbnailSrc = comparison.current || comparison.baseline;
@@ -31,36 +114,46 @@ function FilmstripThumbnail({ comparison, isActive, onClick, index }) {
   return (
     <button
       onClick={onClick}
-      className={`
-        relative flex-shrink-0 w-16 h-12 rounded overflow-hidden transition-all duration-150
-        ${isActive ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900' : 'opacity-60 hover:opacity-100'}
-      `}
+      className={`relative flex-shrink-0 group transition-all duration-200 ${
+        isActive
+          ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900 rounded-lg scale-110'
+          : 'hover:ring-2 hover:ring-gray-500 hover:ring-offset-2 hover:ring-offset-gray-900 rounded-lg opacity-60 hover:opacity-100'
+      }`}
       title={comparison.name || `Screenshot ${index + 1}`}
     >
-      {thumbnailSrc ? (
-        <img
-          src={thumbnailSrc}
-          alt={comparison.name || 'Thumbnail'}
-          className="w-full h-full object-cover object-top"
-        />
-      ) : (
-        <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-          <span className="text-[8px] text-gray-500">No image</span>
-        </div>
-      )}
-      {/* Status badge */}
-      {isFailed && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-red-600/80 to-transparent px-1 py-0.5">
-          <span className="text-[8px] font-bold text-white uppercase tracking-wide">
+      <div className="relative w-14 h-20 bg-gray-800 rounded-lg overflow-hidden">
+        {thumbnailSrc ? (
+          <img
+            src={thumbnailSrc}
+            alt={comparison.name || 'Thumbnail'}
+            className="absolute inset-0 w-full h-full object-cover object-top"
+            loading="lazy"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-700 flex items-center justify-center">
+            <span className="text-lg font-medium text-gray-500">
+              {comparison.name ? comparison.name.charAt(0).toUpperCase() : '?'}
+            </span>
+          </div>
+        )}
+
+        {/* Change type badge */}
+        {isNew && (
+          <div className="absolute bottom-1 left-1 px-1 py-0.5 bg-blue-600/90 rounded text-[9px] font-bold text-white shadow-sm">
+            NEW
+          </div>
+        )}
+        {isFailed && !isNew && (
+          <div className="absolute bottom-1 left-1 px-1 py-0.5 bg-amber-600/90 rounded text-[9px] font-bold text-white shadow-sm">
             DIFF
-          </span>
-        </div>
-      )}
-      {isNew && (
-        <div className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full flex items-center justify-center">
-          <span className="text-[6px] font-bold text-white">✓</span>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
+
+      {/* Hover tooltip */}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 border border-gray-700 text-xs text-gray-200 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
+        {comparison.name || `Screenshot ${index + 1}`}
+      </div>
     </button>
   );
 }
@@ -79,41 +172,51 @@ export default function FullscreenViewer({
   userAction,
 }) {
   let [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
-  let [showPropsDropdown, setShowPropsDropdown] = useState(false);
-  let [zoomLevel, setZoomLevel] = useState('fit'); // 'fit' | '1:1' | number
+  let [showMetadata, setShowMetadata] = useState(false);
+  let [zoomLevel, setZoomLevel] = useState('fit'); // 'fit' | number
+  let [showDiffOverlay, setShowDiffOverlay] = useState(true);
+  let [onionSkinPosition, setOnionSkinPosition] = useState(50);
   let filmstripRef = useRef(null);
 
-  // Find current index and group info using stable IDs
-  let { currentIndex } = useMemo(() => {
+  // Sort comparisons: failed (diffs) first, then new, then passed
+  let sortedComparisons = useMemo(() => {
+    let statusOrder = { failed: 0, new: 1, 'baseline-created': 1, passed: 2 };
+    return [...comparisons].sort((a, b) => {
+      let orderA = statusOrder[a.status] ?? 3;
+      let orderB = statusOrder[b.status] ?? 3;
+      return orderA - orderB;
+    });
+  }, [comparisons]);
+
+  // Find current index in sorted list
+  let currentIndex = useMemo(() => {
     let compId = getComparisonId(comparison);
-    let index = comparisons.findIndex(
+    return sortedComparisons.findIndex(
       (c, i) => getComparisonId(c, i) === compId
     );
-
-    return { currentIndex: index };
-  }, [comparison, comparisons]);
+  }, [comparison, sortedComparisons]);
 
   // Navigation capabilities
   let canNavigate = useMemo(
     () => ({
       prev: currentIndex > 0,
-      next: currentIndex < comparisons.length - 1,
+      next: currentIndex < sortedComparisons.length - 1,
     }),
-    [currentIndex, comparisons.length]
+    [currentIndex, sortedComparisons.length]
   );
 
   // Navigation handlers
   let handlePrevious = useCallback(() => {
-    if (canNavigate.prev && comparisons[currentIndex - 1]) {
-      onNavigate(comparisons[currentIndex - 1]);
+    if (canNavigate.prev && sortedComparisons[currentIndex - 1]) {
+      onNavigate(sortedComparisons[currentIndex - 1]);
     }
-  }, [canNavigate.prev, comparisons, currentIndex, onNavigate]);
+  }, [canNavigate.prev, sortedComparisons, currentIndex, onNavigate]);
 
   let handleNext = useCallback(() => {
-    if (canNavigate.next && comparisons[currentIndex + 1]) {
-      onNavigate(comparisons[currentIndex + 1]);
+    if (canNavigate.next && sortedComparisons[currentIndex + 1]) {
+      onNavigate(sortedComparisons[currentIndex + 1]);
     }
-  }, [canNavigate.next, comparisons, currentIndex, onNavigate]);
+  }, [canNavigate.next, sortedComparisons, currentIndex, onNavigate]);
 
   // Scroll filmstrip to active thumbnail
   useEffect(() => {
@@ -169,11 +272,13 @@ export default function FullscreenViewer({
   if (!comparison) {
     return (
       <div className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center">
-        <div className="text-center text-gray-400">
-          <div className="text-lg mb-2">Comparison not found</div>
+        <div className="text-center">
+          <div className="text-lg text-white font-medium mb-2">
+            Comparison not found
+          </div>
           <button
             onClick={onClose}
-            className="text-blue-400 hover:text-blue-300"
+            className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >
             Return to list
           </button>
@@ -182,8 +287,19 @@ export default function FullscreenViewer({
     );
   }
 
-  let showActions = comparison.status === 'failed' && !userAction;
-  let isAccepted = userAction === 'accepted';
+  // Show actions for comparisons that can be approved/rejected
+  // - failed: needs review, can approve (accept change) or reject
+  // - passed: auto-matched baseline, can still reject if needed
+  // - new/baseline-created: no baseline to compare, no approve/reject needed
+  let canReview =
+    comparison.status === 'failed' || comparison.status === 'passed';
+
+  // Determine current approval state:
+  // - userAction takes precedence if set
+  // - passed comparisons are implicitly approved unless user rejected
+  let isAccepted =
+    userAction === 'accepted' ||
+    (comparison.status === 'passed' && userAction !== 'rejected');
   let isRejected = userAction === 'rejected';
 
   // View mode options
@@ -214,276 +330,159 @@ export default function FullscreenViewer({
       className="fixed inset-0 bg-gray-900 z-50 flex flex-col"
       data-testid="fullscreen-viewer"
     >
-      {/* Header Bar - matches cloud product exactly */}
-      <div className="flex-shrink-0 bg-gray-900 border-b border-gray-700/50">
-        <div className="px-4 py-3 relative">
-          {/* Top Row: Navigation, Title, Props */}
-          <div className="flex items-center justify-between">
-            {/* Left: Close, Nav, Count, Title */}
-            <div className="flex items-center gap-2">
-              {/* Close Button */}
+      {/* Header Bar - matches Observatory design exactly */}
+      <div className="flex-shrink-0 bg-gray-900/95 backdrop-blur-md border-b border-gray-800/50 z-30">
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2">
+          {/* Left: Close and Navigation */}
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={onClose}
+              className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/60 transition-colors"
+              title="Back (Esc)"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+
+            {/* Navigation */}
+            <div className="flex items-center gap-1">
               <button
-                onClick={onClose}
-                className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/60 transition-all"
-                title="Close (Esc)"
+                onClick={handlePrevious}
+                disabled={!canNavigate.prev}
+                className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-lg hover:bg-gray-700/60 transition-colors"
+                title="Previous (←)"
               >
-                <XMarkIcon className="w-5 h-5" />
+                <ChevronLeftIcon className="w-4 h-4" />
               </button>
-
-              {/* Navigation with count */}
-              <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg px-1">
-                <button
-                  onClick={handlePrevious}
-                  disabled={!canNavigate.prev}
-                  className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded transition-all"
-                  title="Previous (←)"
-                >
-                  <ChevronLeftIcon className="w-4 h-4" />
-                </button>
-
-                <span className="text-sm text-gray-300 font-medium px-2 tabular-nums">
-                  {currentIndex + 1}/{comparisons.length}
-                </span>
-
-                <button
-                  onClick={handleNext}
-                  disabled={!canNavigate.next}
-                  className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded transition-all"
-                  title="Next (→)"
-                >
-                  <ChevronRightIcon className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Screenshot Name */}
-              <h1 className="text-base font-semibold text-white ml-2 truncate max-w-md">
-                {comparison.name || comparison.originalName || 'Unknown'}
-              </h1>
-
-              {/* Props Dropdown */}
-              {props.length > 0 && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowPropsDropdown(!showPropsDropdown)}
-                    className="flex items-center gap-1 px-2 py-1 text-sm text-gray-400 hover:text-white rounded hover:bg-gray-700/50 transition-all"
-                  >
-                    <span>{props.length} props</span>
-                    <ChevronDownIcon className="w-3 h-3" />
-                  </button>
-
-                  {showPropsDropdown && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setShowPropsDropdown(false)}
-                      />
-                      <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-20 min-w-[160px]">
-                        {props.map((prop, i) => (
-                          <div
-                            key={i}
-                            className="px-3 py-2 text-sm border-b border-gray-700/50 last:border-0"
-                          >
-                            <span className="text-gray-500">{prop.key}:</span>
-                            <span className="text-gray-200 ml-2">
-                              {prop.value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+              <span className="text-xs text-gray-500 font-medium tabular-nums min-w-[3rem] text-center">
+                {currentIndex + 1}/{sortedComparisons.length}
+              </span>
+              <button
+                onClick={handleNext}
+                disabled={!canNavigate.next}
+                className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-lg hover:bg-gray-700/60 transition-colors"
+                title="Next (→)"
+              >
+                <ChevronRightIcon className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Center: Action Buttons */}
-            <div className="flex items-center gap-3">
-              {/* Reject/Accept */}
-              {showActions && (
-                <div className="flex items-center bg-gray-800/60 rounded-lg p-1 border border-gray-700/50">
-                  <button
-                    onClick={() => onReject(getComparisonId(comparison))}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all text-red-400 hover:text-red-300 hover:bg-red-600/20"
-                  >
-                    <span className="w-2 h-2 bg-current rounded-full" />
-                    Reject
-                  </button>
+            <div className="h-5 w-px bg-gray-700/50" />
 
-                  <button
-                    onClick={() => onAccept(getComparisonId(comparison))}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all bg-green-600 text-white hover:bg-green-500"
-                  >
-                    <span className="w-2 h-2 bg-current rounded-full" />
-                    Approve
-                  </button>
-                </div>
-              )}
+            {/* Screenshot Name */}
+            <h1 className="text-sm font-medium text-gray-200 truncate max-w-[300px]">
+              {comparison.name || comparison.originalName || 'Unknown'}
+            </h1>
 
-              {/* Show accepted/rejected state */}
-              {isAccepted && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-green-600 text-white">
-                  <CheckIcon className="w-4 h-4" />
-                  Approved
-                </div>
-              )}
-
-              {isRejected && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-yellow-600 text-white">
-                  <ExclamationTriangleIcon className="w-4 h-4" />
-                  Rejected
-                </div>
-              )}
-
-              {/* Diff percentage badge */}
-              {comparison.diffPercentage > 0 && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400">
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
-                  <span>{comparison.diffPercentage.toFixed(0)}%</span>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Zoom Controls and View Modes */}
-            <div className="flex items-center gap-2">
-              {/* Zoom Controls */}
-              <div className="flex items-center bg-gray-800/60 rounded-lg border border-gray-700/50">
-                <button
-                  onClick={() => setZoomLevel('fit')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-l-md transition-all ${
-                    zoomLevel === 'fit'
-                      ? 'bg-gray-700 text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                  title="Fit to screen"
-                >
-                  Fit
-                </button>
-                <button
-                  onClick={() =>
-                    setZoomLevel(prev =>
-                      typeof prev === 'number' ? Math.max(0.25, prev - 0.25) : 1
-                    )
-                  }
-                  className="p-1.5 text-gray-400 hover:text-white transition-all border-l border-gray-700/50"
-                  title="Zoom out"
-                >
-                  <MagnifyingGlassMinusIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() =>
-                    setZoomLevel(prev =>
-                      typeof prev === 'number' ? Math.min(4, prev + 0.25) : 1.25
-                    )
-                  }
-                  className="p-1.5 text-gray-400 hover:text-white transition-all border-l border-gray-700/50"
-                  title="Zoom in"
-                >
-                  <MagnifyingGlassPlusIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setZoomLevel('1:1')}
-                  className={`px-3 py-1.5 text-sm font-medium transition-all border-l border-gray-700/50 ${
-                    zoomLevel === '1:1'
-                      ? 'bg-gray-700 text-white'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                  title="Actual size"
-                >
-                  1:1
-                </button>
-              </div>
-
-              {/* View Mode Toggle */}
-              {comparison.diff && (
-                <div className="flex items-center bg-gray-800/60 rounded-lg p-1 border border-gray-700/50">
-                  {viewModes.map(mode => (
-                    <button
-                      key={mode.value}
-                      onClick={() => setViewMode(mode.value)}
-                      className={`
-                        px-3 py-1.5 text-sm font-medium rounded-md transition-all
-                        ${
-                          viewMode === mode.value
-                            ? 'bg-blue-600 text-white shadow-sm'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-700/60'
-                        }
-                      `}
-                    >
-                      {mode.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Metadata toggle */}
+            {props.length > 0 && (
+              <button
+                onClick={() => setShowMetadata(!showMetadata)}
+                className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                <span>{props.length} props</span>
+                <ChevronDownIcon
+                  className={`w-3 h-3 transition-transform ${showMetadata ? 'rotate-180' : ''}`}
+                />
+              </button>
+            )}
           </div>
 
-          {/* Next hint - positioned below the nav controls */}
-          {canNavigate.next && (
-            <div className="absolute top-full left-[88px] mt-1">
-              <span className="inline-flex items-center gap-1 text-[11px] text-gray-500 bg-gray-800/60 px-2 py-0.5 rounded">
-                Next (→)
-              </span>
+          {/* Center: Approval Actions - always show both buttons, highlight selected */}
+          {canReview && (
+            <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
+              <button
+                onClick={() => onReject(getComparisonId(comparison))}
+                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  isRejected
+                    ? 'bg-red-600 text-white'
+                    : 'text-red-400 hover:text-red-300 hover:bg-red-600/20'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 bg-current rounded-full" />
+                Reject
+              </button>
+              <button
+                onClick={() => onAccept(getComparisonId(comparison))}
+                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  isAccepted
+                    ? 'bg-green-600 text-white'
+                    : 'text-green-400 hover:text-green-300 hover:bg-green-600/20'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 bg-current rounded-full" />
+                Approve
+              </button>
             </div>
           )}
+
+          {/* Right: Zoom Controls and View Modes */}
+          <div className="flex items-center gap-2">
+            {/* Zoom Controls */}
+            <ZoomControls zoom={zoomLevel} onZoomChange={setZoomLevel} />
+
+            {/* View Mode Toggle - always show for consistent layout, disable when no diff */}
+            <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
+              {viewModes.map(mode => (
+                <button
+                  key={mode.value}
+                  onClick={() => comparison.diff && setViewMode(mode.value)}
+                  disabled={!comparison.diff}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                    !comparison.diff
+                      ? 'text-gray-600 cursor-not-allowed'
+                      : viewMode === mode.value
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-700/60'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* Expandable Metadata Panel - matches Observatory */}
+        {showMetadata && props.length > 0 && (
+          <div className="px-4 py-2 border-t border-gray-800/50 bg-gray-900/50">
+            <div className="flex flex-wrap gap-2">
+              {props.map((prop, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center px-2 py-0.5 bg-gray-800/60 text-xs rounded-md"
+                >
+                  <span className="text-gray-500">{prop.key}:</span>
+                  <span className="ml-1 text-gray-300">{prop.value}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-h-0 overflow-auto bg-[#1a1a2e] relative">
-        {/* Checkered background for transparency */}
-        <div
-          className="absolute inset-0 opacity-30"
-          style={{
-            backgroundImage: `
-              linear-gradient(45deg, #252540 25%, transparent 25%),
-              linear-gradient(-45deg, #252540 25%, transparent 25%),
-              linear-gradient(45deg, transparent 75%, #252540 75%),
-              linear-gradient(-45deg, transparent 75%, #252540 75%)
-            `,
-            backgroundSize: '20px 20px',
-            backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
-          }}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <ScreenshotDisplay
+          key={getComparisonId(comparison)}
+          comparison={comparison}
+          viewMode={viewMode === VIEW_MODES.ONION ? 'onion-skin' : viewMode}
+          showDiffOverlay={showDiffOverlay}
+          onDiffToggle={() => setShowDiffOverlay(prev => !prev)}
+          onionSkinPosition={onionSkinPosition}
+          onOnionSkinChange={setOnionSkinPosition}
+          zoom={zoomLevel}
+          disableLoadingOverlay={true}
+          className="w-full h-full"
         />
-
-        <div className="relative w-full h-full flex items-center justify-center p-4">
-          <div
-            className="relative"
-            style={{
-              transform:
-                zoomLevel === 'fit'
-                  ? 'scale(1)'
-                  : zoomLevel === '1:1'
-                    ? 'scale(1)'
-                    : `scale(${zoomLevel})`,
-              transformOrigin: 'center',
-              maxWidth: zoomLevel === 'fit' ? '100%' : 'none',
-              maxHeight: zoomLevel === 'fit' ? '100%' : 'none',
-            }}
-          >
-            <ComparisonViewer comparison={comparison} viewMode={viewMode} />
-          </div>
-        </div>
       </div>
 
       {/* Filmstrip Navigation */}
-      <div className="flex-shrink-0 bg-gray-900 border-t border-gray-700/50">
+      <div className="flex-shrink-0 bg-gray-900 border-t border-gray-800/50">
         <div className="px-4 py-3">
           <div className="flex items-center gap-4">
             {/* Screenshot count */}
             <div className="text-sm text-gray-500 flex-shrink-0">
-              {currentIndex + 1} of {comparisons.length}
+              {currentIndex + 1} of {sortedComparisons.length}
             </div>
 
             {/* Filmstrip */}
@@ -491,7 +490,7 @@ export default function FullscreenViewer({
               ref={filmstripRef}
               className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide py-1"
             >
-              {comparisons.map((comp, index) => (
+              {sortedComparisons.map((comp, index) => (
                 <FilmstripThumbnail
                   key={getComparisonId(comp, index)}
                   comparison={comp}

@@ -17,14 +17,14 @@ function getComparisonId(comparison, index) {
 function StatusDot({ status }) {
   let colors = {
     failed: 'bg-red-500',
-    passed: 'bg-green-500',
+    passed: 'bg-emerald-500',
     new: 'bg-blue-500',
     'baseline-created': 'bg-blue-500',
   };
 
   return (
     <span
-      className={`w-2.5 h-2.5 rounded-full ${colors[status] || 'bg-gray-500'}`}
+      className={`w-2.5 h-2.5 rounded-full ${colors[status] || 'bg-slate-500'}`}
     />
   );
 }
@@ -35,7 +35,7 @@ function StatusDot({ status }) {
 function ActionBadge({ userAction }) {
   if (userAction === 'accepted') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">
         <CheckCircleIcon className="w-3 h-3" />
         Accepted
       </span>
@@ -43,7 +43,7 @@ function ActionBadge({ userAction }) {
   }
   if (userAction === 'rejected') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
         <ExclamationCircleIcon className="w-3 h-3" />
         Rejected
       </span>
@@ -89,13 +89,13 @@ function ScreenshotRow({ comparison, onClick, userAction }) {
         bg-white/5 hover:bg-white/10 active:bg-white/15
         border rounded-lg transition-all duration-150
         touch-manipulation text-left
-        ${isFailed ? 'border-red-500/40 hover:border-red-500/60' : 'border-gray-700/50 hover:border-gray-600'}
+        ${isFailed ? 'border-red-500/40 hover:border-red-500/60' : 'border-slate-700/50 hover:border-slate-600'}
       `}
     >
       {/* Thumbnail */}
       <div
         className={`
-          relative w-16 h-12 md:w-20 md:h-14 rounded-md overflow-hidden flex-shrink-0 bg-gray-800
+          relative w-16 h-12 md:w-20 md:h-14 rounded-md overflow-hidden flex-shrink-0 bg-slate-800
           ${isFailed ? 'ring-2 ring-red-500/50' : isNew ? 'ring-2 ring-blue-500/50' : ''}
         `}
       >
@@ -106,7 +106,7 @@ function ScreenshotRow({ comparison, onClick, userAction }) {
             className="w-full h-full object-cover object-top"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-600">
+          <div className="w-full h-full flex items-center justify-center text-slate-600">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -146,14 +146,14 @@ function ScreenshotRow({ comparison, onClick, userAction }) {
           <StatusDot status={comparison.status} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-400">
+        <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-400">
           {browser && (
-            <span className="bg-gray-700/50 px-2 py-0.5 rounded">
+            <span className="bg-slate-700/50 px-2 py-0.5 rounded">
               {browser}
             </span>
           )}
           {viewport && (
-            <span className="bg-gray-700/50 px-2 py-0.5 rounded">
+            <span className="bg-slate-700/50 px-2 py-0.5 rounded">
               {viewport}
             </span>
           )}
@@ -171,7 +171,7 @@ function ScreenshotRow({ comparison, onClick, userAction }) {
       </div>
 
       {/* Chevron indicator */}
-      <div className="flex-shrink-0 text-gray-500">
+      <div className="flex-shrink-0 text-slate-500">
         <svg
           className="w-5 h-5"
           fill="none"
@@ -201,7 +201,7 @@ export default function ScreenshotList({
 }) {
   if (!comparisons || comparisons.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-400">
+      <div className="text-center py-12 text-slate-400">
         No screenshots to display
       </div>
     );

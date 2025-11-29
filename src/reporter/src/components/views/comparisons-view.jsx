@@ -7,7 +7,18 @@ import {
 import useComparisonFilters from '../../hooks/use-comparison-filters.js';
 import DashboardFilters from '../dashboard/dashboard-filters.jsx';
 import ScreenshotList from '../comparison/screenshot-list.jsx';
-import { CheckCircleIcon } from '@heroicons/react/24/outline';
+import {
+  Button,
+  Card,
+  CardBody,
+  EmptyState,
+  Alert,
+} from '../design-system/index.js';
+import {
+  CheckCircleIcon,
+  CameraIcon,
+  FunnelIcon,
+} from '@heroicons/react/24/outline';
 import { useToast } from '../ui/toast.jsx';
 
 /**
@@ -98,119 +109,102 @@ export default function ComparisonsView() {
     reportData?.comparisons?.filter(c => c.status === 'new').length || 0;
   let totalToAccept = failedCount + newCount;
 
+  if (hasNoComparisons) {
+    return (
+      <EmptyState
+        icon={CameraIcon}
+        title="No Screenshots Yet"
+        description="Run your tests with vizzlyScreenshot() to start capturing visual comparisons."
+      />
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 md:py-8">
-      {hasNoComparisons ? (
-        <div className="text-center py-16">
-          <div className="w-16 h-16 bg-gray-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <svg
-              className="w-8 h-8 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+    <div className="space-y-6">
+      {/* Filters */}
+      <DashboardFilters
+        filter={filter}
+        setFilter={setFilter}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedBrowser={selectedBrowser}
+        setSelectedBrowser={setSelectedBrowser}
+        selectedViewport={selectedViewport}
+        setSelectedViewport={setSelectedViewport}
+        availableFilters={availableFilters}
+        counts={counts}
+        onRefresh={refetch}
+        loading={isLoading}
+      />
+
+      {/* Accept All Banner */}
+      {hasChangesToAccept && (
+        <Alert variant="success" title={getChangesTitle(failedCount, newCount)}>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mt-3">
+            <p className="text-sm text-slate-400 flex-1">
+              {failedCount > 0
+                ? 'Review changes and accept all to update baselines'
+                : 'All screenshots are ready to be saved as baselines'}
+            </p>
+            <Button
+              variant="success"
+              onClick={handleAcceptAll}
+              loading={acceptAllMutation.isPending}
+              icon={CheckCircleIcon}
+              className="w-full sm:w-auto"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
+              Accept All ({totalToAccept})
+            </Button>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-4">
-            No Screenshots Yet
-          </h2>
-          <p className="text-gray-400 max-w-md mx-auto">
-            Run your tests to start capturing visual comparisons.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <DashboardFilters
-            filter={filter}
-            setFilter={setFilter}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            selectedBrowser={selectedBrowser}
-            setSelectedBrowser={setSelectedBrowser}
-            selectedViewport={selectedViewport}
-            setSelectedViewport={setSelectedViewport}
-            availableFilters={availableFilters}
-            counts={counts}
-            onRefresh={refetch}
-            loading={isLoading}
-          />
+        </Alert>
+      )}
 
-          {/* Accept All Button - Only show when there are changes */}
-          {hasChangesToAccept && (
-            <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-3 md:p-4">
-              <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-between">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-white font-semibold text-sm md:text-base mb-0.5 md:mb-1">
-                    {failedCount > 0 && newCount > 0
-                      ? `${failedCount} Failed • ${newCount} New`
-                      : failedCount > 0
-                        ? `${failedCount} Visual Difference${failedCount !== 1 ? 's' : ''}`
-                        : `${newCount} New Baseline${newCount !== 1 ? 's' : ''}`}
-                  </h3>
-                  <p className="text-xs md:text-sm text-gray-400 hidden md:block">
-                    {failedCount > 0
-                      ? 'Review changes and accept all to update baselines'
-                      : 'All screenshots are ready to be saved as baselines'}
-                  </p>
-                </div>
-                <button
-                  onClick={handleAcceptAll}
-                  disabled={acceptAllMutation.isPending}
-                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 active:bg-green-700 disabled:bg-green-500/50 text-white font-medium px-4 md:px-6 py-3 rounded-lg transition-colors flex-shrink-0 touch-manipulation"
-                >
-                  <CheckCircleIcon className="w-5 h-5" />
-                  <span>
-                    {acceptAllMutation.isPending
-                      ? 'Accepting...'
-                      : `Accept All (${totalToAccept})`}
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {filteredComparisons.length === 0 ? (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 text-center">
-              <div className="text-gray-400 mb-2">
-                No comparisons match your filters
-              </div>
-              {hasActiveFilters && (
-                <button
-                  onClick={() => {
-                    setFilter('all');
-                    setSearchQuery('');
-                    setSelectedBrowser('all');
-                    setSelectedViewport('all');
-                  }}
-                  className="text-amber-400 hover:text-amber-300 text-sm underline"
-                >
-                  Clear all filters
-                </button>
-              )}
-            </div>
-          ) : (
-            <ScreenshotList
-              comparisons={filteredComparisons}
-              onSelectComparison={handleSelectComparison}
-              loadingStates={{}}
+      {/* Screenshot List */}
+      {filteredComparisons.length === 0 ? (
+        <Card hover={false}>
+          <CardBody className="py-12">
+            <EmptyState
+              icon={FunnelIcon}
+              title="No matches"
+              description="No comparisons match your current filters."
+              action={
+                hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFilter('all');
+                      setSearchQuery('');
+                      setSelectedBrowser('all');
+                      setSelectedViewport('all');
+                    }}
+                  >
+                    Clear all filters
+                  </Button>
+                )
+              }
             />
-          )}
-        </div>
+          </CardBody>
+        </Card>
+      ) : (
+        <ScreenshotList
+          comparisons={filteredComparisons}
+          onSelectComparison={handleSelectComparison}
+          loadingStates={{}}
+        />
       )}
     </div>
   );
+}
+
+function getChangesTitle(failedCount, newCount) {
+  if (failedCount > 0 && newCount > 0) {
+    return `${failedCount} Failed, ${newCount} New`;
+  }
+  if (failedCount > 0) {
+    return `${failedCount} Visual Difference${failedCount !== 1 ? 's' : ''}`;
+  }
+  return `${newCount} New Baseline${newCount !== 1 ? 's' : ''}`;
 }

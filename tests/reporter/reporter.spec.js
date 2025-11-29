@@ -248,7 +248,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     });
 
     // Wait for stats content to load
-    await expect(page.locator('text=Statistics Overview')).toBeVisible();
+    await expect(page.locator('text=Statistics')).toBeVisible();
 
     // Take screenshot
     await vizzlyScreenshot(

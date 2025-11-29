@@ -12,10 +12,10 @@ import { ScreenshotDisplay } from './screenshot-display.jsx';
 import { VIEW_MODES } from '../../utils/constants.js';
 
 /**
- * Get a stable ID for a comparison, falling back to signature or index
+ * Get a stable ID for a comparison, falling back to signature or name
  */
-function getComparisonId(comparison, index = 0) {
-  return comparison?.id || comparison?.signature || `comparison-${index}`;
+function getComparisonId(comparison) {
+  return comparison?.id || comparison?.signature || comparison?.name;
 }
 
 /**

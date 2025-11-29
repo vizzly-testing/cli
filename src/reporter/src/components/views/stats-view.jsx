@@ -1,12 +1,54 @@
 import { useCallback } from 'react';
-import { CheckIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import {
+  CheckIcon,
+  ArrowPathIcon,
+  PhotoIcon,
+  ExclamationTriangleIcon,
+  SparklesIcon,
+  ClockIcon,
+} from '@heroicons/react/24/outline';
 import {
   useReportData,
   useAcceptAllBaselines,
   useResetBaselines,
 } from '../../hooks/queries/use-tdd-queries.js';
-import DashboardStats from '../dashboard/dashboard-stats.jsx';
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  CardFooter,
+  Button,
+  HealthRing,
+  Badge,
+} from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
+
+function StatCard({ icon: Icon, label, value, subvalue, variant, iconColor }) {
+  return (
+    <Card variant={variant} hover={false}>
+      <CardBody padding="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+              {label}
+            </p>
+            <p className="text-2xl font-semibold font-mono text-white">
+              {value}
+            </p>
+            {subvalue && (
+              <p className="text-xs text-slate-400 mt-1">{subvalue}</p>
+            )}
+          </div>
+          <div
+            className={`w-10 h-10 rounded-lg flex items-center justify-center ${iconColor}`}
+          >
+            <Icon className="w-5 h-5" />
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
 
 export default function StatsView() {
   let { addToast, confirm } = useToast();
@@ -16,17 +58,20 @@ export default function StatsView() {
   let acceptAllMutation = useAcceptAllBaselines();
   let resetMutation = useResetBaselines();
 
-  let summary = reportData?.summary;
   let comparisons = reportData?.comparisons;
   let baseline = reportData?.baseline;
+
+  // Calculate stats
+  let total = comparisons?.length || 0;
+  let passed = comparisons?.filter(c => c.status === 'passed').length || 0;
+  let failed = comparisons?.filter(c => c.status === 'failed').length || 0;
+  let newCount = comparisons?.filter(c => c.status === 'new').length || 0;
+  let passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 
   // Check if there are any changes to accept
   let hasChanges = comparisons?.some(
     c => c.status === 'failed' || c.status === 'new'
   );
-
-  // Count new screenshots
-  let newCount = comparisons?.filter(c => c.status === 'new').length || 0;
 
   let handleAcceptAll = useCallback(async () => {
     let confirmed = await confirm(
@@ -67,111 +112,137 @@ export default function StatsView() {
   }, [resetMutation, addToast, confirm]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-2">
-          Statistics Overview
-        </h1>
-        <p className="text-gray-400">Visual regression testing statistics</p>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Statistics</h1>
+        <p className="text-slate-400 mt-1">
+          Visual regression testing overview
+        </p>
       </div>
 
-      <DashboardStats summary={summary} baseline={baseline?.buildName} />
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Health Ring Card */}
+        <Card hover={false}>
+          <CardBody className="flex flex-col items-center justify-center py-8">
+            <HealthRing value={passRate} label="Pass Rate" />
+            <p className="text-sm text-slate-400 mt-4">
+              {passed} of {total} screenshots passing
+            </p>
+          </CardBody>
+        </Card>
 
-      {/* Baseline Info Card */}
-      {baseline && (
-        <div className="mb-6 bg-slate-800/50 rounded-lg border border-slate-700 p-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-gray-400 mb-1">Current Baseline</div>
-              <div className="text-white font-medium">
-                {baseline.buildName || 'default'}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-400 mb-1">Created</div>
-              <div className="text-white font-medium">
-                {baseline.createdAt
-                  ? new Date(baseline.createdAt).toLocaleString()
-                  : 'Unknown'}
-              </div>
-            </div>
-          </div>
-          {newCount > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-600">
-              <div className="text-sm text-amber-400">
-                {newCount} new screenshot{newCount !== 1 ? 's' : ''} without
-                baseline
-              </div>
-            </div>
-          )}
+        {/* 2x2 Stats Grid */}
+        <div className="lg:col-span-2 grid grid-cols-2 gap-4">
+          <StatCard
+            icon={PhotoIcon}
+            label="Total Screenshots"
+            value={total}
+            iconColor="bg-slate-700/50 text-slate-400"
+          />
+          <StatCard
+            icon={CheckIcon}
+            label="Passed"
+            value={passed}
+            variant="success"
+            iconColor="bg-emerald-500/10 text-emerald-400"
+          />
+          <StatCard
+            icon={ExclamationTriangleIcon}
+            label="Failed"
+            value={failed}
+            variant={failed > 0 ? 'danger' : undefined}
+            iconColor="bg-red-500/10 text-red-400"
+          />
+          <StatCard
+            icon={SparklesIcon}
+            label="New"
+            value={newCount}
+            variant={newCount > 0 ? 'info' : undefined}
+            iconColor="bg-blue-500/10 text-blue-400"
+          />
         </div>
+      </div>
+
+      {/* Baseline Info */}
+      {baseline && (
+        <Card hover={false}>
+          <CardHeader
+            icon={ClockIcon}
+            title="Current Baseline"
+            iconColor="bg-amber-500/10 text-amber-400"
+            actions={
+              newCount > 0 && (
+                <Badge variant="warning" dot>
+                  {newCount} new without baseline
+                </Badge>
+              )
+            }
+          />
+          <CardBody>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                  Build Name
+                </p>
+                <p className="text-white font-medium">
+                  {baseline.buildName || 'default'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                  Created
+                </p>
+                <p className="text-white font-medium">
+                  {baseline.createdAt
+                    ? new Date(baseline.createdAt).toLocaleString()
+                    : 'Unknown'}
+                </p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
       )}
 
-      {/* Baseline Management Actions */}
-      <div className="mt-8 bg-slate-800/50 rounded-lg border border-slate-700 p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">
-          Baseline Management
-        </h2>
-        <p className="text-gray-400 mb-6">
-          Manage your visual regression baselines. Accept changes to update
-          baselines or reset to restore previous state.
-        </p>
-
-        <div className="flex gap-4">
-          <button
+      {/* Baseline Management */}
+      <Card hover={false}>
+        <CardHeader
+          title="Baseline Management"
+          description="Accept changes to update baselines or reset to restore previous state"
+        />
+        <CardFooter className="flex flex-wrap gap-3">
+          <Button
+            variant="success"
             onClick={handleAcceptAll}
-            disabled={!hasChanges || acceptAllMutation.isPending || isLoading}
-            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            loading={acceptAllMutation.isPending}
+            disabled={!hasChanges || isLoading}
+            icon={CheckIcon}
           >
-            <CheckIcon className="w-5 h-5" />
-            <span>
-              {acceptAllMutation.isPending
-                ? 'Accepting...'
-                : hasChanges
-                  ? 'Accept All Changes'
-                  : 'No Changes to Accept'}
-            </span>
-          </button>
+            {hasChanges ? 'Accept All Changes' : 'No Changes to Accept'}
+          </Button>
 
-          <button
+          <Button
+            variant="secondary"
             onClick={handleReset}
-            disabled={resetMutation.isPending || isLoading}
-            className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 disabled:bg-gray-600 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ArrowPathIcon className="w-5 h-5" />
-            <span>
-              {resetMutation.isPending ? 'Resetting...' : 'Reset Baselines'}
-            </span>
-          </button>
-
-          <button
-            onClick={() => refetch()}
+            loading={resetMutation.isPending}
             disabled={isLoading}
-            className="ml-auto inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium px-6 py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            icon={ArrowPathIcon}
           >
-            <svg
-              className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`}
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
-            </svg>
-            <span>Refresh</span>
-          </button>
-        </div>
-      </div>
+            Reset Baselines
+          </Button>
+
+          <Button
+            variant="ghost"
+            onClick={() => refetch()}
+            loading={isLoading}
+            icon={ArrowPathIcon}
+            className="ml-auto"
+          >
+            Refresh
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

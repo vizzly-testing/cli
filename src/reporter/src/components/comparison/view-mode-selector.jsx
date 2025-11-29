@@ -19,8 +19,8 @@ export default function ViewModeSelector({ viewMode, onChange }) {
           key={mode.value}
           className={`flex-shrink-0 px-3 md:px-4 py-2.5 md:py-2 rounded-lg text-sm font-medium transition-colors touch-manipulation scroll-snap-item ${
             viewMode === mode.value
-              ? 'bg-amber-500 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 active:bg-gray-500 hover:text-white'
+              ? 'bg-amber-500 text-slate-900'
+              : 'bg-slate-700 text-slate-300 hover:bg-slate-600 active:bg-slate-500 hover:text-white'
           }`}
           onClick={() => onChange(mode.value)}
         >

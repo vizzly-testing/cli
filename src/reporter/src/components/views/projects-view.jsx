@@ -18,8 +18,20 @@ import {
   ArrowLeftOnRectangleIcon,
   FolderIcon,
   TrashIcon,
-  XCircleIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  Badge,
+  Alert,
+  EmptyState,
+  Skeleton,
+  SkeletonCard,
+  Spinner,
+} from '../design-system/index.js';
 
 function DeviceFlowLogin({ onComplete }) {
   let [deviceFlow, setDeviceFlow] = useState(null);
@@ -68,70 +80,66 @@ function DeviceFlowLogin({ onComplete }) {
 
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-500 rounded-lg p-6 text-center">
-        <XCircleIcon className="w-12 h-12 text-red-400 mx-auto mb-4" />
-        <p className="text-red-400">{error}</p>
-      </div>
+      <Alert variant="danger" title="Login Error">
+        {error}
+      </Alert>
     );
   }
 
   if (!deviceFlow) {
     return (
-      <div className="text-center py-8">
-        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-gray-400 mt-4">Starting login flow...</p>
+      <div className="flex flex-col items-center justify-center py-12">
+        <Spinner size="lg" className="text-amber-400 mb-4" />
+        <p className="text-slate-400">Starting login flow...</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-8 text-center">
-      <h3 className="text-2xl font-semibold text-white mb-6">
-        Sign in to Vizzly
-      </h3>
+    <Card hover={false}>
+      <CardBody className="text-center py-8">
+        <h3 className="text-xl font-semibold text-white mb-6">
+          Sign in to Vizzly
+        </h3>
 
-      <div className="bg-slate-900/80 backdrop-blur rounded-xl p-6 mb-6 border border-gray-700/50">
-        <p className="text-sm text-gray-300 mb-4">Click below to authorize:</p>
-        <a
-          href={
-            deviceFlow.verificationUriComplete || deviceFlow.verificationUri
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors inline-flex items-center gap-2 mb-4 shadow-lg shadow-amber-500/20"
-        >
-          Open Authorization Page
-        </a>
-        <div className="mt-4 pt-4 border-t border-gray-700">
-          <p className="text-xs text-gray-400 mb-2">
-            Or enter this code manually:
+        <div className="bg-slate-900/50 rounded-xl p-6 mb-6 border border-slate-700/50 max-w-sm mx-auto">
+          <p className="text-sm text-slate-400 mb-4">
+            Click below to authorize:
           </p>
-          <div className="text-2xl font-mono font-bold text-amber-500 tracking-wider">
-            {deviceFlow.userCode}
+          <a
+            href={
+              deviceFlow.verificationUriComplete || deviceFlow.verificationUri
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium rounded-lg transition-colors mb-4"
+          >
+            Open Authorization Page
+          </a>
+          <div className="mt-4 pt-4 border-t border-slate-700/50">
+            <p className="text-xs text-slate-500 mb-2">
+              Or enter this code manually:
+            </p>
+            <div className="text-2xl font-mono font-bold text-amber-400 tracking-wider">
+              {deviceFlow.userCode}
+            </div>
           </div>
         </div>
-      </div>
 
-      <p className="text-sm text-gray-300 mb-4">
-        After authorizing in your browser, click the button below to complete
-        sign in.
-      </p>
+        <p className="text-sm text-slate-400 mb-4">
+          After authorizing in your browser, click the button below to complete
+          sign in.
+        </p>
 
-      <button
-        onClick={checkAuthorization}
-        disabled={pollMutation.isPending}
-        className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed text-white rounded-lg transition-colors inline-flex items-center gap-2 border border-gray-700"
-      >
-        {pollMutation.isPending ? (
-          <>
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Checking...
-          </>
-        ) : (
-          'Check Status'
-        )}
-      </button>
-    </div>
+        <Button
+          variant="secondary"
+          onClick={checkAuthorization}
+          loading={pollMutation.isPending}
+        >
+          Check Status
+        </Button>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -160,23 +168,19 @@ function AuthCard() {
   }, [queryClient]);
 
   if (isLoading) {
-    return (
-      <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 animate-pulse">
-        <div className="h-6 bg-slate-700 rounded w-32 mb-4"></div>
-        <div className="h-4 bg-slate-700 rounded w-48"></div>
-      </div>
-    );
+    return <SkeletonCard />;
   }
 
   if (showingLogin) {
     return (
-      <div>
-        <button
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setShowingLogin(false)}
-          className="text-sm text-gray-400 hover:text-gray-300 mb-4"
         >
-          ← Back
-        </button>
+          &larr; Back
+        </Button>
         <DeviceFlowLogin onComplete={handleLoginComplete} />
       </div>
     );
@@ -184,52 +188,60 @@ function AuthCard() {
 
   if (!authenticated) {
     return (
-      <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-8 text-center">
-        <UserCircleIcon className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-white mb-2">Not signed in</h3>
-        <p className="text-gray-300 mb-6">
-          Sign in to access projects and team features
-        </p>
-        <button
-          onClick={() => setShowingLogin(true)}
-          className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors inline-flex items-center gap-2 shadow-lg shadow-amber-500/20"
-        >
-          <ArrowRightOnRectangleIcon className="w-5 h-5" />
-          Sign In
-        </button>
-      </div>
+      <Card hover={false}>
+        <CardBody className="text-center py-12">
+          <div className="w-16 h-16 rounded-2xl bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
+            <UserCircleIcon className="w-8 h-8 text-slate-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Not signed in
+          </h3>
+          <p className="text-slate-400 mb-6 max-w-sm mx-auto">
+            Sign in to access projects and team features
+          </p>
+          <Button
+            variant="primary"
+            onClick={() => setShowingLogin(true)}
+            icon={ArrowRightOnRectangleIcon}
+          >
+            Sign In
+          </Button>
+        </CardBody>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/20">
-            <UserCircleIcon className="w-8 h-8 text-white" />
+    <Card hover={false}>
+      <CardBody>
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
+              <UserCircleIcon className="w-7 h-7 text-slate-900" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">
+                {user?.name || 'User'}
+              </h3>
+              <p className="text-sm text-slate-400">{user?.email}</p>
+              {user?.organizationName && (
+                <Badge variant="default" className="mt-2">
+                  {user.organizationName}
+                </Badge>
+              )}
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              {user?.name || 'User'}
-            </h3>
-            <p className="text-sm text-gray-300">{user?.email}</p>
-            {user?.organizationName && (
-              <p className="text-xs text-gray-400 mt-1">
-                {user.organizationName}
-              </p>
-            )}
-          </div>
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            loading={logoutMutation.isPending}
+            icon={ArrowLeftOnRectangleIcon}
+          >
+            Sign Out
+          </Button>
         </div>
-        <button
-          onClick={handleLogout}
-          disabled={logoutMutation.isPending}
-          className="px-4 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors inline-flex items-center gap-2 border border-gray-700 disabled:opacity-50"
-        >
-          <ArrowLeftOnRectangleIcon className="w-5 h-5" />
-          Sign Out
-        </button>
-      </div>
-    </div>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -257,70 +269,49 @@ function ProjectMappingsTable({ mappings, onDelete, deleting }) {
 
   if (mappings.length === 0) {
     return (
-      <div className="text-center py-8">
-        <FolderIcon className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-        <h3 className="text-lg font-medium text-white mb-2">
-          No project mappings
-        </h3>
-        <p className="text-sm text-gray-300 mb-4 max-w-md mx-auto">
-          Link a directory to a Vizzly project using the CLI from within your
-          project directory.
-        </p>
-        <div className="bg-slate-900 border border-gray-700 rounded-lg p-4 max-w-md mx-auto">
-          <code className="text-sm text-amber-500 font-mono">
-            vizzly project:select
-          </code>
-        </div>
-        <p className="text-xs text-gray-400 mt-4">
-          Mappings you create will appear here for easy management.
-        </p>
-      </div>
+      <EmptyState
+        icon={FolderIcon}
+        title="No project mappings"
+        description="Link a directory to a Vizzly project using the CLI."
+        action={
+          <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-4 max-w-md mx-auto">
+            <code className="text-sm text-amber-400 font-mono">
+              vizzly project:select
+            </code>
+          </div>
+        }
+      />
     );
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full">
+      <table className="vz-table">
         <thead>
-          <tr className="border-b border-gray-700">
-            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">
-              Directory
-            </th>
-            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">
-              Project
-            </th>
-            <th className="text-left py-3 px-4 text-sm font-medium text-gray-300">
-              Organization
-            </th>
-            <th className="text-right py-3 px-4 text-sm font-medium text-gray-300">
-              Actions
-            </th>
+          <tr>
+            <th>Directory</th>
+            <th>Project</th>
+            <th>Organization</th>
+            <th className="text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
           {mappings.map((mapping, idx) => (
-            <tr
-              key={idx}
-              className="border-b border-gray-700/50 hover:bg-white/5"
-            >
-              <td className="py-3 px-4 text-sm text-gray-300 font-mono">
-                {mapping.directory}
-              </td>
-              <td className="py-3 px-4 text-sm text-white">
+            <tr key={idx}>
+              <td className="font-mono text-sm">{mapping.directory}</td>
+              <td className="text-white">
                 {mapping.projectName || mapping.projectSlug}
               </td>
-              <td className="py-3 px-4 text-sm text-gray-400">
-                {mapping.organizationSlug}
-              </td>
-              <td className="py-3 px-4 text-right">
-                <button
+              <td>{mapping.organizationSlug}</td>
+              <td className="text-right">
+                <Button
+                  variant="danger"
+                  size="sm"
                   onClick={() => handleDelete(mapping.directory)}
                   disabled={deleting}
-                  className="text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
-                  title="Remove mapping"
-                >
-                  <TrashIcon className="w-5 h-5" />
-                </button>
+                  icon={TrashIcon}
+                  className="!p-2"
+                />
               </td>
             </tr>
           ))}
@@ -349,56 +340,75 @@ export default function ProjectsView() {
 
   if (mappingsLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-slate-700 rounded w-48"></div>
-          <div className="h-64 bg-slate-700 rounded"></div>
-          <div className="h-64 bg-slate-700 rounded"></div>
+      <div className="space-y-6">
+        <div>
+          <Skeleton variant="heading" className="w-32 mb-2" />
+          <Skeleton variant="text" className="w-64" />
         </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <SkeletonCard />
+          </div>
+          <SkeletonCard />
+        </div>
+        <SkeletonCard />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Projects</h1>
-        <p className="text-gray-300">
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Projects</h1>
+        <p className="text-slate-400 mt-1">
           Manage your Vizzly account and directory mappings
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      {/* Auth + Quick Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <AuthCard />
         </div>
-        <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Quick Stats</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Project Mappings</span>
-              <span className="text-white font-medium">{mappings.length}</span>
+        <Card hover={false}>
+          <CardHeader title="Quick Stats" />
+          <CardBody>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Project Mappings</span>
+              <span className="text-2xl font-semibold font-mono text-white">
+                {mappings.length}
+              </span>
             </div>
-          </div>
-        </div>
+          </CardBody>
+        </Card>
       </div>
 
-      <div className="bg-white/5 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Project Mappings</h2>
-          <button
-            onClick={() => refetch()}
-            className="text-sm text-amber-500 hover:text-amber-400 transition-colors font-medium"
-          >
-            Refresh
-          </button>
-        </div>
-        <ProjectMappingsTable
-          mappings={mappings}
-          onDelete={handleDeleteMapping}
-          deleting={deleteMappingMutation.isPending}
+      {/* Project Mappings */}
+      <Card hover={false}>
+        <CardHeader
+          icon={FolderIcon}
+          title="Project Mappings"
+          iconColor="bg-amber-500/10 text-amber-400"
+          actions={
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refetch()}
+              icon={ArrowPathIcon}
+            >
+              Refresh
+            </Button>
+          }
         />
-      </div>
+        <CardBody padding="p-0">
+          <ProjectMappingsTable
+            mappings={mappings}
+            onDelete={handleDeleteMapping}
+            deleting={deleteMappingMutation.isPending}
+          />
+        </CardBody>
+      </Card>
     </div>
   );
 }

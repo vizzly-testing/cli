@@ -31,7 +31,7 @@ export default function ComparisonCard({
     if (comparison.status === 'failed')
       return 'border-red-500/50 shadow-lg shadow-red-500/10';
     if (comparison.status === 'baseline-created') return 'border-blue-500/30';
-    return 'border-gray-700/50';
+    return 'border-slate-700/50';
   };
 
   let getHeaderOpacity = () => {
@@ -81,7 +81,7 @@ export default function ComparisonCard({
                   ? 'bg-red-500/20'
                   : comparison.status === 'baseline-created'
                     ? 'bg-blue-500/20'
-                    : 'bg-green-500/10'
+                    : 'bg-emerald-500/10'
               }`}
             >
               <CameraIcon
@@ -90,7 +90,7 @@ export default function ComparisonCard({
                     ? 'text-red-400'
                     : comparison.status === 'baseline-created'
                       ? 'text-blue-400'
-                      : 'text-green-400'
+                      : 'text-emerald-400'
                 }`}
               />
             </div>
@@ -106,12 +106,12 @@ export default function ComparisonCard({
               </h3>
 
               {/* Mobile: Status description only */}
-              <div className="md:hidden text-xs text-gray-400 mt-0.5">
+              <div className="md:hidden text-xs text-slate-400 mt-0.5">
                 {statusInfo.description}
               </div>
 
               {/* Desktop: Full metadata */}
-              <div className="hidden md:flex flex-wrap gap-3 text-xs text-gray-400 mt-1">
+              <div className="hidden md:flex flex-wrap gap-3 text-xs text-slate-400 mt-1">
                 <span className="font-medium">{statusInfo.description}</span>
                 {comparison.properties?.browser && (
                   <span>• {comparison.properties.browser}</span>
@@ -164,16 +164,16 @@ export default function ComparisonCard({
                 <span className="w-2.5 h-2.5 bg-blue-500 rounded-full" />
               )}
               {comparison.status === 'passed' && (
-                <span className="w-2.5 h-2.5 bg-green-500 rounded-full" />
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />
               )}
             </div>
 
             {/* Expand icon */}
             <div className="w-8 h-8 flex items-center justify-center">
               {isExpanded ? (
-                <ChevronUpIcon className="w-5 h-5 text-gray-400" />
+                <ChevronUpIcon className="w-5 h-5 text-slate-400" />
               ) : (
-                <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+                <ChevronDownIcon className="w-5 h-5 text-slate-400" />
               )}
             </div>
           </div>
@@ -182,27 +182,27 @@ export default function ComparisonCard({
 
       {/* Expandable Content */}
       {isExpanded && (
-        <div className="px-3 pb-3 md:px-4 md:pb-4 space-y-3 md:space-y-4 border-t border-gray-700/50 animate-slide-down">
+        <div className="px-3 pb-3 md:px-4 md:pb-4 space-y-3 md:space-y-4 border-t border-slate-700/50 animate-slide-down">
           {/* Mobile: Show metadata row */}
-          <div className="md:hidden pt-3 flex flex-wrap items-center gap-2 text-xs text-gray-400">
+          <div className="md:hidden pt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
             {comparison.properties?.browser && (
-              <span className="bg-gray-700/50 px-2 py-1 rounded">
+              <span className="bg-slate-700/50 px-2 py-1 rounded">
                 {comparison.properties.browser}
               </span>
             )}
             {viewportInfo && (
-              <span className="bg-gray-700/50 px-2 py-1 rounded">
+              <span className="bg-slate-700/50 px-2 py-1 rounded">
                 {viewportInfo}
               </span>
             )}
             {/* Mobile status badge */}
             {userAction === USER_ACTION.REJECTED && (
-              <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
+              <span className="bg-amber-500/20 text-amber-400 px-2 py-1 rounded">
                 Rejected
               </span>
             )}
             {userAction === USER_ACTION.ACCEPTED && (
-              <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded">
+              <span className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
                 Accepted
               </span>
             )}
@@ -236,7 +236,7 @@ export default function ComparisonCard({
           </div>
 
           {/* Comparison Viewer */}
-          <div className="bg-gray-900/50 border border-gray-600 rounded-lg overflow-hidden">
+          <div className="bg-slate-900/50 border border-slate-600 rounded-lg overflow-hidden">
             <ComparisonViewer comparison={comparison} viewMode={viewMode} />
           </div>
         </div>

@@ -11,7 +11,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
     return (
       <div className="comparison-viewer new-baseline">
         <div className="text-center py-8">
-          <p className="text-gray-400 text-sm mb-4">
+          <p className="text-slate-400 text-sm mb-4">
             First screenshot - creating new baseline
           </p>
           <SmartImage

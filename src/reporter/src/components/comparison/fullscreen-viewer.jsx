@@ -8,7 +8,7 @@ import {
   MagnifyingGlassMinusIcon,
   ArrowsPointingInIcon,
 } from '@heroicons/react/24/outline';
-import ComparisonViewer from './comparison-viewer.jsx';
+import { ScreenshotDisplay } from './screenshot-display.jsx';
 import { VIEW_MODES } from '../../utils/constants.js';
 
 /**
@@ -173,7 +173,9 @@ export default function FullscreenViewer({
 }) {
   let [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
   let [showMetadata, setShowMetadata] = useState(false);
-  let [zoomLevel, setZoomLevel] = useState('fit'); // 'fit' | '1:1' | number
+  let [zoomLevel, setZoomLevel] = useState('fit'); // 'fit' | number
+  let [showDiffOverlay, setShowDiffOverlay] = useState(true);
+  let [onionSkinPosition, setOnionSkinPosition] = useState(50);
   let filmstripRef = useRef(null);
 
   // Find current index and group info using stable IDs
@@ -453,40 +455,19 @@ export default function FullscreenViewer({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-h-0 overflow-auto bg-gray-950 relative">
-        {/* Checkered background for transparency */}
-        <div
-          className="absolute inset-0 opacity-30"
-          style={{
-            backgroundImage: `
-              linear-gradient(45deg, #1e293b 25%, transparent 25%),
-              linear-gradient(-45deg, #1e293b 25%, transparent 25%),
-              linear-gradient(45deg, transparent 75%, #1e293b 75%),
-              linear-gradient(-45deg, transparent 75%, #1e293b 75%)
-            `,
-            backgroundSize: '20px 20px',
-            backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
-          }}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <ScreenshotDisplay
+          key={getComparisonId(comparison)}
+          comparison={comparison}
+          viewMode={viewMode === VIEW_MODES.ONION ? 'onion-skin' : viewMode}
+          showDiffOverlay={showDiffOverlay}
+          onDiffToggle={() => setShowDiffOverlay(prev => !prev)}
+          onionSkinPosition={onionSkinPosition}
+          onOnionSkinChange={setOnionSkinPosition}
+          zoom={zoomLevel}
+          disableLoadingOverlay={true}
+          className="w-full h-full"
         />
-
-        <div className="relative w-full h-full flex items-center justify-center p-4">
-          <div
-            className="relative"
-            style={{
-              transform:
-                zoomLevel === 'fit'
-                  ? 'scale(1)'
-                  : zoomLevel === '1:1'
-                    ? 'scale(1)'
-                    : `scale(${zoomLevel})`,
-              transformOrigin: 'center',
-              maxWidth: zoomLevel === 'fit' ? '100%' : 'none',
-              maxHeight: zoomLevel === 'fit' ? '100%' : 'none',
-            }}
-          >
-            <ComparisonViewer comparison={comparison} viewMode={viewMode} />
-          </div>
-        </div>
       </div>
 
       {/* Filmstrip Navigation */}

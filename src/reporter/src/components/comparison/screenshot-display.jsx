@@ -1,0 +1,323 @@
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ToggleView } from './comparison-modes/toggle-view.jsx';
+import { OverlayMode } from './comparison-modes/overlay-mode.jsx';
+import { OnionSkinMode } from './comparison-modes/onion-skin-mode.jsx';
+
+/**
+ * Unified Screenshot Display Component - matches Observatory architecture
+ * Handles zoom calculations and renders the appropriate comparison mode
+ * inside a zoom wrapper so all modes scale together
+ */
+export function ScreenshotDisplay({
+  comparison,
+  viewMode = 'overlay',
+  showDiffOverlay = true,
+  onionSkinPosition = 50,
+  onOnionSkinChange,
+  onDiffToggle,
+  // Loading behavior
+  disableLoadingOverlay = false,
+  // Zoom support
+  zoom = 'fit',
+  className = '',
+}) {
+  let [imageErrors, setImageErrors] = useState(new Set());
+  let [imageLoadStates, setImageLoadStates] = useState(new Map());
+  let [fitScale, setFitScale] = useState(1);
+  let [naturalImageSize, setNaturalImageSize] = useState({
+    width: 0,
+    height: 0,
+  });
+  let screenshotContainerRef = useRef(null);
+  let zoomWrapperRef = useRef(null);
+
+  // Calculate fit scale and track natural image size for zoom overflow
+  useEffect(() => {
+    let calculateScales = () => {
+      let container = screenshotContainerRef.current;
+      let image = container?.querySelector('img');
+
+      if (!container || !image || !image.naturalWidth) return;
+
+      // Always track natural size for overflow calculations
+      setNaturalImageSize({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+
+      let containerRect = container.getBoundingClientRect();
+      let padding = 40; // Padding around the image
+
+      let availableWidth = containerRect.width - padding;
+      let availableHeight = containerRect.height - padding;
+
+      let scaleX = availableWidth / image.naturalWidth;
+      let scaleY = availableHeight / image.naturalHeight;
+
+      // Use the smaller scale to fit both dimensions
+      let newScale = Math.min(scaleX, scaleY, 1); // Cap at 1 to not enlarge small images
+
+      setFitScale(newScale);
+    };
+
+    // Calculate on mount and when container resizes
+    calculateScales();
+
+    let resizeObserver = new window.ResizeObserver(calculateScales);
+    if (screenshotContainerRef.current) {
+      resizeObserver.observe(screenshotContainerRef.current);
+    }
+
+    // Also recalculate when images load
+    let images = screenshotContainerRef.current?.querySelectorAll('img') || [];
+    images.forEach(img => img.addEventListener('load', calculateScales));
+
+    return () => {
+      resizeObserver.disconnect();
+      images.forEach(img => img.removeEventListener('load', calculateScales));
+    };
+  }, [imageLoadStates]);
+
+  // Calculate zoom settings
+  // Fit mode: calculates scale to fit image in viewport
+  // Zoom mode: uses specified scale, with scroll panning for oversized images
+  let zoomSettings = useMemo(() => {
+    let isFit = zoom === 'fit';
+    let scale = isFit ? fitScale : typeof zoom === 'number' ? zoom : 1;
+    // When zoomed beyond fit scale, allow the image to overflow and be scrollable
+    let allowsOverflow = !isFit && scale > fitScale;
+
+    return {
+      isFit,
+      scale,
+      allowsOverflow,
+      // Container allows scrolling when zoomed beyond fit (content overflows)
+      containerClass: allowsOverflow ? 'overflow-auto' : 'overflow-hidden',
+    };
+  }, [zoom, fitScale]);
+
+  // Handle image loading errors
+  let handleImageError = useCallback(imageKey => {
+    setImageErrors(prev => new Set([...prev, imageKey]));
+  }, []);
+
+  // Handle image load success
+  let handleImageLoad = useCallback(imageKey => {
+    setImageLoadStates(prev => new Map(prev).set(imageKey, 'loaded'));
+  }, []);
+
+  // Build image URLs from comparison object - no memoization needed, object creation is cheap
+  let imageUrls = comparison
+    ? {
+        current: comparison.current,
+        baseline: comparison.baseline,
+        diff: comparison.diff,
+      }
+    : {};
+
+  // Create a screenshot-like object for the comparison modes
+  let screenshot = useMemo(() => {
+    if (!comparison) return null;
+    return {
+      id: comparison.id || comparison.signature || 'unknown',
+      name: comparison.name || comparison.originalName || 'Screenshot',
+    };
+  }, [comparison]);
+
+  // Render new screenshot - just show current image
+  if (
+    !comparison ||
+    comparison.status === 'new' ||
+    comparison.status === 'baseline-created'
+  ) {
+    return (
+      <div className={`h-full ${className}`}>
+        <div
+          ref={screenshotContainerRef}
+          className={`bg-gray-800 relative h-full ${zoomSettings.containerClass}`}
+          style={{
+            // Checkerboard background for transparency
+            backgroundImage: `
+              linear-gradient(45deg, #1f2937 25%, transparent 25%),
+              linear-gradient(-45deg, #1f2937 25%, transparent 25%),
+              linear-gradient(45deg, transparent 75%, #1f2937 75%),
+              linear-gradient(-45deg, transparent 75%, #1f2937 75%)
+            `,
+            backgroundSize: '16px 16px',
+            backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+            backgroundColor: '#111827',
+          }}
+        >
+          {/* Zoom wrapper - uses transform:scale for overflow scrolling at high zoom */}
+          <div
+            className={`relative ${zoomSettings.allowsOverflow ? 'flex justify-center items-start' : 'min-w-full min-h-full flex justify-center items-center'}`}
+            style={{
+              ...(zoomSettings.allowsOverflow
+                ? {
+                    minWidth: naturalImageSize.width * zoomSettings.scale + 40,
+                    minHeight:
+                      naturalImageSize.height * zoomSettings.scale + 40,
+                    padding: '20px',
+                  }
+                : {
+                    zoom: zoomSettings.scale,
+                    padding: '20px',
+                  }),
+            }}
+          >
+            {/* Image wrapper - inline-block shrinks to fit image */}
+            <div
+              ref={zoomWrapperRef}
+              className="relative inline-block"
+              style={
+                zoomSettings.allowsOverflow
+                  ? {
+                      transform: `scale(${zoomSettings.scale})`,
+                      transformOrigin: 'top center',
+                    }
+                  : {}
+              }
+            >
+              {comparison && (
+                <img
+                  src={comparison.current}
+                  alt={comparison.name || 'New screenshot'}
+                  className="block"
+                  onLoad={() => handleImageLoad(`current-${screenshot?.id}`)}
+                  onError={() => handleImageError(`current-${screenshot?.id}`)}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Loading/Error States */}
+          {!disableLoadingOverlay &&
+            comparison &&
+            !imageLoadStates.has(`current-${screenshot?.id}`) && (
+              <div className="absolute inset-0 bg-gray-700 animate-pulse flex items-center justify-center">
+                <div className="text-gray-400">Loading...</div>
+              </div>
+            )}
+
+          {comparison && imageErrors.has(`current-${screenshot?.id}`) && (
+            <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
+              <div className="text-center text-gray-400">
+                <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2" />
+                <div className="text-sm">Failed to load image</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Render comparison view
+  return (
+    <div className={`h-full ${className}`}>
+      <div
+        ref={screenshotContainerRef}
+        className={`bg-gray-800 relative unified-screenshot-container h-full ${zoomSettings.containerClass}`}
+        style={{
+          // Checkerboard background for transparency
+          backgroundImage: `
+            linear-gradient(45deg, #1f2937 25%, transparent 25%),
+            linear-gradient(-45deg, #1f2937 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #1f2937 75%),
+            linear-gradient(-45deg, transparent 75%, #1f2937 75%)
+          `,
+          backgroundSize: '16px 16px',
+          backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+          backgroundColor: '#111827',
+        }}
+      >
+        {/* Zoom wrapper - contains images so they scale together */}
+        {/* When zoomed beyond fit, use transform:scale with explicit wrapper sizing for overflow */}
+        <div
+          className={`relative ${zoomSettings.allowsOverflow ? 'flex justify-center items-start' : 'min-w-full min-h-full flex justify-center items-center'}`}
+          style={{
+            ...(zoomSettings.allowsOverflow
+              ? {
+                  // When overflowing, provide minimum dimensions so scrolling works
+                  minWidth: naturalImageSize.width * zoomSettings.scale + 40,
+                  minHeight: naturalImageSize.height * zoomSettings.scale + 40,
+                  padding: '20px',
+                }
+              : {
+                  // When fitting, use CSS zoom for simple scaling
+                  zoom: zoomSettings.scale,
+                  padding: '20px',
+                }),
+          }}
+        >
+          {/* Image wrapper - keeps content positioned relative to image */}
+          <div
+            ref={zoomWrapperRef}
+            className="relative inline-block"
+            style={
+              zoomSettings.allowsOverflow
+                ? {
+                    transform: `scale(${zoomSettings.scale})`,
+                    transformOrigin: 'top center',
+                  }
+                : {}
+            }
+          >
+            {/* Render appropriate comparison mode */}
+            {viewMode === 'toggle' && imageUrls.baseline ? (
+              <ToggleView
+                baselineImageUrl={imageUrls.baseline}
+                currentImageUrl={imageUrls.current}
+                screenshot={screenshot}
+                onImageError={handleImageError}
+                onImageLoad={handleImageLoad}
+                imageErrors={imageErrors}
+              />
+            ) : viewMode === 'onion-skin' && imageUrls.baseline ? (
+              <OnionSkinMode
+                baselineImageUrl={imageUrls.baseline}
+                currentImageUrl={imageUrls.current}
+                sliderPosition={onionSkinPosition}
+                onSliderChange={onOnionSkinChange}
+                screenshot={screenshot}
+                onImageError={handleImageError}
+                onImageLoad={handleImageLoad}
+                imageErrors={imageErrors}
+              />
+            ) : (
+              <OverlayMode
+                baselineImageUrl={imageUrls.baseline}
+                currentImageUrl={imageUrls.current}
+                diffImageUrl={imageUrls.diff}
+                showDiffOverlay={showDiffOverlay}
+                screenshot={screenshot}
+                onImageError={handleImageError}
+                onImageLoad={handleImageLoad}
+                imageErrors={imageErrors}
+                onDiffToggle={onDiffToggle}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Global Loading/Error States */}
+        {!disableLoadingOverlay &&
+          !imageLoadStates.has(`current-${screenshot?.id}`) && (
+            <div className="absolute inset-0 bg-gray-700 animate-pulse flex items-center justify-center">
+              <div className="text-gray-400">Loading...</div>
+            </div>
+          )}
+
+        {imageErrors.has(`current-${screenshot?.id}`) && (
+          <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
+            <div className="text-center text-gray-400">
+              <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2" />
+              <div className="text-sm">Failed to load image</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

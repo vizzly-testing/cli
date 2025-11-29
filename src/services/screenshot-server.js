@@ -5,11 +5,11 @@
 
 import { createServer } from 'http';
 import { VizzlyError } from '../errors/vizzly-error.js';
+import * as output from '../utils/output.js';
 
 export class ScreenshotServer {
-  constructor(config, logger, buildManager) {
+  constructor(config, buildManager) {
     this.config = config;
-    this.logger = logger;
     this.buildManager = buildManager;
     this.server = null;
   }
@@ -26,7 +26,7 @@ export class ScreenshotServer {
             )
           );
         } else {
-          this.logger.info(
+          output.info(
             `Screenshot server listening on http://127.0.0.1:${this.config.server.port}`
           );
           resolve();
@@ -39,7 +39,7 @@ export class ScreenshotServer {
     if (this.server) {
       return new Promise(resolve => {
         this.server.close(() => {
-          this.logger.info('Screenshot server stopped');
+          output.info('Screenshot server stopped');
           resolve();
         });
       });
@@ -70,7 +70,7 @@ export class ScreenshotServer {
         res.statusCode = 200;
         res.end(JSON.stringify({ success: true }));
       } catch (error) {
-        this.logger.error('Failed to process screenshot:', error);
+        output.error('Failed to process screenshot:', error);
         res.statusCode = 500;
         res.end(JSON.stringify({ error: 'Internal server error' }));
       }

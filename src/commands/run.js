@@ -1,5 +1,5 @@
 import { loadConfig } from '../utils/config-loader.js';
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { createServices } from '../services/index.js';
 import {
   detectBranch,
@@ -20,8 +20,7 @@ export async function runCommand(
   options = {},
   globalOptions = {}
 ) {
-  // Create UI handler
-  const ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -33,8 +32,8 @@ export async function runCommand(
   let isTddMode = false;
 
   // Ensure cleanup on exit
-  const cleanup = async () => {
-    ui.cleanup();
+  let cleanup = async () => {
+    output.cleanup();
 
     // Cancel test runner (kills process and stops server)
     if (testRunner) {
@@ -48,7 +47,7 @@ export async function runCommand(
     // Finalize build if we have one
     if (testRunner && buildId) {
       try {
-        const executionTime = Date.now() - (startTime || Date.now());
+        let executionTime = Date.now() - (startTime || Date.now());
         await testRunner.finalizeBuild(
           buildId,
           isTddMode,
@@ -61,42 +60,36 @@ export async function runCommand(
     }
   };
 
-  const sigintHandler = async () => {
+  let sigintHandler = async () => {
     await cleanup();
     process.exit(1);
   };
 
-  const exitHandler = () => ui.cleanup();
+  let exitHandler = () => output.cleanup();
 
   process.on('SIGINT', sigintHandler);
   process.on('exit', exitHandler);
 
   try {
     // Load configuration with CLI overrides
-    const allOptions = { ...globalOptions, ...options };
+    let allOptions = { ...globalOptions, ...options };
 
-    // Debug: Check options before loadConfig
-    if (process.env.DEBUG_CONFIG) {
-      console.log(
-        '[RUN] allOptions.token:',
-        allOptions.token ? allOptions.token.substring(0, 8) + '***' : 'NONE'
-      );
-    }
+    output.debug('[RUN] Loading config', {
+      hasToken: !!allOptions.token,
+    });
 
-    const config = await loadConfig(globalOptions.config, allOptions);
+    let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Debug: Check config immediately after loadConfig
-    if (process.env.DEBUG_CONFIG) {
-      console.log('[RUN] Config after loadConfig:', {
-        hasApiKey: !!config.apiKey,
-        apiKeyPrefix: config.apiKey
-          ? config.apiKey.substring(0, 8) + '***'
-          : 'NONE',
-      });
-    }
+    output.debug('[RUN] Config loaded', {
+      hasApiKey: !!config.apiKey,
+      apiKeyPrefix: config.apiKey
+        ? config.apiKey.substring(0, 8) + '***'
+        : 'NONE',
+    });
 
     if (globalOptions.verbose) {
-      ui.info('Token check:', {
+      output.info('Token check:');
+      output.debug('Token details', {
         hasApiKey: !!config.apiKey,
         apiKeyType: typeof config.apiKey,
         apiKeyPrefix:
@@ -110,21 +103,22 @@ export async function runCommand(
 
     // Validate API token (unless --allow-no-token is set)
     if (!config.apiKey && !config.allowNoToken) {
-      ui.error(
+      output.error(
         'API token required. Use --token, set VIZZLY_TOKEN environment variable, or use --allow-no-token to run without uploading'
       );
-      return;
+      process.exit(1);
     }
 
     // Collect git metadata and build info
-    const branch = await detectBranch(options.branch);
-    const commit = await detectCommit(options.commit);
-    const message = options.message || (await detectCommitMessage());
-    const buildName = await generateBuildNameWithGit(options.buildName);
-    const pullRequestNumber = detectPullRequestNumber();
+    let branch = await detectBranch(options.branch);
+    let commit = await detectCommit(options.commit);
+    let message = options.message || (await detectCommitMessage());
+    let buildName = await generateBuildNameWithGit(options.buildName);
+    let pullRequestNumber = detectPullRequestNumber();
 
     if (globalOptions.verbose) {
-      ui.info('Configuration loaded', {
+      output.info('Configuration loaded');
+      output.debug('Config details', {
         testCommand,
         port: config.server.port,
         timeout: config.server.timeout,
@@ -138,86 +132,77 @@ export async function runCommand(
     }
 
     // Create service container and get test runner service
-    ui.startSpinner('Initializing test runner...');
-    const configWithVerbose = {
+    output.startSpinner('Initializing test runner...');
+    let configWithVerbose = {
       ...config,
       verbose: globalOptions.verbose,
       uploadAll: options.uploadAll || false,
     };
 
-    // Debug: Check config before creating container
-    if (process.env.DEBUG_CONFIG) {
-      console.log('[RUN] Config before container:', {
-        hasApiKey: !!configWithVerbose.apiKey,
-        apiKeyPrefix: configWithVerbose.apiKey
-          ? configWithVerbose.apiKey.substring(0, 8) + '***'
-          : 'NONE',
-      });
-    }
+    output.debug('[RUN] Creating services', {
+      hasApiKey: !!configWithVerbose.apiKey,
+    });
 
     let services = createServices(configWithVerbose, 'run');
     testRunner = services.testRunner;
-    ui.stopSpinner();
+    output.stopSpinner();
 
     // Track build URL for display
     let buildUrl = null;
 
     // Set up event handlers
     testRunner.on('progress', progressData => {
-      const { message: progressMessage } = progressData;
-      ui.progress(progressMessage || 'Running tests...');
+      let { message: progressMessage } = progressData;
+      output.progress(progressMessage || 'Running tests...');
     });
 
-    testRunner.on('test-output', output => {
+    testRunner.on('test-output', data => {
       // In non-JSON mode, show test output directly
       if (!globalOptions.json) {
-        ui.stopSpinner();
-        console.log(output.data);
+        output.stopSpinner();
+        output.print(data.data);
       }
     });
 
     testRunner.on('server-ready', serverInfo => {
       if (globalOptions.verbose) {
-        ui.info(`Screenshot server running on port ${serverInfo.port}`);
-        ui.info('Server details', serverInfo);
+        output.info(`Screenshot server running on port ${serverInfo.port}`);
+        output.debug('Server details', serverInfo);
       }
     });
 
     testRunner.on('screenshot-captured', screenshotInfo => {
-      // Use UI for consistent formatting
-      ui.info(`Vizzly: Screenshot captured - ${screenshotInfo.name}`);
+      output.info(`Vizzly: Screenshot captured - ${screenshotInfo.name}`);
     });
 
     testRunner.on('build-created', buildInfo => {
       buildUrl = buildInfo.url;
       buildId = buildInfo.buildId;
-      // Debug: Log build creation details
       if (globalOptions.verbose) {
-        ui.info(`Build created: ${buildInfo.buildId} - ${buildInfo.name}`);
+        output.info(`Build created: ${buildInfo.buildId} - ${buildInfo.name}`);
       }
-      // Use UI for consistent formatting
       if (buildUrl) {
-        ui.info(`Vizzly: ${buildUrl}`);
+        output.info(`Vizzly: ${buildUrl}`);
       }
     });
 
     testRunner.on('build-failed', buildError => {
-      ui.error('Failed to create build', buildError);
+      output.error('Failed to create build', buildError);
     });
 
     testRunner.on('error', error => {
-      ui.stopSpinner(); // Stop spinner to ensure error is visible
-      ui.error('Test runner error occurred', error, 0); // Don't exit immediately, let runner handle it
+      output.stopSpinner();
+      output.error('Test runner error occurred', error);
     });
 
     testRunner.on('build-finalize-failed', errorInfo => {
-      ui.warning(
+      output.warn(
         `Failed to finalize build ${errorInfo.buildId}: ${errorInfo.error}`
       );
     });
 
     // Prepare run options
-    const runOptions = {
+    let runOptions = {
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
@@ -236,7 +221,7 @@ export async function runCommand(
     };
 
     // Start test run
-    ui.info('Starting test execution...');
+    output.info('Starting test execution...');
     startTime = Date.now();
     isTddMode = runOptions.tdd || false;
 
@@ -249,20 +234,20 @@ export async function runCommand(
         buildId = result.buildId;
       }
 
-      ui.success('Test run completed successfully');
+      output.success('Test run completed successfully');
 
       // Show Vizzly summary
       if (result.buildId) {
-        console.log(
+        output.print(
           `🐻 Vizzly: Captured ${result.screenshotsCaptured} screenshots in build ${result.buildId}`
         );
         if (result.url) {
-          console.log(`🔗 Vizzly: View results at ${result.url}`);
+          output.print(`🔗 Vizzly: View results at ${result.url}`);
         }
       }
     } catch (error) {
       // Test execution failed - build should already be finalized by test runner
-      ui.stopSpinner();
+      output.stopSpinner();
 
       // Check if it's a test command failure (as opposed to setup failure)
       if (
@@ -270,14 +255,14 @@ export async function runCommand(
         error.code === 'TEST_COMMAND_INTERRUPTED'
       ) {
         // Extract exit code from error message if available
-        const exitCodeMatch = error.message.match(/exited with code (\d+)/);
-        const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
+        let exitCodeMatch = error.message.match(/exited with code (\d+)/);
+        let exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
 
-        ui.error('Test run failed');
+        output.error('Test run failed');
         return { success: false, exitCode };
       } else {
         // Setup or other error - VizzlyError.getUserMessage() provides context
-        ui.error('Test run failed', error);
+        output.error('Test run failed', error);
         return { success: false, exitCode: 1 };
       }
     }
@@ -286,30 +271,27 @@ export async function runCommand(
     if (result.buildId) {
       // Wait for build completion if requested
       if (runOptions.wait) {
-        ui.info('Waiting for build completion...');
-        ui.startSpinner('Processing comparisons...');
+        output.info('Waiting for build completion...');
+        output.startSpinner('Processing comparisons...');
 
         let { uploader } = services;
-        const buildResult = await uploader.waitForBuild(result.buildId);
+        let buildResult = await uploader.waitForBuild(result.buildId);
 
-        ui.success('Build processing completed');
+        output.success('Build processing completed');
 
         // Exit with appropriate code based on comparison results
         if (buildResult.failedComparisons > 0) {
-          ui.error(
-            `${buildResult.failedComparisons} visual comparisons failed`,
-            {},
-            0
+          output.error(
+            `${buildResult.failedComparisons} visual comparisons failed`
           );
-          // Return error status without calling process.exit in tests
           return { success: false, exitCode: 1 };
         }
       }
     }
 
-    ui.cleanup();
+    output.cleanup();
   } catch (error) {
-    ui.stopSpinner(); // Ensure spinner is stopped before showing error
+    output.stopSpinner();
 
     // Provide more context about where the error occurred
     let errorContext = 'Test run failed';
@@ -321,7 +303,8 @@ export async function runCommand(
       errorContext = 'Server startup failed';
     }
 
-    ui.error(errorContext, error);
+    output.error(errorContext, error);
+    process.exit(1);
   } finally {
     // Remove event listeners to prevent memory leaks
     process.removeListener('SIGINT', sigintHandler);
@@ -335,35 +318,35 @@ export async function runCommand(
  * @param {Object} options - Command options
  */
 export function validateRunOptions(testCommand, options) {
-  const errors = [];
+  let errors = [];
 
   if (!testCommand || testCommand.trim() === '') {
     errors.push('Test command is required');
   }
 
   if (options.port) {
-    const port = parseInt(options.port, 10);
+    let port = parseInt(options.port, 10);
     if (isNaN(port) || port < 1 || port > 65535) {
       errors.push('Port must be a valid number between 1 and 65535');
     }
   }
 
   if (options.timeout) {
-    const timeout = parseInt(options.timeout, 10);
+    let timeout = parseInt(options.timeout, 10);
     if (isNaN(timeout) || timeout < 1000) {
       errors.push('Timeout must be at least 1000 milliseconds');
     }
   }
 
   if (options.batchSize !== undefined) {
-    const n = parseInt(options.batchSize, 10);
+    let n = parseInt(options.batchSize, 10);
     if (!Number.isFinite(n) || n <= 0) {
       errors.push('Batch size must be a positive integer');
     }
   }
 
   if (options.uploadTimeout !== undefined) {
-    const n = parseInt(options.uploadTimeout, 10);
+    let n = parseInt(options.uploadTimeout, 10);
     if (!Number.isFinite(n) || n <= 0) {
       errors.push('Upload timeout must be a positive integer (milliseconds)');
     }

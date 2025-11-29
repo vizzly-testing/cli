@@ -226,7 +226,7 @@ describe('CLI Options Integration', () => {
       // Should succeed and show test output
       expect(result.code).toBe(0);
       expect(result.stderr).not.toContain('invalid port');
-      expect(result.stdout).toContain('Test run completed successfully');
+      expect(result.stderr).toContain('Test run completed successfully');
     });
 
     it('should successfully run command with --allow-no-token', async () => {
@@ -238,7 +238,7 @@ describe('CLI Options Integration', () => {
       );
 
       expect(result.code).toBe(0);
-      expect(result.stdout).toContain('Test run completed successfully');
+      expect(result.stderr).toContain('Test run completed successfully');
     });
 
     it('should fail when test command fails', async () => {
@@ -282,7 +282,7 @@ describe('CLI Options Integration', () => {
 
       // Should not have CLI errors - may fail during execution
       expect(result.stderr).not.toContain('error: unknown');
-      expect(result.stdout).toContain('Running in local');
+      expect(result.stderr).toContain('vizzly · tdd');
     });
 
     it('should handle port option parsing', async () => {
@@ -373,13 +373,14 @@ describe('CLI Options Integration', () => {
       const result = await runCLI(['doctor']);
 
       expect(result.code).toBe(0);
+      // info() goes to stdout, success() goes to stderr
       expect(result.stdout).toContain(
         'Running Vizzly preflight (local checks only)...'
       );
-      expect(result.stdout).toContain('API URL');
+      expect(result.stderr).toContain('API URL');
       expect(result.stdout).toContain('Effective port');
-      expect(result.stdout).toContain('Threshold');
-      expect(result.stdout).toContain('Preflight passed.');
+      expect(result.stderr).toContain('Threshold');
+      expect(result.stderr).toContain('Preflight passed.');
     });
 
     it('should fail when using --api flag without a token', async () => {

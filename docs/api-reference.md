@@ -676,7 +676,6 @@ Configuration loaded via cosmiconfig in this order:
 
 **Core Configuration:**
 - `VIZZLY_API_URL` - API base URL override (default: `https://app.vizzly.dev`)
-- `VIZZLY_LOG_LEVEL` - Logger level (`debug`, `info`, `warn`, `error`)
 
 **Parallel Builds:**
 - `VIZZLY_PARALLEL_ID` - Unique identifier for parallel test execution

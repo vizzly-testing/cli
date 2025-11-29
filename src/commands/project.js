@@ -3,7 +3,7 @@
  * Select, list, and manage project tokens
  */
 
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { AuthService } from '../services/auth-service.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import {
@@ -22,7 +22,7 @@ import readline from 'readline';
  * @param {Object} globalOptions - Global CLI options
  */
 export async function projectSelectCommand(options = {}, globalOptions = {}) {
-  let ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -32,9 +32,9 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     // Check authentication
     let auth = await getAuthTokens();
     if (!auth || !auth.accessToken) {
-      ui.error('Not authenticated', null, 0);
-      console.log(''); // Empty line for spacing
-      ui.info('Run "vizzly login" to authenticate first');
+      output.error('Not authenticated');
+      output.blank();
+      output.info('Run "vizzly login" to authenticate first');
       process.exit(1);
     }
 
@@ -43,27 +43,27 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     });
 
     // Get user info to show organizations
-    ui.startSpinner('Fetching organizations...');
+    output.startSpinner('Fetching organizations...');
     let userInfo = await authService.whoami();
-    ui.stopSpinner();
+    output.stopSpinner();
 
     if (!userInfo.organizations || userInfo.organizations.length === 0) {
-      ui.error('No organizations found', null, 0);
-      console.log(''); // Empty line for spacing
-      ui.info('Create an organization at https://vizzly.dev');
+      output.error('No organizations found');
+      output.blank();
+      output.info('Create an organization at https://vizzly.dev');
       process.exit(1);
     }
 
     // Select organization
-    console.log(''); // Empty line for spacing
-    ui.info('Select an organization:');
-    console.log(''); // Empty line for spacing
+    output.blank();
+    output.info('Select an organization:');
+    output.blank();
 
     userInfo.organizations.forEach((org, index) => {
-      console.log(`  ${index + 1}. ${org.name} (@${org.slug})`);
+      output.print(`  ${index + 1}. ${org.name} (@${org.slug})`);
     });
 
-    console.log(''); // Empty line for spacing
+    output.blank();
     let orgChoice = await promptNumber(
       'Enter number',
       1,
@@ -72,7 +72,7 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     let selectedOrg = userInfo.organizations[orgChoice - 1];
 
     // List projects for organization
-    ui.startSpinner(`Fetching projects for ${selectedOrg.name}...`);
+    output.startSpinner(`Fetching projects for ${selectedOrg.name}...`);
 
     let response = await makeAuthenticatedRequest(
       `${options.apiUrl || getApiUrl()}/api/project`,
@@ -84,33 +84,35 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
       }
     );
 
-    ui.stopSpinner();
+    output.stopSpinner();
 
     // Handle both array response and object with projects property
     let projects = Array.isArray(response) ? response : response.projects || [];
 
     if (projects.length === 0) {
-      ui.error('No projects found', null, 0);
-      console.log(''); // Empty line for spacing
-      ui.info(`Create a project in ${selectedOrg.name} at https://vizzly.dev`);
+      output.error('No projects found');
+      output.blank();
+      output.info(
+        `Create a project in ${selectedOrg.name} at https://vizzly.dev`
+      );
       process.exit(1);
     }
 
     // Select project
-    console.log(''); // Empty line for spacing
-    ui.info('Select a project:');
-    console.log(''); // Empty line for spacing
+    output.blank();
+    output.info('Select a project:');
+    output.blank();
 
     projects.forEach((project, index) => {
-      console.log(`  ${index + 1}. ${project.name} (${project.slug})`);
+      output.print(`  ${index + 1}. ${project.name} (${project.slug})`);
     });
 
-    console.log(''); // Empty line for spacing
+    output.blank();
     let projectChoice = await promptNumber('Enter number', 1, projects.length);
     let selectedProject = projects[projectChoice - 1];
 
     // Create API token for project
-    ui.startSpinner(`Creating API token for ${selectedProject.name}...`);
+    output.startSpinner(`Creating API token for ${selectedProject.name}...`);
 
     let tokenResponse = await makeAuthenticatedRequest(
       `${options.apiUrl || getApiUrl()}/api/project/${selectedProject.slug}/tokens`,
@@ -128,7 +130,7 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
       }
     );
 
-    ui.stopSpinner();
+    output.stopSpinner();
 
     // Save project mapping
     let currentDir = resolve(process.cwd());
@@ -139,20 +141,16 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
       organizationSlug: selectedOrg.slug,
     });
 
-    ui.success('Project configured!');
-    console.log(''); // Empty line for spacing
-    ui.info(`Project: ${selectedProject.name}`);
-    ui.info(`Organization: ${selectedOrg.name}`);
-    ui.info(`Directory: ${currentDir}`);
+    output.success('Project configured!');
+    output.blank();
+    output.info(`Project: ${selectedProject.name}`);
+    output.info(`Organization: ${selectedOrg.name}`);
+    output.info(`Directory: ${currentDir}`);
 
-    ui.cleanup();
+    output.cleanup();
   } catch (error) {
-    ui.stopSpinner();
-    ui.error('Failed to configure project', error, 0);
-    if (globalOptions.verbose && error.stack) {
-      console.error(''); // Empty line for spacing
-      console.error(error.stack);
-    }
+    output.stopSpinner();
+    output.error('Failed to configure project', error);
     process.exit(1);
   }
 }
@@ -163,7 +161,7 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
  * @param {Object} globalOptions - Global CLI options
  */
 export async function projectListCommand(_options = {}, globalOptions = {}) {
-  let ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -174,21 +172,21 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
     let paths = Object.keys(mappings);
 
     if (paths.length === 0) {
-      ui.info('No projects configured');
-      console.log(''); // Empty line for spacing
-      ui.info('Run "vizzly project:select" to configure a project');
-      ui.cleanup();
+      output.info('No projects configured');
+      output.blank();
+      output.info('Run "vizzly project:select" to configure a project');
+      output.cleanup();
       return;
     }
 
     if (globalOptions.json) {
-      ui.data(mappings);
-      ui.cleanup();
+      output.data(mappings);
+      output.cleanup();
       return;
     }
 
-    ui.info('Configured projects:');
-    console.log(''); // Empty line for spacing
+    output.info('Configured projects:');
+    output.blank();
 
     let currentDir = resolve(process.cwd());
 
@@ -203,25 +201,23 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
           ? mapping.token
           : mapping.token?.token || '[invalid token]';
 
-      console.log(`${marker} ${path}`);
-      console.log(`  Project: ${mapping.projectName} (${mapping.projectSlug})`);
-      console.log(`  Organization: ${mapping.organizationSlug}`);
+      output.print(`${marker} ${path}`);
+      output.print(
+        `  Project: ${mapping.projectName} (${mapping.projectSlug})`
+      );
+      output.print(`  Organization: ${mapping.organizationSlug}`);
       if (globalOptions.verbose) {
-        console.log(`  Token: ${tokenStr.substring(0, 20)}...`);
-        console.log(
+        output.print(`  Token: ${tokenStr.substring(0, 20)}...`);
+        output.print(
           `  Created: ${new Date(mapping.createdAt).toLocaleString()}`
         );
       }
-      console.log(''); // Empty line for spacing
+      output.blank();
     }
 
-    ui.cleanup();
+    output.cleanup();
   } catch (error) {
-    ui.error('Failed to list projects', error, 0);
-    if (globalOptions.verbose && error.stack) {
-      console.error(''); // Empty line for spacing
-      console.error(error.stack);
-    }
+    output.error('Failed to list projects', error);
     process.exit(1);
   }
 }
@@ -232,7 +228,7 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
  * @param {Object} globalOptions - Global CLI options
  */
 export async function projectTokenCommand(_options = {}, globalOptions = {}) {
-  let ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -243,9 +239,9 @@ export async function projectTokenCommand(_options = {}, globalOptions = {}) {
     let mapping = await getProjectMapping(currentDir);
 
     if (!mapping) {
-      ui.error('No project configured for this directory', null, 0);
-      console.log(''); // Empty line for spacing
-      ui.info('Run "vizzly project:select" to configure a project');
+      output.error('No project configured for this directory');
+      output.blank();
+      output.info('Run "vizzly project:select" to configure a project');
       process.exit(1);
     }
 
@@ -256,29 +252,25 @@ export async function projectTokenCommand(_options = {}, globalOptions = {}) {
         : mapping.token?.token || '[invalid token]';
 
     if (globalOptions.json) {
-      ui.data({
+      output.data({
         token: tokenStr,
         projectSlug: mapping.projectSlug,
         organizationSlug: mapping.organizationSlug,
       });
-      ui.cleanup();
+      output.cleanup();
       return;
     }
 
-    ui.info('Project token:');
-    console.log(''); // Empty line for spacing
-    console.log(`  ${tokenStr}`);
-    console.log(''); // Empty line for spacing
-    ui.info(`Project: ${mapping.projectName} (${mapping.projectSlug})`);
-    ui.info(`Organization: ${mapping.organizationSlug}`);
+    output.info('Project token:');
+    output.blank();
+    output.print(`  ${tokenStr}`);
+    output.blank();
+    output.info(`Project: ${mapping.projectName} (${mapping.projectSlug})`);
+    output.info(`Organization: ${mapping.organizationSlug}`);
 
-    ui.cleanup();
+    output.cleanup();
   } catch (error) {
-    ui.error('Failed to get project token', error, 0);
-    if (globalOptions.verbose && error.stack) {
-      console.error(''); // Empty line for spacing
-      console.error(error.stack);
-    }
+    output.error('Failed to get project token', error);
     process.exit(1);
   }
 }
@@ -319,7 +311,7 @@ function promptNumber(message, min, max) {
       rl.question(`${message} (${min}-${max}): `, answer => {
         let num = parseInt(answer, 10);
         if (isNaN(num) || num < min || num > max) {
-          console.log(`Please enter a number between ${min} and ${max}`);
+          output.print(`Please enter a number between ${min} and ${max}`);
           ask();
         } else {
           rl.close();
@@ -338,7 +330,7 @@ function promptNumber(message, min, max) {
  * @param {Object} globalOptions - Global CLI options
  */
 export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
-  let ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -349,40 +341,36 @@ export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
     let mapping = await getProjectMapping(currentDir);
 
     if (!mapping) {
-      ui.info('No project configured for this directory');
-      ui.cleanup();
+      output.info('No project configured for this directory');
+      output.cleanup();
       return;
     }
 
     // Confirm removal
-    console.log(''); // Empty line for spacing
-    ui.info('Current project configuration:');
-    console.log(`  Project: ${mapping.projectName} (${mapping.projectSlug})`);
-    console.log(`  Organization: ${mapping.organizationSlug}`);
-    console.log(`  Directory: ${currentDir}`);
-    console.log(''); // Empty line for spacing
+    output.blank();
+    output.info('Current project configuration:');
+    output.print(`  Project: ${mapping.projectName} (${mapping.projectSlug})`);
+    output.print(`  Organization: ${mapping.organizationSlug}`);
+    output.print(`  Directory: ${currentDir}`);
+    output.blank();
 
     let confirmed = await promptConfirm('Remove this project configuration?');
 
     if (!confirmed) {
-      ui.info('Cancelled');
-      ui.cleanup();
+      output.info('Cancelled');
+      output.cleanup();
       return;
     }
 
     await deleteProjectMapping(currentDir);
 
-    ui.success('Project configuration removed');
-    console.log(''); // Empty line for spacing
-    ui.info('Run "vizzly project:select" to configure a different project');
+    output.success('Project configuration removed');
+    output.blank();
+    output.info('Run "vizzly project:select" to configure a different project');
 
-    ui.cleanup();
+    output.cleanup();
   } catch (error) {
-    ui.error('Failed to remove project configuration', error, 0);
-    if (globalOptions.verbose && error.stack) {
-      console.error(''); // Empty line for spacing
-      console.error(error.stack);
-    }
+    output.error('Failed to remove project configuration', error);
     process.exit(1);
   }
 }

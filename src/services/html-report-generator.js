@@ -7,9 +7,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, relative, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createServiceLogger } from '../utils/logger-factory.js';
-
-const logger = createServiceLogger('HTML-REPORT');
+import * as output from '../utils/output.js';
 
 export class HtmlReportGenerator {
   constructor(workingDir, config) {
@@ -106,10 +104,12 @@ export class HtmlReportGenerator {
 
       await writeFile(this.reportPath, htmlContent, 'utf8');
 
-      logger.debug(`HTML report generated: ${this.reportPath}`);
+      output.debug('report', 'generated html report');
       return this.reportPath;
     } catch (error) {
-      logger.error(`Failed to generate HTML report: ${error.message}`);
+      output.debug('report', 'html generation failed', {
+        error: error.message,
+      });
       throw new Error(`Report generation failed: ${error.message}`);
     }
   }
@@ -121,7 +121,7 @@ export class HtmlReportGenerator {
    */
   processComparison(comparison) {
     if (!comparison || typeof comparison !== 'object') {
-      logger.warn('Invalid comparison object provided');
+      output.warn('Invalid comparison object provided');
       return null;
     }
 

@@ -217,8 +217,8 @@ describe('TDD Command Integration', () => {
       // The TDD command should start - may fail in execution but shouldn't have CLI errors
       expect(result.stderr).not.toContain('error: unknown');
       expect(result.stderr).not.toContain('missing required argument');
-      // Should show it's starting TDD mode
-      expect(result.stdout).toContain('Running in local');
+      // Should show it completed (new output format shows result)
+      expect(result.stderr).toContain('vizzly · tdd');
     });
   });
 

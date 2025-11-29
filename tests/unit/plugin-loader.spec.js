@@ -1,27 +1,31 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
+
+// Mock output module
+vi.mock('../../src/utils/output.js', () => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+
 import { loadPlugins } from '../../src/plugin-loader.js';
+import * as output from '../../src/utils/output.js';
 
 describe('Plugin Loader', () => {
-  let mockLogger;
   let testDir;
 
   beforeEach(() => {
-    // Create mock logger
-    mockLogger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    };
-
     // Create test directory
     testDir = join(process.cwd(), 'test-plugins-' + Date.now());
     mkdirSync(testDir, { recursive: true });
 
-    // Save original cwd
+    // Mock cwd to point to test directory
     vi.spyOn(process, 'cwd').mockReturnValue(testDir);
+
+    // Clear mock calls
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -73,7 +77,7 @@ describe('Plugin Loader', () => {
 
       // Load plugins
       let config = { plugins: [] };
-      let plugins = await loadPlugins(null, config, mockLogger);
+      let plugins = await loadPlugins(null, config);
 
       expect(plugins).toHaveLength(1);
       expect(plugins[0].name).toBe('test-plugin');
@@ -101,7 +105,7 @@ describe('Plugin Loader', () => {
       );
 
       let config = { plugins: [] };
-      let plugins = await loadPlugins(null, config, mockLogger);
+      let plugins = await loadPlugins(null, config);
 
       expect(plugins).toHaveLength(0);
     });
@@ -129,10 +133,10 @@ describe('Plugin Loader', () => {
       );
 
       let config = { plugins: [] };
-      let plugins = await loadPlugins(null, config, mockLogger);
+      let plugins = await loadPlugins(null, config);
 
       expect(plugins).toHaveLength(0);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect(output.warn).toHaveBeenCalledWith(
         expect.stringContaining('Invalid plugin path')
       );
     });
@@ -179,7 +183,7 @@ describe('Plugin Loader', () => {
       );
 
       let config = { plugins: [] };
-      let plugins = await loadPlugins(null, config, mockLogger);
+      let plugins = await loadPlugins(null, config);
 
       expect(plugins).toHaveLength(2);
       expect(plugins.map(p => p.name).sort()).toEqual(['plugin-1', 'plugin-2']);
@@ -202,7 +206,7 @@ describe('Plugin Loader', () => {
         plugins: ['./custom-plugin.js'],
       };
 
-      let plugins = await loadPlugins(configFilePath, config, mockLogger);
+      let plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(1);
       expect(plugins[0].name).toBe('custom');
@@ -215,10 +219,10 @@ describe('Plugin Loader', () => {
         plugins: ['./non-existent-plugin.js'],
       };
 
-      let plugins = await loadPlugins(configFilePath, config, mockLogger);
+      let plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(0);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect(output.warn).toHaveBeenCalledWith(
         expect.stringContaining('Failed to load plugin')
       );
     });
@@ -251,11 +255,11 @@ describe('Plugin Loader', () => {
         plugins: ['@vizzly-testing/test-plugin'],
       };
 
-      let plugins = await loadPlugins(null, config, mockLogger);
+      let plugins = await loadPlugins(null, config);
 
       // Should only load once
       expect(plugins).toHaveLength(1);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect(output.warn).toHaveBeenCalledWith(
         expect.stringContaining('already loaded')
       );
     });
@@ -268,12 +272,10 @@ describe('Plugin Loader', () => {
 
       let configFilePath = join(testDir, 'vizzly.config.js');
       let config = { plugins: ['./no-name.js'] };
-      let plugins = await loadPlugins(configFilePath, config, mockLogger);
+      let plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(0);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('name:')
-      );
+      expect(output.warn).toHaveBeenCalledWith(expect.stringContaining('name'));
     });
 
     it('should validate plugin has required register function', async () => {
@@ -282,11 +284,11 @@ describe('Plugin Loader', () => {
 
       let configFilePath = join(testDir, 'vizzly.config.js');
       let config = { plugins: ['./no-register.js'] };
-      let plugins = await loadPlugins(configFilePath, config, mockLogger);
+      let plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(0);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('register:')
+      expect(output.warn).toHaveBeenCalledWith(
+        expect.stringContaining('register')
       );
     });
 
@@ -299,7 +301,7 @@ describe('Plugin Loader', () => {
 
       let configFilePath = join(testDir, 'vizzly.config.js');
       let config = { plugins: ['./no-version.js'] };
-      let plugins = await loadPlugins(configFilePath, config, mockLogger);
+      let plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(1);
       expect(plugins[0].name).toBe('test');

@@ -7,7 +7,7 @@ import { glob } from 'glob';
 import { readFile, stat } from 'fs/promises';
 import { basename } from 'path';
 import crypto from 'crypto';
-import { createUploaderLogger } from '../utils/logger-factory.js';
+import * as output from '../utils/output.js';
 import { ApiService } from './api-service.js';
 
 import { getDefaultBranch } from '../utils/git.js';
@@ -28,8 +28,7 @@ export function createUploader(
   { apiKey, apiUrl, userAgent, command, upload: uploadConfig = {} },
   options = {}
 ) {
-  const logger = options.logger || createUploaderLogger(options);
-  const signal = options.signal || new AbortController().signal;
+  let signal = options.signal || new AbortController().signal;
   const api = new ApiService({
     baseUrl: apiUrl,
     token: apiKey,
@@ -172,7 +171,7 @@ export function createUploader(
         },
       };
     } catch (error) {
-      logger.error('Upload failed:', error);
+      output.debug('upload', 'failed', { error: error.message });
 
       // Re-throw if already a VizzlyError
       if (error.name && error.name.includes('Error') && error.code) {

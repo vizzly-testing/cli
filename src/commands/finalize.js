@@ -1,5 +1,5 @@
 import { loadConfig } from '../utils/config-loader.js';
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { createServices } from '../services/index.js';
 
 /**
@@ -13,8 +13,7 @@ export async function finalizeCommand(
   options = {},
   globalOptions = {}
 ) {
-  // Create UI handler
-  const ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -22,45 +21,49 @@ export async function finalizeCommand(
 
   try {
     // Load configuration with CLI overrides
-    const allOptions = { ...globalOptions, ...options };
-    const config = await loadConfig(globalOptions.config, allOptions);
+    let allOptions = { ...globalOptions, ...options };
+    let config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token
     if (!config.apiKey) {
-      ui.error(
+      output.error(
         'API token required. Use --token or set VIZZLY_TOKEN environment variable'
       );
-      return;
+      process.exit(1);
     }
 
     if (globalOptions.verbose) {
-      ui.info('Configuration loaded', {
+      output.info('Configuration loaded');
+      output.debug('Config details', {
         parallelId,
         apiUrl: config.apiUrl,
       });
     }
 
     // Create services and get API service
-    ui.startSpinner('Finalizing parallel build...');
-    const services = createServices(config, 'finalize');
-    const apiService = services.apiService;
-    ui.stopSpinner();
+    output.startSpinner('Finalizing parallel build...');
+    let services = createServices(config, 'finalize');
+    let apiService = services.apiService;
+    output.stopSpinner();
 
     // Call finalize endpoint
-    const result = await apiService.finalizeParallelBuild(parallelId);
+    let result = await apiService.finalizeParallelBuild(parallelId);
 
     if (globalOptions.json) {
-      console.log(JSON.stringify(result, null, 2));
+      output.data(result);
     } else {
-      ui.success(`Parallel build ${result.build.id} finalized successfully`);
-      ui.info(`Status: ${result.build.status}`);
-      ui.info(`Parallel ID: ${result.build.parallel_id}`);
+      output.success(
+        `Parallel build ${result.build.id} finalized successfully`
+      );
+      output.info(`Status: ${result.build.status}`);
+      output.info(`Parallel ID: ${result.build.parallel_id}`);
     }
   } catch (error) {
-    ui.stopSpinner();
-    ui.error('Failed to finalize parallel build', error);
+    output.stopSpinner();
+    output.error('Failed to finalize parallel build', error);
+    process.exit(1);
   } finally {
-    ui.cleanup();
+    output.cleanup();
   }
 }
 
@@ -70,7 +73,7 @@ export async function finalizeCommand(
  * @param {Object} options - Command options
  */
 export function validateFinalizeOptions(parallelId, _options) {
-  const errors = [];
+  let errors = [];
 
   if (!parallelId || parallelId.trim() === '') {
     errors.push('Parallel ID is required');

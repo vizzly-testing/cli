@@ -9,15 +9,15 @@ import {
   sendError,
   sendServiceUnavailable,
 } from '../middleware/response.js';
+import * as output from '../../utils/output.js';
 
 /**
  * Create config router
  * @param {Object} context - Router context
  * @param {Object} context.configService - Config service
- * @param {Object} context.logger - Logger instance
  * @returns {Function} Route handler
  */
-export function createConfigRouter({ configService, logger }) {
+export function createConfigRouter({ configService }) {
   return async function handleConfigRoute(req, res, pathname) {
     // Check if config service is available for all config routes
     if (pathname.startsWith('/api/config') && !configService) {
@@ -32,7 +32,7 @@ export function createConfigRouter({ configService, logger }) {
         sendSuccess(res, configData);
         return true;
       } catch (error) {
-        logger.error('Error fetching config:', error);
+        output.debug('Error fetching config:', { error: error.message });
         sendError(res, 500, error.message);
         return true;
       }
@@ -45,7 +45,9 @@ export function createConfigRouter({ configService, logger }) {
         sendSuccess(res, configData);
         return true;
       } catch (error) {
-        logger.error('Error fetching project config:', error);
+        output.debug('Error fetching project config:', {
+          error: error.message,
+        });
         sendError(res, 500, error.message);
         return true;
       }
@@ -58,7 +60,7 @@ export function createConfigRouter({ configService, logger }) {
         sendSuccess(res, configData);
         return true;
       } catch (error) {
-        logger.error('Error fetching global config:', error);
+        output.debug('Error fetching global config:', { error: error.message });
         sendError(res, 500, error.message);
         return true;
       }
@@ -72,7 +74,9 @@ export function createConfigRouter({ configService, logger }) {
         sendSuccess(res, { success: true, ...result });
         return true;
       } catch (error) {
-        logger.error('Error updating project config:', error);
+        output.debug('Error updating project config:', {
+          error: error.message,
+        });
         sendError(res, 500, error.message);
         return true;
       }
@@ -86,7 +90,7 @@ export function createConfigRouter({ configService, logger }) {
         sendSuccess(res, { success: true, ...result });
         return true;
       } catch (error) {
-        logger.error('Error updating global config:', error);
+        output.debug('Error updating global config:', { error: error.message });
         sendError(res, 500, error.message);
         return true;
       }
@@ -100,7 +104,7 @@ export function createConfigRouter({ configService, logger }) {
         sendSuccess(res, result);
         return true;
       } catch (error) {
-        logger.error('Error validating config:', error);
+        output.debug('Error validating config:', { error: error.message });
         sendError(res, 500, error.message);
         return true;
       }

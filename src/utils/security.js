@@ -4,9 +4,7 @@
  */
 
 import { resolve, normalize, isAbsolute, join } from 'path';
-import { createServiceLogger } from './logger-factory.js';
-
-const logger = createServiceLogger('SECURITY');
+import * as output from './output.js';
 
 /**
  * Sanitizes a screenshot name to prevent path traversal and ensure safe file naming
@@ -85,7 +83,7 @@ export function validatePathSecurity(targetPath, workingDir) {
 
   // Ensure the target path starts with the working directory
   if (!resolvedTargetPath.startsWith(resolvedWorkingDir)) {
-    logger.warn(
+    output.warn(
       `Path traversal attempt blocked: ${targetPath} (resolved: ${resolvedTargetPath}) is outside working directory: ${resolvedWorkingDir}`
     );
     throw new Error('Path is outside the allowed working directory');
@@ -144,7 +142,7 @@ export function validateScreenshotProperties(properties = {}) {
       validated.browser = sanitizeScreenshotName(browserName, 50);
     } catch (error) {
       // Skip invalid browser names, don't include them
-      logger.warn(
+      output.warn(
         `Invalid browser name '${properties.browser}': ${error.message}`
       );
     }

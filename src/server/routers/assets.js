@@ -7,6 +7,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { sendFile, sendError, sendNotFound } from '../middleware/response.js';
+import * as output from '../../utils/output.js';
 
 let __filename = fileURLToPath(import.meta.url);
 let __dirname = dirname(__filename);
@@ -15,10 +16,9 @@ let PROJECT_ROOT = join(__dirname, '..', '..', '..');
 /**
  * Create assets router
  * @param {Object} context - Router context
- * @param {Object} context.logger - Logger instance
  * @returns {Function} Route handler
  */
-export function createAssetsRouter({ logger }) {
+export function createAssetsRouter() {
   return async function handleAssetsRoute(req, res, pathname) {
     if (req.method !== 'GET') {
       return false;
@@ -39,7 +39,9 @@ export function createAssetsRouter({ logger }) {
           sendFile(res, bundle, 'application/javascript');
           return true;
         } catch (error) {
-          logger.error('Error serving reporter bundle:', error);
+          output.debug('Error serving reporter bundle:', {
+            error: error.message,
+          });
           sendError(res, 500, 'Error loading reporter bundle');
           return true;
         }
@@ -64,7 +66,7 @@ export function createAssetsRouter({ logger }) {
           sendFile(res, css, 'text/css');
           return true;
         } catch (error) {
-          logger.error('Error serving reporter CSS:', error);
+          output.debug('Error serving reporter CSS:', { error: error.message });
           sendError(res, 500, 'Error loading reporter CSS');
           return true;
         }
@@ -85,7 +87,7 @@ export function createAssetsRouter({ logger }) {
           sendFile(res, imageData, 'image/png');
           return true;
         } catch (error) {
-          logger.error('Error serving image:', error);
+          output.debug('Error serving image:', { error: error.message });
           sendError(res, 500, 'Error loading image');
           return true;
         }

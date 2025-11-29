@@ -3,7 +3,7 @@
  * Authenticates user via OAuth device flow
  */
 
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { AuthService } from '../services/auth-service.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import { openBrowser } from '../utils/browser.js';
@@ -14,16 +14,17 @@ import { openBrowser } from '../utils/browser.js';
  * @param {Object} globalOptions - Global CLI options
  */
 export async function loginCommand(options = {}, globalOptions = {}) {
-  // Create UI handler
-  let ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
   });
 
+  let colors = output.getColors();
+
   try {
-    ui.info('Starting Vizzly authentication...');
-    console.log(''); // Empty line for spacing
+    output.info('Starting Vizzly authentication...');
+    output.blank();
 
     // Create auth service
     let authService = new AuthService({
@@ -31,9 +32,9 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     });
 
     // Initiate device flow
-    ui.startSpinner('Connecting to Vizzly...');
+    output.startSpinner('Connecting to Vizzly...');
     let deviceFlow = await authService.initiateDeviceFlow();
-    ui.stopSpinner();
+    output.stopSpinner();
 
     // Handle both snake_case and camelCase field names
     let verificationUri =
@@ -49,32 +50,34 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     let urlWithCode = `${verificationUri}?code=${userCode}`;
 
     // Display user code prominently
-    console.log(''); // Empty line for spacing
-    console.log('='.repeat(50));
-    console.log('');
-    console.log('  Please visit the following URL to authorize this device:');
-    console.log('');
-    console.log(`  ${urlWithCode}`);
-    console.log('');
-    console.log('  Your code (pre-filled):');
-    console.log('');
-    console.log(`  ${ui.colors.bold(ui.colors.cyan(userCode))}`);
-    console.log('');
-    console.log('='.repeat(50));
-    console.log(''); // Empty line for spacing
+    output.blank();
+    output.print('='.repeat(50));
+    output.blank();
+    output.print('  Please visit the following URL to authorize this device:');
+    output.blank();
+    output.print(`  ${urlWithCode}`);
+    output.blank();
+    output.print('  Your code (pre-filled):');
+    output.blank();
+    output.print(`  ${colors.bold(colors.cyan(userCode))}`);
+    output.blank();
+    output.print('='.repeat(50));
+    output.blank();
 
     // Try to open browser with pre-filled code
     let browserOpened = await openBrowser(urlWithCode);
     if (browserOpened) {
-      ui.info('Opening browser...');
+      output.info('Opening browser...');
     } else {
-      ui.warning(
+      output.warn(
         'Could not open browser automatically. Please open the URL manually.'
       );
     }
 
-    console.log(''); // Empty line for spacing
-    ui.info('After authorizing in your browser, press Enter to continue...');
+    output.blank();
+    output.info(
+      'After authorizing in your browser, press Enter to continue...'
+    );
 
     // Wait for user to press Enter
     await new Promise(resolve => {
@@ -88,11 +91,11 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     });
 
     // Check authorization status
-    ui.startSpinner('Checking authorization status...');
+    output.startSpinner('Checking authorization status...');
 
     let pollResponse = await authService.pollDeviceAuthorization(deviceCode);
 
-    ui.stopSpinner();
+    output.stopSpinner();
 
     let tokenData = null;
 
@@ -132,27 +135,27 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     await authService.completeDeviceFlow(tokens);
 
     // Display success message
-    ui.success('Successfully authenticated!');
-    console.log(''); // Empty line for spacing
+    output.success('Successfully authenticated!');
+    output.blank();
 
     // Show user info
     if (tokens.user) {
-      ui.info(`User: ${tokens.user.name || tokens.user.username}`);
-      ui.info(`Email: ${tokens.user.email}`);
+      output.info(`User: ${tokens.user.name || tokens.user.username}`);
+      output.info(`Email: ${tokens.user.email}`);
     }
 
     // Show organization info
     if (tokens.organizations && tokens.organizations.length > 0) {
-      console.log(''); // Empty line for spacing
-      ui.info('Organizations:');
+      output.blank();
+      output.info('Organizations:');
       for (let org of tokens.organizations) {
-        console.log(`  - ${org.name}${org.slug ? ` (@${org.slug})` : ''}`);
+        output.print(`  - ${org.name}${org.slug ? ` (@${org.slug})` : ''}`);
       }
     }
 
     // Show token expiry info
     if (tokens.expiresAt) {
-      console.log(''); // Empty line for spacing
+      output.blank();
       let expiresAt = new Date(tokens.expiresAt);
       let msUntilExpiry = expiresAt.getTime() - Date.now();
       let daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
@@ -160,49 +163,45 @@ export async function loginCommand(options = {}, globalOptions = {}) {
       let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
 
       if (daysUntilExpiry > 0) {
-        ui.info(
+        output.info(
           `Token expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} (${expiresAt.toLocaleDateString()})`
         );
       } else if (hoursUntilExpiry > 0) {
-        ui.info(
+        output.info(
           `Token expires in ${hoursUntilExpiry} hour${hoursUntilExpiry !== 1 ? 's' : ''}`
         );
       } else if (minutesUntilExpiry > 0) {
-        ui.info(
+        output.info(
           `Token expires in ${minutesUntilExpiry} minute${minutesUntilExpiry !== 1 ? 's' : ''}`
         );
       }
     }
 
-    console.log(''); // Empty line for spacing
-    ui.info('You can now use Vizzly CLI commands without setting VIZZLY_TOKEN');
+    output.blank();
+    output.info(
+      'You can now use Vizzly CLI commands without setting VIZZLY_TOKEN'
+    );
 
-    ui.cleanup();
+    output.cleanup();
   } catch (error) {
-    ui.stopSpinner();
+    output.stopSpinner();
 
     // Handle authentication errors with helpful messages
     if (error.name === 'AuthError') {
-      ui.error('Authentication failed', error, 0);
-      console.log(''); // Empty line for spacing
-      console.log('Please try logging in again.');
-      console.log(
+      output.error('Authentication failed', error);
+      output.blank();
+      output.print('Please try logging in again.');
+      output.print(
         "If you don't have an account, sign up at https://vizzly.dev"
       );
       process.exit(1);
     } else if (error.code === 'RATE_LIMIT_ERROR') {
-      ui.error('Too many login attempts', error, 0);
-      console.log(''); // Empty line for spacing
-      console.log('Please wait a few minutes before trying again.');
+      output.error('Too many login attempts', error);
+      output.blank();
+      output.print('Please wait a few minutes before trying again.');
       process.exit(1);
     } else {
-      ui.error('Login failed', error, 0);
-      console.log(''); // Empty line for spacing
-      console.log('Error details:', error.message);
-      if (globalOptions.verbose && error.stack) {
-        console.error(''); // Empty line for spacing
-        console.error(error.stack);
-      }
+      output.error('Login failed', error);
       process.exit(1);
     }
   }

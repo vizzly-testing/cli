@@ -5,20 +5,16 @@
 
 import { parseJsonBody } from '../middleware/json-parser.js';
 import { sendJson, sendError } from '../middleware/response.js';
+import * as output from '../../utils/output.js';
 
 /**
  * Create screenshot router
  * @param {Object} context - Router context
  * @param {Object} context.screenshotHandler - Screenshot handler
  * @param {string|null} context.defaultBuildId - Default build ID
- * @param {Object} context.logger - Logger instance
  * @returns {Function} Route handler
  */
-export function createScreenshotRouter({
-  screenshotHandler,
-  defaultBuildId,
-  logger,
-}) {
+export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
   return async function handleScreenshotRoute(req, res, pathname) {
     if (req.method !== 'POST') {
       return false;
@@ -48,7 +44,7 @@ export function createScreenshotRouter({
         sendJson(res, result.statusCode, result.body);
         return true;
       } catch (error) {
-        logger.error('Screenshot processing error:', error);
+        output.debug('Screenshot processing error:', { error: error.message });
         sendError(res, 500, 'Failed to process screenshot');
         return true;
       }
@@ -73,7 +69,7 @@ export function createScreenshotRouter({
         }
         return true;
       } catch (error) {
-        logger.error('Accept baseline error:', error);
+        output.debug('Accept baseline error:', { error: error.message });
         sendError(res, 500, 'Failed to accept baseline');
         return true;
       }

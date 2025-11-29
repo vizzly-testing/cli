@@ -3,7 +3,7 @@
  * Clears stored authentication tokens
  */
 
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { AuthService } from '../services/auth-service.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import { getAuthTokens } from '../utils/global-config.js';
@@ -14,8 +14,7 @@ import { getAuthTokens } from '../utils/global-config.js';
  * @param {Object} globalOptions - Global CLI options
  */
 export async function logoutCommand(options = {}, globalOptions = {}) {
-  // Create UI handler
-  let ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -26,13 +25,13 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
     let auth = await getAuthTokens();
 
     if (!auth || !auth.accessToken) {
-      ui.info('You are not logged in');
-      ui.cleanup();
+      output.info('You are not logged in');
+      output.cleanup();
       return;
     }
 
     // Logout
-    ui.startSpinner('Logging out...');
+    output.startSpinner('Logging out...');
 
     let authService = new AuthService({
       baseUrl: options.apiUrl || getApiUrl(),
@@ -40,27 +39,21 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
 
     await authService.logout();
 
-    ui.stopSpinner();
-    ui.success('Successfully logged out');
+    output.stopSpinner();
+    output.success('Successfully logged out');
 
     if (globalOptions.json) {
-      ui.data({ loggedOut: true });
+      output.data({ loggedOut: true });
     } else {
-      console.log(''); // Empty line for spacing
-      ui.info('Your authentication tokens have been cleared');
-      ui.info('Run "vizzly login" to authenticate again');
+      output.blank();
+      output.info('Your authentication tokens have been cleared');
+      output.info('Run "vizzly login" to authenticate again');
     }
 
-    ui.cleanup();
+    output.cleanup();
   } catch (error) {
-    ui.stopSpinner();
-    ui.error('Logout failed', error, 0);
-
-    if (globalOptions.verbose && error.stack) {
-      console.error(''); // Empty line for spacing
-      console.error(error.stack);
-    }
-
+    output.stopSpinner();
+    output.error('Logout failed', error);
     process.exit(1);
   }
 }

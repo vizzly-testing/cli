@@ -21,7 +21,7 @@ export { createServices } from './services/index.js';
 
 // Utilities
 export { loadConfig } from './utils/config-loader.js';
-export { createLogger } from './utils/logger.js';
+export * as output from './utils/output.js';
 
 // Configuration helper
 export { defineConfig } from './utils/config-helpers.js';

@@ -6,6 +6,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { sendHtml, sendSuccess } from '../middleware/response.js';
+import * as output from '../../utils/output.js';
 
 // SPA routes that should serve the dashboard HTML
 let SPA_ROUTES = [
@@ -20,10 +21,9 @@ let SPA_ROUTES = [
 /**
  * Create dashboard router
  * @param {Object} context - Router context
- * @param {Object} context.logger - Logger instance
  * @returns {Function} Route handler
  */
-export function createDashboardRouter({ logger }) {
+export function createDashboardRouter() {
   return async function handleDashboardRoute(req, res, pathname) {
     if (req.method !== 'GET') {
       return false;
@@ -41,7 +41,7 @@ export function createDashboardRouter({ logger }) {
           res.end(data);
           return true;
         } catch (error) {
-          logger.error('Error reading report data:', error);
+          output.debug('Error reading report data:', { error: error.message });
           res.statusCode = 500;
           res.end(JSON.stringify({ error: 'Failed to read report data' }));
           return true;
@@ -105,7 +105,7 @@ export function createDashboardRouter({ logger }) {
           let data = readFileSync(reportDataPath, 'utf8');
           reportData = JSON.parse(data);
         } catch (error) {
-          logger.debug('Could not read report data:', error.message);
+          output.debug('Could not read report data:', { error: error.message });
         }
       }
 

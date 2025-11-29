@@ -4,7 +4,7 @@
  */
 
 import { createServer } from 'http';
-import { createServiceLogger } from '../utils/logger-factory.js';
+import * as output from '../utils/output.js';
 
 // Middleware
 import { corsMiddleware } from './middleware/cors.js';
@@ -20,8 +20,6 @@ import { createConfigRouter } from './routers/config.js';
 import { createAuthRouter } from './routers/auth.js';
 import { createProjectsRouter } from './routers/projects.js';
 import { createCloudProxyRouter } from './routers/cloud-proxy.js';
-
-let logger = createServiceLogger('HTTP-SERVER');
 
 export let createHttpServer = (port, screenshotHandler, services = {}) => {
   let server = null;
@@ -39,7 +37,6 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
     authService,
     projectService,
     tddService,
-    logger,
     apiUrl: 'https://app.vizzly.dev',
   };
 
@@ -77,7 +74,9 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
           return;
         }
       } catch (error) {
-        logger.error(`Router error for ${pathname}:`, error);
+        output.debug('server', `router error: ${pathname}`, {
+          error: error.message,
+        });
         sendError(res, 500, 'Internal server error');
         return;
       }
@@ -93,7 +92,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
         try {
           await handleRequest(req, res);
         } catch (error) {
-          logger.error('Server error:', error);
+          output.debug('server', 'error', { error: error.message });
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ error: 'Internal server error' }));
@@ -104,7 +103,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
         if (error) {
           reject(error);
         } else {
-          logger.debug(`HTTP server listening on http://127.0.0.1:${port}`);
+          output.debug('server', `listening on :${port}`);
           resolve();
         }
       });
@@ -128,7 +127,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
       return new Promise(resolve => {
         server.close(() => {
           server = null;
-          logger.debug('HTTP server stopped');
+          output.debug('server', 'stopped');
           resolve();
         });
       });
@@ -140,19 +139,19 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
    * Finish build - flush any pending background operations
    * Call this before finalizing a build to ensure all uploads complete
    */
-  let finishBuild = async buildId => {
-    logger.debug(`Finishing build ${buildId}...`);
-
+  let finishBuild = async _buildId => {
     // Flush screenshot handler if it has a flush method (API mode)
     if (screenshotHandler?.flush) {
       let stats = await screenshotHandler.flush();
-      logger.debug(
-        `Build ${buildId} uploads complete: ${stats.uploaded} uploaded, ${stats.failed} failed`
-      );
+      if (stats.uploaded > 0 || stats.failed > 0) {
+        output.debug('upload', 'flushed', {
+          uploaded: stats.uploaded,
+          failed: stats.failed,
+        });
+      }
       return stats;
     }
 
-    logger.debug(`Build ${buildId} finished (no flush needed)`);
     return null;
   };
 

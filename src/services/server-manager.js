@@ -12,7 +12,6 @@ import { join } from 'path';
 export class ServerManager {
   constructor(config, options = {}) {
     this.config = config;
-    this.logger = options.logger;
     this.httpServer = null;
     this.handler = null;
     this.services = options.services || {};
@@ -73,10 +72,8 @@ export class ServerManager {
       }
 
       writeFileSync(serverFile, JSON.stringify(serverInfo, null, 2));
-      this.logger.debug(`Wrote server info to ${serverFile}`);
-    } catch (error) {
+    } catch {
       // Non-fatal - SDK can still use health check or environment variables
-      this.logger.debug(`Failed to write server.json: ${error.message}`);
     }
   }
 
@@ -84,10 +81,7 @@ export class ServerManager {
     if (!this.config.apiKey) return null;
 
     const { ApiService } = await import('./api-service.js');
-    return new ApiService(
-      { ...this.config, command: 'run' },
-      { logger: this.logger }
-    );
+    return new ApiService({ ...this.config, command: 'run' });
   }
 
   async stop() {
@@ -97,8 +91,7 @@ export class ServerManager {
     if (this.handler?.cleanup) {
       try {
         this.handler.cleanup();
-      } catch (error) {
-        this.logger.debug('Handler cleanup error:', error.message);
+      } catch {
         // Don't throw - cleanup errors shouldn't fail the stop process
       }
     }

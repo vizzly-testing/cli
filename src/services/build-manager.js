@@ -133,9 +133,8 @@ export function validateBuildOptions(buildOptions) {
 }
 
 export class BuildManager {
-  constructor(config, logger) {
+  constructor(config) {
     this.config = config;
-    this.logger = logger;
     this.currentBuild = null;
     this.buildQueue = [];
   }
@@ -143,7 +142,6 @@ export class BuildManager {
   async createBuild(buildOptions) {
     let build = createBuildObject(buildOptions);
     this.currentBuild = build;
-    this.logger.debug(`Build created: ${build.name}`);
     return build;
   }
 
@@ -152,7 +150,6 @@ export class BuildManager {
       throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
     }
     this.currentBuild = updateBuild(this.currentBuild, status, updates);
-    this.logger.debug(`Build status: ${status}`);
     return this.currentBuild;
   }
 
@@ -161,9 +158,6 @@ export class BuildManager {
       throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
     }
     this.currentBuild = addScreenshotToBuild(this.currentBuild, screenshot);
-    this.logger.debug(
-      `Screenshot added to build (${this.currentBuild.screenshots.length} total)`
-    );
     return this.currentBuild;
   }
 
@@ -172,7 +166,6 @@ export class BuildManager {
       throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
     }
     this.currentBuild = finalizeBuildObject(this.currentBuild, result);
-    this.logger.debug(`Build ${this.currentBuild.status}`);
     return this.currentBuild;
   }
 
@@ -183,7 +176,6 @@ export class BuildManager {
   queueBuild(buildOptions) {
     let queuedBuild = createQueuedBuild(buildOptions);
     this.buildQueue.push(queuedBuild);
-    this.logger.debug(`Build queued (${this.buildQueue.length} in queue)`);
   }
 
   async clear() {

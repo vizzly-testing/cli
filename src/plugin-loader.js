@@ -3,33 +3,33 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
 import { z } from 'zod';
+import * as output from './utils/output.js';
 
 /**
  * Load and register plugins from node_modules and config
  * @param {string|null} configPath - Path to config file
  * @param {Object} config - Loaded configuration
- * @param {Object} logger - Logger instance
  * @returns {Promise<Array>} Array of loaded plugins
  */
-export async function loadPlugins(configPath, config, logger) {
+export async function loadPlugins(configPath, config) {
   let plugins = [];
   let loadedNames = new Set();
 
   // 1. Auto-discover plugins from @vizzly-testing/* packages
-  let discoveredPlugins = await discoverInstalledPlugins(logger);
+  let discoveredPlugins = await discoverInstalledPlugins();
 
   for (let pluginInfo of discoveredPlugins) {
     try {
-      let plugin = await loadPlugin(pluginInfo.path, logger);
+      let plugin = await loadPlugin(pluginInfo.path);
       if (plugin && !loadedNames.has(plugin.name)) {
         plugins.push(plugin);
         loadedNames.add(plugin.name);
-        logger.debug(
+        output.debug(
           `Loaded plugin: ${plugin.name}@${plugin.version || 'unknown'}`
         );
       }
     } catch (error) {
-      logger.warn(
+      output.warn(
         `Failed to load auto-discovered plugin from ${pluginInfo.packageName}: ${error.message}`
       );
     }
@@ -40,23 +40,20 @@ export async function loadPlugins(configPath, config, logger) {
     for (let pluginSpec of config.plugins) {
       try {
         let pluginPath = resolvePluginPath(pluginSpec, configPath);
-        let plugin = await loadPlugin(pluginPath, logger);
+        let plugin = await loadPlugin(pluginPath);
 
         if (plugin && !loadedNames.has(plugin.name)) {
           plugins.push(plugin);
           loadedNames.add(plugin.name);
-          logger.debug(
-            `Loaded plugin from config: ${plugin.name}@${plugin.version || 'unknown'}`
-          );
         } else if (plugin && loadedNames.has(plugin.name)) {
           let existingPlugin = plugins.find(p => p.name === plugin.name);
-          logger.warn(
+          output.warn(
             `Plugin ${plugin.name} already loaded (v${existingPlugin.version || 'unknown'}), ` +
               `skipping v${plugin.version || 'unknown'} from config`
           );
         }
       } catch (error) {
-        logger.warn(
+        output.warn(
           `Failed to load plugin from config (${pluginSpec}): ${error.message}`
         );
       }
@@ -68,10 +65,9 @@ export async function loadPlugins(configPath, config, logger) {
 
 /**
  * Discover installed plugins from node_modules/@vizzly-testing/*
- * @param {Object} logger - Logger instance
  * @returns {Promise<Array>} Array of plugin info objects
  */
-async function discoverInstalledPlugins(logger) {
+async function discoverInstalledPlugins() {
   let plugins = [];
 
   try {
@@ -97,7 +93,7 @@ async function discoverInstalledPlugins(logger) {
             pluginRelativePath.startsWith('/') ||
             pluginRelativePath.includes('..')
           ) {
-            logger.warn(
+            output.warn(
               `Invalid plugin path in ${packageJson.name}: path must be relative and cannot traverse directories`
             );
             continue;
@@ -109,7 +105,7 @@ async function discoverInstalledPlugins(logger) {
 
           // Additional security: Ensure resolved path is still within package directory
           if (!pluginPath.startsWith(packageDir)) {
-            logger.warn(
+            output.warn(
               `Plugin path escapes package directory: ${packageJson.name}`
             );
             continue;
@@ -121,13 +117,13 @@ async function discoverInstalledPlugins(logger) {
           });
         }
       } catch (error) {
-        logger.warn(
+        output.warn(
           `Failed to parse package.json at ${pkgPath}: ${error.message}`
         );
       }
     }
-  } catch (error) {
-    logger.debug(`Failed to discover plugins: ${error.message}`);
+  } catch {
+    // Plugin discovery is optional
   }
 
   return plugins;

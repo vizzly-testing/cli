@@ -15,18 +15,17 @@ import {
   sendError,
   sendServiceUnavailable,
 } from '../middleware/response.js';
+import * as output from '../../utils/output.js';
 
 /**
  * Create cloud proxy router
  * @param {Object} context - Router context
  * @param {Object} context.authService - Auth service for token management
- * @param {Object} context.logger - Logger instance
  * @param {string} context.apiUrl - Base API URL (default: https://app.vizzly.dev)
  * @returns {Function} Route handler
  */
 export function createCloudProxyRouter({
   authService,
-  logger,
   apiUrl: _apiUrl = 'https://app.vizzly.dev',
 }) {
   /**
@@ -65,7 +64,7 @@ export function createCloudProxyRouter({
         sendSuccess(res, { projects: response.projects || [] });
         return true;
       } catch (error) {
-        logger.error('Error fetching projects from cloud:', error);
+        output.error('Error fetching projects from cloud:', error);
         // Return empty array instead of error for better UX when not logged in
         if (
           error.message?.includes('not authenticated') ||
@@ -102,7 +101,7 @@ export function createCloudProxyRouter({
         sendSuccess(res, { builds: response.builds || [] });
         return true;
       } catch (error) {
-        logger.error('Error fetching builds from cloud:', error);
+        output.error('Error fetching builds from cloud:', error);
         sendError(res, 500, error.message);
         return true;
       }
@@ -133,7 +132,7 @@ export function createCloudProxyRouter({
         });
         return true;
       } catch (error) {
-        logger.error('Error downloading baselines from cloud:', error);
+        output.error('Error downloading baselines from cloud:', error);
         sendError(res, 500, error.message);
         return true;
       }

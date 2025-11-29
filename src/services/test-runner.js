@@ -6,12 +6,12 @@
 import { EventEmitter } from 'events';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { spawn } from 'child_process';
+import * as output from '../utils/output.js';
 
 export class TestRunner extends EventEmitter {
-  constructor(config, logger, buildManager, serverManager, tddService) {
+  constructor(config, buildManager, serverManager, tddService) {
     super();
     this.config = config;
-    this.logger = logger;
     this.buildManager = buildManager;
     this.serverManager = serverManager;
     this.tddService = tddService;
@@ -42,7 +42,7 @@ export class TestRunner extends EventEmitter {
         tdd: true,
       });
     } catch (error) {
-      this.logger.error('Failed to initialize TDD daemon server:', error);
+      output.error('Failed to initialize TDD daemon server:', error);
       throw error;
     }
   }
@@ -88,10 +88,12 @@ export class TestRunner extends EventEmitter {
             const build = await apiService.getBuild(buildId);
             buildUrl = build.url;
             if (buildUrl) {
-              this.logger.info(`Build URL: ${buildUrl}`);
+              output.info(`Build URL: ${buildUrl}`);
             }
           } catch (error) {
-            this.logger.debug('Could not retrieve build URL:', error.message);
+            output.debug('build', 'could not retrieve url', {
+              error: error.message,
+            });
           }
         }
       }
@@ -138,7 +140,7 @@ export class TestRunner extends EventEmitter {
         try {
           await this.finalizeBuild(buildId, tdd, testSuccess, executionTime);
         } catch (finalizeError) {
-          this.logger.error('Failed to finalize build:', finalizeError);
+          output.error('Failed to finalize build:', finalizeError);
         }
       }
 
@@ -151,13 +153,13 @@ export class TestRunner extends EventEmitter {
       try {
         await this.serverManager.stop();
       } catch (stopError) {
-        this.logger.error('Failed to stop server:', stopError);
+        output.error('Failed to stop server:', stopError);
       }
     }
 
     // If there was a test error, throw it now (after cleanup)
     if (testError) {
-      this.logger.error('Test run failed:', testError);
+      output.error('Test run failed:', testError);
       throw testError;
     }
 
@@ -173,13 +175,11 @@ export class TestRunner extends EventEmitter {
   async createBuild(options, tdd) {
     if (tdd) {
       // TDD mode: create local build
-      this.logger.debug('TDD mode: creating local build...');
       const build = await this.buildManager.createBuild(options);
-      this.logger.debug(`TDD build created with ID: ${build.id}`);
+      output.debug('build', `created ${build.id.substring(0, 8)}`);
       return build.id;
     } else {
       // API mode: create build via API
-      this.logger.debug('Creating build via API...');
       const apiService = await this.createApiService();
       if (apiService) {
         const buildResult = await apiService.createBuild({
@@ -191,7 +191,7 @@ export class TestRunner extends EventEmitter {
           github_pull_request_number: options.pullRequestNumber,
           parallel_id: options.parallelId,
         });
-        this.logger.debug(`Build created with ID: ${buildResult.id}`);
+        output.debug('build', `created ${buildResult.id}`);
 
         // Emit build created event
         this.emit('build-created', {
@@ -223,7 +223,6 @@ export class TestRunner extends EventEmitter {
 
   async finalizeBuild(buildId, isTddMode, success, executionTime) {
     if (!buildId) {
-      this.logger.debug('No buildId to finalize');
       return;
     }
 
@@ -232,38 +231,26 @@ export class TestRunner extends EventEmitter {
         // TDD mode: use server handler to finalize (local-only)
         if (this.serverManager.server?.finishBuild) {
           await this.serverManager.server.finishBuild(buildId);
-          this.logger.debug(
-            `TDD build ${buildId} finalized with success: ${success}`
-          );
-        } else {
-          // In TDD mode without a server, just log that finalization is skipped
-          this.logger.debug(
-            `TDD build ${buildId} finalization skipped (local-only mode)`
-          );
+          output.debug('build', `finalized`, { success });
         }
       } else {
         // API mode: flush uploads first, then finalize build
         if (this.serverManager.server?.finishBuild) {
-          this.logger.debug(`Flushing uploads for build ${buildId}...`);
           await this.serverManager.server.finishBuild(buildId);
-          this.logger.debug(`Upload flush complete for build ${buildId}`);
         }
 
         // Then update build status via API
-        this.logger.debug(`Finalizing build ${buildId} via API...`);
         const apiService = await this.createApiService();
         if (apiService) {
           await apiService.finalizeBuild(buildId, success, executionTime);
-          this.logger.debug(`Build ${buildId} finalized successfully`);
+          output.debug('build', 'finalized via api', { success });
         } else {
-          this.logger.warn(
-            `No API service available to finalize build ${buildId}`
-          );
+          output.warn(`No API service available to finalize build ${buildId}`);
         }
       }
     } catch (error) {
       // Don't fail the entire run if build finalization fails
-      this.logger.warn(`Failed to finalize build ${buildId}:`, error.message);
+      output.warn(`Failed to finalize build ${buildId}:`, error.message);
       // Emit event for UI handling
       this.emit('build-finalize-failed', {
         buildId,

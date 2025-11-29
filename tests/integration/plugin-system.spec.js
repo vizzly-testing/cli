@@ -112,7 +112,7 @@ describe('Plugin System Integration', () => {
         name: 'context-plugin',
         register(program, context) {
           if (!context.config) throw new Error('Missing config');
-          if (!context.logger) throw new Error('Missing logger');
+          if (!context.output) throw new Error('Missing output');
           if (!context.services) throw new Error('Missing services');
 
           program
@@ -138,10 +138,10 @@ describe('Plugin System Integration', () => {
       });
     } catch (error) {
       // Check for our validation errors
-      let output = error.stderr?.toString() || error.stdout?.toString() || '';
-      expect(output).not.toContain('Missing config');
-      expect(output).not.toContain('Missing logger');
-      expect(output).not.toContain('Missing services');
+      let stderr = error.stderr?.toString() || error.stdout?.toString() || '';
+      expect(stderr).not.toContain('Missing config');
+      expect(stderr).not.toContain('Missing output');
+      expect(stderr).not.toContain('Missing services');
     }
   });
 

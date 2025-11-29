@@ -7,9 +7,7 @@ import { writeFile, mkdir, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createServiceLogger } from '../utils/logger-factory.js';
-
-const logger = createServiceLogger('STATIC-REPORT');
+import * as output from '../utils/output.js';
 
 let __filename = fileURLToPath(import.meta.url);
 let __dirname = dirname(__filename);
@@ -66,10 +64,10 @@ export class StaticReportGenerator {
 
       await writeFile(this.reportPath, htmlContent, 'utf8');
 
-      logger.debug(`Static report generated: ${this.reportPath}`);
+      output.debug('report', 'generated static report');
       return this.reportPath;
     } catch (error) {
-      logger.error(`Failed to generate static report: ${error.message}`);
+      output.error(`Failed to generate static report: ${error.message}`);
       throw new Error(`Report generation failed: ${error.message}`);
     }
   }

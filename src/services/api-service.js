@@ -381,4 +381,40 @@ export class ApiService {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  /**
+   * Get hotspot analysis for a single screenshot
+   * @param {string} screenshotName - Screenshot name to get hotspots for
+   * @param {Object} options - Optional settings
+   * @param {number} [options.windowSize=20] - Number of historical builds to analyze
+   * @returns {Promise<Object>} Hotspot analysis data
+   */
+  async getScreenshotHotspots(screenshotName, options = {}) {
+    let { windowSize = 20 } = options;
+    let queryParams = new URLSearchParams({ windowSize: String(windowSize) });
+    let encodedName = encodeURIComponent(screenshotName);
+    return this.request(
+      `/api/sdk/screenshots/${encodedName}/hotspots?${queryParams}`
+    );
+  }
+
+  /**
+   * Batch get hotspot analysis for multiple screenshots
+   * More efficient than calling getScreenshotHotspots for each screenshot
+   * @param {string[]} screenshotNames - Array of screenshot names
+   * @param {Object} options - Optional settings
+   * @param {number} [options.windowSize=20] - Number of historical builds to analyze
+   * @returns {Promise<Object>} Hotspots keyed by screenshot name
+   */
+  async getBatchHotspots(screenshotNames, options = {}) {
+    let { windowSize = 20 } = options;
+    return this.request('/api/sdk/screenshots/hotspots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        screenshot_names: screenshotNames,
+        windowSize,
+      }),
+    });
+  }
 }

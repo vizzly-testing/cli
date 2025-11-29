@@ -80,6 +80,8 @@ try {
         config,
         services,
         output,
+        // Backwards compatibility alias for plugins using old API
+        logger: output,
       });
       let timeoutPromise = new Promise((_, reject) =>
         setTimeout(

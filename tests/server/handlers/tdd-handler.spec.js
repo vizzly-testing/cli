@@ -24,7 +24,20 @@ vi.mock('../../../src/utils/colors.js', () => ({
     cyan: vi.fn(text => text),
     green: vi.fn(text => text),
     red: vi.fn(text => text),
+    yellow: vi.fn(text => text),
+    dim: vi.fn(text => text),
+    bold: vi.fn(text => text),
+    reset: vi.fn(text => text),
   },
+  createColors: vi.fn(() => ({
+    cyan: vi.fn(text => text),
+    green: vi.fn(text => text),
+    red: vi.fn(text => text),
+    yellow: vi.fn(text => text),
+    dim: vi.fn(text => text),
+    bold: vi.fn(text => text),
+    reset: vi.fn(text => text),
+  })),
 }));
 
 describe('createTddHandler', () => {

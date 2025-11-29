@@ -7,6 +7,7 @@ import { homedir } from 'os';
 import { join, dirname, parse } from 'path';
 import { readFile, writeFile, mkdir, chmod } from 'fs/promises';
 import { existsSync } from 'fs';
+import * as output from './output.js';
 
 /**
  * Get the path to the global Vizzly directory
@@ -57,7 +58,7 @@ export async function loadGlobalConfig() {
     }
 
     // Log warning about corrupted config but don't crash
-    console.warn('Warning: Global config file is corrupted, ignoring');
+    output.warn('Global config file is corrupted, ignoring');
     return {};
   }
 }
@@ -181,9 +182,7 @@ export async function getAccessToken() {
 export async function getProjectMapping(directoryPath) {
   let config = await loadGlobalConfig();
   if (!config.projects) {
-    if (process.env.DEBUG_CONFIG) {
-      console.log('[MAPPING] No projects in global config');
-    }
+    output.debug('[MAPPING] No projects in global config');
     return null;
   }
 
@@ -191,20 +190,16 @@ export async function getProjectMapping(directoryPath) {
   let currentPath = directoryPath;
   let { root } = parse(currentPath);
 
-  if (process.env.DEBUG_CONFIG) {
-    console.log('[MAPPING] Starting lookup from:', currentPath);
-    console.log('[MAPPING] Available mappings:', Object.keys(config.projects));
-  }
+  output.debug('[MAPPING] Starting lookup', {
+    from: currentPath,
+    availableMappings: Object.keys(config.projects),
+  });
 
   while (currentPath !== root) {
-    if (process.env.DEBUG_CONFIG) {
-      console.log('[MAPPING] Checking:', currentPath);
-    }
+    output.debug('[MAPPING] Checking', { path: currentPath });
 
     if (config.projects[currentPath]) {
-      if (process.env.DEBUG_CONFIG) {
-        console.log('[MAPPING] Found match at:', currentPath);
-      }
+      output.debug('[MAPPING] Found match', { path: currentPath });
       return config.projects[currentPath];
     }
 
@@ -217,9 +212,7 @@ export async function getProjectMapping(directoryPath) {
     currentPath = parentPath;
   }
 
-  if (process.env.DEBUG_CONFIG) {
-    console.log('[MAPPING] No mapping found');
-  }
+  output.debug('[MAPPING] No mapping found');
 
   return null;
 }

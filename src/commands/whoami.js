@@ -3,7 +3,7 @@
  * Shows current user and authentication status
  */
 
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { AuthService } from '../services/auth-service.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import { getAuthTokens } from '../utils/global-config.js';
@@ -14,8 +14,7 @@ import { getAuthTokens } from '../utils/global-config.js';
  * @param {Object} globalOptions - Global CLI options
  */
 export async function whoamiCommand(options = {}, globalOptions = {}) {
-  // Create UI handler
-  let ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -27,18 +26,18 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
 
     if (!auth || !auth.accessToken) {
       if (globalOptions.json) {
-        ui.data({ authenticated: false });
+        output.data({ authenticated: false });
       } else {
-        ui.info('You are not logged in');
-        console.log(''); // Empty line for spacing
-        ui.info('Run "vizzly login" to authenticate');
+        output.info('You are not logged in');
+        output.blank();
+        output.info('Run "vizzly login" to authenticate');
       }
-      ui.cleanup();
+      output.cleanup();
       return;
     }
 
     // Get current user info
-    ui.startSpinner('Fetching user information...');
+    output.startSpinner('Fetching user information...');
 
     let authService = new AuthService({
       baseUrl: options.apiUrl || getApiUrl(),
@@ -46,42 +45,42 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
 
     let response = await authService.whoami();
 
-    ui.stopSpinner();
+    output.stopSpinner();
 
     // Output in JSON mode
     if (globalOptions.json) {
-      ui.data({
+      output.data({
         authenticated: true,
         user: response.user,
         organizations: response.organizations || [],
         tokenExpiresAt: auth.expiresAt,
       });
-      ui.cleanup();
+      output.cleanup();
       return;
     }
 
     // Human-readable output
-    ui.success('Authenticated');
-    console.log(''); // Empty line for spacing
+    output.success('Authenticated');
+    output.blank();
 
     // Show user info
     if (response.user) {
-      ui.info(`User: ${response.user.name || response.user.username}`);
-      ui.info(`Email: ${response.user.email}`);
+      output.info(`User: ${response.user.name || response.user.username}`);
+      output.info(`Email: ${response.user.email}`);
 
       if (response.user.username) {
-        ui.info(`Username: ${response.user.username}`);
+        output.info(`Username: ${response.user.username}`);
       }
 
       if (globalOptions.verbose && response.user.id) {
-        ui.info(`User ID: ${response.user.id}`);
+        output.info(`User ID: ${response.user.id}`);
       }
     }
 
     // Show organizations
     if (response.organizations && response.organizations.length > 0) {
-      console.log(''); // Empty line for spacing
-      ui.info('Organizations:');
+      output.blank();
+      output.info('Organizations:');
       for (let org of response.organizations) {
         let orgInfo = `  - ${org.name}`;
         if (org.slug) {
@@ -90,17 +89,17 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
         if (org.role) {
           orgInfo += ` [${org.role}]`;
         }
-        console.log(orgInfo);
+        output.print(orgInfo);
 
         if (globalOptions.verbose && org.id) {
-          console.log(`    ID: ${org.id}`);
+          output.print(`    ID: ${org.id}`);
         }
       }
     }
 
     // Show token expiry info
     if (auth.expiresAt) {
-      console.log(''); // Empty line for spacing
+      output.blank();
       let expiresAt = new Date(auth.expiresAt);
       let now = new Date();
       let msUntilExpiry = expiresAt.getTime() - now.getTime();
@@ -109,58 +108,52 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
       let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
 
       if (msUntilExpiry <= 0) {
-        ui.warning('Token has expired');
-        console.log(''); // Empty line for spacing
-        ui.info('Run "vizzly login" to refresh your authentication');
+        output.warn('Token has expired');
+        output.blank();
+        output.info('Run "vizzly login" to refresh your authentication');
       } else if (daysUntilExpiry > 0) {
-        ui.info(
+        output.info(
           `Token expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} (${expiresAt.toLocaleDateString()})`
         );
       } else if (hoursUntilExpiry > 0) {
-        ui.info(
+        output.info(
           `Token expires in ${hoursUntilExpiry} hour${hoursUntilExpiry !== 1 ? 's' : ''} (${expiresAt.toLocaleString()})`
         );
       } else if (minutesUntilExpiry > 0) {
-        ui.info(
+        output.info(
           `Token expires in ${minutesUntilExpiry} minute${minutesUntilExpiry !== 1 ? 's' : ''}`
         );
       } else {
-        ui.warning('Token expires in less than a minute');
-        console.log(''); // Empty line for spacing
-        ui.info('Run "vizzly login" to refresh your authentication');
+        output.warn('Token expires in less than a minute');
+        output.blank();
+        output.info('Run "vizzly login" to refresh your authentication');
       }
 
       if (globalOptions.verbose) {
-        ui.info(`Token expires at: ${expiresAt.toISOString()}`);
+        output.info(`Token expires at: ${expiresAt.toISOString()}`);
       }
     }
 
-    ui.cleanup();
+    output.cleanup();
   } catch (error) {
-    ui.stopSpinner();
+    output.stopSpinner();
 
     // Handle authentication errors with helpful messages
     if (error.name === 'AuthError') {
       if (globalOptions.json) {
-        ui.data({
+        output.data({
           authenticated: false,
           error: error.message,
         });
       } else {
-        ui.error('Authentication token is invalid or expired', error, 0);
-        console.log(''); // Empty line for spacing
-        ui.info('Run "vizzly login" to authenticate again');
+        output.error('Authentication token is invalid or expired', error);
+        output.blank();
+        output.info('Run "vizzly login" to authenticate again');
       }
-      ui.cleanup();
+      output.cleanup();
       process.exit(1);
     } else {
-      ui.error('Failed to get user information', error, 0);
-
-      if (globalOptions.verbose && error.stack) {
-        console.error(''); // Empty line for spacing
-        console.error(error.stack);
-      }
-
+      output.error('Failed to get user information', error);
       process.exit(1);
     }
   }

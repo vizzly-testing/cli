@@ -9,15 +9,15 @@ import {
   sendError,
   sendServiceUnavailable,
 } from '../middleware/response.js';
+import * as output from '../../utils/output.js';
 
 /**
  * Create projects router
  * @param {Object} context - Router context
  * @param {Object} context.projectService - Project service
- * @param {Object} context.logger - Logger instance
  * @returns {Function} Route handler
  */
-export function createProjectsRouter({ projectService, logger }) {
+export function createProjectsRouter({ projectService }) {
   return async function handleProjectsRoute(req, res, pathname, parsedUrl) {
     // Check if project service is available for all project routes
     if (pathname.startsWith('/api/projects') && !projectService) {
@@ -32,7 +32,7 @@ export function createProjectsRouter({ projectService, logger }) {
         sendSuccess(res, { projects });
         return true;
       } catch (error) {
-        logger.error('Error listing projects:', error);
+        output.debug('Error listing projects:', { error: error.message });
         sendError(res, 500, error.message);
         return true;
       }
@@ -45,7 +45,9 @@ export function createProjectsRouter({ projectService, logger }) {
         sendSuccess(res, { mappings });
         return true;
       } catch (error) {
-        logger.error('Error listing project mappings:', error);
+        output.debug('Error listing project mappings:', {
+          error: error.message,
+        });
         sendError(res, 500, error.message);
         return true;
       }
@@ -68,7 +70,9 @@ export function createProjectsRouter({ projectService, logger }) {
         sendSuccess(res, { success: true, mapping });
         return true;
       } catch (error) {
-        logger.error('Error creating project mapping:', error);
+        output.debug('Error creating project mapping:', {
+          error: error.message,
+        });
         sendError(res, 500, error.message);
         return true;
       }
@@ -87,7 +91,9 @@ export function createProjectsRouter({ projectService, logger }) {
         sendSuccess(res, { success: true, message: 'Mapping deleted' });
         return true;
       } catch (error) {
-        logger.error('Error deleting project mapping:', error);
+        output.debug('Error deleting project mapping:', {
+          error: error.message,
+        });
         sendError(res, 500, error.message);
         return true;
       }
@@ -121,7 +127,7 @@ export function createProjectsRouter({ projectService, logger }) {
         sendSuccess(res, { builds });
         return true;
       } catch (error) {
-        logger.error('Error fetching recent builds:', error);
+        output.debug('Error fetching recent builds:', { error: error.message });
         sendError(res, 500, error.message);
         return true;
       }
@@ -148,7 +154,9 @@ export function createProjectsRouter({ projectService, logger }) {
         sendSuccess(res, { builds });
         return true;
       } catch (error) {
-        logger.error('Error fetching project builds:', error);
+        output.debug('Error fetching project builds:', {
+          error: error.message,
+        });
         sendError(res, 500, error.message);
         return true;
       }

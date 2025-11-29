@@ -3,8 +3,9 @@ import { resolve } from 'path';
 import { getApiToken, getApiUrl, getParallelId } from './environment-config.js';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
 import { getAccessToken, getProjectMapping } from './global-config.js';
+import * as output from './output.js';
 
-const DEFAULT_CONFIG = {
+let DEFAULT_CONFIG = {
   // API Configuration
   apiKey: undefined, // Will be set from env, global config, or CLI overrides
   apiUrl: getApiUrl(),
@@ -44,8 +45,8 @@ const DEFAULT_CONFIG = {
 
 export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 1. Load from config file using cosmiconfig
-  const explorer = cosmiconfigSync('vizzly');
-  const result = configPath ? explorer.load(configPath) : explorer.search();
+  let explorer = cosmiconfigSync('vizzly');
+  let result = configPath ? explorer.load(configPath) : explorer.search();
 
   let fileConfig = {};
   if (result && result.config) {
@@ -54,10 +55,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   // 2. Validate config file using Zod schema
-  const validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
+  let validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
 
   // Create a proper clone of the default config to avoid shared object references
-  const config = {
+  let config = {
     ...DEFAULT_CONFIG,
     server: { ...DEFAULT_CONFIG.server },
     build: { ...DEFAULT_CONFIG.build },
@@ -72,11 +73,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   // 3. Check project mapping for current directory (if no CLI flag)
   if (!cliOverrides.token) {
-    const currentDir = process.cwd();
-    if (process.env.DEBUG_CONFIG) {
-      console.log('[CONFIG] Looking up project mapping for:', currentDir);
-    }
-    const projectMapping = await getProjectMapping(currentDir);
+    let currentDir = process.cwd();
+    output.debug('[CONFIG] Looking up project mapping', { dir: currentDir });
+
+    let projectMapping = await getProjectMapping(currentDir);
     if (projectMapping && projectMapping.token) {
       // Handle both string tokens and token objects (backward compatibility)
       let token;
@@ -96,72 +96,59 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
       config.projectSlug = projectMapping.projectSlug;
       config.organizationSlug = projectMapping.organizationSlug;
 
-      // Debug logging
-      if (process.env.DEBUG_CONFIG) {
-        console.log('[CONFIG] Found project mapping:', {
-          dir: currentDir,
-          projectSlug: projectMapping.projectSlug,
-          hasToken: !!projectMapping.token,
-          tokenType: typeof projectMapping.token,
-          tokenPrefix: token ? token.substring(0, 8) + '***' : 'none',
-        });
-        console.log(
-          '[CONFIG] Set config.apiKey to:',
-          config.apiKey ? config.apiKey.substring(0, 8) + '***' : 'NONE'
-        );
-      }
-    } else if (process.env.DEBUG_CONFIG) {
-      console.log('[CONFIG] No project mapping found for:', currentDir);
+      output.debug('[CONFIG] Found project mapping', {
+        dir: currentDir,
+        projectSlug: projectMapping.projectSlug,
+        hasToken: !!projectMapping.token,
+        tokenPrefix: token ? token.substring(0, 8) + '***' : 'none',
+      });
+    } else {
+      output.debug('[CONFIG] No project mapping found', { dir: currentDir });
     }
   }
 
   // 3.5. Check global config for user access token (if no CLI flag)
   if (!config.apiKey && !cliOverrides.token) {
-    const globalToken = await getAccessToken();
+    let globalToken = await getAccessToken();
     if (globalToken) {
       config.apiKey = globalToken;
     }
   }
 
   // 4. Override with environment variables (higher priority than fallbacks)
-  const envApiKey = getApiToken();
-  const envApiUrl = getApiUrl();
-  const envParallelId = getParallelId();
-  if (process.env.DEBUG_CONFIG) {
-    console.log(
-      '[CONFIG] Step 4 - env vars:',
-      JSON.stringify({
-        hasEnvApiKey: !!envApiKey,
-        envApiKeyPrefix: envApiKey ? envApiKey.substring(0, 8) + '***' : 'none',
-        configApiKeyBefore: config.apiKey
-          ? config.apiKey.substring(0, 8) + '***'
-          : 'NONE',
-      })
-    );
-  }
+  let envApiKey = getApiToken();
+  let envApiUrl = getApiUrl();
+  let envParallelId = getParallelId();
+
+  output.debug('[CONFIG] Checking environment variables', {
+    hasEnvApiKey: !!envApiKey,
+    envApiKeyPrefix: envApiKey ? envApiKey.substring(0, 8) + '***' : 'none',
+    configApiKeyBefore: config.apiKey
+      ? config.apiKey.substring(0, 8) + '***'
+      : 'NONE',
+  });
+
   if (envApiKey) config.apiKey = envApiKey;
   if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
   if (envParallelId) config.parallelId = envParallelId;
 
   // 5. Apply CLI overrides (highest priority)
-  if (process.env.DEBUG_CONFIG) {
-    console.log('[CONFIG] Step 5 - before CLI overrides:', {
-      configApiKey: config.apiKey
-        ? config.apiKey.substring(0, 8) + '***'
-        : 'NONE',
-      cliToken: cliOverrides.token
-        ? cliOverrides.token.substring(0, 8) + '***'
-        : 'none',
-    });
-  }
+  output.debug('[CONFIG] Applying CLI overrides', {
+    configApiKey: config.apiKey
+      ? config.apiKey.substring(0, 8) + '***'
+      : 'NONE',
+    cliToken: cliOverrides.token
+      ? cliOverrides.token.substring(0, 8) + '***'
+      : 'none',
+  });
+
   applyCLIOverrides(config, cliOverrides);
-  if (process.env.DEBUG_CONFIG) {
-    console.log('[CONFIG] Step 6 - after CLI overrides:', {
-      configApiKey: config.apiKey
-        ? config.apiKey.substring(0, 8) + '***'
-        : 'NONE',
-    });
-  }
+
+  output.debug('[CONFIG] Final config', {
+    configApiKey: config.apiKey
+      ? config.apiKey.substring(0, 8) + '***'
+      : 'NONE',
+  });
 
   return config;
 }
@@ -215,7 +202,7 @@ function applyCLIOverrides(config, cliOverrides = {}) {
 }
 
 function mergeConfig(target, source) {
-  for (const key in source) {
+  for (let key in source) {
     if (
       source[key] &&
       typeof source[key] === 'object' &&
@@ -230,10 +217,8 @@ function mergeConfig(target, source) {
 }
 
 export function getScreenshotPaths(config) {
-  const screenshotsDir = config.upload?.screenshotsDir || './screenshots';
-  const paths = Array.isArray(screenshotsDir)
-    ? screenshotsDir
-    : [screenshotsDir];
+  let screenshotsDir = config.upload?.screenshotsDir || './screenshots';
+  let paths = Array.isArray(screenshotsDir) ? screenshotsDir : [screenshotsDir];
 
   return paths.map(p => resolve(process.cwd(), p));
 }

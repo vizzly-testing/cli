@@ -2,7 +2,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { VizzlyError } from '../errors/vizzly-error.js';
-import { createComponentLogger } from '../utils/logger-factory.js';
+import * as output from '../utils/output.js';
 import { loadPlugins } from '../plugin-loader.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { z } from 'zod';
@@ -11,21 +11,21 @@ import { z } from 'zod';
  * Simple configuration setup for Vizzly CLI
  */
 export class InitCommand {
-  constructor(logger, plugins = []) {
-    this.logger = logger || createComponentLogger('INIT', { level: 'info' });
+  constructor(plugins = []) {
     this.plugins = plugins;
   }
 
   async run(options = {}) {
-    this.logger.info('🎯 Initializing Vizzly configuration...\n');
+    output.info('🎯 Initializing Vizzly configuration...');
+    output.blank();
 
     try {
       // Check for existing config
-      const configPath = path.join(process.cwd(), 'vizzly.config.js');
-      const hasConfig = await this.fileExists(configPath);
+      let configPath = path.join(process.cwd(), 'vizzly.config.js');
+      let hasConfig = await this.fileExists(configPath);
 
       if (hasConfig && !options.force) {
-        this.logger.info(
+        output.info(
           '❌ A vizzly.config.js file already exists. Use --force to overwrite.'
         );
         return;
@@ -37,7 +37,8 @@ export class InitCommand {
       // Show next steps
       this.showNextSteps();
 
-      this.logger.info('\n✅ Vizzly CLI setup complete!');
+      output.blank();
+      output.success('Vizzly CLI setup complete!');
     } catch (error) {
       throw new VizzlyError(
         'Failed to initialize Vizzly configuration',
@@ -87,16 +88,14 @@ export class InitCommand {
     coreConfig += '\n};\n';
 
     await fs.writeFile(configPath, coreConfig, 'utf8');
-    this.logger.info(`📄 Created vizzly.config.js`);
+    output.info(`📄 Created vizzly.config.js`);
 
     // Log discovered plugins
     let pluginsWithConfig = this.plugins.filter(p => p.configSchema);
     if (pluginsWithConfig.length > 0) {
-      this.logger.info(
-        `   Added config for ${pluginsWithConfig.length} plugin(s):`
-      );
+      output.info(`   Added config for ${pluginsWithConfig.length} plugin(s):`);
       pluginsWithConfig.forEach(p => {
-        this.logger.info(`   - ${p.name}`);
+        output.info(`   - ${p.name}`);
       });
     }
   }
@@ -156,11 +155,11 @@ export class InitCommand {
         let messages = error.errors.map(
           e => `${e.path.join('.')}: ${e.message}`
         );
-        this.logger.warn(
+        output.warn(
           `Invalid config schema for plugin ${plugin.name}: ${messages.join(', ')}`
         );
       } else {
-        this.logger.warn(
+        output.warn(
           `Failed to format config for plugin ${plugin.name}: ${error.message}`
         );
       }
@@ -211,13 +210,14 @@ export class InitCommand {
   }
 
   showNextSteps() {
-    this.logger.info('\n📚 Next steps:');
-    this.logger.info('   1. Set your API token:');
-    this.logger.info('      export VIZZLY_TOKEN="your-api-key"');
-    this.logger.info('   2. Run your tests with Vizzly:');
-    this.logger.info('      npx vizzly run "npm test"');
-    this.logger.info('   3. Upload screenshots:');
-    this.logger.info('      npx vizzly upload ./screenshots');
+    output.blank();
+    output.info('📚 Next steps:');
+    output.info('   1. Set your API token:');
+    output.info('      export VIZZLY_TOKEN="your-api-key"');
+    output.info('   2. Run your tests with Vizzly:');
+    output.info('      npx vizzly run "npm test"');
+    output.info('   3. Upload screenshots:');
+    output.info('      npx vizzly upload ./screenshots');
   }
 
   async fileExists(filePath) {
@@ -232,20 +232,25 @@ export class InitCommand {
 
 // Export factory function for CLI
 export function createInitCommand(options) {
-  const command = new InitCommand(options.logger, options.plugins);
+  let command = new InitCommand(options.plugins);
   return () => command.run(options);
 }
 
 // Simple export for direct CLI usage
 export async function init(options = {}) {
+  output.configure({
+    json: options.json || false,
+    verbose: options.verbose || false,
+    color: options.color !== false,
+  });
+
   let plugins = [];
 
   // Try to load plugins if not provided
   if (!options.plugins) {
     try {
       let config = await loadConfig(options.config, {});
-      let logger = createComponentLogger('INIT', { level: 'debug' });
-      plugins = await loadPlugins(options.config, config, logger);
+      plugins = await loadPlugins(options.config, config, null);
     } catch {
       // Silent fail - plugins are optional for init
     }
@@ -253,6 +258,6 @@ export async function init(options = {}) {
     plugins = options.plugins;
   }
 
-  const command = new InitCommand(null, plugins);
+  let command = new InitCommand(plugins);
   return await command.run(options);
 }

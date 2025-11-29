@@ -1,5 +1,5 @@
 import { loadConfig } from '../utils/config-loader.js';
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { createServices } from '../services/index.js';
 import { detectBranch, detectCommit } from '../utils/git.js';
 
@@ -15,7 +15,7 @@ export async function tddCommand(
   options = {},
   globalOptions = {}
 ) {
-  const ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -25,11 +25,11 @@ export async function tddCommand(
   let isCleanedUp = false;
 
   // Create cleanup function that can be called by the caller
-  const cleanup = async () => {
+  let cleanup = async () => {
     if (isCleanedUp) return;
     isCleanedUp = true;
 
-    ui.cleanup();
+    output.cleanup();
     if (testRunner?.cancel) {
       await testRunner.cancel();
     }
@@ -37,11 +37,11 @@ export async function tddCommand(
 
   try {
     // Load configuration with CLI overrides
-    const allOptions = { ...globalOptions, ...options };
-    const config = await loadConfig(globalOptions.config, allOptions);
+    let allOptions = { ...globalOptions, ...options };
+    let config = await loadConfig(globalOptions.config, allOptions);
 
     // Dev mode works locally by default - only needs token for baseline download
-    const needsToken = options.baselineBuild || options.baselineComparison;
+    let needsToken = options.baselineBuild || options.baselineComparison;
 
     if (!config.apiKey && needsToken) {
       throw new Error(
@@ -53,18 +53,19 @@ export async function tddCommand(
     config.allowNoToken = true;
 
     if (!config.apiKey && !options.daemon) {
-      ui.info('Running in local-only mode (no API token)');
+      output.info('Running in local-only mode (no API token)');
     } else if (!needsToken && !options.daemon) {
-      ui.info('Running in local mode (API token available but not needed)');
+      output.info('Running in local mode (API token available but not needed)');
     }
 
     // Collect git metadata
-    const branch = await detectBranch(options.branch);
-    const commit = await detectCommit(options.commit);
+    let branch = await detectBranch(options.branch);
+    let commit = await detectCommit(options.commit);
 
     // Only show config in verbose mode for non-daemon (daemon shows baseline info instead)
     if (globalOptions.verbose && !options.daemon) {
-      ui.info('TDD Configuration loaded', {
+      output.info('TDD Configuration loaded');
+      output.debug('Config details', {
         testCommand,
         port: config.server.port,
         timeout: config.server.timeout,
@@ -78,35 +79,35 @@ export async function tddCommand(
     }
 
     // Create services
-    ui.startSpinner('Initializing TDD server...');
+    output.startSpinner('Initializing TDD server...');
     let configWithVerbose = { ...config, verbose: globalOptions.verbose };
     let services = createServices(configWithVerbose, 'tdd');
     testRunner = services.testRunner;
-    ui.stopSpinner();
+    output.stopSpinner();
 
     // Set up event handlers for user feedback
     testRunner.on('progress', progressData => {
-      const { message: progressMessage } = progressData;
-      ui.progress(progressMessage || 'Running tests...');
+      let { message: progressMessage } = progressData;
+      output.progress(progressMessage || 'Running tests...');
     });
 
-    testRunner.on('test-output', output => {
+    testRunner.on('test-output', data => {
       // In non-JSON mode, show test output directly
       if (!globalOptions.json) {
-        ui.stopSpinner();
-        console.log(output.data);
+        output.stopSpinner();
+        output.print(data.data);
       }
     });
 
     testRunner.on('server-ready', serverInfo => {
       // Only show in non-daemon mode (daemon shows its own startup message)
       if (!options.daemon) {
-        ui.info(`TDD screenshot server running on port ${serverInfo.port}`);
-        ui.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
+        output.info(`TDD screenshot server running on port ${serverInfo.port}`);
+        output.info(`Dashboard: http://localhost:${serverInfo.port}/dashboard`);
       }
       // Verbose server details only in non-daemon mode
       if (globalOptions.verbose && !options.daemon) {
-        ui.info('Server started', {
+        output.debug('Server started', {
           port: serverInfo.port,
           pid: serverInfo.pid,
           uptime: serverInfo.uptime,
@@ -115,44 +116,44 @@ export async function tddCommand(
     });
 
     testRunner.on('screenshot-captured', screenshotInfo => {
-      ui.info(`Vizzly TDD: Screenshot captured - ${screenshotInfo.name}`);
+      output.info(`Vizzly TDD: Screenshot captured - ${screenshotInfo.name}`);
     });
 
     testRunner.on('comparison-result', comparisonInfo => {
-      const { name, status, pixelDifference } = comparisonInfo;
+      let { name, status, pixelDifference } = comparisonInfo;
       if (status === 'passed') {
-        ui.info(`✅ ${name}: Visual comparison passed`);
+        output.info(`✅ ${name}: Visual comparison passed`);
       } else if (status === 'failed') {
-        ui.warning(
+        output.warn(
           `❌ ${name}: Visual comparison failed (${pixelDifference}% difference)`
         );
       } else if (status === 'new') {
-        ui.warning(`🆕 ${name}: New screenshot (no baseline)`);
+        output.warn(`🆕 ${name}: New screenshot (no baseline)`);
       }
     });
 
     testRunner.on('error', error => {
-      ui.error('TDD test runner error occurred', error, 0); // Don't exit immediately
+      output.error('TDD test runner error occurred', error);
     });
 
     // Show informational messages about baseline behavior (skip in daemon mode)
     if (!options.daemon) {
       if (options.setBaseline) {
-        ui.info(
+        output.info(
           '🐻 Baseline update mode - will ignore existing baselines and create new ones'
         );
       } else if (options.baselineBuild || options.baselineComparison) {
-        ui.info(
+        output.info(
           '📥 Will fetch remote baselines from Vizzly for local comparison'
         );
       } else {
-        ui.info(
+        output.info(
           '📁 Will use local baselines or create new ones when screenshots differ'
         );
       }
     }
 
-    const runOptions = {
+    let runOptions = {
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
@@ -185,38 +186,38 @@ export async function tddCommand(
     }
 
     // Normal dev mode - run tests
-    ui.info('Starting test execution...');
-    const result = await testRunner.run(runOptions);
+    output.info('Starting test execution...');
+    let result = await testRunner.run(runOptions);
 
     // Show summary
-    const { screenshotsCaptured, comparisons } = result;
+    let { screenshotsCaptured, comparisons } = result;
 
-    console.log(`🐻 Vizzly TDD: Processed ${screenshotsCaptured} screenshots`);
+    output.print(`🐻 Vizzly TDD: Processed ${screenshotsCaptured} screenshots`);
 
     if (comparisons && comparisons.length > 0) {
-      const passed = comparisons.filter(c => c.status === 'passed').length;
-      const failed = comparisons.filter(c => c.status === 'failed').length;
-      const newScreenshots = comparisons.filter(c => c.status === 'new').length;
+      let passed = comparisons.filter(c => c.status === 'passed').length;
+      let failed = comparisons.filter(c => c.status === 'failed').length;
+      let newScreenshots = comparisons.filter(c => c.status === 'new').length;
 
-      console.log(
+      output.print(
         `📊 Results: ${passed} passed, ${failed} failed, ${newScreenshots} new`
       );
 
       if (failed > 0) {
-        console.log(`🔍 Check diff images in .vizzly/diffs/ directory`);
+        output.print(`🔍 Check diff images in .vizzly/diffs/ directory`);
       }
     }
 
-    ui.success('TDD test run completed');
+    output.success('TDD test run completed');
 
     // Determine success based on comparison results
-    const hasFailures =
+    let hasFailures =
       result.failed ||
       (result.comparisons &&
         result.comparisons.some(c => c.status === 'failed'));
 
     if (hasFailures) {
-      ui.error('Visual differences detected in TDD mode', {}, 0);
+      output.error('Visual differences detected in TDD mode');
     }
 
     // Return result and cleanup function
@@ -229,7 +230,7 @@ export async function tddCommand(
       cleanup,
     };
   } catch (error) {
-    ui.error('TDD test run failed', error);
+    output.error('TDD test run failed', error);
     return {
       result: {
         success: false,
@@ -247,28 +248,28 @@ export async function tddCommand(
  * @param {Object} options - Command options
  */
 export function validateTddOptions(testCommand, options) {
-  const errors = [];
+  let errors = [];
 
   if (!testCommand || testCommand.trim() === '') {
     errors.push('Test command is required');
   }
 
   if (options.port) {
-    const port = parseInt(options.port, 10);
+    let port = parseInt(options.port, 10);
     if (isNaN(port) || port < 1 || port > 65535) {
       errors.push('Port must be a valid number between 1 and 65535');
     }
   }
 
   if (options.timeout) {
-    const timeout = parseInt(options.timeout, 10);
+    let timeout = parseInt(options.timeout, 10);
     if (isNaN(timeout) || timeout < 1000) {
       errors.push('Timeout must be at least 1000 milliseconds');
     }
   }
 
   if (options.threshold !== undefined) {
-    const threshold = parseFloat(options.threshold);
+    let threshold = parseFloat(options.threshold);
     if (isNaN(threshold) || threshold < 0 || threshold > 1) {
       errors.push('Threshold must be a number between 0 and 1');
     }

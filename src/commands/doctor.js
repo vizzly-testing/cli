@@ -1,6 +1,6 @@
 import { URL } from 'url';
 import { loadConfig } from '../utils/config-loader.js';
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { ApiService } from '../services/api-service.js';
 import { ConfigError } from '../errors/vizzly-error.js';
 import { getApiToken } from '../utils/environment-config.js';
@@ -11,16 +11,13 @@ import { getApiToken } from '../utils/environment-config.js';
  * @param {Object} globalOptions - Global CLI options
  */
 export async function doctorCommand(options = {}, globalOptions = {}) {
-  // Create UI handler
-  const ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
   });
 
-  // Note: ConsoleUI handles cleanup via global process listeners
-
-  const diagnostics = {
+  let diagnostics = {
     environment: {
       nodeVersion: null,
       nodeVersionValid: null,
@@ -43,78 +40,77 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
 
   try {
     // Determine if we'll attempt remote checks (API connectivity)
-    const willCheckConnectivity = Boolean(options.api || getApiToken());
+    let willCheckConnectivity = Boolean(options.api || getApiToken());
 
     // Announce preflight, indicating local-only when no token/connectivity is planned
-    ui.info(
+    output.info(
       `Running Vizzly preflight${willCheckConnectivity ? '' : ' (local checks only)'}...`
     );
 
     // Node.js version check (require >= 20)
-    const nodeVersion = process.version;
-    const nodeMajor = parseInt(nodeVersion.slice(1).split('.')[0], 10);
+    let nodeVersion = process.version;
+    let nodeMajor = parseInt(nodeVersion.slice(1).split('.')[0], 10);
     diagnostics.environment.nodeVersion = nodeVersion;
     diagnostics.environment.nodeVersionValid = nodeMajor >= 20;
     if (nodeMajor >= 20) {
-      ui.success(`Node.js version: ${nodeVersion} (supported)`);
+      output.success(`Node.js version: ${nodeVersion} (supported)`);
     } else {
       hasErrors = true;
-      ui.error('Node.js version must be >= 20', {}, 0);
+      output.error('Node.js version must be >= 20');
     }
 
     // Load configuration (apply global CLI overrides like --config only)
-    const config = await loadConfig(globalOptions.config);
+    let config = await loadConfig(globalOptions.config);
 
     // Validate apiUrl
     diagnostics.configuration.apiUrl = config.apiUrl;
     try {
-      const url = new URL(config.apiUrl);
+      let url = new URL(config.apiUrl);
       if (!['http:', 'https:'].includes(url.protocol)) {
         throw new ConfigError('URL must use http or https');
       }
       diagnostics.configuration.apiUrlValid = true;
-      ui.success(`API URL: ${config.apiUrl}`);
+      output.success(`API URL: ${config.apiUrl}`);
     } catch (e) {
       diagnostics.configuration.apiUrlValid = false;
       hasErrors = true;
-      ui.error(
+      output.error(
         'Invalid apiUrl in configuration (set VIZZLY_API_URL or config file)',
-        e,
-        0
+        e
       );
     }
 
     // Validate threshold (0..1 inclusive)
-    const threshold = Number(config?.comparison?.threshold);
+    let threshold = Number(config?.comparison?.threshold);
     diagnostics.configuration.threshold = threshold;
-    const thresholdValid =
+    let thresholdValid =
       Number.isFinite(threshold) && threshold >= 0 && threshold <= 1;
     diagnostics.configuration.thresholdValid = thresholdValid;
     if (thresholdValid) {
-      ui.success(`Threshold: ${threshold}`);
+      output.success(`Threshold: ${threshold}`);
     } else {
       hasErrors = true;
-      ui.error('Invalid threshold (expected number between 0 and 1)', {}, 0);
+      output.error('Invalid threshold (expected number between 0 and 1)');
     }
 
     // Report effective port without binding
-    const port = config?.server?.port ?? 47392;
+    let port = config?.server?.port ?? 47392;
     diagnostics.configuration.port = port;
-    ui.info(`Effective port: ${port}`);
+    output.info(`Effective port: ${port}`);
 
     // Optional: API connectivity check when --api is provided or VIZZLY_TOKEN is present
-    const autoApi = Boolean(getApiToken());
+    let autoApi = Boolean(getApiToken());
     if (options.api || autoApi) {
       diagnostics.connectivity.checked = true;
       if (!config.apiKey) {
         diagnostics.connectivity.ok = false;
         diagnostics.connectivity.error = 'Missing API token (VIZZLY_TOKEN)';
         hasErrors = true;
-        ui.error('Missing API token for connectivity check', {}, 0);
+        output.error('Missing API token for connectivity check');
       } else {
-        ui.progress('Checking API connectivity...');
+        output.progress('Checking API connectivity...');
         try {
-          const api = new ApiService({
+          let api = new ApiService({
             baseUrl: config.apiUrl,
             token: config.apiKey,
             command: 'doctor',
@@ -122,26 +118,26 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
           // Minimal, read-only call
           await api.getBuilds({ limit: 1 });
           diagnostics.connectivity.ok = true;
-          ui.success('API connectivity OK');
+          output.success('API connectivity OK');
         } catch (err) {
           diagnostics.connectivity.ok = false;
           diagnostics.connectivity.error = err?.message || String(err);
           hasErrors = true;
-          ui.error('API connectivity failed', err, 0);
+          output.error('API connectivity failed', err);
         }
       }
     }
 
     // Summary
     if (hasErrors) {
-      ui.warning('Preflight completed with issues.');
+      output.warn('Preflight completed with issues.');
     } else {
-      ui.success('Preflight passed.');
+      output.success('Preflight passed.');
     }
 
     // Emit structured data in json/verbose modes
     if (globalOptions.json || globalOptions.verbose) {
-      ui.data({
+      output.data({
         passed: !hasErrors,
         diagnostics,
         timestamp: new Date().toISOString(),
@@ -149,9 +145,9 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     }
   } catch (error) {
     hasErrors = true;
-    ui.error('Failed to run preflight', error, 0);
+    output.error('Failed to run preflight', error);
   } finally {
-    ui.cleanup();
+    output.cleanup();
     if (hasErrors) process.exit(1);
   }
 }

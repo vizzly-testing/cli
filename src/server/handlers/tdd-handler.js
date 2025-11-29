@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import honeydiff from '@vizzly-testing/honeydiff';
-import { createServiceLogger } from '../../utils/logger-factory.js';
+import * as output from '../../utils/output.js';
 import { TddService } from '../../services/tdd-service.js';
 import {
   sanitizeScreenshotName,
@@ -11,8 +11,6 @@ import {
 import { detectImageInputType } from '../../utils/image-input-detector.js';
 
 let { getDimensionsSync } = honeydiff;
-
-const logger = createServiceLogger('TDD-HANDLER');
 
 /**
  * Group comparisons by screenshot name with variant structure
@@ -136,7 +134,7 @@ export const createTddHandler = (
       const data = readFileSync(reportPath, 'utf8');
       return JSON.parse(data);
     } catch (error) {
-      logger.error('Failed to read report data:', error);
+      output.error('Failed to read report data:', error);
       return {
         timestamp: Date.now(),
         comparisons: [],
@@ -163,12 +161,12 @@ export const createTddHandler = (
 
       if (existingIndex >= 0) {
         reportData.comparisons[existingIndex] = newComparison;
-        logger.debug(
+        output.debug(
           `Updated comparison for ${newComparison.name} (${newComparison.properties?.viewport_width}x${newComparison.properties?.viewport_height})`
         );
       } else {
         reportData.comparisons.push(newComparison);
-        logger.debug(
+        output.debug(
           `Added new comparison for ${newComparison.name} (${newComparison.properties?.viewport_width}x${newComparison.properties?.viewport_height})`
         );
       }
@@ -193,18 +191,18 @@ export const createTddHandler = (
       };
 
       writeFileSync(reportPath, JSON.stringify(reportData, null, 2));
-      logger.debug('Report data saved with grouped structure');
+      output.debug('Report data saved with grouped structure');
     } catch (error) {
-      logger.error('Failed to update comparison:', error);
+      output.error('Failed to update comparison:', error);
     }
   };
 
   const initialize = async () => {
-    logger.debug('TDD mode enabled - setting up local comparison');
+    output.debug('TDD mode enabled - setting up local comparison');
 
     // In baseline update mode, skip all baseline loading/downloading
     if (setBaseline) {
-      logger.debug(
+      output.debug(
         'Ready for new baseline creation - all screenshots will be treated as new baselines'
       );
       return;
@@ -215,7 +213,7 @@ export const createTddHandler = (
       (baselineBuild || baselineComparison) && config.apiKey;
 
     if (shouldForceDownload) {
-      logger.debug(
+      output.debug(
         'Baseline override specified, downloading fresh baselines from Vizzly'
       );
       await tddService.downloadBaselines(
@@ -232,7 +230,7 @@ export const createTddHandler = (
     if (!baseline) {
       // Only download baselines if explicitly requested via baseline flags
       if ((baselineBuild || baselineComparison) && config.apiKey) {
-        logger.debug('No local baseline found, downloading from Vizzly');
+        output.debug('No local baseline found, downloading from Vizzly');
         await tddService.downloadBaselines(
           config.build?.environment || 'test',
           config.build?.branch || null,
@@ -240,12 +238,12 @@ export const createTddHandler = (
           baselineComparison
         );
       } else {
-        logger.debug(
+        output.debug(
           'No local baseline found - will create new baselines from first screenshots'
         );
       }
     } else {
-      logger.debug(`Using existing baseline: ${baseline.buildName}`);
+      output.debug(`Using existing baseline: ${baseline.buildName}`);
     }
   };
 
@@ -330,7 +328,7 @@ export const createTddHandler = (
 
       try {
         imageBuffer = readFileSync(filePath);
-        logger.debug(`Loaded screenshot from file: ${filePath}`);
+        output.debug(`Loaded screenshot from file: ${filePath}`);
       } catch (error) {
         return {
           statusCode: 500,
@@ -380,11 +378,11 @@ export const createTddHandler = (
         if (!extractedProperties.viewport_height) {
           extractedProperties.viewport_height = dimensions.height;
         }
-        logger.debug(
+        output.debug(
           `Auto-detected dimensions: ${dimensions.width}x${dimensions.height}`
         );
       } catch (err) {
-        logger.debug(`Failed to auto-detect dimensions: ${err.message}`);
+        output.debug(`Failed to auto-detect dimensions: ${err.message}`);
       }
     }
 
@@ -396,7 +394,7 @@ export const createTddHandler = (
       extractedProperties
     );
 
-    logger.debug(`Comparison result: ${comparison.status}`);
+    output.debug(`Comparison result: ${comparison.status}`);
 
     // Convert absolute file paths to web-accessible URLs
     const convertPathToUrl = filePath => {
@@ -476,7 +474,7 @@ export const createTddHandler = (
       };
     }
 
-    logger.debug(`✅ TDD: ${comparison.status.toUpperCase()} ${name}`);
+    output.debug(`✅ TDD: ${comparison.status.toUpperCase()} ${name}`);
     return {
       statusCode: 200,
       body: {
@@ -519,17 +517,17 @@ export const createTddHandler = (
 
       updateComparison(updatedComparison);
 
-      logger.info(`Baseline accepted for comparison ${comparisonId}`);
+      output.info(`Baseline accepted for comparison ${comparisonId}`);
       return result;
     } catch (error) {
-      logger.error(`Failed to accept baseline for ${comparisonId}:`, error);
+      output.error(`Failed to accept baseline for ${comparisonId}:`, error);
       throw error;
     }
   };
 
   const acceptAllBaselines = async () => {
     try {
-      logger.debug('Accepting all baselines');
+      output.debug('Accepting all baselines');
 
       const reportData = readReportData();
       let acceptedCount = 0;
@@ -553,17 +551,17 @@ export const createTddHandler = (
         }
       }
 
-      logger.info(`Accepted ${acceptedCount} baselines`);
+      output.info(`Accepted ${acceptedCount} baselines`);
       return { count: acceptedCount };
     } catch (error) {
-      logger.error('Failed to accept all baselines:', error);
+      output.error('Failed to accept all baselines:', error);
       throw error;
     }
   };
 
   const resetBaselines = async () => {
     try {
-      logger.debug('Resetting baselines');
+      output.debug('Resetting baselines');
 
       const reportData = readReportData();
       let deletedBaselines = 0;
@@ -584,9 +582,9 @@ export const createTddHandler = (
               const { unlinkSync } = await import('fs');
               unlinkSync(baselinePath);
               deletedBaselines++;
-              logger.debug(`Deleted baseline for ${comparison.name}`);
+              output.debug(`Deleted baseline for ${comparison.name}`);
             } catch (error) {
-              logger.warn(
+              output.warn(
                 `Failed to delete baseline for ${comparison.name}: ${error.message}`
               );
             }
@@ -605,9 +603,9 @@ export const createTddHandler = (
               const { unlinkSync } = await import('fs');
               unlinkSync(currentPath);
               deletedCurrents++;
-              logger.debug(`Deleted current screenshot for ${comparison.name}`);
+              output.debug(`Deleted current screenshot for ${comparison.name}`);
             } catch (error) {
-              logger.warn(
+              output.warn(
                 `Failed to delete current screenshot for ${comparison.name}: ${error.message}`
               );
             }
@@ -626,9 +624,9 @@ export const createTddHandler = (
               const { unlinkSync } = await import('fs');
               unlinkSync(diffPath);
               deletedDiffs++;
-              logger.debug(`Deleted diff for ${comparison.name}`);
+              output.debug(`Deleted diff for ${comparison.name}`);
             } catch (error) {
-              logger.warn(
+              output.warn(
                 `Failed to delete diff for ${comparison.name}: ${error.message}`
               );
             }
@@ -647,9 +645,9 @@ export const createTddHandler = (
         try {
           const { unlinkSync } = await import('fs');
           unlinkSync(metadataPath);
-          logger.debug('Deleted baseline metadata');
+          output.debug('Deleted baseline metadata');
         } catch (error) {
-          logger.warn(`Failed to delete baseline metadata: ${error.message}`);
+          output.warn(`Failed to delete baseline metadata: ${error.message}`);
         }
       }
 
@@ -662,19 +660,19 @@ export const createTddHandler = (
       };
       writeFileSync(reportPath, JSON.stringify(freshReportData, null, 2));
 
-      logger.info(
+      output.info(
         `Baselines reset - ${deletedBaselines} baselines deleted, ${deletedCurrents} current screenshots deleted, ${deletedDiffs} diffs deleted`
       );
       return { success: true, deletedBaselines, deletedCurrents, deletedDiffs };
     } catch (error) {
-      logger.error('Failed to reset baselines:', error);
+      output.error('Failed to reset baselines:', error);
       throw error;
     }
   };
 
   const cleanup = () => {
     // Report data is persisted to file, no in-memory cleanup needed
-    logger.debug('TDD handler cleanup completed');
+    output.debug('TDD handler cleanup completed');
   };
 
   return {

@@ -8,7 +8,7 @@ import {
 import { join } from 'path';
 import { homedir } from 'os';
 import { spawn } from 'child_process';
-import { ConsoleUI } from '../utils/console-ui.js';
+import * as output from '../utils/output.js';
 import { tddCommand } from './tdd.js';
 
 /**
@@ -17,7 +17,7 @@ import { tddCommand } from './tdd.js';
  * @param {Object} globalOptions - Global CLI options
  */
 export async function tddStartCommand(options = {}, globalOptions = {}) {
-  const ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
@@ -25,9 +25,9 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
   // Check if server already running
   if (await isServerRunning(options.port || 47392)) {
-    const port = options.port || 47392;
-    ui.info(`TDD server already running at http://localhost:${port}`);
-    ui.info(`Dashboard: http://localhost:${port}/dashboard`);
+    let port = options.port || 47392;
+    output.info(`TDD server already running at http://localhost:${port}`);
+    output.info(`Dashboard: http://localhost:${port}/dashboard`);
 
     if (options.open) {
       openDashboard(port);
@@ -37,22 +37,22 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
   try {
     // Ensure .vizzly directory exists
-    const vizzlyDir = join(process.cwd(), '.vizzly');
+    let vizzlyDir = join(process.cwd(), '.vizzly');
     if (!existsSync(vizzlyDir)) {
       mkdirSync(vizzlyDir, { recursive: true });
     }
 
-    const port = options.port || 47392;
+    let port = options.port || 47392;
 
     // Show loading indicator if downloading baselines (but not in verbose mode since child shows progress)
     if (options.baselineBuild && !globalOptions.verbose) {
-      ui.startSpinner(
+      output.startSpinner(
         `Downloading baselines from build ${options.baselineBuild}...`
       );
     }
 
     // Spawn child process with stdio inherited during init for direct error visibility
-    const child = spawn(
+    let child = spawn(
       process.execPath,
       [
         process.argv[1], // CLI entry point
@@ -105,19 +105,23 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       });
 
       // Timeout after 30 seconds to prevent indefinite wait
-      setTimeout(() => {
+      let timeoutId = setTimeout(() => {
         if (!initComplete && !initFailed) {
           initFailed = true;
           resolve();
         }
       }, 30000);
+
+      // Clear timeout if we resolve early
+      child.on('disconnect', () => clearTimeout(timeoutId));
+      child.on('exit', () => clearTimeout(timeoutId));
     });
 
     if (initFailed) {
       if (options.baselineBuild && !globalOptions.verbose) {
-        ui.stopSpinner();
+        output.stopSpinner();
       }
-      ui.error('TDD server failed to start');
+      output.error('TDD server failed to start');
       process.exit(1);
     }
 
@@ -125,8 +129,8 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     child.unref();
 
     // Verify server started with retries
-    const maxRetries = 10;
-    const retryDelay = 200; // Start with 200ms
+    let maxRetries = 10;
+    let retryDelay = 200; // Start with 200ms
     let running = false;
 
     for (let i = 0; i < maxRetries && !running; i++) {
@@ -135,26 +139,26 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     }
 
     if (options.baselineBuild && !globalOptions.verbose) {
-      ui.stopSpinner();
+      output.stopSpinner();
     }
 
     if (!running) {
-      ui.error(
+      output.error(
         'Failed to start TDD server - server not responding to health checks'
       );
       process.exit(1);
     }
 
-    ui.success(`TDD server started at http://localhost:${port}`);
+    output.success(`TDD server started at http://localhost:${port}`);
 
     // Write server info to global location for SDK discovery (iOS/Swift can read this)
     try {
-      const globalVizzlyDir = join(homedir(), '.vizzly');
+      let globalVizzlyDir = join(homedir(), '.vizzly');
       if (!existsSync(globalVizzlyDir)) {
         mkdirSync(globalVizzlyDir, { recursive: true });
       }
-      const globalServerFile = join(globalVizzlyDir, 'server.json');
-      const serverInfo = {
+      let globalServerFile = join(globalVizzlyDir, 'server.json');
+      let serverInfo = {
         pid: child.pid,
         port: port.toString(),
         startTime: Date.now(),
@@ -164,28 +168,30 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       // Non-fatal, SDK can still use health check
     }
 
-    ui.info('');
-    ui.info('Dashboard:');
-    ui.info(`  http://localhost:${port}/`);
-    ui.info('');
-    ui.info('Available views:');
-    ui.info(`  Comparisons: http://localhost:${port}/`);
-    ui.info(`  Stats:       http://localhost:${port}/stats`);
-    ui.info(`  Settings:    http://localhost:${port}/settings`);
-    ui.info(`  Projects:    http://localhost:${port}/projects`);
-    ui.info('');
-    ui.info('Next steps:');
-    ui.info('  1. Run your tests in watch mode (e.g., npm test -- --watch)');
-    ui.info('  2. View live visual comparisons in the dashboard');
-    ui.info('  3. Accept/reject baselines directly in the UI');
-    ui.info('');
-    ui.info('Stop server: npx vizzly dev stop');
+    output.blank();
+    output.info('Dashboard:');
+    output.info(`  http://localhost:${port}/`);
+    output.blank();
+    output.info('Available views:');
+    output.info(`  Comparisons: http://localhost:${port}/`);
+    output.info(`  Stats:       http://localhost:${port}/stats`);
+    output.info(`  Settings:    http://localhost:${port}/settings`);
+    output.info(`  Projects:    http://localhost:${port}/projects`);
+    output.blank();
+    output.info('Next steps:');
+    output.info(
+      '  1. Run your tests in watch mode (e.g., npm test -- --watch)'
+    );
+    output.info('  2. View live visual comparisons in the dashboard');
+    output.info('  3. Accept/reject baselines directly in the UI');
+    output.blank();
+    output.info('Stop server: npx vizzly dev stop');
 
     if (options.open) {
       openDashboard(port);
     }
   } catch (error) {
-    ui.error('Failed to start TDD daemon', error);
+    output.error('Failed to start TDD daemon', error);
     process.exit(1);
   }
 }
@@ -196,12 +202,12 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
  * @private
  */
 export async function runDaemonChild(options = {}, globalOptions = {}) {
-  const vizzlyDir = join(process.cwd(), '.vizzly');
-  const port = options.port || 47392;
+  let vizzlyDir = join(process.cwd(), '.vizzly');
+  let port = options.port || 47392;
 
   try {
     // Use existing tddCommand but with daemon mode
-    const { cleanup } = await tddCommand(
+    let { cleanup } = await tddCommand(
       null, // No test command - server only
       {
         ...options,
@@ -216,10 +222,10 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
     }
 
     // Store our PID for the stop command
-    const pidFile = join(vizzlyDir, 'server.pid');
+    let pidFile = join(vizzlyDir, 'server.pid');
     writeFileSync(pidFile, process.pid.toString());
 
-    const serverInfo = {
+    let serverInfo = {
       pid: process.pid,
       port: port,
       startTime: Date.now(),
@@ -230,16 +236,16 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
     );
 
     // Set up graceful shutdown
-    const handleShutdown = async () => {
+    let handleShutdown = async () => {
       try {
         // Clean up PID files
         if (existsSync(pidFile)) unlinkSync(pidFile);
-        const serverFile = join(vizzlyDir, 'server.json');
+        let serverFile = join(vizzlyDir, 'server.json');
         if (existsSync(serverFile)) unlinkSync(serverFile);
 
         // Clean up global server file
         try {
-          const globalServerFile = join(homedir(), '.vizzly', 'server.json');
+          let globalServerFile = join(homedir(), '.vizzly', 'server.json');
           if (existsSync(globalServerFile)) unlinkSync(globalServerFile);
         } catch {
           // Non-fatal
@@ -273,15 +279,15 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
  * @param {Object} globalOptions - Global CLI options
  */
 export async function tddStopCommand(options = {}, globalOptions = {}) {
-  const ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
   });
 
-  const vizzlyDir = join(process.cwd(), '.vizzly');
-  const pidFile = join(vizzlyDir, 'server.pid');
-  const serverFile = join(vizzlyDir, 'server.json');
+  let vizzlyDir = join(process.cwd(), '.vizzly');
+  let pidFile = join(vizzlyDir, 'server.pid');
+  let serverFile = join(vizzlyDir, 'server.json');
 
   // First try to find process by PID file
   let pid = null;
@@ -294,10 +300,10 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
   }
 
   // If no PID file or invalid, try to find by port using lsof
-  const port = options.port || 47392;
+  let port = options.port || 47392;
   if (!pid) {
     try {
-      const lsofProcess = spawn('lsof', ['-ti', `:${port}`], { stdio: 'pipe' });
+      let lsofProcess = spawn('lsof', ['-ti', `:${port}`], { stdio: 'pipe' });
 
       let lsofOutput = '';
       lsofProcess.stdout.on('data', data => {
@@ -307,7 +313,7 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
       await new Promise(resolve => {
         lsofProcess.on('close', code => {
           if (code === 0 && lsofOutput.trim()) {
-            const foundPid = parseInt(lsofOutput.trim().split('\n')[0], 10);
+            let foundPid = parseInt(lsofOutput.trim().split('\n')[0], 10);
             if (foundPid && !isNaN(foundPid)) {
               pid = foundPid;
             }
@@ -326,7 +332,7 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
   }
 
   if (!pid) {
-    ui.warning('No TDD server running');
+    output.warn('No TDD server running');
 
     // Clean up any stale files
     if (existsSync(pidFile)) unlinkSync(pidFile);
@@ -338,7 +344,7 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
     // Try to kill the process gracefully
     process.kill(pid, 'SIGTERM');
 
-    ui.info(`Stopping TDD server (PID: ${pid})...`);
+    output.info(`Stopping TDD server (PID: ${pid})...`);
 
     // Give it a moment to shut down gracefully
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -348,7 +354,7 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
       process.kill(pid, 0); // Just check if process exists
       // If we get here, process is still running, force kill it
       process.kill(pid, 'SIGKILL');
-      ui.info('Force killed TDD server');
+      output.info('Force killed TDD server');
     } catch {
       // Process is gone, which is what we want
     }
@@ -357,15 +363,15 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
     if (existsSync(pidFile)) unlinkSync(pidFile);
     if (existsSync(serverFile)) unlinkSync(serverFile);
 
-    ui.success('TDD server stopped');
+    output.success('TDD server stopped');
   } catch (error) {
     if (error.code === 'ESRCH') {
       // Process not found - clean up stale files
-      ui.warning('TDD server was not running (cleaning up stale files)');
+      output.warn('TDD server was not running (cleaning up stale files)');
       if (existsSync(pidFile)) unlinkSync(pidFile);
       if (existsSync(serverFile)) unlinkSync(serverFile);
     } else {
-      ui.error('Error stopping TDD server', error);
+      output.error('Error stopping TDD server', error);
     }
   }
 }
@@ -376,23 +382,23 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
  * @param {Object} globalOptions - Global CLI options
  */
 export async function tddStatusCommand(options, globalOptions = {}) {
-  const ui = new ConsoleUI({
+  output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
   });
 
-  const vizzlyDir = join(process.cwd(), '.vizzly');
-  const pidFile = join(vizzlyDir, 'server.pid');
-  const serverFile = join(vizzlyDir, 'server.json');
+  let vizzlyDir = join(process.cwd(), '.vizzly');
+  let pidFile = join(vizzlyDir, 'server.pid');
+  let serverFile = join(vizzlyDir, 'server.json');
 
   if (!existsSync(pidFile)) {
-    ui.info('TDD server not running');
+    output.info('TDD server not running');
     return;
   }
 
   try {
-    const pid = parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
+    let pid = parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
 
     // Check if process is actually running
     process.kill(pid, 0); // Signal 0 just checks if process exists
@@ -403,44 +409,48 @@ export async function tddStatusCommand(options, globalOptions = {}) {
     }
 
     // Try to check health endpoint
-    const health = await checkServerHealth(serverInfo.port);
+    let health = await checkServerHealth(serverInfo.port);
 
     if (health.running) {
-      ui.success(`TDD server running (PID: ${pid})`);
-      ui.info(`Dashboard: http://localhost:${serverInfo.port}/`);
-      ui.info('');
-      ui.info('Available views:');
-      ui.info(`  Comparisons: http://localhost:${serverInfo.port}/`);
-      ui.info(`  Stats:       http://localhost:${serverInfo.port}/stats`);
-      ui.info(`  Settings:    http://localhost:${serverInfo.port}/settings`);
-      ui.info(`  Projects:    http://localhost:${serverInfo.port}/projects`);
+      output.success(`TDD server running (PID: ${pid})`);
+      output.info(`Dashboard: http://localhost:${serverInfo.port}/`);
+      output.blank();
+      output.info('Available views:');
+      output.info(`  Comparisons: http://localhost:${serverInfo.port}/`);
+      output.info(`  Stats:       http://localhost:${serverInfo.port}/stats`);
+      output.info(
+        `  Settings:    http://localhost:${serverInfo.port}/settings`
+      );
+      output.info(
+        `  Projects:    http://localhost:${serverInfo.port}/projects`
+      );
 
       if (serverInfo.startTime) {
-        const uptime = Math.floor((Date.now() - serverInfo.startTime) / 1000);
-        const hours = Math.floor(uptime / 3600);
-        const minutes = Math.floor((uptime % 3600) / 60);
-        const seconds = uptime % 60;
+        let uptime = Math.floor((Date.now() - serverInfo.startTime) / 1000);
+        let hours = Math.floor(uptime / 3600);
+        let minutes = Math.floor((uptime % 3600) / 60);
+        let seconds = uptime % 60;
         let uptimeStr = '';
         if (hours > 0) uptimeStr += `${hours}h `;
         if (minutes > 0 || hours > 0) uptimeStr += `${minutes}m `;
         uptimeStr += `${seconds}s`;
-        ui.info('');
-        ui.info(`Uptime: ${uptimeStr}`);
+        output.blank();
+        output.info(`Uptime: ${uptimeStr}`);
       }
     } else {
-      ui.warning(
+      output.warn(
         'TDD server process exists but not responding to health checks'
       );
     }
   } catch (error) {
     if (error.code === 'ESRCH') {
-      ui.warning('TDD server process not found (cleaning up stale files)');
+      output.warn('TDD server process not found (cleaning up stale files)');
       unlinkSync(pidFile);
       if (existsSync(serverFile)) {
         unlinkSync(serverFile);
       }
     } else {
-      ui.error('Error checking TDD server status', error);
+      output.error('Error checking TDD server status', error);
     }
   }
 }
@@ -451,7 +461,7 @@ export async function tddStatusCommand(options, globalOptions = {}) {
  */
 async function isServerRunning(port = 47392) {
   try {
-    const health = await checkServerHealth(port);
+    let health = await checkServerHealth(port);
     return health.running;
   } catch {
     return false;
@@ -464,8 +474,8 @@ async function isServerRunning(port = 47392) {
  */
 async function checkServerHealth(port = 47392) {
   try {
-    const response = await fetch(`http://localhost:${port}/health`);
-    const data = await response.json();
+    let response = await fetch(`http://localhost:${port}/health`);
+    let data = await response.json();
     return {
       running: response.ok,
       port: data.port,
@@ -481,7 +491,7 @@ async function checkServerHealth(port = 47392) {
  * @private
  */
 function openDashboard(port = 47392) {
-  const url = `http://localhost:${port}/dashboard`;
+  let url = `http://localhost:${port}/dashboard`;
 
   // Cross-platform open command
   let openCmd;

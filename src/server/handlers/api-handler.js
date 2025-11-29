@@ -1,10 +1,8 @@
 import { Buffer } from 'buffer';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
-import { createServiceLogger } from '../../utils/logger-factory.js';
+import * as output from '../../utils/output.js';
 import { detectImageInputType } from '../../utils/image-input-detector.js';
-
-const logger = createServiceLogger('API-HANDLER');
 
 /**
  * API Handler - Non-blocking screenshot upload
@@ -43,7 +41,7 @@ export const createApiHandler = apiService => {
 
   const handleScreenshot = async (buildId, name, image, properties = {}) => {
     if (vizzlyDisabled) {
-      logger.debug(`Screenshot captured (Vizzly disabled): ${name}`);
+      output.debug(`Screenshot captured (Vizzly disabled): ${name}`);
       return {
         statusCode: 200,
         body: {
@@ -86,7 +84,7 @@ export const createApiHandler = apiService => {
 
       try {
         imageBuffer = readFileSync(filePath);
-        logger.debug(`Loaded screenshot from file: ${filePath}`);
+        output.debug(`Loaded screenshot from file: ${filePath}`);
       } catch (error) {
         return {
           statusCode: 500,
@@ -126,21 +124,20 @@ export const createApiHandler = apiService => {
       .uploadScreenshot(buildId, name, imageBuffer, properties ?? {})
       .then(result => {
         if (result.skipped) {
-          logger.debug(`Screenshot already exists, skipped: ${name}`);
+          output.debug(`Screenshot already exists, skipped: ${name}`);
         } else {
-          logger.debug(`Screenshot uploaded: ${name}`);
+          output.debug(`Screenshot uploaded: ${name}`);
         }
         return { success: true, name, result };
       })
       .catch(uploadError => {
-        logger.error(
-          `❌ Failed to upload screenshot ${name}:`,
-          uploadError.message
-        );
+        output.debug(`Failed to upload screenshot ${name}`, {
+          error: uploadError.message,
+        });
         vizzlyDisabled = true;
-        const disabledMessage =
-          '⚠️  Vizzly disabled due to upload error - continuing tests without visual testing';
-        logger.warn(disabledMessage);
+        output.warn(
+          'Vizzly disabled due to upload error - continuing tests without visual testing'
+        );
         return { success: false, name, error: uploadError };
       });
 
@@ -166,11 +163,11 @@ export const createApiHandler = apiService => {
    */
   const flush = async () => {
     if (uploadPromises.length === 0) {
-      logger.debug('No uploads to flush');
+      output.debug('No uploads to flush');
       return { uploaded: 0, failed: 0, total: 0 };
     }
 
-    logger.debug(`Flushing ${uploadPromises.length} background uploads...`);
+    output.debug(`Flushing ${uploadPromises.length} background uploads...`);
     const results = await Promise.allSettled(uploadPromises);
 
     let uploaded = 0;
@@ -184,9 +181,7 @@ export const createApiHandler = apiService => {
       }
     });
 
-    logger.debug(
-      `Upload flush complete: ${uploaded} uploaded, ${failed} failed`
-    );
+    output.debug('Upload flush complete', { uploaded, failed });
 
     // Clear promises array
     uploadPromises = [];
@@ -198,7 +193,7 @@ export const createApiHandler = apiService => {
     vizzlyDisabled = false;
     screenshotCount = 0;
     uploadPromises = [];
-    logger.debug('API handler cleanup completed');
+    output.debug('API handler cleanup completed');
   };
 
   return {

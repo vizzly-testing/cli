@@ -178,37 +178,45 @@ export default function FullscreenViewer({
   let [onionSkinPosition, setOnionSkinPosition] = useState(50);
   let filmstripRef = useRef(null);
 
-  // Find current index and group info using stable IDs
-  let { currentIndex } = useMemo(() => {
+  // Sort comparisons: failed (diffs) first, then new, then passed
+  let sortedComparisons = useMemo(() => {
+    let statusOrder = { failed: 0, new: 1, 'baseline-created': 1, passed: 2 };
+    return [...comparisons].sort((a, b) => {
+      let orderA = statusOrder[a.status] ?? 3;
+      let orderB = statusOrder[b.status] ?? 3;
+      return orderA - orderB;
+    });
+  }, [comparisons]);
+
+  // Find current index in sorted list
+  let currentIndex = useMemo(() => {
     let compId = getComparisonId(comparison);
-    let index = comparisons.findIndex(
+    return sortedComparisons.findIndex(
       (c, i) => getComparisonId(c, i) === compId
     );
-
-    return { currentIndex: index };
-  }, [comparison, comparisons]);
+  }, [comparison, sortedComparisons]);
 
   // Navigation capabilities
   let canNavigate = useMemo(
     () => ({
       prev: currentIndex > 0,
-      next: currentIndex < comparisons.length - 1,
+      next: currentIndex < sortedComparisons.length - 1,
     }),
-    [currentIndex, comparisons.length]
+    [currentIndex, sortedComparisons.length]
   );
 
   // Navigation handlers
   let handlePrevious = useCallback(() => {
-    if (canNavigate.prev && comparisons[currentIndex - 1]) {
-      onNavigate(comparisons[currentIndex - 1]);
+    if (canNavigate.prev && sortedComparisons[currentIndex - 1]) {
+      onNavigate(sortedComparisons[currentIndex - 1]);
     }
-  }, [canNavigate.prev, comparisons, currentIndex, onNavigate]);
+  }, [canNavigate.prev, sortedComparisons, currentIndex, onNavigate]);
 
   let handleNext = useCallback(() => {
-    if (canNavigate.next && comparisons[currentIndex + 1]) {
-      onNavigate(comparisons[currentIndex + 1]);
+    if (canNavigate.next && sortedComparisons[currentIndex + 1]) {
+      onNavigate(sortedComparisons[currentIndex + 1]);
     }
-  }, [canNavigate.next, comparisons, currentIndex, onNavigate]);
+  }, [canNavigate.next, sortedComparisons, currentIndex, onNavigate]);
 
   // Scroll filmstrip to active thumbnail
   useEffect(() => {
@@ -279,8 +287,19 @@ export default function FullscreenViewer({
     );
   }
 
-  let showActions = comparison.status === 'failed' && !userAction;
-  let isAccepted = userAction === 'accepted';
+  // Show actions for comparisons that can be approved/rejected
+  // - failed: needs review, can approve (accept change) or reject
+  // - passed: auto-matched baseline, can still reject if needed
+  // - new/baseline-created: no baseline to compare, no approve/reject needed
+  let canReview =
+    comparison.status === 'failed' || comparison.status === 'passed';
+
+  // Determine current approval state:
+  // - userAction takes precedence if set
+  // - passed comparisons are implicitly approved unless user rejected
+  let isAccepted =
+    userAction === 'accepted' ||
+    (comparison.status === 'passed' && userAction !== 'rejected');
   let isRejected = userAction === 'rejected';
 
   // View mode options
@@ -335,7 +354,7 @@ export default function FullscreenViewer({
                 <ChevronLeftIcon className="w-4 h-4" />
               </button>
               <span className="text-xs text-gray-500 font-medium tabular-nums min-w-[3rem] text-center">
-                {currentIndex + 1}/{comparisons.length}
+                {currentIndex + 1}/{sortedComparisons.length}
               </span>
               <button
                 onClick={handleNext}
@@ -368,71 +387,58 @@ export default function FullscreenViewer({
             )}
           </div>
 
-          {/* Center: Approval Actions - grouped pill like Observatory */}
-          <div className="flex items-center gap-2">
-            {showActions && (
-              <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
-                <button
-                  onClick={() => onReject(getComparisonId(comparison))}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all text-red-400 hover:text-red-300 hover:bg-red-600/20"
-                >
-                  <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                  Reject
-                </button>
-                <button
-                  onClick={() => onAccept(getComparisonId(comparison))}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all text-green-400 hover:text-green-300 hover:bg-green-600/20"
-                >
-                  <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                  Approve
-                </button>
-              </div>
-            )}
-
-            {/* Show accepted state */}
-            {isAccepted && (
-              <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
-                <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-green-600 text-white">
-                  <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                  Approve
-                </button>
-              </div>
-            )}
-
-            {/* Show rejected state */}
-            {isRejected && (
-              <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
-                <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-red-600 text-white">
-                  <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                  Reject
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Center: Approval Actions - always show both buttons, highlight selected */}
+          {canReview && (
+            <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
+              <button
+                onClick={() => onReject(getComparisonId(comparison))}
+                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  isRejected
+                    ? 'bg-red-600 text-white'
+                    : 'text-red-400 hover:text-red-300 hover:bg-red-600/20'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 bg-current rounded-full" />
+                Reject
+              </button>
+              <button
+                onClick={() => onAccept(getComparisonId(comparison))}
+                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  isAccepted
+                    ? 'bg-green-600 text-white'
+                    : 'text-green-400 hover:text-green-300 hover:bg-green-600/20'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 bg-current rounded-full" />
+                Approve
+              </button>
+            </div>
+          )}
 
           {/* Right: Zoom Controls and View Modes */}
           <div className="flex items-center gap-2">
             {/* Zoom Controls */}
             <ZoomControls zoom={zoomLevel} onZoomChange={setZoomLevel} />
 
-            {/* View Mode Toggle */}
-            {comparison.diff && (
-              <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
-                {viewModes.map(mode => (
-                  <button
-                    key={mode.value}
-                    onClick={() => setViewMode(mode.value)}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                      viewMode === mode.value
+            {/* View Mode Toggle - always show for consistent layout, disable when no diff */}
+            <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
+              {viewModes.map(mode => (
+                <button
+                  key={mode.value}
+                  onClick={() => comparison.diff && setViewMode(mode.value)}
+                  disabled={!comparison.diff}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                    !comparison.diff
+                      ? 'text-gray-600 cursor-not-allowed'
+                      : viewMode === mode.value
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-400 hover:text-white hover:bg-gray-700/60'
-                    }`}
-                  >
-                    {mode.label}
-                  </button>
-                ))}
-              </div>
-            )}
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -476,7 +482,7 @@ export default function FullscreenViewer({
           <div className="flex items-center gap-4">
             {/* Screenshot count */}
             <div className="text-sm text-gray-500 flex-shrink-0">
-              {currentIndex + 1} of {comparisons.length}
+              {currentIndex + 1} of {sortedComparisons.length}
             </div>
 
             {/* Filmstrip */}
@@ -484,7 +490,7 @@ export default function FullscreenViewer({
               ref={filmstripRef}
               className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide py-1"
             >
-              {comparisons.map((comp, index) => (
+              {sortedComparisons.map((comp, index) => (
                 <FilmstripThumbnail
                   key={getComparisonId(comp, index)}
                   comparison={comp}

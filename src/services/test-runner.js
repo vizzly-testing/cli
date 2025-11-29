@@ -101,17 +101,6 @@ export class TestRunner extends EventEmitter {
       // Start server with appropriate handler
       await this.serverManager.start(buildId, tdd, options.setBaseline);
 
-      // Forward server events
-      if (this.serverManager.server?.emitter) {
-        this.serverManager.server.emitter.on(
-          'screenshot-captured',
-          screenshotInfo => {
-            screenshotCount++;
-            this.emit('screenshot-captured', screenshotInfo);
-          }
-        );
-      }
-
       const env = {
         ...process.env,
         VIZZLY_SERVER_URL: `http://localhost:${this.config.server.port}`,

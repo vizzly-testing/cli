@@ -491,4 +491,173 @@ describe('ApiService', () => {
       );
     });
   });
+
+  describe('getScreenshotHotspots', () => {
+    it('should fetch hotspots for a single screenshot', async () => {
+      let service = new ApiService({ token: 'test-token' });
+      let mockResponse = {
+        hotspot_analysis: {
+          regions: [
+            { y1: 100, y2: 200 },
+            { y1: 300, y2: 400 },
+          ],
+          confidence: 'high',
+          confidence_score: 85,
+        },
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      let result = await service.getScreenshotHotspots('homepage_desktop');
+
+      let url = global.fetch.mock.calls[0][0];
+      expect(url).toBe(
+        'https://app.vizzly.dev/api/sdk/screenshots/homepage_desktop/hotspots?windowSize=20'
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should URL-encode screenshot names with special characters', async () => {
+      let service = new ApiService({ token: 'test-token' });
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+      await service.getScreenshotHotspots('screenshot/with spaces&special');
+
+      let url = global.fetch.mock.calls[0][0];
+      expect(url).toContain('screenshot%2Fwith%20spaces%26special');
+    });
+
+    it('should accept custom windowSize', async () => {
+      let service = new ApiService({ token: 'test-token' });
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+      await service.getScreenshotHotspots('test', { windowSize: 50 });
+
+      let url = global.fetch.mock.calls[0][0];
+      expect(url).toContain('windowSize=50');
+    });
+
+    it('should handle API errors', async () => {
+      let service = new ApiService({ token: 'test-token' });
+
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: () => Promise.resolve('Screenshot not found'),
+      });
+
+      await expect(
+        service.getScreenshotHotspots('nonexistent')
+      ).rejects.toThrow(VizzlyError);
+    });
+  });
+
+  describe('getBatchHotspots', () => {
+    it('should fetch hotspots for multiple screenshots', async () => {
+      let service = new ApiService({ token: 'test-token' });
+      let screenshotNames = ['homepage', 'dashboard', 'settings'];
+      let mockResponse = {
+        hotspots: {
+          homepage: {
+            regions: [{ y1: 100, y2: 200 }],
+            confidence: 'high',
+            confidence_score: 90,
+          },
+          dashboard: {
+            regions: [{ y1: 50, y2: 150 }],
+            confidence: 'medium',
+            confidence_score: 60,
+          },
+        },
+        summary: {
+          total_requested: 3,
+          with_hotspots: 2,
+          without_hotspots: 1,
+        },
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      let result = await service.getBatchHotspots(screenshotNames);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://app.vizzly.dev/api/sdk/screenshots/hotspots',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-token',
+          }),
+          body: JSON.stringify({
+            screenshot_names: screenshotNames,
+            windowSize: 20,
+          }),
+        })
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should accept custom windowSize', async () => {
+      let service = new ApiService({ token: 'test-token' });
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hotspots: {} }),
+      });
+
+      await service.getBatchHotspots(['test'], { windowSize: 100 });
+
+      let requestBody = JSON.parse(global.fetch.mock.calls[0][1].body);
+      expect(requestBody.windowSize).toBe(100);
+    });
+
+    it('should handle empty response', async () => {
+      let service = new ApiService({ token: 'test-token' });
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            hotspots: {},
+            summary: {
+              total_requested: 1,
+              with_hotspots: 0,
+              without_hotspots: 1,
+            },
+          }),
+      });
+
+      let result = await service.getBatchHotspots(['new-screenshot']);
+
+      expect(result.hotspots).toEqual({});
+    });
+
+    it('should handle API errors', async () => {
+      let service = new ApiService({ token: 'test-token' });
+
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('Internal server error'),
+      });
+
+      await expect(service.getBatchHotspots(['test'])).rejects.toThrow(
+        VizzlyError
+      );
+    });
+  });
 });

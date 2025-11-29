@@ -594,4 +594,434 @@ describe('TddService', () => {
       expect(results.comparisons[0].status).toBe('new');
     });
   });
+
+  describe('loadHotspots', () => {
+    it('loads hotspots from disk when file exists', async () => {
+      let { readFileSync, existsSync } = await import('fs');
+      let mockHotspots = {
+        homepage: {
+          regions: [{ y1: 100, y2: 200 }],
+          confidence: 'high',
+        },
+      };
+
+      existsSync.mockReturnValue(true);
+      readFileSync.mockReturnValue(
+        JSON.stringify({
+          downloadedAt: '2024-01-01T00:00:00Z',
+          hotspots: mockHotspots,
+        })
+      );
+
+      let result = tddService.loadHotspots();
+
+      expect(result).toEqual(mockHotspots);
+    });
+
+    it('returns null when hotspots file does not exist', async () => {
+      let { existsSync } = await import('fs');
+      existsSync.mockReturnValue(false);
+
+      let result = tddService.loadHotspots();
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when JSON is invalid', async () => {
+      let { readFileSync, existsSync } = await import('fs');
+      existsSync.mockReturnValue(true);
+      readFileSync.mockReturnValue('invalid json');
+
+      let result = tddService.loadHotspots();
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when hotspots key is missing', async () => {
+      let { readFileSync, existsSync } = await import('fs');
+      existsSync.mockReturnValue(true);
+      readFileSync.mockReturnValue(
+        JSON.stringify({ downloadedAt: '2024-01-01' })
+      );
+
+      let result = tddService.loadHotspots();
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getHotspotForScreenshot', () => {
+    it('returns hotspot from memory cache when available', () => {
+      tddService.hotspotData = {
+        homepage: {
+          regions: [{ y1: 100, y2: 200 }],
+          confidence: 'high',
+        },
+      };
+
+      let result = tddService.getHotspotForScreenshot('homepage');
+
+      expect(result).toEqual({
+        regions: [{ y1: 100, y2: 200 }],
+        confidence: 'high',
+      });
+    });
+
+    it('loads from disk when not in memory', async () => {
+      let { readFileSync, existsSync } = await import('fs');
+      let mockHotspots = {
+        dashboard: {
+          regions: [{ y1: 50, y2: 150 }],
+          confidence: 'medium',
+        },
+      };
+
+      existsSync.mockReturnValue(true);
+      readFileSync.mockReturnValue(JSON.stringify({ hotspots: mockHotspots }));
+
+      tddService.hotspotData = null;
+
+      let result = tddService.getHotspotForScreenshot('dashboard');
+
+      expect(result).toEqual(mockHotspots.dashboard);
+    });
+
+    it('returns null when screenshot not found in hotspots', () => {
+      tddService.hotspotData = {
+        homepage: { regions: [] },
+      };
+
+      let result = tddService.getHotspotForScreenshot('nonexistent');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when no hotspot data available', async () => {
+      let { existsSync } = await import('fs');
+      existsSync.mockReturnValue(false);
+
+      tddService.hotspotData = null;
+
+      let result = tddService.getHotspotForScreenshot('homepage');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('calculateHotspotCoverage', () => {
+    it('returns zero coverage when no diff clusters', () => {
+      let result = tddService.calculateHotspotCoverage([], {
+        regions: [{ y1: 100, y2: 200 }],
+      });
+
+      expect(result).toEqual({
+        coverage: 0,
+        linesInHotspots: 0,
+        totalLines: 0,
+      });
+    });
+
+    it('returns zero coverage when null diff clusters', () => {
+      let result = tddService.calculateHotspotCoverage(null, {
+        regions: [{ y1: 100, y2: 200 }],
+      });
+
+      expect(result).toEqual({
+        coverage: 0,
+        linesInHotspots: 0,
+        totalLines: 0,
+      });
+    });
+
+    it('returns zero coverage when no hotspot regions', () => {
+      let diffClusters = [{ boundingBox: { y: 100, height: 50 } }];
+
+      let result = tddService.calculateHotspotCoverage(diffClusters, {
+        regions: [],
+      });
+
+      // Early return when no hotspot regions - doesn't calculate diff lines
+      expect(result).toEqual({
+        coverage: 0,
+        linesInHotspots: 0,
+        totalLines: 0,
+      });
+    });
+
+    it('returns zero coverage when hotspotAnalysis is null', () => {
+      let diffClusters = [{ boundingBox: { y: 100, height: 50 } }];
+
+      let result = tddService.calculateHotspotCoverage(diffClusters, null);
+
+      expect(result).toEqual({
+        coverage: 0,
+        linesInHotspots: 0,
+        totalLines: 0,
+      });
+    });
+
+    it('calculates 100% coverage when diff is entirely within hotspot', () => {
+      let diffClusters = [{ boundingBox: { y: 150, height: 30 } }];
+      let hotspotAnalysis = {
+        regions: [{ y1: 100, y2: 200 }],
+      };
+
+      let result = tddService.calculateHotspotCoverage(
+        diffClusters,
+        hotspotAnalysis
+      );
+
+      expect(result.coverage).toBe(1);
+      expect(result.linesInHotspots).toBe(30);
+      expect(result.totalLines).toBe(30);
+    });
+
+    it('calculates partial coverage when diff spans hotspot boundary', () => {
+      // Diff from y=90 to y=109 (20 lines: 90-109)
+      // Hotspot from y1=100 to y2=200
+      // Lines 100-109 are in hotspot (10 lines)
+      let diffClusters = [{ boundingBox: { y: 90, height: 20 } }];
+      let hotspotAnalysis = {
+        regions: [{ y1: 100, y2: 200 }],
+      };
+
+      let result = tddService.calculateHotspotCoverage(
+        diffClusters,
+        hotspotAnalysis
+      );
+
+      expect(result.coverage).toBe(0.5); // 10/20 lines
+      expect(result.linesInHotspots).toBe(10);
+      expect(result.totalLines).toBe(20);
+    });
+
+    it('handles multiple diff clusters', () => {
+      // Cluster 1: y=100-109 (10 lines, all in hotspot)
+      // Cluster 2: y=300-309 (10 lines, none in hotspot)
+      let diffClusters = [
+        { boundingBox: { y: 100, height: 10 } },
+        { boundingBox: { y: 300, height: 10 } },
+      ];
+      let hotspotAnalysis = {
+        regions: [{ y1: 50, y2: 150 }],
+      };
+
+      let result = tddService.calculateHotspotCoverage(
+        diffClusters,
+        hotspotAnalysis
+      );
+
+      expect(result.coverage).toBe(0.5); // 10/20 lines
+      expect(result.linesInHotspots).toBe(10);
+      expect(result.totalLines).toBe(20);
+    });
+
+    it('handles multiple hotspot regions', () => {
+      // Diff from y=100-119 (20 lines)
+      // Hotspot 1: y1=100, y2=104 (5 lines covered)
+      // Hotspot 2: y1=115, y2=119 (5 lines covered)
+      // Total: 10/20 = 50%
+      let diffClusters = [{ boundingBox: { y: 100, height: 20 } }];
+      let hotspotAnalysis = {
+        regions: [
+          { y1: 100, y2: 104 },
+          { y1: 115, y2: 119 },
+        ],
+      };
+
+      let result = tddService.calculateHotspotCoverage(
+        diffClusters,
+        hotspotAnalysis
+      );
+
+      expect(result.coverage).toBe(0.5);
+      expect(result.linesInHotspots).toBe(10);
+      expect(result.totalLines).toBe(20);
+    });
+
+    it('deduplicates overlapping diff lines', () => {
+      // Two clusters that overlap at y=100-109
+      let diffClusters = [
+        { boundingBox: { y: 100, height: 10 } }, // y=100-109
+        { boundingBox: { y: 105, height: 10 } }, // y=105-114
+      ];
+      let hotspotAnalysis = {
+        regions: [{ y1: 0, y2: 200 }], // All in hotspot
+      };
+
+      let result = tddService.calculateHotspotCoverage(
+        diffClusters,
+        hotspotAnalysis
+      );
+
+      // Should be 15 unique lines (100-114), not 20
+      expect(result.totalLines).toBe(15);
+      expect(result.linesInHotspots).toBe(15);
+      expect(result.coverage).toBe(1);
+    });
+  });
+
+  describe('hotspot filtering in compareScreenshot', () => {
+    let mockImageBuffer;
+
+    beforeEach(() => {
+      mockImageBuffer = Buffer.from('test-image-data');
+    });
+
+    it('marks comparison as passed when diff is 80%+ in high-confidence hotspots', async () => {
+      let { existsSync } = await import('fs');
+      existsSync.mockReturnValue(true);
+
+      // Set up hotspot data with high confidence
+      tddService.hotspotData = {
+        'test-screenshot': {
+          regions: [{ y1: 0, y2: 100 }],
+          confidence: 'high',
+          confidence_score: 85,
+        },
+      };
+
+      // Mock honeydiff to return a diff entirely within hotspot region
+      compare.mockResolvedValue({
+        isDifferent: true,
+        diffPercentage: 0.15,
+        totalPixels: 1000000,
+        diffPixels: 1500,
+        diffClusters: [{ boundingBox: { y: 10, height: 20 } }], // All within hotspot
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: { x: 0, y: 10, width: 100, height: 20 },
+      });
+
+      let result = await tddService.compareScreenshot(
+        'test-screenshot',
+        mockImageBuffer
+      );
+
+      expect(result.status).toBe('passed');
+      expect(result.reason).toBe('hotspot-filtered');
+    });
+
+    it('marks comparison as failed when diff is below 80% in hotspots', async () => {
+      let { existsSync } = await import('fs');
+      existsSync.mockReturnValue(true);
+
+      tddService.hotspotData = {
+        'test-screenshot': {
+          regions: [{ y1: 0, y2: 10 }], // Small hotspot
+          confidence: 'high',
+          confidence_score: 90,
+        },
+      };
+
+      // Diff spans outside the small hotspot
+      compare.mockResolvedValue({
+        isDifferent: true,
+        diffPercentage: 5.0,
+        totalPixels: 1000000,
+        diffPixels: 50000,
+        diffClusters: [{ boundingBox: { y: 0, height: 100 } }], // Only 10% in hotspot
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: { x: 0, y: 0, width: 100, height: 100 },
+      });
+
+      let result = await tddService.compareScreenshot(
+        'test-screenshot',
+        mockImageBuffer
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.reason).toBe('pixel-diff');
+    });
+
+    it('marks comparison as failed when hotspot confidence is low', async () => {
+      let { existsSync } = await import('fs');
+      existsSync.mockReturnValue(true);
+
+      tddService.hotspotData = {
+        'test-screenshot': {
+          regions: [{ y1: 0, y2: 100 }],
+          confidence: 'low',
+          confidence_score: 40, // Below 70 threshold
+        },
+      };
+
+      compare.mockResolvedValue({
+        isDifferent: true,
+        diffPercentage: 0.15,
+        totalPixels: 1000000,
+        diffPixels: 1500,
+        diffClusters: [{ boundingBox: { y: 10, height: 20 } }],
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: { x: 0, y: 10, width: 100, height: 20 },
+      });
+
+      let result = await tddService.compareScreenshot(
+        'test-screenshot',
+        mockImageBuffer
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.reason).toBe('pixel-diff');
+    });
+
+    it('does not filter when no hotspot data available', async () => {
+      let { existsSync } = await import('fs');
+      existsSync.mockReturnValue(true);
+
+      tddService.hotspotData = {}; // No hotspot for this screenshot
+
+      compare.mockResolvedValue({
+        isDifferent: true,
+        diffPercentage: 0.15,
+        totalPixels: 1000000,
+        diffPixels: 1500,
+        diffClusters: [{ boundingBox: { y: 10, height: 20 } }],
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: { x: 0, y: 10, width: 100, height: 20 },
+      });
+
+      let result = await tddService.compareScreenshot(
+        'test-screenshot',
+        mockImageBuffer
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.reason).toBe('pixel-diff');
+    });
+
+    it('uses string confidence "high" when numeric score not available', async () => {
+      let { existsSync } = await import('fs');
+      existsSync.mockReturnValue(true);
+
+      tddService.hotspotData = {
+        'test-screenshot': {
+          regions: [{ y1: 0, y2: 100 }],
+          confidence: 'high', // String only, no numeric score
+        },
+      };
+
+      compare.mockResolvedValue({
+        isDifferent: true,
+        diffPercentage: 0.15,
+        totalPixels: 1000000,
+        diffPixels: 1500,
+        diffClusters: [{ boundingBox: { y: 10, height: 20 } }],
+        aaPixelsIgnored: 0,
+        aaPercentage: 0,
+        boundingBox: { x: 0, y: 10, width: 100, height: 20 },
+      });
+
+      let result = await tddService.compareScreenshot(
+        'test-screenshot',
+        mockImageBuffer
+      );
+
+      expect(result.status).toBe('passed');
+      expect(result.reason).toBe('hotspot-filtered');
+    });
+  });
 });

@@ -311,6 +311,40 @@ npx vizzly tdd run "npm test"
 npx vizzly run "npm test" --build-name "Fix: Header alignment issue"
 ```
 
+## Hotspot Filtering
+
+When connected to Vizzly cloud, TDD mode automatically filters out "noise" from known hotspot areas - regions that frequently change across builds (like timestamps, animations, or dynamic content).
+
+### How It Works
+
+1. **Sync baselines** - Run `vizzly tdd sync` to download baselines and hotspot data from the cloud
+2. **Automatic filtering** - During comparisons, if a diff falls within a known hotspot region, it's automatically marked as passed
+3. **Visual feedback** - You'll see output like:
+   ```
+   ✅ PASSED Dashboard - differences in known hotspots (0.15% different, 42 pixels, 1 region, 95% in hotspots)
+   ```
+
+### Requirements
+
+Hotspot filtering activates automatically when:
+- You have an API token configured (`vizzly login` or `VIZZLY_TOKEN`)
+- You've synced baselines from the cloud (`vizzly tdd sync`)
+- The cloud has enough historical build data to calculate hotspot regions
+
+### Filtering Criteria
+
+A diff is filtered (auto-passed) when:
+- **80%+ of the diff** falls within known hotspot regions
+- **High confidence** hotspot data (confidence score ≥ 70)
+
+If the diff falls outside hotspots or confidence is low, the comparison fails normally so you can review it.
+
+### Benefits
+
+- **Reduced noise** - Stop seeing the same timestamp/animation diffs over and over
+- **Faster reviews** - Focus on real visual changes, not known dynamic areas
+- **Smart detection** - Hotspots are calculated from your actual build history, not manual configuration
+
 ## Comparison Settings
 
 TDD Mode uses the same comparison settings as production:

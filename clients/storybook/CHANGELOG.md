@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-11-30
+
+## What's Changed
+
+### Changed
+- **BREAKING**: Configuration file migration - plugin now uses `storybook` section in `vizzly.config.js` instead of standalone `vizzly-storybook.config.js` file. Run `vizzly init` to generate updated config structure.
+- **BREAKING**: Minimum Node.js version increased to 22+ (for honeydiff compatibility)
+- Removed `cosmiconfig` dependency in favor of unified Vizzly config system
+- Updated default viewports: now includes both mobile (375x667) and desktop (1920x1080)
+- Updated README with new configuration format and examples
+
+### Fixed
+- Plugin registration error with frozen output module (#92)
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v0.1.1...storybook/v0.1.2
+
 ## [0.1.1] - 2025-10-11
 
 ## What's Changed

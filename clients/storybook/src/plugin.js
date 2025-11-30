@@ -41,10 +41,6 @@ export default {
    * @param {Object} context.services - Service container
    */
   register(program, { config, logger, services }) {
-    // Override logger level to 'info' for storybook command
-    // The CLI logger defaults to 'warn' but storybook needs 'info' for progress
-    logger.level = 'info';
-
     program
       .command('storybook <path>')
       .description('Capture screenshots from static Storybook build')

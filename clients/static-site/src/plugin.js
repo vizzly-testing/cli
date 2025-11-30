@@ -45,10 +45,6 @@ export default {
    * @param {Object} context.services - Service container
    */
   register(program, { config, logger, services }) {
-    // Override logger level to 'info' for static-site command
-    // The CLI logger defaults to 'warn' but static-site needs 'info' for progress
-    logger.level = 'info';
-
     program
       .command('static-site <path>')
       .description(

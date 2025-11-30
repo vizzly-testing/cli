@@ -25,7 +25,7 @@ const DEFAULT_TIMEOUT = 30000; // 30 seconds
  * Create a new uploader instance
  */
 export function createUploader(
-  { apiKey, apiUrl, userAgent, command, upload: uploadConfig = {} },
+  { apiKey, apiUrl, userAgent, command, upload: uploadConfig = {} } = {},
   options = {}
 ) {
   let signal = options.signal || new AbortController().signal;

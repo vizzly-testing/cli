@@ -23,18 +23,22 @@
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
     "./client": {
+      "types": "./dist/types/client.d.ts",
       "import": "./dist/client/index.js",
       "require": "./dist/client/index.js"
     },
     "./sdk": {
+      "types": "./dist/types/sdk.d.ts",
       "import": "./dist/sdk/index.js",
       "require": "./dist/sdk/index.js"
     },
     "./config": {
+      "types": "./dist/types/config.d.ts",
       "import": "./dist/utils/config-helpers.js",
       "require": "./dist/utils/config-helpers.js"
     }
@@ -54,14 +58,15 @@
   ],
   "scripts": {
     "start": "node src/index.js",
-    "build": "npm run clean && npm run compile && npm run copy-assets && npm run build:reporter && npm run types",
+    "build": "npm run clean && npm run compile && npm run copy-assets && npm run build:reporter && npm run copy-types",
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",
     "copy-assets": "cp src/services/report-generator/report.css dist/services/report-generator/",
+    "copy-types": "mkdir -p dist/types && cp src/types/*.d.ts dist/types/",
     "build:reporter": "cd src/reporter && vite build",
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",
-    "types": "tsc --emitDeclarationOnly --outDir dist/types",
-    "prepublishOnly": "npm test && npm run build",
+    "test:types": "tsd",
+    "prepublishOnly": "npm test && npm run test:types && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",
@@ -87,6 +92,15 @@
     "glob": "^13.0.0",
     "zod": "^4.1.12"
   },
+  "tsd": {
+    "directory": "test-d",
+    "compilerOptions": {
+      "esModuleInterop": true,
+      "module": "ESNext",
+      "moduleResolution": "node",
+      "strict": true
+    }
+  },
   "devDependencies": {
     "@babel/cli": "^7.28.0",
     "@babel/core": "^7.23.6",
@@ -99,6 +113,7 @@
     "@playwright/test": "^1.55.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@tanstack/react-query": "^5.90.11",
+    "@types/node": "^24.10.1",
     "@vitejs/plugin-react": "^5.0.3",
     "@vitest/coverage-v8": "^4.0.3",
     "autoprefixer": "^10.4.21",
@@ -114,6 +129,7 @@
     "react-dom": "^19.1.1",
     "rimraf": "^6.0.1",
     "tailwindcss": "^4.1.13",
+    "tsd": "^0.33.0",
     "typescript": "^5.0.4",
     "vite": "^7.1.7",
     "vitest": "^4.0.3",

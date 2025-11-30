@@ -55,6 +55,9 @@ jobs:
     - name: Build
       run: npm run build
 
+    - name: Run type tests
+      run: npm run test:types
+
   test-site:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: lint

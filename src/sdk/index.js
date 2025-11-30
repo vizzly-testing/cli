@@ -22,7 +22,7 @@ import { VizzlyError } from '../errors/vizzly-error.js';
 /**
  * Create a new Vizzly instance with custom configuration
  *
- * @param {import('../types').VizzlyConfig} [config] - Configuration options
+ * @param {Object} [config] - Configuration options
  * @returns {Promise<VizzlySDK>} Configured Vizzly SDK instance
  *
  * @example
@@ -144,7 +144,7 @@ export function createVizzly(config = {}, options = {}) {
  */
 export class VizzlySDK extends EventEmitter {
   /**
-   * @param {import('../types').VizzlyConfig} config - Configuration
+   * @param {Object} config - Configuration
    * @param {Object} services - Service instances
    */
   constructor(config, services) {
@@ -224,7 +224,7 @@ export class VizzlySDK extends EventEmitter {
    * Capture a screenshot
    * @param {string} name - Screenshot name
    * @param {Buffer|string} imageBuffer - Image data as a Buffer, or a file path to an image
-   * @param {import('../types').ScreenshotOptions} [options] - Options
+   * @param {Object} [options] - Options
    * @returns {Promise<void>}
    * @throws {VizzlyError} When server is not running
    * @throws {VizzlyError} When file path is provided but file doesn't exist
@@ -293,8 +293,8 @@ export class VizzlySDK extends EventEmitter {
 
   /**
    * Upload all captured screenshots
-   * @param {import('../types').UploadOptions} [options] - Upload options
-   * @returns {Promise<import('../types').UploadResult>} Upload result
+   * @param {Object} [options] - Upload options
+   * @returns {Promise<Object>} Upload result
    */
   async upload(options = {}) {
     if (!this.services?.uploader) {
@@ -343,7 +343,7 @@ export class VizzlySDK extends EventEmitter {
    * Run local comparison in TDD mode
    * @param {string} name - Screenshot name
    * @param {Buffer|string} imageBuffer - Current image as a Buffer, or a file path to an image
-   * @returns {Promise<import('../types').ComparisonResult>} Comparison result
+   * @returns {Promise<Object>} Comparison result
    * @throws {VizzlyError} When file path is provided but file doesn't exist
    * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
    */

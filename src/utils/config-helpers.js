@@ -1,7 +1,7 @@
 /**
  * Define Vizzly configuration with type hints
- * @param {import('../types/index.js').VizzlyConfig} config
- * @returns {import('../types/index.js').VizzlyConfig}
+ * @param {Object} config - Vizzly configuration object
+ * @returns {Object} The same configuration object (passthrough for type hints)
  */
 export function defineConfig(config) {
   return config;

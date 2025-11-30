@@ -94,6 +94,7 @@
   },
   "tsd": {
     "directory": "test-d",
+    "typingsFile": "src/types/index.d.ts",
     "compilerOptions": {
       "esModuleInterop": true,
       "module": "ESNext",

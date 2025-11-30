@@ -140,7 +140,12 @@ export interface UploadOptions {
 }
 
 export interface UploadProgress {
-  phase: 'scanning' | 'processing' | 'deduplication' | 'uploading' | 'completed';
+  phase:
+    | 'scanning'
+    | 'processing'
+    | 'deduplication'
+    | 'uploading'
+    | 'completed';
   message: string;
   total?: number;
   current?: number;
@@ -178,7 +183,11 @@ export class VizzlyError extends Error {
   code: string;
   context: Record<string, unknown>;
   timestamp: string;
-  constructor(message: string, code?: string, context?: Record<string, unknown>);
+  constructor(
+    message: string,
+    code?: string,
+    context?: Record<string, unknown>
+  );
   getUserMessage(): string;
   toJSON(): {
     name: string;
@@ -216,12 +225,20 @@ export class BuildError extends VizzlyError {
 
 export class TimeoutError extends VizzlyError {
   duration: number;
-  constructor(message: string, duration?: number, context?: Record<string, unknown>);
+  constructor(
+    message: string,
+    duration?: number,
+    context?: Record<string, unknown>
+  );
 }
 
 export class ValidationError extends VizzlyError {
   errors: string[];
-  constructor(message: string, errors?: string[], context?: Record<string, unknown>);
+  constructor(
+    message: string,
+    errors?: string[],
+    context?: Record<string, unknown>
+  );
 }
 
 // ============================================================================
@@ -251,7 +268,10 @@ export interface VizzlySDKInstance extends EventEmitter {
   upload(options?: UploadOptions): Promise<UploadResult>;
 
   /** Run local comparison in TDD mode */
-  compare(name: string, imageBuffer: Buffer | string): Promise<ComparisonResult>;
+  compare(
+    name: string,
+    imageBuffer: Buffer | string
+  ): Promise<ComparisonResult>;
 }
 
 export class VizzlySDK extends EventEmitter implements VizzlySDKInstance {
@@ -268,7 +288,10 @@ export class VizzlySDK extends EventEmitter implements VizzlySDKInstance {
     options?: ScreenshotOptions
   ): Promise<void>;
   upload(options?: UploadOptions): Promise<UploadResult>;
-  compare(name: string, imageBuffer: Buffer | string): Promise<ComparisonResult>;
+  compare(
+    name: string,
+    imageBuffer: Buffer | string
+  ): Promise<ComparisonResult>;
 }
 
 // ============================================================================
@@ -388,7 +411,10 @@ export function createTDDService(
 ): TddService;
 
 /** Create all services with dependencies */
-export function createServices(config: VizzlyConfig, command?: string): Services;
+export function createServices(
+  config: VizzlyConfig,
+  command?: string
+): Services;
 
 /** Load configuration from file and environment */
 export function loadConfig(options?: { cwd?: string }): Promise<VizzlyConfig>;

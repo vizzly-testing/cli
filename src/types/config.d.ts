@@ -24,4 +24,6 @@ export { VizzlyConfig } from './index';
  *   }
  * });
  */
-export function defineConfig(config: import('./index').VizzlyConfig): import('./index').VizzlyConfig;
+export function defineConfig(
+  config: import('./index').VizzlyConfig
+): import('./index').VizzlyConfig;

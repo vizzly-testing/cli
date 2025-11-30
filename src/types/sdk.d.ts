@@ -76,7 +76,9 @@ export class VizzlySDK extends EventEmitter {
    * @param options - Upload options
    * @returns Upload result with build URL and stats
    */
-  upload(options?: import('./index').UploadOptions): Promise<import('./index').UploadResult>;
+  upload(
+    options?: import('./index').UploadOptions
+  ): Promise<import('./index').UploadResult>;
 
   /**
    * Run local comparison in TDD mode
@@ -84,7 +86,10 @@ export class VizzlySDK extends EventEmitter {
    * @param imageBuffer - Current image as a Buffer, or a file path to an image
    * @returns Comparison result
    */
-  compare(name: string, imageBuffer: Buffer | string): Promise<import('./index').ComparisonResult>;
+  compare(
+    name: string,
+    imageBuffer: Buffer | string
+  ): Promise<import('./index').ComparisonResult>;
 }
 
 /**
@@ -107,7 +112,9 @@ export function createVizzly(
 ): Promise<VizzlySDK>;
 
 /** Load configuration from file and environment */
-export function loadConfig(options?: { cwd?: string }): Promise<import('./index').VizzlyConfig>;
+export function loadConfig(options?: {
+  cwd?: string;
+}): Promise<import('./index').VizzlyConfig>;
 
 /** Output utilities */
 export const output: import('./index').OutputUtils;

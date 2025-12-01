@@ -160,9 +160,19 @@ export const createTddHandler = (
       );
 
       if (existingIndex >= 0) {
-        reportData.comparisons[existingIndex] = newComparison;
+        // Preserve initialStatus from the original comparison
+        // This keeps sort order stable when status changes (e.g., after approval)
+        let initialStatus = reportData.comparisons[existingIndex].initialStatus;
+        reportData.comparisons[existingIndex] = {
+          ...newComparison,
+          initialStatus: initialStatus || newComparison.status,
+        };
       } else {
-        reportData.comparisons.push(newComparison);
+        // New comparison - set initialStatus to current status
+        reportData.comparisons.push({
+          ...newComparison,
+          initialStatus: newComparison.status,
+        });
       }
 
       // Generate grouped structure from flat comparisons

@@ -2,7 +2,7 @@ import { cosmiconfigSync } from 'cosmiconfig';
 import { resolve } from 'path';
 import { getApiToken, getApiUrl, getParallelId } from './environment-config.js';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
-import { getAccessToken, getProjectMapping } from './global-config.js';
+import { getProjectMapping } from './global-config.js';
 import * as output from './output.js';
 
 let DEFAULT_CONFIG = {
@@ -99,14 +99,6 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
         project: projectMapping.projectSlug,
         org: projectMapping.organizationSlug,
       });
-    }
-  }
-
-  // 3.5. Check global config for user access token (if no CLI flag)
-  if (!config.apiKey && !cliOverrides.token) {
-    let globalToken = await getAccessToken();
-    if (globalToken) {
-      config.apiKey = globalToken;
     }
   }
 

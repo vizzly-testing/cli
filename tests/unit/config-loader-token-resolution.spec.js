@@ -1,6 +1,8 @@
 /**
  * Tests for config-loader token resolution priority
- * Priority order: CLI flag > Env var > Project mapping > User access token
+ * Priority order: CLI flag > Env var > Project mapping
+ * Note: User access tokens (JWTs from login) are NOT used as API keys
+ * They are only for user-level operations, not SDK endpoints
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -160,13 +162,16 @@ describe('Config Loader - Token Resolution Priority', () => {
     });
   });
 
-  describe('Priority 4: User access token (lowest)', () => {
-    it('should use user access token when no other sources', async () => {
+  describe('User access tokens are NOT used as API keys', () => {
+    it('should NOT use user access token as API key (security fix)', async () => {
+      // User access tokens (JWTs) should not be used for SDK endpoints
+      // They have different format and permissions than project tokens
       globalConfig.__setMockAccessToken('user_access_token_abc');
 
       let config = await loadConfig(null, {});
 
-      expect(config.apiKey).toBe('user_access_token_abc');
+      // apiKey should be undefined, NOT the user access token
+      expect(config.apiKey).toBeUndefined();
     });
 
     it('should return undefined apiKey when no token sources available', async () => {
@@ -177,21 +182,19 @@ describe('Config Loader - Token Resolution Priority', () => {
   });
 
   describe('Edge cases', () => {
-    it('should handle empty CLI overrides object', async () => {
-      globalConfig.__setMockAccessToken('user_access_token_abc');
-
+    it('should handle empty CLI overrides object with no tokens', async () => {
       let config = await loadConfig(null, {});
 
-      expect(config.apiKey).toBe('user_access_token_abc');
+      expect(config.apiKey).toBeUndefined();
     });
 
     it('should handle null project mapping', async () => {
       globalConfig.__setMockProjectMapping(null);
-      globalConfig.__setMockAccessToken('user_access_token_abc');
 
       let config = await loadConfig(null, {});
 
-      expect(config.apiKey).toBe('user_access_token_abc');
+      // Without project mapping or env var, apiKey should be undefined
+      expect(config.apiKey).toBeUndefined();
     });
 
     it('should handle project mapping without token field', async () => {
@@ -199,11 +202,11 @@ describe('Config Loader - Token Resolution Priority', () => {
         projectSlug: 'test-project',
         organizationSlug: 'test-org',
       });
-      globalConfig.__setMockAccessToken('user_access_token_abc');
 
       let config = await loadConfig(null, {});
 
-      expect(config.apiKey).toBe('user_access_token_abc');
+      // Project mapping without token should result in undefined apiKey
+      expect(config.apiKey).toBeUndefined();
     });
 
     it('should skip project mapping lookup when CLI token provided', async () => {

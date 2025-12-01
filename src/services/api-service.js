@@ -35,7 +35,7 @@ export class ApiService {
 
     if (!this.token && !options.allowNoToken) {
       throw new VizzlyError(
-        'No API token provided. Set VIZZLY_TOKEN environment variable or run "vizzly login".'
+        'No API token provided. Set VIZZLY_TOKEN environment variable or link a project in the TDD dashboard.'
       );
     }
   }
@@ -118,13 +118,13 @@ export class ApiService {
         }
 
         throw new AuthError(
-          'Invalid or expired API token. Please run "vizzly login" to authenticate.'
+          'Invalid or expired API token. Link a project via "vizzly project:select" or set VIZZLY_TOKEN.'
         );
       }
 
       if (response.status === 401) {
         throw new AuthError(
-          'Invalid or expired API token. Please run "vizzly login" to authenticate.'
+          'Invalid or expired API token. Link a project via "vizzly project:select" or set VIZZLY_TOKEN.'
         );
       }
 

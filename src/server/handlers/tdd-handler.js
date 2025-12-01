@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
-import honeydiff from '@vizzly-testing/honeydiff';
+import { getDimensionsSync } from '@vizzly-testing/honeydiff';
 import * as output from '../../utils/output.js';
 import { TddService } from '../../services/tdd-service.js';
 import {
@@ -9,8 +9,6 @@ import {
   validateScreenshotProperties,
 } from '../../utils/security.js';
 import { detectImageInputType } from '../../utils/image-input-detector.js';
-
-let { getDimensionsSync } = honeydiff;
 
 /**
  * Group comparisons by screenshot name with variant structure

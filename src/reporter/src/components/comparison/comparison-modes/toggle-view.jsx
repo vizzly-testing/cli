@@ -33,9 +33,7 @@ export function ToggleView({
           url={baselineImageUrl}
           alt="Baseline"
           position={showBaseline ? 'relative' : 'absolute'}
-          className={`transition-opacity duration-300 ${
-            showBaseline ? '' : 'top-0 left-0'
-          } ${showBaseline ? 'opacity-100' : 'opacity-0'}`}
+          className={`${showBaseline ? '' : 'top-0 left-0'} ${showBaseline ? '' : 'hidden'}`}
           loading="eager"
           onError={onImageError}
           onLoad={onImageLoad}
@@ -50,9 +48,7 @@ export function ToggleView({
           url={currentImageUrl}
           alt="Current"
           position={showBaseline ? 'absolute' : 'relative'}
-          className={`transition-opacity duration-300 ${
-            showBaseline ? 'top-0 left-0' : ''
-          } ${showBaseline ? 'opacity-0' : 'opacity-100'}`}
+          className={`${showBaseline ? 'top-0 left-0' : ''} ${showBaseline ? 'hidden' : ''}`}
           loading="eager"
           onError={onImageError}
           onLoad={onImageLoad}

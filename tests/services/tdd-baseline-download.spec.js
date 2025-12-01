@@ -158,6 +158,7 @@ describe('TDD Service - Baseline Download', () => {
         environment: 'test',
         branch: 'main',
         threshold: 0.1,
+        signatureProperties: [],
         createdAt: expect.any(String),
         buildInfo: {
           commitSha: undefined,

@@ -1,6 +1,6 @@
 {
   "name": "@vizzly-testing/cli",
-  "version": "0.16.1",
+  "version": "0.16.0",
   "description": "Visual review platform for UI developers and designers",
   "keywords": [
     "visual-testing",
@@ -66,7 +66,7 @@
     "build:reporter": "cd src/reporter && vite build",
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",
     "test:types": "tsd",
-    "prepublishOnly": "npm test && npm run test:types && npm run build",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",

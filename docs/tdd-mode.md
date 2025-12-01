@@ -388,6 +388,64 @@ rm -rf .vizzly/baselines/
 npx vizzly tdd run "npm test"
 ```
 
+## Baseline Signature Properties
+
+When matching screenshots to baselines, Vizzly uses a **signature** to identify each unique screenshot. By default, the signature is:
+
+```
+name | viewport_width | browser
+```
+
+For example: `homepage|1920|chromium`
+
+### Custom Properties vs Baseline Signature Properties
+
+When capturing screenshots, you can pass **custom properties** (also called "variants") for organization and filtering:
+
+```javascript
+await vizzlyScreenshot('dashboard', screenshot, {
+  theme: 'dark',
+  locale: 'en-US',
+  mobile: true
+});
+```
+
+These properties help you **organize and filter** screenshots in the Vizzly dashboard. However, they don't automatically affect baseline matching—two screenshots with the same name but different properties would match the same baseline by default.
+
+### Configuring Baseline Signature Properties
+
+To make specific properties part of the baseline signature (so different values create separate baselines), configure **Baseline Signature Properties** in your Vizzly project settings:
+
+1. Go to your project on [app.vizzly.dev](https://app.vizzly.dev)
+2. Navigate to **Settings** → **Baseline Signature Properties**
+3. Add the property names you want included in signatures (e.g., `theme`, `mobile`)
+
+With `theme` configured as a baseline signature property, the signatures become:
+
+```
+dashboard|1920|chromium|dark    → dark theme baseline
+dashboard|1920|chromium|light   → light theme baseline
+```
+
+### How It Works in TDD Mode
+
+When you download baselines from the cloud (via the TDD dashboard's Builds page), Vizzly automatically:
+
+1. Fetches your project's baseline signature properties
+2. Downloads baselines with proper filenames (e.g., `dashboard_1920_chromium_dark.png`)
+3. Generates matching signatures when comparing new screenshots
+
+This ensures TDD mode behaves identically to cloud comparison—screenshots with different baseline-significant properties create separate baselines.
+
+### Important Distinction
+
+| Type | Purpose | Affects Baseline Matching |
+|------|---------|---------------------------|
+| **Custom Properties** | Organize, filter, and browse screenshots in the dashboard | No (by default) |
+| **Baseline Signature Properties** | Create separate baselines for different variants | Yes (when configured) |
+
+Only properties configured in your project's **Baseline Signature Properties** setting affect which baseline a screenshot matches. Other custom properties are purely for organization.
+
 ## Advanced Usage
 
 ### Conditional TDD Mode

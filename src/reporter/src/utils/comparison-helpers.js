@@ -76,8 +76,12 @@ export function sortComparisons(comparisons, sortBy) {
         [COMPARISON_STATUS.NEW]: 2,
         [COMPARISON_STATUS.PASSED]: 1,
       };
-      const aPriority = priorityOrder[a.status] || 0;
-      const bPriority = priorityOrder[b.status] || 0;
+      // Use initialStatus for sorting to keep order stable after approval
+      // Falls back to status for backward compatibility with existing data
+      const aStatus = a.initialStatus || a.status;
+      const bStatus = b.initialStatus || b.status;
+      const aPriority = priorityOrder[aStatus] || 0;
+      const bPriority = priorityOrder[bStatus] || 0;
       if (aPriority !== bPriority) return bPriority - aPriority;
       return (b.diffPercentage || 0) - (a.diffPercentage || 0);
     }

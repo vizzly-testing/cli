@@ -179,11 +179,15 @@ export default function FullscreenViewer({
   let filmstripRef = useRef(null);
 
   // Sort comparisons: failed (diffs) first, then new, then passed
+  // Uses initialStatus to keep order stable after approval
   let sortedComparisons = useMemo(() => {
     let statusOrder = { failed: 0, new: 1, 'baseline-created': 1, passed: 2 };
     return [...comparisons].sort((a, b) => {
-      let orderA = statusOrder[a.status] ?? 3;
-      let orderB = statusOrder[b.status] ?? 3;
+      // Use initialStatus for sorting to keep order stable after approval
+      let statusA = a.initialStatus || a.status;
+      let statusB = b.initialStatus || b.status;
+      let orderA = statusOrder[statusA] ?? 3;
+      let orderB = statusOrder[statusB] ?? 3;
       return orderA - orderB;
     });
   }, [comparisons]);

@@ -16,7 +16,7 @@
   "bugs": "https://github.com/vizzly-testing/cli/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vizzly-testing/cli.git"
+    "url": "git+https://github.com/vizzly-testing/cli.git"
   },
   "license": "MIT",
   "author": "Stubborn Mule Software <support@vizzly.dev>",
@@ -46,7 +46,7 @@
   "main": "./dist/index.js",
   "types": "./dist/types/index.d.ts",
   "bin": {
-    "vizzly": "./bin/vizzly.js"
+    "vizzly": "bin/vizzly.js"
   },
   "files": [
     "bin",

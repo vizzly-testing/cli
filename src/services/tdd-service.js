@@ -398,9 +398,13 @@ export class TddService {
         }
 
         // Generate signature for baseline matching (same as compareScreenshot)
-        let properties = validateScreenshotProperties(
-          screenshot.metadata || screenshot.properties || {}
-        );
+        // Build properties object with top-level viewport_width and browser
+        // These are returned as top-level fields from the API, not inside metadata
+        let properties = validateScreenshotProperties({
+          viewport_width: screenshot.viewport_width,
+          browser: screenshot.browser,
+          ...(screenshot.metadata || screenshot.properties || {}),
+        });
         let signature = generateScreenshotSignature(
           sanitizedName,
           properties,
@@ -555,9 +559,13 @@ export class TddService {
               return null; // Skip invalid screenshots
             }
 
-            let properties = validateScreenshotProperties(
-              s.metadata || s.properties || {}
-            );
+            // Build properties object with top-level viewport_width and browser
+            // These are returned as top-level fields from the API, not inside metadata
+            let properties = validateScreenshotProperties({
+              viewport_width: s.viewport_width,
+              browser: s.browser,
+              ...(s.metadata || s.properties || {}),
+            });
             let signature = generateScreenshotSignature(
               sanitizedName,
               properties,
@@ -891,9 +899,13 @@ export class TddService {
           continue;
         }
 
-        let properties = validateScreenshotProperties(
-          screenshot.metadata || {}
-        );
+        // Build properties object with top-level viewport_width and browser
+        // These are returned as top-level fields from the API, not inside metadata
+        let properties = validateScreenshotProperties({
+          viewport_width: screenshot.viewport_width,
+          browser: screenshot.browser,
+          ...screenshot.metadata,
+        });
         let signature = generateScreenshotSignature(
           sanitizedName,
           properties,

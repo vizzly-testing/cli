@@ -458,5 +458,272 @@ describe('TDD Service - Baseline Download', () => {
       expect(tddService.baselineData.screenshots).toHaveLength(1);
       expect(tddService.baselineData.screenshots[0].name).toBe('profile');
     });
+
+    it('should use signatureProperties from API response for variant support', async () => {
+      // Mock API response with signatureProperties (baseline_signature_properties from project settings)
+      const mockBuildWithScreenshots = {
+        id: 'build-with-variants',
+        name: 'Build With Variants',
+        status: 'passed',
+        screenshots: [
+          {
+            name: 'dashboard',
+            url: 'https://example.com/dashboard-dark.png',
+            original_url: 'https://example.com/dashboard-dark.png',
+            sha256: 'sha256-dark',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+            metadata: { theme: 'dark', locale: 'en-US' },
+          },
+          {
+            name: 'dashboard',
+            url: 'https://example.com/dashboard-light.png',
+            original_url: 'https://example.com/dashboard-light.png',
+            sha256: 'sha256-light',
+            id: 'screenshot2',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+            metadata: { theme: 'light', locale: 'en-US' },
+          },
+        ],
+        signatureProperties: ['theme'], // Only theme is configured as baseline property
+      };
+
+      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+
+      // Mock fetch responses for image downloads
+      const mockImageBuffer = Buffer.from('fake-image-data');
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          arrayBuffer: () => Promise.resolve(mockImageBuffer),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          arrayBuffer: () => Promise.resolve(mockImageBuffer),
+        });
+
+      const { writeFileSync } = await import('fs');
+
+      // Execute the download
+      const result = await tddService.downloadBaselines(
+        'test',
+        'main',
+        'build-with-variants'
+      );
+
+      // Verify signatureProperties was stored
+      expect(tddService.signatureProperties).toEqual(['theme']);
+      expect(tddService.baselineData.signatureProperties).toEqual(['theme']);
+
+      // Verify screenshots have different signatures based on theme
+      expect(tddService.baselineData.screenshots).toHaveLength(2);
+      expect(tddService.baselineData.screenshots[0].signature).toBe(
+        'dashboard|dark'
+      );
+      expect(tddService.baselineData.screenshots[1].signature).toBe(
+        'dashboard|light'
+      );
+
+      // Verify files saved with variant-aware filenames
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(testDir, '.vizzly', 'baselines', 'dashboard_dark.png'),
+        mockImageBuffer
+      );
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(testDir, '.vizzly', 'baselines', 'dashboard_light.png'),
+        mockImageBuffer
+      );
+
+      expect(result).not.toBeNull();
+    });
+
+    it('should handle screenshots with viewport and browser in signature when signatureProperties set', async () => {
+      // Mock API response with viewport, browser, and custom signatureProperties
+      const mockBuildWithScreenshots = {
+        id: 'build-full-sig',
+        name: 'Full Signature Build',
+        status: 'passed',
+        screenshots: [
+          {
+            name: 'homepage',
+            url: 'https://example.com/homepage-mobile.png',
+            original_url: 'https://example.com/homepage-mobile.png',
+            sha256: 'sha256-mobile',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 390,
+            height: 844,
+            viewport_width: 390,
+            browser: 'chromium',
+            metadata: { device: 'mobile' },
+          },
+          {
+            name: 'homepage',
+            url: 'https://example.com/homepage-desktop.png',
+            original_url: 'https://example.com/homepage-desktop.png',
+            sha256: 'sha256-desktop',
+            id: 'screenshot2',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+            viewport_width: 1920,
+            browser: 'chromium',
+            metadata: { device: 'desktop' },
+          },
+        ],
+        signatureProperties: ['device'],
+      };
+
+      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+
+      const mockImageBuffer = Buffer.from('fake-image-data');
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          arrayBuffer: () => Promise.resolve(mockImageBuffer),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          arrayBuffer: () => Promise.resolve(mockImageBuffer),
+        });
+
+      const { writeFileSync } = await import('fs');
+
+      const result = await tddService.downloadBaselines(
+        'test',
+        'main',
+        'build-full-sig'
+      );
+
+      // Signatures should include name|viewport|browser|device
+      expect(tddService.baselineData.screenshots[0].signature).toBe(
+        'homepage|390|chromium|mobile'
+      );
+      expect(tddService.baselineData.screenshots[1].signature).toBe(
+        'homepage|1920|chromium|desktop'
+      );
+
+      // Filenames sanitized from signatures
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(testDir, '.vizzly', 'baselines', 'homepage_390_chromium_mobile.png'),
+        mockImageBuffer
+      );
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(testDir, '.vizzly', 'baselines', 'homepage_1920_chromium_desktop.png'),
+        mockImageBuffer
+      );
+
+      expect(result).not.toBeNull();
+    });
+
+    it('should ignore custom properties that are not in signatureProperties', async () => {
+      // Mock API response with extra properties not in signatureProperties
+      const mockBuildWithScreenshots = {
+        id: 'build-extra-props',
+        name: 'Extra Props Build',
+        status: 'passed',
+        screenshots: [
+          {
+            name: 'settings',
+            url: 'https://example.com/settings.png',
+            original_url: 'https://example.com/settings.png',
+            sha256: 'sha256-settings',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+            metadata: {
+              theme: 'dark',
+              locale: 'en-US', // Not in signatureProperties
+              user_role: 'admin', // Not in signatureProperties
+            },
+          },
+        ],
+        signatureProperties: ['theme'], // Only theme affects baseline matching
+      };
+
+      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+
+      const mockImageBuffer = Buffer.from('fake-image-data');
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(mockImageBuffer),
+      });
+
+      const { writeFileSync } = await import('fs');
+
+      const result = await tddService.downloadBaselines(
+        'test',
+        'main',
+        'build-extra-props'
+      );
+
+      // Signature should only include theme, not locale or user_role
+      expect(tddService.baselineData.screenshots[0].signature).toBe(
+        'settings|dark'
+      );
+
+      // Filename should match signature
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(testDir, '.vizzly', 'baselines', 'settings_dark.png'),
+        mockImageBuffer
+      );
+
+      expect(result).not.toBeNull();
+    });
+
+    it('should handle empty signatureProperties gracefully', async () => {
+      // Mock API response with empty signatureProperties (default behavior)
+      const mockBuildWithScreenshots = {
+        id: 'build-no-props',
+        name: 'No Custom Props Build',
+        status: 'passed',
+        screenshots: [
+          {
+            name: 'about',
+            url: 'https://example.com/about.png',
+            original_url: 'https://example.com/about.png',
+            sha256: 'sha256-about',
+            id: 'screenshot1',
+            file_size_bytes: 12345,
+            width: 1920,
+            height: 1080,
+            metadata: { theme: 'dark' }, // Has metadata but not used
+          },
+        ],
+        signatureProperties: [], // Empty - no custom properties affect matching
+      };
+
+      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+
+      const mockImageBuffer = Buffer.from('fake-image-data');
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(mockImageBuffer),
+      });
+
+      const { writeFileSync } = await import('fs');
+
+      const result = await tddService.downloadBaselines(
+        'test',
+        'main',
+        'build-no-props'
+      );
+
+      // Signature should just be the name (no custom properties)
+      expect(tddService.signatureProperties).toEqual([]);
+      expect(tddService.baselineData.screenshots[0].signature).toBe('about');
+
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(testDir, '.vizzly', 'baselines', 'about.png'),
+        mockImageBuffer
+      );
+
+      expect(result).not.toBeNull();
+    });
   });
 });

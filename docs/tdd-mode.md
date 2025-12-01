@@ -388,6 +388,62 @@ rm -rf .vizzly/baselines/
 npx vizzly tdd run "npm test"
 ```
 
+## Baseline Signature Properties
+
+Vizzly matches screenshots to baselines using a **signature**:
+
+```
+name | viewport_width | browser
+```
+
+For example: `homepage|1920|chromium`
+
+### Custom Properties vs Baseline Signature Properties
+
+You can pass custom properties when capturing screenshots:
+
+```javascript
+await vizzlyScreenshot('dashboard', screenshot, {
+  theme: 'dark',
+  locale: 'en-US',
+  mobile: true
+});
+```
+
+By default, these properties help you organize and filter in the dashboard—they don't affect baseline matching. Two screenshots with the same name but different `theme` values would match the same baseline.
+
+### Making Properties Affect Matching
+
+To create separate baselines for different variants, configure **Baseline Signature Properties** in your project settings:
+
+1. Go to your project on [app.vizzly.dev](https://app.vizzly.dev)
+2. Navigate to **Settings** → **Baseline Signature Properties**
+3. Add the property names (e.g., `theme`, `mobile`)
+
+With `theme` configured:
+
+```
+dashboard|1920|chromium|dark    → separate baseline
+dashboard|1920|chromium|light   → separate baseline
+```
+
+### TDD Mode Support
+
+When you download cloud baselines, the CLI automatically:
+
+1. Fetches your project's baseline signature properties
+2. Downloads baselines with variant-aware filenames
+3. Uses matching signatures during comparison
+
+This keeps TDD mode behavior consistent with cloud comparisons.
+
+### Quick Reference
+
+| Type | Purpose | Affects Matching? |
+|------|---------|-------------------|
+| Custom Properties | Organize and filter in dashboard | No |
+| Baseline Signature Properties | Create separate baselines per variant | Yes |
+
 ## Advanced Usage
 
 ### Conditional TDD Mode

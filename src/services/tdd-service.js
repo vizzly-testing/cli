@@ -19,14 +19,24 @@ import {
 
 /**
  * Generate a screenshot signature for baseline matching
- * Uses same logic as screenshot-identity.js: name + viewport_width + browser
+ * Uses same logic as screenshot-identity.js: name + viewport_width + browser + custom properties
  *
  * Matches backend signature generation which uses:
  * - screenshot.name
  * - screenshot.viewport_width (top-level property)
  * - screenshot.browser (top-level property)
+ * - custom properties from project's baseline_signature_properties setting
+ *
+ * @param {string} name - Screenshot name
+ * @param {Object} properties - Screenshot properties (viewport, browser, metadata, etc.)
+ * @param {Array<string>} customProperties - Custom property names from project settings
+ * @returns {string} Signature like "Login|1920|chrome|iPhone 15 Pro"
  */
-function generateScreenshotSignature(name, properties = {}) {
+function generateScreenshotSignature(
+  name,
+  properties = {},
+  customProperties = []
+) {
   let parts = [name];
 
   // Check for viewport_width as top-level property first (backend format)
@@ -47,15 +57,35 @@ function generateScreenshotSignature(name, properties = {}) {
     parts.push(properties.browser);
   }
 
+  // Add custom properties in order (matches cloud screenshot-identity.js behavior)
+  for (let propName of customProperties) {
+    // Check multiple locations where property might exist:
+    // 1. Top-level property (e.g., properties.device)
+    // 2. In metadata object (e.g., properties.metadata.device)
+    // 3. In nested metadata.properties (e.g., properties.metadata.properties.device)
+    let value =
+      properties[propName] ??
+      properties.metadata?.[propName] ??
+      properties.metadata?.properties?.[propName] ??
+      '';
+
+    // Normalize: convert to string, trim whitespace
+    parts.push(String(value).trim());
+  }
+
   return parts.join('|');
 }
 
 /**
  * Create a safe filename from signature
+ * Handles custom property values that may contain spaces or special characters
  */
 function signatureToFilename(signature) {
-  // Replace pipe separators with underscores for filesystem safety
-  return signature.replace(/\|/g, '_');
+  return signature
+    .replace(/\|/g, '_') // pipes to underscores
+    .replace(/\s+/g, '_') // spaces to underscores
+    .replace(/[/\\:*?"<>]/g, '') // remove unsafe filesystem chars
+    .replace(/_+/g, '_'); // collapse multiple underscores
 }
 
 /**
@@ -114,6 +144,7 @@ export class TddService {
     this.baselineData = null;
     this.comparisons = [];
     this.threshold = config.comparison?.threshold || 0.1;
+    this.signatureProperties = []; // Custom properties from project's baseline_signature_properties
 
     // Check if we're in baseline update mode
     if (this.setBaseline) {
@@ -169,6 +200,19 @@ export class TddService {
 
         if (!apiResponse) {
           throw new Error(`Build ${buildId} not found or API returned null`);
+        }
+
+        // Extract signature properties from API response (for variant support)
+        if (
+          apiResponse.signatureProperties &&
+          Array.isArray(apiResponse.signatureProperties)
+        ) {
+          this.signatureProperties = apiResponse.signatureProperties;
+          if (this.signatureProperties.length > 0) {
+            output.info(
+              `Using custom signature properties: ${this.signatureProperties.join(', ')}`
+            );
+          }
         }
 
         // Handle wrapped response format
@@ -354,10 +398,18 @@ export class TddService {
         }
 
         // Generate signature for baseline matching (same as compareScreenshot)
-        let properties = validateScreenshotProperties(
-          screenshot.metadata || screenshot.properties || {}
+        // Build properties object with top-level viewport_width and browser
+        // These are returned as top-level fields from the API, not inside metadata
+        let properties = validateScreenshotProperties({
+          viewport_width: screenshot.viewport_width,
+          browser: screenshot.browser,
+          ...(screenshot.metadata || screenshot.properties || {}),
+        });
+        let signature = generateScreenshotSignature(
+          sanitizedName,
+          properties,
+          this.signatureProperties
         );
-        let signature = generateScreenshotSignature(sanitizedName, properties);
         let filename = signatureToFilename(signature);
 
         const imagePath = safePath(this.baselinePath, `${filename}.png`);
@@ -487,6 +539,7 @@ export class TddService {
         environment,
         branch,
         threshold: this.threshold,
+        signatureProperties: this.signatureProperties, // Store for TDD comparison
         createdAt: new Date().toISOString(),
         buildInfo: {
           commitSha: baselineBuild.commit_sha,
@@ -506,12 +559,17 @@ export class TddService {
               return null; // Skip invalid screenshots
             }
 
-            let properties = validateScreenshotProperties(
-              s.metadata || s.properties || {}
-            );
+            // Build properties object with top-level viewport_width and browser
+            // These are returned as top-level fields from the API, not inside metadata
+            let properties = validateScreenshotProperties({
+              viewport_width: s.viewport_width,
+              browser: s.browser,
+              ...(s.metadata || s.properties || {}),
+            });
             let signature = generateScreenshotSignature(
               sanitizedName,
-              properties
+              properties,
+              this.signatureProperties
             );
             let filename = signatureToFilename(signature);
 
@@ -788,7 +846,17 @@ export class TddService {
         headers: { 'X-Organization': organizationSlug },
       });
 
-      let { build, screenshots } = response;
+      let { build, screenshots, signatureProperties } = response;
+
+      // Extract signature properties from API response (for variant support)
+      if (signatureProperties && Array.isArray(signatureProperties)) {
+        this.signatureProperties = signatureProperties;
+        if (this.signatureProperties.length > 0) {
+          output.info(
+            `Using custom signature properties: ${this.signatureProperties.join(', ')}`
+          );
+        }
+      }
 
       if (!screenshots || screenshots.length === 0) {
         output.warn('⚠️  No screenshots found in build');
@@ -831,10 +899,18 @@ export class TddService {
           continue;
         }
 
-        let properties = validateScreenshotProperties(
-          screenshot.metadata || {}
+        // Build properties object with top-level viewport_width and browser
+        // These are returned as top-level fields from the API, not inside metadata
+        let properties = validateScreenshotProperties({
+          viewport_width: screenshot.viewport_width,
+          browser: screenshot.browser,
+          ...screenshot.metadata,
+        });
+        let signature = generateScreenshotSignature(
+          sanitizedName,
+          properties,
+          this.signatureProperties
         );
-        let signature = generateScreenshotSignature(sanitizedName, properties);
         let filename = signatureToFilename(signature);
         let filePath = safePath(this.baselinePath, `${filename}.png`);
 
@@ -901,6 +977,7 @@ export class TddService {
         buildName: build.name,
         branch: build.branch,
         threshold: this.threshold,
+        signatureProperties: this.signatureProperties, // Store for TDD comparison
         screenshots: downloadedScreenshots,
       };
 
@@ -1017,6 +1094,16 @@ export class TddService {
       const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'));
       this.baselineData = metadata;
       this.threshold = metadata.threshold || this.threshold;
+
+      // Restore signature properties from saved metadata (for variant support)
+      this.signatureProperties = metadata.signatureProperties || [];
+      if (this.signatureProperties.length > 0) {
+        output.debug(
+          'tdd',
+          `loaded signature properties: ${this.signatureProperties.join(', ')}`
+        );
+      }
+
       return metadata;
     } catch (error) {
       output.error(`❌ Failed to load baseline metadata: ${error.message}`);
@@ -1053,10 +1140,11 @@ export class TddService {
       validatedProperties.viewport_width = validatedProperties.viewport.width;
     }
 
-    // Generate signature for baseline matching (name + viewport_width + browser)
+    // Generate signature for baseline matching (name + viewport_width + browser + custom props)
     const signature = generateScreenshotSignature(
       sanitizedName,
-      validatedProperties
+      validatedProperties,
+      this.signatureProperties
     );
     const filename = signatureToFilename(signature);
 
@@ -1522,7 +1610,8 @@ export class TddService {
       );
       let signature = generateScreenshotSignature(
         sanitizedName,
-        validatedProperties
+        validatedProperties,
+        this.signatureProperties
       );
       let filename = signatureToFilename(signature);
 
@@ -1602,7 +1691,11 @@ export class TddService {
     }
 
     // Generate signature for this screenshot
-    let signature = generateScreenshotSignature(name, properties || {});
+    let signature = generateScreenshotSignature(
+      name,
+      properties || {},
+      this.signatureProperties
+    );
 
     // Add screenshot to baseline metadata
     const screenshotEntry = {
@@ -1670,7 +1763,11 @@ export class TddService {
     }
 
     // Generate signature for this screenshot
-    let signature = generateScreenshotSignature(name, properties || {});
+    let signature = generateScreenshotSignature(
+      name,
+      properties || {},
+      this.signatureProperties
+    );
 
     // Add screenshot to baseline metadata
     const screenshotEntry = {
@@ -1732,7 +1829,11 @@ export class TddService {
     const sanitizedName = comparison.name;
 
     let properties = comparison.properties || {};
-    let signature = generateScreenshotSignature(sanitizedName, properties);
+    let signature = generateScreenshotSignature(
+      sanitizedName,
+      properties,
+      this.signatureProperties
+    );
     let filename = signatureToFilename(signature);
 
     // Find the current screenshot file

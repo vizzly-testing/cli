@@ -609,11 +609,21 @@ describe('TDD Service - Baseline Download', () => {
 
       // Filenames sanitized from signatures
       expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'homepage_390_chromium_mobile.png'),
+        join(
+          testDir,
+          '.vizzly',
+          'baselines',
+          'homepage_390_chromium_mobile.png'
+        ),
         mockImageBuffer
       );
       expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'homepage_1920_chromium_desktop.png'),
+        join(
+          testDir,
+          '.vizzly',
+          'baselines',
+          'homepage_1920_chromium_desktop.png'
+        ),
         mockImageBuffer
       );
 

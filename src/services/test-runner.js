@@ -121,8 +121,25 @@ export class TestRunner extends EventEmitter {
       // Error in setup phase
       testError = error;
       testSuccess = false;
-    } finally {
-      // Always finalize the build and stop the server
+    }
+
+    // Get TDD results before stopping the server (comparisons, screenshot count)
+    let tddResults = null;
+    if (tdd) {
+      try {
+        tddResults = await this.serverManager.getTddResults();
+        if (tddResults) {
+          screenshotCount = tddResults.total || 0;
+        }
+      } catch (tddError) {
+        output.debug('tdd', 'failed to get results', {
+          error: tddError.message,
+        });
+      }
+    }
+
+    // Always finalize the build and stop the server (cleanup phase)
+    try {
       const executionTime = Date.now() - startTime;
 
       if (buildId) {
@@ -138,7 +155,8 @@ export class TestRunner extends EventEmitter {
         screenshotCount =
           this.serverManager.server.getScreenshotCount(buildId) || 0;
       }
-
+    } finally {
+      // Always stop the server, even if finalization fails
       try {
         await this.serverManager.stop();
       } catch (stopError) {
@@ -158,6 +176,8 @@ export class TestRunner extends EventEmitter {
       testsPassed: testSuccess ? 1 : 0,
       testsFailed: testSuccess ? 0 : 1,
       screenshotsCaptured: screenshotCount,
+      comparisons: tddResults?.comparisons || null,
+      failed: (tddResults?.failed || 0) > 0,
     };
   }
 

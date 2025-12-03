@@ -501,4 +501,106 @@ describe('TestRunner', () => {
       expect(processRef).toBe(mockSpawnProcess);
     });
   });
+
+  describe('TDD results retrieval', () => {
+    it('should return TDD results with screenshot count and comparisons', async () => {
+      const mockBuild = { id: 'build-tdd-123' };
+      mockBuildManager.createBuild.mockResolvedValue(mockBuild);
+      mockBuildManager.getCurrentBuild.mockReturnValue(mockBuild);
+      mockServerManager.start.mockResolvedValue();
+      mockServerManager.stop.mockResolvedValue();
+
+      // Mock TDD results
+      const mockTddResults = {
+        total: 5,
+        passed: 4,
+        failed: 1,
+        comparisons: [
+          { name: 'test-1', status: 'passed' },
+          { name: 'test-2', status: 'passed' },
+          { name: 'test-3', status: 'passed' },
+          { name: 'test-4', status: 'passed' },
+          { name: 'test-5', status: 'failed' },
+        ],
+      };
+      mockServerManager.getTddResults = vi
+        .fn()
+        .mockResolvedValue(mockTddResults);
+
+      // Mock successful test execution
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'exit') {
+          setTimeout(() => callback(0), 0);
+        }
+      });
+
+      const result = await testRunner.run({
+        testCommand: 'npm test',
+        tdd: true,
+      });
+
+      expect(mockServerManager.getTddResults).toHaveBeenCalled();
+      expect(result.screenshotsCaptured).toBe(5);
+      expect(result.comparisons).toEqual(mockTddResults.comparisons);
+      expect(result.failed).toBe(true); // Because 1 comparison failed
+    });
+
+    it('should handle missing getTddResults gracefully', async () => {
+      const mockBuild = { id: 'build-tdd-456' };
+      mockBuildManager.createBuild.mockResolvedValue(mockBuild);
+      mockBuildManager.getCurrentBuild.mockReturnValue(mockBuild);
+      mockServerManager.start.mockResolvedValue();
+      mockServerManager.stop.mockResolvedValue();
+
+      // No getTddResults method on serverManager
+      delete mockServerManager.getTddResults;
+
+      // Mock successful test execution
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'exit') {
+          setTimeout(() => callback(0), 0);
+        }
+      });
+
+      const result = await testRunner.run({
+        testCommand: 'npm test',
+        tdd: true,
+      });
+
+      // Should still return a valid result with defaults
+      expect(result.screenshotsCaptured).toBe(0);
+      expect(result.comparisons).toBeNull();
+      expect(result.failed).toBe(false);
+    });
+
+    it('should not call getTddResults in API mode', async () => {
+      const mockApiService = {
+        createBuild: vi.fn().mockResolvedValue({ id: 'api-build-123' }),
+        getBuild: vi.fn().mockResolvedValue({ id: 'api-build-123' }),
+        finalizeBuild: vi.fn().mockResolvedValue(),
+      };
+      const { ApiService } = await import('../../src/services/api-service.js');
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
+
+      mockServerManager.start.mockResolvedValue();
+      mockServerManager.stop.mockResolvedValue();
+      mockServerManager.getTddResults = vi.fn();
+
+      // Mock successful test execution
+      mockSpawnProcess.on.mockImplementation((event, callback) => {
+        if (event === 'exit') {
+          setTimeout(() => callback(0), 0);
+        }
+      });
+
+      await testRunner.run({
+        testCommand: 'npm test',
+        tdd: false, // API mode
+      });
+
+      expect(mockServerManager.getTddResults).not.toHaveBeenCalled();
+    });
+  });
 });

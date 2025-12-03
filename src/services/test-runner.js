@@ -177,7 +177,7 @@ export class TestRunner extends EventEmitter {
       testsFailed: testSuccess ? 0 : 1,
       screenshotsCaptured: screenshotCount,
       comparisons: tddResults?.comparisons || null,
-      failed: tddResults?.failed > 0,
+      failed: (tddResults?.failed || 0) > 0,
     };
   }
 

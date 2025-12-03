@@ -121,9 +121,8 @@ export class ServerManager {
    * Only available in TDD mode after tests have run
    */
   async getTddResults() {
-    if (!this.tddMode || !this.handler?.getResults) {
-      return null;
-    }
+    if (!this.tddMode || !this.handler?.getResults) return null;
+
     return await this.handler.getResults();
   }
 }

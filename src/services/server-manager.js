@@ -6,7 +6,7 @@
 import { createHttpServer } from '../server/http-server.js';
 import { createTddHandler } from '../server/handlers/tdd-handler.js';
 import { createApiHandler } from '../server/handlers/api-handler.js';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
 
 export class ServerManager {
@@ -95,6 +95,16 @@ export class ServerManager {
         // Don't throw - cleanup errors shouldn't fail the stop process
       }
     }
+
+    // Clean up server.json so the client SDK doesn't try to connect to a dead server
+    try {
+      let serverFile = join(process.cwd(), '.vizzly', 'server.json');
+      if (existsSync(serverFile)) {
+        unlinkSync(serverFile);
+      }
+    } catch {
+      // Non-fatal - cleanup errors shouldn't fail the stop process
+    }
   }
 
   // Expose server interface for compatibility
@@ -104,5 +114,16 @@ export class ServerManager {
         this.handler?.getScreenshotCount?.(buildId) || 0,
       finishBuild: buildId => this.httpServer?.finishBuild?.(buildId),
     };
+  }
+
+  /**
+   * Get TDD results (comparisons, screenshot count, etc.)
+   * Only available in TDD mode after tests have run
+   */
+  async getTddResults() {
+    if (!this.tddMode || !this.handler?.getResults) {
+      return null;
+    }
+    return await this.handler.getResults();
   }
 }

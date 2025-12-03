@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { existsSync, mkdirSync, rmSync } from 'fs';
+import { join } from 'path';
 import { ServerManager } from '../../src/services/server-manager.js';
 
 // Mock output module
@@ -359,6 +361,70 @@ describe('ServerManager', () => {
     });
   });
 
+  describe('getTddResults', () => {
+    it('should return TDD results when in TDD mode with getResults handler', async () => {
+      const mockResults = {
+        total: 5,
+        passed: 4,
+        failed: 1,
+        comparisons: [
+          { name: 'test-1', status: 'passed' },
+          { name: 'test-2', status: 'failed' },
+        ],
+      };
+
+      const handlerWithResults = {
+        initialize: vi.fn().mockResolvedValue(),
+        getResults: vi.fn().mockResolvedValue(mockResults),
+        cleanup: vi.fn(),
+      };
+
+      const { createTddHandler } = await import(
+        '../../src/server/handlers/tdd-handler.js'
+      );
+      createTddHandler.mockReturnValue(handlerWithResults);
+
+      const newServerManager = new ServerManager(mockConfig);
+      mockHttpServer.start.mockResolvedValue();
+      await newServerManager.start('build-123', true);
+
+      const results = await newServerManager.getTddResults();
+
+      expect(results).toEqual(mockResults);
+      expect(handlerWithResults.getResults).toHaveBeenCalled();
+    });
+
+    it('should return null when not in TDD mode', async () => {
+      mockHttpServer.start.mockResolvedValue();
+      await serverManager.start('build-123', false); // API mode, not TDD
+
+      const results = await serverManager.getTddResults();
+
+      expect(results).toBeNull();
+    });
+
+    it('should return null when handler lacks getResults method', async () => {
+      const handlerWithoutResults = {
+        initialize: vi.fn().mockResolvedValue(),
+        cleanup: vi.fn(),
+        // No getResults method
+      };
+
+      const { createTddHandler } = await import(
+        '../../src/server/handlers/tdd-handler.js'
+      );
+      createTddHandler.mockReturnValue(handlerWithoutResults);
+
+      const newServerManager = new ServerManager(mockConfig);
+      mockHttpServer.start.mockResolvedValue();
+      await newServerManager.start('build-123', true);
+
+      const results = await newServerManager.getTddResults();
+
+      expect(results).toBeNull();
+    });
+  });
+
   describe('createApiService', () => {
     it('should create API service with correct configuration', async () => {
       const { ApiService } = await import('../../src/services/api-service.js');
@@ -450,6 +516,88 @@ describe('ServerManager', () => {
         undefined,
         false
       );
+    });
+  });
+
+  describe('server.json cleanup (real filesystem)', () => {
+    let testDir;
+    let originalCwd;
+
+    beforeEach(() => {
+      originalCwd = process.cwd();
+      testDir = join(
+        '/tmp',
+        `vizzly-server-manager-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      );
+      mkdirSync(testDir, { recursive: true });
+      process.chdir(testDir);
+    });
+
+    afterEach(() => {
+      process.chdir(originalCwd);
+      try {
+        if (existsSync(testDir)) {
+          rmSync(testDir, { recursive: true, force: true });
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    });
+
+    it('should remove server.json when stop is called', async () => {
+      let vizzlyDir = join(testDir, '.vizzly');
+      let serverFile = join(vizzlyDir, 'server.json');
+
+      // Set up mocks for the server lifecycle
+      mockTddHandler.initialize.mockResolvedValue();
+      mockHttpServer.start.mockResolvedValue();
+      mockHttpServer.stop.mockResolvedValue();
+
+      let manager = new ServerManager(mockConfig);
+      await manager.start('build-123', true);
+
+      // Verify server.json was created
+      expect(existsSync(serverFile)).toBe(true);
+
+      await manager.stop();
+
+      // Verify server.json was removed
+      expect(existsSync(serverFile)).toBe(false);
+    });
+
+    it('should handle stop gracefully when server.json does not exist', async () => {
+      let vizzlyDir = join(testDir, '.vizzly');
+      let serverFile = join(vizzlyDir, 'server.json');
+
+      // Set up mocks
+      mockHttpServer.stop.mockResolvedValue();
+
+      let manager = new ServerManager(mockConfig);
+      manager.httpServer = mockHttpServer;
+      manager.handler = mockApiHandler;
+
+      // Ensure no server.json exists
+      expect(existsSync(serverFile)).toBe(false);
+
+      // Should not throw
+      await manager.stop();
+    });
+
+    it('should handle stop gracefully when .vizzly directory does not exist', async () => {
+      let vizzlyDir = join(testDir, '.vizzly');
+
+      // Set up mocks
+      mockHttpServer.stop.mockResolvedValue();
+
+      let manager = new ServerManager(mockConfig);
+      manager.httpServer = mockHttpServer;
+      manager.handler = mockApiHandler;
+
+      // Ensure .vizzly directory doesn't exist
+      expect(existsSync(vizzlyDir)).toBe(false);
+
+      // Should not throw
+      await manager.stop();
     });
   });
 });

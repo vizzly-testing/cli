@@ -1,6 +1,6 @@
 {
   "name": "@vizzly-testing/cli",
-  "version": "0.16.3",
+  "version": "0.16.4",
   "description": "Visual review platform for UI developers and designers",
   "keywords": [
     "visual-testing",

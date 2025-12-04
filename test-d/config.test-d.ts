@@ -33,7 +33,7 @@ expectType<VizzlyConfig>(
       timeout: 30000,
     },
     comparison: {
-      threshold: 0.1,
+      threshold: 2.0,
     },
     tdd: {
       openReport: false,
@@ -50,7 +50,7 @@ expectType<VizzlyConfig>(
   defineConfig({
     apiKey: process.env.VIZZLY_TOKEN,
     comparison: {
-      threshold: 0.05,
+      threshold: 1.5,
     },
   })
 );
@@ -85,7 +85,7 @@ let typicalConfig = defineConfig({
     port: 47392,
   },
   comparison: {
-    threshold: 0.1,
+    threshold: 2.0,
   },
 });
 

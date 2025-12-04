@@ -8,7 +8,7 @@
       "baseline": "/images/baselines/homepage-desktop.png",
       "current": "/images/screenshots/homepage-desktop.png",
       "diff": null,
-      "threshold": 0.1,
+      "threshold": 2.0,
       "properties": {
         "browser": "firefox",
         "viewport": {
@@ -25,7 +25,7 @@
       "baseline": "/images/baselines/homepage-mobile.png",
       "current": "/images/screenshots/homepage-mobile.png",
       "diff": null,
-      "threshold": 0.1,
+      "threshold": 2.0,
       "properties": {
         "browser": "firefox",
         "viewport": {

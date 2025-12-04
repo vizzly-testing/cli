@@ -118,7 +118,7 @@ Response:
   "name": "homepage",
   "status": "failed",
   "diffPercentage": 2.3,
-  "threshold": 0.1,
+  "threshold": 2.0,
   "mode": "local",
   "baselinePath": "/Users/you/project/.vizzly/baselines/homepage.png",
   "currentPath": "/Users/you/project/.vizzly/screenshots/homepage.png"
@@ -170,7 +170,7 @@ Response:
   "name": "login-page",
   "status": "failed",
   "diffPercentage": 0.8,
-  "threshold": 0.1,
+  "threshold": 2.0,
   "mode": "cloud",
   "baselineUrl": "https://app.vizzly.dev/screenshots/abc123/baseline.png",
   "currentUrl": "https://app.vizzly.dev/screenshots/abc123/current.png",

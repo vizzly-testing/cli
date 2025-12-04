@@ -19,7 +19,7 @@ Capture a screenshot for visual regression testing.
 ```javascript
 {
   // Comparison settings
-  threshold: 0.01,           // Pixel difference threshold (0-1)
+  threshold: 2.0,            // CIEDE2000 Delta E (0=exact, 1=JND, 2=recommended)
 
   // Metadata for organization (all optional)
   properties: {
@@ -451,7 +451,7 @@ Upload screenshots from a directory.
 - `--commit <sha>` - Git commit SHA override
 - `--message <msg>` - Commit message override
 - `--environment <env>` - Environment name (default: "test")
-- `--threshold <number>` - Comparison threshold (0-1)
+- `--threshold <number>` - Comparison threshold (CIEDE2000 Delta E)
 - `--token <token>` - API token override
 - `--wait` - Wait for build completion
 - `--upload-all` - Upload all screenshots without SHA deduplication
@@ -484,7 +484,7 @@ Run tests with Vizzly integration.
 
 *Processing Options:*
 - `--wait` - Wait for build completion and exit with appropriate code
-- `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
+- `--threshold <number>` - Comparison threshold (CIEDE2000 Delta E, default: 2.0)
 - `--upload-timeout <ms>` - Upload wait timeout in ms (default: from config or 30000)
 - `--upload-all` - Upload all screenshots without SHA deduplication
 
@@ -528,7 +528,7 @@ Run tests in TDD mode with local visual comparisons.
 *Build Configuration:*
 - `--branch <branch>` - Git branch override
 - `--environment <env>` - Environment name (default: "test")
-- `--threshold <number>` - Comparison threshold (0-1, default: 0.1)
+- `--threshold <number>` - Comparison threshold (CIEDE2000 Delta E, default: 2.0)
 - `--token <token>` - API token override
 
 **Behavior:**
@@ -661,7 +661,7 @@ Configuration loaded via cosmiconfig in this order:
 
   // Comparison Configuration
   comparison: {
-    threshold: number         // Pixel difference threshold (default: 0.1)
+    threshold: number         // CIEDE2000 Delta E (default: 2.0)
   }
 }
 ```

@@ -227,7 +227,7 @@ vizzly run "npm test" --parallel-id "ci-run-123"  # For parallel CI builds
 
 **Processing Options:**
 - `--wait` - Wait for build completion and exit with appropriate code
-- `--threshold <number>` - Comparison threshold (0-1, default: 0.01)
+- `--threshold <number>` - Comparison threshold (CIEDE2000 Delta E, default: 2.0)
 - `--upload-timeout <ms>` - Upload wait timeout in ms
 - `--upload-all` - Upload all screenshots without SHA deduplication
 
@@ -279,7 +279,7 @@ vizzly dev stop
 **Dev Command Options:**
 - `--set-baseline` - Accept current screenshots as new baseline
 - `--baseline-build <id>` - Use specific build as baseline (requires API token)
-- `--threshold <number>` - Comparison threshold (0-1, default: 0.1)
+- `--threshold <number>` - Comparison threshold (CIEDE2000 Delta E, default: 2.0)
 - `--port <port>` - Server port (default: 47392)
 - `--timeout <ms>` - Server timeout (default: 30000)
 - `--open` - Auto-open dashboard in browser (start command only)
@@ -357,9 +357,9 @@ export default {
     timeout: 30000
   },
 
-  // Comparison configuration
+  // Comparison configuration (CIEDE2000 Delta E: 0=exact, 1=JND, 2=recommended)
   comparison: {
-    threshold: 0.1,
+    threshold: 2.0,
     ignoreAntialiasing: true
   },
 

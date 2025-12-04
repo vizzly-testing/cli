@@ -9,7 +9,7 @@
       "current": "/images/screenshots/homepage-desktop.png",
       "diff": "/images/diffs/homepage-desktop.png",
       "diffPercentage": 0.51,
-      "threshold": 0.1,
+      "threshold": 2.0,
       "properties": {
         "browser": "firefox",
         "viewport": {
@@ -26,7 +26,7 @@
       "baseline": "/images/baselines/pricing-page.png",
       "current": "/images/screenshots/pricing-page.png",
       "diff": null,
-      "threshold": 0.1,
+      "threshold": 2.0,
       "properties": {
         "browser": "firefox",
         "viewport": {

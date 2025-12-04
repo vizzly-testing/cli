@@ -224,7 +224,7 @@ Starts the dashboard server in the background as a detached process and returns 
 
 Options:
 - `--port <port>` - Server port (default: 47392)
-- `--threshold <number>` - Comparison threshold (default: 0.1)
+- `--threshold <number>` - Comparison threshold in CIEDE2000 Delta E (default: 2.0)
 - `--baseline-build <id>` - Use specific build as baseline
 - `--open` - Auto-open dashboard in browser
 
@@ -236,7 +236,7 @@ vizzly tdd run "npm test" [options]
 Options:
 - `--set-baseline` - Accept screenshots as new baseline
 - `--port <port>` - Server port (default: 47392)
-- `--threshold <number>` - Comparison threshold (default: 0.1)
+- `--threshold <number>` - Comparison threshold in CIEDE2000 Delta E (default: 2.0)
 - `--baseline-build <id>` - Use specific build as baseline
 - `--timeout <ms>` - Server timeout (default: 30000)
 
@@ -358,7 +358,7 @@ Configure in `vizzly.config.js`:
 ```javascript
 export default {
   comparison: {
-    threshold: 0.01        // 1% difference tolerance
+    threshold: 2.0        // CIEDE2000 Delta E (0=exact, 1=JND, 2=recommended)
   }
 };
 ```

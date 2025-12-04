@@ -110,7 +110,7 @@ export function createReporterTestServer(fixtureData, port = 3456) {
       res.end(
         JSON.stringify({
           config: {
-            comparison: { threshold: 0.1 },
+            comparison: { threshold: 2.0 },
             server: { port: 47392, timeout: 30000 },
             build: { environment: 'test' },
           },

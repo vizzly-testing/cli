@@ -12,7 +12,7 @@ The `doctor` command provides a quick preflight to validate your local setup. It
 
 - Node.js version: must be 20 or newer
 - `apiUrl`: must be a valid `http` or `https` URL
-- `comparison.threshold`: a number between 0 and 1
+- `comparison.threshold`: a non-negative number (CIEDE2000 Delta E units, default: 2.0)
 - Effective `server.port`: reports the port without binding (default `47392`)
 
 ## Usage

@@ -199,6 +199,11 @@ export class TestRunner extends EventEmitter {
           commit_message: options.message,
           github_pull_request_number: options.pullRequestNumber,
           parallel_id: options.parallelId,
+          metadata: {
+            comparison: {
+              threshold: this.config.comparison?.threshold,
+            },
+          },
         });
         output.debug('build', `created ${buildResult.id}`);
 

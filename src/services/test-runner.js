@@ -191,7 +191,7 @@ export class TestRunner extends EventEmitter {
       // API mode: create build via API
       const apiService = await this.createApiService();
       if (apiService) {
-        const buildResult = await apiService.createBuild({
+        let buildPayload = {
           name: options.buildName || `Test Run ${new Date().toISOString()}`,
           branch: options.branch || 'main',
           environment: options.environment || 'test',
@@ -199,12 +199,18 @@ export class TestRunner extends EventEmitter {
           commit_message: options.message,
           github_pull_request_number: options.pullRequestNumber,
           parallel_id: options.parallelId,
-          metadata: {
+        };
+
+        // Only include metadata if we have meaningful config to send
+        if (this.config.comparison?.threshold != null) {
+          buildPayload.metadata = {
             comparison: {
-              threshold: this.config.comparison?.threshold,
+              threshold: this.config.comparison.threshold,
             },
-          },
-        });
+          };
+        }
+
+        const buildResult = await apiService.createBuild(buildPayload);
         output.debug('build', `created ${buildResult.id}`);
 
         // Emit build created event

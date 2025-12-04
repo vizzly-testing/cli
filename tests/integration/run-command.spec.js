@@ -243,7 +243,7 @@ describe('Run Command Threshold Passthrough', () => {
     });
   });
 
-  it('should pass undefined threshold when not configured', async () => {
+  it('should omit metadata when threshold is not configured', async () => {
     let capturedRequestBody = null;
 
     global.fetch.mockImplementation(async (url, options) => {
@@ -297,12 +297,8 @@ describe('Run Command Threshold Passthrough', () => {
       tdd: false,
     });
 
-    // Metadata should still be sent, but threshold will be undefined
+    // Metadata should not be included when threshold is not configured
     expect(capturedRequestBody).not.toBeNull();
-    expect(capturedRequestBody.build.metadata).toEqual({
-      comparison: {
-        threshold: undefined,
-      },
-    });
+    expect(capturedRequestBody.build.metadata).toBeUndefined();
   });
 });

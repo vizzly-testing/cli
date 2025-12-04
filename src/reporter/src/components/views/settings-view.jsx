@@ -27,7 +27,7 @@ import {
 
 function getInitialFormData(config) {
   return {
-    threshold: config?.comparison?.threshold ?? 0.1,
+    threshold: config?.comparison?.threshold ?? 2.0,
     port: config?.server?.port ?? 47392,
     timeout: config?.server?.timeout ?? 30000,
     buildName: config?.build?.name ?? 'Build {timestamp}',

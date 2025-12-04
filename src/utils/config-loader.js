@@ -29,9 +29,9 @@ let DEFAULT_CONFIG = {
     timeout: 30000,
   },
 
-  // Comparison Configuration
+  // Comparison Configuration (CIEDE2000 Delta E: 0=exact, 1=JND, 2=recommended)
   comparison: {
-    threshold: 0.1,
+    threshold: 2.0,
   },
 
   // TDD Configuration

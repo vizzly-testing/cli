@@ -91,7 +91,7 @@ describe('TddService', () => {
       delete configWithoutThreshold.comparison;
 
       const service = new TddService(configWithoutThreshold, testDir);
-      expect(service.threshold).toBe(0.1);
+      expect(service.threshold).toBe(2.0); // CIEDE2000 default
     });
   });
 

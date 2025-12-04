@@ -111,7 +111,7 @@ export class ConfigService {
         batchSize: 10,
         timeout: 30000,
       },
-      comparison: { threshold: 0.1 },
+      comparison: { threshold: 2.0 },
       tdd: { openReport: false },
       plugins: [],
     };

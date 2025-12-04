@@ -20,7 +20,7 @@ export { VizzlyConfig } from './index';
  *     port: 47392
  *   },
  *   comparison: {
- *     threshold: 0.1
+ *     threshold: 2.0  // CIEDE2000 Delta E (0=exact, 1=JND, 2=recommended)
  *   }
  * });
  */

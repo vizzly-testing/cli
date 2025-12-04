@@ -250,8 +250,10 @@ export function validateUploadOptions(screenshotsPath, options) {
 
   if (options.threshold !== undefined) {
     let threshold = parseFloat(options.threshold);
-    if (isNaN(threshold) || threshold < 0 || threshold > 1) {
-      errors.push('Threshold must be a number between 0 and 1');
+    if (isNaN(threshold) || threshold < 0) {
+      errors.push(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
     }
   }
 

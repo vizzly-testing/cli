@@ -116,6 +116,10 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
   });
 
   test('Failed Comparison with Overlay Mode', async ({ page, browserName }) => {
+    // Skip on mobile - view mode buttons are hidden on small screens
+    let viewport = page.viewportSize();
+    test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
+
     let server;
 
     // Load failed state fixture
@@ -176,6 +180,10 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
   });
 
   test('Failed Comparison with Slide Mode', async ({ page, browserName }) => {
+    // Skip on mobile - view mode buttons are hidden on small screens
+    let viewport = page.viewportSize();
+    test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
+
     let server;
 
     // Load failed state fixture

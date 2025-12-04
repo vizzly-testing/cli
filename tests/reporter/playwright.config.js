@@ -40,5 +40,13 @@ export default defineConfig({
         trace: 'off',
       },
     },
+    {
+      name: 'firefox-mobile',
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: { width: 375, height: 667 },
+        trace: 'off',
+      },
+    },
   ],
 });

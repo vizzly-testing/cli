@@ -424,8 +424,8 @@ export default function FullscreenViewer({
             {/* Zoom Controls */}
             <ZoomControls zoom={zoomLevel} onZoomChange={setZoomLevel} />
 
-            {/* View Mode Toggle - always show for consistent layout, disable when no diff */}
-            <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
+            {/* View Mode Toggle - hidden on mobile, shown on larger screens */}
+            <div className="hidden sm:flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
               {viewModes.map(mode => (
                 <button
                   key={mode.value}

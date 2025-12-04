@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { TestRunner } from '../../src/services/test-runner.js';
 
 // Mock global fetch
 global.fetch = vi.fn();
@@ -164,5 +165,140 @@ describe('Run Command waitForBuild Exit Code Test', () => {
         'https://app.test.com/builds/7b3732a2-59e9-43f8-8378-63b9c9196c59'
       );
     });
+  });
+});
+
+describe('Run Command Threshold Passthrough', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should pass comparison.threshold to cloud API when creating builds', async () => {
+    let capturedRequestBody = null;
+
+    // Mock fetch to capture the request body
+    global.fetch.mockImplementation(async (url, options) => {
+      if (url.includes('/api/sdk/builds') && options?.method === 'POST') {
+        capturedRequestBody = JSON.parse(options.body);
+        return {
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 'build-123',
+              url: 'https://app.test.com/builds/build-123',
+            }),
+        };
+      }
+      // Default response for other requests
+      return {
+        ok: true,
+        json: () => Promise.resolve({}),
+      };
+    });
+
+    let config = {
+      apiKey: 'test-api-key',
+      apiUrl: 'https://api.test.com',
+      server: { port: 47392 },
+      comparison: { threshold: 0.05 },
+    };
+
+    let mockBuildManager = {
+      createBuild: vi.fn(),
+    };
+
+    let mockServerManager = {
+      start: vi.fn().mockResolvedValue(),
+      stop: vi.fn().mockResolvedValue(),
+      server: {
+        finishBuild: vi.fn().mockResolvedValue(),
+      },
+    };
+
+    let testRunner = new TestRunner(
+      config,
+      mockBuildManager,
+      mockServerManager,
+      null
+    );
+
+    // Mock the test execution to succeed immediately
+    vi.spyOn(testRunner, 'executeTestCommand').mockResolvedValue();
+
+    await testRunner.run({
+      testCommand: 'npm test',
+      tdd: false,
+    });
+
+    // Verify the API was called with metadata containing threshold
+    expect(capturedRequestBody).not.toBeNull();
+    expect(capturedRequestBody.build.metadata).toEqual({
+      comparison: {
+        threshold: 0.05,
+      },
+    });
+  });
+
+  it('should omit metadata when threshold is not configured', async () => {
+    let capturedRequestBody = null;
+
+    global.fetch.mockImplementation(async (url, options) => {
+      if (url.includes('/api/sdk/builds') && options?.method === 'POST') {
+        capturedRequestBody = JSON.parse(options.body);
+        return {
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              id: 'build-456',
+              url: 'https://app.test.com/builds/build-456',
+            }),
+        };
+      }
+      return {
+        ok: true,
+        json: () => Promise.resolve({}),
+      };
+    });
+
+    let config = {
+      apiKey: 'test-api-key',
+      apiUrl: 'https://api.test.com',
+      server: { port: 47392 },
+      // No comparison config
+    };
+
+    let mockBuildManager = {
+      createBuild: vi.fn(),
+    };
+
+    let mockServerManager = {
+      start: vi.fn().mockResolvedValue(),
+      stop: vi.fn().mockResolvedValue(),
+      server: {
+        finishBuild: vi.fn().mockResolvedValue(),
+      },
+    };
+
+    let testRunner = new TestRunner(
+      config,
+      mockBuildManager,
+      mockServerManager,
+      null
+    );
+
+    vi.spyOn(testRunner, 'executeTestCommand').mockResolvedValue();
+
+    await testRunner.run({
+      testCommand: 'npm test',
+      tdd: false,
+    });
+
+    // Metadata should not be included when threshold is not configured
+    expect(capturedRequestBody).not.toBeNull();
+    expect(capturedRequestBody.build.metadata).toBeUndefined();
   });
 });

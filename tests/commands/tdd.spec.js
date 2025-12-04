@@ -87,17 +87,21 @@ describe('validateTddOptions', () => {
 
     it('should fail with invalid threshold', () => {
       const errors = validateTddOptions('npm test', { threshold: 'invalid' });
-      expect(errors).toContain('Threshold must be a number between 0 and 1');
+      expect(errors).toContain(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
     });
 
     it('should fail with threshold below 0', () => {
       const errors = validateTddOptions('npm test', { threshold: '-0.1' });
-      expect(errors).toContain('Threshold must be a number between 0 and 1');
+      expect(errors).toContain(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
     });
 
-    it('should fail with threshold above 1', () => {
-      const errors = validateTddOptions('npm test', { threshold: '1.1' });
-      expect(errors).toContain('Threshold must be a number between 0 and 1');
+    it('should pass with threshold above 1 (CIEDE2000 allows values > 1)', () => {
+      const errors = validateTddOptions('npm test', { threshold: '2.0' });
+      expect(errors).toHaveLength(0);
     });
   });
 
@@ -106,7 +110,7 @@ describe('validateTddOptions', () => {
       const errors = validateTddOptions('', {
         port: 'invalid',
         timeout: '500',
-        threshold: '2',
+        threshold: '-1', // negative threshold is invalid
       });
 
       expect(errors).toHaveLength(4);
@@ -115,7 +119,9 @@ describe('validateTddOptions', () => {
         'Port must be a valid number between 1 and 65535'
       );
       expect(errors).toContain('Timeout must be at least 1000 milliseconds');
-      expect(errors).toContain('Threshold must be a number between 0 and 1');
+      expect(errors).toContain(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
     });
   });
 });

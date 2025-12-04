@@ -62,21 +62,25 @@ describe('validateUploadOptions', () => {
       const errors = validateUploadOptions('./screenshots', {
         threshold: 'invalid',
       });
-      expect(errors).toContain('Threshold must be a number between 0 and 1');
+      expect(errors).toContain(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
     });
 
     it('should fail with threshold below 0', () => {
       const errors = validateUploadOptions('./screenshots', {
         threshold: '-0.1',
       });
-      expect(errors).toContain('Threshold must be a number between 0 and 1');
+      expect(errors).toContain(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
     });
 
-    it('should fail with threshold above 1', () => {
+    it('should pass with threshold above 1 (CIEDE2000 allows values > 1)', () => {
       const errors = validateUploadOptions('./screenshots', {
-        threshold: '1.1',
+        threshold: '2.0',
       });
-      expect(errors).toContain('Threshold must be a number between 0 and 1');
+      expect(errors).toHaveLength(0);
     });
   });
 
@@ -139,7 +143,7 @@ describe('validateUploadOptions', () => {
     it('should return all validation errors', () => {
       const errors = validateUploadOptions(null, {
         metadata: 'invalid-json',
-        threshold: '2',
+        threshold: '-1', // negative threshold is invalid
         batchSize: '-1',
         uploadTimeout: '0',
       });
@@ -147,7 +151,9 @@ describe('validateUploadOptions', () => {
       expect(errors).toHaveLength(5);
       expect(errors).toContain('Screenshots path is required');
       expect(errors).toContain('Invalid JSON in --metadata option');
-      expect(errors).toContain('Threshold must be a number between 0 and 1');
+      expect(errors).toContain(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
       expect(errors).toContain('Batch size must be a positive integer');
       expect(errors).toContain(
         'Upload timeout must be a positive integer (milliseconds)'

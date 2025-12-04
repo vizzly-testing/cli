@@ -187,12 +187,12 @@ describe('TDD Command Integration', () => {
         'run',
         'echo test',
         '--threshold',
-        '1.5',
+        '-0.5', // negative threshold is invalid
       ]);
 
       expect(result.code).toBe(1);
       expect(result.stderr).toContain(
-        'Threshold must be a number between 0 and 1'
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
       );
     });
 

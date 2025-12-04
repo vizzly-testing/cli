@@ -69,9 +69,9 @@ export class InitCommand {
     timeout: 30000
   },
 
-  // Comparison configuration
+  // Comparison configuration (CIEDE2000 Delta E: 0=exact, 1=JND, 2=recommended)
   comparison: {
-    threshold: 0.1
+    threshold: 2.0
   },
 
   // TDD configuration

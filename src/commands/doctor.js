@@ -83,14 +83,14 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     // Validate threshold (0..1 inclusive)
     let threshold = Number(config?.comparison?.threshold);
     diagnostics.configuration.threshold = threshold;
-    let thresholdValid =
-      Number.isFinite(threshold) && threshold >= 0 && threshold <= 1;
+    // CIEDE2000 threshold: 0 = exact, 1 = JND, 2 = recommended, 3+ = permissive
+    let thresholdValid = Number.isFinite(threshold) && threshold >= 0;
     diagnostics.configuration.thresholdValid = thresholdValid;
     if (thresholdValid) {
-      output.success(`Threshold: ${threshold}`);
+      output.success(`Threshold: ${threshold} (CIEDE2000 Delta E)`);
     } else {
       hasErrors = true;
-      output.error('Invalid threshold (expected number between 0 and 1)');
+      output.error('Invalid threshold (expected non-negative number)');
     }
 
     // Report effective port without binding

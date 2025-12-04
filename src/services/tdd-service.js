@@ -143,7 +143,7 @@ export class TddService {
     this.diffPath = safePath(this.workingDir, '.vizzly', 'diffs');
     this.baselineData = null;
     this.comparisons = [];
-    this.threshold = config.comparison?.threshold || 0.1;
+    this.threshold = config.comparison?.threshold || 2.0;
     this.signatureProperties = []; // Custom properties from project's baseline_signature_properties
 
     // Check if we're in baseline update mode
@@ -1226,7 +1226,7 @@ export class TddService {
     try {
       // Try to compare - honeydiff will throw if dimensions don't match
       const result = await compare(baselineImagePath, currentImagePath, {
-        colorThreshold: this.threshold, // YIQ color threshold (0.0-1.0), default 0.1
+        threshold: this.threshold, // CIEDE2000 Delta E (2.0 = recommended default)
         antialiasing: true,
         diffPath: diffImagePath,
         overwrite: true,

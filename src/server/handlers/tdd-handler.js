@@ -259,7 +259,7 @@ export const createTddHandler = (
     }
 
     // Unwrap double-nested properties if needed (client SDK wraps options in properties field)
-    // This happens when test helper passes { properties: {...}, threshold: 0.1 }
+    // This happens when test helper passes { properties: {...}, threshold: 2.0 }
     // and client SDK wraps it as { properties: options }
     let unwrappedProperties = properties;
     if (properties.properties && typeof properties.properties === 'object') {

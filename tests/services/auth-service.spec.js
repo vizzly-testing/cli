@@ -2,9 +2,9 @@
  * Tests for AuthService
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AuthService } from '../../src/services/auth-service.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthError, VizzlyError } from '../../src/errors/vizzly-error.js';
+import { AuthService } from '../../src/services/auth-service.js';
 import * as globalConfig from '../../src/utils/global-config.js';
 
 // Mock global-config module
@@ -33,17 +33,17 @@ describe('AuthService', () => {
 
   describe('constructor', () => {
     it('should create instance with default base URL', () => {
-      let service = new AuthService();
+      const service = new AuthService();
       expect(service.baseUrl).toBe('https://app.vizzly.dev');
     });
 
     it('should create instance with custom base URL', () => {
-      let service = new AuthService({ baseUrl: 'https://custom.vizzly.dev' });
+      const service = new AuthService({ baseUrl: 'https://custom.vizzly.dev' });
       expect(service.baseUrl).toBe('https://custom.vizzly.dev');
     });
 
     it('should set user agent', () => {
-      let service = new AuthService();
+      const service = new AuthService();
       expect(service.userAgent).toContain('vizzly-cli');
       expect(service.userAgent).toContain('auth');
     });
@@ -56,7 +56,7 @@ describe('AuthService', () => {
         json: async () => ({ success: true }),
       });
 
-      let result = await authService.request('/api/test');
+      const result = await authService.request('/api/test');
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test.vizzly.dev/api/test',
@@ -124,7 +124,7 @@ describe('AuthService', () => {
         json: async () => ({ data: 'protected' }),
       });
 
-      let result = await authService.authenticatedRequest('/api/protected');
+      const result = await authService.authenticatedRequest('/api/protected');
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test.vizzly.dev/api/protected',
@@ -167,7 +167,7 @@ describe('AuthService', () => {
 
   describe('initiateDeviceFlow', () => {
     it('should initiate device flow successfully', async () => {
-      let mockResponse = {
+      const mockResponse = {
         deviceCode: 'device_123',
         userCode: 'ABCD-EFGH',
         verificationUrl: 'https://vizzly.dev/activate',
@@ -179,7 +179,7 @@ describe('AuthService', () => {
         json: async () => mockResponse,
       });
 
-      let result = await authService.initiateDeviceFlow();
+      const result = await authService.initiateDeviceFlow();
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test.vizzly.dev/api/auth/cli/device/initiate',
@@ -193,7 +193,7 @@ describe('AuthService', () => {
 
   describe('pollDeviceAuthorization', () => {
     it('should poll for authorization successfully', async () => {
-      let mockResponse = {
+      const mockResponse = {
         status: 'pending',
       };
 
@@ -202,7 +202,7 @@ describe('AuthService', () => {
         json: async () => mockResponse,
       });
 
-      let result = await authService.pollDeviceAuthorization('device_123');
+      const result = await authService.pollDeviceAuthorization('device_123');
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test.vizzly.dev/api/auth/cli/device/poll',
@@ -217,7 +217,7 @@ describe('AuthService', () => {
 
   describe('completeDeviceFlow', () => {
     it('should save tokens on successful completion', async () => {
-      let tokenData = {
+      const tokenData = {
         accessToken: 'access_token_123',
         refreshToken: 'refresh_token_456',
         expiresAt: '2025-12-31T23:59:59Z',
@@ -236,7 +236,7 @@ describe('AuthService', () => {
 
   describe('refresh', () => {
     it('should refresh access token successfully', async () => {
-      let existingAuth = {
+      const existingAuth = {
         refreshToken: 'refresh_token_456',
         user: {
           id: 'user_123',
@@ -244,7 +244,7 @@ describe('AuthService', () => {
         },
       };
 
-      let newTokens = {
+      const newTokens = {
         accessToken: 'new_access_token',
         refreshToken: 'new_refresh_token',
         expiresAt: '2025-12-31T23:59:59Z',
@@ -257,7 +257,7 @@ describe('AuthService', () => {
         json: async () => newTokens,
       });
 
-      let result = await authService.refresh();
+      const result = await authService.refresh();
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test.vizzly.dev/api/auth/cli/refresh',
@@ -288,7 +288,7 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('should revoke tokens on server and clear local tokens', async () => {
-      let auth = {
+      const auth = {
         refreshToken: 'refresh_token_456',
       };
 
@@ -313,7 +313,7 @@ describe('AuthService', () => {
     });
 
     it('should clear local tokens even if server request fails', async () => {
-      let auth = {
+      const auth = {
         refreshToken: 'refresh_token_456',
       };
 
@@ -338,7 +338,7 @@ describe('AuthService', () => {
 
   describe('whoami', () => {
     it('should get current user information', async () => {
-      let userData = {
+      const userData = {
         user: {
           id: 'user_123',
           name: 'Test User',
@@ -356,7 +356,7 @@ describe('AuthService', () => {
         json: async () => userData,
       });
 
-      let result = await authService.whoami();
+      const result = await authService.whoami();
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://test.vizzly.dev/api/auth/cli/whoami',
@@ -382,7 +382,7 @@ describe('AuthService', () => {
         json: async () => ({ user: {} }),
       });
 
-      let result = await authService.isAuthenticated();
+      const result = await authService.isAuthenticated();
 
       expect(result).toBe(true);
     });
@@ -390,7 +390,7 @@ describe('AuthService', () => {
     it('should return false when whoami fails', async () => {
       globalConfig.getAuthTokens.mockResolvedValueOnce(null);
 
-      let result = await authService.isAuthenticated();
+      const result = await authService.isAuthenticated();
 
       expect(result).toBe(false);
     });

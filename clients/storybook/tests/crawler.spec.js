@@ -2,12 +2,12 @@
  * Tests for story crawler functions
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  parseStories,
   extractStoryConfig,
   filterStories,
   generateStoryUrl,
+  parseStories,
 } from '../src/crawler.js';
 
 describe('parseStories', () => {

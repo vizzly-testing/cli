@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function useImageLoader(src) {
-  let [status, setStatus] = useState('loading');
+  const [status, setStatus] = useState('loading');
 
   useEffect(() => {
     if (!src) {
@@ -10,7 +10,7 @@ export default function useImageLoader(src) {
     }
 
     setStatus('loading');
-    let img = new Image();
+    const img = new Image();
     img.onload = () => setStatus('loaded');
     img.onerror = () => setStatus('error');
     img.src = src;

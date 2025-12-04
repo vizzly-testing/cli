@@ -1,6 +1,6 @@
-import { loadConfig } from '../utils/config-loader.js';
-import * as output from '../utils/output.js';
+import { ApiService } from '../services/api-service.js';
 import { createServices } from '../services/index.js';
+import { loadConfig } from '../utils/config-loader.js';
 import {
   detectBranch,
   detectCommit,
@@ -8,7 +8,7 @@ import {
   detectPullRequestNumber,
   generateBuildNameWithGit,
 } from '../utils/git.js';
-import { ApiService } from '../services/api-service.js';
+import * as output from '../utils/output.js';
 
 /**
  * Construct proper build URL with org/project context
@@ -19,14 +19,14 @@ import { ApiService } from '../services/api-service.js';
  */
 async function constructBuildUrl(buildId, apiUrl, apiToken) {
   try {
-    let apiService = new ApiService({
+    const apiService = new ApiService({
       baseUrl: apiUrl,
       token: apiToken,
       command: 'upload',
     });
 
-    let tokenContext = await apiService.getTokenContext();
-    let baseUrl = apiUrl.replace(/\/api.*$/, '');
+    const tokenContext = await apiService.getTokenContext();
+    const baseUrl = apiUrl.replace(/\/api.*$/, '');
 
     if (tokenContext.organization?.slug && tokenContext.project?.slug) {
       return `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${buildId}`;
@@ -39,7 +39,7 @@ async function constructBuildUrl(buildId, apiUrl, apiToken) {
   }
 
   // Fallback URL construction
-  let baseUrl = apiUrl.replace(/\/api.*$/, '');
+  const baseUrl = apiUrl.replace(/\/api.*$/, '');
   return `${baseUrl}/builds/${buildId}`;
 }
 
@@ -62,13 +62,13 @@ export async function uploadCommand(
 
   let buildId = null;
   let config = null;
-  let uploadStartTime = Date.now();
+  const uploadStartTime = Date.now();
 
   try {
     output.info('Starting upload process...');
 
     // Load configuration with CLI overrides
-    let allOptions = { ...globalOptions, ...options };
+    const allOptions = { ...globalOptions, ...options };
     config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token
@@ -80,11 +80,11 @@ export async function uploadCommand(
     }
 
     // Collect git metadata if not provided
-    let branch = await detectBranch(options.branch);
-    let commit = await detectCommit(options.commit);
-    let message = options.message || (await detectCommitMessage());
-    let buildName = await generateBuildNameWithGit(options.buildName);
-    let pullRequestNumber = detectPullRequestNumber();
+    const branch = await detectBranch(options.branch);
+    const commit = await detectCommit(options.commit);
+    const message = options.message || (await detectCommitMessage());
+    const buildName = await generateBuildNameWithGit(options.buildName);
+    const pullRequestNumber = detectPullRequestNumber();
 
     output.info(`Uploading screenshots from: ${screenshotsPath}`);
     if (globalOptions.verbose) {
@@ -99,11 +99,11 @@ export async function uploadCommand(
 
     // Get uploader service
     output.startSpinner('Initializing uploader...');
-    let services = createServices(config, 'upload');
-    let uploader = services.uploader;
+    const services = createServices(config, 'upload');
+    const uploader = services.uploader;
 
     // Prepare upload options with progress callback
-    let uploadOptions = {
+    const uploadOptions = {
       screenshotsDir: screenshotsPath,
       buildName,
       branch,
@@ -116,7 +116,7 @@ export async function uploadCommand(
       pullRequestNumber,
       parallelId: config.parallelId,
       onProgress: progressData => {
-        let {
+        const {
           message: progressMessage,
           current,
           total,
@@ -144,19 +144,19 @@ export async function uploadCommand(
 
     // Start upload
     output.progress('Starting upload...');
-    let result = await uploader.upload(uploadOptions);
+    const result = await uploader.upload(uploadOptions);
     buildId = result.buildId; // Ensure we have the buildId
 
     // Mark build as completed
     if (result.buildId) {
       output.progress('Finalizing build...');
       try {
-        let apiService = new ApiService({
+        const apiService = new ApiService({
           baseUrl: config.apiUrl,
           token: config.apiKey,
           command: 'upload',
         });
-        let executionTime = Date.now() - uploadStartTime;
+        const executionTime = Date.now() - uploadStartTime;
         await apiService.finalizeBuild(result.buildId, true, executionTime);
       } catch (error) {
         output.warn(`Failed to finalize build: ${error.message}`);
@@ -171,7 +171,7 @@ export async function uploadCommand(
         `🐻 Vizzly: Uploaded ${result.stats.uploaded} of ${result.stats.total} screenshots to build ${result.buildId}`
       );
       // Use API-provided URL or construct proper URL with org/project context
-      let buildUrl =
+      const buildUrl =
         result.url ||
         (await constructBuildUrl(result.buildId, config.apiUrl, config.apiKey));
       output.info(`🔗 Vizzly: View results at ${buildUrl}`);
@@ -182,7 +182,7 @@ export async function uploadCommand(
       output.info('Waiting for build completion...');
       output.startSpinner('Processing comparisons...');
 
-      let buildResult = await uploader.waitForBuild(result.buildId);
+      const buildResult = await uploader.waitForBuild(result.buildId);
 
       output.success('Build processing completed');
 
@@ -197,7 +197,7 @@ export async function uploadCommand(
         );
       }
       // Use API-provided URL or construct proper URL with org/project context
-      let buildUrl =
+      const buildUrl =
         buildResult.url ||
         (await constructBuildUrl(result.buildId, config.apiUrl, config.apiKey));
       output.info(`🔗 Vizzly: View results at ${buildUrl}`);
@@ -208,19 +208,19 @@ export async function uploadCommand(
     // Mark build as failed if we have a buildId and config
     if (buildId && config) {
       try {
-        let apiService = new ApiService({
+        const apiService = new ApiService({
           baseUrl: config.apiUrl,
           token: config.apiKey,
           command: 'upload',
         });
-        let executionTime = Date.now() - uploadStartTime;
+        const executionTime = Date.now() - uploadStartTime;
         await apiService.finalizeBuild(buildId, false, executionTime);
       } catch {
         // Silent fail on cleanup
       }
     }
     // Use user-friendly error message if available
-    let errorMessage = error?.getUserMessage
+    const errorMessage = error?.getUserMessage
       ? error.getUserMessage()
       : error.message;
     output.error(errorMessage || 'Upload failed', error);
@@ -234,7 +234,7 @@ export async function uploadCommand(
  * @param {Object} options - Command options
  */
 export function validateUploadOptions(screenshotsPath, options) {
-  let errors = [];
+  const errors = [];
 
   if (!screenshotsPath) {
     errors.push('Screenshots path is required');
@@ -249,8 +249,8 @@ export function validateUploadOptions(screenshotsPath, options) {
   }
 
   if (options.threshold !== undefined) {
-    let threshold = parseFloat(options.threshold);
-    if (isNaN(threshold) || threshold < 0) {
+    const threshold = parseFloat(options.threshold);
+    if (Number.isNaN(threshold) || threshold < 0) {
       errors.push(
         'Threshold must be a non-negative number (CIEDE2000 Delta E)'
       );
@@ -258,14 +258,14 @@ export function validateUploadOptions(screenshotsPath, options) {
   }
 
   if (options.batchSize !== undefined) {
-    let n = parseInt(options.batchSize, 10);
+    const n = parseInt(options.batchSize, 10);
     if (!Number.isFinite(n) || n <= 0) {
       errors.push('Batch size must be a positive integer');
     }
   }
 
   if (options.uploadTimeout !== undefined) {
-    let n = parseInt(options.uploadTimeout, 10);
+    const n = parseInt(options.uploadTimeout, 10);
     if (!Number.isFinite(n) || n <= 0) {
       errors.push('Upload timeout must be a positive integer (milliseconds)');
     }

@@ -78,7 +78,7 @@ export default {
           });
         } catch (error) {
           console.error('Failed to run Storybook plugin:', error);
-          if (logger && logger.error) {
+          if (logger?.error) {
             logger.error('Failed to run Storybook plugin:', error.message);
           }
           process.exit(1);

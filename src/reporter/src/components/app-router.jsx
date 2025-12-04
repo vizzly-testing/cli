@@ -1,15 +1,15 @@
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Route, Switch, useLocation } from 'wouter';
 import { useReportData } from '../hooks/queries/use-tdd-queries.js';
-import { Layout } from './layout/index.js';
 import { EmptyState, Spinner } from './design-system/index.js';
-import StatsView from './views/stats-view.jsx';
-import ComparisonsView from './views/comparisons-view.jsx';
-import ComparisonDetailView from './views/comparison-detail-view.jsx';
-import SettingsView from './views/settings-view.jsx';
-import ProjectsView from './views/projects-view.jsx';
+import { Layout } from './layout/index.js';
 import BuildsView from './views/builds-view.jsx';
+import ComparisonDetailView from './views/comparison-detail-view.jsx';
+import ComparisonsView from './views/comparisons-view.jsx';
+import ProjectsView from './views/projects-view.jsx';
+import SettingsView from './views/settings-view.jsx';
+import StatsView from './views/stats-view.jsx';
 import WaitingForScreenshots from './waiting-for-screenshots.jsx';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 function LoadingState() {
   return (
@@ -30,6 +30,7 @@ function ErrorState({ error, onRetry }) {
       }
       action={
         <button
+          type="button"
           onClick={onRetry}
           className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium rounded-lg transition-colors"
         >
@@ -41,14 +42,14 @@ function ErrorState({ error, onRetry }) {
 }
 
 export default function AppRouter() {
-  let [location, setLocation] = useLocation();
-  let { data: reportData, isLoading, error, refetch } = useReportData();
+  const [location, setLocation] = useLocation();
+  const { data: reportData, isLoading, error, refetch } = useReportData();
 
   // Check if we're on a comparison detail route (fullscreen)
-  let isComparisonRoute = location.startsWith('/comparison/');
+  const isComparisonRoute = location.startsWith('/comparison/');
 
   // Determine current view based on route
-  let currentView =
+  const currentView =
     location === '/stats'
       ? 'stats'
       : location === '/settings'
@@ -59,7 +60,7 @@ export default function AppRouter() {
             ? 'builds'
             : 'comparisons';
 
-  let navigateTo = view => {
+  const navigateTo = view => {
     if (view === 'stats') setLocation('/stats');
     else if (view === 'settings') setLocation('/settings');
     else if (view === 'projects') setLocation('/projects');
@@ -68,7 +69,7 @@ export default function AppRouter() {
   };
 
   // Settings, Projects, and Builds don't need screenshot data - always allow access
-  let isManagementRoute =
+  const isManagementRoute =
     location === '/settings' ||
     location === '/projects' ||
     location === '/builds';

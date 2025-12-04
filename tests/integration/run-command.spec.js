@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestRunner } from '../../src/services/test-runner.js';
 
 // Mock global fetch
@@ -200,18 +200,18 @@ describe('Run Command Threshold Passthrough', () => {
       };
     });
 
-    let config = {
+    const config = {
       apiKey: 'test-api-key',
       apiUrl: 'https://api.test.com',
       server: { port: 47392 },
       comparison: { threshold: 0.05 },
     };
 
-    let mockBuildManager = {
+    const mockBuildManager = {
       createBuild: vi.fn(),
     };
 
-    let mockServerManager = {
+    const mockServerManager = {
       start: vi.fn().mockResolvedValue(),
       stop: vi.fn().mockResolvedValue(),
       server: {
@@ -219,7 +219,7 @@ describe('Run Command Threshold Passthrough', () => {
       },
     };
 
-    let testRunner = new TestRunner(
+    const testRunner = new TestRunner(
       config,
       mockBuildManager,
       mockServerManager,
@@ -264,18 +264,18 @@ describe('Run Command Threshold Passthrough', () => {
       };
     });
 
-    let config = {
+    const config = {
       apiKey: 'test-api-key',
       apiUrl: 'https://api.test.com',
       server: { port: 47392 },
       // No comparison config
     };
 
-    let mockBuildManager = {
+    const mockBuildManager = {
       createBuild: vi.fn(),
     };
 
-    let mockServerManager = {
+    const mockServerManager = {
       start: vi.fn().mockResolvedValue(),
       stop: vi.fn().mockResolvedValue(),
       server: {
@@ -283,7 +283,7 @@ describe('Run Command Threshold Passthrough', () => {
       },
     };
 
-    let testRunner = new TestRunner(
+    const testRunner = new TestRunner(
       config,
       mockBuildManager,
       mockServerManager,

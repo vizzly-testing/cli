@@ -3,8 +3,8 @@
  * Pure functions for extracting story information from index.json
  */
 
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { filterByPattern } from './utils/patterns.js';
 
 /**

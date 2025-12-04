@@ -5,13 +5,13 @@
 
 import { ApiService } from './api-service.js';
 import { AuthService } from './auth-service.js';
+import { BuildManager } from './build-manager.js';
 import { ConfigService } from './config-service.js';
 import { ProjectService } from './project-service.js';
-import { createUploader } from './uploader.js';
-import { BuildManager } from './build-manager.js';
 import { ServerManager } from './server-manager.js';
 import { createTDDService } from './tdd-service.js';
 import { TestRunner } from './test-runner.js';
+import { createUploader } from './uploader.js';
 
 /**
  * Create all services with their dependencies
@@ -20,24 +20,24 @@ import { TestRunner } from './test-runner.js';
  * @returns {Object} Services object
  */
 export function createServices(config, command = 'run') {
-  let apiService = new ApiService({ ...config, allowNoToken: true });
-  let authService = new AuthService({ baseUrl: config.apiUrl });
-  let configService = new ConfigService(config, {
+  const apiService = new ApiService({ ...config, allowNoToken: true });
+  const authService = new AuthService({ baseUrl: config.apiUrl });
+  const configService = new ConfigService(config, {
     projectRoot: process.cwd(),
   });
-  let projectService = new ProjectService(config, {
+  const projectService = new ProjectService(config, {
     apiService,
     authService,
   });
-  let uploader = createUploader({ ...config, command });
-  let buildManager = new BuildManager(config);
-  let tddService = createTDDService(config, { authService });
+  const uploader = createUploader({ ...config, command });
+  const buildManager = new BuildManager(config);
+  const tddService = createTDDService(config, { authService });
 
-  let serverManager = new ServerManager(config, {
+  const serverManager = new ServerManager(config, {
     services: { configService, authService, projectService },
   });
 
-  let testRunner = new TestRunner(
+  const testRunner = new TestRunner(
     config,
     buildManager,
     serverManager,

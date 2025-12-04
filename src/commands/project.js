@@ -3,18 +3,18 @@
  * Select, list, and manage project tokens
  */
 
-import * as output from '../utils/output.js';
+import { resolve } from 'node:path';
+import readline from 'node:readline';
 import { AuthService } from '../services/auth-service.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import {
+  deleteProjectMapping,
   getAuthTokens,
-  saveProjectMapping,
   getProjectMapping,
   getProjectMappings,
-  deleteProjectMapping,
+  saveProjectMapping,
 } from '../utils/global-config.js';
-import { resolve } from 'path';
-import readline from 'readline';
+import * as output from '../utils/output.js';
 
 /**
  * Project select command - configure project for current directory
@@ -30,7 +30,7 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
 
   try {
     // Check authentication
-    let auth = await getAuthTokens();
+    const auth = await getAuthTokens();
     if (!auth || !auth.accessToken) {
       output.error('Not authenticated');
       output.blank();
@@ -38,13 +38,13 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
       process.exit(1);
     }
 
-    let authService = new AuthService({
+    const authService = new AuthService({
       baseUrl: options.apiUrl || getApiUrl(),
     });
 
     // Get user info to show organizations
     output.startSpinner('Fetching organizations...');
-    let userInfo = await authService.whoami();
+    const userInfo = await authService.whoami();
     output.stopSpinner();
 
     if (!userInfo.organizations || userInfo.organizations.length === 0) {
@@ -64,17 +64,17 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     });
 
     output.blank();
-    let orgChoice = await promptNumber(
+    const orgChoice = await promptNumber(
       'Enter number',
       1,
       userInfo.organizations.length
     );
-    let selectedOrg = userInfo.organizations[orgChoice - 1];
+    const selectedOrg = userInfo.organizations[orgChoice - 1];
 
     // List projects for organization
     output.startSpinner(`Fetching projects for ${selectedOrg.name}...`);
 
-    let response = await makeAuthenticatedRequest(
+    const response = await makeAuthenticatedRequest(
       `${options.apiUrl || getApiUrl()}/api/project`,
       {
         headers: {
@@ -87,7 +87,9 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     output.stopSpinner();
 
     // Handle both array response and object with projects property
-    let projects = Array.isArray(response) ? response : response.projects || [];
+    const projects = Array.isArray(response)
+      ? response
+      : response.projects || [];
 
     if (projects.length === 0) {
       output.error('No projects found');
@@ -108,13 +110,17 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     });
 
     output.blank();
-    let projectChoice = await promptNumber('Enter number', 1, projects.length);
-    let selectedProject = projects[projectChoice - 1];
+    const projectChoice = await promptNumber(
+      'Enter number',
+      1,
+      projects.length
+    );
+    const selectedProject = projects[projectChoice - 1];
 
     // Create API token for project
     output.startSpinner(`Creating API token for ${selectedProject.name}...`);
 
-    let tokenResponse = await makeAuthenticatedRequest(
+    const tokenResponse = await makeAuthenticatedRequest(
       `${options.apiUrl || getApiUrl()}/api/project/${selectedProject.slug}/tokens`,
       {
         method: 'POST',
@@ -133,7 +139,7 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     output.stopSpinner();
 
     // Save project mapping
-    let currentDir = resolve(process.cwd());
+    const currentDir = resolve(process.cwd());
     await saveProjectMapping(currentDir, {
       token: tokenResponse.token,
       projectSlug: selectedProject.slug,
@@ -168,8 +174,8 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
   });
 
   try {
-    let mappings = await getProjectMappings();
-    let paths = Object.keys(mappings);
+    const mappings = await getProjectMappings();
+    const paths = Object.keys(mappings);
 
     if (paths.length === 0) {
       output.info('No projects configured');
@@ -188,15 +194,15 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
     output.info('Configured projects:');
     output.blank();
 
-    let currentDir = resolve(process.cwd());
+    const currentDir = resolve(process.cwd());
 
-    for (let path of paths) {
-      let mapping = mappings[path];
-      let isCurrent = path === currentDir;
-      let marker = isCurrent ? '→' : ' ';
+    for (const path of paths) {
+      const mapping = mappings[path];
+      const isCurrent = path === currentDir;
+      const marker = isCurrent ? '→' : ' ';
 
       // Extract token string (handle both string and object formats)
-      let tokenStr =
+      const tokenStr =
         typeof mapping.token === 'string'
           ? mapping.token
           : mapping.token?.token || '[invalid token]';
@@ -235,8 +241,8 @@ export async function projectTokenCommand(_options = {}, globalOptions = {}) {
   });
 
   try {
-    let currentDir = resolve(process.cwd());
-    let mapping = await getProjectMapping(currentDir);
+    const currentDir = resolve(process.cwd());
+    const mapping = await getProjectMapping(currentDir);
 
     if (!mapping) {
       output.error('No project configured for this directory');
@@ -246,7 +252,7 @@ export async function projectTokenCommand(_options = {}, globalOptions = {}) {
     }
 
     // Extract token string (handle both string and object formats)
-    let tokenStr =
+    const tokenStr =
       typeof mapping.token === 'string'
         ? mapping.token
         : mapping.token?.token || '[invalid token]';
@@ -279,12 +285,12 @@ export async function projectTokenCommand(_options = {}, globalOptions = {}) {
  * Helper to make authenticated API request
  */
 async function makeAuthenticatedRequest(url, options = {}) {
-  let response = await fetch(url, options);
+  const response = await fetch(url, options);
 
   if (!response.ok) {
     let errorText = '';
     try {
-      let errorData = await response.json();
+      const errorData = await response.json();
       errorText = errorData.error || errorData.message || '';
     } catch {
       errorText = await response.text();
@@ -302,15 +308,15 @@ async function makeAuthenticatedRequest(url, options = {}) {
  */
 function promptNumber(message, min, max) {
   return new Promise(resolve => {
-    let rl = readline.createInterface({
+    const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
 
-    let ask = () => {
+    const ask = () => {
       rl.question(`${message} (${min}-${max}): `, answer => {
-        let num = parseInt(answer, 10);
-        if (isNaN(num) || num < min || num > max) {
+        const num = parseInt(answer, 10);
+        if (Number.isNaN(num) || num < min || num > max) {
           output.print(`Please enter a number between ${min} and ${max}`);
           ask();
         } else {
@@ -337,8 +343,8 @@ export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
   });
 
   try {
-    let currentDir = resolve(process.cwd());
-    let mapping = await getProjectMapping(currentDir);
+    const currentDir = resolve(process.cwd());
+    const mapping = await getProjectMapping(currentDir);
 
     if (!mapping) {
       output.info('No project configured for this directory');
@@ -354,7 +360,7 @@ export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
     output.print(`  Directory: ${currentDir}`);
     output.blank();
 
-    let confirmed = await promptConfirm('Remove this project configuration?');
+    const confirmed = await promptConfirm('Remove this project configuration?');
 
     if (!confirmed) {
       output.info('Cancelled');
@@ -380,7 +386,7 @@ export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
  */
 function promptConfirm(message) {
   return new Promise(resolve => {
-    let rl = readline.createInterface({
+    const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });

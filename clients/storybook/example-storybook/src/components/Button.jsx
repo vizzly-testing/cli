@@ -1,5 +1,3 @@
-import React from 'react';
-
 export function Button({ label, variant = 'primary', onClick }) {
   let styles = {
     padding: '10px 20px',
@@ -22,7 +20,7 @@ export function Button({ label, variant = 'primary', onClick }) {
   }
 
   return (
-    <button style={styles} onClick={onClick}>
+    <button type="button" style={styles} onClick={onClick}>
       {label}
     </button>
   );

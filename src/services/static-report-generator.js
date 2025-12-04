@@ -3,15 +3,15 @@
  * Generates a self-contained HTML file with the React dashboard and embedded data
  */
 
-import { writeFile, mkdir, copyFile } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { existsSync } from 'node:fs';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as output from '../utils/output.js';
 
-let __filename = fileURLToPath(import.meta.url);
-let __dirname = dirname(__filename);
-let PROJECT_ROOT = join(__dirname, '..', '..');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PROJECT_ROOT = join(__dirname, '..', '..');
 
 export class StaticReportGenerator {
   constructor(workingDir, config) {
@@ -36,13 +36,13 @@ export class StaticReportGenerator {
       await mkdir(this.reportDir, { recursive: true });
 
       // Copy React bundles to report directory
-      let bundlePath = join(
+      const bundlePath = join(
         PROJECT_ROOT,
         'dist',
         'reporter',
         'reporter-bundle.iife.js'
       );
-      let cssPath = join(
+      const cssPath = join(
         PROJECT_ROOT,
         'dist',
         'reporter',
@@ -60,7 +60,7 @@ export class StaticReportGenerator {
       await copyFile(cssPath, join(this.reportDir, 'reporter-bundle.css'));
 
       // Generate HTML with embedded data
-      let htmlContent = this.generateHtmlTemplate(reportData);
+      const htmlContent = this.generateHtmlTemplate(reportData);
 
       await writeFile(this.reportPath, htmlContent, 'utf8');
 
@@ -79,7 +79,7 @@ export class StaticReportGenerator {
    */
   generateHtmlTemplate(reportData) {
     // Serialize report data safely
-    let serializedData = JSON.stringify(reportData)
+    const serializedData = JSON.stringify(reportData)
       .replace(/</g, '\\u003c')
       .replace(/>/g, '\\u003e')
       .replace(/&/g, '\\u0026');
@@ -147,9 +147,9 @@ export class StaticReportGenerator {
    * @returns {string} Minimal HTML content
    */
   generateFallbackHtml(reportData) {
-    let summary = reportData.summary || {};
-    let comparisons = reportData.comparisons || [];
-    let failed = comparisons.filter(c => c.status === 'failed');
+    const summary = reportData.summary || {};
+    const comparisons = reportData.comparisons || [];
+    const failed = comparisons.filter(c => c.status === 'failed');
 
     return `<!DOCTYPE html>
 <html lang="en">

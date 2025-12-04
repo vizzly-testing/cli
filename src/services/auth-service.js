@@ -5,12 +5,12 @@
 
 import { AuthError, VizzlyError } from '../errors/vizzly-error.js';
 import { getApiUrl } from '../utils/environment-config.js';
-import { getPackageVersion } from '../utils/package-info.js';
 import {
-  saveAuthTokens,
   clearAuthTokens,
   getAuthTokens,
+  saveAuthTokens,
 } from '../utils/global-config.js';
+import { getPackageVersion } from '../utils/package-info.js';
 
 /**
  * AuthService class for CLI authentication
@@ -28,13 +28,13 @@ export class AuthService {
    * @returns {Promise<Object>} Response data
    */
   async request(endpoint, options = {}) {
-    let url = `${this.baseUrl}${endpoint}`;
-    let headers = {
+    const url = `${this.baseUrl}${endpoint}`;
+    const headers = {
       'User-Agent': this.userAgent,
       ...options.headers,
     };
 
-    let response = await fetch(url, {
+    const response = await fetch(url, {
       ...options,
       headers,
     });
@@ -44,8 +44,8 @@ export class AuthService {
       let errorData = null;
 
       try {
-        let contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
           errorData = await response.json();
           errorText = errorData.error || errorData.message || '';
         } else {
@@ -85,7 +85,7 @@ export class AuthService {
    * @returns {Promise<Object>} Response data
    */
   async authenticatedRequest(endpoint, options = {}) {
-    let auth = await getAuthTokens();
+    const auth = await getAuthTokens();
 
     if (!auth || !auth.accessToken) {
       throw new AuthError(
@@ -93,14 +93,14 @@ export class AuthService {
       );
     }
 
-    let url = `${this.baseUrl}${endpoint}`;
-    let headers = {
+    const url = `${this.baseUrl}${endpoint}`;
+    const headers = {
       'User-Agent': this.userAgent,
       Authorization: `Bearer ${auth.accessToken}`,
       ...options.headers,
     };
 
-    let response = await fetch(url, {
+    const response = await fetch(url, {
       ...options,
       headers,
     });
@@ -109,9 +109,9 @@ export class AuthService {
       let errorText = '';
 
       try {
-        let contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          let errorData = await response.json();
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('application/json')) {
+          const errorData = await response.json();
           errorText = errorData.error || errorData.message || '';
         } else {
           errorText = await response.text();
@@ -181,7 +181,7 @@ export class AuthService {
    * @returns {Promise<Object>} New tokens
    */
   async refresh() {
-    let auth = await getAuthTokens();
+    const auth = await getAuthTokens();
 
     if (!auth || !auth.refreshToken) {
       throw new AuthError(
@@ -189,7 +189,7 @@ export class AuthService {
       );
     }
 
-    let response = await this.request('/api/auth/cli/refresh', {
+    const response = await this.request('/api/auth/cli/refresh', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -213,9 +213,9 @@ export class AuthService {
    * @returns {Promise<void>}
    */
   async logout() {
-    let auth = await getAuthTokens();
+    const auth = await getAuthTokens();
 
-    if (auth && auth.refreshToken) {
+    if (auth?.refreshToken) {
       try {
         // Attempt to revoke tokens on server
         await this.request('/api/auth/cli/logout', {

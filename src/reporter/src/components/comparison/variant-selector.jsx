@@ -7,7 +7,7 @@ import {
 /**
  * Device icon helper
  */
-let DeviceIcon = ({ viewportWidth, className = 'w-3 h-3' }) => {
+const DeviceIcon = ({ viewportWidth, className = 'w-3 h-3' }) => {
   if (!viewportWidth) return <ComputerDesktopIcon className={className} />;
 
   if (viewportWidth <= 768) {
@@ -46,16 +46,17 @@ export default function VariantSelector({ group, selectedIndex, onSelect }) {
             viewportWidth = comparison.properties.viewport_width;
           }
 
-          let browser = comparison.properties?.browser || null;
-          let hasChange =
+          const browser = comparison.properties?.browser || null;
+          const hasChange =
             comparison.status === 'failed' || comparison.status === 'new';
 
           // Build label: show viewport, and browser badge if present
-          let label = viewport || `Variant ${index + 1}`;
-          let isSelected = selectedIndex === index;
+          const label = viewport || `Variant ${index + 1}`;
+          const isSelected = selectedIndex === index;
 
           return (
             <button
+              type="button"
               key={comparison.id || index}
               onClick={() => onSelect(index)}
               className={`

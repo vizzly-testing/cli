@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TddService } from '../../src/services/tdd-service.js';
-import { join } from 'path';
-import { tmpdir } from 'os';
 
 // Don't mock fetch-utils - we want to test it!
 // Mock fs for file operations but keep functionality testable
@@ -52,9 +52,7 @@ describe('TDD Service - Baseline Download', () => {
       getBuilds: vi.fn(),
       getComparison: vi.fn(),
     };
-    ApiService.mockImplementation(function () {
-      return mockApiService;
-    });
+    ApiService.mockImplementation(() => mockApiService);
 
     tddService = new TddService(mockConfig, testDir);
   });
@@ -111,7 +109,7 @@ describe('TDD Service - Baseline Download', () => {
         });
 
       // Mock filesystem operations
-      const { writeFileSync } = await import('fs');
+      const { writeFileSync } = await import('node:fs');
 
       // Execute the download
       const result = await tddService.downloadBaselines(
@@ -232,7 +230,7 @@ describe('TDD Service - Baseline Download', () => {
       });
 
       // Should return null on download failure
-      let result = await tddService.downloadBaselines(
+      const result = await tddService.downloadBaselines(
         'test',
         'main',
         'build123'
@@ -276,7 +274,7 @@ describe('TDD Service - Baseline Download', () => {
       global.fetch.mockRejectedValueOnce(timeoutError);
 
       // Should return null on timeout error
-      let result = await tddService.downloadBaselines(
+      const result = await tddService.downloadBaselines(
         'test',
         'main',
         'build123'
@@ -506,7 +504,7 @@ describe('TDD Service - Baseline Download', () => {
           arrayBuffer: () => Promise.resolve(mockImageBuffer),
         });
 
-      const { writeFileSync } = await import('fs');
+      const { writeFileSync } = await import('node:fs');
 
       // Execute the download
       const result = await tddService.downloadBaselines(
@@ -591,7 +589,7 @@ describe('TDD Service - Baseline Download', () => {
           arrayBuffer: () => Promise.resolve(mockImageBuffer),
         });
 
-      const { writeFileSync } = await import('fs');
+      const { writeFileSync } = await import('node:fs');
 
       const result = await tddService.downloadBaselines(
         'test',
@@ -664,7 +662,7 @@ describe('TDD Service - Baseline Download', () => {
         arrayBuffer: () => Promise.resolve(mockImageBuffer),
       });
 
-      const { writeFileSync } = await import('fs');
+      const { writeFileSync } = await import('node:fs');
 
       const result = await tddService.downloadBaselines(
         'test',
@@ -716,7 +714,7 @@ describe('TDD Service - Baseline Download', () => {
         arrayBuffer: () => Promise.resolve(mockImageBuffer),
       });
 
-      const { writeFileSync } = await import('fs');
+      const { writeFileSync } = await import('node:fs');
 
       const result = await tddService.downloadBaselines(
         'test',

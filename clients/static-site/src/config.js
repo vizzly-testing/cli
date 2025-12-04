@@ -4,9 +4,9 @@
  * Reads from config.staticSite section of main vizzly.config.js
  */
 
-import { parseViewport } from './utils/viewport.js';
 import { validateStaticSiteConfigWithDefaults } from './config-schema.js';
 import { loadInteractions } from './utils/interactions-loader.js';
+import { parseViewport } from './utils/viewport.js';
 
 /**
  * Default configuration values
@@ -202,12 +202,17 @@ function matchPattern(pattern, path) {
  * @returns {Promise<Object>} Final merged configuration
  * @throws {Error} If configuration validation fails
  */
-export async function loadConfig(buildPath, cliOptions = {}, vizzlyConfig = {}) {
+export async function loadConfig(
+  buildPath,
+  cliOptions = {},
+  vizzlyConfig = {}
+) {
   // Extract and validate staticSite config from main vizzly config
   let pluginConfig = vizzlyConfig?.staticSite || {};
 
   // Validate plugin config using Zod schema
-  let validatedPluginConfig = validateStaticSiteConfigWithDefaults(pluginConfig);
+  let validatedPluginConfig =
+    validateStaticSiteConfigWithDefaults(pluginConfig);
 
   // Load interactions from separate file if it exists
   let interactionsConfig = await loadInteractions();

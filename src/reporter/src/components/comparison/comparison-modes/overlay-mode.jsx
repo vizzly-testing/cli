@@ -15,7 +15,7 @@ export function OverlayMode({
   imageErrors,
   onDiffToggle,
 }) {
-  let handleToggleDiff = () => {
+  const handleToggleDiff = () => {
     if (diffImageUrl && onDiffToggle) {
       onDiffToggle();
     }
@@ -89,6 +89,7 @@ export function OverlayMode({
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"

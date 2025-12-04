@@ -11,14 +11,14 @@ export default {
   // Keys are glob patterns matching page paths
   interactions: {
     // Scroll to footer on all blog pages
-    'blog/*': async (page) => {
+    'blog/*': async page => {
       await page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight);
       });
     },
 
     // Click "Load More" button on portfolio pages
-    'portfolio/*': async (page) => {
+    'portfolio/*': async page => {
       let loadMoreBtn = await page.$('.load-more');
       if (loadMoreBtn) {
         await loadMoreBtn.click();
@@ -28,27 +28,29 @@ export default {
     },
 
     // Expand all accordions on docs pages
-    'docs/*': async (page) => {
+    'docs/*': async page => {
       await page.evaluate(() => {
         let accordions = document.querySelectorAll('.accordion-toggle');
-        accordions.forEach(acc => acc.click());
+        for (let acc of accordions) {
+          acc.click();
+        }
       });
     },
 
     // Named interaction - can be referenced in pages config
-    'show-product-details': async (page) => {
+    'show-product-details': async page => {
       await page.click('.view-details-btn');
       await page.waitForSelector('.product-modal', { visible: true });
     },
 
     // Wait for specific element on all pages
-    '**': async (page) => {
+    '**': async page => {
       // Ensure app is fully loaded before screenshots
       await page.waitForSelector('.app-loaded', { visible: true });
     },
 
     // Specific page interaction
-    '/contact': async (page) => {
+    '/contact': async page => {
       // Fill out form to show validation states
       await page.type('#name', 'Test User');
       await page.type('#email', 'test@example.com');

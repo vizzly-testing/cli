@@ -9,13 +9,13 @@
  * - Returns proxied response to React app
  */
 
+import * as output from '../../utils/output.js';
 import { parseJsonBody } from '../middleware/json-parser.js';
 import {
-  sendSuccess,
   sendError,
   sendServiceUnavailable,
+  sendSuccess,
 } from '../middleware/response.js';
-import * as output from '../../utils/output.js';
 
 /**
  * Create cloud proxy router
@@ -58,7 +58,7 @@ export function createCloudProxyRouter({
     // Route: GET /api/cloud/projects - List user's projects
     if (req.method === 'GET' && pathname === '/api/cloud/projects') {
       try {
-        let response = await proxyRequest('/api/cli/projects', {
+        const response = await proxyRequest('/api/cli/projects', {
           method: 'GET',
         });
         sendSuccess(res, { projects: response.projects || [] });
@@ -79,25 +79,25 @@ export function createCloudProxyRouter({
     }
 
     // Route: GET /api/cloud/organizations/:org/projects/:project/builds
-    let buildsMatch = pathname.match(
+    const buildsMatch = pathname.match(
       /^\/api\/cloud\/organizations\/([^/]+)\/projects\/([^/]+)\/builds$/
     );
     if (req.method === 'GET' && buildsMatch) {
       try {
-        let organizationSlug = decodeURIComponent(buildsMatch[1]);
-        let projectSlug = decodeURIComponent(buildsMatch[2]);
+        const organizationSlug = decodeURIComponent(buildsMatch[1]);
+        const projectSlug = decodeURIComponent(buildsMatch[2]);
 
-        let limit = parsedUrl.searchParams.get('limit') || '20';
-        let branch = parsedUrl.searchParams.get('branch');
+        const limit = parsedUrl.searchParams.get('limit') || '20';
+        const branch = parsedUrl.searchParams.get('branch');
 
-        let queryParams = new URLSearchParams();
+        const queryParams = new URLSearchParams();
         if (limit) queryParams.append('limit', limit);
         if (branch) queryParams.append('branch', branch);
 
-        let query = queryParams.toString();
-        let endpoint = `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/builds${query ? `?${query}` : ''}`;
+        const query = queryParams.toString();
+        const endpoint = `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/builds${query ? `?${query}` : ''}`;
 
-        let response = await proxyRequest(endpoint, { method: 'GET' });
+        const response = await proxyRequest(endpoint, { method: 'GET' });
         sendSuccess(res, { builds: response.builds || [] });
         return true;
       } catch (error) {
@@ -110,8 +110,8 @@ export function createCloudProxyRouter({
     // Route: POST /api/cloud/baselines/download - Download baselines from build
     if (req.method === 'POST' && pathname === '/api/cloud/baselines/download') {
       try {
-        let body = await parseJsonBody(req);
-        let { buildId, screenshotNames } = body;
+        const body = await parseJsonBody(req);
+        const { buildId, screenshotNames } = body;
 
         if (!buildId) {
           sendError(res, 400, 'buildId is required');
@@ -119,7 +119,7 @@ export function createCloudProxyRouter({
         }
 
         // Download baselines from the specified build
-        let response = await proxyRequest('/api/cli/baselines/download', {
+        const response = await proxyRequest('/api/cli/baselines/download', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ buildId, screenshotNames }),

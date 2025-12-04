@@ -15,11 +15,11 @@ export async function fetchReportData() {
   }
 
   // In live mode, fetch from server
-  let response = await fetch('/api/report-data');
+  const response = await fetch('/api/report-data');
   if (!response.ok) {
     throw new Error('Failed to fetch report data');
   }
-  let data = await response.json();
+  const data = await response.json();
   return data;
 }
 
@@ -30,7 +30,7 @@ export async function acceptBaseline(comparisonId) {
     );
   }
 
-  let response = await fetch('/api/baseline/accept', {
+  const response = await fetch('/api/baseline/accept', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: comparisonId }),
@@ -50,7 +50,7 @@ export async function acceptAllBaselines() {
     );
   }
 
-  let response = await fetch('/api/baseline/accept-all', {
+  const response = await fetch('/api/baseline/accept-all', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -69,7 +69,7 @@ export async function resetBaselines() {
     );
   }
 
-  let response = await fetch('/api/baseline/reset', {
+  const response = await fetch('/api/baseline/reset', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });

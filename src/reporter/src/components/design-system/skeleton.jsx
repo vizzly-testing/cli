@@ -6,7 +6,7 @@
  */
 
 export function Skeleton({ variant = 'text', className = '', count = 1 }) {
-  let variantClasses = {
+  const variantClasses = {
     text: 'h-4 w-full',
     heading: 'h-6 w-3/5',
     avatar: 'w-10 h-10 rounded-full',
@@ -15,13 +15,13 @@ export function Skeleton({ variant = 'text', className = '', count = 1 }) {
     card: 'h-32 w-full rounded-xl',
   };
 
-  let items = Array.from({ length: count }, (_, i) => i);
+  const items = Array.from({ length: count }, (_, i) => i);
 
   return (
     <>
       {items.map(i => (
         <div
-          key={i}
+          key={`skeleton-${variant}-${i}`}
           className={`skeleton ${variantClasses[variant]} ${className}`}
         />
       ))}
@@ -54,18 +54,22 @@ export function SkeletonTable({ rows = 5, columns = 4, className = '' }) {
       {/* Header */}
       <div className="flex gap-4 p-4 bg-slate-900/30 border-b border-slate-700/50">
         {Array.from({ length: columns }, (_, i) => (
-          <Skeleton key={i} variant="text" className="h-3 flex-1" />
+          <Skeleton
+            key={`header-col-${i}`}
+            variant="text"
+            className="h-3 flex-1"
+          />
         ))}
       </div>
       {/* Rows */}
       {Array.from({ length: rows }, (_, rowIndex) => (
         <div
-          key={rowIndex}
+          key={`row-${rowIndex}`}
           className="flex gap-4 p-4 border-b border-slate-700/30 last:border-b-0"
         >
           {Array.from({ length: columns }, (_, colIndex) => (
             <Skeleton
-              key={colIndex}
+              key={`row-${rowIndex}-col-${colIndex}`}
               variant="text"
               className={`flex-1 ${colIndex === 0 ? 'w-1/4' : ''}`}
             />

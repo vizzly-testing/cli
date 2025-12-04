@@ -1,7 +1,7 @@
-import { loadConfig } from '../utils/config-loader.js';
-import * as output from '../utils/output.js';
 import { createServices } from '../services/index.js';
+import { loadConfig } from '../utils/config-loader.js';
 import { detectBranch, detectCommit } from '../utils/git.js';
+import * as output from '../utils/output.js';
 
 /**
  * TDD command implementation
@@ -25,7 +25,7 @@ export async function tddCommand(
   let isCleanedUp = false;
 
   // Create cleanup function that can be called by the caller
-  let cleanup = async () => {
+  const cleanup = async () => {
     if (isCleanedUp) return;
     isCleanedUp = true;
 
@@ -37,11 +37,11 @@ export async function tddCommand(
 
   try {
     // Load configuration with CLI overrides
-    let allOptions = { ...globalOptions, ...options };
-    let config = await loadConfig(globalOptions.config, allOptions);
+    const allOptions = { ...globalOptions, ...options };
+    const config = await loadConfig(globalOptions.config, allOptions);
 
     // Dev mode works locally by default - only needs token for baseline download
-    let needsToken = options.baselineBuild || options.baselineComparison;
+    const needsToken = options.baselineBuild || options.baselineComparison;
 
     if (!config.apiKey && needsToken) {
       throw new Error(
@@ -53,12 +53,12 @@ export async function tddCommand(
     config.allowNoToken = true;
 
     // Collect git metadata
-    let branch = await detectBranch(options.branch);
-    let commit = await detectCommit(options.commit);
+    const branch = await detectBranch(options.branch);
+    const commit = await detectCommit(options.commit);
 
     // Show header (skip in daemon mode)
     if (!options.daemon) {
-      let mode = config.apiKey ? 'local' : 'local';
+      const mode = config.apiKey ? 'local' : 'local';
       output.header('tdd', mode);
 
       // Show config in verbose mode
@@ -71,14 +71,14 @@ export async function tddCommand(
 
     // Create services
     output.startSpinner('Initializing TDD server...');
-    let configWithVerbose = { ...config, verbose: globalOptions.verbose };
-    let services = createServices(configWithVerbose, 'tdd');
+    const configWithVerbose = { ...config, verbose: globalOptions.verbose };
+    const services = createServices(configWithVerbose, 'tdd');
     testRunner = services.testRunner;
     output.stopSpinner();
 
     // Set up event handlers for user feedback
     testRunner.on('progress', progressData => {
-      let { message: progressMessage } = progressData;
+      const { message: progressMessage } = progressData;
       output.progress(progressMessage || 'Running tests...');
     });
 
@@ -102,7 +102,7 @@ export async function tddCommand(
     });
 
     testRunner.on('comparison-result', comparisonInfo => {
-      let { name, status, pixelDifference } = comparisonInfo;
+      const { name, status, pixelDifference } = comparisonInfo;
       if (status === 'passed') {
         output.debug('compare', `${name} passed`);
       } else if (status === 'failed') {
@@ -116,7 +116,7 @@ export async function tddCommand(
       output.error('Test runner error', error);
     });
 
-    let runOptions = {
+    const runOptions = {
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
@@ -150,20 +150,19 @@ export async function tddCommand(
 
     // Normal dev mode - run tests
     output.debug('run', testCommand);
-    let runResult = await testRunner.run(runOptions);
+    const runResult = await testRunner.run(runOptions);
 
     // Show summary
-    let { screenshotsCaptured, comparisons } = runResult;
+    const { screenshotsCaptured, comparisons } = runResult;
 
     // Determine success based on comparison results
-    let hasFailures =
+    const hasFailures =
       runResult.failed ||
-      (runResult.comparisons &&
-        runResult.comparisons.some(c => c.status === 'failed'));
+      runResult.comparisons?.some(c => c.status === 'failed');
 
     if (comparisons && comparisons.length > 0) {
-      let passed = comparisons.filter(c => c.status === 'passed').length;
-      let failed = comparisons.filter(c => c.status === 'failed').length;
+      const passed = comparisons.filter(c => c.status === 'passed').length;
+      const failed = comparisons.filter(c => c.status === 'failed').length;
 
       if (hasFailures) {
         output.error(
@@ -209,29 +208,29 @@ export async function tddCommand(
  * @param {Object} options - Command options
  */
 export function validateTddOptions(testCommand, options) {
-  let errors = [];
+  const errors = [];
 
   if (!testCommand || testCommand.trim() === '') {
     errors.push('Test command is required');
   }
 
   if (options.port) {
-    let port = parseInt(options.port, 10);
-    if (isNaN(port) || port < 1 || port > 65535) {
+    const port = parseInt(options.port, 10);
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
       errors.push('Port must be a valid number between 1 and 65535');
     }
   }
 
   if (options.timeout) {
-    let timeout = parseInt(options.timeout, 10);
-    if (isNaN(timeout) || timeout < 1000) {
+    const timeout = parseInt(options.timeout, 10);
+    if (Number.isNaN(timeout) || timeout < 1000) {
       errors.push('Timeout must be at least 1000 milliseconds');
     }
   }
 
   if (options.threshold !== undefined) {
-    let threshold = parseFloat(options.threshold);
-    if (isNaN(threshold) || threshold < 0) {
+    const threshold = parseFloat(options.threshold);
+    if (Number.isNaN(threshold) || threshold < 0) {
       errors.push(
         'Threshold must be a non-negative number (CIEDE2000 Delta E)'
       );

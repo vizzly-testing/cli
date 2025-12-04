@@ -3,16 +3,16 @@
  * Functional orchestration of page discovery and screenshot capture
  */
 
-import { loadConfig, getPageConfig } from './config.js';
-import { discoverPages, generatePageUrl } from './crawler.js';
 import {
-  launchBrowser,
   closeBrowser,
-  preparePageForScreenshot,
   closePage,
+  launchBrowser,
+  preparePageForScreenshot,
 } from './browser.js';
-import { captureAndSendScreenshot } from './screenshot.js';
+import { getPageConfig, loadConfig } from './config.js';
+import { discoverPages, generatePageUrl } from './crawler.js';
 import { getBeforeScreenshotHook } from './hooks.js';
+import { captureAndSendScreenshot } from './screenshot.js';
 import { startStaticServer, stopStaticServer } from './server.js';
 
 /**
@@ -36,7 +36,12 @@ async function processPage(page, browser, baseUrl, config, context) {
     let puppeteerPage = null;
 
     try {
-      puppeteerPage = await preparePageForScreenshot(browser, pageUrl, viewport, hook);
+      puppeteerPage = await preparePageForScreenshot(
+        browser,
+        pageUrl,
+        viewport,
+        hook
+      );
       await captureAndSendScreenshot(
         puppeteerPage,
         page,
@@ -103,7 +108,13 @@ async function processPages(pages, browser, baseUrl, config, context) {
   await mapWithConcurrency(
     pages,
     async page => {
-      let { errors } = await processPage(page, browser, baseUrl, config, context);
+      let { errors } = await processPage(
+        page,
+        browser,
+        baseUrl,
+        config,
+        context
+      );
       allErrors.push(...errors);
     },
     config.concurrency
@@ -117,8 +128,8 @@ async function processPages(pages, browser, baseUrl, config, context) {
  * @returns {Promise<boolean>} True if TDD server is running
  */
 async function isTddModeAvailable() {
-  let { existsSync, readFileSync } = await import('fs');
-  let { join, parse, dirname } = await import('path');
+  let { existsSync, readFileSync } = await import('node:fs');
+  let { join, parse, dirname } = await import('node:path');
 
   try {
     // Look for .vizzly/server.json
@@ -133,7 +144,9 @@ async function isTddModeAvailable() {
           let serverInfo = JSON.parse(readFileSync(serverJsonPath, 'utf8'));
           if (serverInfo.port) {
             // Try to ping the server
-            let response = await fetch(`http://localhost:${serverInfo.port}/health`);
+            let response = await fetch(
+              `http://localhost:${serverInfo.port}/health`
+            );
             return response.ok;
           }
         } catch {
@@ -215,14 +228,16 @@ export async function run(buildPath, options = {}, context = {}) {
           // Try to import from the installed CLI package
           let cliPath = await import.meta.resolve?.('@vizzly-testing/cli');
           if (cliPath) {
-            gitUtils = await import('@vizzly-testing/cli/dist/utils/git.js').catch(
-              () => null
-            );
+            gitUtils = await import(
+              '@vizzly-testing/cli/dist/utils/git.js'
+            ).catch(() => null);
           }
         } catch {
           // Fallback: try relative path if in monorepo
           try {
-            gitUtils = await import('../../../src/utils/git.js').catch(() => null);
+            gitUtils = await import('../../../src/utils/git.js').catch(
+              () => null
+            );
           } catch {
             gitUtils = null;
           }
@@ -302,7 +317,13 @@ export async function run(buildPath, options = {}, context = {}) {
     browser = await launchBrowser(config.browser);
 
     // Process all pages
-    let errors = await processPages(pages, browser, serverInfo.url, config, context);
+    let errors = await processPages(
+      pages,
+      browser,
+      serverInfo.url,
+      config,
+      context
+    );
 
     // Report summary
     if (errors.length > 0) {

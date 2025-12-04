@@ -3,16 +3,16 @@
  * Handles HTTP requests to the Vizzly API
  */
 
-import { URLSearchParams } from 'url';
-import { VizzlyError, AuthError } from '../errors/vizzly-error.js';
-import crypto from 'crypto';
-import { getPackageVersion } from '../utils/package-info.js';
+import crypto from 'node:crypto';
+import { URLSearchParams } from 'node:url';
+import { AuthError, VizzlyError } from '../errors/vizzly-error.js';
 import {
-  getApiUrl,
   getApiToken,
+  getApiUrl,
   getUserAgent,
 } from '../utils/environment-config.js';
 import { getAuthTokens, saveAuthTokens } from '../utils/global-config.js';
+import { getPackageVersion } from '../utils/package-info.js';
 
 /**
  * ApiService class for direct API communication
@@ -78,12 +78,12 @@ export class ApiService {
       // Handle authentication errors with automatic token refresh
       if (response.status === 401 && !isRetry) {
         // Attempt to refresh token if we have refresh token in global config
-        let auth = await getAuthTokens();
+        const auth = await getAuthTokens();
 
-        if (auth && auth.refreshToken) {
+        if (auth?.refreshToken) {
           try {
             // Attempt token refresh
-            let refreshResponse = await fetch(
+            const refreshResponse = await fetch(
               `${this.baseUrl}/api/auth/cli/refresh`,
               {
                 method: 'POST',
@@ -96,7 +96,7 @@ export class ApiService {
             );
 
             if (refreshResponse.ok) {
-              let refreshData = await refreshResponse.json();
+              const refreshData = await refreshResponse.json();
 
               // Save new tokens to global config
               await saveAuthTokens({
@@ -155,7 +155,7 @@ export class ApiService {
    * @returns {Promise<Object>} Comparison data
    */
   async getComparison(comparisonId) {
-    let response = await this.request(`/api/sdk/comparisons/${comparisonId}`);
+    const response = await this.request(`/api/sdk/comparisons/${comparisonId}`);
     return response.comparison;
   }
 
@@ -173,7 +173,7 @@ export class ApiService {
       throw new VizzlyError('name is required and must be a non-empty string');
     }
 
-    let { branch, limit = 50, offset = 0 } = filters;
+    const { branch, limit = 50, offset = 0 } = filters;
 
     const queryParams = new URLSearchParams({
       name,
@@ -303,7 +303,7 @@ export class ApiService {
     // Check if this SHA with signature already exists
     const checkResult = await this.checkShas(screenshotCheck, buildId);
 
-    if (checkResult.existing && checkResult.existing.includes(sha256)) {
+    if (checkResult.existing?.includes(sha256)) {
       // File already exists with same signature, screenshot record was automatically created
       const screenshot = checkResult.screenshots?.find(
         s => s.sha256 === sha256
@@ -390,9 +390,9 @@ export class ApiService {
    * @returns {Promise<Object>} Hotspot analysis data
    */
   async getScreenshotHotspots(screenshotName, options = {}) {
-    let { windowSize = 20 } = options;
-    let queryParams = new URLSearchParams({ windowSize: String(windowSize) });
-    let encodedName = encodeURIComponent(screenshotName);
+    const { windowSize = 20 } = options;
+    const queryParams = new URLSearchParams({ windowSize: String(windowSize) });
+    const encodedName = encodeURIComponent(screenshotName);
     return this.request(
       `/api/sdk/screenshots/${encodedName}/hotspots?${queryParams}`
     );
@@ -407,7 +407,7 @@ export class ApiService {
    * @returns {Promise<Object>} Hotspots keyed by screenshot name
    */
   async getBatchHotspots(screenshotNames, options = {}) {
-    let { windowSize = 20 } = options;
+    const { windowSize = 20 } = options;
     return this.request('/api/sdk/screenshots/hotspots', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

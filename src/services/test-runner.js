@@ -3,9 +3,9 @@
  * Orchestrates the test execution flow
  */
 
-import { EventEmitter } from 'events';
+import { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { VizzlyError } from '../errors/vizzly-error.js';
-import { spawn } from 'child_process';
 import * as output from '../utils/output.js';
 
 export class TestRunner extends EventEmitter {
@@ -191,7 +191,7 @@ export class TestRunner extends EventEmitter {
       // API mode: create build via API
       const apiService = await this.createApiService();
       if (apiService) {
-        let buildPayload = {
+        const buildPayload = {
           name: options.buildName || `Test Run ${new Date().toISOString()}`,
           branch: options.branch || 'main',
           environment: options.environment || 'test',

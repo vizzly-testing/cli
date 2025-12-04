@@ -2,23 +2,21 @@
  * Tests for project commands
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import readline from 'node:readline';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  projectSelectCommand,
   projectListCommand,
-  projectTokenCommand,
   projectRemoveCommand,
+  projectSelectCommand,
+  projectTokenCommand,
 } from '../../src/commands/project.js';
 import * as globalConfig from '../../src/utils/global-config.js';
-import readline from 'readline';
 
 // Mock AuthService
 const mockAuthServiceStore = { mockInstance: null };
 
 vi.mock('../../src/services/auth-service.js', () => ({
-  AuthService: vi.fn(function () {
-    return mockAuthServiceStore.mockInstance;
-  }),
+  AuthService: vi.fn(() => mockAuthServiceStore.mockInstance),
 }));
 
 // Mock global-config
@@ -117,8 +115,8 @@ describe('Project Commands', () => {
 
       // Mock readline prompts - organization and project selection
       mockRl.question
-        .mockImplementationOnce((prompt, callback) => callback('1')) // Select org
-        .mockImplementationOnce((prompt, callback) => callback('1')); // Select project
+        .mockImplementationOnce((_prompt, callback) => callback('1')) // Select org
+        .mockImplementationOnce((_prompt, callback) => callback('1')); // Select project
 
       await projectSelectCommand({}, {});
 
@@ -169,7 +167,7 @@ describe('Project Commands', () => {
         json: async () => [],
       });
 
-      mockRl.question.mockImplementationOnce((prompt, callback) =>
+      mockRl.question.mockImplementationOnce((_prompt, callback) =>
         callback('1')
       );
 
@@ -190,8 +188,8 @@ describe('Project Commands', () => {
       await projectListCommand({}, {});
 
       expect(processExitSpy).not.toHaveBeenCalled();
-      let logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
-      let hasMessage = logCalls.some(call => call.includes('No projects'));
+      const logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
+      const hasMessage = logCalls.some(call => call.includes('No projects'));
       expect(hasMessage).toBe(true);
     });
 
@@ -216,15 +214,15 @@ describe('Project Commands', () => {
       await projectListCommand({}, {});
 
       expect(processExitSpy).not.toHaveBeenCalled();
-      let logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
-      let hasProjects = logCalls.some(
+      const logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
+      const hasProjects = logCalls.some(
         call => call.includes('Project One') || call.includes('Project Two')
       );
       expect(hasProjects).toBe(true);
     });
 
     it('should output JSON when --json flag is set', async () => {
-      let mappings = {
+      const mappings = {
         '/path/to/project': {
           token: 'vzt_token_1',
           projectName: 'Test Project',
@@ -253,8 +251,8 @@ describe('Project Commands', () => {
 
       await projectListCommand({}, { verbose: true });
 
-      let logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
-      let hasTokenInfo = logCalls.some(call => call.includes('Token:'));
+      const logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
+      const hasTokenInfo = logCalls.some(call => call.includes('Token:'));
       expect(hasTokenInfo).toBe(true);
     });
   });
@@ -283,8 +281,10 @@ describe('Project Commands', () => {
       await projectTokenCommand({}, {});
 
       expect(processExitSpy).not.toHaveBeenCalled();
-      let logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
-      let hasToken = logCalls.some(call => call.includes('vzt_test_token_123'));
+      const logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
+      const hasToken = logCalls.some(call =>
+        call.includes('vzt_test_token_123')
+      );
       expect(hasToken).toBe(true);
     });
 
@@ -313,8 +313,8 @@ describe('Project Commands', () => {
 
       await projectTokenCommand({}, {});
 
-      let logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
-      let hasToken = logCalls.some(call =>
+      const logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
+      const hasToken = logCalls.some(call =>
         call.includes('vzt_nested_token_123')
       );
       expect(hasToken).toBe(true);
@@ -340,7 +340,7 @@ describe('Project Commands', () => {
       });
 
       // Mock confirmation prompt - user answers 'y'
-      mockRl.question.mockImplementationOnce((prompt, callback) =>
+      mockRl.question.mockImplementationOnce((_prompt, callback) =>
         callback('y')
       );
 
@@ -361,7 +361,7 @@ describe('Project Commands', () => {
       });
 
       // Mock confirmation prompt - user answers 'n'
-      mockRl.question.mockImplementationOnce((prompt, callback) =>
+      mockRl.question.mockImplementationOnce((_prompt, callback) =>
         callback('n')
       );
 
@@ -379,7 +379,7 @@ describe('Project Commands', () => {
         organizationSlug: 'test-org',
       });
 
-      mockRl.question.mockImplementationOnce((prompt, callback) =>
+      mockRl.question.mockImplementationOnce((_prompt, callback) =>
         callback('yes')
       );
 

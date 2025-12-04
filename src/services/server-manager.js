@@ -3,11 +3,11 @@
  * Manages the HTTP server with functional handlers
  */
 
-import { createHttpServer } from '../server/http-server.js';
-import { createTddHandler } from '../server/handlers/tdd-handler.js';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createApiHandler } from '../server/handlers/api-handler.js';
-import { writeFileSync, mkdirSync, unlinkSync, existsSync } from 'fs';
-import { join } from 'path';
+import { createTddHandler } from '../server/handlers/tdd-handler.js';
+import { createHttpServer } from '../server/http-server.js';
 
 export class ServerManager {
   constructor(config, options = {}) {
@@ -98,7 +98,7 @@ export class ServerManager {
 
     // Clean up server.json so the client SDK doesn't try to connect to a dead server
     try {
-      let serverFile = join(process.cwd(), '.vizzly', 'server.json');
+      const serverFile = join(process.cwd(), '.vizzly', 'server.json');
       if (existsSync(serverFile)) {
         unlinkSync(serverFile);
       }

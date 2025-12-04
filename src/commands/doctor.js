@@ -1,9 +1,9 @@
-import { URL } from 'url';
-import { loadConfig } from '../utils/config-loader.js';
-import * as output from '../utils/output.js';
-import { ApiService } from '../services/api-service.js';
+import { URL } from 'node:url';
 import { ConfigError } from '../errors/vizzly-error.js';
+import { ApiService } from '../services/api-service.js';
+import { loadConfig } from '../utils/config-loader.js';
 import { getApiToken } from '../utils/environment-config.js';
+import * as output from '../utils/output.js';
 
 /**
  * Doctor command implementation - Run diagnostics to check environment
@@ -17,7 +17,7 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     color: !globalOptions.noColor,
   });
 
-  let diagnostics = {
+  const diagnostics = {
     environment: {
       nodeVersion: null,
       nodeVersionValid: null,
@@ -40,7 +40,7 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
 
   try {
     // Determine if we'll attempt remote checks (API connectivity)
-    let willCheckConnectivity = Boolean(options.api || getApiToken());
+    const willCheckConnectivity = Boolean(options.api || getApiToken());
 
     // Announce preflight, indicating local-only when no token/connectivity is planned
     output.info(
@@ -48,8 +48,8 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     );
 
     // Node.js version check (require >= 20)
-    let nodeVersion = process.version;
-    let nodeMajor = parseInt(nodeVersion.slice(1).split('.')[0], 10);
+    const nodeVersion = process.version;
+    const nodeMajor = parseInt(nodeVersion.slice(1).split('.')[0], 10);
     diagnostics.environment.nodeVersion = nodeVersion;
     diagnostics.environment.nodeVersionValid = nodeMajor >= 20;
     if (nodeMajor >= 20) {
@@ -60,12 +60,12 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     }
 
     // Load configuration (apply global CLI overrides like --config only)
-    let config = await loadConfig(globalOptions.config);
+    const config = await loadConfig(globalOptions.config);
 
     // Validate apiUrl
     diagnostics.configuration.apiUrl = config.apiUrl;
     try {
-      let url = new URL(config.apiUrl);
+      const url = new URL(config.apiUrl);
       if (!['http:', 'https:'].includes(url.protocol)) {
         throw new ConfigError('URL must use http or https');
       }
@@ -81,10 +81,10 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     }
 
     // Validate threshold (0..1 inclusive)
-    let threshold = Number(config?.comparison?.threshold);
+    const threshold = Number(config?.comparison?.threshold);
     diagnostics.configuration.threshold = threshold;
     // CIEDE2000 threshold: 0 = exact, 1 = JND, 2 = recommended, 3+ = permissive
-    let thresholdValid = Number.isFinite(threshold) && threshold >= 0;
+    const thresholdValid = Number.isFinite(threshold) && threshold >= 0;
     diagnostics.configuration.thresholdValid = thresholdValid;
     if (thresholdValid) {
       output.success(`Threshold: ${threshold} (CIEDE2000 Delta E)`);
@@ -94,12 +94,12 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     }
 
     // Report effective port without binding
-    let port = config?.server?.port ?? 47392;
+    const port = config?.server?.port ?? 47392;
     diagnostics.configuration.port = port;
     output.info(`Effective port: ${port}`);
 
     // Optional: API connectivity check when --api is provided or VIZZLY_TOKEN is present
-    let autoApi = Boolean(getApiToken());
+    const autoApi = Boolean(getApiToken());
     if (options.api || autoApi) {
       diagnostics.connectivity.checked = true;
       if (!config.apiKey) {
@@ -110,7 +110,7 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
       } else {
         output.progress('Checking API connectivity...');
         try {
-          let api = new ApiService({
+          const api = new ApiService({
             baseUrl: config.apiUrl,
             token: config.apiKey,
             command: 'doctor',

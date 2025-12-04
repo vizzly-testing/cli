@@ -3,7 +3,7 @@
  * @module @vizzly-testing/cli
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 // ============================================================================
 // Configuration Types

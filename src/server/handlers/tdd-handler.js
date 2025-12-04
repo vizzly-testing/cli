@@ -1,14 +1,14 @@
-import { Buffer } from 'buffer';
-import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { join, resolve } from 'path';
+import { Buffer } from 'node:buffer';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { getDimensionsSync } from '@vizzly-testing/honeydiff';
-import * as output from '../../utils/output.js';
 import { TddService } from '../../services/tdd-service.js';
+import { detectImageInputType } from '../../utils/image-input-detector.js';
+import * as output from '../../utils/output.js';
 import {
   sanitizeScreenshotName,
   validateScreenshotProperties,
 } from '../../utils/security.js';
-import { detectImageInputType } from '../../utils/image-input-detector.js';
 
 /**
  * Group comparisons by screenshot name with variant structure
@@ -160,7 +160,8 @@ export const createTddHandler = (
       if (existingIndex >= 0) {
         // Preserve initialStatus from the original comparison
         // This keeps sort order stable when status changes (e.g., after approval)
-        let initialStatus = reportData.comparisons[existingIndex].initialStatus;
+        const initialStatus =
+          reportData.comparisons[existingIndex].initialStatus;
         reportData.comparisons[existingIndex] = {
           ...newComparison,
           initialStatus: initialStatus || newComparison.status,
@@ -242,7 +243,7 @@ export const createTddHandler = (
     }
   };
 
-  const handleScreenshot = async (buildId, name, image, properties = {}) => {
+  const handleScreenshot = async (_buildId, name, image, properties = {}) => {
     // Validate and sanitize screenshot name
     let sanitizedName;
     try {
@@ -570,7 +571,7 @@ export const createTddHandler = (
           );
           if (existsSync(baselinePath)) {
             try {
-              const { unlinkSync } = await import('fs');
+              const { unlinkSync } = await import('node:fs');
               unlinkSync(baselinePath);
               deletedBaselines++;
               // Silent deletion
@@ -591,7 +592,7 @@ export const createTddHandler = (
           );
           if (existsSync(currentPath)) {
             try {
-              const { unlinkSync } = await import('fs');
+              const { unlinkSync } = await import('node:fs');
               unlinkSync(currentPath);
               deletedCurrents++;
               // Silent deletion
@@ -612,7 +613,7 @@ export const createTddHandler = (
           );
           if (existsSync(diffPath)) {
             try {
-              const { unlinkSync } = await import('fs');
+              const { unlinkSync } = await import('node:fs');
               unlinkSync(diffPath);
               deletedDiffs++;
               output.debug(`Deleted diff for ${comparison.name}`);
@@ -634,7 +635,7 @@ export const createTddHandler = (
       );
       if (existsSync(metadataPath)) {
         try {
-          const { unlinkSync } = await import('fs');
+          const { unlinkSync } = await import('node:fs');
           unlinkSync(metadataPath);
           output.debug('Deleted baseline metadata');
         } catch (error) {

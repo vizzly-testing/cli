@@ -3,14 +3,14 @@
  * @description Thin client for test runners - minimal API for taking screenshots
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, parse } from 'node:path';
 import {
-  getServerUrl,
   getBuildId,
+  getServerUrl,
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
-import { existsSync, readFileSync } from 'fs';
-import { join, parse, dirname } from 'path';
 
 // Internal client state
 let currentClient = null;
@@ -115,13 +115,16 @@ function getClient() {
 function createSimpleClient(serverUrl) {
   return {
     async screenshot(name, imageBuffer, options = {}) {
-      let controller = new AbortController();
-      let timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        DEFAULT_TIMEOUT_MS
+      );
 
       try {
         // If it's a string, assume it's a file path and send directly
         // Otherwise it's a Buffer, so convert to base64
-        let image =
+        const image =
           typeof imageBuffer === 'string'
             ? imageBuffer
             : imageBuffer.toString('base64');

@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
-import { execSync } from 'child_process';
+import { execSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('Plugin System Integration', () => {
   let testDir;
 
   beforeEach(() => {
-    testDir = join(process.cwd(), 'test-plugin-integration-' + Date.now());
+    testDir = join(process.cwd(), `test-plugin-integration-${Date.now()}`);
     mkdirSync(testDir, { recursive: true });
   });
 
@@ -21,7 +21,7 @@ describe('Plugin System Integration', () => {
 
   it('should register plugin commands and show them in help', async () => {
     // Create mock @vizzly-testing/test-plugin package
-    let pluginDir = join(
+    const pluginDir = join(
       testDir,
       'node_modules',
       '@vizzly-testing',
@@ -46,7 +46,7 @@ describe('Plugin System Integration', () => {
     );
 
     // Write plugin that adds a command
-    let pluginCode = `
+    const pluginCode = `
       export default {
         name: 'test-plugin',
         version: '1.0.0',
@@ -67,10 +67,10 @@ describe('Plugin System Integration', () => {
 
     // Try to run vizzly --help from test directory
     // This tests that the plugin is loaded and command is registered
-    let cliPath = join(process.cwd(), 'src', 'cli.js');
+    const cliPath = join(process.cwd(), 'src', 'cli.js');
 
     try {
-      let output = execSync(`node ${cliPath} --help`, {
+      const output = execSync(`node ${cliPath} --help`, {
         cwd: testDir,
         encoding: 'utf-8',
         env: { ...process.env, NODE_ENV: 'test' },
@@ -90,7 +90,7 @@ describe('Plugin System Integration', () => {
   });
 
   it('should provide context to plugins', async () => {
-    let pluginDir = join(
+    const pluginDir = join(
       testDir,
       'node_modules',
       '@vizzly-testing',
@@ -107,7 +107,7 @@ describe('Plugin System Integration', () => {
     );
 
     // Plugin that validates context
-    let pluginCode = `
+    const pluginCode = `
       export default {
         name: 'context-plugin',
         register(program, context) {
@@ -127,7 +127,7 @@ describe('Plugin System Integration', () => {
 
     writeFileSync(join(testDir, 'vizzly.config.js'), 'export default {};');
 
-    let cliPath = join(process.cwd(), 'src', 'cli.js');
+    const cliPath = join(process.cwd(), 'src', 'cli.js');
 
     // If this doesn't throw, context was provided correctly
     try {
@@ -138,7 +138,7 @@ describe('Plugin System Integration', () => {
       });
     } catch (error) {
       // Check for our validation errors
-      let stderr = error.stderr?.toString() || error.stdout?.toString() || '';
+      const stderr = error.stderr?.toString() || error.stdout?.toString() || '';
       expect(stderr).not.toContain('Missing config');
       expect(stderr).not.toContain('Missing output');
       expect(stderr).not.toContain('Missing services');
@@ -146,7 +146,7 @@ describe('Plugin System Integration', () => {
   });
 
   it('should handle plugin registration errors gracefully', async () => {
-    let pluginDir = join(
+    const pluginDir = join(
       testDir,
       'node_modules',
       '@vizzly-testing',
@@ -163,7 +163,7 @@ describe('Plugin System Integration', () => {
     );
 
     // Plugin that throws during registration
-    let pluginCode = `
+    const pluginCode = `
       export default {
         name: 'bad-plugin',
         register(program, context) {
@@ -175,11 +175,11 @@ describe('Plugin System Integration', () => {
 
     writeFileSync(join(testDir, 'vizzly.config.js'), 'export default {};');
 
-    let cliPath = join(process.cwd(), 'src', 'cli.js');
+    const cliPath = join(process.cwd(), 'src', 'cli.js');
 
     // CLI should still work despite plugin error
     try {
-      let output = execSync(`node ${cliPath} --version`, {
+      const output = execSync(`node ${cliPath} --version`, {
         cwd: testDir,
         encoding: 'utf-8',
         env: { ...process.env, NODE_ENV: 'test' },
@@ -189,7 +189,7 @@ describe('Plugin System Integration', () => {
       expect(output).toMatch(/\d+\.\d+\.\d+/);
     } catch (error) {
       // Even if it errors, check it's not from the plugin
-      let stderr = error.stderr?.toString() || '';
+      const stderr = error.stderr?.toString() || '';
       // We expect a warning but not a crash
       if (stderr) {
         expect(stderr).not.toContain('Registration failed intentionally');

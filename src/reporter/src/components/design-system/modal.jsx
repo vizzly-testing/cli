@@ -5,8 +5,8 @@
  * Sizes: sm, md, lg, xl, full
  */
 
-import { useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 export function Modal({
@@ -19,7 +19,7 @@ export function Modal({
   showCloseButton = true,
   className = '',
 }) {
-  let sizeClasses = {
+  const sizeClasses = {
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
@@ -47,12 +47,14 @@ export function Modal({
 
   if (!isOpen) return null;
 
-  let modalContent = (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-up"
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in-up border-none cursor-default"
         onClick={onClose}
+        aria-label="Close modal"
         style={{ animationDuration: '0.15s' }}
       />
 
@@ -74,6 +76,7 @@ export function Modal({
             </div>
             {showCloseButton && (
               <button
+                type="button"
                 onClick={onClose}
                 className="text-slate-400 hover:text-white transition-colors p-1 -mr-1 rounded-lg hover:bg-white/5"
               >

@@ -1,12 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  BuildManager,
-  generateBuildId,
-  createBuildObject,
-  updateBuild,
   addScreenshotToBuild,
-  finalizeBuildObject,
+  BuildManager,
+  createBuildObject,
   createQueuedBuild,
+  finalizeBuildObject,
+  generateBuildId,
+  updateBuild,
   validateBuildOptions,
 } from '../../src/services/build-manager.js';
 
@@ -496,7 +496,7 @@ describe('BuildManager', () => {
       });
 
       it('cancels pending builds before clearing', async () => {
-        let build = await buildManager.createBuild({ name: 'Pending Build' });
+        const build = await buildManager.createBuild({ name: 'Pending Build' });
         expect(build.status).toBe('pending');
 
         await buildManager.clear();

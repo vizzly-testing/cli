@@ -1,6 +1,5 @@
-import { loadConfig } from '../utils/config-loader.js';
-import * as output from '../utils/output.js';
 import { createServices } from '../services/index.js';
+import { loadConfig } from '../utils/config-loader.js';
 import {
   detectBranch,
   detectCommit,
@@ -8,6 +7,7 @@ import {
   detectPullRequestNumber,
   generateBuildNameWithGit,
 } from '../utils/git.js';
+import * as output from '../utils/output.js';
 
 /**
  * Run command implementation
@@ -32,7 +32,7 @@ export async function runCommand(
   let isTddMode = false;
 
   // Ensure cleanup on exit
-  let cleanup = async () => {
+  const cleanup = async () => {
     output.cleanup();
 
     // Cancel test runner (kills process and stops server)
@@ -47,7 +47,7 @@ export async function runCommand(
     // Finalize build if we have one
     if (testRunner && buildId) {
       try {
-        let executionTime = Date.now() - (startTime || Date.now());
+        const executionTime = Date.now() - (startTime || Date.now());
         await testRunner.finalizeBuild(
           buildId,
           isTddMode,
@@ -60,30 +60,30 @@ export async function runCommand(
     }
   };
 
-  let sigintHandler = async () => {
+  const sigintHandler = async () => {
     await cleanup();
     process.exit(1);
   };
 
-  let exitHandler = () => output.cleanup();
+  const exitHandler = () => output.cleanup();
 
   process.on('SIGINT', sigintHandler);
   process.on('exit', exitHandler);
 
   try {
     // Load configuration with CLI overrides
-    let allOptions = { ...globalOptions, ...options };
+    const allOptions = { ...globalOptions, ...options };
 
     output.debug('[RUN] Loading config', {
       hasToken: !!allOptions.token,
     });
 
-    let config = await loadConfig(globalOptions.config, allOptions);
+    const config = await loadConfig(globalOptions.config, allOptions);
 
     output.debug('[RUN] Config loaded', {
       hasApiKey: !!config.apiKey,
       apiKeyPrefix: config.apiKey
-        ? config.apiKey.substring(0, 8) + '***'
+        ? `${config.apiKey.substring(0, 8)}***`
         : 'NONE',
     });
 
@@ -94,7 +94,7 @@ export async function runCommand(
         apiKeyType: typeof config.apiKey,
         apiKeyPrefix:
           typeof config.apiKey === 'string' && config.apiKey
-            ? config.apiKey.substring(0, 10) + '...'
+            ? `${config.apiKey.substring(0, 10)}...`
             : 'none',
         projectSlug: config.projectSlug || 'none',
         organizationSlug: config.organizationSlug || 'none',
@@ -110,11 +110,11 @@ export async function runCommand(
     }
 
     // Collect git metadata and build info
-    let branch = await detectBranch(options.branch);
-    let commit = await detectCommit(options.commit);
-    let message = options.message || (await detectCommitMessage());
-    let buildName = await generateBuildNameWithGit(options.buildName);
-    let pullRequestNumber = detectPullRequestNumber();
+    const branch = await detectBranch(options.branch);
+    const commit = await detectCommit(options.commit);
+    const message = options.message || (await detectCommitMessage());
+    const buildName = await generateBuildNameWithGit(options.buildName);
+    const pullRequestNumber = detectPullRequestNumber();
 
     if (globalOptions.verbose) {
       output.info('Configuration loaded');
@@ -133,7 +133,7 @@ export async function runCommand(
 
     // Create service container and get test runner service
     output.startSpinner('Initializing test runner...');
-    let configWithVerbose = {
+    const configWithVerbose = {
       ...config,
       verbose: globalOptions.verbose,
       uploadAll: options.uploadAll || false,
@@ -143,7 +143,7 @@ export async function runCommand(
       hasApiKey: !!configWithVerbose.apiKey,
     });
 
-    let services = createServices(configWithVerbose, 'run');
+    const services = createServices(configWithVerbose, 'run');
     testRunner = services.testRunner;
     output.stopSpinner();
 
@@ -152,7 +152,7 @@ export async function runCommand(
 
     // Set up event handlers
     testRunner.on('progress', progressData => {
-      let { message: progressMessage } = progressData;
+      const { message: progressMessage } = progressData;
       output.progress(progressMessage || 'Running tests...');
     });
 
@@ -202,7 +202,7 @@ export async function runCommand(
     });
 
     // Prepare run options
-    let runOptions = {
+    const runOptions = {
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
@@ -255,8 +255,8 @@ export async function runCommand(
         error.code === 'TEST_COMMAND_INTERRUPTED'
       ) {
         // Extract exit code from error message if available
-        let exitCodeMatch = error.message.match(/exited with code (\d+)/);
-        let exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
+        const exitCodeMatch = error.message.match(/exited with code (\d+)/);
+        const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
 
         output.error('Test run failed');
         return { success: false, exitCode };
@@ -274,8 +274,8 @@ export async function runCommand(
         output.info('Waiting for build completion...');
         output.startSpinner('Processing comparisons...');
 
-        let { uploader } = services;
-        let buildResult = await uploader.waitForBuild(result.buildId);
+        const { uploader } = services;
+        const buildResult = await uploader.waitForBuild(result.buildId);
 
         output.success('Build processing completed');
 
@@ -295,11 +295,11 @@ export async function runCommand(
 
     // Provide more context about where the error occurred
     let errorContext = 'Test run failed';
-    if (error.message && error.message.includes('build')) {
+    if (error.message?.includes('build')) {
       errorContext = 'Build creation failed';
-    } else if (error.message && error.message.includes('screenshot')) {
+    } else if (error.message?.includes('screenshot')) {
       errorContext = 'Screenshot processing failed';
-    } else if (error.message && error.message.includes('server')) {
+    } else if (error.message?.includes('server')) {
       errorContext = 'Server startup failed';
     }
 
@@ -318,35 +318,35 @@ export async function runCommand(
  * @param {Object} options - Command options
  */
 export function validateRunOptions(testCommand, options) {
-  let errors = [];
+  const errors = [];
 
   if (!testCommand || testCommand.trim() === '') {
     errors.push('Test command is required');
   }
 
   if (options.port) {
-    let port = parseInt(options.port, 10);
-    if (isNaN(port) || port < 1 || port > 65535) {
+    const port = parseInt(options.port, 10);
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
       errors.push('Port must be a valid number between 1 and 65535');
     }
   }
 
   if (options.timeout) {
-    let timeout = parseInt(options.timeout, 10);
-    if (isNaN(timeout) || timeout < 1000) {
+    const timeout = parseInt(options.timeout, 10);
+    if (Number.isNaN(timeout) || timeout < 1000) {
       errors.push('Timeout must be at least 1000 milliseconds');
     }
   }
 
   if (options.batchSize !== undefined) {
-    let n = parseInt(options.batchSize, 10);
+    const n = parseInt(options.batchSize, 10);
     if (!Number.isFinite(n) || n <= 0) {
       errors.push('Batch size must be a positive integer');
     }
   }
 
   if (options.uploadTimeout !== undefined) {
-    let n = parseInt(options.uploadTimeout, 10);
+    const n = parseInt(options.uploadTimeout, 10);
     if (!Number.isFinite(n) || n <= 0) {
       errors.push('Upload timeout must be a positive integer (milliseconds)');
     }

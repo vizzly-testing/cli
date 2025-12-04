@@ -11,14 +11,14 @@ export default function ComparisonGroup({
   onReject,
   loadingStates,
 }) {
-  let [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
 
   if (!group || !group.comparisons || group.comparisons.length === 0) {
     return null;
   }
 
   // Get the currently selected variant
-  let selectedComparison =
+  const selectedComparison =
     group.comparisons[selectedVariantIndex] || group.comparisons[0];
 
   return (

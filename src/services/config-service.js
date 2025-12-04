@@ -3,15 +3,15 @@
  * Manages reading and writing Vizzly configuration files
  */
 
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
-import { writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { validateVizzlyConfigWithDefaults } from '../utils/config-schema.js';
 import {
+  getGlobalConfigPath,
   loadGlobalConfig,
   saveGlobalConfig,
-  getGlobalConfigPath,
 } from '../utils/global-config.js';
 
 /**
@@ -54,7 +54,7 @@ export class ConfigService {
    * @returns {Promise<Object>}
    */
   async _getProjectConfig() {
-    let result = this.explorer.search(this.projectRoot);
+    const result = this.explorer.search(this.projectRoot);
 
     if (!result || !result.config) {
       return {
@@ -64,7 +64,7 @@ export class ConfigService {
       };
     }
 
-    let config = result.config.default || result.config;
+    const config = result.config.default || result.config;
 
     return {
       config,
@@ -79,7 +79,7 @@ export class ConfigService {
    * @returns {Promise<Object>}
    */
   async _getGlobalConfig() {
-    let globalConfig = await loadGlobalConfig();
+    const globalConfig = await loadGlobalConfig();
 
     return {
       config: globalConfig,
@@ -94,15 +94,15 @@ export class ConfigService {
    * @returns {Promise<Object>}
    */
   async _getMergedConfig() {
-    let projectConfigData = await this._getProjectConfig();
-    let globalConfigData = await this._getGlobalConfig();
+    const projectConfigData = await this._getProjectConfig();
+    const globalConfigData = await this._getGlobalConfig();
 
     // Build config with source tracking
-    let mergedConfig = {};
-    let sources = {};
+    const mergedConfig = {};
+    const sources = {};
 
     // Layer 1: Defaults
-    let defaults = {
+    const defaults = {
       apiUrl: 'https://app.vizzly.dev',
       server: { port: 47392, timeout: 30000 },
       build: { name: 'Build {timestamp}', environment: 'test' },
@@ -139,7 +139,7 @@ export class ConfigService {
     });
 
     // Layer 4: Environment variables (tracked separately)
-    let envOverrides = {};
+    const envOverrides = {};
     if (process.env.VIZZLY_TOKEN) {
       envOverrides.apiKey = process.env.VIZZLY_TOKEN;
       sources.apiKey = 'env';
@@ -185,13 +185,13 @@ export class ConfigService {
    * @returns {Promise<Object>} Updated config
    */
   async _updateProjectConfig(updates) {
-    let result = this.explorer.search(this.projectRoot);
+    const result = this.explorer.search(this.projectRoot);
 
     // Determine config file path
     let configPath;
     let currentConfig = {};
 
-    if (result && result.filepath) {
+    if (result?.filepath) {
       configPath = result.filepath;
       currentConfig = result.config.default || result.config;
     } else {
@@ -200,7 +200,7 @@ export class ConfigService {
     }
 
     // Merge updates with current config
-    let newConfig = this._deepMerge(currentConfig, updates);
+    const newConfig = this._deepMerge(currentConfig, updates);
 
     // Validate before writing
     try {
@@ -232,8 +232,8 @@ export class ConfigService {
    * @returns {Promise<Object>} Updated config
    */
   async _updateGlobalConfig(updates) {
-    let currentConfig = await loadGlobalConfig();
-    let newConfig = this._deepMerge(currentConfig, updates);
+    const currentConfig = await loadGlobalConfig();
+    const newConfig = this._deepMerge(currentConfig, updates);
 
     await saveGlobalConfig(newConfig);
 
@@ -253,22 +253,22 @@ export class ConfigService {
   async _writeProjectConfigFile(filepath, config) {
     // For .js files, export as ES module
     if (filepath.endsWith('.js') || filepath.endsWith('.mjs')) {
-      let content = this._serializeToJavaScript(config);
+      const content = this._serializeToJavaScript(config);
       await writeFile(filepath, content, 'utf-8');
       return;
     }
 
     // For .json files
     if (filepath.endsWith('.json')) {
-      let content = JSON.stringify(config, null, 2);
+      const content = JSON.stringify(config, null, 2);
       await writeFile(filepath, content, 'utf-8');
       return;
     }
 
     // For package.json, merge into existing
     if (filepath.endsWith('package.json')) {
-      let pkgContent = await readFile(filepath, 'utf-8');
-      let pkg = JSON.parse(pkgContent);
+      const pkgContent = await readFile(filepath, 'utf-8');
+      const pkg = JSON.parse(pkgContent);
       pkg.vizzly = config;
       await writeFile(filepath, JSON.stringify(pkg, null, 2), 'utf-8');
       return;
@@ -287,7 +287,7 @@ export class ConfigService {
    * @returns {string} JavaScript source code
    */
   _serializeToJavaScript(config) {
-    let lines = [
+    const lines = [
       '/**',
       ' * Vizzly Configuration',
       ' * @see https://docs.vizzly.dev/cli/configuration',
@@ -312,8 +312,8 @@ export class ConfigService {
    * @returns {string}
    */
   _stringifyWithIndent(value, depth = 0) {
-    let indent = '  '.repeat(depth);
-    let prevIndent = '  '.repeat(depth - 1);
+    const indent = '  '.repeat(depth);
+    const prevIndent = '  '.repeat(depth - 1);
 
     if (value === null || value === undefined) {
       return String(value);
@@ -329,18 +329,18 @@ export class ConfigService {
 
     if (Array.isArray(value)) {
       if (value.length === 0) return '[]';
-      let items = value.map(
+      const items = value.map(
         item => `${indent}${this._stringifyWithIndent(item, depth + 1)}`
       );
       return `[\n${items.join(',\n')}\n${prevIndent}]`;
     }
 
     if (typeof value === 'object') {
-      let keys = Object.keys(value);
+      const keys = Object.keys(value);
       if (keys.length === 0) return '{}';
 
-      let items = keys.map(key => {
-        let val = this._stringifyWithIndent(value[key], depth + 1);
+      const items = keys.map(key => {
+        const val = this._stringifyWithIndent(value[key], depth + 1);
         return `${indent}${key}: ${val}`;
       });
 
@@ -357,7 +357,7 @@ export class ConfigService {
    */
   async validateConfig(config) {
     try {
-      let validated = validateVizzlyConfigWithDefaults(config);
+      const validated = validateVizzlyConfigWithDefaults(config);
       return {
         valid: true,
         config: validated,
@@ -378,7 +378,7 @@ export class ConfigService {
    * @returns {Promise<string>} Source ('default', 'global', 'project', 'env', 'cli')
    */
   async getConfigSource(key) {
-    let merged = await this._getMergedConfig();
+    const merged = await this._getMergedConfig();
     return merged.sources[key] || 'unknown';
   }
 
@@ -390,9 +390,9 @@ export class ConfigService {
    * @returns {Object} Merged object
    */
   _deepMerge(target, source) {
-    let output = { ...target };
+    const output = { ...target };
 
-    for (let key in source) {
+    for (const key in source) {
       if (
         source[key] &&
         typeof source[key] === 'object' &&

@@ -47,9 +47,9 @@
  * })
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { getVizzlyInfo } from '@vizzly-testing/cli/client';
-import { resolve, join } from 'path';
-import { existsSync, readFileSync } from 'fs';
 
 export function vizzlyPlugin(_options = {}) {
   return {

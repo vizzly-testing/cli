@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  sortComparisons,
+  calculatePassRate,
   filterComparisons,
   getStatusInfo,
-  calculatePassRate,
+  sortComparisons,
 } from '../../src/reporter/src/utils/comparison-helpers.js';
 
 describe('comparison-helpers', () => {
@@ -26,7 +26,7 @@ describe('comparison-helpers', () => {
 
     describe('priority sorting', () => {
       it('should sort by status priority: failed > new > passed', () => {
-        let sorted = sortComparisons(comparisons, 'priority');
+        const sorted = sortComparisons(comparisons, 'priority');
 
         expect(sorted[0].status).toBe('failed');
         expect(sorted[1].status).toBe('failed');
@@ -35,7 +35,7 @@ describe('comparison-helpers', () => {
       });
 
       it('should sort failed comparisons by diffPercentage descending', () => {
-        let sorted = sortComparisons(comparisons, 'priority');
+        const sorted = sortComparisons(comparisons, 'priority');
 
         // Both failed ones should be first, sorted by diffPercentage
         expect(sorted[0].name).toBe('failed-test'); // 5.5%
@@ -44,7 +44,7 @@ describe('comparison-helpers', () => {
 
       it('should use initialStatus for sorting when available', () => {
         // Simulate a comparison that was approved (status changed from failed to passed)
-        let comparisonsWithInitialStatus = [
+        const comparisonsWithInitialStatus = [
           {
             id: '1',
             name: 'was-passed',
@@ -75,7 +75,10 @@ describe('comparison-helpers', () => {
           },
         ];
 
-        let sorted = sortComparisons(comparisonsWithInitialStatus, 'priority');
+        const sorted = sortComparisons(
+          comparisonsWithInitialStatus,
+          'priority'
+        );
 
         // Should sort by initialStatus, not current status
         // Within same initialStatus group, sort by diffPercentage (descending)
@@ -88,12 +91,12 @@ describe('comparison-helpers', () => {
 
       it('should fall back to status when initialStatus is not available', () => {
         // Legacy data without initialStatus
-        let legacyComparisons = [
+        const legacyComparisons = [
           { id: '1', name: 'passed', status: 'passed' },
           { id: '2', name: 'failed', status: 'failed' },
         ];
 
-        let sorted = sortComparisons(legacyComparisons, 'priority');
+        const sorted = sortComparisons(legacyComparisons, 'priority');
 
         expect(sorted[0].name).toBe('failed');
         expect(sorted[1].name).toBe('passed');
@@ -102,7 +105,7 @@ describe('comparison-helpers', () => {
       it('should keep approved comparisons in original position among failed ones', () => {
         // This simulates the real-world scenario:
         // User has 3 failed screenshots, approves the middle one
-        let comparisonsAfterApproval = [
+        const comparisonsAfterApproval = [
           {
             id: '1',
             name: 'first-failed',
@@ -126,7 +129,7 @@ describe('comparison-helpers', () => {
           },
         ];
 
-        let sorted = sortComparisons(comparisonsAfterApproval, 'priority');
+        const sorted = sortComparisons(comparisonsAfterApproval, 'priority');
 
         // All should stay in "failed" section, sorted by diffPercentage
         expect(sorted[0].name).toBe('first-failed'); // 10%
@@ -137,7 +140,7 @@ describe('comparison-helpers', () => {
 
     describe('name sorting', () => {
       it('should sort alphabetically by name', () => {
-        let sorted = sortComparisons(comparisons, 'name');
+        const sorted = sortComparisons(comparisons, 'name');
 
         expect(sorted[0].name).toBe('another-failed');
         expect(sorted[1].name).toBe('failed-test');
@@ -148,13 +151,13 @@ describe('comparison-helpers', () => {
 
     describe('time sorting', () => {
       it('should sort by timestamp descending (newest first)', () => {
-        let timedComparisons = [
+        const timedComparisons = [
           { id: '1', name: 'old', timestamp: 1000 },
           { id: '2', name: 'newest', timestamp: 3000 },
           { id: '3', name: 'middle', timestamp: 2000 },
         ];
 
-        let sorted = sortComparisons(timedComparisons, 'time');
+        const sorted = sortComparisons(timedComparisons, 'time');
 
         expect(sorted[0].name).toBe('newest');
         expect(sorted[1].name).toBe('middle');
@@ -163,7 +166,7 @@ describe('comparison-helpers', () => {
     });
 
     it('should not mutate the original array', () => {
-      let original = [...comparisons];
+      const original = [...comparisons];
       sortComparisons(comparisons, 'priority');
 
       expect(comparisons).toEqual(original);
@@ -184,53 +187,55 @@ describe('comparison-helpers', () => {
     });
 
     it('should return all comparisons for "all" filter', () => {
-      let filtered = filterComparisons(comparisons, 'all');
+      const filtered = filterComparisons(comparisons, 'all');
       expect(filtered).toHaveLength(5);
     });
 
     it('should filter only failed comparisons', () => {
-      let filtered = filterComparisons(comparisons, 'failed');
+      const filtered = filterComparisons(comparisons, 'failed');
       expect(filtered).toHaveLength(1);
       expect(filtered[0].status).toBe('failed');
     });
 
     it('should filter only passed comparisons', () => {
-      let filtered = filterComparisons(comparisons, 'passed');
+      const filtered = filterComparisons(comparisons, 'passed');
       expect(filtered).toHaveLength(2);
-      filtered.forEach(c => expect(c.status).toBe('passed'));
+      for (let c of filtered) {
+        expect(c.status).toBe('passed');
+      }
     });
 
     it('should filter new and baseline-created as "new"', () => {
-      let filtered = filterComparisons(comparisons, 'new');
+      const filtered = filterComparisons(comparisons, 'new');
       expect(filtered).toHaveLength(2);
-      filtered.forEach(c =>
-        expect(['new', 'baseline-created']).toContain(c.status)
-      );
+      for (let c of filtered) {
+        expect(['new', 'baseline-created']).toContain(c.status);
+      }
     });
   });
 
   describe('getStatusInfo', () => {
     it('should return correct info for passed status', () => {
-      let info = getStatusInfo({ status: 'passed' });
+      const info = getStatusInfo({ status: 'passed' });
       expect(info.type).toBe('success');
       expect(info.label).toBe('Passed');
     });
 
     it('should return correct info for failed status with diff percentage', () => {
-      let info = getStatusInfo({ status: 'failed', diffPercentage: 2.567 });
+      const info = getStatusInfo({ status: 'failed', diffPercentage: 2.567 });
       expect(info.type).toBe('error');
       expect(info.label).toBe('Visual Differences Detected');
       expect(info.description).toBe('2.57% difference from baseline');
     });
 
     it('should return correct info for new status', () => {
-      let info = getStatusInfo({ status: 'new' });
+      const info = getStatusInfo({ status: 'new' });
       expect(info.type).toBe('success');
       expect(info.label).toBe('New Baseline');
     });
 
     it('should handle unknown status gracefully', () => {
-      let info = getStatusInfo({ status: 'unknown-status' });
+      const info = getStatusInfo({ status: 'unknown-status' });
       expect(info.type).toBe('warning');
       expect(info.label).toBe('Unknown Status');
     });
@@ -238,7 +243,7 @@ describe('comparison-helpers', () => {
 
   describe('calculatePassRate', () => {
     it('should calculate correct pass rate', () => {
-      let rate = calculatePassRate({ total: 10, passed: 7 });
+      const rate = calculatePassRate({ total: 10, passed: 7 });
       expect(rate).toBe(70);
     });
 
@@ -248,7 +253,7 @@ describe('comparison-helpers', () => {
     });
 
     it('should round to nearest integer', () => {
-      let rate = calculatePassRate({ total: 3, passed: 1 });
+      const rate = calculatePassRate({ total: 3, passed: 1 });
       expect(rate).toBe(33); // 33.33... rounded
     });
   });

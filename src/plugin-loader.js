@@ -1,7 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { glob } from 'glob';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { pathToFileURL } from 'url';
 import { z } from 'zod';
 import * as output from './utils/output.js';
 
@@ -12,15 +12,15 @@ import * as output from './utils/output.js';
  * @returns {Promise<Array>} Array of loaded plugins
  */
 export async function loadPlugins(configPath, config) {
-  let plugins = [];
-  let loadedNames = new Set();
+  const plugins = [];
+  const loadedNames = new Set();
 
   // 1. Auto-discover plugins from @vizzly-testing/* packages
-  let discoveredPlugins = await discoverInstalledPlugins();
+  const discoveredPlugins = await discoverInstalledPlugins();
 
-  for (let pluginInfo of discoveredPlugins) {
+  for (const pluginInfo of discoveredPlugins) {
     try {
-      let plugin = await loadPlugin(pluginInfo.path);
+      const plugin = await loadPlugin(pluginInfo.path);
       if (plugin && !loadedNames.has(plugin.name)) {
         plugins.push(plugin);
         loadedNames.add(plugin.name);
@@ -37,16 +37,16 @@ export async function loadPlugins(configPath, config) {
 
   // 2. Load explicit plugins from config
   if (config?.plugins && Array.isArray(config.plugins)) {
-    for (let pluginSpec of config.plugins) {
+    for (const pluginSpec of config.plugins) {
       try {
-        let pluginPath = resolvePluginPath(pluginSpec, configPath);
-        let plugin = await loadPlugin(pluginPath);
+        const pluginPath = resolvePluginPath(pluginSpec, configPath);
+        const plugin = await loadPlugin(pluginPath);
 
         if (plugin && !loadedNames.has(plugin.name)) {
           plugins.push(plugin);
           loadedNames.add(plugin.name);
         } else if (plugin && loadedNames.has(plugin.name)) {
-          let existingPlugin = plugins.find(p => p.name === plugin.name);
+          const existingPlugin = plugins.find(p => p.name === plugin.name);
           output.warn(
             `Plugin ${plugin.name} already loaded (v${existingPlugin.version || 'unknown'}), ` +
               `skipping v${plugin.version || 'unknown'} from config`
@@ -68,11 +68,11 @@ export async function loadPlugins(configPath, config) {
  * @returns {Promise<Array>} Array of plugin info objects
  */
 async function discoverInstalledPlugins() {
-  let plugins = [];
+  const plugins = [];
 
   try {
     // Find all @vizzly-testing packages
-    let packageJsonPaths = await glob(
+    const packageJsonPaths = await glob(
       'node_modules/@vizzly-testing/*/package.json',
       {
         cwd: process.cwd(),
@@ -80,13 +80,13 @@ async function discoverInstalledPlugins() {
       }
     );
 
-    for (let pkgPath of packageJsonPaths) {
+    for (const pkgPath of packageJsonPaths) {
       try {
-        let packageJson = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+        const packageJson = JSON.parse(readFileSync(pkgPath, 'utf-8'));
 
         // Check if package has a plugin field
         if (packageJson.vizzly?.plugin) {
-          let pluginRelativePath = packageJson.vizzly.plugin;
+          const pluginRelativePath = packageJson.vizzly.plugin;
 
           // Security: Ensure plugin path is relative and doesn't traverse up
           if (
@@ -100,8 +100,8 @@ async function discoverInstalledPlugins() {
           }
 
           // Resolve plugin path relative to package directory
-          let packageDir = dirname(pkgPath);
-          let pluginPath = resolve(packageDir, pluginRelativePath);
+          const packageDir = dirname(pkgPath);
+          const pluginPath = resolve(packageDir, pluginRelativePath);
 
           // Additional security: Ensure resolved path is still within package directory
           if (!pluginPath.startsWith(packageDir)) {
@@ -137,20 +137,20 @@ async function discoverInstalledPlugins() {
 async function loadPlugin(pluginPath) {
   try {
     // Convert to file URL for ESM import
-    let pluginUrl = pathToFileURL(pluginPath).href;
+    const pluginUrl = pathToFileURL(pluginPath).href;
 
     // Dynamic import
-    let pluginModule = await import(pluginUrl);
+    const pluginModule = await import(pluginUrl);
 
     // Get the default export
-    let plugin = pluginModule.default || pluginModule;
+    const plugin = pluginModule.default || pluginModule;
 
     // Validate plugin structure
     validatePluginStructure(plugin);
 
     return plugin;
   } catch (error) {
-    let newError = new Error(
+    const newError = new Error(
       `Failed to load plugin from ${pluginPath}: ${error.message}`
     );
     newError.cause = error;
@@ -187,7 +187,9 @@ function validatePluginStructure(plugin) {
     // configSchema is optional and primarily for documentation
   } catch (error) {
     if (error instanceof z.ZodError) {
-      let messages = error.issues.map(e => `${e.path.join('.')}: ${e.message}`);
+      const messages = error.issues.map(
+        e => `${e.path.join('.')}: ${e.message}`
+      );
       throw new Error(`Invalid plugin structure: ${messages.join(', ')}`);
     }
     throw error;
@@ -205,16 +207,16 @@ function resolvePluginPath(pluginSpec, configPath) {
   if (pluginSpec.startsWith('@') || /^[a-zA-Z0-9-]+$/.test(pluginSpec)) {
     // Try to resolve as a package
     try {
-      let packageJsonPath = resolve(
+      const packageJsonPath = resolve(
         process.cwd(),
         'node_modules',
         pluginSpec,
         'package.json'
       );
-      let packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
 
       if (packageJson.vizzly?.plugin) {
-        let packageDir = dirname(packageJsonPath);
+        const packageDir = dirname(packageJsonPath);
         return resolve(packageDir, packageJson.vizzly.plugin);
       }
 
@@ -229,7 +231,7 @@ function resolvePluginPath(pluginSpec, configPath) {
   // Otherwise treat as a file path
   if (configPath) {
     // Resolve relative to config file
-    let configDir = dirname(configPath);
+    const configDir = dirname(configPath);
     return resolve(configDir, pluginSpec);
   } else {
     // Resolve relative to cwd

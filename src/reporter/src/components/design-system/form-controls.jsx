@@ -5,6 +5,8 @@
  * Input, Select, Checkbox, Toggle
  */
 
+let inputIdCounter = 0;
+
 export function Input({
   label,
   hint,
@@ -12,15 +14,17 @@ export function Input({
   icon: Icon,
   size = 'md',
   className = '',
+  id,
   ...props
 }) {
-  let sizeClasses = {
+  const inputId = id || `input-${++inputIdCounter}`;
+  const sizeClasses = {
     sm: 'h-8 text-sm px-3',
     md: 'h-10 text-sm px-4',
     lg: 'h-12 text-base px-4',
   };
 
-  let inputClasses = [
+  const inputClasses = [
     'w-full bg-white/[0.03] border rounded-lg text-white placeholder-slate-500 transition-all duration-150',
     'focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20',
     'hover:border-slate-600',
@@ -38,7 +42,10 @@ export function Input({
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="block text-sm font-medium text-slate-300">
+        <label
+          htmlFor={inputId}
+          className="block text-sm font-medium text-slate-300"
+        >
           {label}
           {props.required && <span className="text-red-400 ml-1">*</span>}
         </label>
@@ -49,13 +56,15 @@ export function Input({
             <Icon className="w-4 h-4" />
           </div>
         )}
-        <input className={inputClasses} {...props} />
+        <input id={inputId} className={inputClasses} {...props} />
       </div>
       {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
       {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );
 }
+
+let selectIdCounter = 0;
 
 export function Select({
   label,
@@ -65,15 +74,17 @@ export function Select({
   placeholder = 'Select an option',
   size = 'md',
   className = '',
+  id,
   ...props
 }) {
-  let sizeClasses = {
+  const selectId = id || `select-${++selectIdCounter}`;
+  const sizeClasses = {
     sm: 'h-8 text-sm px-3',
     md: 'h-10 text-sm px-4',
     lg: 'h-12 text-base px-4',
   };
 
-  let selectClasses = [
+  const selectClasses = [
     'w-full bg-white/[0.03] border rounded-lg text-white transition-all duration-150 appearance-none cursor-pointer',
     'focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20',
     'hover:border-slate-600',
@@ -88,13 +99,16 @@ export function Select({
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="block text-sm font-medium text-slate-300">
+        <label
+          htmlFor={selectId}
+          className="block text-sm font-medium text-slate-300"
+        >
           {label}
           {props.required && <span className="text-red-400 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
-        <select className={selectClasses} {...props}>
+        <select id={selectId} className={selectClasses} {...props}>
           {placeholder && (
             <option value="" disabled>
               {placeholder}
@@ -112,6 +126,7 @@ export function Select({
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -156,6 +171,7 @@ export function Checkbox({
               className="w-5 h-5 text-slate-900"
               viewBox="0 0 20 20"
               fill="currentColor"
+              aria-hidden="true"
             >
               <path
                 fillRule="evenodd"
@@ -186,7 +202,7 @@ export function Toggle({
   className = '',
   ...props
 }) {
-  let sizes = {
+  const sizes = {
     sm: {
       track: 'w-8 h-5',
       thumb: 'w-3.5 h-3.5',
@@ -204,7 +220,7 @@ export function Toggle({
     },
   };
 
-  let { track, thumb, translate } = sizes[size];
+  const { track, thumb, translate } = sizes[size];
 
   return (
     <label

@@ -1,7 +1,7 @@
-import { loadConfig } from '../utils/config-loader.js';
-import * as output from '../utils/output.js';
 import { createServices } from '../services/index.js';
+import { loadConfig } from '../utils/config-loader.js';
 import { getApiUrl } from '../utils/environment-config.js';
+import * as output from '../utils/output.js';
 
 /**
  * Status command implementation
@@ -20,8 +20,8 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
     output.info(`Checking status for build: ${buildId}`);
 
     // Load configuration with CLI overrides
-    let allOptions = { ...globalOptions, ...options };
-    let config = await loadConfig(globalOptions.config, allOptions);
+    const allOptions = { ...globalOptions, ...options };
+    const config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token
     if (!config.apiKey) {
@@ -33,15 +33,15 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
 
     // Get API service
     output.startSpinner('Fetching build status...');
-    let services = createServices(config, 'status');
-    let { apiService } = services;
+    const services = createServices(config, 'status');
+    const { apiService } = services;
 
     // Get build details via unified ApiService
-    let buildStatus = await apiService.getBuild(buildId);
+    const buildStatus = await apiService.getBuild(buildId);
     output.stopSpinner();
 
     // Extract build data from API response
-    let build = buildStatus.build || buildStatus;
+    const build = buildStatus.build || buildStatus;
 
     // Display build summary
     output.success(`Build: ${build.name || build.id}`);
@@ -90,9 +90,9 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
     }
 
     // Show build URL if we can construct it
-    let baseUrl = config.baseUrl || getApiUrl();
+    const baseUrl = config.baseUrl || getApiUrl();
     if (baseUrl && build.project_id) {
-      let buildUrl =
+      const buildUrl =
         baseUrl.replace('/api', '') +
         `/projects/${build.project_id}/builds/${build.id}`;
       output.info(`View Build: ${buildUrl}`);
@@ -100,7 +100,7 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
 
     // Output JSON data for --json mode
     if (globalOptions.json) {
-      let statusData = {
+      const statusData = {
         buildId: build.id,
         status: build.status,
         name: build.name,
@@ -159,10 +159,10 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
 
     // Show progress if build is still processing
     if (build.status === 'processing' || build.status === 'pending') {
-      let totalJobs =
+      const totalJobs =
         build.completed_jobs + build.failed_jobs + build.processing_screenshots;
       if (totalJobs > 0) {
-        let progress = (build.completed_jobs + build.failed_jobs) / totalJobs;
+        const progress = (build.completed_jobs + build.failed_jobs) / totalJobs;
         output.info(`Progress: ${Math.round(progress * 100)}% complete`);
       }
     }
@@ -185,7 +185,7 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
  * @param {Object} options - Command options
  */
 export function validateStatusOptions(buildId) {
-  let errors = [];
+  const errors = [];
 
   if (!buildId || buildId.trim() === '') {
     errors.push('Build ID is required');

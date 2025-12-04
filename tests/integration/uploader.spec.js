@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServices } from '../../src/services/index.js';
 import { loadConfig } from '../../src/utils/config-loader.js';
 

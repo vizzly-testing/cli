@@ -10,9 +10,9 @@ export function ToggleView({
   onImageLoad,
   imageErrors = new Set(),
 }) {
-  let [showBaseline, setShowBaseline] = useState(true);
+  const [showBaseline, setShowBaseline] = useState(true);
 
-  let handleImageClick = () => {
+  const handleImageClick = () => {
     setShowBaseline(prev => !prev);
   };
 

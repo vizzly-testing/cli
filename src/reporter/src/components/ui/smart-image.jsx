@@ -1,12 +1,12 @@
 import {
-  PhotoIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
+  PhotoIcon,
 } from '@heroicons/react/24/outline';
 import useImageLoader from '../../hooks/use-image-loader.js';
 
 export default function SmartImage({ src, alt, className, style, onClick }) {
-  let status = useImageLoader(src);
+  const status = useImageLoader(src);
 
   if (status === 'missing') {
     return (
@@ -53,6 +53,16 @@ export default function SmartImage({ src, alt, className, style, onClick }) {
     );
   }
 
+  let handleKeyDown = null;
+  if (onClick) {
+    handleKeyDown = e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick(e);
+      }
+    };
+  }
+
   return (
     <img
       src={src}
@@ -60,6 +70,9 @@ export default function SmartImage({ src, alt, className, style, onClick }) {
       className={className}
       style={style}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     />
   );
 }

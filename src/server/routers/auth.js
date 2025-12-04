@@ -3,13 +3,13 @@
  * Handles authentication endpoints (device flow login, logout, status)
  */
 
+import * as output from '../../utils/output.js';
 import { parseJsonBody } from '../middleware/json-parser.js';
 import {
-  sendSuccess,
   sendError,
   sendServiceUnavailable,
+  sendSuccess,
 } from '../middleware/response.js';
-import * as output from '../../utils/output.js';
 
 /**
  * Create auth router
@@ -28,11 +28,11 @@ export function createAuthRouter({ authService }) {
     // Get auth status and user info
     if (req.method === 'GET' && pathname === '/api/auth/status') {
       try {
-        let isAuthenticated = await authService.isAuthenticated();
+        const isAuthenticated = await authService.isAuthenticated();
         let user = null;
 
         if (isAuthenticated) {
-          let whoami = await authService.whoami();
+          const whoami = await authService.whoami();
           user = whoami.user;
         }
 
@@ -48,10 +48,10 @@ export function createAuthRouter({ authService }) {
     // Initiate device flow login
     if (req.method === 'POST' && pathname === '/api/auth/login') {
       try {
-        let deviceFlow = await authService.initiateDeviceFlow();
+        const deviceFlow = await authService.initiateDeviceFlow();
 
         // Transform snake_case to camelCase for frontend
-        let response = {
+        const response = {
           deviceCode: deviceFlow.device_code,
           userCode: deviceFlow.user_code,
           verificationUri: deviceFlow.verification_uri,
@@ -72,8 +72,8 @@ export function createAuthRouter({ authService }) {
     // Poll device authorization status
     if (req.method === 'POST' && pathname === '/api/auth/poll') {
       try {
-        let body = await parseJsonBody(req);
-        let { deviceCode } = body;
+        const body = await parseJsonBody(req);
+        const { deviceCode } = body;
 
         if (!deviceCode) {
           sendError(res, 400, 'deviceCode is required');
@@ -85,10 +85,7 @@ export function createAuthRouter({ authService }) {
           result = await authService.pollDeviceAuthorization(deviceCode);
         } catch (error) {
           // Handle "Authorization pending" as a valid response
-          if (
-            error.message &&
-            error.message.includes('Authorization pending')
-          ) {
+          if (error.message?.includes('Authorization pending')) {
             sendSuccess(res, { status: 'pending' });
             return true;
           }
@@ -96,14 +93,14 @@ export function createAuthRouter({ authService }) {
         }
 
         // Check if authorization is complete by looking for tokens
-        if (result.tokens && result.tokens.accessToken) {
-          let tokensData = result.tokens;
-          let tokenExpiresIn = tokensData.expiresIn || tokensData.expires_in;
-          let tokenExpiresAt = tokenExpiresIn
+        if (result.tokens?.accessToken) {
+          const tokensData = result.tokens;
+          const tokenExpiresIn = tokensData.expiresIn || tokensData.expires_in;
+          const tokenExpiresAt = tokenExpiresIn
             ? new Date(Date.now() + tokenExpiresIn * 1000).toISOString()
             : result.expires_at || result.expiresAt;
 
-          let tokens = {
+          const tokens = {
             accessToken: tokensData.accessToken || tokensData.access_token,
             refreshToken: tokensData.refreshToken || tokensData.refresh_token,
             expiresAt: tokenExpiresAt,

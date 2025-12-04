@@ -1,29 +1,29 @@
-import { useState, useCallback } from 'react';
 import {
+  CheckCircleIcon,
   Cog6ToothIcon,
   ServerIcon,
   WrenchScrewdriverIcon,
-  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import { useToast } from '../ui/toast.jsx';
+import { useCallback, useState } from 'react';
 import {
   useConfig,
   useUpdateProjectConfig,
 } from '../../hooks/queries/use-config-queries.js';
 import {
-  Card,
-  CardHeader,
-  CardBody,
+  Alert,
+  Badge,
   Button,
+  Card,
+  CardBody,
+  CardHeader,
   Input,
   Select,
-  Toggle,
-  Tabs,
-  Badge,
-  Alert,
   Skeleton,
   SkeletonCard,
+  Tabs,
+  Toggle,
 } from '../design-system/index.js';
+import { useToast } from '../ui/toast.jsx';
 
 function getInitialFormData(config) {
   return {
@@ -37,7 +37,7 @@ function getInitialFormData(config) {
 }
 
 function SourceBadge({ source }) {
-  let variants = {
+  const variants = {
     default: 'default',
     project: 'info',
     global: 'purple',
@@ -45,7 +45,7 @@ function SourceBadge({ source }) {
     cli: 'warning',
   };
 
-  let labels = {
+  const labels = {
     default: 'Default',
     project: 'Project',
     global: 'Global',
@@ -61,23 +61,23 @@ function SourceBadge({ source }) {
 }
 
 function SettingsForm({ config, sources, onSave, isSaving }) {
-  let initialFormData = getInitialFormData(config);
-  let [formData, setFormData] = useState(initialFormData);
-  let [hasChanges, setHasChanges] = useState(false);
-  let [activeTab, setActiveTab] = useState('general');
+  const initialFormData = getInitialFormData(config);
+  const [formData, setFormData] = useState(initialFormData);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [activeTab, setActiveTab] = useState('general');
 
-  let handleFieldChange = useCallback((name, value) => {
+  const handleFieldChange = useCallback((name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
     setHasChanges(true);
   }, []);
 
-  let handleReset = useCallback(() => {
+  const handleReset = useCallback(() => {
     setFormData(getInitialFormData(config));
     setHasChanges(false);
   }, [config]);
 
-  let handleSave = useCallback(() => {
-    let updates = {
+  const handleSave = useCallback(() => {
+    const updates = {
       comparison: {
         threshold: formData.threshold,
       },
@@ -96,7 +96,7 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
     onSave(updates, () => setHasChanges(false));
   }, [formData, onSave]);
 
-  let tabs = [
+  const tabs = [
     { key: 'general', label: 'General', icon: Cog6ToothIcon },
     { key: 'server', label: 'Server', icon: ServerIcon },
     { key: 'build', label: 'Build', icon: WrenchScrewdriverIcon },
@@ -259,11 +259,11 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
 }
 
 export default function SettingsView() {
-  let { data: configData, isLoading, error, refetch } = useConfig();
-  let updateMutation = useUpdateProjectConfig();
-  let { addToast } = useToast();
+  const { data: configData, isLoading, error, refetch } = useConfig();
+  const updateMutation = useUpdateProjectConfig();
+  const { addToast } = useToast();
 
-  let handleSave = useCallback(
+  const handleSave = useCallback(
     (updates, onSuccess) => {
       updateMutation.mutate(updates, {
         onSuccess: () => {

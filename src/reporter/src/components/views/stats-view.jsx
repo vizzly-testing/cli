@@ -1,25 +1,25 @@
+import {
+  ArrowPathIcon,
+  CheckIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  PhotoIcon,
+  SparklesIcon,
+} from '@heroicons/react/24/outline';
 import { useCallback } from 'react';
 import {
-  CheckIcon,
-  ArrowPathIcon,
-  PhotoIcon,
-  ExclamationTriangleIcon,
-  SparklesIcon,
-  ClockIcon,
-} from '@heroicons/react/24/outline';
-import {
-  useReportData,
   useAcceptAllBaselines,
+  useReportData,
   useResetBaselines,
 } from '../../hooks/queries/use-tdd-queries.js';
 import {
+  Badge,
+  Button,
   Card,
-  CardHeader,
   CardBody,
   CardFooter,
-  Button,
+  CardHeader,
   HealthRing,
-  Badge,
 } from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
 
@@ -51,30 +51,30 @@ function StatCard({ icon: Icon, label, value, subvalue, variant, iconColor }) {
 }
 
 export default function StatsView() {
-  let { addToast, confirm } = useToast();
+  const { addToast, confirm } = useToast();
 
   // Use TanStack Query for data
-  let { data: reportData, isLoading, refetch } = useReportData();
-  let acceptAllMutation = useAcceptAllBaselines();
-  let resetMutation = useResetBaselines();
+  const { data: reportData, isLoading, refetch } = useReportData();
+  const acceptAllMutation = useAcceptAllBaselines();
+  const resetMutation = useResetBaselines();
 
-  let comparisons = reportData?.comparisons;
-  let baseline = reportData?.baseline;
+  const comparisons = reportData?.comparisons;
+  const baseline = reportData?.baseline;
 
   // Calculate stats
-  let total = comparisons?.length || 0;
-  let passed = comparisons?.filter(c => c.status === 'passed').length || 0;
-  let failed = comparisons?.filter(c => c.status === 'failed').length || 0;
-  let newCount = comparisons?.filter(c => c.status === 'new').length || 0;
-  let passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+  const total = comparisons?.length || 0;
+  const passed = comparisons?.filter(c => c.status === 'passed').length || 0;
+  const failed = comparisons?.filter(c => c.status === 'failed').length || 0;
+  const newCount = comparisons?.filter(c => c.status === 'new').length || 0;
+  const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 
   // Check if there are any changes to accept
-  let hasChanges = comparisons?.some(
+  const hasChanges = comparisons?.some(
     c => c.status === 'failed' || c.status === 'new'
   );
 
-  let handleAcceptAll = useCallback(async () => {
-    let confirmed = await confirm(
+  const handleAcceptAll = useCallback(async () => {
+    const confirmed = await confirm(
       'This will update all failed and new screenshots.',
       'Accept all changes as new baselines?'
     );
@@ -92,8 +92,8 @@ export default function StatsView() {
     });
   }, [acceptAllMutation, addToast, confirm]);
 
-  let handleReset = useCallback(async () => {
-    let confirmed = await confirm(
+  const handleReset = useCallback(async () => {
+    const confirmed = await confirm(
       'This will delete all baseline images and clear comparison history.',
       'Reset all baselines?'
     );

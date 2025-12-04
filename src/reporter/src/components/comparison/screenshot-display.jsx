@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { ToggleView } from './comparison-modes/toggle-view.jsx';
-import { OverlayMode } from './comparison-modes/overlay-mode.jsx';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { OnionSkinMode } from './comparison-modes/onion-skin-mode.jsx';
+import { OverlayMode } from './comparison-modes/overlay-mode.jsx';
+import { ToggleView } from './comparison-modes/toggle-view.jsx';
 
 /**
  * Unified Screenshot Display Component - matches Observatory architecture
@@ -22,21 +22,21 @@ export function ScreenshotDisplay({
   zoom = 'fit',
   className = '',
 }) {
-  let [imageErrors, setImageErrors] = useState(new Set());
-  let [imageLoadStates, setImageLoadStates] = useState(new Map());
-  let [fitScale, setFitScale] = useState(1);
-  let [naturalImageSize, setNaturalImageSize] = useState({
+  const [imageErrors, setImageErrors] = useState(new Set());
+  const [imageLoadStates, setImageLoadStates] = useState(new Map());
+  const [fitScale, setFitScale] = useState(1);
+  const [naturalImageSize, setNaturalImageSize] = useState({
     width: 0,
     height: 0,
   });
-  let screenshotContainerRef = useRef(null);
-  let zoomWrapperRef = useRef(null);
+  const screenshotContainerRef = useRef(null);
+  const zoomWrapperRef = useRef(null);
 
   // Calculate fit scale and track natural image size for zoom overflow
   useEffect(() => {
-    let calculateScales = () => {
-      let container = screenshotContainerRef.current;
-      let image = container?.querySelector('img');
+    const calculateScales = () => {
+      const container = screenshotContainerRef.current;
+      const image = container?.querySelector('img');
 
       if (!container || !image || !image.naturalWidth) return;
 
@@ -46,17 +46,17 @@ export function ScreenshotDisplay({
         height: image.naturalHeight,
       });
 
-      let containerRect = container.getBoundingClientRect();
-      let padding = 40; // Padding around the image
+      const containerRect = container.getBoundingClientRect();
+      const padding = 40; // Padding around the image
 
-      let availableWidth = containerRect.width - padding;
-      let availableHeight = containerRect.height - padding;
+      const availableWidth = containerRect.width - padding;
+      const availableHeight = containerRect.height - padding;
 
-      let scaleX = availableWidth / image.naturalWidth;
-      let scaleY = availableHeight / image.naturalHeight;
+      const scaleX = availableWidth / image.naturalWidth;
+      const scaleY = availableHeight / image.naturalHeight;
 
       // Use the smaller scale to fit both dimensions
-      let newScale = Math.min(scaleX, scaleY, 1); // Cap at 1 to not enlarge small images
+      const newScale = Math.min(scaleX, scaleY, 1); // Cap at 1 to not enlarge small images
 
       setFitScale(newScale);
     };
@@ -64,29 +64,34 @@ export function ScreenshotDisplay({
     // Calculate on mount and when container resizes
     calculateScales();
 
-    let resizeObserver = new window.ResizeObserver(calculateScales);
+    const resizeObserver = new window.ResizeObserver(calculateScales);
     if (screenshotContainerRef.current) {
       resizeObserver.observe(screenshotContainerRef.current);
     }
 
     // Also recalculate when images load
-    let images = screenshotContainerRef.current?.querySelectorAll('img') || [];
-    images.forEach(img => img.addEventListener('load', calculateScales));
+    const images =
+      screenshotContainerRef.current?.querySelectorAll('img') || [];
+    for (let img of images) {
+      img.addEventListener('load', calculateScales);
+    }
 
     return () => {
       resizeObserver.disconnect();
-      images.forEach(img => img.removeEventListener('load', calculateScales));
+      for (let img of images) {
+        img.removeEventListener('load', calculateScales);
+      }
     };
-  }, [imageLoadStates]);
+  }, []);
 
   // Calculate zoom settings
   // Fit mode: calculates scale to fit image in viewport
   // Zoom mode: uses specified scale, with scroll panning for oversized images
-  let zoomSettings = useMemo(() => {
-    let isFit = zoom === 'fit';
-    let scale = isFit ? fitScale : typeof zoom === 'number' ? zoom : 1;
+  const zoomSettings = useMemo(() => {
+    const isFit = zoom === 'fit';
+    const scale = isFit ? fitScale : typeof zoom === 'number' ? zoom : 1;
     // When zoomed beyond fit scale, allow the image to overflow and be scrollable
-    let allowsOverflow = !isFit && scale > fitScale;
+    const allowsOverflow = !isFit && scale > fitScale;
 
     return {
       isFit,
@@ -98,17 +103,17 @@ export function ScreenshotDisplay({
   }, [zoom, fitScale]);
 
   // Handle image loading errors
-  let handleImageError = useCallback(imageKey => {
+  const handleImageError = useCallback(imageKey => {
     setImageErrors(prev => new Set([...prev, imageKey]));
   }, []);
 
   // Handle image load success
-  let handleImageLoad = useCallback(imageKey => {
+  const handleImageLoad = useCallback(imageKey => {
     setImageLoadStates(prev => new Map(prev).set(imageKey, 'loaded'));
   }, []);
 
   // Build image URLs from comparison object - no memoization needed, object creation is cheap
-  let imageUrls = comparison
+  const imageUrls = comparison
     ? {
         current: comparison.current,
         baseline: comparison.baseline,
@@ -117,7 +122,7 @@ export function ScreenshotDisplay({
     : {};
 
   // Create a screenshot-like object for the comparison modes
-  let screenshot = useMemo(() => {
+  const screenshot = useMemo(() => {
     if (!comparison) return null;
     return {
       id: comparison.id || comparison.signature || 'unknown',

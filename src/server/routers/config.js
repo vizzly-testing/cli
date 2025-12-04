@@ -3,13 +3,13 @@
  * Handles configuration management endpoints
  */
 
+import * as output from '../../utils/output.js';
 import { parseJsonBody } from '../middleware/json-parser.js';
 import {
-  sendSuccess,
   sendError,
   sendServiceUnavailable,
+  sendSuccess,
 } from '../middleware/response.js';
-import * as output from '../../utils/output.js';
 
 /**
  * Create config router
@@ -28,7 +28,7 @@ export function createConfigRouter({ configService }) {
     // Get merged config with sources
     if (req.method === 'GET' && pathname === '/api/config') {
       try {
-        let configData = await configService.getConfig('merged');
+        const configData = await configService.getConfig('merged');
         sendSuccess(res, configData);
         return true;
       } catch (error) {
@@ -41,7 +41,7 @@ export function createConfigRouter({ configService }) {
     // Get project-level config
     if (req.method === 'GET' && pathname === '/api/config/project') {
       try {
-        let configData = await configService.getConfig('project');
+        const configData = await configService.getConfig('project');
         sendSuccess(res, configData);
         return true;
       } catch (error) {
@@ -56,7 +56,7 @@ export function createConfigRouter({ configService }) {
     // Get global config
     if (req.method === 'GET' && pathname === '/api/config/global') {
       try {
-        let configData = await configService.getConfig('global');
+        const configData = await configService.getConfig('global');
         sendSuccess(res, configData);
         return true;
       } catch (error) {
@@ -69,8 +69,8 @@ export function createConfigRouter({ configService }) {
     // Update project config
     if (req.method === 'POST' && pathname === '/api/config/project') {
       try {
-        let body = await parseJsonBody(req);
-        let result = await configService.updateConfig('project', body);
+        const body = await parseJsonBody(req);
+        const result = await configService.updateConfig('project', body);
         sendSuccess(res, { success: true, ...result });
         return true;
       } catch (error) {
@@ -85,8 +85,8 @@ export function createConfigRouter({ configService }) {
     // Update global config
     if (req.method === 'POST' && pathname === '/api/config/global') {
       try {
-        let body = await parseJsonBody(req);
-        let result = await configService.updateConfig('global', body);
+        const body = await parseJsonBody(req);
+        const result = await configService.updateConfig('global', body);
         sendSuccess(res, { success: true, ...result });
         return true;
       } catch (error) {
@@ -99,8 +99,8 @@ export function createConfigRouter({ configService }) {
     // Validate config
     if (req.method === 'POST' && pathname === '/api/config/validate') {
       try {
-        let body = await parseJsonBody(req);
-        let result = await configService.validateConfig(body);
+        const body = await parseJsonBody(req);
+        const result = await configService.validateConfig(body);
         sendSuccess(res, result);
         return true;
       } catch (error) {

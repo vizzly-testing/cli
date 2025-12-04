@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LocalTDDProvider } from '../../claude-plugin/mcp/vizzly-server/local-tdd-provider.js';
-import { join } from 'path';
-import { mkdtemp, writeFile, mkdir, rm } from 'fs/promises';
-import { tmpdir } from 'os';
 
 describe('LocalTDDProvider', () => {
   let provider;
@@ -28,7 +28,7 @@ describe('LocalTDDProvider', () => {
   describe('getTDDStatus', () => {
     beforeEach(async () => {
       // Create mock server.json
-      let serverInfo = {
+      const serverInfo = {
         port: 47392,
         pid: process.pid,
         started: new Date().toISOString(),
@@ -39,7 +39,7 @@ describe('LocalTDDProvider', () => {
       );
 
       // Create mock report-data.json
-      let reportData = {
+      const reportData = {
         comparisons: [
           {
             id: 'test1',
@@ -80,7 +80,7 @@ describe('LocalTDDProvider', () => {
     });
 
     it('returns summary mode by default (no comparison details)', async () => {
-      let status = await provider.getTDDStatus(testDir);
+      const status = await provider.getTDDStatus(testDir);
 
       expect(status.error).toBeUndefined();
       expect(status.summary).toEqual({
@@ -96,7 +96,7 @@ describe('LocalTDDProvider', () => {
     });
 
     it('returns all comparisons when statusFilter is "all"', async () => {
-      let status = await provider.getTDDStatus(testDir, 'all');
+      const status = await provider.getTDDStatus(testDir, 'all');
 
       expect(status.error).toBeUndefined();
       expect(status.comparisons).toHaveLength(3);
@@ -113,7 +113,7 @@ describe('LocalTDDProvider', () => {
     });
 
     it('filters comparisons by "failed" status', async () => {
-      let status = await provider.getTDDStatus(testDir, 'failed');
+      const status = await provider.getTDDStatus(testDir, 'failed');
 
       expect(status.error).toBeUndefined();
       expect(status.comparisons).toHaveLength(1);
@@ -124,7 +124,7 @@ describe('LocalTDDProvider', () => {
     });
 
     it('filters comparisons by "new" status', async () => {
-      let status = await provider.getTDDStatus(testDir, 'new');
+      const status = await provider.getTDDStatus(testDir, 'new');
 
       expect(status.error).toBeUndefined();
       expect(status.comparisons).toHaveLength(1);
@@ -135,7 +135,7 @@ describe('LocalTDDProvider', () => {
     });
 
     it('filters comparisons by "passed" status', async () => {
-      let status = await provider.getTDDStatus(testDir, 'passed');
+      const status = await provider.getTDDStatus(testDir, 'passed');
 
       expect(status.error).toBeUndefined();
       expect(status.comparisons).toHaveLength(1);
@@ -146,7 +146,7 @@ describe('LocalTDDProvider', () => {
     });
 
     it('limits number of comparisons returned', async () => {
-      let status = await provider.getTDDStatus(testDir, 'all', 2);
+      const status = await provider.getTDDStatus(testDir, 'all', 2);
 
       expect(status.error).toBeUndefined();
       expect(status.comparisons).toHaveLength(2);
@@ -155,7 +155,7 @@ describe('LocalTDDProvider', () => {
 
     it('combines statusFilter and limit', async () => {
       // Add more failed comparisons to test
-      let reportData = {
+      const reportData = {
         comparisons: [
           {
             id: 'test1',
@@ -204,7 +204,7 @@ describe('LocalTDDProvider', () => {
         JSON.stringify(reportData, null, 2)
       );
 
-      let status = await provider.getTDDStatus(testDir, 'failed', 2);
+      const status = await provider.getTDDStatus(testDir, 'failed', 2);
 
       expect(status.error).toBeUndefined();
       expect(status.comparisons).toHaveLength(2);
@@ -212,14 +212,14 @@ describe('LocalTDDProvider', () => {
     });
 
     it('returns error when .vizzly directory not found', async () => {
-      let nonExistentDir = join(tmpdir(), 'non-existent-' + Date.now());
-      let status = await provider.getTDDStatus(nonExistentDir);
+      const nonExistentDir = join(tmpdir(), `non-existent-${Date.now()}`);
+      const status = await provider.getTDDStatus(nonExistentDir);
 
       expect(status.error).toBe('No .vizzly directory found');
     });
 
     it('converts report paths to filesystem paths correctly', async () => {
-      let status = await provider.getTDDStatus(testDir, 'failed');
+      const status = await provider.getTDDStatus(testDir, 'failed');
 
       expect(status.comparisons[0].currentPath).toBe(
         join(vizzlyDir, 'current', 'screenshot1.png')
@@ -236,7 +236,7 @@ describe('LocalTDDProvider', () => {
   describe('getComparisonDetails', () => {
     beforeEach(async () => {
       // Create mock server.json
-      let serverInfo = {
+      const serverInfo = {
         port: 47392,
         pid: process.pid,
         started: new Date().toISOString(),
@@ -247,7 +247,7 @@ describe('LocalTDDProvider', () => {
       );
 
       // Create mock report-data.json
-      let reportData = {
+      const reportData = {
         comparisons: [
           {
             id: 'test1',
@@ -268,7 +268,10 @@ describe('LocalTDDProvider', () => {
     });
 
     it('returns detailed comparison information', async () => {
-      let details = await provider.getComparisonDetails('screenshot1', testDir);
+      const details = await provider.getComparisonDetails(
+        'screenshot1',
+        testDir
+      );
 
       expect(details.error).toBeUndefined();
       expect(details).toMatchObject({
@@ -281,7 +284,10 @@ describe('LocalTDDProvider', () => {
     });
 
     it('returns error when screenshot not found', async () => {
-      let details = await provider.getComparisonDetails('nonexistent', testDir);
+      const details = await provider.getComparisonDetails(
+        'nonexistent',
+        testDir
+      );
 
       expect(details.error).toBe('Screenshot "nonexistent" not found');
     });
@@ -290,7 +296,7 @@ describe('LocalTDDProvider', () => {
   describe('acceptBaseline', () => {
     beforeEach(async () => {
       // Create mock server.json
-      let serverInfo = {
+      const serverInfo = {
         port: 47392,
         pid: process.pid,
         started: new Date().toISOString(),
@@ -301,7 +307,7 @@ describe('LocalTDDProvider', () => {
       );
 
       // Create mock current screenshot
-      let mockImageBuffer = Buffer.from('fake-png-data');
+      const mockImageBuffer = Buffer.from('fake-png-data');
       await writeFile(
         join(vizzlyDir, 'current', 'screenshot1.png'),
         mockImageBuffer
@@ -309,14 +315,14 @@ describe('LocalTDDProvider', () => {
     });
 
     it('copies current screenshot to baselines directory', async () => {
-      let result = await provider.acceptBaseline('screenshot1', testDir);
+      const result = await provider.acceptBaseline('screenshot1', testDir);
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('Accepted screenshot1 as new baseline');
     });
 
     it('returns error when .vizzly directory not found', async () => {
-      let nonExistentDir = join(tmpdir(), 'non-existent-' + Date.now());
+      const nonExistentDir = join(tmpdir(), `non-existent-${Date.now()}`);
 
       await expect(
         provider.acceptBaseline('screenshot1', nonExistentDir)

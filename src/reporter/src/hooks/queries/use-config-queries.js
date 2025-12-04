@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { config } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 
@@ -27,7 +27,7 @@ export function useGlobalConfig(options = {}) {
 }
 
 export function useUpdateProjectConfig() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: config.updateProject,
     onSuccess: () => {
@@ -37,7 +37,7 @@ export function useUpdateProjectConfig() {
 }
 
 export function useUpdateGlobalConfig() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: config.updateGlobal,
     onSuccess: () => {

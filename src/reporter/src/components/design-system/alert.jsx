@@ -8,12 +8,12 @@
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  XCircleIcon,
   InformationCircleIcon,
+  XCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 
-let variantConfig = {
+const variantConfig = {
   success: {
     icon: CheckCircleIcon,
     bg: 'bg-emerald-500/10',
@@ -53,8 +53,8 @@ export function Alert({
   onDismiss,
   className = '',
 }) {
-  let config = variantConfig[variant];
-  let Icon = CustomIcon || config.icon;
+  const config = variantConfig[variant];
+  const Icon = CustomIcon || config.icon;
 
   return (
     <div
@@ -79,6 +79,7 @@ export function Alert({
         </div>
         {dismissible && onDismiss && (
           <button
+            type="button"
             onClick={onDismiss}
             className="flex-shrink-0 text-slate-500 hover:text-slate-300 transition-colors"
           >

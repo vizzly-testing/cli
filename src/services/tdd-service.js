@@ -1,21 +1,20 @@
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import crypto from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { compare } from '@vizzly-testing/honeydiff';
-import crypto from 'crypto';
-
-import { ApiService } from '../services/api-service.js';
-import * as output from '../utils/output.js';
-import { colors } from '../utils/colors.js';
-import { getDefaultBranch } from '../utils/git.js';
-import { fetchWithTimeout } from '../utils/fetch-utils.js';
 import { NetworkError } from '../errors/vizzly-error.js';
-import { HtmlReportGenerator } from './html-report-generator.js';
+import { ApiService } from '../services/api-service.js';
+import { colors } from '../utils/colors.js';
+import { fetchWithTimeout } from '../utils/fetch-utils.js';
+import { getDefaultBranch } from '../utils/git.js';
+import * as output from '../utils/output.js';
 import {
+  safePath,
   sanitizeScreenshotName,
   validatePathSecurity,
-  safePath,
   validateScreenshotProperties,
 } from '../utils/security.js';
+import { HtmlReportGenerator } from './html-report-generator.js';
 
 /**
  * Generate a screenshot signature for baseline matching
@@ -37,7 +36,7 @@ function generateScreenshotSignature(
   properties = {},
   customProperties = []
 ) {
-  let parts = [name];
+  const parts = [name];
 
   // Check for viewport_width as top-level property first (backend format)
   let viewportWidth = properties.viewport_width;
@@ -58,12 +57,12 @@ function generateScreenshotSignature(
   }
 
   // Add custom properties in order (matches cloud screenshot-identity.js behavior)
-  for (let propName of customProperties) {
+  for (const propName of customProperties) {
     // Check multiple locations where property might exist:
     // 1. Top-level property (e.g., properties.device)
     // 2. In metadata object (e.g., properties.metadata.device)
     // 3. In nested metadata.properties (e.g., properties.metadata.properties.device)
-    let value =
+    const value =
       properties[propName] ??
       properties.metadata?.[propName] ??
       properties.metadata?.properties?.[propName] ??
@@ -256,7 +255,7 @@ export class TddService {
         }
 
         // The original_url might be in baseline_screenshot.original_url or comparison.baseline_screenshot_url
-        let baselineUrl =
+        const baselineUrl =
           comparison.baseline_screenshot.original_url ||
           comparison.baseline_screenshot_url;
 
@@ -270,7 +269,7 @@ export class TddService {
         // The baseline should use the same properties (viewport/browser) as the current screenshot
         // so that generateScreenshotSignature produces the correct filename
         // Use current screenshot properties since we're downloading baseline to compare against current
-        let screenshotProperties = {};
+        const screenshotProperties = {};
 
         // Build properties from comparison API fields (added in backend update)
         // Use current_* fields since we're matching against the current screenshot being tested
@@ -400,17 +399,17 @@ export class TddService {
         // Generate signature for baseline matching (same as compareScreenshot)
         // Build properties object with top-level viewport_width and browser
         // These are returned as top-level fields from the API, not inside metadata
-        let properties = validateScreenshotProperties({
+        const properties = validateScreenshotProperties({
           viewport_width: screenshot.viewport_width,
           browser: screenshot.browser,
           ...(screenshot.metadata || screenshot.properties || {}),
         });
-        let signature = generateScreenshotSignature(
+        const signature = generateScreenshotSignature(
           sanitizedName,
           properties,
           this.signatureProperties
         );
-        let filename = signatureToFilename(signature);
+        const filename = signatureToFilename(signature);
 
         const imagePath = safePath(this.baselinePath, `${filename}.png`);
 
@@ -561,17 +560,17 @@ export class TddService {
 
             // Build properties object with top-level viewport_width and browser
             // These are returned as top-level fields from the API, not inside metadata
-            let properties = validateScreenshotProperties({
+            const properties = validateScreenshotProperties({
               viewport_width: s.viewport_width,
               browser: s.browser,
               ...(s.metadata || s.properties || {}),
             });
-            let signature = generateScreenshotSignature(
+            const signature = generateScreenshotSignature(
               sanitizedName,
               properties,
               this.signatureProperties
             );
-            let filename = signatureToFilename(signature);
+            const filename = signatureToFilename(signature);
 
             return {
               name: sanitizedName,
@@ -670,7 +669,7 @@ export class TddService {
 
     try {
       // Get unique screenshot names
-      let screenshotNames = [...new Set(screenshots.map(s => s.name))];
+      const screenshotNames = [...new Set(screenshots.map(s => s.name))];
 
       if (screenshotNames.length === 0) {
         return;
@@ -681,7 +680,7 @@ export class TddService {
       );
 
       // Use batch endpoint for efficiency
-      let response = await this.api.getBatchHotspots(screenshotNames);
+      const response = await this.api.getBatchHotspots(screenshotNames);
 
       if (!response.hotspots || Object.keys(response.hotspots).length === 0) {
         output.debug('tdd', 'No hotspot data available from cloud');
@@ -691,7 +690,11 @@ export class TddService {
       // Store hotspots in a separate file for easy access during comparisons
       this.hotspotData = response.hotspots;
 
-      let hotspotsPath = safePath(this.workingDir, '.vizzly', 'hotspots.json');
+      const hotspotsPath = safePath(
+        this.workingDir,
+        '.vizzly',
+        'hotspots.json'
+      );
       writeFileSync(
         hotspotsPath,
         JSON.stringify(
@@ -705,8 +708,8 @@ export class TddService {
         )
       );
 
-      let hotspotCount = Object.keys(response.hotspots).length;
-      let totalRegions = Object.values(response.hotspots).reduce(
+      const hotspotCount = Object.keys(response.hotspots).length;
+      const totalRegions = Object.values(response.hotspots).reduce(
         (sum, h) => sum + (h.regions?.length || 0),
         0
       );
@@ -729,11 +732,15 @@ export class TddService {
    */
   loadHotspots() {
     try {
-      let hotspotsPath = safePath(this.workingDir, '.vizzly', 'hotspots.json');
+      const hotspotsPath = safePath(
+        this.workingDir,
+        '.vizzly',
+        'hotspots.json'
+      );
       if (!existsSync(hotspotsPath)) {
         return null;
       }
-      let data = JSON.parse(readFileSync(hotspotsPath, 'utf8'));
+      const data = JSON.parse(readFileSync(hotspotsPath, 'utf8'));
       return data.hotspots || null;
     } catch (error) {
       output.debug('tdd', `Failed to load hotspots: ${error.message}`);
@@ -748,7 +755,7 @@ export class TddService {
    */
   getHotspotForScreenshot(screenshotName) {
     // Check memory cache first
-    if (this.hotspotData && this.hotspotData[screenshotName]) {
+    if (this.hotspotData?.[screenshotName]) {
       return this.hotspotData[screenshotName];
     }
 
@@ -783,9 +790,9 @@ export class TddService {
     // Extract Y-coordinates (diff lines) from clusters
     // Each cluster has a boundingBox with y and height
     let diffLines = [];
-    for (let cluster of diffClusters) {
+    for (const cluster of diffClusters) {
       if (cluster.boundingBox) {
-        let { y, height } = cluster.boundingBox;
+        const { y, height } = cluster.boundingBox;
         // Add all Y lines covered by this cluster
         for (let line = y; line < y + height; line++) {
           diffLines.push(line);
@@ -802,8 +809,8 @@ export class TddService {
 
     // Check how many diff lines fall within hotspot regions
     let linesInHotspots = 0;
-    for (let line of diffLines) {
-      let inHotspot = hotspotAnalysis.regions.some(
+    for (const line of diffLines) {
+      const inHotspot = hotspotAnalysis.regions.some(
         region => line >= region.y1 && line <= region.y2
       );
       if (inHotspot) {
@@ -811,7 +818,7 @@ export class TddService {
       }
     }
 
-    let coverage = linesInHotspots / diffLines.length;
+    const coverage = linesInHotspots / diffLines.length;
 
     return {
       coverage,
@@ -839,14 +846,14 @@ export class TddService {
 
     try {
       // Fetch build with screenshots via OAuth endpoint
-      let endpoint = `/api/build/${projectSlug}/${buildId}/tdd-baselines`;
+      const endpoint = `/api/build/${projectSlug}/${buildId}/tdd-baselines`;
 
-      let response = await authService.authenticatedRequest(endpoint, {
+      const response = await authService.authenticatedRequest(endpoint, {
         method: 'GET',
         headers: { 'X-Organization': organizationSlug },
       });
 
-      let { build, screenshots, signatureProperties } = response;
+      const { build, screenshots, signatureProperties } = response;
 
       // Extract signature properties from API response (for variant support)
       if (signatureProperties && Array.isArray(signatureProperties)) {
@@ -871,8 +878,8 @@ export class TddService {
       );
 
       // Load existing baseline metadata for SHA comparison
-      let existingBaseline = await this.loadBaseline();
-      let existingShaMap = new Map();
+      const existingBaseline = await this.loadBaseline();
+      const existingShaMap = new Map();
       if (existingBaseline) {
         existingBaseline.screenshots.forEach(s => {
           if (s.sha256 && s.signature) {
@@ -885,9 +892,9 @@ export class TddService {
       let downloadedCount = 0;
       let skippedCount = 0;
       let errorCount = 0;
-      let downloadedScreenshots = [];
+      const downloadedScreenshots = [];
 
-      for (let screenshot of screenshots) {
+      for (const screenshot of screenshots) {
         let sanitizedName;
         try {
           sanitizedName = sanitizeScreenshotName(screenshot.name);
@@ -901,18 +908,18 @@ export class TddService {
 
         // Build properties object with top-level viewport_width and browser
         // These are returned as top-level fields from the API, not inside metadata
-        let properties = validateScreenshotProperties({
+        const properties = validateScreenshotProperties({
           viewport_width: screenshot.viewport_width,
           browser: screenshot.browser,
           ...screenshot.metadata,
         });
-        let signature = generateScreenshotSignature(
+        const signature = generateScreenshotSignature(
           sanitizedName,
           properties,
           this.signatureProperties
         );
-        let filename = signatureToFilename(signature);
-        let filePath = safePath(this.baselinePath, `${filename}.png`);
+        const filename = signatureToFilename(signature);
+        const filePath = safePath(this.baselinePath, `${filename}.png`);
 
         // Check if we can skip via SHA comparison
         if (
@@ -931,7 +938,7 @@ export class TddService {
         }
 
         // Download the screenshot
-        let downloadUrl = screenshot.original_url;
+        const downloadUrl = screenshot.original_url;
         if (!downloadUrl) {
           output.warn(`⚠️  No download URL for screenshot: ${sanitizedName}`);
           errorCount++;
@@ -939,15 +946,15 @@ export class TddService {
         }
 
         try {
-          let imageResponse = await fetchWithTimeout(downloadUrl, {}, 30000);
+          const imageResponse = await fetchWithTimeout(downloadUrl, {}, 30000);
           if (!imageResponse.ok) {
             throw new Error(`HTTP ${imageResponse.status}`);
           }
 
-          let imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+          const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
           // Calculate SHA256 of downloaded content
-          let sha256 = crypto
+          const sha256 = crypto
             .createHash('sha256')
             .update(imageBuffer)
             .digest('hex');
@@ -981,11 +988,11 @@ export class TddService {
         screenshots: downloadedScreenshots,
       };
 
-      let metadataPath = join(this.baselinePath, 'metadata.json');
+      const metadataPath = join(this.baselinePath, 'metadata.json');
       writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
 
       // Save baseline build metadata
-      let baselineMetadataPath = safePath(
+      const baselineMetadataPath = safePath(
         this.workingDir,
         '.vizzly',
         'baseline-metadata.json'
@@ -1256,7 +1263,7 @@ export class TddService {
         return comparison;
       } else {
         // Images differ - check if differences are in known hotspot regions
-        let hotspotAnalysis = this.getHotspotForScreenshot(name);
+        const hotspotAnalysis = this.getHotspotForScreenshot(name);
         let hotspotCoverage = null;
         let isHotspotFiltered = false;
 
@@ -1273,7 +1280,7 @@ export class TddService {
           // Consider it filtered if:
           // 1. High confidence hotspot data (score >= 70)
           // 2. 80%+ of the diff is within hotspot regions
-          let isHighConfidence =
+          const isHighConfidence =
             hotspotAnalysis.confidence === 'high' ||
             (hotspotAnalysis.confidence_score &&
               hotspotAnalysis.confidence_score >= 70);
@@ -1350,8 +1357,9 @@ export class TddService {
       }
     } catch (error) {
       // Check if error is due to dimension mismatch
-      const isDimensionMismatch =
-        error.message && error.message.includes("Image dimensions don't match");
+      const isDimensionMismatch = error.message?.includes(
+        "Image dimensions don't match"
+      );
 
       if (isDimensionMismatch) {
         // Different dimensions = different screenshot signature
@@ -1518,7 +1526,7 @@ export class TddService {
 
       // Show report path (always clickable)
       output.info(
-        `\n🐻 View detailed report: ${colors.cyan('file://' + reportPath)}`
+        `\n🐻 View detailed report: ${colors.cyan(`file://${reportPath}`)}`
       );
 
       // Auto-open if configured
@@ -1538,8 +1546,8 @@ export class TddService {
    */
   async openReport(reportPath) {
     try {
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
+      const { exec } = await import('node:child_process');
+      const { promisify } = await import('node:util');
       const execAsync = promisify(exec);
 
       let command;
@@ -1605,15 +1613,15 @@ export class TddService {
         continue;
       }
 
-      let validatedProperties = validateScreenshotProperties(
+      const validatedProperties = validateScreenshotProperties(
         comparison.properties || {}
       );
-      let signature = generateScreenshotSignature(
+      const signature = generateScreenshotSignature(
         sanitizedName,
         validatedProperties,
         this.signatureProperties
       );
-      let filename = signatureToFilename(signature);
+      const filename = signatureToFilename(signature);
 
       const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
 
@@ -1691,7 +1699,7 @@ export class TddService {
     }
 
     // Generate signature for this screenshot
-    let signature = generateScreenshotSignature(
+    const signature = generateScreenshotSignature(
       name,
       properties || {},
       this.signatureProperties
@@ -1763,7 +1771,7 @@ export class TddService {
     }
 
     // Generate signature for this screenshot
-    let signature = generateScreenshotSignature(
+    const signature = generateScreenshotSignature(
       name,
       properties || {},
       this.signatureProperties
@@ -1828,13 +1836,13 @@ export class TddService {
 
     const sanitizedName = comparison.name;
 
-    let properties = comparison.properties || {};
-    let signature = generateScreenshotSignature(
+    const properties = comparison.properties || {};
+    const signature = generateScreenshotSignature(
       sanitizedName,
       properties,
       this.signatureProperties
     );
-    let filename = signatureToFilename(signature);
+    const filename = signatureToFilename(signature);
 
     // Find the current screenshot file
     const currentImagePath = safePath(this.currentPath, `${filename}.png`);

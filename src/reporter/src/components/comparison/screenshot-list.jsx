@@ -15,7 +15,7 @@ function getComparisonId(comparison) {
  * Status indicator dot with appropriate color
  */
 function StatusDot({ status }) {
-  let colors = {
+  const colors = {
     failed: 'bg-red-500',
     passed: 'bg-emerald-500',
     new: 'bg-blue-500',
@@ -72,17 +72,18 @@ function getViewport(comparison) {
  * Individual screenshot row - clickable to open fullscreen viewer
  */
 function ScreenshotRow({ comparison, onClick, userAction }) {
-  let viewport = getViewport(comparison);
-  let browser = comparison.properties?.browser;
-  let isFailed = comparison.status === 'failed';
-  let isNew =
+  const viewport = getViewport(comparison);
+  const browser = comparison.properties?.browser;
+  const isFailed = comparison.status === 'failed';
+  const isNew =
     comparison.status === 'new' || comparison.status === 'baseline-created';
 
   // Choose the best image to show as thumbnail
-  let thumbnailSrc = comparison.current || comparison.baseline;
+  const thumbnailSrc = comparison.current || comparison.baseline;
 
   return (
     <button
+      type="button"
       onClick={() => onClick(comparison)}
       className={`
         w-full flex items-center gap-3 md:gap-4 p-3 md:p-4
@@ -112,6 +113,7 @@ function ScreenshotRow({ comparison, onClick, userAction }) {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -177,6 +179,7 @@ function ScreenshotRow({ comparison, onClick, userAction }) {
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -210,7 +213,7 @@ export default function ScreenshotList({
   return (
     <div className="space-y-2">
       {comparisons.map(comparison => {
-        let stableId = getComparisonId(comparison);
+        const stableId = getComparisonId(comparison);
         return (
           <ScreenshotRow
             key={stableId}

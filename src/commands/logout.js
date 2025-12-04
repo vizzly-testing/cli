@@ -3,10 +3,10 @@
  * Clears stored authentication tokens
  */
 
-import * as output from '../utils/output.js';
 import { AuthService } from '../services/auth-service.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import { getAuthTokens } from '../utils/global-config.js';
+import * as output from '../utils/output.js';
 
 /**
  * Logout command implementation
@@ -22,7 +22,7 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
 
   try {
     // Check if user is logged in
-    let auth = await getAuthTokens();
+    const auth = await getAuthTokens();
 
     if (!auth || !auth.accessToken) {
       output.info('You are not logged in');
@@ -33,7 +33,7 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
     // Logout
     output.startSpinner('Logging out...');
 
-    let authService = new AuthService({
+    const authService = new AuthService({
       baseUrl: options.apiUrl || getApiUrl(),
     });
 
@@ -63,7 +63,7 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
  * @param {Object} options - Command options
  */
 export function validateLogoutOptions() {
-  let errors = [];
+  const errors = [];
 
   // No specific validation needed for logout command
 

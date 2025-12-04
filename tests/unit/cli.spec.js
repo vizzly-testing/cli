@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('CLI Module Import', () => {
   it('should import cli.js without errors', async () => {

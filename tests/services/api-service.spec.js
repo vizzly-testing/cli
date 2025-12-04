@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ApiService } from '../../src/services/api-service.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VizzlyError } from '../../src/errors/vizzly-error.js';
+import { ApiService } from '../../src/services/api-service.js';
+
 // Mock global fetch
 global.fetch = vi.fn();
 
@@ -86,7 +87,7 @@ describe('ApiService', () => {
       const buildId = 'build123';
       const name = 'test-screenshot';
       const buffer = Buffer.from('fake-image-data', 'base64');
-      const sha256 = require('crypto')
+      const sha256 = require('node:crypto')
         .createHash('sha256')
         .update(buffer)
         .digest('hex');
@@ -158,7 +159,7 @@ describe('ApiService', () => {
       const buildId = 'build123';
       const name = 'test-screenshot';
       const buffer = Buffer.from('fake-image-data', 'base64');
-      const sha256 = require('crypto')
+      const sha256 = require('node:crypto')
         .createHash('sha256')
         .update(buffer)
         .digest('hex');
@@ -215,7 +216,7 @@ describe('ApiService', () => {
       const buildId = 'build123';
       const name = 'test-screenshot';
       const buffer = Buffer.from('fake-image-data', 'base64');
-      const sha256 = require('crypto')
+      const sha256 = require('node:crypto')
         .createHash('sha256')
         .update(buffer)
         .digest('hex');
@@ -494,8 +495,8 @@ describe('ApiService', () => {
 
   describe('getScreenshotHotspots', () => {
     it('should fetch hotspots for a single screenshot', async () => {
-      let service = new ApiService({ token: 'test-token' });
-      let mockResponse = {
+      const service = new ApiService({ token: 'test-token' });
+      const mockResponse = {
         hotspot_analysis: {
           regions: [
             { y1: 100, y2: 200 },
@@ -511,9 +512,9 @@ describe('ApiService', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      let result = await service.getScreenshotHotspots('homepage_desktop');
+      const result = await service.getScreenshotHotspots('homepage_desktop');
 
-      let url = global.fetch.mock.calls[0][0];
+      const url = global.fetch.mock.calls[0][0];
       expect(url).toBe(
         'https://app.vizzly.dev/api/sdk/screenshots/homepage_desktop/hotspots?windowSize=20'
       );
@@ -521,7 +522,7 @@ describe('ApiService', () => {
     });
 
     it('should URL-encode screenshot names with special characters', async () => {
-      let service = new ApiService({ token: 'test-token' });
+      const service = new ApiService({ token: 'test-token' });
 
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -530,12 +531,12 @@ describe('ApiService', () => {
 
       await service.getScreenshotHotspots('screenshot/with spaces&special');
 
-      let url = global.fetch.mock.calls[0][0];
+      const url = global.fetch.mock.calls[0][0];
       expect(url).toContain('screenshot%2Fwith%20spaces%26special');
     });
 
     it('should accept custom windowSize', async () => {
-      let service = new ApiService({ token: 'test-token' });
+      const service = new ApiService({ token: 'test-token' });
 
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -544,12 +545,12 @@ describe('ApiService', () => {
 
       await service.getScreenshotHotspots('test', { windowSize: 50 });
 
-      let url = global.fetch.mock.calls[0][0];
+      const url = global.fetch.mock.calls[0][0];
       expect(url).toContain('windowSize=50');
     });
 
     it('should handle API errors', async () => {
-      let service = new ApiService({ token: 'test-token' });
+      const service = new ApiService({ token: 'test-token' });
 
       global.fetch.mockResolvedValueOnce({
         ok: false,
@@ -565,9 +566,9 @@ describe('ApiService', () => {
 
   describe('getBatchHotspots', () => {
     it('should fetch hotspots for multiple screenshots', async () => {
-      let service = new ApiService({ token: 'test-token' });
-      let screenshotNames = ['homepage', 'dashboard', 'settings'];
-      let mockResponse = {
+      const service = new ApiService({ token: 'test-token' });
+      const screenshotNames = ['homepage', 'dashboard', 'settings'];
+      const mockResponse = {
         hotspots: {
           homepage: {
             regions: [{ y1: 100, y2: 200 }],
@@ -592,7 +593,7 @@ describe('ApiService', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      let result = await service.getBatchHotspots(screenshotNames);
+      const result = await service.getBatchHotspots(screenshotNames);
 
       expect(global.fetch).toHaveBeenCalledWith(
         'https://app.vizzly.dev/api/sdk/screenshots/hotspots',
@@ -612,7 +613,7 @@ describe('ApiService', () => {
     });
 
     it('should accept custom windowSize', async () => {
-      let service = new ApiService({ token: 'test-token' });
+      const service = new ApiService({ token: 'test-token' });
 
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -621,12 +622,12 @@ describe('ApiService', () => {
 
       await service.getBatchHotspots(['test'], { windowSize: 100 });
 
-      let requestBody = JSON.parse(global.fetch.mock.calls[0][1].body);
+      const requestBody = JSON.parse(global.fetch.mock.calls[0][1].body);
       expect(requestBody.windowSize).toBe(100);
     });
 
     it('should handle empty response', async () => {
-      let service = new ApiService({ token: 'test-token' });
+      const service = new ApiService({ token: 'test-token' });
 
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -641,13 +642,13 @@ describe('ApiService', () => {
           }),
       });
 
-      let result = await service.getBatchHotspots(['new-screenshot']);
+      const result = await service.getBatchHotspots(['new-screenshot']);
 
       expect(result.hotspots).toEqual({});
     });
 
     it('should handle API errors', async () => {
-      let service = new ApiService({ token: 'test-token' });
+      const service = new ApiService({ token: 'test-token' });
 
       global.fetch.mockResolvedValueOnce({
         ok: false,

@@ -42,10 +42,12 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run --config vitest.config.js",
     "test:e2e": "vitest run --config vitest.e2e.config.js",
-    "lint": "eslint src tests",
-    "lint:fix": "eslint src tests --fix",
-    "format": "prettier --write src tests",
-    "format:check": "prettier --check src tests",
+    "lint": "biome lint src tests",
+    "lint:fix": "biome lint --write src tests",
+    "format": "biome format --write src tests",
+    "format:check": "biome format src tests",
+    "check": "biome check src tests",
+    "check:fix": "biome check --write src tests",
     "prepublishOnly": "npm run lint && npm run test:unit"
   },
   "engines": {
@@ -61,14 +63,10 @@
     "vitest": ">=4.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
+    "@biomejs/biome": "^2.3.8",
     "@vitest/browser": "^4.0.0",
     "@vitest/browser-playwright": "^4.0.2",
-    "eslint": "^9.17.0",
-    "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-prettier": "^5.2.1",
     "playwright": "^1.49.1",
-    "prettier": "^3.4.2",
     "vitest": "^4.0.0"
   }
 }

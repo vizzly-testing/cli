@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as ciEnv from '../../src/utils/ci-env.js';
 import {
-  generateBuildName,
   detectBranch,
   detectCommit,
+  generateBuildName,
 } from '../../src/utils/git.js';
-import * as ciEnv from '../../src/utils/ci-env.js';
 
 describe('Git Utilities - Simple Tests', () => {
   let originalDateNow;

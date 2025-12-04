@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  detectImageInputType,
   isBase64,
   looksLikeFilePath,
-  detectImageInputType,
 } from '../../src/utils/image-input-detector.js';
 
 describe('Image Input Detector', () => {
@@ -25,7 +25,7 @@ describe('Image Input Detector', () => {
 
     it('should detect long base64 strings (typical PNG)', () => {
       // Typical base64 encoded PNG header
-      let longBase64 = Buffer.from('fake png data'.repeat(100)).toString(
+      const longBase64 = Buffer.from('fake png data'.repeat(100)).toString(
         'base64'
       );
       expect(isBase64(longBase64)).toBe(true);
@@ -206,7 +206,7 @@ describe('Image Input Detector', () => {
       });
 
       it('should detect long base64 strings', () => {
-        let longBase64 = Buffer.from('fake data'.repeat(1000)).toString(
+        const longBase64 = Buffer.from('fake data'.repeat(1000)).toString(
           'base64'
         );
         expect(detectImageInputType(longBase64)).toBe('base64');
@@ -217,7 +217,7 @@ describe('Image Input Detector', () => {
       it('should prioritize base64 detection over file paths', () => {
         // Base64 strings can contain / which might look like paths
         // They should be detected as base64, not file-path
-        let base64WithSlash = Buffer.from(
+        const base64WithSlash = Buffer.from(
           'test data with enough content to get a slash'
         ).toString('base64');
 
@@ -235,12 +235,12 @@ describe('Image Input Detector', () => {
 
       it('should handle base64 with forward slashes correctly', () => {
         // Real-world case: PNG screenshot as base64 often contains /
-        let pngBytes = Buffer.from([
+        const pngBytes = Buffer.from([
           0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00,
           0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x03, 0xe8, 0x00, 0x00,
           0x00, 0x4c,
         ]);
-        let base64 = pngBytes.toString('base64');
+        const base64 = pngBytes.toString('base64');
 
         // Should be detected as base64, not file-path (even though it might contain /)
         expect(detectImageInputType(base64)).toBe('base64');
@@ -276,7 +276,7 @@ describe('Image Input Detector', () => {
       });
 
       it('should handle typical Buffer.toString("base64") output', () => {
-        let buffer = Buffer.from('PNG image data here');
+        const buffer = Buffer.from('PNG image data here');
         expect(detectImageInputType(buffer.toString('base64'))).toBe('base64');
       });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchWithTimeout } from '../../src/utils/fetch-utils.js';
 
 // Mock global fetch
@@ -63,8 +63,8 @@ describe('fetchWithTimeout', () => {
 
   it('should abort fetch after specified timeout', async () => {
     // Make fetch hang but also listen for abort signal
-    global.fetch.mockImplementation((url, options) => {
-      return new Promise((resolve, reject) => {
+    global.fetch.mockImplementation((_url, options) => {
+      return new Promise((_resolve, reject) => {
         options.signal.addEventListener('abort', () => {
           reject(new Error('The operation was aborted'));
         });
@@ -151,7 +151,7 @@ describe('fetchWithTimeout', () => {
 
   it('should handle very short timeouts', async () => {
     // Make fetch respond to abort signal
-    global.fetch.mockImplementation((url, options) => {
+    global.fetch.mockImplementation((_url, options) => {
       return new Promise((resolve, reject) => {
         options.signal.addEventListener('abort', () => {
           reject(new Error('The operation was aborted'));

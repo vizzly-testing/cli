@@ -10,14 +10,14 @@
  * @description Full SDK for custom integrations and advanced usage
  */
 
-import { EventEmitter } from 'events';
-import { resolveImageBuffer } from '../utils/file-helpers.js';
-import { createUploader } from '../services/uploader.js';
-import { createTDDService } from '../services/tdd-service.js';
-import { ScreenshotServer } from '../services/screenshot-server.js';
-import { loadConfig } from '../utils/config-loader.js';
-import * as output from '../utils/output.js';
+import { EventEmitter } from 'node:events';
 import { VizzlyError } from '../errors/vizzly-error.js';
+import { ScreenshotServer } from '../services/screenshot-server.js';
+import { createTDDService } from '../services/tdd-service.js';
+import { createUploader } from '../services/uploader.js';
+import { loadConfig } from '../utils/config-loader.js';
+import { resolveImageBuffer } from '../utils/file-helpers.js';
+import * as output from '../utils/output.js';
 
 /**
  * Create a new Vizzly instance with custom configuration
@@ -59,13 +59,13 @@ export function createVizzly(config = {}, options = {}) {
   });
 
   // Merge with loaded config
-  let resolvedConfig = { ...config };
+  const resolvedConfig = { ...config };
 
   /**
    * Initialize SDK with config loading
    */
-  let init = async () => {
-    let fileConfig = await loadConfig();
+  const init = async () => {
+    const fileConfig = await loadConfig();
     Object.assign(resolvedConfig, fileConfig, config); // CLI config takes precedence
     return resolvedConfig;
   };
@@ -73,7 +73,7 @@ export function createVizzly(config = {}, options = {}) {
   /**
    * Create uploader service
    */
-  let createUploaderService = (uploaderOptions = {}) => {
+  const createUploaderService = (uploaderOptions = {}) => {
     return createUploader(
       { apiKey: resolvedConfig.apiKey, apiUrl: resolvedConfig.apiUrl },
       { ...options, ...uploaderOptions }
@@ -83,7 +83,7 @@ export function createVizzly(config = {}, options = {}) {
   /**
    * Create TDD service
    */
-  let createTDDServiceInstance = (tddOptions = {}) => {
+  const createTDDServiceInstance = (tddOptions = {}) => {
     return createTDDService(resolvedConfig, {
       ...options,
       ...tddOptions,
@@ -93,16 +93,16 @@ export function createVizzly(config = {}, options = {}) {
   /**
    * Upload screenshots (convenience method)
    */
-  let upload = async uploadOptions => {
-    let uploader = createUploaderService();
+  const upload = async uploadOptions => {
+    const uploader = createUploaderService();
     return uploader.upload(uploadOptions);
   };
 
   /**
    * Start TDD mode (convenience method)
    */
-  let startTDD = async (tddOptions = {}) => {
-    let tddService = createTDDServiceInstance();
+  const startTDD = async (tddOptions = {}) => {
+    const tddService = createTDDServiceInstance();
     return tddService.start(tddOptions);
   };
 
@@ -190,7 +190,7 @@ export class VizzlySDK extends EventEmitter {
     }
 
     // Create a simple build manager for screenshot collection
-    let buildManager = {
+    const buildManager = {
       screenshots: new Map(),
       currentBuildId: null,
 
@@ -210,8 +210,8 @@ export class VizzlySDK extends EventEmitter {
 
     await this.server.start();
 
-    let port = this.config.server?.port || 3000;
-    let serverInfo = {
+    const port = this.config.server?.port || 3000;
+    const serverInfo = {
       port,
       url: `http://localhost:${port}`,
     };
@@ -239,16 +239,16 @@ export class VizzlySDK extends EventEmitter {
     }
 
     // Resolve Buffer or file path using shared utility
-    let buffer = resolveImageBuffer(imageBuffer, 'screenshot');
+    const buffer = resolveImageBuffer(imageBuffer, 'screenshot');
 
     // Generate or use provided build ID
-    let buildId = options.buildId || this.currentBuildId || 'default';
+    const buildId = options.buildId || this.currentBuildId || 'default';
     this.currentBuildId = buildId;
 
     // Convert Buffer to base64 for JSON transport
-    let imageBase64 = buffer.toString('base64');
+    const imageBase64 = buffer.toString('base64');
 
-    let screenshotData = {
+    const screenshotData = {
       buildId,
       name,
       image: imageBase64,
@@ -256,10 +256,10 @@ export class VizzlySDK extends EventEmitter {
     };
 
     // POST to the local screenshot server
-    let serverUrl = `http://localhost:${this.config.server?.port || 3000}`;
+    const serverUrl = `http://localhost:${this.config.server?.port || 3000}`;
 
     try {
-      let response = await fetch(`${serverUrl}/screenshot`, {
+      const response = await fetch(`${serverUrl}/screenshot`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -268,7 +268,7 @@ export class VizzlySDK extends EventEmitter {
       });
 
       if (!response.ok) {
-        let errorData = await response
+        const errorData = await response
           .json()
           .catch(() => ({ error: 'Unknown error' }));
         throw new VizzlyError(
@@ -307,12 +307,12 @@ export class VizzlySDK extends EventEmitter {
     }
 
     // Get the screenshots directory from config or default
-    let screenshotsDir =
+    const screenshotsDir =
       options.screenshotsDir ||
       this.config?.upload?.screenshotsDir ||
       './screenshots';
 
-    let uploadOptions = {
+    const uploadOptions = {
       screenshotsDir,
       buildName: options.buildName || this.config.buildName,
       branch: options.branch || this.config.branch,
@@ -330,7 +330,7 @@ export class VizzlySDK extends EventEmitter {
     };
 
     try {
-      let result = await this.services.uploader.upload(uploadOptions);
+      const result = await this.services.uploader.upload(uploadOptions);
       this.emit('upload:completed', result);
       return result;
     } catch (error) {
@@ -354,10 +354,10 @@ export class VizzlySDK extends EventEmitter {
     }
 
     // Resolve Buffer or file path using shared utility
-    let buffer = resolveImageBuffer(imageBuffer, 'compare');
+    const buffer = resolveImageBuffer(imageBuffer, 'compare');
 
     try {
-      let result = await this.services.tddService.compareScreenshot(
+      const result = await this.services.tddService.compareScreenshot(
         name,
         buffer
       );
@@ -370,10 +370,9 @@ export class VizzlySDK extends EventEmitter {
   }
 }
 
+export { createTDDService } from '../services/tdd-service.js';
+// Export service creators for advanced usage
+export { createUploader } from '../services/uploader.js';
 // Re-export key utilities and errors
 export { loadConfig } from '../utils/config-loader.js';
 export * as output from '../utils/output.js';
-
-// Export service creators for advanced usage
-export { createUploader } from '../services/uploader.js';
-export { createTDDService } from '../services/tdd-service.js';

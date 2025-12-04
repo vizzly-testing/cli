@@ -1,4 +1,4 @@
-export let queryKeys = {
+export const queryKeys = {
   // Auth
   auth: ['auth'],
   authStatus: () => [...queryKeys.auth, 'status'],

@@ -1,5 +1,11 @@
-import { existsSync, mkdirSync, writeFileSync, readdirSync, rmSync } from 'fs';
-import { join } from 'path';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * Archive a build to history directory
@@ -18,7 +24,7 @@ export function archiveBuild(
   summary,
   maxHistory = 3
 ) {
-  let historyDir = join(workingDir, '.vizzly', 'history');
+  const historyDir = join(workingDir, '.vizzly', 'history');
 
   // Create history directory if it doesn't exist
   if (!existsSync(historyDir)) {
@@ -26,12 +32,12 @@ export function archiveBuild(
   }
 
   // Save current build to history
-  let buildDir = join(historyDir, buildId);
+  const buildDir = join(historyDir, buildId);
   if (!existsSync(buildDir)) {
     mkdirSync(buildDir, { recursive: true });
   }
 
-  let buildData = {
+  const buildData = {
     buildId,
     timestamp: Date.now(),
     builds,
@@ -54,14 +60,14 @@ export function archiveBuild(
  * @returns {Array} Array of build metadata
  */
 export function getArchivedBuilds(workingDir) {
-  let historyDir = join(workingDir, '.vizzly', 'history');
+  const historyDir = join(workingDir, '.vizzly', 'history');
 
   if (!existsSync(historyDir)) {
     return [];
   }
 
   try {
-    let buildDirs = readdirSync(historyDir, { withFileTypes: true })
+    const buildDirs = readdirSync(historyDir, { withFileTypes: true })
       .filter(dirent => dirent.isDirectory())
       .map(dirent => dirent.name)
       .sort()
@@ -69,11 +75,11 @@ export function getArchivedBuilds(workingDir) {
 
     return buildDirs
       .map(buildId => {
-        let reportPath = join(historyDir, buildId, 'report.json');
+        const reportPath = join(historyDir, buildId, 'report.json');
         if (existsSync(reportPath)) {
           try {
-            let data = JSON.parse(
-              require('fs').readFileSync(reportPath, 'utf8')
+            const data = JSON.parse(
+              require('node:fs').readFileSync(reportPath, 'utf8')
             );
             return {
               buildId: data.buildId,
@@ -98,7 +104,7 @@ export function getArchivedBuilds(workingDir) {
  */
 function cleanupOldBuilds(historyDir, maxHistory) {
   try {
-    let buildDirs = readdirSync(historyDir, { withFileTypes: true })
+    const buildDirs = readdirSync(historyDir, { withFileTypes: true })
       .filter(dirent => dirent.isDirectory())
       .map(dirent => dirent.name)
       .sort()
@@ -106,9 +112,9 @@ function cleanupOldBuilds(historyDir, maxHistory) {
 
     // Remove builds beyond maxHistory
     if (buildDirs.length > maxHistory) {
-      let toRemove = buildDirs.slice(maxHistory);
+      const toRemove = buildDirs.slice(maxHistory);
       toRemove.forEach(buildId => {
-        let buildDir = join(historyDir, buildId);
+        const buildDir = join(historyDir, buildId);
         rmSync(buildDir, { recursive: true, force: true });
       });
     }

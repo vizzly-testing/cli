@@ -2,13 +2,13 @@
  * Tests for configuration functions
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  parseCliOptions,
+  defaultConfig,
+  loadConfig,
   mergeConfigs,
   mergeStoryConfig,
-  loadConfig,
-  defaultConfig,
+  parseCliOptions,
 } from '../src/config.js';
 
 describe('parseCliOptions', () => {

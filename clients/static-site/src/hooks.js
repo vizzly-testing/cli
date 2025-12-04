@@ -3,8 +3,8 @@
  * Functions for managing and applying hooks to pages
  */
 
-import { findMatchingHook } from './utils/patterns.js';
 import { getPageConfig as getPageConfigFromConfig } from './config.js';
+import { findMatchingHook } from './utils/patterns.js';
 
 /**
  * Get the beforeScreenshot hook for a page
@@ -18,7 +18,10 @@ export function getBeforeScreenshotHook(page, globalConfig) {
   let pageConfig = getPageConfigFromConfig(globalConfig, page);
 
   // Check if page config specifies a named interaction
-  if (pageConfig.interaction && pageConfig.interaction !== globalConfig.interaction) {
+  if (
+    pageConfig.interaction &&
+    pageConfig.interaction !== globalConfig.interaction
+  ) {
     let interactionName = pageConfig.interaction;
     if (globalConfig.interactions[interactionName]) {
       return globalConfig.interactions[interactionName];

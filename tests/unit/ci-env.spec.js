@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   getBranch,
+  getCIProvider,
   getCommit,
   getCommitMessage,
   getPullRequestNumber,
-  getCIProvider,
 } from '../../src/utils/ci-env.js';
 
 describe('CI Environment Detection', () => {
@@ -34,7 +34,9 @@ describe('CI Environment Detection', () => {
       'TRAVIS',
       'TRAVIS_PULL_REQUEST',
     ];
-    ciVars.forEach(key => delete process.env[key]);
+    for (let key of ciVars) {
+      delete process.env[key];
+    }
   });
 
   afterEach(() => {

@@ -1,5 +1,5 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   getBranch as getCIBranch,
   getCommit as getCICommit,
@@ -57,10 +57,7 @@ async function getCurrentBranchFallback(cwd = process.cwd()) {
         cwd,
       });
       return branch;
-    } catch {
-      // Branch doesn't exist, try next one
-      continue;
-    }
+    } catch {}
   }
 
   // If none of the common branches exist, try to get any local branch

@@ -3,14 +3,14 @@
  * Functions for finding and parsing HTML pages in static site builds
  */
 
-import { readdir } from 'fs/promises';
-import { join, relative, sep, resolve } from 'path';
+import { readdir } from 'node:fs/promises';
+import { join, relative, resolve, sep } from 'node:path';
+import { filterByPattern } from './utils/patterns.js';
 import {
+  discoverSitemap,
   parseSitemapFile,
   urlsToRelativePaths,
-  discoverSitemap,
 } from './utils/sitemap.js';
-import { filterByPattern } from './utils/patterns.js';
 
 /**
  * Check if a path is within the base directory
@@ -24,7 +24,8 @@ function isWithinDirectory(targetPath, baseDir) {
   let resolvedTarget = resolve(targetPath);
 
   return (
-    resolvedTarget.startsWith(resolvedBase + sep) || resolvedTarget === resolvedBase
+    resolvedTarget.startsWith(resolvedBase + sep) ||
+    resolvedTarget === resolvedBase
   );
 }
 
@@ -51,7 +52,9 @@ async function scanHtmlFiles(dir, baseDir) {
 
       if (entry.isDirectory()) {
         // Skip common non-public directories
-        if (!['node_modules', '.git', '.vizzly', '_next'].includes(entry.name)) {
+        if (
+          !['node_modules', '.git', '.vizzly', '_next'].includes(entry.name)
+        ) {
           let subFiles = await scanHtmlFiles(fullPath, baseDir);
           htmlFiles.push(...subFiles);
         }
@@ -93,7 +96,7 @@ export function filePathToUrlPath(filePath) {
 
   // Ensure leading slash
   if (!urlPath.startsWith('/')) {
-    urlPath = '/' + urlPath;
+    urlPath = `/${urlPath}`;
   }
 
   // Handle root case
@@ -130,7 +133,7 @@ async function discoverPagesFromSitemap(buildPath, config) {
     let sitemapPath = join(buildPath, config.pageDiscovery.sitemapPath);
 
     // Check if custom sitemap exists, otherwise try to discover
-    let { existsSync } = await import('fs');
+    let { existsSync } = await import('node:fs');
     if (!existsSync(sitemapPath)) {
       sitemapPath = await discoverSitemap(buildPath);
     }

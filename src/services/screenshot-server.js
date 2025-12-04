@@ -3,7 +3,7 @@
  * Listens for and processes screenshots from the test runner
  */
 
-import { createServer } from 'http';
+import { createServer } from 'node:http';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import * as output from '../utils/output.js';
 

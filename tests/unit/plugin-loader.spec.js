@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock output module
 vi.mock('../../src/utils/output.js', () => ({
@@ -18,7 +18,7 @@ describe('Plugin Loader', () => {
 
   beforeEach(() => {
     // Create test directory
-    testDir = join(process.cwd(), 'test-plugins-' + Date.now());
+    testDir = join(process.cwd(), `test-plugins-${Date.now()}`);
     mkdirSync(testDir, { recursive: true });
 
     // Mock cwd to point to test directory
@@ -42,7 +42,7 @@ describe('Plugin Loader', () => {
   describe('Auto-discovery', () => {
     it('should discover plugins from @vizzly-testing packages', async () => {
       // Create mock @vizzly-testing/test-plugin package
-      let pluginDir = join(
+      const pluginDir = join(
         testDir,
         'node_modules',
         '@vizzly-testing',
@@ -51,7 +51,7 @@ describe('Plugin Loader', () => {
       mkdirSync(pluginDir, { recursive: true });
 
       // Write package.json with plugin field
-      let packageJson = {
+      const packageJson = {
         name: '@vizzly-testing/test-plugin',
         version: '1.0.0',
         vizzly: {
@@ -64,7 +64,7 @@ describe('Plugin Loader', () => {
       );
 
       // Write plugin file
-      let pluginCode = `
+      const pluginCode = `
         export default {
           name: 'test-plugin',
           version: '1.0.0',
@@ -76,8 +76,8 @@ describe('Plugin Loader', () => {
       writeFileSync(join(pluginDir, 'plugin.js'), pluginCode);
 
       // Load plugins
-      let config = { plugins: [] };
-      let plugins = await loadPlugins(null, config);
+      const config = { plugins: [] };
+      const plugins = await loadPlugins(null, config);
 
       expect(plugins).toHaveLength(1);
       expect(plugins[0].name).toBe('test-plugin');
@@ -87,7 +87,7 @@ describe('Plugin Loader', () => {
 
     it('should skip packages without vizzly.plugin field', async () => {
       // Create mock @vizzly-testing package without plugin field
-      let pluginDir = join(
+      const pluginDir = join(
         testDir,
         'node_modules',
         '@vizzly-testing',
@@ -95,7 +95,7 @@ describe('Plugin Loader', () => {
       );
       mkdirSync(pluginDir, { recursive: true });
 
-      let packageJson = {
+      const packageJson = {
         name: '@vizzly-testing/no-plugin',
         version: '1.0.0',
       };
@@ -104,15 +104,15 @@ describe('Plugin Loader', () => {
         JSON.stringify(packageJson, null, 2)
       );
 
-      let config = { plugins: [] };
-      let plugins = await loadPlugins(null, config);
+      const config = { plugins: [] };
+      const plugins = await loadPlugins(null, config);
 
       expect(plugins).toHaveLength(0);
     });
 
     it('should warn about invalid plugin paths', async () => {
       // Create mock plugin with path traversal attempt
-      let pluginDir = join(
+      const pluginDir = join(
         testDir,
         'node_modules',
         '@vizzly-testing',
@@ -120,7 +120,7 @@ describe('Plugin Loader', () => {
       );
       mkdirSync(pluginDir, { recursive: true });
 
-      let packageJson = {
+      const packageJson = {
         name: '@vizzly-testing/bad-plugin',
         version: '1.0.0',
         vizzly: {
@@ -132,8 +132,8 @@ describe('Plugin Loader', () => {
         JSON.stringify(packageJson, null, 2)
       );
 
-      let config = { plugins: [] };
-      let plugins = await loadPlugins(null, config);
+      const config = { plugins: [] };
+      const plugins = await loadPlugins(null, config);
 
       expect(plugins).toHaveLength(0);
       expect(output.warn).toHaveBeenCalledWith(
@@ -143,7 +143,7 @@ describe('Plugin Loader', () => {
 
     it('should handle multiple plugins', async () => {
       // Create first plugin
-      let plugin1Dir = join(
+      const plugin1Dir = join(
         testDir,
         'node_modules',
         '@vizzly-testing',
@@ -163,7 +163,7 @@ describe('Plugin Loader', () => {
       );
 
       // Create second plugin
-      let plugin2Dir = join(
+      const plugin2Dir = join(
         testDir,
         'node_modules',
         '@vizzly-testing',
@@ -182,8 +182,8 @@ describe('Plugin Loader', () => {
         'export default { name: "plugin-2", register() {} };'
       );
 
-      let config = { plugins: [] };
-      let plugins = await loadPlugins(null, config);
+      const config = { plugins: [] };
+      const plugins = await loadPlugins(null, config);
 
       expect(plugins).toHaveLength(2);
       expect(plugins.map(p => p.name).sort()).toEqual(['plugin-1', 'plugin-2']);
@@ -193,33 +193,33 @@ describe('Plugin Loader', () => {
   describe('Config-based loading', () => {
     it('should load plugins from config', async () => {
       // Create plugin file
-      let pluginPath = join(testDir, 'custom-plugin.js');
+      const pluginPath = join(testDir, 'custom-plugin.js');
       writeFileSync(
         pluginPath,
         'export default { name: "custom", version: "2.0.0", register() {} };'
       );
 
       // Create a config file path
-      let configFilePath = join(testDir, 'vizzly.config.js');
+      const configFilePath = join(testDir, 'vizzly.config.js');
 
-      let config = {
+      const config = {
         plugins: ['./custom-plugin.js'],
       };
 
-      let plugins = await loadPlugins(configFilePath, config);
+      const plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(1);
       expect(plugins[0].name).toBe('custom');
     });
 
     it('should handle plugin load errors gracefully', async () => {
-      let configFilePath = join(testDir, 'vizzly.config.js');
+      const configFilePath = join(testDir, 'vizzly.config.js');
 
-      let config = {
+      const config = {
         plugins: ['./non-existent-plugin.js'],
       };
 
-      let plugins = await loadPlugins(configFilePath, config);
+      const plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(0);
       expect(output.warn).toHaveBeenCalledWith(
@@ -231,7 +231,7 @@ describe('Plugin Loader', () => {
   describe('Deduplication', () => {
     it('should not load the same plugin twice', async () => {
       // Create auto-discoverable plugin
-      let pluginDir = join(
+      const pluginDir = join(
         testDir,
         'node_modules',
         '@vizzly-testing',
@@ -251,11 +251,11 @@ describe('Plugin Loader', () => {
       );
 
       // Also add to config
-      let config = {
+      const config = {
         plugins: ['@vizzly-testing/test-plugin'],
       };
 
-      let plugins = await loadPlugins(null, config);
+      const plugins = await loadPlugins(null, config);
 
       // Should only load once
       expect(plugins).toHaveLength(1);
@@ -267,24 +267,24 @@ describe('Plugin Loader', () => {
 
   describe('Validation', () => {
     it('should validate plugin has required name field', async () => {
-      let pluginPath = join(testDir, 'no-name.js');
+      const pluginPath = join(testDir, 'no-name.js');
       writeFileSync(pluginPath, 'export default { register() {} };');
 
-      let configFilePath = join(testDir, 'vizzly.config.js');
-      let config = { plugins: ['./no-name.js'] };
-      let plugins = await loadPlugins(configFilePath, config);
+      const configFilePath = join(testDir, 'vizzly.config.js');
+      const config = { plugins: ['./no-name.js'] };
+      const plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(0);
       expect(output.warn).toHaveBeenCalledWith(expect.stringContaining('name'));
     });
 
     it('should validate plugin has required register function', async () => {
-      let pluginPath = join(testDir, 'no-register.js');
+      const pluginPath = join(testDir, 'no-register.js');
       writeFileSync(pluginPath, 'export default { name: "test" };');
 
-      let configFilePath = join(testDir, 'vizzly.config.js');
-      let config = { plugins: ['./no-register.js'] };
-      let plugins = await loadPlugins(configFilePath, config);
+      const configFilePath = join(testDir, 'vizzly.config.js');
+      const config = { plugins: ['./no-register.js'] };
+      const plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(0);
       expect(output.warn).toHaveBeenCalledWith(
@@ -293,15 +293,15 @@ describe('Plugin Loader', () => {
     });
 
     it('should accept plugins without version field', async () => {
-      let pluginPath = join(testDir, 'no-version.js');
+      const pluginPath = join(testDir, 'no-version.js');
       writeFileSync(
         pluginPath,
         'export default { name: "test", register() {} };'
       );
 
-      let configFilePath = join(testDir, 'vizzly.config.js');
-      let config = { plugins: ['./no-version.js'] };
-      let plugins = await loadPlugins(configFilePath, config);
+      const configFilePath = join(testDir, 'vizzly.config.js');
+      const config = { plugins: ['./no-version.js'] };
+      const plugins = await loadPlugins(configFilePath, config);
 
       expect(plugins).toHaveLength(1);
       expect(plugins[0].name).toBe('test');

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 
@@ -20,8 +20,8 @@ function getInitialData() {
 }
 
 export function useReportData(options = {}) {
-  let initialData = getInitialData();
-  let staticMode = isStaticMode();
+  const initialData = getInitialData();
+  const staticMode = isStaticMode();
 
   return useQuery({
     queryKey: queryKeys.reportData(),
@@ -47,7 +47,7 @@ export function useReportData(options = {}) {
 }
 
 export function useTddStatus(options = {}) {
-  let staticMode = isStaticMode();
+  const staticMode = isStaticMode();
 
   return useQuery({
     queryKey: queryKeys.status(),
@@ -63,7 +63,7 @@ export function useTddStatus(options = {}) {
 }
 
 export function useAcceptBaseline() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: id => {
       if (isStaticMode()) {
@@ -80,7 +80,7 @@ export function useAcceptBaseline() {
 }
 
 export function useAcceptAllBaselines() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => {
       if (isStaticMode()) {
@@ -97,7 +97,7 @@ export function useAcceptAllBaselines() {
 }
 
 export function useResetBaselines() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => {
       if (isStaticMode()) {

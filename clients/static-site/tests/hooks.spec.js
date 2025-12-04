@@ -2,8 +2,8 @@
  * Tests for interaction hook system
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { getBeforeScreenshotHook, applyHook } from '../src/hooks.js';
+import { describe, expect, it, vi } from 'vitest';
+import { applyHook, getBeforeScreenshotHook } from '../src/hooks.js';
 
 describe('hooks', () => {
   describe('getBeforeScreenshotHook', () => {
@@ -116,7 +116,9 @@ describe('hooks', () => {
     it('should handle non-function hook gracefully', async () => {
       let mockPage = {};
 
-      await expect(applyHook(mockPage, 'not-a-function')).resolves.toBeUndefined();
+      await expect(
+        applyHook(mockPage, 'not-a-function')
+      ).resolves.toBeUndefined();
     });
 
     it('should throw on hook execution error', async () => {

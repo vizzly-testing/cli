@@ -5,10 +5,10 @@
 
 import { VizzlyError } from '../errors/vizzly-error.js';
 import {
-  getProjectMappings,
-  saveProjectMapping,
   deleteProjectMapping,
   getProjectMapping,
+  getProjectMappings,
+  saveProjectMapping,
 } from '../utils/global-config.js';
 
 /**
@@ -26,7 +26,7 @@ export class ProjectService {
    * @returns {Promise<Array>} Array of project mappings
    */
   async listMappings() {
-    let mappings = await getProjectMappings();
+    const mappings = await getProjectMappings();
 
     // Convert object to array with directory path included
     return Object.entries(mappings).map(([directory, data]) => ({
@@ -106,7 +106,7 @@ export class ProjectService {
    * @returns {Promise<Object>} Updated mapping
    */
   async switchProject(projectSlug, organizationSlug, token) {
-    let currentDir = process.cwd();
+    const currentDir = process.cwd();
 
     return this.createMapping(currentDir, {
       projectSlug,
@@ -125,21 +125,21 @@ export class ProjectService {
     if (this.authService) {
       try {
         // First get the user's organizations via whoami
-        let whoami = await this.authService.authenticatedRequest(
+        const whoami = await this.authService.authenticatedRequest(
           '/api/auth/cli/whoami',
           { method: 'GET' }
         );
 
-        let organizations = whoami.organizations || [];
+        const organizations = whoami.organizations || [];
         if (organizations.length === 0) {
           return [];
         }
 
         // Fetch projects for each organization
-        let allProjects = [];
-        for (let org of organizations) {
+        const allProjects = [];
+        for (const org of organizations) {
           try {
-            let response = await this.authService.authenticatedRequest(
+            const response = await this.authService.authenticatedRequest(
               '/api/project',
               {
                 method: 'GET',
@@ -148,7 +148,7 @@ export class ProjectService {
             );
 
             // Add organization info to each project
-            let projects = (response.projects || []).map(project => ({
+            const projects = (response.projects || []).map(project => ({
               ...project,
               organizationSlug: org.slug,
               organizationName: org.name,
@@ -169,7 +169,7 @@ export class ProjectService {
     // Fall back to API token-based request (tokens are org-scoped, so no org header needed)
     if (this.apiService) {
       try {
-        let response = await this.apiService.request('/api/project', {
+        const response = await this.apiService.request('/api/project', {
           method: 'GET',
         });
         return response.projects || [];
@@ -192,7 +192,7 @@ export class ProjectService {
     // Try OAuth-based request first
     if (this.authService) {
       try {
-        let response = await this.authService.authenticatedRequest(
+        const response = await this.authService.authenticatedRequest(
           `/api/project/${projectSlug}`,
           {
             method: 'GET',
@@ -208,7 +208,7 @@ export class ProjectService {
     // Fall back to API token
     if (this.apiService) {
       try {
-        let response = await this.apiService.request(
+        const response = await this.apiService.request(
           `/api/project/${projectSlug}`,
           {
             method: 'GET',
@@ -239,17 +239,17 @@ export class ProjectService {
    * @returns {Promise<Array>} Array of builds
    */
   async getRecentBuilds(projectSlug, organizationSlug, options = {}) {
-    let queryParams = new globalThis.URLSearchParams();
+    const queryParams = new globalThis.URLSearchParams();
     if (options.limit) queryParams.append('limit', String(options.limit));
     if (options.branch) queryParams.append('branch', options.branch);
 
-    let query = queryParams.toString();
-    let url = `/api/build/${projectSlug}${query ? `?${query}` : ''}`;
+    const query = queryParams.toString();
+    const url = `/api/build/${projectSlug}${query ? `?${query}` : ''}`;
 
     // Try OAuth-based request first (user login via device flow)
     if (this.authService) {
       try {
-        let response = await this.authService.authenticatedRequest(url, {
+        const response = await this.authService.authenticatedRequest(url, {
           method: 'GET',
           headers: { 'X-Organization': organizationSlug },
         });
@@ -262,7 +262,7 @@ export class ProjectService {
     // Fall back to API token-based request
     if (this.apiService) {
       try {
-        let response = await this.apiService.request(url, {
+        const response = await this.apiService.request(url, {
           method: 'GET',
           headers: { 'X-Organization': organizationSlug },
         });
@@ -291,7 +291,7 @@ export class ProjectService {
     }
 
     try {
-      let response = await this.apiService.request(
+      const response = await this.apiService.request(
         `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/tokens`,
         {
           method: 'POST',
@@ -322,7 +322,7 @@ export class ProjectService {
     }
 
     try {
-      let response = await this.apiService.request(
+      const response = await this.apiService.request(
         `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/tokens`,
         {
           method: 'GET',

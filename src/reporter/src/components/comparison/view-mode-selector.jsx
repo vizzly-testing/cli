@@ -1,7 +1,7 @@
 import { VIEW_MODES } from '../../utils/constants.js';
 
 export default function ViewModeSelector({ viewMode, onChange }) {
-  let modes = [
+  const modes = [
     { value: VIEW_MODES.OVERLAY, label: 'Overlay', shortLabel: 'Overlay' },
     { value: VIEW_MODES.TOGGLE, label: 'Toggle', shortLabel: 'Toggle' },
     { value: VIEW_MODES.ONION, label: 'Slide', shortLabel: 'Slide' },
@@ -16,6 +16,7 @@ export default function ViewModeSelector({ viewMode, onChange }) {
     <div className="flex gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1 scroll-snap-x">
       {modes.map(mode => (
         <button
+          type="button"
           key={mode.value}
           className={`flex-shrink-0 px-3 md:px-4 py-2.5 md:py-2 rounded-lg text-sm font-medium transition-colors touch-manipulation scroll-snap-item ${
             viewMode === mode.value

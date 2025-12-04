@@ -4,7 +4,7 @@
  * @module @vizzly-testing/cli/sdk
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 // Re-export common types
 export {

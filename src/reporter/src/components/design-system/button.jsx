@@ -18,10 +18,10 @@ export function Button({
   className = '',
   ...props
 }) {
-  let baseClasses =
+  const baseClasses =
     'vz-btn inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900';
 
-  let variantClasses = {
+  const variantClasses = {
     primary:
       'bg-amber-500 hover:bg-amber-400 text-slate-900 focus-visible:ring-amber-500',
     secondary:
@@ -36,13 +36,13 @@ export function Button({
       'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 focus-visible:ring-emerald-500',
   };
 
-  let sizeClasses = {
+  const sizeClasses = {
     sm: 'text-xs px-3 py-1.5 h-7',
     md: 'text-sm px-4 py-2 h-9',
     lg: 'text-base px-6 py-3 h-11',
   };
 
-  let classes = [
+  const classes = [
     baseClasses,
     variantClasses[variant],
     sizeClasses[size],
@@ -58,7 +58,11 @@ export function Button({
   return (
     <button className={classes} disabled={disabled || loading} {...props}>
       {loading && (
-        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+        <svg
+          className="animate-spin h-4 w-4"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <circle
             className="opacity-25"
             cx="12"

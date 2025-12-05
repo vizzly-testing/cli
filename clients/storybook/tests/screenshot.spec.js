@@ -2,7 +2,7 @@
  * Tests for screenshot functions
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { generateScreenshotName } from '../src/screenshot.js';
 
 describe('generateScreenshotName', () => {

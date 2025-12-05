@@ -2,7 +2,7 @@
  * Tests for pattern matching utilities
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { filterByPattern, findMatchingHook } from '../../src/utils/patterns.js';
 
 describe('patterns', () => {
@@ -26,7 +26,7 @@ describe('patterns', () => {
       let filtered = filterByPattern(pages, '/blog/*', null);
 
       expect(filtered).toHaveLength(2);
-      expect(filtered.every((p) => p.path.startsWith('/blog/'))).toBe(true);
+      expect(filtered.every(p => p.path.startsWith('/blog/'))).toBe(true);
     });
 
     it('should filter by exclude pattern', () => {
@@ -40,7 +40,7 @@ describe('patterns', () => {
       let filtered = filterByPattern(pages, null, '/blog/draft');
 
       expect(filtered).toHaveLength(3);
-      expect(filtered.find((p) => p.path === '/blog/draft')).toBeUndefined();
+      expect(filtered.find(p => p.path === '/blog/draft')).toBeUndefined();
     });
 
     it('should apply both include and exclude', () => {

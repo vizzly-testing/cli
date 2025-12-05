@@ -2,11 +2,11 @@
  * Tests for pattern matching utilities
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  matchPattern,
   filterByPattern,
   findMatchingHook,
+  matchPattern,
 } from '../../src/utils/patterns.js';
 
 describe('matchPattern', () => {

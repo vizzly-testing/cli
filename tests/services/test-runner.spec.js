@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestRunner } from '../../src/services/test-runner.js';
 
 // Mock output module
@@ -26,6 +26,7 @@ vi.mock('child_process', () => ({
 }));
 
 vi.mock('../../src/services/api-service.js', () => ({
+  // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
   ApiService: vi.fn(function () {
     return {
       createBuild: vi.fn(),
@@ -79,7 +80,7 @@ describe('TestRunner', () => {
       kill: vi.fn(),
     };
 
-    const { spawn } = await import('child_process');
+    const { spawn } = await import('node:child_process');
     spawn.mockReturnValue(mockSpawnProcess);
 
     testRunner = new TestRunner(
@@ -128,6 +129,7 @@ describe('TestRunner', () => {
       };
 
       const { ApiService } = await import('../../src/services/api-service.js');
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
       ApiService.mockImplementation(function () {
         return mockApiService;
       });
@@ -233,6 +235,7 @@ describe('TestRunner', () => {
         finalizeBuild: vi.fn().mockResolvedValue(),
       };
       const { ApiService } = await import('../../src/services/api-service.js');
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
       ApiService.mockImplementation(function () {
         return mockApiService;
       });
@@ -305,7 +308,7 @@ describe('TestRunner', () => {
 
   describe('executeTestCommand', () => {
     it('executes command with correct environment variables', async () => {
-      const { spawn } = await import('child_process');
+      const { spawn } = await import('node:child_process');
 
       // Mock successful execution
       mockSpawnProcess.on.mockImplementation((event, callback) => {
@@ -376,7 +379,7 @@ describe('TestRunner', () => {
     });
 
     it('parses complex commands with arguments correctly', async () => {
-      const { spawn } = await import('child_process');
+      const { spawn } = await import('node:child_process');
 
       mockSpawnProcess.on.mockImplementation((event, callback) => {
         if (event === 'exit') {
@@ -433,7 +436,7 @@ describe('TestRunner', () => {
 
   describe('integration workflow', () => {
     it('properly sets up environment variables', async () => {
-      const { spawn } = await import('child_process');
+      const { spawn } = await import('node:child_process');
 
       // Mock API service for build creation
       const mockApiService = {
@@ -442,6 +445,7 @@ describe('TestRunner', () => {
         finalizeBuild: vi.fn().mockResolvedValue(),
       };
       const { ApiService } = await import('../../src/services/api-service.js');
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
       ApiService.mockImplementation(function () {
         return mockApiService;
       });
@@ -481,6 +485,7 @@ describe('TestRunner', () => {
         finalizeBuild: vi.fn().mockResolvedValue(),
       };
       const { ApiService } = await import('../../src/services/api-service.js');
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
       ApiService.mockImplementation(function () {
         return mockApiService;
       });
@@ -580,6 +585,7 @@ describe('TestRunner', () => {
         finalizeBuild: vi.fn().mockResolvedValue(),
       };
       const { ApiService } = await import('../../src/services/api-service.js');
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
       ApiService.mockImplementation(function () {
         return mockApiService;
       });

@@ -2,7 +2,7 @@
  * Tests for logout command
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { logoutCommand } from '../../src/commands/logout.js';
 import { AuthService } from '../../src/services/auth-service.js';
 import * as globalConfig from '../../src/utils/global-config.js';
@@ -11,6 +11,7 @@ import * as globalConfig from '../../src/utils/global-config.js';
 const mockAuthServiceStore = { mockInstance: null };
 
 vi.mock('../../src/services/auth-service.js', () => ({
+  // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
   AuthService: vi.fn(function () {
     return mockAuthServiceStore.mockInstance;
   }),
@@ -71,8 +72,8 @@ describe('Logout Command', () => {
 
       await logoutCommand({}, {});
 
-      let logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
-      let hasSuccessMessage = logCalls.some(
+      const logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
+      const hasSuccessMessage = logCalls.some(
         call =>
           call.includes('logged out') || call.includes('authentication tokens')
       );
@@ -133,12 +134,12 @@ describe('Logout Command', () => {
         accessToken: 'test_access_token',
       });
 
-      let errorWithStack = new Error('Test error');
+      const errorWithStack = new Error('Test error');
       errorWithStack.stack = 'Error stack trace';
 
       mockAuthService.logout.mockRejectedValue(errorWithStack);
 
-      let consoleErrorSpy = vi
+      const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 

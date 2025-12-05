@@ -3,8 +3,8 @@
  * Ensures CLI options don't override config file values when not explicitly set
  */
 
-import { describe, it, expect } from 'vitest';
-import { parseCliOptions, mergeConfigs } from '../src/config.js';
+import { describe, expect, it } from 'vitest';
+import { mergeConfigs, parseCliOptions } from '../src/config.js';
 
 describe('CLI Options', () => {
   it('should not include fullPage in parsed options when not set', () => {
@@ -30,11 +30,11 @@ describe('CLI Options', () => {
 
   it('should preserve config fullPage: true when CLI option not set', () => {
     let defaultConfig = {
-      screenshot: { fullPage: false, omitBackground: false }
+      screenshot: { fullPage: false, omitBackground: false },
     };
 
     let userConfig = {
-      screenshot: { fullPage: true, omitBackground: false }
+      screenshot: { fullPage: true, omitBackground: false },
     };
 
     let cliOptions = {}; // No CLI options
@@ -47,11 +47,11 @@ describe('CLI Options', () => {
 
   it('should allow CLI option to override config fullPage', () => {
     let defaultConfig = {
-      screenshot: { fullPage: false, omitBackground: false }
+      screenshot: { fullPage: false, omitBackground: false },
     };
 
     let userConfig = {
-      screenshot: { fullPage: true, omitBackground: false }
+      screenshot: { fullPage: true, omitBackground: false },
     };
 
     let cliOptions = { fullPage: false }; // Explicit CLI override

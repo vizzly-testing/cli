@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiService } from '../../src/services/api-service.js';
 
 // Mock global fetch
@@ -6,10 +6,21 @@ global.fetch = vi.fn();
 
 describe('ApiService - Metadata Handling', () => {
   let apiService;
+  let originalApiUrl;
 
   beforeEach(() => {
+    // Save and clear env var for consistent test behavior
+    originalApiUrl = process.env.VIZZLY_API_URL;
+    delete process.env.VIZZLY_API_URL;
     apiService = new ApiService({ token: 'test-token' });
     global.fetch.mockClear();
+  });
+
+  afterEach(() => {
+    // Restore original env var
+    if (originalApiUrl !== undefined) {
+      process.env.VIZZLY_API_URL = originalApiUrl;
+    }
   });
 
   describe('uploadScreenshot metadata handling', () => {
@@ -47,7 +58,7 @@ describe('ApiService - Metadata Handling', () => {
       );
       expect(secondCall[1].method).toBe('POST');
       expect(secondCall[1].headers['Content-Type']).toBe('application/json');
-      expect(secondCall[1].headers['Authorization']).toBe('Bearer test-token');
+      expect(secondCall[1].headers.Authorization).toBe('Bearer test-token');
 
       const requestBody = JSON.parse(secondCall[1].body);
       expect(requestBody.name).toBe(name);

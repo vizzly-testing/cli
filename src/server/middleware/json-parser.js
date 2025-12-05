@@ -32,7 +32,7 @@ export function parseJsonBody(req) {
       }
 
       try {
-        let data = JSON.parse(body);
+        const data = JSON.parse(body);
         resolve(data);
       } catch {
         reject(new Error('Invalid JSON'));

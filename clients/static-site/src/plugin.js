@@ -50,8 +50,15 @@ export default {
       .description(
         'Capture screenshots from static site build (Gatsby, Astro, Jekyll, Next.js, etc.)'
       )
-      .option('--viewports <list>', 'Comma-separated viewport definitions (name:WxH)')
-      .option('--concurrency <n>', 'Number of parallel pages to process', parseInt)
+      .option(
+        '--viewports <list>',
+        'Comma-separated viewport definitions (name:WxH)'
+      )
+      .option(
+        '--concurrency <n>',
+        'Number of parallel pages to process',
+        parseInt
+      )
       .option('--include <pattern>', 'Include page pattern (glob)')
       .option('--exclude <pattern>', 'Exclude page pattern (glob)')
       .option('--browser-args <args>', 'Additional Puppeteer browser arguments')
@@ -77,7 +84,7 @@ export default {
           });
         } catch (error) {
           console.error('Failed to run Static Site plugin:', error);
-          if (logger && logger.error) {
+          if (logger?.error) {
             logger.error('Failed to run Static Site plugin:', error.message);
           }
           process.exit(1);

@@ -1,12 +1,12 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from './lib/query-client.js';
 import AppRouter from './components/app-router.jsx';
 import { ToastProvider } from './components/ui/toast.jsx';
+import { queryClient } from './lib/query-client.js';
 import './reporter.css';
 
-let initializeReporter = () => {
+const initializeReporter = () => {
   let root = document.getElementById('vizzly-reporter-root');
 
   if (!root) {
@@ -16,7 +16,7 @@ let initializeReporter = () => {
   }
 
   // Get initial data from window or fetch from API
-  let initialData = window.VIZZLY_REPORTER_DATA || null;
+  const initialData = window.VIZZLY_REPORTER_DATA || null;
 
   ReactDOM.createRoot(root).render(
     <StrictMode>

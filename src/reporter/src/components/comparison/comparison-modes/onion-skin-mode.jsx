@@ -70,7 +70,7 @@ export function OnionSkinMode({
             min="0"
             max="100"
             value={sliderPosition}
-            onChange={e => onSliderChange(parseInt(e.target.value))}
+            onChange={e => onSliderChange(parseInt(e.target.value, 10))}
             className="absolute inset-0 w-full h-full opacity-0 cursor-col-resize"
             title={`Slide to compare: ${Math.round(sliderPosition)}% current visible`}
           />

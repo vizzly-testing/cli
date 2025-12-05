@@ -3,13 +3,13 @@
  * Serves the React SPA for all dashboard routes
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
-import { sendHtml, sendSuccess } from '../middleware/response.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import * as output from '../../utils/output.js';
+import { sendHtml, sendSuccess } from '../middleware/response.js';
 
 // SPA routes that should serve the dashboard HTML
-let SPA_ROUTES = [
+const SPA_ROUTES = [
   '/',
   '/dashboard',
   '/stats',
@@ -31,11 +31,11 @@ export function createDashboardRouter() {
 
     // API endpoint for fetching report data
     if (pathname === '/api/report-data') {
-      let reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+      const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
 
       if (existsSync(reportDataPath)) {
         try {
-          let data = readFileSync(reportDataPath, 'utf8');
+          const data = readFileSync(reportDataPath, 'utf8');
           res.setHeader('Content-Type', 'application/json');
           res.statusCode = 200;
           res.end(data);
@@ -54,8 +54,8 @@ export function createDashboardRouter() {
 
     // API endpoint for real-time status
     if (pathname === '/api/status') {
-      let reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
-      let baselineMetadataPath = join(
+      const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+      const baselineMetadataPath = join(
         process.cwd(),
         '.vizzly',
         'baselines',
@@ -97,19 +97,19 @@ export function createDashboardRouter() {
 
     // Serve React SPA for dashboard routes
     if (SPA_ROUTES.includes(pathname) || pathname.startsWith('/comparison/')) {
-      let reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+      const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
       let reportData = null;
 
       if (existsSync(reportDataPath)) {
         try {
-          let data = readFileSync(reportDataPath, 'utf8');
+          const data = readFileSync(reportDataPath, 'utf8');
           reportData = JSON.parse(data);
         } catch (error) {
           output.debug('Could not read report data:', { error: error.message });
         }
       }
 
-      let dashboardHtml = `
+      const dashboardHtml = `
 <!DOCTYPE html>
 <html>
 <head>

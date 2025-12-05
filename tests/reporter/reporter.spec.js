@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { expect, test } from '@playwright/test';
 import { vizzlyScreenshot } from '../../dist/client/index.js';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { createReporterTestServer } from './test-helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -12,7 +12,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
   test('Empty State', async ({ page, browserName }) => {
     let server;
     // Load empty state fixture
-    let fixtureData = JSON.parse(
+    const fixtureData = JSON.parse(
       readFileSync(join(__dirname, 'fixtures', 'empty-state.json'), 'utf8')
     );
 
@@ -43,7 +43,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
   test('Passed Comparisons', async ({ page, browserName }) => {
     let server;
     // Load passed state fixture
-    let fixtureData = JSON.parse(
+    const fixtureData = JSON.parse(
       readFileSync(join(__dirname, 'fixtures', 'passed-state.json'), 'utf8')
     );
 
@@ -81,7 +81,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     let server;
 
     // Load failed state fixture
-    let fixtureData = JSON.parse(
+    const fixtureData = JSON.parse(
       readFileSync(join(__dirname, 'fixtures', 'failed-state.json'), 'utf8')
     );
 
@@ -117,13 +117,13 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
 
   test('Failed Comparison with Overlay Mode', async ({ page, browserName }) => {
     // Skip on mobile - view mode buttons are hidden on small screens
-    let viewport = page.viewportSize();
+    const viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
 
     let server;
 
     // Load failed state fixture
-    let fixtureData = JSON.parse(
+    const fixtureData = JSON.parse(
       readFileSync(join(__dirname, 'fixtures', 'failed-state.json'), 'utf8')
     );
 
@@ -181,13 +181,13 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
 
   test('Failed Comparison with Slide Mode', async ({ page, browserName }) => {
     // Skip on mobile - view mode buttons are hidden on small screens
-    let viewport = page.viewportSize();
+    const viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
 
     let server;
 
     // Load failed state fixture
-    let fixtureData = JSON.parse(
+    const fixtureData = JSON.parse(
       readFileSync(join(__dirname, 'fixtures', 'failed-state.json'), 'utf8')
     );
 
@@ -242,7 +242,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     let server;
 
     // Load passed state fixture (has some data to show stats)
-    let fixtureData = JSON.parse(
+    const fixtureData = JSON.parse(
       readFileSync(join(__dirname, 'fixtures', 'passed-state.json'), 'utf8')
     );
 
@@ -276,7 +276,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     let server;
 
     // Load empty state fixture (settings doesn't depend on comparison data)
-    let fixtureData = JSON.parse(
+    const fixtureData = JSON.parse(
       readFileSync(join(__dirname, 'fixtures', 'empty-state.json'), 'utf8')
     );
 
@@ -310,7 +310,7 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     let server;
 
     // Load empty state fixture
-    let fixtureData = JSON.parse(
+    const fixtureData = JSON.parse(
       readFileSync(join(__dirname, 'fixtures', 'empty-state.json'), 'utf8')
     );
 

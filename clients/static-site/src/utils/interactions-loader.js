@@ -3,8 +3,8 @@
  * Loads page-specific interactions and overrides from vizzly.static-site.js
  */
 
-import { existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * Discover interactions file in project directory

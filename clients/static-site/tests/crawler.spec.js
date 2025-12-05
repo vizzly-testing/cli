@@ -2,16 +2,16 @@
  * Tests for page discovery and crawling
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdir, writeFile, symlink, rm } from 'fs/promises';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  discoverPages,
   filePathToUrlPath,
   filterPages,
   generatePageUrl,
 } from '../src/crawler.js';
-import { discoverPages } from '../src/crawler.js';
 
 describe('crawler', () => {
   describe('filePathToUrlPath', () => {
@@ -39,11 +39,7 @@ describe('crawler', () => {
 
   describe('filterPages', () => {
     it('should return all pages when no filters', () => {
-      let pages = [
-        { path: '/' },
-        { path: '/about' },
-        { path: '/blog/post-1' },
-      ];
+      let pages = [{ path: '/' }, { path: '/about' }, { path: '/blog/post-1' }];
       let config = { include: null, exclude: null };
 
       let filtered = filterPages(pages, config);
@@ -79,7 +75,7 @@ describe('crawler', () => {
       let filtered = filterPages(pages, config);
 
       expect(filtered).toHaveLength(3);
-      expect(filtered.find((p) => p.path === '/blog/draft')).toBeUndefined();
+      expect(filtered.find(p => p.path === '/blog/draft')).toBeUndefined();
     });
 
     it('should apply both include and exclude', () => {
@@ -148,17 +144,29 @@ describe('crawler', () => {
       await mkdir(outsideDir, { recursive: true });
 
       // Create legitimate pages inside build directory
-      await writeFile(join(testDir, 'index.html'), '<html><body>Home</body></html>');
+      await writeFile(
+        join(testDir, 'index.html'),
+        '<html><body>Home</body></html>'
+      );
       await mkdir(join(testDir, 'blog'), { recursive: true });
-      await writeFile(join(testDir, 'blog', 'post.html'), '<html><body>Post</body></html>');
+      await writeFile(
+        join(testDir, 'blog', 'post.html'),
+        '<html><body>Post</body></html>'
+      );
 
       // Create sensitive file outside build directory
-      await writeFile(join(outsideDir, 'secret.html'), '<html><body>Secret</body></html>');
+      await writeFile(
+        join(outsideDir, 'secret.html'),
+        '<html><body>Secret</body></html>'
+      );
     });
 
     afterEach(async () => {
       // Clean up test directories
-      await rm(join(tmpdir(), testDir.split('/').slice(0, -1).pop()), { recursive: true, force: true }).catch(() => {});
+      await rm(join(tmpdir(), testDir.split('/').slice(0, -1).pop()), {
+        recursive: true,
+        force: true,
+      }).catch(() => {});
     });
 
     it('should not discover HTML files outside build directory via symlink', async () => {
@@ -196,7 +204,10 @@ describe('crawler', () => {
       // Create directory with path traversal pattern (should be treated as literal)
       let traversalDir = join(testDir, '..', 'fake-escape');
       await mkdir(traversalDir, { recursive: true });
-      await writeFile(join(traversalDir, 'page.html'), '<html><body>Page</body></html>');
+      await writeFile(
+        join(traversalDir, 'page.html'),
+        '<html><body>Page</body></html>'
+      );
 
       let config = {
         buildPath: testDir,
@@ -222,7 +233,10 @@ describe('crawler', () => {
       // Create deeply nested legitimate structure
       let deepPath = join(testDir, 'docs', 'api', 'v1', 'reference');
       await mkdir(deepPath, { recursive: true });
-      await writeFile(join(deepPath, 'endpoint.html'), '<html><body>API</body></html>');
+      await writeFile(
+        join(deepPath, 'endpoint.html'),
+        '<html><body>API</body></html>'
+      );
 
       let config = {
         buildPath: testDir,

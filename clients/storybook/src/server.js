@@ -3,8 +3,8 @@
  * Needed because file:// protocol doesn't load assets properly
  */
 
-import { createServer } from 'http';
-import { resolve } from 'path';
+import { createServer } from 'node:http';
+import { resolve } from 'node:path';
 import handler from 'serve-handler';
 
 /**

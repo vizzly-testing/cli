@@ -1,22 +1,22 @@
-import { createContext, useContext, useState, useCallback } from 'react';
 import {
   CheckCircleIcon,
+  ExclamationTriangleIcon,
   XCircleIcon,
   XMarkIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
+import { createContext, useCallback, useContext, useState } from 'react';
 
-let ToastContext = createContext(null);
+const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
-  let [toasts, setToasts] = useState([]);
+  const [toasts, setToasts] = useState([]);
 
-  let addToast = useCallback((message, type = 'success', options = {}) => {
-    let id = Date.now();
+  const addToast = useCallback((message, type = 'success', options = {}) => {
+    const id = Date.now();
     setToasts(prev => [...prev, { id, message, type, ...options }]);
 
     // Auto-remove after duration (default 5s, or never if actions exist)
-    let duration =
+    const duration =
       options.duration !== undefined
         ? options.duration
         : options.actions
@@ -31,13 +31,13 @@ export function ToastProvider({ children }) {
     return id;
   }, []);
 
-  let removeToast = useCallback(id => {
+  const removeToast = useCallback(id => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  let confirm = useCallback((message, title) => {
+  const confirm = useCallback((message, title) => {
     return new Promise(resolve => {
-      let id = Date.now();
+      const id = Date.now();
       setToasts(prev => [
         ...prev,
         {
@@ -77,7 +77,7 @@ export function ToastProvider({ children }) {
 }
 
 export function useToast() {
-  let context = useContext(ToastContext);
+  const context = useContext(ToastContext);
   if (!context) {
     throw new Error('useToast must be used within ToastProvider');
   }
@@ -97,21 +97,21 @@ function ToastContainer({ toasts, onRemove }) {
 }
 
 function Toast({ toast, onRemove }) {
-  let Icon =
+  const Icon =
     toast.type === 'success'
       ? CheckCircleIcon
       : toast.type === 'confirm'
         ? ExclamationTriangleIcon
         : XCircleIcon;
 
-  let bgColor =
+  const bgColor =
     toast.type === 'success'
       ? 'bg-green-500/10 border-green-500/30'
       : toast.type === 'confirm'
         ? 'bg-slate-800/90 border-slate-600'
         : 'bg-red-500/10 border-red-500/30';
 
-  let iconColor =
+  const iconColor =
     toast.type === 'success'
       ? 'text-green-400'
       : toast.type === 'confirm'
@@ -131,9 +131,10 @@ function Toast({ toast, onRemove }) {
           <p className="text-gray-300 text-sm">{toast.message}</p>
           {toast.actions && toast.actions.length > 0 && (
             <div className="flex gap-2 mt-3">
-              {toast.actions.map((action, idx) => (
+              {toast.actions.map(action => (
                 <button
-                  key={idx}
+                  type="button"
+                  key={action.label}
                   onClick={action.onClick}
                   className={
                     action.variant === 'primary'
@@ -149,6 +150,7 @@ function Toast({ toast, onRemove }) {
         </div>
         {!toast.actions && (
           <button
+            type="button"
             onClick={() => onRemove(toast.id)}
             className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
           >

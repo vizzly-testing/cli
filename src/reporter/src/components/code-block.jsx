@@ -2,11 +2,11 @@ import { useEffect, useRef } from 'react';
 
 // Simple tokenizer for different languages
 function tokenize(code, language) {
-  let tokens = [];
+  const tokens = [];
 
   if (language === 'shell') {
     code.split('\n').forEach((line, lineNum) => {
-      let lineStart =
+      const lineStart =
         code.split('\n').slice(0, lineNum).join('\n').length +
         (lineNum > 0 ? 1 : 0);
 
@@ -31,7 +31,7 @@ function tokenize(code, language) {
   }
 
   // JavaScript/TypeScript
-  let patterns = [
+  const patterns = [
     // Comments
     { type: 'comment', regex: /\/\/.*$/gm },
     { type: 'comment', regex: /\/\*[\s\S]*?\*\//g },
@@ -51,22 +51,23 @@ function tokenize(code, language) {
     { type: 'number', regex: /\b\d+\.?\d*\b/g },
   ];
 
-  patterns.forEach(({ type, regex }) => {
-    let match;
-    while ((match = regex.exec(code)) !== null) {
+  for (let { type, regex } of patterns) {
+    let match = regex.exec(code);
+    while (match !== null) {
       tokens.push({
         type,
         start: match.index,
         end: match.index + match[0].length,
       });
+      match = regex.exec(code);
     }
-  });
+  }
 
   // Sort by start position to handle overlaps (prioritize earlier patterns)
   tokens.sort((a, b) => a.start - b.start);
 
   // Remove overlaps (keep first token at each position)
-  let filtered = [];
+  const filtered = [];
   let lastEnd = 0;
   tokens.forEach(token => {
     if (token.start >= lastEnd) {
@@ -79,8 +80,8 @@ function tokenize(code, language) {
 }
 
 export default function CodeBlock({ code, language = 'javascript' }) {
-  let codeRef = useRef(null);
-  let isShell =
+  const codeRef = useRef(null);
+  const isShell =
     language === 'shell' ||
     code.trim().startsWith('#') ||
     code.trim().startsWith('npm');
@@ -94,22 +95,22 @@ export default function CodeBlock({ code, language = 'javascript' }) {
     )
       return;
 
-    let textNode = codeRef.current.firstChild;
+    const textNode = codeRef.current.firstChild;
     if (!textNode || textNode.nodeType !== window.Node.TEXT_NODE) return;
 
     // Tokenize code
-    let tokens = tokenize(code, isShell ? 'shell' : language);
+    const tokens = tokenize(code, isShell ? 'shell' : language);
 
     // Create ranges for each token
-    let tokenRanges = tokens.map(token => {
-      let range = new window.Range();
+    const tokenRanges = tokens.map(token => {
+      const range = new window.Range();
       range.setStart(textNode, token.start);
       range.setEnd(textNode, token.end);
       return { type: token.type, range };
     });
 
     // Group ranges by token type
-    let highlightsByType = new Map();
+    const highlightsByType = new Map();
     tokenRanges.forEach(({ type, range }) => {
       if (!highlightsByType.has(type)) {
         highlightsByType.set(type, []);
@@ -118,17 +119,17 @@ export default function CodeBlock({ code, language = 'javascript' }) {
     });
 
     // Create highlights and register them
-    let createdHighlights = new Map();
+    const createdHighlights = new Map();
 
-    for (let [type, ranges] of highlightsByType) {
-      let highlight = new window.Highlight(...ranges);
+    for (const [type, ranges] of highlightsByType) {
+      const highlight = new window.Highlight(...ranges);
       createdHighlights.set(type, highlight);
       window.CSS.highlights.set(`code-${type}`, highlight);
     }
 
     // Cleanup function
     return () => {
-      for (let [type] of createdHighlights) {
+      for (const [type] of createdHighlights) {
         window.CSS.highlights.delete(`code-${type}`);
       }
     };

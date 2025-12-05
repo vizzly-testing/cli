@@ -3,7 +3,7 @@
  * Protects against path traversal attacks and ensures safe file operations
  */
 
-import { resolve, normalize, isAbsolute, join } from 'path';
+import { isAbsolute, join, normalize, resolve } from 'node:path';
 import * as output from './output.js';
 
 /**
@@ -45,12 +45,12 @@ export function sanitizeScreenshotName(
 
   // Allow only safe characters: alphanumeric, hyphens, underscores, dots, and optionally slashes
   // Replace other characters with underscores
-  let allowedChars = allowSlashes ? /[^a-zA-Z0-9._/-]/g : /[^a-zA-Z0-9._-]/g;
+  const allowedChars = allowSlashes ? /[^a-zA-Z0-9._/-]/g : /[^a-zA-Z0-9._-]/g;
   let sanitized = name.replace(allowedChars, '_');
 
   // Prevent names that start with dots (hidden files)
   if (sanitized.startsWith('.')) {
-    sanitized = 'file_' + sanitized;
+    sanitized = `file_${sanitized}`;
   }
 
   // Ensure we have a valid filename
@@ -78,8 +78,8 @@ export function validatePathSecurity(targetPath, workingDir) {
   }
 
   // Normalize and resolve both paths
-  let resolvedWorkingDir = resolve(normalize(workingDir));
-  let resolvedTargetPath = resolve(normalize(targetPath));
+  const resolvedWorkingDir = resolve(normalize(workingDir));
+  const resolvedTargetPath = resolve(normalize(targetPath));
 
   // Ensure the target path starts with the working directory
   if (!resolvedTargetPath.startsWith(resolvedWorkingDir)) {
@@ -105,7 +105,7 @@ export function safePath(workingDir, ...pathSegments) {
   }
 
   // Sanitize each path segment
-  let sanitizedSegments = pathSegments.map(segment => {
+  const sanitizedSegments = pathSegments.map(segment => {
     if (typeof segment !== 'string') {
       throw new Error('Path segment must be a string');
     }
@@ -118,7 +118,7 @@ export function safePath(workingDir, ...pathSegments) {
     return segment;
   });
 
-  let targetPath = join(workingDir, ...sanitizedSegments);
+  const targetPath = join(workingDir, ...sanitizedSegments);
   return validatePathSecurity(targetPath, workingDir);
 }
 
@@ -132,13 +132,13 @@ export function validateScreenshotProperties(properties = {}) {
     return {};
   }
 
-  let validated = {};
+  const validated = {};
 
   // Validate common properties with safe constraints
   if (properties.browser && typeof properties.browser === 'string') {
     try {
       // Extract browser name without version (e.g., "Chrome/139.0.7258.138" -> "Chrome")
-      let browserName = properties.browser.split('/')[0];
+      const browserName = properties.browser.split('/')[0];
       validated.browser = sanitizeScreenshotName(browserName, 50);
     } catch (error) {
       // Skip invalid browser names, don't include them
@@ -149,7 +149,7 @@ export function validateScreenshotProperties(properties = {}) {
   }
 
   if (properties.viewport && typeof properties.viewport === 'object') {
-    let viewport = {};
+    const viewport = {};
     if (
       typeof properties.viewport.width === 'number' &&
       properties.viewport.width > 0 &&
@@ -170,7 +170,7 @@ export function validateScreenshotProperties(properties = {}) {
   }
 
   // Allow other safe string properties but sanitize them
-  for (let [key, value] of Object.entries(properties)) {
+  for (const [key, value] of Object.entries(properties)) {
     if (key === 'browser' || key === 'viewport') continue; // Already handled
 
     if (
@@ -183,8 +183,8 @@ export function validateScreenshotProperties(properties = {}) {
         validated[key] = value.replace(/[<>&"']/g, ''); // Basic HTML entity prevention
       } else if (
         typeof value === 'number' &&
-        !isNaN(value) &&
-        isFinite(value)
+        !Number.isNaN(value) &&
+        Number.isFinite(value)
       ) {
         validated[key] = value;
       } else if (typeof value === 'boolean') {

@@ -1,15 +1,15 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
+  ArrowsPointingInIcon,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  XMarkIcon,
-  ChevronDownIcon,
-  MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
-  ArrowsPointingInIcon,
+  MagnifyingGlassPlusIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { ScreenshotDisplay } from './screenshot-display.jsx';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VIEW_MODES } from '../../utils/constants.js';
+import { ScreenshotDisplay } from './screenshot-display.jsx';
 
 /**
  * Get a stable ID for a comparison, falling back to signature or name
@@ -22,7 +22,7 @@ function getComparisonId(comparison) {
  * Zoom Controls Component - matches Observatory design exactly
  */
 function ZoomControls({ zoom, onZoomChange }) {
-  let zoomIn = useCallback(() => {
+  const zoomIn = useCallback(() => {
     if (zoom === 'fit') {
       onZoomChange(0.75);
     } else {
@@ -30,7 +30,7 @@ function ZoomControls({ zoom, onZoomChange }) {
     }
   }, [zoom, onZoomChange]);
 
-  let zoomOut = useCallback(() => {
+  const zoomOut = useCallback(() => {
     if (zoom === 'fit') {
       onZoomChange(0.5);
     } else {
@@ -38,21 +38,22 @@ function ZoomControls({ zoom, onZoomChange }) {
     }
   }, [zoom, onZoomChange]);
 
-  let fitToScreen = useCallback(() => {
+  const fitToScreen = useCallback(() => {
     onZoomChange('fit');
   }, [onZoomChange]);
 
-  let actualSize = useCallback(() => {
+  const actualSize = useCallback(() => {
     onZoomChange(1);
   }, [onZoomChange]);
 
-  let displayValue = zoom === 'fit' ? 'Fit' : `${Math.round(zoom * 100)}%`;
+  const displayValue = zoom === 'fit' ? 'Fit' : `${Math.round(zoom * 100)}%`;
 
   return (
     <div className="flex items-center gap-2">
       {/* Compact zoom controls */}
       <div className="flex items-center bg-gray-800/90 backdrop-blur-md rounded-lg border border-gray-600/40 shadow-lg">
         <button
+          type="button"
           onClick={zoomOut}
           className="p-2 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-l-lg transition-colors"
           title="Zoom out (−)"
@@ -65,6 +66,7 @@ function ZoomControls({ zoom, onZoomChange }) {
         </div>
 
         <button
+          type="button"
           onClick={zoomIn}
           className="p-2 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-r-lg transition-colors"
           title="Zoom in (+)"
@@ -75,6 +77,7 @@ function ZoomControls({ zoom, onZoomChange }) {
 
       {/* Quick action buttons */}
       <button
+        type="button"
         onClick={fitToScreen}
         className={`p-2 rounded-lg transition-colors ${
           zoom === 'fit'
@@ -86,6 +89,7 @@ function ZoomControls({ zoom, onZoomChange }) {
         <ArrowsPointingInIcon className="w-4 h-4" />
       </button>
       <button
+        type="button"
         onClick={actualSize}
         className={`p-2 rounded-lg transition-colors ${
           zoom === 1
@@ -106,13 +110,14 @@ function ZoomControls({ zoom, onZoomChange }) {
  * Filmstrip thumbnail component - matches Observatory design
  */
 function FilmstripThumbnail({ comparison, isActive, onClick, index }) {
-  let thumbnailSrc = comparison.current || comparison.baseline;
-  let isFailed = comparison.status === 'failed';
-  let isNew =
+  const thumbnailSrc = comparison.current || comparison.baseline;
+  const isFailed = comparison.status === 'failed';
+  const isNew =
     comparison.status === 'new' || comparison.status === 'baseline-created';
 
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`relative flex-shrink-0 group transition-all duration-200 ${
         isActive
@@ -171,37 +176,37 @@ export default function FullscreenViewer({
   onNavigate,
   userAction,
 }) {
-  let [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
-  let [showMetadata, setShowMetadata] = useState(false);
-  let [zoomLevel, setZoomLevel] = useState('fit'); // 'fit' | number
-  let [showDiffOverlay, setShowDiffOverlay] = useState(true);
-  let [onionSkinPosition, setOnionSkinPosition] = useState(50);
-  let filmstripRef = useRef(null);
+  const [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
+  const [showMetadata, setShowMetadata] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState('fit'); // 'fit' | number
+  const [showDiffOverlay, setShowDiffOverlay] = useState(true);
+  const [onionSkinPosition, setOnionSkinPosition] = useState(50);
+  const filmstripRef = useRef(null);
 
   // Sort comparisons: failed (diffs) first, then new, then passed
   // Uses initialStatus to keep order stable after approval
-  let sortedComparisons = useMemo(() => {
-    let statusOrder = { failed: 0, new: 1, 'baseline-created': 1, passed: 2 };
+  const sortedComparisons = useMemo(() => {
+    const statusOrder = { failed: 0, new: 1, 'baseline-created': 1, passed: 2 };
     return [...comparisons].sort((a, b) => {
       // Use initialStatus for sorting to keep order stable after approval
-      let statusA = a.initialStatus || a.status;
-      let statusB = b.initialStatus || b.status;
-      let orderA = statusOrder[statusA] ?? 3;
-      let orderB = statusOrder[statusB] ?? 3;
+      const statusA = a.initialStatus || a.status;
+      const statusB = b.initialStatus || b.status;
+      const orderA = statusOrder[statusA] ?? 3;
+      const orderB = statusOrder[statusB] ?? 3;
       return orderA - orderB;
     });
   }, [comparisons]);
 
   // Find current index in sorted list
-  let currentIndex = useMemo(() => {
-    let compId = getComparisonId(comparison);
+  const currentIndex = useMemo(() => {
+    const compId = getComparisonId(comparison);
     return sortedComparisons.findIndex(
       (c, i) => getComparisonId(c, i) === compId
     );
   }, [comparison, sortedComparisons]);
 
   // Navigation capabilities
-  let canNavigate = useMemo(
+  const canNavigate = useMemo(
     () => ({
       prev: currentIndex > 0,
       next: currentIndex < sortedComparisons.length - 1,
@@ -210,13 +215,13 @@ export default function FullscreenViewer({
   );
 
   // Navigation handlers
-  let handlePrevious = useCallback(() => {
+  const handlePrevious = useCallback(() => {
     if (canNavigate.prev && sortedComparisons[currentIndex - 1]) {
       onNavigate(sortedComparisons[currentIndex - 1]);
     }
   }, [canNavigate.prev, sortedComparisons, currentIndex, onNavigate]);
 
-  let handleNext = useCallback(() => {
+  const handleNext = useCallback(() => {
     if (canNavigate.next && sortedComparisons[currentIndex + 1]) {
       onNavigate(sortedComparisons[currentIndex + 1]);
     }
@@ -225,12 +230,12 @@ export default function FullscreenViewer({
   // Scroll filmstrip to active thumbnail
   useEffect(() => {
     if (filmstripRef.current && currentIndex >= 0) {
-      let container = filmstripRef.current;
-      let thumbnails = container.children;
+      const container = filmstripRef.current;
+      const thumbnails = container.children;
       if (thumbnails[currentIndex]) {
-        let thumb = thumbnails[currentIndex];
-        let containerRect = container.getBoundingClientRect();
-        let thumbRect = thumb.getBoundingClientRect();
+        const thumb = thumbnails[currentIndex];
+        const containerRect = container.getBoundingClientRect();
+        const thumbRect = thumb.getBoundingClientRect();
 
         if (
           thumbRect.left < containerRect.left ||
@@ -248,7 +253,7 @@ export default function FullscreenViewer({
 
   // Keyboard navigation
   useEffect(() => {
-    let handleKeyDown = e => {
+    const handleKeyDown = e => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
         return;
       }
@@ -281,6 +286,7 @@ export default function FullscreenViewer({
             Comparison not found
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >
@@ -295,26 +301,26 @@ export default function FullscreenViewer({
   // - failed: needs review, can approve (accept change) or reject
   // - passed: auto-matched baseline, can still reject if needed
   // - new/baseline-created: no baseline to compare, no approve/reject needed
-  let canReview =
+  const canReview =
     comparison.status === 'failed' || comparison.status === 'passed';
 
   // Determine current approval state:
   // - userAction takes precedence if set
   // - passed comparisons are implicitly approved unless user rejected
-  let isAccepted =
+  const isAccepted =
     userAction === 'accepted' ||
     (comparison.status === 'passed' && userAction !== 'rejected');
-  let isRejected = userAction === 'rejected';
+  const isRejected = userAction === 'rejected';
 
   // View mode options
-  let viewModes = [
+  const viewModes = [
     { value: VIEW_MODES.OVERLAY, label: 'Overlay' },
     { value: VIEW_MODES.TOGGLE, label: 'Toggle' },
     { value: VIEW_MODES.ONION, label: 'Slide' },
   ];
 
   // Properties for dropdown
-  let props = [];
+  const props = [];
   if (comparison.properties?.browser)
     props.push({ key: 'Browser', value: comparison.properties.browser });
   if (
@@ -340,6 +346,7 @@ export default function FullscreenViewer({
           {/* Left: Close and Navigation */}
           <div className="flex items-center gap-3 min-w-0">
             <button
+              type="button"
               onClick={onClose}
               className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/60 transition-colors"
               title="Back (Esc)"
@@ -350,6 +357,7 @@ export default function FullscreenViewer({
             {/* Navigation */}
             <div className="flex items-center gap-1">
               <button
+                type="button"
                 onClick={handlePrevious}
                 disabled={!canNavigate.prev}
                 className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-lg hover:bg-gray-700/60 transition-colors"
@@ -361,6 +369,7 @@ export default function FullscreenViewer({
                 {currentIndex + 1}/{sortedComparisons.length}
               </span>
               <button
+                type="button"
                 onClick={handleNext}
                 disabled={!canNavigate.next}
                 className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-lg hover:bg-gray-700/60 transition-colors"
@@ -380,6 +389,7 @@ export default function FullscreenViewer({
             {/* Metadata toggle */}
             {props.length > 0 && (
               <button
+                type="button"
                 onClick={() => setShowMetadata(!showMetadata)}
                 className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
               >
@@ -395,6 +405,7 @@ export default function FullscreenViewer({
           {canReview && (
             <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
               <button
+                type="button"
                 onClick={() => onReject(getComparisonId(comparison))}
                 className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   isRejected
@@ -406,6 +417,7 @@ export default function FullscreenViewer({
                 Reject
               </button>
               <button
+                type="button"
                 onClick={() => onAccept(getComparisonId(comparison))}
                 className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   isAccepted
@@ -428,6 +440,7 @@ export default function FullscreenViewer({
             <div className="hidden sm:flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
               {viewModes.map(mode => (
                 <button
+                  type="button"
                   key={mode.value}
                   onClick={() => comparison.diff && setViewMode(mode.value)}
                   disabled={!comparison.diff}
@@ -450,9 +463,9 @@ export default function FullscreenViewer({
         {showMetadata && props.length > 0 && (
           <div className="px-4 py-2 border-t border-gray-800/50 bg-gray-900/50">
             <div className="flex flex-wrap gap-2">
-              {props.map((prop, i) => (
+              {props.map(prop => (
                 <span
-                  key={i}
+                  key={prop.key}
                   className="inline-flex items-center px-2 py-0.5 bg-gray-800/60 text-xs rounded-md"
                 >
                   <span className="text-gray-500">{prop.key}:</span>

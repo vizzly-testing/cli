@@ -5,7 +5,7 @@
  * SVG-based radial progress indicator
  */
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export function HealthRing({
   value = 0,
@@ -14,24 +14,24 @@ export function HealthRing({
   strokeWidth = 8,
   className = '',
 }) {
-  let [displayValue, setDisplayValue] = useState(0);
+  const [displayValue, setDisplayValue] = useState(0);
 
   // Animate the value on mount/change
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let start = displayValue;
-    let end = Math.min(100, Math.max(0, value));
-    let duration = 1000;
-    let startTime = window.performance.now();
+    const start = displayValue;
+    const end = Math.min(100, Math.max(0, value));
+    const duration = 1000;
+    const startTime = window.performance.now();
 
     function animate(currentTime) {
-      let elapsed = currentTime - startTime;
-      let progress = Math.min(elapsed / duration, 1);
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
 
       // Easing function (ease-out cubic)
-      let eased = 1 - Math.pow(1 - progress, 3);
-      let current = start + (end - start) * eased;
+      const eased = 1 - (1 - progress) ** 3;
+      const current = start + (end - start) * eased;
 
       setDisplayValue(Math.round(current));
 
@@ -43,12 +43,12 @@ export function HealthRing({
     window.requestAnimationFrame(animate);
   }, [value, displayValue]);
 
-  let radius = (size - strokeWidth) / 2;
-  let circumference = radius * 2 * Math.PI;
-  let offset = circumference - (displayValue / 100) * circumference;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (displayValue / 100) * circumference;
 
   // Color based on value
-  let colorClass =
+  const colorClass =
     displayValue >= 80
       ? 'health-ring__progress--success'
       : displayValue >= 50
@@ -65,7 +65,11 @@ export function HealthRing({
         '--ring-stroke': `${strokeWidth}px`,
       }}
     >
-      <svg className="health-ring__svg" viewBox={`0 0 ${size} ${size}`}>
+      <svg
+        className="health-ring__svg"
+        viewBox={`0 0 ${size} ${size}`}
+        aria-hidden="true"
+      >
         {/* Background track */}
         <circle
           className="health-ring__track"

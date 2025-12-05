@@ -5,19 +5,19 @@
  * Main navigation header with responsive mobile menu
  */
 
-import { useState } from 'react';
 import {
   Bars3Icon,
-  XMarkIcon,
-  PhotoIcon,
   ChartBarIcon,
   CloudIcon,
-  FolderIcon,
   Cog6ToothIcon,
+  FolderIcon,
+  PhotoIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { useState } from 'react';
 import { Spinner } from '../design-system/index.js';
 
-let navItems = [
+const navItems = [
   { key: 'comparisons', label: 'Comparisons', icon: PhotoIcon },
   { key: 'stats', label: 'Stats', icon: ChartBarIcon },
   { key: 'builds', label: 'Builds', icon: CloudIcon },
@@ -26,9 +26,9 @@ let navItems = [
 ];
 
 export default function Header({ currentView, onNavigate, loading }) {
-  let [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  let handleNavigate = view => {
+  const handleNavigate = view => {
     onNavigate?.(view);
     setMobileMenuOpen(false);
   };
@@ -39,6 +39,7 @@ export default function Header({ currentView, onNavigate, loading }) {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <button
+            type="button"
             onClick={() => handleNavigate('comparisons')}
             className="flex items-center gap-2 group touch-manipulation"
           >
@@ -49,6 +50,7 @@ export default function Header({ currentView, onNavigate, loading }) {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -74,9 +76,10 @@ export default function Header({ currentView, onNavigate, loading }) {
           {onNavigate && (
             <div className="hidden md:flex items-center gap-1">
               {navItems.map(item => {
-                let isActive = currentView === item.key;
+                const isActive = currentView === item.key;
                 return (
                   <button
+                    type="button"
                     key={item.key}
                     onClick={() => handleNavigate(item.key)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -105,6 +108,7 @@ export default function Header({ currentView, onNavigate, loading }) {
             {/* Mobile Menu Toggle */}
             {onNavigate && (
               <button
+                type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors touch-manipulation"
                 aria-label="Toggle menu"
@@ -124,9 +128,10 @@ export default function Header({ currentView, onNavigate, loading }) {
           <div className="md:hidden border-t border-slate-700/50 py-3 animate-slide-down">
             <div className="flex flex-col gap-1">
               {navItems.map(item => {
-                let isActive = currentView === item.key;
+                const isActive = currentView === item.key;
                 return (
                   <button
+                    type="button"
                     key={item.key}
                     onClick={() => handleNavigate(item.key)}
                     className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-base font-medium transition-colors touch-manipulation ${

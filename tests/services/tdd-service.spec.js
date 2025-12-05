@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TddService } from '../../src/services/tdd-service.js';
-import { join } from 'path';
-import { tmpdir } from 'os';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { compare } from '@vizzly-testing/honeydiff';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TddService } from '../../src/services/tdd-service.js';
 
 // Mock all external dependencies
 vi.mock('fs', () => ({
@@ -15,7 +15,7 @@ vi.mock('fs', () => ({
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(() => ''),
-  exec: vi.fn((cmd, callback) => callback(null, '', '')),
+  exec: vi.fn((_cmd, callback) => callback(null, '', '')),
 }));
 
 vi.mock('../../src/services/api-service.js');
@@ -137,7 +137,7 @@ describe('TddService', () => {
     });
 
     it('handles missing baseline as new screenshot', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(false);
 
       const result = await tddService.compareScreenshot(
@@ -161,7 +161,7 @@ describe('TddService', () => {
     });
 
     it('compares screenshots successfully when they match', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
 
       existsSync.mockReturnValue(true);
       compare.mockResolvedValue({
@@ -203,7 +203,7 @@ describe('TddService', () => {
     });
 
     it('detects differences when screenshots do not match', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
 
       existsSync.mockReturnValue(true);
       compare.mockResolvedValue({
@@ -250,7 +250,7 @@ describe('TddService', () => {
     });
 
     it('handles honeydiff execution errors', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
 
       existsSync.mockReturnValue(true);
       compare.mockRejectedValue(new Error('honeydiff not found'));
@@ -274,8 +274,8 @@ describe('TddService', () => {
     });
 
     it('includes custom properties in comparison result', async () => {
-      const { existsSync } = await import('fs');
-      const { execSync } = await import('child_process');
+      const { existsSync } = await import('node:fs');
+      const { execSync } = await import('node:child_process');
 
       existsSync.mockReturnValue(true);
       execSync.mockReturnValue('');
@@ -298,7 +298,7 @@ describe('TddService', () => {
     });
 
     it('uses different baselines for same name with different viewport widths', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
 
       existsSync.mockReturnValue(false);
       compare.mockResolvedValue({
@@ -340,7 +340,7 @@ describe('TddService', () => {
     });
 
     it('uses different baselines for same name with different browsers', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
 
       existsSync.mockReturnValue(false);
       compare.mockResolvedValue({
@@ -382,7 +382,7 @@ describe('TddService', () => {
     });
 
     it('uses same baseline for identical name, viewport, and browser', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
 
       let callCount = 0;
       existsSync.mockImplementation(() => {
@@ -405,7 +405,7 @@ describe('TddService', () => {
         perceptualScore: null,
       });
 
-      let properties = {
+      const properties = {
         browser: 'Chrome',
         viewport: { width: 1920, height: 1080 },
       };
@@ -429,7 +429,7 @@ describe('TddService', () => {
     });
 
     it('strips browser version from signature', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(false);
 
       const result = await tddService.compareScreenshot(
@@ -446,7 +446,7 @@ describe('TddService', () => {
       expect(result.baseline).not.toContain('139.0.7258.138');
 
       // Get just the filename from the path
-      let filename = result.baseline.split('/').pop();
+      const filename = result.baseline.split('/').pop();
       expect(filename).toBe('homepage_1920_Chrome.png');
     });
   });
@@ -460,7 +460,7 @@ describe('TddService', () => {
         screenshots: [],
       };
 
-      const { readFileSync, existsSync } = await import('fs');
+      const { readFileSync, existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
       readFileSync.mockReturnValue(JSON.stringify(mockMetadata));
 
@@ -472,7 +472,7 @@ describe('TddService', () => {
     });
 
     it('returns null when metadata file does not exist', async () => {
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(false);
 
       const result = await tddService.loadBaseline();
@@ -480,7 +480,7 @@ describe('TddService', () => {
     });
 
     it('handles JSON parse errors gracefully', async () => {
-      const { readFileSync, existsSync } = await import('fs');
+      const { readFileSync, existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
       readFileSync.mockReturnValue('invalid-json');
 
@@ -516,7 +516,7 @@ describe('TddService', () => {
     });
 
     it('accepts baseline by ID (string)', async () => {
-      let result = await tddService.acceptBaseline('comp-123');
+      const result = await tddService.acceptBaseline('comp-123');
 
       expect(result).toMatchObject({
         name: 'screenshot1',
@@ -526,7 +526,7 @@ describe('TddService', () => {
 
     it('accepts baseline by comparison object', async () => {
       // This simulates passing a comparison from report-data.json
-      let comparisonObject = {
+      const comparisonObject = {
         id: 'comp-from-report',
         name: 'screenshot3',
         signature: 'screenshot3',
@@ -537,7 +537,7 @@ describe('TddService', () => {
         diffPercentage: 2.1,
       };
 
-      let result = await tddService.acceptBaseline(comparisonObject);
+      const result = await tddService.acceptBaseline(comparisonObject);
 
       expect(result).toMatchObject({
         name: 'screenshot3',
@@ -554,7 +554,7 @@ describe('TddService', () => {
     it('works with comparison object that is not in memory', async () => {
       // This simulates the TDD handler passing a comparison from report-data.json
       // that may not be in the service's in-memory comparisons array
-      let reportComparison = {
+      const reportComparison = {
         id: 'external-comp',
         name: 'external-screenshot',
         current: join(testDir, '.vizzly', 'current', 'external-screenshot.png'),
@@ -566,7 +566,7 @@ describe('TddService', () => {
         ),
       };
 
-      let result = await tddService.acceptBaseline(reportComparison);
+      const result = await tddService.acceptBaseline(reportComparison);
 
       expect(result).toMatchObject({
         name: 'external-screenshot',
@@ -580,7 +580,7 @@ describe('TddService', () => {
       // Test that we can create service, add comparisons, and get results
       const mockBuffer = Buffer.from('test-data');
 
-      const { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(false); // No baseline exists
 
       // Add a comparison
@@ -597,8 +597,8 @@ describe('TddService', () => {
 
   describe('loadHotspots', () => {
     it('loads hotspots from disk when file exists', async () => {
-      let { readFileSync, existsSync } = await import('fs');
-      let mockHotspots = {
+      const { readFileSync, existsSync } = await import('node:fs');
+      const mockHotspots = {
         homepage: {
           regions: [{ y1: 100, y2: 200 }],
           confidence: 'high',
@@ -613,38 +613,38 @@ describe('TddService', () => {
         })
       );
 
-      let result = tddService.loadHotspots();
+      const result = tddService.loadHotspots();
 
       expect(result).toEqual(mockHotspots);
     });
 
     it('returns null when hotspots file does not exist', async () => {
-      let { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(false);
 
-      let result = tddService.loadHotspots();
+      const result = tddService.loadHotspots();
 
       expect(result).toBeNull();
     });
 
     it('returns null when JSON is invalid', async () => {
-      let { readFileSync, existsSync } = await import('fs');
+      const { readFileSync, existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
       readFileSync.mockReturnValue('invalid json');
 
-      let result = tddService.loadHotspots();
+      const result = tddService.loadHotspots();
 
       expect(result).toBeNull();
     });
 
     it('returns null when hotspots key is missing', async () => {
-      let { readFileSync, existsSync } = await import('fs');
+      const { readFileSync, existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
       readFileSync.mockReturnValue(
         JSON.stringify({ downloadedAt: '2024-01-01' })
       );
 
-      let result = tddService.loadHotspots();
+      const result = tddService.loadHotspots();
 
       expect(result).toBeNull();
     });
@@ -659,7 +659,7 @@ describe('TddService', () => {
         },
       };
 
-      let result = tddService.getHotspotForScreenshot('homepage');
+      const result = tddService.getHotspotForScreenshot('homepage');
 
       expect(result).toEqual({
         regions: [{ y1: 100, y2: 200 }],
@@ -668,8 +668,8 @@ describe('TddService', () => {
     });
 
     it('loads from disk when not in memory', async () => {
-      let { readFileSync, existsSync } = await import('fs');
-      let mockHotspots = {
+      const { readFileSync, existsSync } = await import('node:fs');
+      const mockHotspots = {
         dashboard: {
           regions: [{ y1: 50, y2: 150 }],
           confidence: 'medium',
@@ -681,7 +681,7 @@ describe('TddService', () => {
 
       tddService.hotspotData = null;
 
-      let result = tddService.getHotspotForScreenshot('dashboard');
+      const result = tddService.getHotspotForScreenshot('dashboard');
 
       expect(result).toEqual(mockHotspots.dashboard);
     });
@@ -691,18 +691,18 @@ describe('TddService', () => {
         homepage: { regions: [] },
       };
 
-      let result = tddService.getHotspotForScreenshot('nonexistent');
+      const result = tddService.getHotspotForScreenshot('nonexistent');
 
       expect(result).toBeNull();
     });
 
     it('returns null when no hotspot data available', async () => {
-      let { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(false);
 
       tddService.hotspotData = null;
 
-      let result = tddService.getHotspotForScreenshot('homepage');
+      const result = tddService.getHotspotForScreenshot('homepage');
 
       expect(result).toBeNull();
     });
@@ -710,7 +710,7 @@ describe('TddService', () => {
 
   describe('calculateHotspotCoverage', () => {
     it('returns zero coverage when no diff clusters', () => {
-      let result = tddService.calculateHotspotCoverage([], {
+      const result = tddService.calculateHotspotCoverage([], {
         regions: [{ y1: 100, y2: 200 }],
       });
 
@@ -722,7 +722,7 @@ describe('TddService', () => {
     });
 
     it('returns zero coverage when null diff clusters', () => {
-      let result = tddService.calculateHotspotCoverage(null, {
+      const result = tddService.calculateHotspotCoverage(null, {
         regions: [{ y1: 100, y2: 200 }],
       });
 
@@ -734,9 +734,9 @@ describe('TddService', () => {
     });
 
     it('returns zero coverage when no hotspot regions', () => {
-      let diffClusters = [{ boundingBox: { y: 100, height: 50 } }];
+      const diffClusters = [{ boundingBox: { y: 100, height: 50 } }];
 
-      let result = tddService.calculateHotspotCoverage(diffClusters, {
+      const result = tddService.calculateHotspotCoverage(diffClusters, {
         regions: [],
       });
 
@@ -749,9 +749,9 @@ describe('TddService', () => {
     });
 
     it('returns zero coverage when hotspotAnalysis is null', () => {
-      let diffClusters = [{ boundingBox: { y: 100, height: 50 } }];
+      const diffClusters = [{ boundingBox: { y: 100, height: 50 } }];
 
-      let result = tddService.calculateHotspotCoverage(diffClusters, null);
+      const result = tddService.calculateHotspotCoverage(diffClusters, null);
 
       expect(result).toEqual({
         coverage: 0,
@@ -761,12 +761,12 @@ describe('TddService', () => {
     });
 
     it('calculates 100% coverage when diff is entirely within hotspot', () => {
-      let diffClusters = [{ boundingBox: { y: 150, height: 30 } }];
-      let hotspotAnalysis = {
+      const diffClusters = [{ boundingBox: { y: 150, height: 30 } }];
+      const hotspotAnalysis = {
         regions: [{ y1: 100, y2: 200 }],
       };
 
-      let result = tddService.calculateHotspotCoverage(
+      const result = tddService.calculateHotspotCoverage(
         diffClusters,
         hotspotAnalysis
       );
@@ -780,12 +780,12 @@ describe('TddService', () => {
       // Diff from y=90 to y=109 (20 lines: 90-109)
       // Hotspot from y1=100 to y2=200
       // Lines 100-109 are in hotspot (10 lines)
-      let diffClusters = [{ boundingBox: { y: 90, height: 20 } }];
-      let hotspotAnalysis = {
+      const diffClusters = [{ boundingBox: { y: 90, height: 20 } }];
+      const hotspotAnalysis = {
         regions: [{ y1: 100, y2: 200 }],
       };
 
-      let result = tddService.calculateHotspotCoverage(
+      const result = tddService.calculateHotspotCoverage(
         diffClusters,
         hotspotAnalysis
       );
@@ -798,15 +798,15 @@ describe('TddService', () => {
     it('handles multiple diff clusters', () => {
       // Cluster 1: y=100-109 (10 lines, all in hotspot)
       // Cluster 2: y=300-309 (10 lines, none in hotspot)
-      let diffClusters = [
+      const diffClusters = [
         { boundingBox: { y: 100, height: 10 } },
         { boundingBox: { y: 300, height: 10 } },
       ];
-      let hotspotAnalysis = {
+      const hotspotAnalysis = {
         regions: [{ y1: 50, y2: 150 }],
       };
 
-      let result = tddService.calculateHotspotCoverage(
+      const result = tddService.calculateHotspotCoverage(
         diffClusters,
         hotspotAnalysis
       );
@@ -821,15 +821,15 @@ describe('TddService', () => {
       // Hotspot 1: y1=100, y2=104 (5 lines covered)
       // Hotspot 2: y1=115, y2=119 (5 lines covered)
       // Total: 10/20 = 50%
-      let diffClusters = [{ boundingBox: { y: 100, height: 20 } }];
-      let hotspotAnalysis = {
+      const diffClusters = [{ boundingBox: { y: 100, height: 20 } }];
+      const hotspotAnalysis = {
         regions: [
           { y1: 100, y2: 104 },
           { y1: 115, y2: 119 },
         ],
       };
 
-      let result = tddService.calculateHotspotCoverage(
+      const result = tddService.calculateHotspotCoverage(
         diffClusters,
         hotspotAnalysis
       );
@@ -841,15 +841,15 @@ describe('TddService', () => {
 
     it('deduplicates overlapping diff lines', () => {
       // Two clusters that overlap at y=100-109
-      let diffClusters = [
+      const diffClusters = [
         { boundingBox: { y: 100, height: 10 } }, // y=100-109
         { boundingBox: { y: 105, height: 10 } }, // y=105-114
       ];
-      let hotspotAnalysis = {
+      const hotspotAnalysis = {
         regions: [{ y1: 0, y2: 200 }], // All in hotspot
       };
 
-      let result = tddService.calculateHotspotCoverage(
+      const result = tddService.calculateHotspotCoverage(
         diffClusters,
         hotspotAnalysis
       );
@@ -869,7 +869,7 @@ describe('TddService', () => {
     });
 
     it('marks comparison as passed when diff is 80%+ in high-confidence hotspots', async () => {
-      let { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
 
       // Set up hotspot data with high confidence
@@ -893,7 +893,7 @@ describe('TddService', () => {
         boundingBox: { x: 0, y: 10, width: 100, height: 20 },
       });
 
-      let result = await tddService.compareScreenshot(
+      const result = await tddService.compareScreenshot(
         'test-screenshot',
         mockImageBuffer
       );
@@ -903,7 +903,7 @@ describe('TddService', () => {
     });
 
     it('marks comparison as failed when diff is below 80% in hotspots', async () => {
-      let { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
 
       tddService.hotspotData = {
@@ -926,7 +926,7 @@ describe('TddService', () => {
         boundingBox: { x: 0, y: 0, width: 100, height: 100 },
       });
 
-      let result = await tddService.compareScreenshot(
+      const result = await tddService.compareScreenshot(
         'test-screenshot',
         mockImageBuffer
       );
@@ -936,7 +936,7 @@ describe('TddService', () => {
     });
 
     it('marks comparison as failed when hotspot confidence is low', async () => {
-      let { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
 
       tddService.hotspotData = {
@@ -958,7 +958,7 @@ describe('TddService', () => {
         boundingBox: { x: 0, y: 10, width: 100, height: 20 },
       });
 
-      let result = await tddService.compareScreenshot(
+      const result = await tddService.compareScreenshot(
         'test-screenshot',
         mockImageBuffer
       );
@@ -968,7 +968,7 @@ describe('TddService', () => {
     });
 
     it('does not filter when no hotspot data available', async () => {
-      let { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
 
       tddService.hotspotData = {}; // No hotspot for this screenshot
@@ -984,7 +984,7 @@ describe('TddService', () => {
         boundingBox: { x: 0, y: 10, width: 100, height: 20 },
       });
 
-      let result = await tddService.compareScreenshot(
+      const result = await tddService.compareScreenshot(
         'test-screenshot',
         mockImageBuffer
       );
@@ -994,7 +994,7 @@ describe('TddService', () => {
     });
 
     it('uses string confidence "high" when numeric score not available', async () => {
-      let { existsSync } = await import('fs');
+      const { existsSync } = await import('node:fs');
       existsSync.mockReturnValue(true);
 
       tddService.hotspotData = {
@@ -1015,7 +1015,7 @@ describe('TddService', () => {
         boundingBox: { x: 0, y: 10, width: 100, height: 20 },
       });
 
-      let result = await tddService.compareScreenshot(
+      const result = await tddService.compareScreenshot(
         'test-screenshot',
         mockImageBuffer
       );

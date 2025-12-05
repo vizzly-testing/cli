@@ -33,7 +33,7 @@ export let WithTooltip = {
   parameters: {
     vizzly: {
       // Custom interaction before screenshot
-      beforeScreenshot: async (page) => {
+      beforeScreenshot: async page => {
         await page.hover('button');
         await page.waitForSelector('.tooltip', { visible: true });
       },
@@ -76,7 +76,7 @@ export let Interactive = {
   parameters: {
     vizzly: {
       viewports: [{ name: 'mobile', width: 375, height: 667 }],
-      beforeScreenshot: async (page) => {
+      beforeScreenshot: async page => {
         // Click the button to show active state
         await page.click('button');
         await page.waitForTimeout(300); // Wait for animation

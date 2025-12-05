@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  getParallelId,
   getAllEnvironmentConfig,
+  getParallelId,
 } from '../../src/utils/environment-config.js';
 
 describe('Environment Config - Parallel Build Support', () => {

@@ -3,10 +3,10 @@
  * Creates an interactive report with overlay, toggle, and onion skin modes
  */
 
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join, relative, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { existsSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as output from '../utils/output.js';
 
 export class HtmlReportGenerator {
@@ -17,8 +17,8 @@ export class HtmlReportGenerator {
     this.reportPath = join(this.reportDir, 'index.html');
 
     // Get path to the CSS file that ships with the package
-    let __filename = fileURLToPath(import.meta.url);
-    let __dirname = dirname(__filename);
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
     this.cssPath = join(__dirname, 'report-generator', 'report.css');
   }
 
@@ -43,7 +43,7 @@ export class HtmlReportGenerator {
    * @returns {Object} Sanitized build info
    */
   sanitizeBuildInfo(buildInfo = {}) {
-    let sanitized = {};
+    const sanitized = {};
 
     if (buildInfo.baseline && typeof buildInfo.baseline === 'object') {
       sanitized.baseline = {
@@ -406,7 +406,7 @@ function rejectChanges(screenshotName) {
       </div>`;
     }
 
-    let safeName = this.sanitizeHtml(comparison.name);
+    const safeName = this.sanitizeHtml(comparison.name);
 
     return `
     <div class="comparison" data-comparison="${safeName}">

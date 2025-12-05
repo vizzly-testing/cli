@@ -8,12 +8,12 @@
  * Replaces both ConsoleUI and Logger with a single, simple API.
  */
 
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { createColors } from './colors.js';
-import { writeFileSync, appendFileSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
 
 // Module state
-let config = {
+const config = {
   json: false,
   verbose: false,
   color: true,
@@ -61,7 +61,7 @@ export function header(command, mode = null) {
   if (config.json || config.silent || headerShown) return;
   headerShown = true;
 
-  let parts = ['vizzly', command];
+  const parts = ['vizzly', command];
   if (mode) parts.push(mode);
 
   console.error('');
@@ -102,7 +102,7 @@ export function result(message) {
   stopSpinner();
   if (config.silent) return;
 
-  let elapsed = getElapsedTime();
+  const elapsed = getElapsedTime();
 
   if (config.json) {
     console.log(JSON.stringify({ status: 'complete', message, elapsed }));
@@ -150,7 +150,7 @@ export function error(message, err = null, data = {}) {
   stopSpinner();
 
   if (config.json) {
-    let errorData = { status: 'error', message, ...data };
+    const errorData = { status: 'error', message, ...data };
     if (err instanceof Error) {
       errorData.error = {
         name: err.name,
@@ -167,7 +167,9 @@ export function error(message, err = null, data = {}) {
 
     // Show error details
     if (err instanceof Error) {
-      let errMessage = err.getUserMessage ? err.getUserMessage() : err.message;
+      const errMessage = err.getUserMessage
+        ? err.getUserMessage()
+        : err.message;
       if (errMessage && errMessage !== message) {
         console.error(colors.dim(errMessage));
       }
@@ -234,15 +236,15 @@ export function startSpinner(message) {
   stopSpinner();
   spinnerMessage = message;
 
-  let frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   let i = 0;
 
   spinnerInterval = setInterval(() => {
-    let frame = frames[i++ % frames.length];
-    let line = `${colors.cyan(frame)} ${spinnerMessage}`;
+    const frame = frames[i++ % frames.length];
+    const line = `${colors.cyan(frame)} ${spinnerMessage}`;
 
     // Clear previous line and write new one
-    process.stderr.write('\r' + ' '.repeat(lastSpinnerLine.length) + '\r');
+    process.stderr.write(`\r${' '.repeat(lastSpinnerLine.length)}\r`);
     process.stderr.write(line);
     lastSpinnerLine = line;
   }, 80);
@@ -254,7 +256,7 @@ export function startSpinner(message) {
 export function updateSpinner(message, current = 0, total = 0) {
   if (config.json || config.silent || !process.stderr.isTTY) return;
 
-  let progressText = total > 0 ? ` (${current}/${total})` : '';
+  const progressText = total > 0 ? ` (${current}/${total})` : '';
   spinnerMessage = `${message}${progressText}`;
 
   if (!spinnerInterval) {
@@ -272,7 +274,7 @@ export function stopSpinner() {
 
     // Clear the spinner line
     if (process.stderr.isTTY) {
-      process.stderr.write('\r' + ' '.repeat(lastSpinnerLine.length) + '\r');
+      process.stderr.write(`\r${' '.repeat(lastSpinnerLine.length)}\r`);
     }
     lastSpinnerLine = '';
     spinnerMessage = '';
@@ -306,7 +308,7 @@ export function progress(message, current = 0, total = 0) {
  * Format elapsed time since CLI start
  */
 function getElapsedTime() {
-  let elapsed = Date.now() - startTime;
+  const elapsed = Date.now() - startTime;
   if (elapsed < 1000) {
     return `${elapsed}ms`;
   }
@@ -320,7 +322,7 @@ function getElapsedTime() {
 function formatData(data) {
   if (!data || typeof data !== 'object') return '';
 
-  let entries = Object.entries(data).filter(([, v]) => {
+  const entries = Object.entries(data).filter(([, v]) => {
     if (v === null || v === undefined) return false;
     if (typeof v === 'string' && v === '') return false;
     if (Array.isArray(v) && v.length === 0) return false;
@@ -362,7 +364,7 @@ export function debug(component, message, data = {}) {
     component = null;
   }
 
-  let elapsed = getElapsedTime();
+  const elapsed = getElapsedTime();
 
   if (config.json) {
     console.error(
@@ -375,12 +377,12 @@ export function debug(component, message, data = {}) {
       })
     );
   } else {
-    let formattedData = formatData(data);
-    let dataStr = formattedData ? ` ${colors.dim(formattedData)}` : '';
+    const formattedData = formatData(data);
+    const dataStr = formattedData ? ` ${colors.dim(formattedData)}` : '';
 
     if (component) {
       // Component-based format: "  server    listening on :47392"
-      let paddedComponent = component.padEnd(8);
+      const paddedComponent = component.padEnd(8);
       console.error(`  ${colors.cyan(paddedComponent)} ${message}${dataStr}`);
     } else {
       // Simple format for legacy calls
@@ -400,14 +402,14 @@ function initLogFile() {
 
   try {
     mkdirSync(dirname(config.logFile), { recursive: true });
-    let header = {
+    const header = {
       timestamp: new Date().toISOString(),
       session_start: true,
       pid: process.pid,
       node_version: process.version,
       platform: process.platform,
     };
-    writeFileSync(config.logFile, JSON.stringify(header) + '\n');
+    writeFileSync(config.logFile, `${JSON.stringify(header)}\n`);
   } catch {
     // Silently fail - don't crash CLI for logging issues
   }
@@ -417,13 +419,13 @@ function writeLog(level, message, data = {}) {
   if (!config.logFile) return;
 
   try {
-    let entry = {
+    const entry = {
       timestamp: new Date().toISOString(),
       level,
       message,
       ...data,
     };
-    appendFileSync(config.logFile, JSON.stringify(entry) + '\n');
+    appendFileSync(config.logFile, `${JSON.stringify(entry)}\n`);
   } catch {
     // Silently fail
   }

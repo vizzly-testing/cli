@@ -1,7 +1,7 @@
 import {
-  MagnifyingGlassIcon,
-  ArrowPathIcon,
   AdjustmentsHorizontalIcon,
+  ArrowPathIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { FILTER_TYPES, SORT_TYPES } from '../../utils/constants.js';
@@ -22,8 +22,8 @@ export default function DashboardFilters({
   onRefresh,
   loading,
 }) {
-  let [showFilters, setShowFilters] = useState(false);
-  let hasAdvancedFilters =
+  const [showFilters, setShowFilters] = useState(false);
+  const hasAdvancedFilters =
     availableFilters.browsers.length > 1 ||
     availableFilters.viewports.length > 1;
 
@@ -45,6 +45,7 @@ export default function DashboardFilters({
         {/* Mobile: Filter toggle button */}
         {hasAdvancedFilters && (
           <button
+            type="button"
             onClick={() => setShowFilters(!showFilters)}
             className={`md:hidden inline-flex items-center justify-center bg-slate-800 border border-slate-700 p-3 rounded-lg transition-colors touch-manipulation ${
               showFilters
@@ -70,6 +71,7 @@ export default function DashboardFilters({
           </select>
 
           <button
+            type="button"
             onClick={onRefresh}
             disabled={loading}
             className="inline-flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white p-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -83,6 +85,7 @@ export default function DashboardFilters({
 
         {/* Mobile: Refresh button */}
         <button
+          type="button"
           onClick={onRefresh}
           disabled={loading}
           className="md:hidden inline-flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
@@ -100,6 +103,7 @@ export default function DashboardFilters({
           Status:
         </span>
         <button
+          type="button"
           onClick={() => setFilter(FILTER_TYPES.ALL)}
           className={`flex-shrink-0 px-3 py-2 md:py-1.5 rounded-lg text-sm font-medium transition-all touch-manipulation scroll-snap-item ${
             filter === FILTER_TYPES.ALL
@@ -110,6 +114,7 @@ export default function DashboardFilters({
           All <span className="ml-1 md:ml-1.5 opacity-75">({counts.all})</span>
         </button>
         <button
+          type="button"
           onClick={() => setFilter(FILTER_TYPES.FAILED)}
           className={`flex-shrink-0 px-3 py-2 md:py-1.5 rounded-lg text-sm font-medium transition-all touch-manipulation scroll-snap-item ${
             filter === FILTER_TYPES.FAILED
@@ -121,6 +126,7 @@ export default function DashboardFilters({
           <span className="ml-1 md:ml-1.5 opacity-75">({counts.failed})</span>
         </button>
         <button
+          type="button"
           onClick={() => setFilter(FILTER_TYPES.NEW)}
           className={`flex-shrink-0 px-3 py-2 md:py-1.5 rounded-lg text-sm font-medium transition-all touch-manipulation scroll-snap-item ${
             filter === FILTER_TYPES.NEW
@@ -131,6 +137,7 @@ export default function DashboardFilters({
           New <span className="ml-1 md:ml-1.5 opacity-75">({counts.new})</span>
         </button>
         <button
+          type="button"
           onClick={() => setFilter(FILTER_TYPES.PASSED)}
           className={`flex-shrink-0 px-3 py-2 md:py-1.5 rounded-lg text-sm font-medium transition-all touch-manipulation scroll-snap-item ${
             filter === FILTER_TYPES.PASSED

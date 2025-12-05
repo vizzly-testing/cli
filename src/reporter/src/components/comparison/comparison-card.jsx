@@ -1,18 +1,18 @@
-import { useState } from 'react';
 import {
   CameraIcon,
-  ClockIcon,
-  ExclamationTriangleIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
-import ComparisonViewer from './comparison-viewer.jsx';
-import ComparisonActions from './comparison-actions.jsx';
-import ViewModeSelector from './view-mode-selector.jsx';
-import VariantSelector from './variant-selector.jsx';
-import StatusBadge from '../ui/status-badge.jsx';
+import { useState } from 'react';
 import { getStatusInfo } from '../../utils/comparison-helpers.js';
-import { VIEW_MODES, USER_ACTION } from '../../utils/constants.js';
+import { USER_ACTION, VIEW_MODES } from '../../utils/constants.js';
+import StatusBadge from '../ui/status-badge.jsx';
+import ComparisonActions from './comparison-actions.jsx';
+import ComparisonViewer from './comparison-viewer.jsx';
+import VariantSelector from './variant-selector.jsx';
+import ViewModeSelector from './view-mode-selector.jsx';
 
 export default function ComparisonCard({
   comparison,
@@ -21,34 +21,34 @@ export default function ComparisonCard({
   userAction,
   variantSelector = null, // { group, selectedIndex, onSelect } when variants exist
 }) {
-  let [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
-  let [isExpanded, setIsExpanded] = useState(comparison.status === 'failed'); // Auto-expand failed tests
-  let statusInfo = getStatusInfo(comparison);
-  let showActions = comparison.status === 'failed' && !userAction;
+  const [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
+  const [isExpanded, setIsExpanded] = useState(comparison.status === 'failed'); // Auto-expand failed tests
+  const statusInfo = getStatusInfo(comparison);
+  const showActions = comparison.status === 'failed' && !userAction;
 
   // Determine card styling based on status
-  let getBorderStyle = () => {
+  const getBorderStyle = () => {
     if (comparison.status === 'failed')
       return 'border-red-500/50 shadow-lg shadow-red-500/10';
     if (comparison.status === 'baseline-created') return 'border-blue-500/30';
     return 'border-slate-700/50';
   };
 
-  let getHeaderOpacity = () => {
+  const getHeaderOpacity = () => {
     if (comparison.status === 'passed') return 'opacity-75';
     return 'opacity-100';
   };
 
-  let handleAccept = () => {
+  const handleAccept = () => {
     onAccept(comparison.id);
   };
 
-  let handleReject = () => {
+  const handleReject = () => {
     onReject(comparison.id);
   };
 
   // Get viewport info in a consistent format
-  let getViewportInfo = () => {
+  const getViewportInfo = () => {
     if (
       comparison.properties?.viewport_width &&
       comparison.properties?.viewport_height
@@ -61,7 +61,7 @@ export default function ComparisonCard({
     return null;
   };
 
-  let viewportInfo = getViewportInfo();
+  const viewportInfo = getViewportInfo();
 
   return (
     <div
@@ -69,6 +69,7 @@ export default function ComparisonCard({
     >
       {/* Header - Always Visible */}
       <button
+        type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className={`w-full p-3 md:p-4 text-left hover:bg-white/5 transition-colors touch-manipulation ${getHeaderOpacity()}`}
       >
@@ -100,6 +101,7 @@ export default function ComparisonCard({
               <h3
                 className="text-base md:text-lg font-semibold text-white truncate select-text cursor-text"
                 onClick={e => e.stopPropagation()}
+                onKeyDown={e => e.key === 'Enter' && e.stopPropagation()}
                 title={comparison.name || comparison.originalName}
               >
                 {comparison.name || comparison.originalName || 'Unknown'}

@@ -8,7 +8,7 @@ import { z } from 'zod';
 /**
  * Server configuration schema
  */
-let serverSchema = z.object({
+const serverSchema = z.object({
   port: z.number().int().positive().default(47392),
   timeout: z.number().int().positive().default(30000),
 });
@@ -16,7 +16,7 @@ let serverSchema = z.object({
 /**
  * Build configuration schema
  */
-let buildSchema = z.object({
+const buildSchema = z.object({
   name: z.string().default('Build {timestamp}'),
   environment: z.string().default('test'),
   branch: z.string().optional(),
@@ -27,7 +27,7 @@ let buildSchema = z.object({
 /**
  * Upload configuration schema
  */
-let uploadSchema = z.object({
+const uploadSchema = z.object({
   screenshotsDir: z
     .union([z.string(), z.array(z.string())])
     .default('./screenshots'),
@@ -39,14 +39,14 @@ let uploadSchema = z.object({
  * Comparison configuration schema
  * threshold: CIEDE2000 Delta E units (0.0 = exact, 1.0 = JND, 2.0 = recommended, 3.0+ = permissive)
  */
-let comparisonSchema = z.object({
+const comparisonSchema = z.object({
   threshold: z.number().min(0).default(2.0),
 });
 
 /**
  * TDD configuration schema
  */
-let tddSchema = z.object({
+const tddSchema = z.object({
   openReport: z.boolean().default(false),
 });
 
@@ -54,7 +54,7 @@ let tddSchema = z.object({
  * Core Vizzly configuration schema
  * Allows plugin-specific keys with passthrough for extensibility
  */
-export let vizzlyConfigSchema = z
+export const vizzlyConfigSchema = z
   .object({
     // Core Vizzly config
     apiKey: z.string().optional(),

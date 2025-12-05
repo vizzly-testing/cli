@@ -1,6 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { join } from 'path';
-import { existsSync, readFileSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('TDD Daemon', () => {
   let testDir;
@@ -214,7 +220,7 @@ describe('TDD Daemon', () => {
       const serverFile = join(vizzlyDir, 'server.json');
 
       writeFileSync(pidFile, process.pid.toString());
-      writeFileSync(serverFile, '{"pid": ' + process.pid + '}');
+      writeFileSync(serverFile, `{"pid": ${process.pid}}`);
 
       // Files exist before cleanup
       expect(existsSync(pidFile)).toBe(true);
@@ -242,7 +248,7 @@ describe('TDD Daemon', () => {
         parsedPid = null;
       }
 
-      expect(isNaN(parsedPid)).toBe(true);
+      expect(Number.isNaN(parsedPid)).toBe(true);
     });
 
     it('should handle corrupted server.json file', () => {

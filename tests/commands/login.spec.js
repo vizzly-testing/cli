@@ -2,7 +2,7 @@
  * Tests for login command
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loginCommand } from '../../src/commands/login.js';
 import { AuthService } from '../../src/services/auth-service.js';
 import * as browser from '../../src/utils/browser.js';
@@ -11,6 +11,7 @@ import * as browser from '../../src/utils/browser.js';
 const mockAuthServiceStore = { mockInstance: null };
 
 vi.mock('../../src/services/auth-service.js', () => ({
+  // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
   AuthService: vi.fn(function () {
     return mockAuthServiceStore.mockInstance;
   }),
@@ -59,7 +60,7 @@ describe('Login Command', () => {
       pause: vi.spyOn(process.stdin, 'pause').mockImplementation(() => {}),
       once: vi
         .spyOn(process.stdin, 'once')
-        .mockImplementation((event, callback) => {
+        .mockImplementation((_event, callback) => {
           // Immediately call the callback to simulate user pressing Enter
           setTimeout(() => callback(), 0);
         }),
@@ -206,8 +207,8 @@ describe('Login Command', () => {
       await loginCommand({}, {});
 
       // Check that user info was logged
-      let logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
-      let hasUserInfo = logCalls.some(
+      const logCalls = consoleLogSpy.mock.calls.map(call => call.join(' '));
+      const hasUserInfo = logCalls.some(
         call => call.includes('Test User') || call.includes('test@example.com')
       );
       expect(hasUserInfo).toBe(true);
@@ -351,12 +352,12 @@ describe('Login Command', () => {
     });
 
     it('should respect verbose flag in error output', async () => {
-      let errorWithStack = new Error('Test error');
+      const errorWithStack = new Error('Test error');
       errorWithStack.stack = 'Error stack trace';
 
       mockAuthService.initiateDeviceFlow.mockRejectedValue(errorWithStack);
 
-      let consoleErrorSpy = vi
+      const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 

@@ -20,23 +20,23 @@ export function ImageRenderer({
   // Position types:
   // - 'absolute': positioned absolutely within container
   // - 'relative': natural size, used for spacer images to establish container dimensions
-  let baseClasses = {
+  const baseClasses = {
     absolute: 'absolute block',
     relative: 'block', // No constraints - render at natural size
   };
 
-  let positionClasses =
+  const positionClasses =
     position === 'absolute' &&
     !className.includes('top-') &&
     !className.includes('left-')
       ? 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2'
       : '';
 
-  let imageClass =
+  const imageClass =
     `${baseClasses[position]} ${positionClasses} ${className}`.trim();
 
   // Handle error state
-  if (imageErrors && imageErrors.has(imageKey)) {
+  if (imageErrors?.has(imageKey)) {
     return (
       <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
         <div className="text-center text-gray-400">
@@ -48,8 +48,7 @@ export function ImageRenderer({
   }
 
   // Filter out non-HTML props that shouldn't go to img element
-  // eslint-disable-next-line no-unused-vars
-  let { screenshot, zoom, ...htmlProps } = props;
+  const { screenshot: _screenshot, zoom: _zoom, ...htmlProps } = props;
 
   return (
     <img
@@ -59,8 +58,8 @@ export function ImageRenderer({
       style={style}
       loading={loading}
       decoding="async"
-      onError={() => onError && onError(imageKey)}
-      onLoad={() => onLoad && onLoad(imageKey)}
+      onError={() => onError?.(imageKey)}
+      onLoad={() => onLoad?.(imageKey)}
       {...htmlProps}
     />
   );
@@ -79,7 +78,7 @@ export function ImageWithErrorBoundary({
   loading = 'lazy',
   ...props
 }) {
-  let hasError = imageErrors && imageErrors.has(imageKey);
+  const hasError = imageErrors?.has(imageKey);
 
   if (hasError && !showErrorPlaceholder) {
     return null;

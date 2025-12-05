@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { projects, tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 
@@ -22,7 +22,7 @@ export function useBuilds(orgSlug, projectSlug, options = {}) {
 }
 
 export function useDownloadBaselines() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ buildId, organizationSlug, projectSlug }) =>
       tdd.downloadBaselines(buildId, organizationSlug, projectSlug),
@@ -43,7 +43,7 @@ export function useProjectMappings(options = {}) {
 }
 
 export function useCreateProjectMapping() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: projects.createMapping,
     onSuccess: () => {
@@ -53,7 +53,7 @@ export function useCreateProjectMapping() {
 }
 
 export function useDeleteProjectMapping() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: directory => projects.deleteMapping(directory),
     onSuccess: () => {

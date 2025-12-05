@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScreenshotServer } from '../../src/services/screenshot-server.js';
 
 // Mock output module
@@ -64,7 +64,7 @@ describe('ScreenshotServer', () => {
       setHeader: vi.fn(),
     };
 
-    const { createServer } = await import('http');
+    const { createServer } = await import('node:http');
     createServer.mockReturnValue(mockServer);
 
     // Get the mocked output module
@@ -89,7 +89,7 @@ describe('ScreenshotServer', () => {
 
   describe('start', () => {
     it('starts server successfully', async () => {
-      mockServer.listen.mockImplementation((port, host, callback) => {
+      mockServer.listen.mockImplementation((_port, _host, callback) => {
         callback(null); // Success
       });
 
@@ -108,7 +108,7 @@ describe('ScreenshotServer', () => {
 
     it('handles server start failure', async () => {
       const error = new Error('Port already in use');
-      mockServer.listen.mockImplementation((port, host, callback) => {
+      mockServer.listen.mockImplementation((_port, _host, callback) => {
         callback(error);
       });
 
@@ -118,8 +118,8 @@ describe('ScreenshotServer', () => {
     });
 
     it('creates server with correct request handler', async () => {
-      const { createServer } = await import('http');
-      mockServer.listen.mockImplementation((port, host, callback) => {
+      const { createServer } = await import('node:http');
+      mockServer.listen.mockImplementation((_port, _host, callback) => {
         callback(null);
       });
 
@@ -362,7 +362,7 @@ describe('ScreenshotServer', () => {
 
   describe('integration scenarios', () => {
     it('handles complete server lifecycle', async () => {
-      mockServer.listen.mockImplementation((port, host, callback) => {
+      mockServer.listen.mockImplementation((_port, _host, callback) => {
         callback(null);
       });
       mockServer.close.mockImplementation(callback => {

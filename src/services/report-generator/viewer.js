@@ -1,18 +1,18 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', () => {
   // Handle view mode switching
   document.querySelectorAll('.view-mode-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-      let comparison = this.closest('.comparison');
-      let mode = this.dataset.mode;
+      const comparison = this.closest('.comparison');
+      const mode = this.dataset.mode;
 
       // Update active button
-      comparison
-        .querySelectorAll('.view-mode-btn')
-        .forEach(b => b.classList.remove('active'));
+      for (let b of comparison.querySelectorAll('.view-mode-btn')) {
+        b.classList.remove('active');
+      }
       this.classList.add('active');
 
       // Update viewer mode
-      let viewer = comparison.querySelector('.comparison-viewer');
+      const viewer = comparison.querySelector('.comparison-viewer');
       viewer.dataset.mode = mode;
 
       // Hide all mode containers
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
 
       // Show appropriate mode container
-      let activeContainer = viewer.querySelector('.' + mode + '-mode');
+      const activeContainer = viewer.querySelector(`.${mode}-mode`);
       if (activeContainer) {
         activeContainer.style.display = 'block';
       }
@@ -33,52 +33,52 @@ document.addEventListener('DOMContentLoaded', function () {
     let isDragging = false;
 
     function updateOnionSkin(x) {
-      let rect = container.getBoundingClientRect();
-      let percentage = Math.max(
+      const rect = container.getBoundingClientRect();
+      const percentage = Math.max(
         0,
         Math.min(100, ((x - rect.left) / rect.width) * 100)
       );
 
-      let currentImg = container.querySelector('.onion-current');
-      let divider = container.querySelector('.onion-divider');
+      const currentImg = container.querySelector('.onion-current');
+      const divider = container.querySelector('.onion-divider');
 
       if (currentImg && divider) {
-        currentImg.style.clipPath = 'inset(0 ' + (100 - percentage) + '% 0 0)';
-        divider.style.left = percentage + '%';
+        currentImg.style.clipPath = `inset(0 ${100 - percentage}% 0 0)`;
+        divider.style.left = `${percentage}%`;
       }
     }
 
-    container.addEventListener('mousedown', function (e) {
+    container.addEventListener('mousedown', e => {
       isDragging = true;
       updateOnionSkin(e.clientX);
       e.preventDefault();
     });
 
-    container.addEventListener('mousemove', function (e) {
+    container.addEventListener('mousemove', e => {
       if (isDragging) {
         updateOnionSkin(e.clientX);
       }
     });
 
-    document.addEventListener('mouseup', function () {
+    document.addEventListener('mouseup', () => {
       isDragging = false;
     });
 
     // Touch events for mobile
-    container.addEventListener('touchstart', function (e) {
+    container.addEventListener('touchstart', e => {
       isDragging = true;
       updateOnionSkin(e.touches[0].clientX);
       e.preventDefault();
     });
 
-    container.addEventListener('touchmove', function (e) {
+    container.addEventListener('touchmove', e => {
       if (isDragging) {
         updateOnionSkin(e.touches[0].clientX);
         e.preventDefault();
       }
     });
 
-    document.addEventListener('touchend', function () {
+    document.addEventListener('touchend', () => {
       isDragging = false;
     });
   });
@@ -86,10 +86,10 @@ document.addEventListener('DOMContentLoaded', function () {
   // Handle overlay mode clicking
   document.querySelectorAll('.overlay-container').forEach(container => {
     container.addEventListener('click', function () {
-      let diffImage = this.querySelector('.diff-image');
+      const diffImage = this.querySelector('.diff-image');
       if (diffImage) {
         // Toggle diff visibility
-        let isVisible = diffImage.style.opacity === '1';
+        const isVisible = diffImage.style.opacity === '1';
         diffImage.style.opacity = isVisible ? '0' : '1';
       }
     });
@@ -98,9 +98,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // Handle toggle mode clicking
   document.querySelectorAll('.toggle-container img').forEach(img => {
     let isBaseline = true;
-    let comparison = img.closest('.comparison');
-    let baselineSrc = comparison.querySelector('.baseline-image').src;
-    let currentSrc = comparison.querySelector('.current-image').src;
+    const comparison = img.closest('.comparison');
+    const baselineSrc = comparison.querySelector('.baseline-image').src;
+    const currentSrc = comparison.querySelector('.current-image').src;
 
     img.addEventListener('click', function () {
       isBaseline = !isBaseline;

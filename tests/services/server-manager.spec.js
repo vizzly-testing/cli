@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, rmSync } from 'fs';
-import { join } from 'path';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ServerManager } from '../../src/services/server-manager.js';
 
 // Mock output module
@@ -93,6 +93,7 @@ describe('ServerManager', () => {
     createHttpServer.mockReturnValue(mockHttpServer);
     createTddHandler.mockReturnValue(mockTddHandler);
     createApiHandler.mockReturnValue(mockApiHandler);
+    // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
     ApiService.mockImplementation(function () {
       return mockApiService;
     });
@@ -545,15 +546,15 @@ describe('ServerManager', () => {
     });
 
     it('should remove server.json when stop is called', async () => {
-      let vizzlyDir = join(testDir, '.vizzly');
-      let serverFile = join(vizzlyDir, 'server.json');
+      const vizzlyDir = join(testDir, '.vizzly');
+      const serverFile = join(vizzlyDir, 'server.json');
 
       // Set up mocks for the server lifecycle
       mockTddHandler.initialize.mockResolvedValue();
       mockHttpServer.start.mockResolvedValue();
       mockHttpServer.stop.mockResolvedValue();
 
-      let manager = new ServerManager(mockConfig);
+      const manager = new ServerManager(mockConfig);
       await manager.start('build-123', true);
 
       // Verify server.json was created
@@ -566,13 +567,13 @@ describe('ServerManager', () => {
     });
 
     it('should handle stop gracefully when server.json does not exist', async () => {
-      let vizzlyDir = join(testDir, '.vizzly');
-      let serverFile = join(vizzlyDir, 'server.json');
+      const vizzlyDir = join(testDir, '.vizzly');
+      const serverFile = join(vizzlyDir, 'server.json');
 
       // Set up mocks
       mockHttpServer.stop.mockResolvedValue();
 
-      let manager = new ServerManager(mockConfig);
+      const manager = new ServerManager(mockConfig);
       manager.httpServer = mockHttpServer;
       manager.handler = mockApiHandler;
 
@@ -584,12 +585,12 @@ describe('ServerManager', () => {
     });
 
     it('should handle stop gracefully when .vizzly directory does not exist', async () => {
-      let vizzlyDir = join(testDir, '.vizzly');
+      const vizzlyDir = join(testDir, '.vizzly');
 
       // Set up mocks
       mockHttpServer.stop.mockResolvedValue();
 
-      let manager = new ServerManager(mockConfig);
+      const manager = new ServerManager(mockConfig);
       manager.httpServer = mockHttpServer;
       manager.handler = mockApiHandler;
 

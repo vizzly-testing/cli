@@ -1,32 +1,32 @@
-import { useState, useCallback, useMemo } from 'react';
-import { ToggleView } from './comparison-modes/toggle-view.jsx';
-import { OverlayMode } from './comparison-modes/overlay-mode.jsx';
-import { OnionSkinMode } from './comparison-modes/onion-skin-mode.jsx';
+import { useCallback, useMemo, useState } from 'react';
 import { VIEW_MODES } from '../../utils/constants.js';
+import { OnionSkinMode } from './comparison-modes/onion-skin-mode.jsx';
+import { OverlayMode } from './comparison-modes/overlay-mode.jsx';
+import { ToggleView } from './comparison-modes/toggle-view.jsx';
 
 /**
  * Comparison Viewer for inline card display
  * Simpler than ScreenshotDisplay - no zoom, just renders comparison modes
  */
 export default function ComparisonViewer({ comparison, viewMode }) {
-  let [showDiffOverlay, setShowDiffOverlay] = useState(true);
-  let [onionSkinPosition, setOnionSkinPosition] = useState(50);
-  let [imageErrors, setImageErrors] = useState(new Set());
+  const [showDiffOverlay, setShowDiffOverlay] = useState(true);
+  const [onionSkinPosition, setOnionSkinPosition] = useState(50);
+  const [imageErrors, setImageErrors] = useState(new Set());
 
-  let handleImageError = useCallback(imageKey => {
+  const handleImageError = useCallback(imageKey => {
     setImageErrors(prev => new Set([...prev, imageKey]));
   }, []);
 
-  let handleImageLoad = useCallback(() => {
+  const handleImageLoad = useCallback(() => {
     // No-op for now, could track load states if needed
   }, []);
 
-  let handleDiffToggle = useCallback(() => {
+  const handleDiffToggle = useCallback(() => {
     setShowDiffOverlay(prev => !prev);
   }, []);
 
   // Create a screenshot-like object for the comparison modes
-  let screenshot = useMemo(
+  const screenshot = useMemo(
     () => ({
       id: comparison.id || comparison.signature || 'unknown',
       name: comparison.name || comparison.originalName || 'Screenshot',
@@ -35,7 +35,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
   );
 
   // Build image URLs - no memoization needed, object creation is cheap
-  let imageUrls = {
+  const imageUrls = {
     current: comparison.current,
     baseline: comparison.baseline,
     diff: comparison.diff,

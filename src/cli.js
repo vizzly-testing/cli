@@ -1,37 +1,37 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import { program } from 'commander';
-import { init } from './commands/init.js';
-import { uploadCommand, validateUploadOptions } from './commands/upload.js';
-import { runCommand, validateRunOptions } from './commands/run.js';
-import { tddCommand, validateTddOptions } from './commands/tdd.js';
-import {
-  tddStartCommand,
-  tddStopCommand,
-  tddStatusCommand,
-  runDaemonChild,
-} from './commands/tdd-daemon.js';
-import { statusCommand, validateStatusOptions } from './commands/status.js';
+import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
   finalizeCommand,
   validateFinalizeOptions,
 } from './commands/finalize.js';
-import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
+import { init } from './commands/init.js';
 import { loginCommand, validateLoginOptions } from './commands/login.js';
 import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
-import { whoamiCommand, validateWhoamiOptions } from './commands/whoami.js';
 import {
-  projectSelectCommand,
   projectListCommand,
-  projectTokenCommand,
   projectRemoveCommand,
+  projectSelectCommand,
+  projectTokenCommand,
   validateProjectOptions,
 } from './commands/project.js';
-import { getPackageVersion } from './utils/package-info.js';
+import { runCommand, validateRunOptions } from './commands/run.js';
+import { statusCommand, validateStatusOptions } from './commands/status.js';
+import { tddCommand, validateTddOptions } from './commands/tdd.js';
+import {
+  runDaemonChild,
+  tddStartCommand,
+  tddStatusCommand,
+  tddStopCommand,
+} from './commands/tdd-daemon.js';
+import { uploadCommand, validateUploadOptions } from './commands/upload.js';
+import { validateWhoamiOptions, whoamiCommand } from './commands/whoami.js';
 import { loadPlugins } from './plugin-loader.js';
-import { loadConfig } from './utils/config-loader.js';
 import { createServices } from './services/index.js';
+import { loadConfig } from './utils/config-loader.js';
 import * as output from './utils/output.js';
+import { getPackageVersion } from './utils/package-info.js';
 
 program
   .name('vizzly')
@@ -66,24 +66,24 @@ output.configure({
   json: process.argv.includes('--json'),
 });
 
-let config = await loadConfig(configPath, {});
-let services = createServices(config);
+const config = await loadConfig(configPath, {});
+const services = createServices(config);
 
 let plugins = [];
 try {
   plugins = await loadPlugins(configPath, config);
 
-  for (let plugin of plugins) {
+  for (const plugin of plugins) {
     try {
       // Add timeout protection for plugin registration (5 seconds)
-      let registerPromise = plugin.register(program, {
+      const registerPromise = plugin.register(program, {
         config,
         services,
         output,
         // Backwards compatibility alias for plugins using old API
         logger: output,
       });
-      let timeoutPromise = new Promise((_, reject) =>
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error('Plugin registration timeout (5s)')),
           5000
@@ -105,7 +105,7 @@ program
   .description('Initialize Vizzly in your project')
   .option('--force', 'Overwrite existing configuration')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
     await init({ ...globalOptions, ...options, plugins });
   });
 
@@ -129,13 +129,15 @@ program
   .option('--upload-all', 'Upload all screenshots without SHA deduplication')
   .option('--parallel-id <id>', 'Unique identifier for parallel test execution')
   .action(async (path, options) => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateUploadOptions(path, options);
+    const validationErrors = validateUploadOptions(path, options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
@@ -143,7 +145,7 @@ program
   });
 
 // TDD command with subcommands - Local visual testing with interactive dashboard
-let tddCmd = program
+const tddCmd = program
   .command('tdd')
   .description('Run tests in TDD mode with local visual comparisons');
 
@@ -161,7 +163,7 @@ tddCmd
   .option('--token <token>', 'API token override')
   .option('--daemon-child', 'Internal: run as daemon child process')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // If this is a daemon child process, run the server directly
     if (options.daemonChild) {
@@ -177,7 +179,7 @@ tddCmd
   .command('stop')
   .description('Stop background TDD server')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
     await tddStopCommand(options, globalOptions);
   });
 
@@ -186,7 +188,7 @@ tddCmd
   .command('status')
   .description('Check TDD server status')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
     await tddStatusCommand(options, globalOptions);
   });
 
@@ -207,20 +209,26 @@ tddCmd
     'Accept current screenshots as new baseline (overwrites existing)'
   )
   .action(async (command, options) => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateTddOptions(command, options);
+    const validationErrors = validateTddOptions(command, options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
-    let { result, cleanup } = await tddCommand(command, options, globalOptions);
+    const { result, cleanup } = await tddCommand(
+      command,
+      options,
+      globalOptions
+    );
 
     // Set up cleanup on process signals
-    let handleCleanup = async () => {
+    const handleCleanup = async () => {
       await cleanup();
     };
 
@@ -257,18 +265,20 @@ program
   .option('--upload-all', 'Upload all screenshots without SHA deduplication')
   .option('--parallel-id <id>', 'Unique identifier for parallel test execution')
   .action(async (command, options) => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateRunOptions(command, options);
+    const validationErrors = validateRunOptions(command, options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
     try {
-      let result = await runCommand(command, options, globalOptions);
+      const result = await runCommand(command, options, globalOptions);
       if (result && !result.success && result.exitCode > 0) {
         process.exit(result.exitCode);
       }
@@ -283,13 +293,15 @@ program
   .description('Check the status of a build')
   .argument('<build-id>', 'Build ID to check status for')
   .action(async (buildId, options) => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateStatusOptions(buildId, options);
+    const validationErrors = validateStatusOptions(buildId, options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
@@ -301,13 +313,15 @@ program
   .description('Finalize a parallel build after all shards complete')
   .argument('<parallel-id>', 'Parallel ID to finalize')
   .action(async (parallelId, options) => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateFinalizeOptions(parallelId, options);
+    const validationErrors = validateFinalizeOptions(parallelId, options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
@@ -319,13 +333,15 @@ program
   .description('Run diagnostics to check your environment and configuration')
   .option('--api', 'Include API connectivity checks')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateDoctorOptions(options);
+    const validationErrors = validateDoctorOptions(options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
@@ -337,13 +353,15 @@ program
   .description('Authenticate with your Vizzly account')
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateLoginOptions(options);
+    const validationErrors = validateLoginOptions(options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
@@ -355,13 +373,15 @@ program
   .description('Clear stored authentication tokens')
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateLogoutOptions(options);
+    const validationErrors = validateLogoutOptions(options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
@@ -373,13 +393,15 @@ program
   .description('Show current authentication status and user information')
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateWhoamiOptions(options);
+    const validationErrors = validateWhoamiOptions(options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
@@ -391,13 +413,15 @@ program
   .description('Configure project for current directory')
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     // Validate options
-    let validationErrors = validateProjectOptions(options);
+    const validationErrors = validateProjectOptions(options);
     if (validationErrors.length > 0) {
       output.error('Validation errors:');
-      validationErrors.forEach(error => output.printErr(`  - ${error}`));
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
       process.exit(1);
     }
 
@@ -408,7 +432,7 @@ program
   .command('project:list')
   .description('Show all configured projects')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     await projectListCommand(options, globalOptions);
   });
@@ -417,7 +441,7 @@ program
   .command('project:token')
   .description('Show project token for current directory')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     await projectTokenCommand(options, globalOptions);
   });
@@ -426,7 +450,7 @@ program
   .command('project:remove')
   .description('Remove project configuration for current directory')
   .action(async options => {
-    let globalOptions = program.opts();
+    const globalOptions = program.opts();
 
     await projectRemoveCommand(options, globalOptions);
   });

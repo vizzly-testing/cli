@@ -3,10 +3,10 @@
  * Shows current user and authentication status
  */
 
-import * as output from '../utils/output.js';
 import { AuthService } from '../services/auth-service.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import { getAuthTokens } from '../utils/global-config.js';
+import * as output from '../utils/output.js';
 
 /**
  * Whoami command implementation
@@ -22,7 +22,7 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
 
   try {
     // Check if user is logged in
-    let auth = await getAuthTokens();
+    const auth = await getAuthTokens();
 
     if (!auth || !auth.accessToken) {
       if (globalOptions.json) {
@@ -39,11 +39,11 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
     // Get current user info
     output.startSpinner('Fetching user information...');
 
-    let authService = new AuthService({
+    const authService = new AuthService({
       baseUrl: options.apiUrl || getApiUrl(),
     });
 
-    let response = await authService.whoami();
+    const response = await authService.whoami();
 
     output.stopSpinner();
 
@@ -81,7 +81,7 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
     if (response.organizations && response.organizations.length > 0) {
       output.blank();
       output.info('Organizations:');
-      for (let org of response.organizations) {
+      for (const org of response.organizations) {
         let orgInfo = `  - ${org.name}`;
         if (org.slug) {
           orgInfo += ` (@${org.slug})`;
@@ -100,12 +100,12 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
     // Show token expiry info
     if (auth.expiresAt) {
       output.blank();
-      let expiresAt = new Date(auth.expiresAt);
-      let now = new Date();
-      let msUntilExpiry = expiresAt.getTime() - now.getTime();
-      let daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
-      let hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
-      let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
+      const expiresAt = new Date(auth.expiresAt);
+      const now = new Date();
+      const msUntilExpiry = expiresAt.getTime() - now.getTime();
+      const daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
+      const hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
+      const minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
 
       if (msUntilExpiry <= 0) {
         output.warn('Token has expired');
@@ -164,7 +164,7 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
  * @param {Object} options - Command options
  */
 export function validateWhoamiOptions() {
-  let errors = [];
+  const errors = [];
 
   // No specific validation needed for whoami command
 

@@ -3,16 +3,16 @@
  * Functional orchestration of story discovery and screenshot capture
  */
 
+import {
+  closeBrowser,
+  closePage,
+  launchBrowser,
+  prepareStoryPage,
+} from './browser.js';
 import { loadConfig } from './config.js';
 import { discoverStories, generateStoryUrl } from './crawler.js';
-import {
-  launchBrowser,
-  closeBrowser,
-  prepareStoryPage,
-  closePage,
-} from './browser.js';
-import { captureAndSendScreenshot } from './screenshot.js';
 import { getBeforeScreenshotHook, getStoryConfig } from './hooks.js';
+import { captureAndSendScreenshot } from './screenshot.js';
 import { startStaticServer, stopStaticServer } from './server.js';
 
 /**
@@ -125,8 +125,8 @@ async function processStories(stories, browser, baseUrl, config, context) {
  * @returns {Promise<boolean>} True if TDD server is running
  */
 async function isTddModeAvailable() {
-  let { existsSync, readFileSync } = await import('fs');
-  let { join, parse, dirname } = await import('path');
+  let { existsSync, readFileSync } = await import('node:fs');
+  let { join, parse, dirname } = await import('node:path');
 
   try {
     // Look for .vizzly/server.json

@@ -3,19 +3,18 @@
  * Handles screenshot uploads to the Vizzly platform
  */
 
+import crypto from 'node:crypto';
+import { readFile, stat } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { glob } from 'glob';
-import { readFile, stat } from 'fs/promises';
-import { basename } from 'path';
-import crypto from 'crypto';
-import * as output from '../utils/output.js';
-import { ApiService } from './api-service.js';
-
-import { getDefaultBranch } from '../utils/git.js';
 import {
-  UploadError,
   TimeoutError,
+  UploadError,
   ValidationError,
 } from '../errors/vizzly-error.js';
+import { getDefaultBranch } from '../utils/git.js';
+import * as output from '../utils/output.js';
+import { ApiService } from './api-service.js';
 
 const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_SHA_CHECK_BATCH_SIZE = 100;
@@ -28,7 +27,7 @@ export function createUploader(
   { apiKey, apiUrl, userAgent, command, upload: uploadConfig = {} } = {},
   options = {}
 ) {
-  let signal = options.signal || new AbortController().signal;
+  const signal = options.signal || new AbortController().signal;
   const api = new ApiService({
     baseUrl: apiUrl,
     token: apiKey,
@@ -174,7 +173,7 @@ export function createUploader(
       output.debug('upload', 'failed', { error: error.message });
 
       // Re-throw if already a VizzlyError
-      if (error.name && error.name.includes('Error') && error.code) {
+      if (error.name?.includes('Error') && error.code) {
         throw error;
       }
 
@@ -323,7 +322,9 @@ async function checkExistingFiles(fileMetadata, api, signal, buildId) {
     try {
       const res = await api.checkShas(screenshotBatch, buildId);
       const { existing = [], screenshots = [] } = res || {};
-      existing.forEach(sha => existingShas.add(sha));
+      for (let sha of existing) {
+        existingShas.add(sha);
+      }
       allScreenshots.push(...screenshots);
     } catch (error) {
       // Continue without deduplication on error

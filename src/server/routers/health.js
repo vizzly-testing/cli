@@ -3,8 +3,8 @@
  * Health check endpoint with diagnostics
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { sendSuccess } from '../middleware/response.js';
 
 /**
@@ -20,8 +20,8 @@ export function createHealthRouter({ port, screenshotHandler }) {
       return false;
     }
 
-    let reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
-    let baselineMetadataPath = join(
+    const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+    const baselineMetadataPath = join(
       process.cwd(),
       '.vizzly',
       'baselines',

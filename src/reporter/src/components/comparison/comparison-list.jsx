@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
-import ComparisonGroup from './comparison-group.jsx';
 import { NoResults } from '../dashboard/empty-state.jsx';
+import ComparisonGroup from './comparison-group.jsx';
 
 /**
  * Group comparisons by screenshot name to create variant groups
  */
 function groupComparisons(comparisons) {
-  let grouped = new Map();
+  const grouped = new Map();
 
-  for (let comp of comparisons) {
+  for (const comp of comparisons) {
     if (!grouped.has(comp.name)) {
       grouped.set(comp.name, {
         name: comp.name,
@@ -19,7 +19,7 @@ function groupComparisons(comparisons) {
       });
     }
 
-    let group = grouped.get(comp.name);
+    const group = grouped.get(comp.name);
     group.comparisons.push(comp);
     group.totalVariants++;
 
@@ -42,10 +42,10 @@ function groupComparisons(comparisons) {
       viewports: Array.from(group.viewports),
       // Sort comparisons within group by viewport area (largest first)
       comparisons: group.comparisons.sort((a, b) => {
-        let aArea =
+        const aArea =
           (a.properties?.viewport_width || 0) *
           (a.properties?.viewport_height || 0);
-        let bArea =
+        const bArea =
           (b.properties?.viewport_width || 0) *
           (b.properties?.viewport_height || 0);
         return bArea - aArea;
@@ -67,7 +67,7 @@ export default function ComparisonList({
 }) {
   // Build groups from filtered comparisons
   // This ensures filtering works correctly - we filter first, then group
-  let displayGroups = useMemo(() => {
+  const displayGroups = useMemo(() => {
     if (!comparisons || comparisons.length === 0) {
       return [];
     }

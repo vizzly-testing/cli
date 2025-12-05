@@ -47,10 +47,12 @@
     "prepublishOnly": "npm run lint && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
-    "format": "prettier --write src",
-    "format:check": "prettier --check src"
+    "lint": "biome lint src",
+    "lint:fix": "biome lint --write src",
+    "format": "biome format --write src",
+    "format:check": "biome format src",
+    "check": "biome check src",
+    "check:fix": "biome check --write src"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -73,11 +75,7 @@
     "@babel/cli": "^7.28.0",
     "@babel/core": "^7.23.6",
     "@babel/preset-env": "^7.23.6",
-    "@eslint/js": "^9.37.0",
-    "eslint": "^9.31.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.3",
-    "prettier": "^3.6.2",
+    "@biomejs/biome": "^2.3.8",
     "rimraf": "^6.0.1",
     "vitest": "^3.2.4"
   }

@@ -3,10 +3,10 @@
  * Manages ~/.vizzly/config.json for storing authentication tokens
  */
 
-import { homedir } from 'os';
-import { join, dirname, parse } from 'path';
-import { readFile, writeFile, mkdir, chmod } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync } from 'node:fs';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { dirname, join, parse } from 'node:path';
 import * as output from './output.js';
 
 /**
@@ -30,7 +30,7 @@ export function getGlobalConfigPath() {
  * @returns {Promise<void>}
  */
 async function ensureGlobalConfigDir() {
-  let dir = getGlobalConfigDir();
+  const dir = getGlobalConfigDir();
 
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true, mode: 0o700 });
@@ -43,13 +43,13 @@ async function ensureGlobalConfigDir() {
  */
 export async function loadGlobalConfig() {
   try {
-    let configPath = getGlobalConfigPath();
+    const configPath = getGlobalConfigPath();
 
     if (!existsSync(configPath)) {
       return {};
     }
 
-    let content = await readFile(configPath, 'utf-8');
+    const content = await readFile(configPath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
     // If file doesn't exist or is corrupted, return empty config
@@ -71,8 +71,8 @@ export async function loadGlobalConfig() {
 export async function saveGlobalConfig(config) {
   await ensureGlobalConfigDir();
 
-  let configPath = getGlobalConfigPath();
-  let content = JSON.stringify(config, null, 2);
+  const configPath = getGlobalConfigPath();
+  const content = JSON.stringify(config, null, 2);
 
   // Write file with secure permissions (owner read/write only)
   await writeFile(configPath, content, { mode: 0o600 });
@@ -101,7 +101,7 @@ export async function clearGlobalConfig() {
  * @returns {Promise<Object|null>} Token object with accessToken, refreshToken, expiresAt, user, or null if not found
  */
 export async function getAuthTokens() {
-  let config = await loadGlobalConfig();
+  const config = await loadGlobalConfig();
 
   if (!config.auth || !config.auth.accessToken) {
     return null;
@@ -116,7 +116,7 @@ export async function getAuthTokens() {
  * @returns {Promise<void>}
  */
 export async function saveAuthTokens(auth) {
-  let config = await loadGlobalConfig();
+  const config = await loadGlobalConfig();
 
   config.auth = {
     accessToken: auth.accessToken,
@@ -133,7 +133,7 @@ export async function saveAuthTokens(auth) {
  * @returns {Promise<void>}
  */
 export async function clearAuthTokens() {
-  let config = await loadGlobalConfig();
+  const config = await loadGlobalConfig();
   delete config.auth;
   await saveGlobalConfig(config);
 }
@@ -143,7 +143,7 @@ export async function clearAuthTokens() {
  * @returns {Promise<boolean>} True if valid tokens exist
  */
 export async function hasValidTokens() {
-  let auth = await getAuthTokens();
+  const auth = await getAuthTokens();
 
   if (!auth || !auth.accessToken) {
     return false;
@@ -151,11 +151,11 @@ export async function hasValidTokens() {
 
   // Check if token is expired
   if (auth.expiresAt) {
-    let expiresAt = new Date(auth.expiresAt);
-    let now = new Date();
+    const expiresAt = new Date(auth.expiresAt);
+    const now = new Date();
 
     // Consider expired if within 5 minutes of expiry
-    let bufferMs = 5 * 60 * 1000;
+    const bufferMs = 5 * 60 * 1000;
     if (now.getTime() >= expiresAt.getTime() - bufferMs) {
       return false;
     }
@@ -169,7 +169,7 @@ export async function hasValidTokens() {
  * @returns {Promise<string|null>} Access token or null
  */
 export async function getAccessToken() {
-  let auth = await getAuthTokens();
+  const auth = await getAuthTokens();
   return auth?.accessToken || null;
 }
 
@@ -180,14 +180,14 @@ export async function getAccessToken() {
  * @returns {Promise<Object|null>} Project data or null
  */
 export async function getProjectMapping(directoryPath) {
-  let config = await loadGlobalConfig();
+  const config = await loadGlobalConfig();
   if (!config.projects) {
     return null;
   }
 
   // Walk up the directory tree looking for a mapping
   let currentPath = directoryPath;
-  let { root } = parse(currentPath);
+  const { root } = parse(currentPath);
 
   while (currentPath !== root) {
     if (config.projects[currentPath]) {
@@ -195,7 +195,7 @@ export async function getProjectMapping(directoryPath) {
     }
 
     // Move to parent directory
-    let parentPath = dirname(currentPath);
+    const parentPath = dirname(currentPath);
     if (parentPath === currentPath) {
       // We've reached the root
       break;
@@ -216,7 +216,7 @@ export async function getProjectMapping(directoryPath) {
  * @param {string} projectData.projectName - Project name
  */
 export async function saveProjectMapping(directoryPath, projectData) {
-  let config = await loadGlobalConfig();
+  const config = await loadGlobalConfig();
   if (!config.projects) {
     config.projects = {};
   }
@@ -232,7 +232,7 @@ export async function saveProjectMapping(directoryPath, projectData) {
  * @returns {Promise<Object>} Map of directory paths to project data
  */
 export async function getProjectMappings() {
-  let config = await loadGlobalConfig();
+  const config = await loadGlobalConfig();
   return config.projects || {};
 }
 
@@ -241,8 +241,8 @@ export async function getProjectMappings() {
  * @param {string} directoryPath - Absolute path to project directory
  */
 export async function deleteProjectMapping(directoryPath) {
-  let config = await loadGlobalConfig();
-  if (config.projects && config.projects[directoryPath]) {
+  const config = await loadGlobalConfig();
+  if (config.projects?.[directoryPath]) {
     delete config.projects[directoryPath];
     await saveGlobalConfig(config);
   }

@@ -1,6 +1,6 @@
+import { playwright } from '@vitest/browser-playwright';
 import { defineConfig } from 'vitest/config';
 import { vizzlyPlugin } from './src/index.js';
-import { playwright } from '@vitest/browser-playwright';
 
 // E2E tests config - runs in browser mode
 // These tests verify actual browser integration with Vizzly

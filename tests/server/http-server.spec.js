@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { EventEmitter } from 'node:events';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHttpServer } from '../../src/server/http-server.js';
-import { EventEmitter } from 'events';
 
 // Mock dependencies
 vi.mock('../../src/utils/logger-factory.js', () => ({

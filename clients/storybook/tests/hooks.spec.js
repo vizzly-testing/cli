@@ -2,10 +2,10 @@
  * Tests for interaction hooks
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
-  getBeforeScreenshotHook,
   applyHook,
+  getBeforeScreenshotHook,
   getStoryConfig,
 } from '../src/hooks.js';
 

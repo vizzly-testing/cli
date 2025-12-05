@@ -1,9 +1,9 @@
-import { useMemo, useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import {
-  useReportData,
   useAcceptBaseline,
   useRejectBaseline,
+  useReportData,
 } from '../../hooks/queries/use-tdd-queries.js';
 import FullscreenViewer from '../comparison/fullscreen-viewer.jsx';
 
@@ -12,24 +12,24 @@ import FullscreenViewer from '../comparison/fullscreen-viewer.jsx';
  * The route parameter :id determines which comparison to show
  */
 export default function ComparisonDetailView() {
-  let [, setLocation] = useLocation();
-  let [, params] = useRoute('/comparison/:id');
-  let [loadingStates, setLoadingStates] = useState({});
+  const [, setLocation] = useLocation();
+  const [, params] = useRoute('/comparison/:id');
+  const [loadingStates, setLoadingStates] = useState({});
 
-  let { data: reportData } = useReportData();
-  let acceptMutation = useAcceptBaseline();
-  let rejectMutation = useRejectBaseline();
+  const { data: reportData } = useReportData();
+  const acceptMutation = useAcceptBaseline();
+  const rejectMutation = useRejectBaseline();
 
   // Memoize comparisons array to prevent dependency warnings
-  let comparisons = useMemo(
+  const comparisons = useMemo(
     () => reportData?.comparisons || [],
     [reportData?.comparisons]
   );
 
   // Find the comparison by ID from route params
   // Uses stable IDs (id, signature, or name) - not array indices which change with filters
-  let comparison = useMemo(() => {
-    let targetId = params?.id ? decodeURIComponent(params.id) : null;
+  const comparison = useMemo(() => {
+    const targetId = params?.id ? decodeURIComponent(params.id) : null;
     if (!targetId || comparisons.length === 0) {
       return null;
     }
@@ -41,9 +41,9 @@ export default function ComparisonDetailView() {
   }, [params, comparisons]);
 
   // Simple navigation - just change the URL using stable IDs
-  let handleNavigate = useCallback(
+  const handleNavigate = useCallback(
     targetComparison => {
-      let id =
+      const id =
         targetComparison.id ||
         targetComparison.signature ||
         targetComparison.name;
@@ -54,18 +54,18 @@ export default function ComparisonDetailView() {
     [setLocation]
   );
 
-  let handleClose = useCallback(() => {
+  const handleClose = useCallback(() => {
     setLocation('/');
   }, [setLocation]);
 
   // Get the stable ID for current comparison (for actions)
-  let comparisonId = useMemo(() => {
+  const comparisonId = useMemo(() => {
     if (!comparison) return null;
     return comparison.id || comparison.signature || comparison.name;
   }, [comparison]);
 
   // Handle accept/reject with the stable ID
-  let handleAccept = useCallback(
+  const handleAccept = useCallback(
     id => {
       setLoadingStates(prev => ({ ...prev, [id]: 'accepting' }));
       acceptMutation.mutate(id, {
@@ -77,7 +77,7 @@ export default function ComparisonDetailView() {
     [acceptMutation]
   );
 
-  let handleReject = useCallback(
+  const handleReject = useCallback(
     id => {
       setLoadingStates(prev => ({ ...prev, [id]: 'rejecting' }));
       rejectMutation.mutate(id, {
@@ -101,6 +101,7 @@ export default function ComparisonDetailView() {
             ID: {params?.id || 'none'}
           </p>
           <button
+            type="button"
             onClick={handleClose}
             className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >

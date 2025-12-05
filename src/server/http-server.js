@@ -3,33 +3,32 @@
  * Thin dispatcher that routes requests to modular routers
  */
 
-import { createServer } from 'http';
+import { createServer } from 'node:http';
 import * as output from '../utils/output.js';
 
 // Middleware
 import { corsMiddleware } from './middleware/cors.js';
 import { sendError } from './middleware/response.js';
-
+import { createAssetsRouter } from './routers/assets.js';
+import { createAuthRouter } from './routers/auth.js';
+import { createBaselineRouter } from './routers/baseline.js';
+import { createCloudProxyRouter } from './routers/cloud-proxy.js';
+import { createConfigRouter } from './routers/config.js';
+import { createDashboardRouter } from './routers/dashboard.js';
 // Routers
 import { createHealthRouter } from './routers/health.js';
-import { createAssetsRouter } from './routers/assets.js';
-import { createDashboardRouter } from './routers/dashboard.js';
-import { createScreenshotRouter } from './routers/screenshot.js';
-import { createBaselineRouter } from './routers/baseline.js';
-import { createConfigRouter } from './routers/config.js';
-import { createAuthRouter } from './routers/auth.js';
 import { createProjectsRouter } from './routers/projects.js';
-import { createCloudProxyRouter } from './routers/cloud-proxy.js';
+import { createScreenshotRouter } from './routers/screenshot.js';
 
-export let createHttpServer = (port, screenshotHandler, services = {}) => {
+export const createHttpServer = (port, screenshotHandler, services = {}) => {
   let server = null;
-  let defaultBuildId = services.buildId || null;
+  const defaultBuildId = services.buildId || null;
 
   // Extract services
-  let { configService, authService, projectService, tddService } = services;
+  const { configService, authService, projectService, tddService } = services;
 
   // Create router context
-  let routerContext = {
+  const routerContext = {
     port,
     screenshotHandler,
     defaultBuildId,
@@ -41,7 +40,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
   };
 
   // Initialize routers
-  let routers = [
+  const routers = [
     createHealthRouter(routerContext),
     createAssetsRouter(routerContext),
     createScreenshotRouter(routerContext),
@@ -53,7 +52,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
     createDashboardRouter(routerContext), // Catch-all for SPA routes - must be last
   ];
 
-  let handleRequest = async (req, res) => {
+  const handleRequest = async (req, res) => {
     // Apply CORS middleware
     if (corsMiddleware(req, res)) {
       return;
@@ -63,13 +62,13 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
     res.setHeader('Content-Type', 'application/json');
 
     // Parse URL
-    let parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-    let pathname = parsedUrl.pathname;
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = parsedUrl.pathname;
 
     // Try each router in order
-    for (let router of routers) {
+    for (const router of routers) {
       try {
-        let handled = await router(req, res, pathname, parsedUrl);
+        const handled = await router(req, res, pathname, parsedUrl);
         if (handled) {
           return;
         }
@@ -86,7 +85,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
     sendError(res, 404, 'Not found');
   };
 
-  let start = () => {
+  const start = () => {
     return new Promise((resolve, reject) => {
       server = createServer(async (req, res) => {
         try {
@@ -122,7 +121,7 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
     });
   };
 
-  let stop = () => {
+  const stop = () => {
     if (server) {
       return new Promise(resolve => {
         server.close(() => {
@@ -139,10 +138,10 @@ export let createHttpServer = (port, screenshotHandler, services = {}) => {
    * Finish build - flush any pending background operations
    * Call this before finalizing a build to ensure all uploads complete
    */
-  let finishBuild = async _buildId => {
+  const finishBuild = async _buildId => {
     // Flush screenshot handler if it has a flush method (API mode)
     if (screenshotHandler?.flush) {
-      let stats = await screenshotHandler.flush();
+      const stats = await screenshotHandler.flush();
       if (stats.uploaded > 0 || stats.failed > 0) {
         output.debug('upload', 'flushed', {
           uploaded: stats.uploaded,

@@ -6,11 +6,26 @@ export function BaseComparisonMode({
   ...props
 }) {
   // Simple inline container that sizes to fit its content (the images)
-  let defaultClassName = 'relative inline-block';
-  let finalClassName = `${defaultClassName} ${containerClassName}`;
+  const defaultClassName = 'relative inline-block';
+  const finalClassName = `${defaultClassName} ${containerClassName}`;
+
+  // Use semantic button element when interactive
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={`${finalClassName} border-none bg-transparent p-0 text-left`}
+        style={style}
+        onClick={onClick}
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  }
 
   return (
-    <div className={finalClassName} style={style} onClick={onClick} {...props}>
+    <div className={finalClassName} style={style} {...props}>
       {children}
     </div>
   );
@@ -23,7 +38,7 @@ export function ComparisonContainer({
   onClick,
   style = {},
 }) {
-  let interactiveClass = interactive ? 'cursor-pointer' : '';
+  const interactiveClass = interactive ? 'cursor-pointer' : '';
 
   return (
     <BaseComparisonMode

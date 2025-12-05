@@ -1,8 +1,8 @@
+import { BookOpenIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
-import { ClockIcon, BookOpenIcon } from '@heroicons/react/24/outline';
 import CodeBlock from './code-block.jsx';
 
-let frameworks = [
+const frameworks = [
   {
     id: 'playwright',
     name: 'Playwright',
@@ -90,8 +90,8 @@ npx vizzly storybook ./storybook-static`,
 ];
 
 export default function WaitingForScreenshots() {
-  let [activeFramework, setActiveFramework] = useState('playwright');
-  let currentFramework = frameworks.find(f => f.id === activeFramework);
+  const [activeFramework, setActiveFramework] = useState('playwright');
+  const currentFramework = frameworks.find(f => f.id === activeFramework);
 
   return (
     <div className="flex flex-col items-center justify-center py-12 px-6">
@@ -119,6 +119,7 @@ export default function WaitingForScreenshots() {
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide -mb-px">
               {frameworks.map(framework => (
                 <button
+                  type="button"
                   key={framework.id}
                   onClick={() => setActiveFramework(framework.id)}
                   className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${

@@ -3,8 +3,8 @@
  * Functions for extracting URLs from sitemap.xml files
  */
 
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
 
 /**
@@ -17,7 +17,9 @@ export async function parseSitemapFile(sitemapPath) {
     let content = await readFile(sitemapPath, 'utf-8');
     return parseSitemapXML(content);
   } catch (error) {
-    throw new Error(`Failed to read sitemap at ${sitemapPath}: ${error.message}`);
+    throw new Error(
+      `Failed to read sitemap at ${sitemapPath}: ${error.message}`
+    );
   }
 }
 
@@ -35,7 +37,7 @@ export function parseSitemapXML(xmlContent) {
   let result = parser.parse(xmlContent);
 
   // Handle standard sitemap format
-  if (result.urlset && result.urlset.url) {
+  if (result.urlset?.url) {
     let urls = Array.isArray(result.urlset.url)
       ? result.urlset.url
       : [result.urlset.url];
@@ -43,7 +45,7 @@ export function parseSitemapXML(xmlContent) {
   }
 
   // Handle sitemap index format (sitemap of sitemaps)
-  if (result.sitemapindex && result.sitemapindex.sitemap) {
+  if (result.sitemapindex?.sitemap) {
     let sitemaps = Array.isArray(result.sitemapindex.sitemap)
       ? result.sitemapindex.sitemap
       : [result.sitemapindex.sitemap];
@@ -73,7 +75,7 @@ export function urlsToRelativePaths(urls, baseUrl) {
 
     // Ensure leading slash
     if (!path.startsWith('/')) {
-      path = '/' + path;
+      path = `/${path}`;
     }
 
     // Remove trailing slash for consistency (except root)
@@ -92,7 +94,7 @@ export function urlsToRelativePaths(urls, baseUrl) {
  * @returns {Promise<string|null>} Path to sitemap if found, null otherwise
  */
 export async function discoverSitemap(buildDir) {
-  let { existsSync } = await import('fs');
+  let { existsSync } = await import('node:fs');
 
   let commonNames = ['sitemap.xml', 'sitemap_index.xml', 'sitemap-index.xml'];
 

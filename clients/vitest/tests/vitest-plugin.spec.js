@@ -7,9 +7,9 @@
  * These run in Node environment to test the Vite plugin configuration.
  */
 
-import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 describe('Vitest Plugin Integration', () => {
   describe('Plugin Configuration', () => {

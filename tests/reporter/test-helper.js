@@ -1,7 +1,7 @@
-import { createServer } from 'http';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -10,7 +10,7 @@ const PROJECT_ROOT = join(__dirname, '..', '..');
 export function createReporterTestServer(fixtureData, port = 3456) {
   let server = null;
 
-  let handleRequest = (req, res) => {
+  const handleRequest = (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -21,7 +21,7 @@ export function createReporterTestServer(fixtureData, port = 3456) {
       return;
     }
 
-    let parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
 
     // Serve main dashboard for all HTML routes (client-side routing)
     if (
@@ -33,7 +33,7 @@ export function createReporterTestServer(fixtureData, port = 3456) {
         parsedUrl.pathname === '/projects' ||
         parsedUrl.pathname.startsWith('/comparison/'))
     ) {
-      let dashboardHtml = `
+      const dashboardHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -67,13 +67,13 @@ export function createReporterTestServer(fixtureData, port = 3456) {
 
     // Serve reporter bundle
     if (req.method === 'GET' && parsedUrl.pathname === '/reporter-bundle.js') {
-      let bundlePath = join(
+      const bundlePath = join(
         PROJECT_ROOT,
         'dist',
         'reporter',
         'reporter-bundle.iife.js'
       );
-      let bundle = readFileSync(bundlePath, 'utf8');
+      const bundle = readFileSync(bundlePath, 'utf8');
       res.setHeader('Content-Type', 'application/javascript');
       res.statusCode = 200;
       res.end(bundle);
@@ -82,13 +82,13 @@ export function createReporterTestServer(fixtureData, port = 3456) {
 
     // Serve reporter CSS
     if (req.method === 'GET' && parsedUrl.pathname === '/reporter-bundle.css') {
-      let cssPath = join(
+      const cssPath = join(
         PROJECT_ROOT,
         'dist',
         'reporter',
         'reporter-bundle.css'
       );
-      let css = readFileSync(cssPath, 'utf8');
+      const css = readFileSync(cssPath, 'utf8');
       res.setHeader('Content-Type', 'text/css');
       res.statusCode = 200;
       res.end(css);
@@ -167,8 +167,8 @@ export function createReporterTestServer(fixtureData, port = 3456) {
 
     // Serve fixture images
     if (req.method === 'GET' && parsedUrl.pathname.startsWith('/images/')) {
-      let imagePath = parsedUrl.pathname.replace('/images/', '');
-      let fullImagePath = join(
+      const imagePath = parsedUrl.pathname.replace('/images/', '');
+      const fullImagePath = join(
         PROJECT_ROOT,
         'tests',
         'reporter',
@@ -178,7 +178,7 @@ export function createReporterTestServer(fixtureData, port = 3456) {
       );
 
       try {
-        let imageData = readFileSync(fullImagePath);
+        const imageData = readFileSync(fullImagePath);
         res.setHeader('Content-Type', 'image/png');
         res.statusCode = 200;
         res.end(imageData);
@@ -193,7 +193,7 @@ export function createReporterTestServer(fixtureData, port = 3456) {
     res.end('Not found');
   };
 
-  let start = () => {
+  const start = () => {
     return new Promise((resolve, reject) => {
       server = createServer(handleRequest);
 
@@ -215,7 +215,7 @@ export function createReporterTestServer(fixtureData, port = 3456) {
     });
   };
 
-  let stop = () => {
+  const stop = () => {
     if (server) {
       return new Promise(resolve => {
         server.close(() => {

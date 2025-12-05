@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { z } from 'zod';
 import { VizzlyError } from '../errors/vizzly-error.js';
-import * as output from '../utils/output.js';
 import { loadPlugins } from '../plugin-loader.js';
 import { loadConfig } from '../utils/config-loader.js';
-import { z } from 'zod';
+import * as output from '../utils/output.js';
 
 /**
  * Simple configuration setup for Vizzly CLI
@@ -21,8 +21,8 @@ export class InitCommand {
 
     try {
       // Check for existing config
-      let configPath = path.join(process.cwd(), 'vizzly.config.js');
-      let hasConfig = await this.fileExists(configPath);
+      const configPath = path.join(process.cwd(), 'vizzly.config.js');
+      const hasConfig = await this.fileExists(configPath);
 
       if (hasConfig && !options.force) {
         output.info(
@@ -80,9 +80,9 @@ export class InitCommand {
   }`;
 
     // Add plugin configurations
-    let pluginConfigs = this.generatePluginConfigs();
+    const pluginConfigs = this.generatePluginConfigs();
     if (pluginConfigs) {
-      coreConfig += ',\n\n' + pluginConfigs;
+      coreConfig += `,\n\n${pluginConfigs}`;
     }
 
     coreConfig += '\n};\n';
@@ -91,7 +91,7 @@ export class InitCommand {
     output.info(`📄 Created vizzly.config.js`);
 
     // Log discovered plugins
-    let pluginsWithConfig = this.plugins.filter(p => p.configSchema);
+    const pluginsWithConfig = this.plugins.filter(p => p.configSchema);
     if (pluginsWithConfig.length > 0) {
       output.info(`   Added config for ${pluginsWithConfig.length} plugin(s):`);
       pluginsWithConfig.forEach(p => {
@@ -105,11 +105,11 @@ export class InitCommand {
    * @returns {string} Plugin config sections as formatted string
    */
   generatePluginConfigs() {
-    let sections = [];
+    const sections = [];
 
-    for (let plugin of this.plugins) {
+    for (const plugin of this.plugins) {
       if (plugin.configSchema) {
-        let configStr = this.formatPluginConfig(plugin);
+        const configStr = this.formatPluginConfig(plugin);
         if (configStr) {
           sections.push(configStr);
         }
@@ -127,7 +127,7 @@ export class InitCommand {
   formatPluginConfig(plugin) {
     try {
       // Validate config schema structure with Zod (defensive check)
-      let configValueSchema = z.lazy(() =>
+      const configValueSchema = z.lazy(() =>
         z.union([
           z.string(),
           z.number(),
@@ -137,13 +137,13 @@ export class InitCommand {
           z.record(configValueSchema),
         ])
       );
-      let configSchemaValidator = z.record(configValueSchema);
+      const configSchemaValidator = z.record(configValueSchema);
       configSchemaValidator.parse(plugin.configSchema);
 
-      let configEntries = [];
+      const configEntries = [];
 
-      for (let [key, value] of Object.entries(plugin.configSchema)) {
-        let formattedValue = this.formatValue(value, 1);
+      for (const [key, value] of Object.entries(plugin.configSchema)) {
+        const formattedValue = this.formatValue(value, 1);
         configEntries.push(
           `  // ${plugin.name} plugin configuration\n  ${key}: ${formattedValue}`
         );
@@ -152,7 +152,7 @@ export class InitCommand {
       return configEntries.join(',\n\n');
     } catch (error) {
       if (error instanceof z.ZodError) {
-        let messages = error.errors.map(
+        const messages = error.errors.map(
           e => `${e.path.join('.')}: ${e.message}`
         );
         output.warn(
@@ -174,8 +174,8 @@ export class InitCommand {
    * @returns {string} Formatted value
    */
   formatValue(value, depth = 0) {
-    let indent = '  '.repeat(depth);
-    let nextIndent = '  '.repeat(depth + 1);
+    const indent = '  '.repeat(depth);
+    const nextIndent = '  '.repeat(depth + 1);
 
     if (value === null) return 'null';
     if (value === undefined) return 'undefined';
@@ -186,8 +186,8 @@ export class InitCommand {
     if (Array.isArray(value)) {
       if (value.length === 0) return '[]';
 
-      let items = value.map(item => {
-        let formatted = this.formatValue(item, depth + 1);
+      const items = value.map(item => {
+        const formatted = this.formatValue(item, depth + 1);
         return `${nextIndent}${formatted}`;
       });
 
@@ -195,11 +195,11 @@ export class InitCommand {
     }
 
     if (typeof value === 'object') {
-      let entries = Object.entries(value);
+      const entries = Object.entries(value);
       if (entries.length === 0) return '{}';
 
-      let props = entries.map(([k, v]) => {
-        let formatted = this.formatValue(v, depth + 1);
+      const props = entries.map(([k, v]) => {
+        const formatted = this.formatValue(v, depth + 1);
         return `${nextIndent}${k}: ${formatted}`;
       });
 
@@ -232,7 +232,7 @@ export class InitCommand {
 
 // Export factory function for CLI
 export function createInitCommand(options) {
-  let command = new InitCommand(options.plugins);
+  const command = new InitCommand(options.plugins);
   return () => command.run(options);
 }
 
@@ -249,7 +249,7 @@ export async function init(options = {}) {
   // Try to load plugins if not provided
   if (!options.plugins) {
     try {
-      let config = await loadConfig(options.config, {});
+      const config = await loadConfig(options.config, {});
       plugins = await loadPlugins(options.config, config, null);
     } catch {
       // Silent fail - plugins are optional for init
@@ -258,6 +258,6 @@ export async function init(options = {}) {
     plugins = options.plugins;
   }
 
-  let command = new InitCommand(plugins);
+  const command = new InitCommand(plugins);
   return await command.run(options);
 }

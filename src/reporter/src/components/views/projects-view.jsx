@@ -1,50 +1,50 @@
-import { useState, useCallback, useEffect } from 'react';
+import {
+  ArrowLeftOnRectangleIcon,
+  ArrowPathIcon,
+  ArrowRightOnRectangleIcon,
+  FolderIcon,
+  TrashIcon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline';
 import { useQueryClient } from '@tanstack/react-query';
-import { useToast } from '../ui/toast.jsx';
+import { useCallback, useEffect, useState } from 'react';
 import {
   useAuthStatus,
   useInitiateLogin,
-  usePollAuthorization,
   useLogout,
+  usePollAuthorization,
 } from '../../hooks/queries/use-auth-queries.js';
 import {
-  useProjectMappings,
   useDeleteProjectMapping,
+  useProjectMappings,
 } from '../../hooks/queries/use-cloud-queries.js';
 import { queryKeys } from '../../lib/query-keys.js';
 import {
-  UserCircleIcon,
-  ArrowRightOnRectangleIcon,
-  ArrowLeftOnRectangleIcon,
-  FolderIcon,
-  TrashIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline';
-import {
-  Card,
-  CardHeader,
-  CardBody,
-  Button,
-  Badge,
   Alert,
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
   EmptyState,
   Skeleton,
   SkeletonCard,
   Spinner,
 } from '../design-system/index.js';
+import { useToast } from '../ui/toast.jsx';
 
 function DeviceFlowLogin({ onComplete }) {
-  let [deviceFlow, setDeviceFlow] = useState(null);
-  let [error, setError] = useState(null);
+  const [deviceFlow, setDeviceFlow] = useState(null);
+  const [error, setError] = useState(null);
 
-  let initiateLoginMutation = useInitiateLogin();
-  let pollMutation = usePollAuthorization();
-  let { addToast } = useToast();
+  const initiateLoginMutation = useInitiateLogin();
+  const pollMutation = usePollAuthorization();
+  const { addToast } = useToast();
 
   useEffect(() => {
     async function startDeviceFlow() {
       try {
-        let flow = await initiateLoginMutation.mutateAsync();
+        const flow = await initiateLoginMutation.mutateAsync();
         setDeviceFlow(flow);
       } catch (err) {
         setError(err.message);
@@ -54,7 +54,7 @@ function DeviceFlowLogin({ onComplete }) {
 
     startDeviceFlow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [addToast, initiateLoginMutation.mutateAsync]);
 
   async function checkAuthorization() {
     if (!deviceFlow?.deviceCode) return;
@@ -62,7 +62,7 @@ function DeviceFlowLogin({ onComplete }) {
     setError(null);
 
     try {
-      let result = await pollMutation.mutateAsync(deviceFlow.deviceCode);
+      const result = await pollMutation.mutateAsync(deviceFlow.deviceCode);
 
       if (result.status === 'complete') {
         addToast('Login successful!', 'success');
@@ -144,16 +144,16 @@ function DeviceFlowLogin({ onComplete }) {
 }
 
 function AuthCard() {
-  let [showingLogin, setShowingLogin] = useState(false);
-  let queryClient = useQueryClient();
-  let { data: authData, isLoading } = useAuthStatus();
-  let logoutMutation = useLogout();
-  let { addToast } = useToast();
+  const [showingLogin, setShowingLogin] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: authData, isLoading } = useAuthStatus();
+  const logoutMutation = useLogout();
+  const { addToast } = useToast();
 
-  let user = authData?.user;
-  let authenticated = authData?.authenticated;
+  const user = authData?.user;
+  const authenticated = authData?.authenticated;
 
-  let handleLogout = useCallback(async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await logoutMutation.mutateAsync();
       addToast('Logged out successfully', 'success');
@@ -162,7 +162,7 @@ function AuthCard() {
     }
   }, [logoutMutation, addToast]);
 
-  let handleLoginComplete = useCallback(() => {
+  const handleLoginComplete = useCallback(() => {
     setShowingLogin(false);
     queryClient.invalidateQueries({ queryKey: queryKeys.auth });
   }, [queryClient]);
@@ -246,11 +246,11 @@ function AuthCard() {
 }
 
 function ProjectMappingsTable({ mappings, onDelete, deleting }) {
-  let { addToast, confirm } = useToast();
+  const { addToast, confirm } = useToast();
 
-  let handleDelete = useCallback(
+  const handleDelete = useCallback(
     async directory => {
-      let confirmed = await confirm(
+      const confirmed = await confirm(
         `Remove project mapping for ${directory}?`,
         'This will not delete any files, only the project association.'
       );
@@ -296,8 +296,8 @@ function ProjectMappingsTable({ mappings, onDelete, deleting }) {
           </tr>
         </thead>
         <tbody>
-          {mappings.map((mapping, idx) => (
-            <tr key={idx}>
+          {mappings.map(mapping => (
+            <tr key={mapping.directory}>
               <td className="font-mono text-sm">{mapping.directory}</td>
               <td className="text-white">
                 {mapping.projectName || mapping.projectSlug}
@@ -322,16 +322,16 @@ function ProjectMappingsTable({ mappings, onDelete, deleting }) {
 }
 
 export default function ProjectsView() {
-  let {
+  const {
     data: mappingsData,
     isLoading: mappingsLoading,
     refetch,
   } = useProjectMappings();
-  let deleteMappingMutation = useDeleteProjectMapping();
+  const deleteMappingMutation = useDeleteProjectMapping();
 
-  let mappings = mappingsData?.mappings || [];
+  const mappings = mappingsData?.mappings || [];
 
-  let handleDeleteMapping = useCallback(
+  const handleDeleteMapping = useCallback(
     async directory => {
       await deleteMappingMutation.mutateAsync(directory);
     },

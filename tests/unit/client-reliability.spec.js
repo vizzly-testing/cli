@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, mkdirSync, rmSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Client SDK - Request Timeout', () => {
   let testDir;
@@ -37,11 +37,11 @@ describe('Client SDK - Request Timeout', () => {
 
   it('should timeout slow requests after 30 seconds', async () => {
     // Mock fetch that respects abort signal
-    global.fetch = vi.fn().mockImplementation((url, options) => {
-      return new Promise((resolve, reject) => {
+    global.fetch = vi.fn().mockImplementation((_url, options) => {
+      return new Promise((_resolve, reject) => {
         if (options?.signal) {
           options.signal.addEventListener('abort', () => {
-            let error = new Error('This operation was aborted');
+            const error = new Error('This operation was aborted');
             error.name = 'AbortError';
             reject(error);
           });
@@ -54,19 +54,22 @@ describe('Client SDK - Request Timeout', () => {
 
     vi.useFakeTimers();
 
-    let screenshotPromise = vizzlyScreenshot('slow-test', Buffer.from('data'));
+    const screenshotPromise = vizzlyScreenshot(
+      'slow-test',
+      Buffer.from('data')
+    );
 
     // Fast-forward past the timeout (30 seconds)
     await vi.advanceTimersByTimeAsync(31000);
 
-    let result = await screenshotPromise;
+    const result = await screenshotPromise;
 
     // Should return null (graceful failure)
     expect(result).toBeNull();
   });
 
   it('should clear timeout on successful response', async () => {
-    let clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
+    const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -84,11 +87,11 @@ describe('Client SDK - Request Timeout', () => {
   });
 
   it('should disable client after timeout to prevent blocking further tests', async () => {
-    global.fetch = vi.fn().mockImplementation((url, options) => {
-      return new Promise((resolve, reject) => {
+    global.fetch = vi.fn().mockImplementation((_url, options) => {
+      return new Promise((_resolve, reject) => {
         if (options?.signal) {
           options.signal.addEventListener('abort', () => {
-            let error = new Error('Aborted');
+            const error = new Error('Aborted');
             error.name = 'AbortError';
             reject(error);
           });
@@ -102,14 +105,14 @@ describe('Client SDK - Request Timeout', () => {
 
     vi.useFakeTimers();
 
-    let firstPromise = vizzlyScreenshot('timeout-test', Buffer.from('data'));
+    const firstPromise = vizzlyScreenshot('timeout-test', Buffer.from('data'));
     await vi.advanceTimersByTimeAsync(31000);
     await firstPromise;
 
     vi.useRealTimers();
 
     // Client should be disabled after timeout
-    let info = getVizzlyInfo();
+    const info = getVizzlyInfo();
     expect(info.disabled).toBe(true);
 
     // Subsequent calls should be skipped silently
@@ -119,7 +122,7 @@ describe('Client SDK - Request Timeout', () => {
   });
 
   it('should handle connection refused gracefully', async () => {
-    let error = new Error('fetch failed');
+    const error = new Error('fetch failed');
     error.code = 'ECONNREFUSED';
     global.fetch = vi.fn().mockRejectedValue(error);
 
@@ -127,13 +130,16 @@ describe('Client SDK - Request Timeout', () => {
       '../../src/client/index.js'
     );
 
-    let result = await vizzlyScreenshot('connection-test', Buffer.from('data'));
+    const result = await vizzlyScreenshot(
+      'connection-test',
+      Buffer.from('data')
+    );
 
     // Should return null (not throw)
     expect(result).toBeNull();
 
     // Client should be disabled
-    let info = getVizzlyInfo();
+    const info = getVizzlyInfo();
     expect(info.disabled).toBe(true);
   });
 
@@ -155,7 +161,7 @@ describe('Client SDK - Request Timeout', () => {
     const { vizzlyScreenshot } = await import('../../src/client/index.js');
 
     // TDD mode visual diffs should return result (not throw, not disable)
-    let result = await vizzlyScreenshot(
+    const result = await vizzlyScreenshot(
       'visual-diff-test',
       Buffer.from('data')
     );

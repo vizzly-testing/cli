@@ -1,8 +1,8 @@
-import { Buffer } from 'buffer';
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
-import * as output from '../../utils/output.js';
+import { Buffer } from 'node:buffer';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { detectImageInputType } from '../../utils/image-input-detector.js';
+import * as output from '../../utils/output.js';
 
 /**
  * API Handler - Non-blocking screenshot upload

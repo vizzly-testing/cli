@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { auth } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 
@@ -17,7 +17,7 @@ export function useInitiateLogin() {
 }
 
 export function usePollAuthorization() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deviceCode => auth.pollAuthorization(deviceCode),
     onSuccess: data => {
@@ -30,7 +30,7 @@ export function usePollAuthorization() {
 }
 
 export function useLogout() {
-  let queryClient = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: auth.logout,
     onSuccess: () => {

@@ -12,7 +12,7 @@ export function Tabs({
   variant = 'default',
   className = '',
 }) {
-  let variantStyles = {
+  const variantStyles = {
     default: {
       container: 'border-b border-slate-700/50',
       tab: 'px-4 py-3 text-sm font-medium transition-colors relative',
@@ -36,14 +36,15 @@ export function Tabs({
     },
   };
 
-  let styles = variantStyles[variant];
+  const styles = variantStyles[variant];
 
   return (
     <div className={`${styles.container} ${className}`}>
       {tabs.map(tab => {
-        let isActive = activeTab === tab.key;
+        const isActive = activeTab === tab.key;
         return (
           <button
+            type="button"
             key={tab.key}
             onClick={() => onChange?.(tab.key)}
             className={`${styles.tab} ${isActive ? styles.active : styles.inactive}`}

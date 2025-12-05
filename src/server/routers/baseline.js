@@ -3,13 +3,13 @@
  * Handles baseline management (accept, accept-all, reset)
  */
 
+import * as output from '../../utils/output.js';
 import { parseJsonBody } from '../middleware/json-parser.js';
 import {
-  sendSuccess,
   sendError,
   sendServiceUnavailable,
+  sendSuccess,
 } from '../middleware/response.js';
-import * as output from '../../utils/output.js';
 
 /**
  * Create baseline router
@@ -33,7 +33,7 @@ export function createBaselineRouter({
       }
 
       try {
-        let { id } = await parseJsonBody(req);
+        const { id } = await parseJsonBody(req);
         if (!id) {
           sendError(res, 400, 'Comparison ID required');
           return true;
@@ -61,7 +61,7 @@ export function createBaselineRouter({
       }
 
       try {
-        let result = await screenshotHandler.acceptAllBaselines();
+        const result = await screenshotHandler.acceptAllBaselines();
 
         sendSuccess(res, {
           success: true,
@@ -109,8 +109,8 @@ export function createBaselineRouter({
       }
 
       try {
-        let body = await parseJsonBody(req);
-        let { buildId, organizationSlug, projectSlug } = body;
+        const body = await parseJsonBody(req);
+        const { buildId, organizationSlug, projectSlug } = body;
 
         if (!buildId) {
           sendError(res, 400, 'buildId is required');
@@ -122,7 +122,7 @@ export function createBaselineRouter({
         // If organizationSlug and projectSlug are provided, use OAuth-based download
         if (organizationSlug && projectSlug && authService) {
           try {
-            let result = await tddService.downloadBaselinesWithAuth(
+            const result = await tddService.downloadBaselinesWithAuth(
               buildId,
               organizationSlug,
               projectSlug,
@@ -162,7 +162,7 @@ export function createBaselineRouter({
         }
 
         // Fall back to API token-based download (when no OAuth info or OAuth auth failed)
-        let result = await tddService.downloadBaselines(
+        const result = await tddService.downloadBaselines(
           'test', // environment
           null, // branch (not needed when buildId is specified)
           buildId, // specific build to download from

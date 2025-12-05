@@ -1,37 +1,37 @@
-import { useState, useCallback, useMemo } from 'react';
-import { useToast } from '../ui/toast.jsx';
+import {
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  ArrowRightOnRectangleIcon,
+  BuildingOfficeIcon,
+  CheckCircleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  FolderIcon,
+  UserCircleIcon,
+  XCircleIcon,
+} from '@heroicons/react/24/outline';
+import { useCallback, useMemo, useState } from 'react';
 import { useAuthStatus } from '../../hooks/queries/use-auth-queries.js';
 import {
-  useProjects,
   useBuilds,
   useDownloadBaselines,
+  useProjects,
 } from '../../hooks/queries/use-cloud-queries.js';
 import {
-  FolderIcon,
-  ArrowDownTrayIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  ChevronRightIcon,
-  ChevronDownIcon,
-  BuildingOfficeIcon,
-  ArrowPathIcon,
-  UserCircleIcon,
-  ArrowRightOnRectangleIcon,
-} from '@heroicons/react/24/outline';
-import {
+  Badge,
+  Button,
   Card,
   CardBody,
-  Button,
-  Badge,
   EmptyState,
   Skeleton,
   SkeletonCard,
   Spinner,
 } from '../design-system/index.js';
+import { useToast } from '../ui/toast.jsx';
 
 function StatusBadge({ status }) {
-  let variants = {
+  const variants = {
     passed: { variant: 'success', icon: CheckCircleIcon },
     completed: { variant: 'success', icon: CheckCircleIcon },
     failed: { variant: 'danger', icon: XCircleIcon },
@@ -39,7 +39,7 @@ function StatusBadge({ status }) {
     processing: { variant: 'info', icon: ArrowPathIcon },
   };
 
-  let config = variants[status] || variants.pending;
+  const config = variants[status] || variants.pending;
 
   return (
     <Badge variant={config.variant} dot pulseDot={status === 'processing'}>
@@ -49,7 +49,7 @@ function StatusBadge({ status }) {
 }
 
 function getTimeAgo(date) {
-  let seconds = Math.floor((new Date() - date) / 1000);
+  const seconds = Math.floor((Date.now() - date) / 1000);
 
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -60,8 +60,8 @@ function getTimeAgo(date) {
 }
 
 function BuildCard({ build, project, onDownload, downloading }) {
-  let createdAt = new Date(build.createdAt || build.created_at);
-  let timeAgo = getTimeAgo(createdAt);
+  const createdAt = new Date(build.createdAt || build.created_at);
+  const timeAgo = getTimeAgo(createdAt);
 
   return (
     <div className="flex items-center justify-between p-4 vz-card">
@@ -103,16 +103,17 @@ function ProjectCard({
   downloadingBuildId,
 }) {
   // Fetch builds for this project when expanded
-  let { data: buildsData, isLoading: loadingBuilds } = useBuilds(
+  const { data: buildsData, isLoading: loadingBuilds } = useBuilds(
     expanded ? project.organizationSlug : null,
     expanded ? project.slug : null
   );
 
-  let builds = buildsData?.builds || [];
+  const builds = buildsData?.builds || [];
 
   return (
     <Card hover={false}>
       <button
+        type="button"
         onClick={() => onExpand(project.organizationSlug, project.slug)}
         className="w-full flex items-center justify-between p-5 text-left hover:bg-white/[0.02] transition-colors"
       >
@@ -199,7 +200,7 @@ function OrganizationSection({
       </div>
       <div className="space-y-3 pl-11">
         {org.projects.map(project => {
-          let key = `${project.organizationSlug}/${project.slug}`;
+          const key = `${project.organizationSlug}/${project.slug}`;
           return (
             <ProjectCard
               key={key}
@@ -243,27 +244,27 @@ function LoginPrompt({ onLogin }) {
 }
 
 export default function BuildsView() {
-  let [expandedProjects, setExpandedProjects] = useState({});
-  let [downloadingBuildId, setDownloadingBuildId] = useState(null);
-  let { addToast } = useToast();
+  const [expandedProjects, setExpandedProjects] = useState({});
+  const [downloadingBuildId, setDownloadingBuildId] = useState(null);
+  const { addToast } = useToast();
 
   // Use TanStack Query for data
-  let { data: authData, isLoading: authLoading } = useAuthStatus();
-  let {
+  const { data: authData, isLoading: authLoading } = useAuthStatus();
+  const {
     data: projectsData,
     isLoading: projectsLoading,
     refetch,
   } = useProjects();
-  let downloadMutation = useDownloadBaselines();
+  const downloadMutation = useDownloadBaselines();
 
-  let authenticated = authData?.authenticated;
+  const authenticated = authData?.authenticated;
 
   // Group projects by organization
-  let projectsByOrg = useMemo(() => {
-    let projects = projectsData?.projects || [];
-    let grouped = {};
-    for (let project of projects) {
-      let orgSlug = project.organizationSlug || 'unknown';
+  const projectsByOrg = useMemo(() => {
+    const projects = projectsData?.projects || [];
+    const grouped = {};
+    for (const project of projects) {
+      const orgSlug = project.organizationSlug || 'unknown';
       if (!grouped[orgSlug]) {
         grouped[orgSlug] = {
           slug: orgSlug,
@@ -276,15 +277,15 @@ export default function BuildsView() {
     return Object.values(grouped);
   }, [projectsData?.projects]);
 
-  let handleExpand = useCallback((orgSlug, projectSlug) => {
-    let key = `${orgSlug}/${projectSlug}`;
+  const handleExpand = useCallback((orgSlug, projectSlug) => {
+    const key = `${orgSlug}/${projectSlug}`;
     setExpandedProjects(prev => ({
       ...prev,
       [key]: !prev[key],
     }));
   }, []);
 
-  let handleDownload = useCallback(
+  const handleDownload = useCallback(
     (build, project) => {
       setDownloadingBuildId(build.id);
       downloadMutation.mutate(
@@ -311,7 +312,7 @@ export default function BuildsView() {
     [downloadMutation, addToast]
   );
 
-  let handleLogin = useCallback(() => {
+  const handleLogin = useCallback(() => {
     // Navigate to projects page for login
     window.location.href = '/projects';
   }, []);

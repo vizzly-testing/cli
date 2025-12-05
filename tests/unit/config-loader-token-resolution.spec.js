@@ -5,7 +5,7 @@
  * They are only for user-level operations, not SDK endpoints
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadConfig } from '../../src/utils/config-loader.js';
 import * as globalConfig from '../../src/utils/global-config.js';
 
@@ -49,40 +49,40 @@ describe('Config Loader - Token Resolution Priority', () => {
 
   describe('Priority 1: CLI flag (highest)', () => {
     it('should use CLI flag token when provided', async () => {
-      let cliToken = 'cli_token_123';
+      const cliToken = 'cli_token_123';
 
-      let config = await loadConfig(null, { token: cliToken });
+      const config = await loadConfig(null, { token: cliToken });
 
       expect(config.apiKey).toBe(cliToken);
     });
 
     it('should prefer CLI flag over environment variable', async () => {
-      let cliToken = 'cli_token_123';
+      const cliToken = 'cli_token_123';
       process.env.VIZZLY_TOKEN = 'env_token_456';
 
-      let config = await loadConfig(null, { token: cliToken });
+      const config = await loadConfig(null, { token: cliToken });
 
       expect(config.apiKey).toBe(cliToken);
     });
 
     it('should prefer CLI flag over project mapping', async () => {
-      let cliToken = 'cli_token_123';
+      const cliToken = 'cli_token_123';
       globalConfig.__setMockProjectMapping({
         token: 'vzt_project_token_789',
         projectSlug: 'test-project',
         organizationSlug: 'test-org',
       });
 
-      let config = await loadConfig(null, { token: cliToken });
+      const config = await loadConfig(null, { token: cliToken });
 
       expect(config.apiKey).toBe(cliToken);
     });
 
     it('should prefer CLI flag over user access token', async () => {
-      let cliToken = 'cli_token_123';
+      const cliToken = 'cli_token_123';
       globalConfig.__setMockAccessToken('user_access_token_abc');
 
-      let config = await loadConfig(null, { token: cliToken });
+      const config = await loadConfig(null, { token: cliToken });
 
       expect(config.apiKey).toBe(cliToken);
     });
@@ -92,7 +92,7 @@ describe('Config Loader - Token Resolution Priority', () => {
     it('should use VIZZLY_TOKEN when no CLI flag', async () => {
       process.env.VIZZLY_TOKEN = 'env_token_456';
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       expect(config.apiKey).toBe('env_token_456');
     });
@@ -105,7 +105,7 @@ describe('Config Loader - Token Resolution Priority', () => {
         organizationSlug: 'test-org',
       });
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       expect(config.apiKey).toBe('env_token_456');
     });
@@ -114,7 +114,7 @@ describe('Config Loader - Token Resolution Priority', () => {
       process.env.VIZZLY_TOKEN = 'env_token_456';
       globalConfig.__setMockAccessToken('user_access_token_abc');
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       expect(config.apiKey).toBe('env_token_456');
     });
@@ -129,7 +129,7 @@ describe('Config Loader - Token Resolution Priority', () => {
         projectName: 'Test Project',
       });
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       expect(config.apiKey).toBe('vzt_project_token_789');
       expect(config.projectSlug).toBe('test-project');
@@ -144,7 +144,7 @@ describe('Config Loader - Token Resolution Priority', () => {
       });
       globalConfig.__setMockAccessToken('user_access_token_abc');
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       expect(config.apiKey).toBe('vzt_project_token_789');
     });
@@ -156,7 +156,7 @@ describe('Config Loader - Token Resolution Priority', () => {
         organizationSlug: 'test-org',
       });
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       expect(config.apiKey).toBe('vzt_project_token_string');
     });
@@ -168,14 +168,14 @@ describe('Config Loader - Token Resolution Priority', () => {
       // They have different format and permissions than project tokens
       globalConfig.__setMockAccessToken('user_access_token_abc');
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       // apiKey should be undefined, NOT the user access token
       expect(config.apiKey).toBeUndefined();
     });
 
     it('should return undefined apiKey when no token sources available', async () => {
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       expect(config.apiKey).toBeUndefined();
     });
@@ -183,7 +183,7 @@ describe('Config Loader - Token Resolution Priority', () => {
 
   describe('Edge cases', () => {
     it('should handle empty CLI overrides object with no tokens', async () => {
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       expect(config.apiKey).toBeUndefined();
     });
@@ -191,7 +191,7 @@ describe('Config Loader - Token Resolution Priority', () => {
     it('should handle null project mapping', async () => {
       globalConfig.__setMockProjectMapping(null);
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       // Without project mapping or env var, apiKey should be undefined
       expect(config.apiKey).toBeUndefined();
@@ -203,14 +203,14 @@ describe('Config Loader - Token Resolution Priority', () => {
         organizationSlug: 'test-org',
       });
 
-      let config = await loadConfig(null, {});
+      const config = await loadConfig(null, {});
 
       // Project mapping without token should result in undefined apiKey
       expect(config.apiKey).toBeUndefined();
     });
 
     it('should skip project mapping lookup when CLI token provided', async () => {
-      let cliToken = 'cli_token_123';
+      const cliToken = 'cli_token_123';
 
       await loadConfig(null, { token: cliToken });
 

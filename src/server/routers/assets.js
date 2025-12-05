@@ -3,15 +3,15 @@
  * Serves static assets (bundle files, images)
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { sendFile, sendError, sendNotFound } from '../middleware/response.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as output from '../../utils/output.js';
+import { sendError, sendFile, sendNotFound } from '../middleware/response.js';
 
-let __filename = fileURLToPath(import.meta.url);
-let __dirname = dirname(__filename);
-let PROJECT_ROOT = join(__dirname, '..', '..', '..');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PROJECT_ROOT = join(__dirname, '..', '..', '..');
 
 /**
  * Create assets router
@@ -26,7 +26,7 @@ export function createAssetsRouter() {
 
     // Serve React bundle JS
     if (pathname === '/reporter-bundle.js') {
-      let bundlePath = join(
+      const bundlePath = join(
         PROJECT_ROOT,
         'dist',
         'reporter',
@@ -35,7 +35,7 @@ export function createAssetsRouter() {
 
       if (existsSync(bundlePath)) {
         try {
-          let bundle = readFileSync(bundlePath, 'utf8');
+          const bundle = readFileSync(bundlePath, 'utf8');
           sendFile(res, bundle, 'application/javascript');
           return true;
         } catch (error) {
@@ -53,7 +53,7 @@ export function createAssetsRouter() {
 
     // Serve React bundle CSS
     if (pathname === '/reporter-bundle.css') {
-      let cssPath = join(
+      const cssPath = join(
         PROJECT_ROOT,
         'dist',
         'reporter',
@@ -62,7 +62,7 @@ export function createAssetsRouter() {
 
       if (existsSync(cssPath)) {
         try {
-          let css = readFileSync(cssPath, 'utf8');
+          const css = readFileSync(cssPath, 'utf8');
           sendFile(res, css, 'text/css');
           return true;
         } catch (error) {
@@ -78,12 +78,12 @@ export function createAssetsRouter() {
 
     // Serve images from .vizzly directory
     if (pathname.startsWith('/images/')) {
-      let imagePath = pathname.replace('/images/', '');
-      let fullImagePath = join(process.cwd(), '.vizzly', imagePath);
+      const imagePath = pathname.replace('/images/', '');
+      const fullImagePath = join(process.cwd(), '.vizzly', imagePath);
 
       if (existsSync(fullImagePath)) {
         try {
-          let imageData = readFileSync(fullImagePath);
+          const imageData = readFileSync(fullImagePath);
           sendFile(res, imageData, 'image/png');
           return true;
         } catch (error) {

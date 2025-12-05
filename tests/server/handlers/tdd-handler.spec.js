@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTddHandler } from '../../../src/server/handlers/tdd-handler.js';
 
 // Mock dependencies
 const mockTddServiceStore = { mockInstance: null };
 
 vi.mock('../../../src/services/tdd-service.js', () => ({
+  // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
   TddService: vi.fn(function () {
     return mockTddServiceStore.mockInstance;
   }),

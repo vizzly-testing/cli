@@ -3,9 +3,9 @@
  * Functions for managing and applying hooks to stories
  */
 
-import { findMatchingHook } from './utils/patterns.js';
-import { extractStoryConfig } from './crawler.js';
 import { mergeStoryConfig } from './config.js';
+import { extractStoryConfig } from './crawler.js';
+import { findMatchingHook } from './utils/patterns.js';
 
 /**
  * Get the beforeScreenshot hook for a story

@@ -2,7 +2,7 @@
  * Tests for concurrency control
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // Simple concurrency control - process items with limited parallelism
 async function mapWithConcurrency(items, fn, concurrency) {

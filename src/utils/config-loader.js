@@ -1,11 +1,11 @@
+import { resolve } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
-import { resolve } from 'path';
-import { getApiToken, getApiUrl, getParallelId } from './environment-config.js';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
+import { getApiToken, getApiUrl, getParallelId } from './environment-config.js';
 import { getProjectMapping } from './global-config.js';
 import * as output from './output.js';
 
-let DEFAULT_CONFIG = {
+const DEFAULT_CONFIG = {
   // API Configuration
   apiKey: undefined, // Will be set from env, global config, or CLI overrides
   apiUrl: getApiUrl(),
@@ -45,20 +45,20 @@ let DEFAULT_CONFIG = {
 
 export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 1. Load from config file using cosmiconfig
-  let explorer = cosmiconfigSync('vizzly');
-  let result = configPath ? explorer.load(configPath) : explorer.search();
+  const explorer = cosmiconfigSync('vizzly');
+  const result = configPath ? explorer.load(configPath) : explorer.search();
 
   let fileConfig = {};
-  if (result && result.config) {
+  if (result?.config) {
     // Handle ESM default export (cosmiconfig wraps it in { default: {...} })
     fileConfig = result.config.default || result.config;
   }
 
   // 2. Validate config file using Zod schema
-  let validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
+  const validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
 
   // Create a proper clone of the default config to avoid shared object references
-  let config = {
+  const config = {
     ...DEFAULT_CONFIG,
     server: { ...DEFAULT_CONFIG.server },
     build: { ...DEFAULT_CONFIG.build },
@@ -73,10 +73,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   // 3. Check project mapping for current directory (if no CLI flag)
   if (!cliOverrides.token) {
-    let currentDir = process.cwd();
+    const currentDir = process.cwd();
 
-    let projectMapping = await getProjectMapping(currentDir);
-    if (projectMapping && projectMapping.token) {
+    const projectMapping = await getProjectMapping(currentDir);
+    if (projectMapping?.token) {
       // Handle both string tokens and token objects (backward compatibility)
       let token;
       if (typeof projectMapping.token === 'string') {
@@ -103,9 +103,9 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   // 4. Override with environment variables (higher priority than fallbacks)
-  let envApiKey = getApiToken();
-  let envApiUrl = getApiUrl();
-  let envParallelId = getParallelId();
+  const envApiKey = getApiToken();
+  const envApiUrl = getApiUrl();
+  const envParallelId = getParallelId();
 
   if (envApiKey) {
     config.apiKey = envApiKey;
@@ -173,7 +173,7 @@ function applyCLIOverrides(config, cliOverrides = {}) {
 }
 
 function mergeConfig(target, source) {
-  for (let key in source) {
+  for (const key in source) {
     if (
       source[key] &&
       typeof source[key] === 'object' &&
@@ -188,8 +188,10 @@ function mergeConfig(target, source) {
 }
 
 export function getScreenshotPaths(config) {
-  let screenshotsDir = config.upload?.screenshotsDir || './screenshots';
-  let paths = Array.isArray(screenshotsDir) ? screenshotsDir : [screenshotsDir];
+  const screenshotsDir = config.upload?.screenshotsDir || './screenshots';
+  const paths = Array.isArray(screenshotsDir)
+    ? screenshotsDir
+    : [screenshotsDir];
 
   return paths.map(p => resolve(process.cwd(), p));
 }

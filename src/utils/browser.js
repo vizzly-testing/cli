@@ -2,8 +2,8 @@
  * Browser utilities for opening URLs
  */
 
-import { execFile } from 'child_process';
-import { platform } from 'os';
+import { execFile } from 'node:child_process';
+import { platform } from 'node:os';
 
 /**
  * Open a URL in the default browser
@@ -14,7 +14,7 @@ export async function openBrowser(url) {
   return new Promise(resolve => {
     let command;
     let args;
-    let os = platform();
+    const os = platform();
 
     switch (os) {
       case 'darwin': // macOS

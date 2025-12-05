@@ -2,7 +2,7 @@
  * Tests for viewport utilities
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { parseViewport } from '../../src/utils/viewport.js';
 
 describe('viewport', () => {

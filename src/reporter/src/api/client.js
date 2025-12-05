@@ -16,7 +16,7 @@
  * @returns {Promise<Object>} Parsed JSON response
  */
 async function fetchJson(url, options = {}) {
-  let response = await fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -24,10 +24,10 @@ async function fetchJson(url, options = {}) {
     },
   });
 
-  let data = await response.json();
+  const data = await response.json();
 
   if (!response.ok) {
-    let error = new Error(data.error || 'Request failed');
+    const error = new Error(data.error || 'Request failed');
     error.status = response.status;
     error.data = data;
     throw error;
@@ -39,7 +39,7 @@ async function fetchJson(url, options = {}) {
 /**
  * TDD API - Local screenshot management
  */
-export let tdd = {
+export const tdd = {
   /**
    * Get current report data with comparisons
    * @returns {Promise<Object|null>}
@@ -106,7 +106,7 @@ export let tdd = {
 /**
  * Cloud API - Remote Vizzly operations (via proxy)
  */
-export let cloud = {
+export const cloud = {
   /**
    * List all user's projects
    * @returns {Promise<Object>}
@@ -125,12 +125,12 @@ export let cloud = {
    * @returns {Promise<Object>}
    */
   async getBuilds(organizationSlug, projectSlug, options = {}) {
-    let params = new URLSearchParams();
+    const params = new URLSearchParams();
     if (options.limit) params.append('limit', String(options.limit));
     if (options.branch) params.append('branch', options.branch);
 
-    let query = params.toString();
-    let url = `/api/cloud/organizations/${encodeURIComponent(organizationSlug)}/projects/${encodeURIComponent(projectSlug)}/builds${query ? `?${query}` : ''}`;
+    const query = params.toString();
+    const url = `/api/cloud/organizations/${encodeURIComponent(organizationSlug)}/projects/${encodeURIComponent(projectSlug)}/builds${query ? `?${query}` : ''}`;
 
     return fetchJson(url);
   },
@@ -152,7 +152,7 @@ export let cloud = {
 /**
  * Config API - Configuration management
  */
-export let config = {
+export const config = {
   /**
    * Get merged configuration
    * @returns {Promise<Object>}
@@ -217,7 +217,7 @@ export let config = {
 /**
  * Auth API - Authentication management
  */
-export let auth = {
+export const auth = {
   /**
    * Get authentication status
    * @returns {Promise<{authenticated: boolean, user: Object|null}>}
@@ -258,7 +258,7 @@ export let auth = {
 /**
  * Projects API - Project mappings (local storage)
  */
-export let projects = {
+export const projects = {
   /**
    * List projects from API
    * @returns {Promise<Object>}
@@ -307,11 +307,11 @@ export let projects = {
    * @returns {Promise<Object>}
    */
   async getRecentBuilds(options = {}) {
-    let params = new URLSearchParams();
+    const params = new URLSearchParams();
     if (options.limit) params.append('limit', String(options.limit));
     if (options.branch) params.append('branch', options.branch);
 
-    let query = params.toString();
+    const query = params.toString();
     return fetchJson(`/api/builds/recent${query ? `?${query}` : ''}`);
   },
 
@@ -323,12 +323,12 @@ export let projects = {
    * @returns {Promise<Object>}
    */
   async getBuilds(organizationSlug, projectSlug, options = {}) {
-    let params = new URLSearchParams();
+    const params = new URLSearchParams();
     if (options.limit) params.append('limit', String(options.limit));
     if (options.branch) params.append('branch', options.branch);
 
-    let query = params.toString();
-    let url = `/api/projects/${encodeURIComponent(organizationSlug)}/${encodeURIComponent(projectSlug)}/builds${query ? `?${query}` : ''}`;
+    const query = params.toString();
+    const url = `/api/projects/${encodeURIComponent(organizationSlug)}/${encodeURIComponent(projectSlug)}/builds${query ? `?${query}` : ''}`;
 
     return fetchJson(url);
   },
@@ -337,7 +337,7 @@ export let projects = {
 /**
  * Combined API object for convenience
  */
-export let api = {
+export const api = {
   tdd,
   cloud,
   config,

@@ -2,23 +2,23 @@
  * Tests for global config utilities
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  clearAuthTokens,
+  clearGlobalConfig,
+  deleteProjectMapping,
+  getAccessToken,
+  getAuthTokens,
   getGlobalConfigDir,
   getGlobalConfigPath,
-  loadGlobalConfig,
-  saveGlobalConfig,
-  clearGlobalConfig,
-  getAuthTokens,
-  saveAuthTokens,
-  clearAuthTokens,
-  hasValidTokens,
-  getAccessToken,
   getProjectMapping,
-  saveProjectMapping,
-  deleteProjectMapping,
   getProjectMappings,
+  hasValidTokens,
+  loadGlobalConfig,
+  saveAuthTokens,
+  saveGlobalConfig,
+  saveProjectMapping,
 } from '../../src/utils/global-config.js';
 
 describe('Global Config Utilities', () => {
@@ -34,7 +34,7 @@ describe('Global Config Utilities', () => {
 
   describe('getGlobalConfigDir', () => {
     it('should return path to ~/.vizzly directory', () => {
-      let configDir = getGlobalConfigDir();
+      const configDir = getGlobalConfigDir();
       expect(configDir).toContain('.vizzly');
       expect(configDir).toBeTruthy();
     });
@@ -42,7 +42,7 @@ describe('Global Config Utilities', () => {
 
   describe('getGlobalConfigPath', () => {
     it('should return path to ~/.vizzly/config.json', () => {
-      let configPath = getGlobalConfigPath();
+      const configPath = getGlobalConfigPath();
       expect(configPath).toContain('.vizzly');
       expect(configPath).toContain('config.json');
     });
@@ -50,22 +50,22 @@ describe('Global Config Utilities', () => {
 
   describe('loadGlobalConfig', () => {
     it('should return empty object if config does not exist', async () => {
-      let config = await loadGlobalConfig();
+      const config = await loadGlobalConfig();
       expect(config).toEqual({});
     });
 
     it('should load existing config', async () => {
-      let testConfig = { test: 'value', nested: { key: 'data' } };
+      const testConfig = { test: 'value', nested: { key: 'data' } };
       await saveGlobalConfig(testConfig);
 
-      let config = await loadGlobalConfig();
+      const config = await loadGlobalConfig();
       expect(config).toEqual(testConfig);
     });
 
     it('should handle corrupted config file gracefully', async () => {
       // Write invalid JSON to config file
-      let configDir = getGlobalConfigDir();
-      let configPath = getGlobalConfigPath();
+      const configDir = getGlobalConfigDir();
+      const configPath = getGlobalConfigPath();
 
       if (!existsSync(configDir)) {
         mkdirSync(configDir, { recursive: true });
@@ -74,17 +74,17 @@ describe('Global Config Utilities', () => {
       writeFileSync(configPath, 'invalid json {');
 
       // Should not throw, should return empty object
-      let config = await loadGlobalConfig();
+      const config = await loadGlobalConfig();
       expect(config).toEqual({});
     });
   });
 
   describe('saveGlobalConfig', () => {
     it('should save config to file', async () => {
-      let testConfig = { test: 'value', number: 42 };
+      const testConfig = { test: 'value', number: 42 };
       await saveGlobalConfig(testConfig);
 
-      let config = await loadGlobalConfig();
+      const config = await loadGlobalConfig();
       expect(config).toEqual(testConfig);
     });
 
@@ -92,7 +92,7 @@ describe('Global Config Utilities', () => {
       await saveGlobalConfig({ old: 'value' });
       await saveGlobalConfig({ new: 'value' });
 
-      let config = await loadGlobalConfig();
+      const config = await loadGlobalConfig();
       expect(config).toEqual({ new: 'value' });
       expect(config.old).toBeUndefined();
     });
@@ -104,7 +104,7 @@ describe('Global Config Utilities', () => {
 
       await clearGlobalConfig();
 
-      let config = await loadGlobalConfig();
+      const config = await loadGlobalConfig();
       expect(config).toEqual({});
     });
   });
@@ -129,14 +129,14 @@ describe('Global Config Utilities', () => {
 
     describe('getAuthTokens', () => {
       it('should return null if no auth tokens exist', async () => {
-        let auth = await getAuthTokens();
+        const auth = await getAuthTokens();
         expect(auth).toBeNull();
       });
 
       it('should return auth tokens if they exist', async () => {
         await saveAuthTokens(mockAuth);
 
-        let auth = await getAuthTokens();
+        const auth = await getAuthTokens();
         expect(auth).toEqual(mockAuth);
       });
     });
@@ -145,7 +145,7 @@ describe('Global Config Utilities', () => {
       it('should save auth tokens to global config', async () => {
         await saveAuthTokens(mockAuth);
 
-        let config = await loadGlobalConfig();
+        const config = await loadGlobalConfig();
         expect(config.auth).toEqual(mockAuth);
       });
 
@@ -153,7 +153,7 @@ describe('Global Config Utilities', () => {
         await saveGlobalConfig({ other: 'data' });
         await saveAuthTokens(mockAuth);
 
-        let config = await loadGlobalConfig();
+        const config = await loadGlobalConfig();
         expect(config.other).toBe('data');
         expect(config.auth).toEqual(mockAuth);
       });
@@ -164,7 +164,7 @@ describe('Global Config Utilities', () => {
         await saveAuthTokens(mockAuth);
         await clearAuthTokens();
 
-        let auth = await getAuthTokens();
+        const auth = await getAuthTokens();
         expect(auth).toBeNull();
       });
 
@@ -173,7 +173,7 @@ describe('Global Config Utilities', () => {
         await saveAuthTokens(mockAuth);
         await clearAuthTokens();
 
-        let config = await loadGlobalConfig();
+        const config = await loadGlobalConfig();
         expect(config.other).toBe('data');
         expect(config.auth).toBeUndefined();
       });
@@ -181,52 +181,52 @@ describe('Global Config Utilities', () => {
 
     describe('hasValidTokens', () => {
       it('should return false if no tokens exist', async () => {
-        let isValid = await hasValidTokens();
+        const isValid = await hasValidTokens();
         expect(isValid).toBe(false);
       });
 
       it('should return true if valid tokens exist', async () => {
         await saveAuthTokens(mockAuth);
 
-        let isValid = await hasValidTokens();
+        const isValid = await hasValidTokens();
         expect(isValid).toBe(true);
       });
 
       it('should return false if tokens are expired', async () => {
-        let expiredAuth = {
+        const expiredAuth = {
           ...mockAuth,
           expiresAt: new Date(Date.now() - 1000).toISOString(), // Expired 1 second ago
         };
 
         await saveAuthTokens(expiredAuth);
 
-        let isValid = await hasValidTokens();
+        const isValid = await hasValidTokens();
         expect(isValid).toBe(false);
       });
 
       it('should return false if tokens expire within 5 minutes', async () => {
-        let almostExpiredAuth = {
+        const almostExpiredAuth = {
           ...mockAuth,
           expiresAt: new Date(Date.now() + 4 * 60 * 1000).toISOString(), // Expires in 4 minutes
         };
 
         await saveAuthTokens(almostExpiredAuth);
 
-        let isValid = await hasValidTokens();
+        const isValid = await hasValidTokens();
         expect(isValid).toBe(false);
       });
     });
 
     describe('getAccessToken', () => {
       it('should return null if no tokens exist', async () => {
-        let token = await getAccessToken();
+        const token = await getAccessToken();
         expect(token).toBeNull();
       });
 
       it('should return access token if it exists', async () => {
         await saveAuthTokens(mockAuth);
 
-        let token = await getAccessToken();
+        const token = await getAccessToken();
         expect(token).toBe('test-access-token');
       });
     });
@@ -248,14 +248,14 @@ describe('Global Config Utilities', () => {
 
     describe('getProjectMapping', () => {
       it('should return null if no mapping exists', async () => {
-        let mapping = await getProjectMapping(testProjectPath);
+        const mapping = await getProjectMapping(testProjectPath);
         expect(mapping).toBeNull();
       });
 
       it('should return project data if mapping exists', async () => {
         await saveProjectMapping(testProjectPath, testProjectData);
 
-        let mapping = await getProjectMapping(testProjectPath);
+        const mapping = await getProjectMapping(testProjectPath);
         expect(mapping.token).toBe(testProjectData.token);
         expect(mapping.projectSlug).toBe(testProjectData.projectSlug);
         expect(mapping.organizationSlug).toBe(testProjectData.organizationSlug);
@@ -268,7 +268,7 @@ describe('Global Config Utilities', () => {
       it('should save project mapping to global config', async () => {
         await saveProjectMapping(testProjectPath, testProjectData);
 
-        let config = await loadGlobalConfig();
+        const config = await loadGlobalConfig();
         expect(config.projects).toBeDefined();
         expect(config.projects[testProjectPath].token).toBe(
           testProjectData.token
@@ -280,7 +280,7 @@ describe('Global Config Utilities', () => {
         await saveGlobalConfig({ other: 'data' });
         await saveProjectMapping(testProjectPath, testProjectData);
 
-        let config = await loadGlobalConfig();
+        const config = await loadGlobalConfig();
         expect(config.other).toBe('data');
         expect(config.projects[testProjectPath].token).toBe(
           testProjectData.token
@@ -293,20 +293,20 @@ describe('Global Config Utilities', () => {
         await saveProjectMapping(testProjectPath, testProjectData);
         await deleteProjectMapping(testProjectPath);
 
-        let mapping = await getProjectMapping(testProjectPath);
+        const mapping = await getProjectMapping(testProjectPath);
         expect(mapping).toBeNull();
       });
 
       it('should preserve other mappings', async () => {
-        let otherPath = '/path/to/other';
-        let otherData = { ...testProjectData, token: 'vzt_other_token' };
+        const otherPath = '/path/to/other';
+        const otherData = { ...testProjectData, token: 'vzt_other_token' };
 
         await saveProjectMapping(testProjectPath, testProjectData);
         await saveProjectMapping(otherPath, otherData);
         await deleteProjectMapping(testProjectPath);
 
-        let deletedMapping = await getProjectMapping(testProjectPath);
-        let otherMapping = await getProjectMapping(otherPath);
+        const deletedMapping = await getProjectMapping(testProjectPath);
+        const otherMapping = await getProjectMapping(otherPath);
 
         expect(deletedMapping).toBeNull();
         expect(otherMapping.token).toBe(otherData.token);
@@ -315,20 +315,20 @@ describe('Global Config Utilities', () => {
 
     describe('getProjectMappings', () => {
       it('should return empty object if no mappings exist', async () => {
-        let mappings = await getProjectMappings();
+        const mappings = await getProjectMappings();
         expect(mappings).toEqual({});
       });
 
       it('should return all project mappings', async () => {
-        let path1 = '/path/to/project1';
-        let path2 = '/path/to/project2';
-        let data1 = { ...testProjectData, token: 'vzt_token1' };
-        let data2 = { ...testProjectData, token: 'vzt_token2' };
+        const path1 = '/path/to/project1';
+        const path2 = '/path/to/project2';
+        const data1 = { ...testProjectData, token: 'vzt_token1' };
+        const data2 = { ...testProjectData, token: 'vzt_token2' };
 
         await saveProjectMapping(path1, data1);
         await saveProjectMapping(path2, data2);
 
-        let mappings = await getProjectMappings();
+        const mappings = await getProjectMappings();
         expect(Object.keys(mappings)).toHaveLength(2);
         expect(mappings[path1].token).toBe(data1.token);
         expect(mappings[path2].token).toBe(data2.token);

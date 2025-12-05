@@ -3,10 +3,10 @@
  * Authenticates user via OAuth device flow
  */
 
-import * as output from '../utils/output.js';
 import { AuthService } from '../services/auth-service.js';
-import { getApiUrl } from '../utils/environment-config.js';
 import { openBrowser } from '../utils/browser.js';
+import { getApiUrl } from '../utils/environment-config.js';
+import * as output from '../utils/output.js';
 
 /**
  * Login command implementation using OAuth device flow
@@ -20,34 +20,34 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     color: !globalOptions.noColor,
   });
 
-  let colors = output.getColors();
+  const colors = output.getColors();
 
   try {
     output.info('Starting Vizzly authentication...');
     output.blank();
 
     // Create auth service
-    let authService = new AuthService({
+    const authService = new AuthService({
       baseUrl: options.apiUrl || getApiUrl(),
     });
 
     // Initiate device flow
     output.startSpinner('Connecting to Vizzly...');
-    let deviceFlow = await authService.initiateDeviceFlow();
+    const deviceFlow = await authService.initiateDeviceFlow();
     output.stopSpinner();
 
     // Handle both snake_case and camelCase field names
-    let verificationUri =
+    const verificationUri =
       deviceFlow.verification_uri || deviceFlow.verificationUri;
-    let userCode = deviceFlow.user_code || deviceFlow.userCode;
-    let deviceCode = deviceFlow.device_code || deviceFlow.deviceCode;
+    const userCode = deviceFlow.user_code || deviceFlow.userCode;
+    const deviceCode = deviceFlow.device_code || deviceFlow.deviceCode;
 
     if (!verificationUri || !userCode || !deviceCode) {
       throw new Error('Invalid device flow response from server');
     }
 
     // Build URL with pre-filled code
-    let urlWithCode = `${verificationUri}?code=${userCode}`;
+    const urlWithCode = `${verificationUri}?code=${userCode}`;
 
     // Display user code prominently
     output.blank();
@@ -65,7 +65,7 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     output.blank();
 
     // Try to open browser with pre-filled code
-    let browserOpened = await openBrowser(urlWithCode);
+    const browserOpened = await openBrowser(urlWithCode);
     if (browserOpened) {
       output.info('Opening browser...');
     } else {
@@ -93,14 +93,14 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     // Check authorization status
     output.startSpinner('Checking authorization status...');
 
-    let pollResponse = await authService.pollDeviceAuthorization(deviceCode);
+    const pollResponse = await authService.pollDeviceAuthorization(deviceCode);
 
     output.stopSpinner();
 
     let tokenData = null;
 
     // Check if authorization was successful by looking for tokens
-    if (pollResponse.tokens && pollResponse.tokens.accessToken) {
+    if (pollResponse.tokens?.accessToken) {
       // Success! We got tokens
       tokenData = pollResponse;
     } else if (pollResponse.status === 'pending') {
@@ -119,13 +119,13 @@ export async function loginCommand(options = {}, globalOptions = {}) {
 
     // Complete device flow and save tokens
     // Handle both snake_case and camelCase for token data, and nested tokens object
-    let tokensData = tokenData.tokens || tokenData;
-    let tokenExpiresIn = tokensData.expiresIn || tokensData.expires_in;
-    let tokenExpiresAt = tokenExpiresIn
+    const tokensData = tokenData.tokens || tokenData;
+    const tokenExpiresIn = tokensData.expiresIn || tokensData.expires_in;
+    const tokenExpiresAt = tokenExpiresIn
       ? new Date(Date.now() + tokenExpiresIn * 1000).toISOString()
       : tokenData.expires_at || tokenData.expiresAt;
 
-    let tokens = {
+    const tokens = {
       accessToken: tokensData.accessToken || tokensData.access_token,
       refreshToken: tokensData.refreshToken || tokensData.refresh_token,
       expiresAt: tokenExpiresAt,
@@ -148,7 +148,7 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     if (tokens.organizations && tokens.organizations.length > 0) {
       output.blank();
       output.info('Organizations:');
-      for (let org of tokens.organizations) {
+      for (const org of tokens.organizations) {
         output.print(`  - ${org.name}${org.slug ? ` (@${org.slug})` : ''}`);
       }
     }
@@ -156,11 +156,11 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     // Show token expiry info
     if (tokens.expiresAt) {
       output.blank();
-      let expiresAt = new Date(tokens.expiresAt);
-      let msUntilExpiry = expiresAt.getTime() - Date.now();
-      let daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
-      let hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
-      let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
+      const expiresAt = new Date(tokens.expiresAt);
+      const msUntilExpiry = expiresAt.getTime() - Date.now();
+      const daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
+      const hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
+      const minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
 
       if (daysUntilExpiry > 0) {
         output.info(
@@ -212,7 +212,7 @@ export async function loginCommand(options = {}, globalOptions = {}) {
  * @param {Object} options - Command options
  */
 export function validateLoginOptions() {
-  let errors = [];
+  const errors = [];
 
   // No specific validation needed for login command
   // OAuth device flow handles everything via browser

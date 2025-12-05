@@ -3,7 +3,7 @@
  * Manages the build lifecycle and coordinates test execution
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { VizzlyError } from '../errors/vizzly-error.js';
 
 /**
@@ -140,7 +140,7 @@ export class BuildManager {
   }
 
   async createBuild(buildOptions) {
-    let build = createBuildObject(buildOptions);
+    const build = createBuildObject(buildOptions);
     this.currentBuild = build;
     return build;
   }
@@ -174,7 +174,7 @@ export class BuildManager {
   }
 
   queueBuild(buildOptions) {
-    let queuedBuild = createQueuedBuild(buildOptions);
+    const queuedBuild = createQueuedBuild(buildOptions);
     this.buildQueue.push(queuedBuild);
   }
 

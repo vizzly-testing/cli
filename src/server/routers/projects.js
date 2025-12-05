@@ -3,13 +3,13 @@
  * Handles project management and builds endpoints
  */
 
+import * as output from '../../utils/output.js';
 import { parseJsonBody } from '../middleware/json-parser.js';
 import {
-  sendSuccess,
   sendError,
   sendServiceUnavailable,
+  sendSuccess,
 } from '../middleware/response.js';
-import * as output from '../../utils/output.js';
 
 /**
  * Create projects router
@@ -28,7 +28,7 @@ export function createProjectsRouter({ projectService }) {
     // List all projects from API
     if (req.method === 'GET' && pathname === '/api/projects') {
       try {
-        let projects = await projectService.listProjects();
+        const projects = await projectService.listProjects();
         sendSuccess(res, { projects });
         return true;
       } catch (error) {
@@ -41,7 +41,7 @@ export function createProjectsRouter({ projectService }) {
     // List project directory mappings
     if (req.method === 'GET' && pathname === '/api/projects/mappings') {
       try {
-        let mappings = await projectService.listMappings();
+        const mappings = await projectService.listMappings();
         sendSuccess(res, { mappings });
         return true;
       } catch (error) {
@@ -56,11 +56,11 @@ export function createProjectsRouter({ projectService }) {
     // Create or update project mapping
     if (req.method === 'POST' && pathname === '/api/projects/mappings') {
       try {
-        let body = await parseJsonBody(req);
-        let { directory, projectSlug, organizationSlug, token, projectName } =
+        const body = await parseJsonBody(req);
+        const { directory, projectSlug, organizationSlug, token, projectName } =
           body;
 
-        let mapping = await projectService.createMapping(directory, {
+        const mapping = await projectService.createMapping(directory, {
           projectSlug,
           organizationSlug,
           token,
@@ -84,7 +84,7 @@ export function createProjectsRouter({ projectService }) {
       pathname.startsWith('/api/projects/mappings/')
     ) {
       try {
-        let directory = decodeURIComponent(
+        const directory = decodeURIComponent(
           pathname.replace('/api/projects/mappings/', '')
         );
         await projectService.removeMapping(directory);
@@ -107,18 +107,18 @@ export function createProjectsRouter({ projectService }) {
       }
 
       try {
-        let currentDir = process.cwd();
-        let mapping = await projectService.getMapping(currentDir);
+        const currentDir = process.cwd();
+        const mapping = await projectService.getMapping(currentDir);
 
         if (!mapping || !mapping.projectSlug || !mapping.organizationSlug) {
           sendError(res, 400, 'No project configured for this directory');
           return true;
         }
 
-        let limit = parseInt(parsedUrl.searchParams.get('limit') || '10', 10);
-        let branch = parsedUrl.searchParams.get('branch') || undefined;
+        const limit = parseInt(parsedUrl.searchParams.get('limit') || '10', 10);
+        const branch = parsedUrl.searchParams.get('branch') || undefined;
 
-        let builds = await projectService.getRecentBuilds(
+        const builds = await projectService.getRecentBuilds(
           mapping.projectSlug,
           mapping.organizationSlug,
           { limit, branch }
@@ -134,18 +134,18 @@ export function createProjectsRouter({ projectService }) {
     }
 
     // Get builds for a specific project (used by /builds page)
-    let projectBuildsMatch = pathname.match(
+    const projectBuildsMatch = pathname.match(
       /^\/api\/projects\/([^/]+)\/([^/]+)\/builds$/
     );
     if (req.method === 'GET' && projectBuildsMatch) {
       try {
-        let organizationSlug = decodeURIComponent(projectBuildsMatch[1]);
-        let projectSlug = decodeURIComponent(projectBuildsMatch[2]);
+        const organizationSlug = decodeURIComponent(projectBuildsMatch[1]);
+        const projectSlug = decodeURIComponent(projectBuildsMatch[2]);
 
-        let limit = parseInt(parsedUrl.searchParams.get('limit') || '20', 10);
-        let branch = parsedUrl.searchParams.get('branch') || undefined;
+        const limit = parseInt(parsedUrl.searchParams.get('limit') || '20', 10);
+        const branch = parsedUrl.searchParams.get('branch') || undefined;
 
-        let builds = await projectService.getRecentBuilds(
+        const builds = await projectService.getRecentBuilds(
           projectSlug,
           organizationSlug,
           { limit, branch }

@@ -2,13 +2,8 @@
  * Tests for configuration loading and merging
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  parseCliOptions,
-  mergeConfigs,
-  getPageConfig,
-  defaultConfig,
-} from '../src/config.js';
+import { describe, expect, it } from 'vitest';
+import { getPageConfig, mergeConfigs, parseCliOptions } from '../src/config.js';
 
 describe('config', () => {
   describe('parseCliOptions', () => {

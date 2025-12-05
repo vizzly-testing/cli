@@ -6,7 +6,7 @@
  */
 
 export function Spinner({ size = 'md', className = '' }) {
-  let sizeClasses = {
+  const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-6 h-6',
     lg: 'w-8 h-8',
@@ -18,6 +18,7 @@ export function Spinner({ size = 'md', className = '' }) {
       className={`animate-spin ${sizeClasses[size]} ${className}`}
       viewBox="0 0 24 24"
       fill="none"
+      aria-hidden="true"
     >
       <circle
         className="opacity-25"

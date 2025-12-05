@@ -129,6 +129,7 @@ extension XCUIApplication {
         #if os(iOS)
         combinedProperties["platform"] = "iOS"
         combinedProperties["device"] = UIDevice.current.model
+        combinedProperties["osVersion"] = UIDevice.current.systemVersion
 
         let screen = UIScreen.main
         combinedProperties["viewport"] = [
@@ -138,6 +139,7 @@ extension XCUIApplication {
         ]
         #elseif os(macOS)
         combinedProperties["platform"] = "macOS"
+        combinedProperties["osVersion"] = ProcessInfo.processInfo.operatingSystemVersionString
         #endif
 
         return VizzlyClient.shared.screenshot(
@@ -173,8 +175,10 @@ extension XCUIElement {
 
         #if os(iOS)
         combinedProperties["platform"] = "iOS"
+        combinedProperties["osVersion"] = UIDevice.current.systemVersion
         #elseif os(macOS)
         combinedProperties["platform"] = "macOS"
+        combinedProperties["osVersion"] = ProcessInfo.processInfo.operatingSystemVersionString
         #endif
 
         return VizzlyClient.shared.screenshot(

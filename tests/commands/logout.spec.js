@@ -11,7 +11,10 @@ import * as globalConfig from '../../src/utils/global-config.js';
 const mockAuthServiceStore = { mockInstance: null };
 
 vi.mock('../../src/services/auth-service.js', () => ({
-  AuthService: vi.fn(() => mockAuthServiceStore.mockInstance),
+  // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+  AuthService: vi.fn(function () {
+    return mockAuthServiceStore.mockInstance;
+  }),
 }));
 
 // Mock global-config

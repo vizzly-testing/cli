@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VizzlyError } from '../../src/errors/vizzly-error.js';
 import { ApiService } from '../../src/services/api-service.js';
 
@@ -6,9 +6,21 @@ import { ApiService } from '../../src/services/api-service.js';
 global.fetch = vi.fn();
 
 describe('ApiService', () => {
+  let originalApiUrl;
+
   beforeEach(() => {
+    // Save and clear env var for consistent test behavior
+    originalApiUrl = process.env.VIZZLY_API_URL;
+    delete process.env.VIZZLY_API_URL;
     // Reset fetch mock
     global.fetch.mockClear();
+  });
+
+  afterEach(() => {
+    // Restore original env var
+    if (originalApiUrl !== undefined) {
+      process.env.VIZZLY_API_URL = originalApiUrl;
+    }
   });
 
   describe('ApiService class', () => {

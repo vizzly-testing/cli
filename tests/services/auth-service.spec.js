@@ -20,8 +20,13 @@ global.fetch = vi.fn();
 describe('AuthService', () => {
   let authService;
   let mockFetch;
+  let originalApiUrl;
 
   beforeEach(() => {
+    // Save and clear env var for consistent test behavior
+    originalApiUrl = process.env.VIZZLY_API_URL;
+    delete process.env.VIZZLY_API_URL;
+
     authService = new AuthService({ baseUrl: 'https://test.vizzly.dev' });
     mockFetch = global.fetch;
     vi.clearAllMocks();
@@ -29,6 +34,10 @@ describe('AuthService', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    // Restore original env var
+    if (originalApiUrl !== undefined) {
+      process.env.VIZZLY_API_URL = originalApiUrl;
+    }
   });
 
   describe('constructor', () => {

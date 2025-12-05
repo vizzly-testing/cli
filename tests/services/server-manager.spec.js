@@ -93,7 +93,10 @@ describe('ServerManager', () => {
     createHttpServer.mockReturnValue(mockHttpServer);
     createTddHandler.mockReturnValue(mockTddHandler);
     createApiHandler.mockReturnValue(mockApiHandler);
-    ApiService.mockImplementation(() => mockApiService);
+    // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+    ApiService.mockImplementation(function () {
+      return mockApiService;
+    });
 
     serverManager = new ServerManager(mockConfig);
 

@@ -26,11 +26,14 @@ vi.mock('child_process', () => ({
 }));
 
 vi.mock('../../src/services/api-service.js', () => ({
-  ApiService: vi.fn(() => ({
-    createBuild: vi.fn(),
-    getBuild: vi.fn(),
-    finalizeBuild: vi.fn(),
-  })),
+  // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+  ApiService: vi.fn(function () {
+    return {
+      createBuild: vi.fn(),
+      getBuild: vi.fn(),
+      finalizeBuild: vi.fn(),
+    };
+  }),
 }));
 
 describe('TestRunner', () => {
@@ -126,7 +129,10 @@ describe('TestRunner', () => {
       };
 
       const { ApiService } = await import('../../src/services/api-service.js');
-      ApiService.mockImplementation(() => mockApiService);
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
 
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
@@ -229,7 +235,10 @@ describe('TestRunner', () => {
         finalizeBuild: vi.fn().mockResolvedValue(),
       };
       const { ApiService } = await import('../../src/services/api-service.js');
-      ApiService.mockImplementation(() => mockApiService);
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
 
       mockServerManager.start.mockRejectedValue(
         new Error('Server failed to start')
@@ -436,7 +445,10 @@ describe('TestRunner', () => {
         finalizeBuild: vi.fn().mockResolvedValue(),
       };
       const { ApiService } = await import('../../src/services/api-service.js');
-      ApiService.mockImplementation(() => mockApiService);
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
 
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
@@ -473,7 +485,10 @@ describe('TestRunner', () => {
         finalizeBuild: vi.fn().mockResolvedValue(),
       };
       const { ApiService } = await import('../../src/services/api-service.js');
-      ApiService.mockImplementation(() => mockApiService);
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
 
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
@@ -570,7 +585,10 @@ describe('TestRunner', () => {
         finalizeBuild: vi.fn().mockResolvedValue(),
       };
       const { ApiService } = await import('../../src/services/api-service.js');
-      ApiService.mockImplementation(() => mockApiService);
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
 
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();

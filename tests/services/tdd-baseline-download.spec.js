@@ -52,7 +52,10 @@ describe('TDD Service - Baseline Download', () => {
       getBuilds: vi.fn(),
       getComparison: vi.fn(),
     };
-    ApiService.mockImplementation(() => mockApiService);
+    // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+    ApiService.mockImplementation(function () {
+      return mockApiService;
+    });
 
     tddService = new TddService(mockConfig, testDir);
   });

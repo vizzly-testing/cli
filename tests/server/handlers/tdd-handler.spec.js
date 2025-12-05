@@ -5,7 +5,10 @@ import { createTddHandler } from '../../../src/server/handlers/tdd-handler.js';
 const mockTddServiceStore = { mockInstance: null };
 
 vi.mock('../../../src/services/tdd-service.js', () => ({
-  TddService: vi.fn(() => mockTddServiceStore.mockInstance),
+  // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+  TddService: vi.fn(function () {
+    return mockTddServiceStore.mockInstance;
+  }),
 }));
 
 vi.mock('../../../src/utils/logger-factory.js', () => ({

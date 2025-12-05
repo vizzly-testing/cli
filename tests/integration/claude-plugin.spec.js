@@ -1,14 +1,26 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CloudAPIProvider } from '../../claude-plugin/mcp/vizzly-server/cloud-api-provider.js';
 import { LocalTDDProvider } from '../../claude-plugin/mcp/vizzly-server/local-tdd-provider.js';
 
 describe('Claude Plugin - Cloud API Provider', () => {
   let provider;
+  let originalApiUrl;
 
   beforeEach(() => {
+    // Save original env var and clear it for consistent test behavior
+    originalApiUrl = process.env.VIZZLY_API_URL;
+    delete process.env.VIZZLY_API_URL;
+
     provider = new CloudAPIProvider();
     // Mock fetch globally
     global.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    // Restore original env var
+    if (originalApiUrl !== undefined) {
+      process.env.VIZZLY_API_URL = originalApiUrl;
+    }
   });
 
   describe('Input Validation', () => {

@@ -1,5 +1,17 @@
 import Foundation
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
+#if canImport(AppKit)
+import AppKit
+#endif
+
+#if canImport(WatchKit)
+import WatchKit
+#endif
+
 /// Vizzly visual regression testing client for Swift/iOS
 ///
 /// A lightweight client SDK for capturing screenshots and sending them to Vizzly for visual
@@ -71,15 +83,26 @@ public final class VizzlyClient {
             "fullPage": fullPage
         ]
 
+        // Build properties - merge user properties with auto-detected device info
+        var mergedProperties: [String: Any] = properties ?? [:]
+
+        // Add device info (user properties take precedence)
+        let deviceInfo = getDeviceInfo()
+        for (key, value) in deviceInfo {
+            if mergedProperties[key] == nil {
+                mergedProperties[key] = value
+            }
+        }
+
+        if !mergedProperties.isEmpty {
+            payload["properties"] = mergedProperties
+        }
+
         // Try to get buildId from multiple sources (priority order):
         // 1. Environment variable (for Node.js and other runtimes that support it)
         // 2. Server info file (for iOS/Swift where env vars don't propagate to simulator)
         if let buildId = getBuildId() {
             payload["buildId"] = buildId
-        }
-
-        if let properties = properties {
-            payload["properties"] = properties
         }
 
         // Send HTTP request
@@ -192,6 +215,32 @@ public final class VizzlyClient {
     }
 
     // MARK: - Private Methods
+
+    private func getDeviceInfo() -> [String: Any] {
+        var info: [String: Any] = [:]
+
+        #if os(iOS) || os(tvOS)
+        let device = UIDevice.current
+        info["platform"] = "iOS"
+        info["deviceName"] = device.name
+        info["deviceModel"] = device.model
+        info["osVersion"] = device.systemVersion
+        info["osName"] = device.systemName
+        #elseif os(macOS)
+        info["platform"] = "macOS"
+        info["osVersion"] = ProcessInfo.processInfo.operatingSystemVersionString
+        info["deviceName"] = Host.current().localizedName ?? "Mac"
+        #elseif os(watchOS)
+        let device = WKInterfaceDevice.current()
+        info["platform"] = "watchOS"
+        info["deviceName"] = device.name
+        info["deviceModel"] = device.model
+        info["osVersion"] = device.systemVersion
+        info["osName"] = device.systemName
+        #endif
+
+        return info
+    }
 
     private func warnOnce(_ message: String) {
         guard !hasWarned else { return }

@@ -39,7 +39,11 @@ program
   .version(getPackageVersion())
   .option('-c, --config <path>', 'Config file path')
   .option('--token <token>', 'Vizzly API token')
-  .option('-v, --verbose', 'Verbose output')
+  .option('-v, --verbose', 'Verbose output (shorthand for --log-level debug)')
+  .option(
+    '--log-level <level>',
+    'Log level: debug, info, warn, error (default: info, or VIZZLY_LOG_LEVEL env var)'
+  )
   .option('--json', 'Machine-readable output')
   .option('--no-color', 'Disable colored output');
 
@@ -47,6 +51,7 @@ program
 // We need to manually parse to get the config option early
 let configPath = null;
 let verboseMode = false;
+let logLevelArg = null;
 for (let i = 0; i < process.argv.length; i++) {
   if (
     (process.argv[i] === '-c' || process.argv[i] === '--config') &&
@@ -57,10 +62,15 @@ for (let i = 0; i < process.argv.length; i++) {
   if (process.argv[i] === '-v' || process.argv[i] === '--verbose') {
     verboseMode = true;
   }
+  if (process.argv[i] === '--log-level' && process.argv[i + 1]) {
+    logLevelArg = process.argv[i + 1];
+  }
 }
 
 // Configure output early
+// Priority: --log-level > --verbose > VIZZLY_LOG_LEVEL env var > default ('info')
 output.configure({
+  logLevel: logLevelArg,
   verbose: verboseMode,
   color: !process.argv.includes('--no-color'),
   json: process.argv.includes('--json'),

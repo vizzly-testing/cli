@@ -11,9 +11,12 @@ import * as output from './output.js';
 
 /**
  * Get the path to the global Vizzly directory
- * @returns {string} Path to ~/.vizzly
+ * @returns {string} Path to VIZZLY_HOME or ~/.vizzly
  */
 export function getGlobalConfigDir() {
+  if (process.env.VIZZLY_HOME) {
+    return process.env.VIZZLY_HOME;
+  }
   return join(homedir(), '.vizzly');
 }
 

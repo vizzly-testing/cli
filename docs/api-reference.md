@@ -668,35 +668,62 @@ Configuration loaded via cosmiconfig in this order:
 
 ### Environment Variables
 
-**Authentication:**
-- `VIZZLY_TOKEN` - API authentication token (project token or access token)
-  - For local development: Use `vizzly login` instead of manually managing tokens
-  - For CI/CD: Use project tokens from environment variables
-  - Token priority: CLI flag → env var → project mapping → user access token
+All Vizzly CLI behavior can be configured via environment variables. This is the complete reference.
 
-**Core Configuration:**
-- `VIZZLY_API_URL` - API base URL override (default: `https://app.vizzly.dev`)
+#### Configuration
 
-**Parallel Builds:**
-- `VIZZLY_PARALLEL_ID` - Unique identifier for parallel test execution
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VIZZLY_HOME` | Override config directory (auth, project mappings) | `~/.vizzly` |
+| `VIZZLY_TOKEN` | API authentication token (project token `vzt_...`) | - |
+| `VIZZLY_API_URL` | API base URL | `https://app.vizzly.dev` |
+| `VIZZLY_LOG_LEVEL` | Logging verbosity: `debug`, `info`, `warn`, `error` | `info` |
 
-**Git Information Override (CI/CD Enhancement):**
-- `VIZZLY_COMMIT_SHA` - Override detected commit SHA
-- `VIZZLY_COMMIT_MESSAGE` - Override detected commit message
-- `VIZZLY_BRANCH` - Override detected branch name
-- `VIZZLY_PR_NUMBER` - Override detected pull request number
+**Token Priority:** CLI flag → env var → project mapping → user access token
 
-**Runtime (Set by CLI):**
-- `VIZZLY_SERVER_URL` - Screenshot server URL (set by CLI)
-- `VIZZLY_ENABLED` - Enable/disable client (set by CLI)
-- `VIZZLY_BUILD_ID` - Current build ID (set by CLI)
-- `VIZZLY_TDD_MODE` - TDD mode active (set by CLI)
+#### Build & Execution
 
-**Priority Order for Git Information:**
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VIZZLY_PARALLEL_ID` | Unique identifier for parallel test shards | - |
+| `VIZZLY_BUILD_ID` | Build identifier for grouping screenshots | Auto-generated |
+
+#### Git Information Overrides
+
+Use these in CI/CD to override auto-detected git metadata:
+
+| Variable | Description |
+|----------|-------------|
+| `VIZZLY_COMMIT_SHA` | Commit SHA |
+| `VIZZLY_COMMIT_MESSAGE` | Commit message |
+| `VIZZLY_BRANCH` | Branch name |
+| `VIZZLY_PR_NUMBER` | Pull request number |
+| `VIZZLY_PR_BASE_REF` | PR base branch name |
+| `VIZZLY_PR_BASE_SHA` | PR base commit SHA |
+| `VIZZLY_PR_HEAD_REF` | PR head branch name |
+| `VIZZLY_PR_HEAD_SHA` | PR head commit SHA |
+
+**Priority Order:**
 1. CLI arguments (`--commit`, `--branch`, `--message`)
 2. `VIZZLY_*` environment variables
-3. CI-specific environment variables (e.g., `GITHUB_SHA`, `CI_COMMIT_SHA`)
+3. CI-specific variables (e.g., `GITHUB_SHA`, `CI_COMMIT_SHA`)
 4. Git command detection
+
+#### Runtime (Set by CLI)
+
+These are set automatically when running `vizzly run` or `vizzly tdd`:
+
+| Variable | Description |
+|----------|-------------|
+| `VIZZLY_ENABLED` | `true` when Vizzly capture is active |
+| `VIZZLY_SERVER_URL` | Local screenshot server URL |
+| `VIZZLY_TDD` | `true` when TDD mode is active |
+
+#### Advanced
+
+| Variable | Description |
+|----------|-------------|
+| `VIZZLY_USER_AGENT` | Custom User-Agent string for API requests |
 
 ## Error Handling
 

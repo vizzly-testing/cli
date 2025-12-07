@@ -613,7 +613,8 @@ Available on all commands:
 
 - `-c, --config <path>` - Config file path
 - `--token <token>` - Vizzly API token
-- `-v, --verbose` - Verbose output
+- `-v, --verbose` - Verbose output (shorthand for `--log-level debug`)
+- `--log-level <level>` - Log level: `debug`, `info`, `warn`, `error` (default: `info`, or `VIZZLY_LOG_LEVEL` env var)
 - `--json` - Machine-readable JSON output
 - `--no-color` - Disable colored output
 

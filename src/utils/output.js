@@ -11,11 +11,25 @@
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createColors } from './colors.js';
+import { getLogLevel as getEnvLogLevel } from './environment-config.js';
+
+/**
+ * Log levels in order of severity (lowest to highest)
+ * debug < info < warn < error
+ */
+const LOG_LEVELS = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
+
+const VALID_LOG_LEVELS = Object.keys(LOG_LEVELS);
 
 // Module state
 const config = {
   json: false,
-  verbose: false,
+  logLevel: null, // null = not yet initialized, will check env var on first configure
   color: true,
   silent: false,
   logFile: null,
@@ -31,26 +45,97 @@ let startTime = Date.now();
 let headerShown = false;
 
 /**
+ * Check if a given log level should be displayed based on current config
+ * @param {string} level - The level to check (debug, info, warn, error)
+ * @returns {boolean} Whether the level should be displayed
+ */
+function shouldLog(level) {
+  if (config.silent) return false;
+  // If logLevel not yet initialized, default to 'info'
+  let configLevel = config.logLevel || 'info';
+  let currentLevel = LOG_LEVELS[configLevel];
+  let targetLevel = LOG_LEVELS[level];
+  // Default to showing everything if levels are invalid
+  if (currentLevel === undefined) currentLevel = LOG_LEVELS.info;
+  if (targetLevel === undefined) targetLevel = LOG_LEVELS.debug;
+  return targetLevel >= currentLevel;
+}
+
+/**
+ * Normalize and validate log level
+ * @param {string} level - Log level to validate
+ * @returns {string} Valid log level (defaults to 'info' if invalid)
+ */
+function normalizeLogLevel(level) {
+  if (!level) return 'info';
+  let normalized = level.toLowerCase().trim();
+  return VALID_LOG_LEVELS.includes(normalized) ? normalized : 'info';
+}
+
+/**
  * Configure output settings
  * Call this once at CLI startup with global options
+ *
+ * @param {Object} options - Configuration options
+ * @param {boolean} [options.json] - Enable JSON output mode
+ * @param {string} [options.logLevel] - Log level (debug, info, warn, error)
+ * @param {boolean} [options.verbose] - Shorthand for logLevel='debug' (backwards compatible)
+ * @param {boolean} [options.color] - Enable colored output
+ * @param {boolean} [options.silent] - Suppress all output
+ * @param {string} [options.logFile] - Path to log file
+ * @param {boolean} [options.resetTimer] - Reset the start timer (default: true)
  */
 export function configure(options = {}) {
   if (options.json !== undefined) config.json = options.json;
-  if (options.verbose !== undefined) config.verbose = options.verbose;
   if (options.color !== undefined) config.color = options.color;
   if (options.silent !== undefined) config.silent = options.silent;
   if (options.logFile !== undefined) config.logFile = options.logFile;
 
+  // Determine log level with priority:
+  // 1. Explicit logLevel option (highest priority)
+  // 2. verbose flag (maps to 'debug')
+  // 3. Keep existing level if already initialized
+  // 4. VIZZLY_LOG_LEVEL env var (checked on first configure when logLevel is null)
+  // 5. Default ('info')
+  if (options.logLevel !== undefined) {
+    config.logLevel = normalizeLogLevel(options.logLevel);
+  } else if (options.verbose) {
+    config.logLevel = 'debug';
+  } else if (config.logLevel === null) {
+    // First configure call - check env var
+    let envLogLevel = getEnvLogLevel();
+    config.logLevel = normalizeLogLevel(envLogLevel);
+  }
+  // If logLevel is already set (not null) and no new option was provided, keep it
+
   colors = createColors({ useColor: config.color });
 
-  // Reset state
-  startTime = Date.now();
-  headerShown = false;
+  // Reset state (optional - commands may want to preserve timer)
+  if (options.resetTimer !== false) {
+    startTime = Date.now();
+    headerShown = false;
+  }
 
   // Initialize log file if specified
   if (config.logFile) {
     initLogFile();
   }
+}
+
+/**
+ * Get current log level
+ * @returns {string} Current log level (defaults to 'info' if not initialized)
+ */
+export function getLogLevel() {
+  return config.logLevel || 'info';
+}
+
+/**
+ * Check if verbose/debug mode is enabled
+ * @returns {boolean} True if debug level is active
+ */
+export function isVerbose() {
+  return config.logLevel === 'debug';
 }
 
 /**
@@ -119,7 +204,7 @@ export function result(message) {
  * Show an info message
  */
 export function info(message, data = {}) {
-  if (config.silent) return;
+  if (!shouldLog('info')) return;
 
   if (config.json) {
     console.log(JSON.stringify({ status: 'info', message, ...data }));
@@ -133,7 +218,7 @@ export function info(message, data = {}) {
  */
 export function warn(message, data = {}) {
   stopSpinner();
-  if (config.silent) return;
+  if (!shouldLog('warn')) return;
 
   if (config.json) {
     console.error(JSON.stringify({ status: 'warning', message, ...data }));
@@ -145,19 +230,23 @@ export function warn(message, data = {}) {
 /**
  * Show an error message (goes to stderr)
  * Does NOT exit - caller decides whether to exit
+ * Note: Errors are always shown regardless of log level (unless silent mode)
  */
 export function error(message, err = null, data = {}) {
   stopSpinner();
 
+  // Errors always show (unless silent), but we still check shouldLog for consistency
+  if (config.silent) return;
+
   if (config.json) {
-    const errorData = { status: 'error', message, ...data };
+    let errorData = { status: 'error', message, ...data };
     if (err instanceof Error) {
       errorData.error = {
         name: err.name,
         message: err.getUserMessage ? err.getUserMessage() : err.message,
         code: err.code,
       };
-      if (config.verbose) {
+      if (isVerbose()) {
         errorData.error.stack = err.stack;
       }
     }
@@ -167,13 +256,11 @@ export function error(message, err = null, data = {}) {
 
     // Show error details
     if (err instanceof Error) {
-      const errMessage = err.getUserMessage
-        ? err.getUserMessage()
-        : err.message;
+      let errMessage = err.getUserMessage ? err.getUserMessage() : err.message;
       if (errMessage && errMessage !== message) {
         console.error(colors.dim(errMessage));
       }
-      if (config.verbose && err.stack) {
+      if (isVerbose() && err.stack) {
         console.error(colors.dim(err.stack));
       }
     } else if (typeof err === 'string' && err) {
@@ -348,14 +435,14 @@ function formatData(data) {
 }
 
 /**
- * Log debug message with component prefix (only shown in verbose mode)
+ * Log debug message with component prefix (only shown when log level is 'debug')
  *
  * @param {string} component - Component name (e.g., 'server', 'config', 'build')
  * @param {string} message - Debug message
  * @param {Object} data - Optional data object to display inline
  */
 export function debug(component, message, data = {}) {
-  if (!config.verbose) return;
+  if (!shouldLog('debug')) return;
 
   // Handle legacy calls: debug('message') or debug('message', {data})
   if (typeof message === 'object' || message === undefined) {
@@ -364,7 +451,7 @@ export function debug(component, message, data = {}) {
     component = null;
   }
 
-  const elapsed = getElapsedTime();
+  let elapsed = getElapsedTime();
 
   if (config.json) {
     console.error(
@@ -377,12 +464,12 @@ export function debug(component, message, data = {}) {
       })
     );
   } else {
-    const formattedData = formatData(data);
-    const dataStr = formattedData ? ` ${colors.dim(formattedData)}` : '';
+    let formattedData = formatData(data);
+    let dataStr = formattedData ? ` ${colors.dim(formattedData)}` : '';
 
     if (component) {
       // Component-based format: "  server    listening on :47392"
-      const paddedComponent = component.padEnd(8);
+      let paddedComponent = component.padEnd(8);
       console.error(`  ${colors.cyan(paddedComponent)} ${message}${dataStr}`);
     } else {
       // Simple format for legacy calls
@@ -440,4 +527,20 @@ function writeLog(level, message, data = {}) {
  */
 export function cleanup() {
   stopSpinner();
+}
+
+/**
+ * Reset module state to defaults (useful for testing)
+ * This resets all configuration to initial state
+ */
+export function reset() {
+  stopSpinner();
+  config.json = false;
+  config.logLevel = null;
+  config.color = true;
+  config.silent = false;
+  config.logFile = null;
+  colors = createColors({ useColor: config.color });
+  startTime = Date.now();
+  headerShown = false;
 }

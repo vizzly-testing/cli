@@ -1,8 +1,12 @@
 /**
  * Tests for global config utilities
+ *
+ * Note: VIZZLY_HOME is set globally by tests/setup.js to isolate from user config
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   clearAuthTokens,
@@ -33,18 +37,28 @@ describe('Global Config Utilities', () => {
   });
 
   describe('getGlobalConfigDir', () => {
-    it('should return path to ~/.vizzly directory', () => {
-      const configDir = getGlobalConfigDir();
-      expect(configDir).toContain('.vizzly');
-      expect(configDir).toBeTruthy();
+    it('should use VIZZLY_HOME when set', () => {
+      let configDir = getGlobalConfigDir();
+      expect(configDir).toBe(process.env.VIZZLY_HOME);
+    });
+
+    it('should fall back to ~/.vizzly when VIZZLY_HOME is not set', () => {
+      let originalHome = process.env.VIZZLY_HOME;
+      delete process.env.VIZZLY_HOME;
+
+      try {
+        let configDir = getGlobalConfigDir();
+        expect(configDir).toBe(join(homedir(), '.vizzly'));
+      } finally {
+        process.env.VIZZLY_HOME = originalHome;
+      }
     });
   });
 
   describe('getGlobalConfigPath', () => {
-    it('should return path to ~/.vizzly/config.json', () => {
-      const configPath = getGlobalConfigPath();
-      expect(configPath).toContain('.vizzly');
-      expect(configPath).toContain('config.json');
+    it('should return path to config.json within VIZZLY_HOME', () => {
+      let configPath = getGlobalConfigPath();
+      expect(configPath).toBe(join(process.env.VIZZLY_HOME, 'config.json'));
     });
   });
 

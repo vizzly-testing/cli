@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     testTimeout: 8000,
+    setupFiles: ['./tests/setup.js'],
     include: ['tests/**/*.spec.js', 'tests/**/*.spec.jsx'],
     exclude: ['tests/reporter/**'],
     coverage: {

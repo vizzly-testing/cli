@@ -171,6 +171,7 @@ The React-based reporter works in two modes:
 
 ## Environment Variables
 
+- `VIZZLY_HOME` - Override config directory (default: ~/.vizzly). Useful for development/testing
 - `VIZZLY_TOKEN` - API authentication token
 - `VIZZLY_API_URL` - API base URL (default: https://app.vizzly.dev)
 - `VIZZLY_LOG_LEVEL` - Logging level (debug|info|warn|error)
@@ -225,10 +226,37 @@ Remember to update both local (TDD) and cloud comparison logic to keep behavior 
 5. Add tests in plugin's own package or in `tests/integration/`
 6. See `docs/plugins.md` and `examples/custom-plugin/` for complete guide
 
-## Git Commits & Writing
+## Local Development Setup
+
+When developing the CLI, use `VIZZLY_HOME` to isolate dev state from production:
+
+```bash
+# Set up isolated dev environment
+export VIZZLY_HOME="$HOME/.vizzly.dev"
+export VIZZLY_API_URL="http://localhost:3000"
+
+# Now login, link projects, etc. - all stored in ~/.vizzly.dev
+vizzly login
+vizzly project link
+```
+
+This keeps your production auth/projects in `~/.vizzly` untouched while you work on the CLI.
+
+Recommended: Add a `.envrc` file (with direnv) to auto-set these when entering the repo.
+
+## Git Commits & Pull Requests
 
 **NEVER add AI attribution to commits, PRs, or any writing:**
 - ❌ "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 - ❌ "Co-Authored-By: Claude <noreply@anthropic.com>"
 
-Use gitmoji for commit messages. Keep commits clear and concise.
+**Commits:**
+- Use gitmoji prefix (✨ feat, 🐛 fix, 📝 docs, ♻️ refactor, 🧪 test, etc.)
+- Keep messages clear and concise
+
+**Pull Requests:**
+- Title must include gitmoji prefix matching the primary change type
+- Description must explain the *why* (motivation/problem being solved)
+- Description must cover all changes in the diff, not just highlights
+- Use a "Summary" section with bullet points for each change
+- Include a "Test plan" section with verification steps

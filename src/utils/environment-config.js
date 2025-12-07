@@ -4,6 +4,16 @@
  */
 
 /**
+ * Get the Vizzly home directory from environment
+ * Used to override the default ~/.vizzly directory for storing auth, project mappings, etc.
+ * Useful for development (separate dev/prod configs) or testing (isolated test configs)
+ * @returns {string|undefined} Custom home directory path
+ */
+export function getVizzlyHome() {
+  return process.env.VIZZLY_HOME;
+}
+
+/**
  * Get API token from environment
  * @returns {string|undefined} API token
  */
@@ -89,6 +99,7 @@ export function setVizzlyEnabled(enabled) {
  */
 export function getAllEnvironmentConfig() {
   return {
+    home: getVizzlyHome(),
     apiToken: getApiToken(),
     apiUrl: getApiUrl(),
     logLevel: getLogLevel(),

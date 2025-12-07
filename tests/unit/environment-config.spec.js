@@ -73,6 +73,7 @@ describe('Environment Config - Parallel Build Support', () => {
       const config = getAllEnvironmentConfig();
 
       expect(config).toEqual({
+        home: process.env.VIZZLY_HOME,
         apiToken: 'token-123',
         apiUrl: 'https://custom.api.com',
         logLevel: 'debug',

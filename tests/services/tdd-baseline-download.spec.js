@@ -142,17 +142,17 @@ describe('TDD Service - Baseline Download', () => {
         })
       );
 
-      // Verify file system operations
+      // Verify file system operations - filenames now include empty position placeholders
       expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'homepage.png'),
+        join(testDir, '.vizzly', 'baselines', 'homepage__.png'),
         mockImageBuffer
       );
       expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'login.png'),
+        join(testDir, '.vizzly', 'baselines', 'login__.png'),
         mockImageBuffer
       );
 
-      // Verify baseline data is stored
+      // Verify baseline data is stored - signatures include empty placeholders
       expect(tddService.baselineData).toEqual({
         buildId: 'build123',
         buildName: 'Test Build',
@@ -174,8 +174,8 @@ describe('TDD Service - Baseline Download', () => {
             sha256: 'sha256-homepage',
             id: 'screenshot1',
             properties: {},
-            path: join(testDir, '.vizzly', 'baselines', 'homepage.png'),
-            signature: 'homepage',
+            path: join(testDir, '.vizzly', 'baselines', 'homepage__.png'),
+            signature: 'homepage||',
             originalUrl: 'https://example.com/homepage.png',
             fileSize: 12345,
             dimensions: {
@@ -189,8 +189,8 @@ describe('TDD Service - Baseline Download', () => {
             sha256: 'sha256-login',
             id: 'screenshot2',
             properties: {},
-            path: join(testDir, '.vizzly', 'baselines', 'login.png'),
-            signature: 'login',
+            path: join(testDir, '.vizzly', 'baselines', 'login__.png'),
+            signature: 'login||',
             originalUrl: 'https://example.com/login.png',
             fileSize: 67890,
             dimensions: {
@@ -521,21 +521,23 @@ describe('TDD Service - Baseline Download', () => {
       expect(tddService.baselineData.signatureProperties).toEqual(['theme']);
 
       // Verify screenshots have different signatures based on theme
+      // Signature format: name|viewport_width|browser|custom_props
+      // When viewport_width and browser are empty, they're placeholders
       expect(tddService.baselineData.screenshots).toHaveLength(2);
       expect(tddService.baselineData.screenshots[0].signature).toBe(
-        'dashboard|dark'
+        'dashboard|||dark'
       );
       expect(tddService.baselineData.screenshots[1].signature).toBe(
-        'dashboard|light'
+        'dashboard|||light'
       );
 
-      // Verify files saved with variant-aware filenames
+      // Verify files saved with variant-aware filenames (underscores for empty positions)
       expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'dashboard_dark.png'),
+        join(testDir, '.vizzly', 'baselines', 'dashboard___dark.png'),
         mockImageBuffer
       );
       expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'dashboard_light.png'),
+        join(testDir, '.vizzly', 'baselines', 'dashboard___light.png'),
         mockImageBuffer
       );
 
@@ -673,14 +675,15 @@ describe('TDD Service - Baseline Download', () => {
         'build-extra-props'
       );
 
-      // Signature should only include theme, not locale or user_role
+      // Signature should include default props (empty) + theme, not locale or user_role
+      // Format: name|viewport_width|browser|theme
       expect(tddService.baselineData.screenshots[0].signature).toBe(
-        'settings|dark'
+        'settings|||dark'
       );
 
-      // Filename should match signature
+      // Filename should match signature (underscores for empty positions)
       expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'settings_dark.png'),
+        join(testDir, '.vizzly', 'baselines', 'settings___dark.png'),
         mockImageBuffer
       );
 
@@ -725,12 +728,13 @@ describe('TDD Service - Baseline Download', () => {
         'build-no-props'
       );
 
-      // Signature should just be the name (no custom properties)
+      // Signature includes empty placeholders for default properties (viewport_width, browser)
       expect(tddService.signatureProperties).toEqual([]);
-      expect(tddService.baselineData.screenshots[0].signature).toBe('about');
+      expect(tddService.baselineData.screenshots[0].signature).toBe('about||');
 
+      // Filename includes empty position underscores
       expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'about.png'),
+        join(testDir, '.vizzly', 'baselines', 'about__.png'),
         mockImageBuffer
       );
 

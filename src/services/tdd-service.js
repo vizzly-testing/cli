@@ -36,41 +36,42 @@ function generateScreenshotSignature(
   properties = {},
   customProperties = []
 ) {
-  const parts = [name];
+  // Match cloud screenshot-identity.js behavior exactly:
+  // Always include all default properties (name, viewport_width, browser)
+  // even if null/undefined, using empty string as placeholder
+  const defaultProperties = ['name', 'viewport_width', 'browser'];
+  const allProperties = [...defaultProperties, ...customProperties];
 
-  // Check for viewport_width as top-level property first (backend format)
-  let viewportWidth = properties.viewport_width;
+  const parts = allProperties.map(propName => {
+    let value;
 
-  // Fallback to nested viewport.width (SDK format)
-  if (!viewportWidth && properties.viewport?.width) {
-    viewportWidth = properties.viewport.width;
-  }
+    if (propName === 'name') {
+      value = name;
+    } else if (propName === 'viewport_width') {
+      // Check for viewport_width as top-level property first (backend format)
+      value = properties.viewport_width;
+      // Fallback to nested viewport.width (SDK format)
+      if (value === null || value === undefined) {
+        value = properties.viewport?.width;
+      }
+    } else if (propName === 'browser') {
+      value = properties.browser;
+    } else {
+      // Custom property - check multiple locations
+      value =
+        properties[propName] ??
+        properties.metadata?.[propName] ??
+        properties.metadata?.properties?.[propName];
+    }
 
-  // Add viewport width if present
-  if (viewportWidth) {
-    parts.push(viewportWidth.toString());
-  }
+    // Handle null/undefined values consistently (match cloud behavior)
+    if (value === null || value === undefined) {
+      return '';
+    }
 
-  // Add browser if present
-  if (properties.browser) {
-    parts.push(properties.browser);
-  }
-
-  // Add custom properties in order (matches cloud screenshot-identity.js behavior)
-  for (const propName of customProperties) {
-    // Check multiple locations where property might exist:
-    // 1. Top-level property (e.g., properties.device)
-    // 2. In metadata object (e.g., properties.metadata.device)
-    // 3. In nested metadata.properties (e.g., properties.metadata.properties.device)
-    const value =
-      properties[propName] ??
-      properties.metadata?.[propName] ??
-      properties.metadata?.properties?.[propName] ??
-      '';
-
-    // Normalize: convert to string, trim whitespace
-    parts.push(String(value).trim());
-  }
+    // Convert to string and normalize
+    return String(value).trim();
+  });
 
   return parts.join('|');
 }
@@ -78,13 +79,16 @@ function generateScreenshotSignature(
 /**
  * Create a safe filename from signature
  * Handles custom property values that may contain spaces or special characters
+ *
+ * IMPORTANT: Does NOT collapse multiple underscores because empty signature
+ * positions (e.g., null browser) result in `||` which becomes `__` and must
+ * be preserved for cloud compatibility.
  */
 function signatureToFilename(signature) {
   return signature
     .replace(/\|/g, '_') // pipes to underscores
-    .replace(/\s+/g, '_') // spaces to underscores
-    .replace(/[/\\:*?"<>]/g, '') // remove unsafe filesystem chars
-    .replace(/_+/g, '_'); // collapse multiple underscores
+    .replace(/\s+/g, '-') // spaces to hyphens (not underscores, to distinguish from position separators)
+    .replace(/[/\\:*?"<>]/g, ''); // remove unsafe filesystem chars
 }
 
 /**

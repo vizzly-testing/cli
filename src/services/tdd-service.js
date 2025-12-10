@@ -77,18 +77,41 @@ function generateScreenshotSignature(
 }
 
 /**
- * Create a safe filename from signature
+ * Create a safe filename from signature (legacy method)
  * Handles custom property values that may contain spaces or special characters
  *
  * IMPORTANT: Does NOT collapse multiple underscores because empty signature
  * positions (e.g., null browser) result in `||` which becomes `__` and must
  * be preserved for cloud compatibility.
+ *
+ * @deprecated Use generateBaselineFilename instead for new code
  */
 function signatureToFilename(signature) {
   return signature
     .replace(/\|/g, '_') // pipes to underscores
     .replace(/\s+/g, '-') // spaces to hyphens (not underscores, to distinguish from position separators)
     .replace(/[/\\:*?"<>]/g, ''); // remove unsafe filesystem chars
+}
+
+/**
+ * Generate a stable, filesystem-safe filename for a screenshot baseline
+ * Uses a hash of the signature to avoid character encoding issues
+ * Matches the cloud's generateBaselineFilename implementation exactly
+ *
+ * @param {string} name - Screenshot name
+ * @param {string} signature - Full signature string
+ * @returns {string} Filename like "homepage_a1b2c3d4e5f6.png"
+ */
+function generateBaselineFilename(name, signature) {
+  const hash = crypto.createHash('sha256').update(signature).digest('hex').slice(0, 12);
+
+  // Sanitize the name for filesystem safety
+  const safeName = name
+    .replace(/[/\\:*?"<>|]/g, '') // Remove unsafe chars
+    .replace(/\s+/g, '-') // Spaces to hyphens
+    .slice(0, 50); // Limit length
+
+  return `${safeName}_${hash}.png`;
 }
 
 /**
@@ -414,9 +437,12 @@ export class TddService {
           properties,
           this.signatureProperties
         );
-        const filename = signatureToFilename(signature);
 
-        const imagePath = safePath(this.baselinePath, `${filename}.png`);
+        // Use API-provided filename if available, otherwise generate hash-based filename
+        // Both return the full filename with .png extension
+        const filename = screenshot.filename || generateBaselineFilename(sanitizedName, signature);
+
+        const imagePath = safePath(this.baselinePath, filename);
 
         // Check if we already have this file with the same SHA (using metadata)
         if (existsSync(imagePath) && screenshot.sha256) {
@@ -575,7 +601,7 @@ export class TddService {
               properties,
               this.signatureProperties
             );
-            const filename = signatureToFilename(signature);
+            const filename = generateBaselineFilename(sanitizedName, signature);
 
             return {
               name: sanitizedName,
@@ -583,7 +609,7 @@ export class TddService {
               sha256: s.sha256, // Store remote SHA for quick comparison
               id: s.id,
               properties: properties,
-              path: safePath(this.baselinePath, `${filename}.png`),
+              path: safePath(this.baselinePath, filename),
               signature: signature,
               originalUrl: s.original_url,
               fileSize: s.file_size_bytes,
@@ -923,8 +949,9 @@ export class TddService {
           properties,
           this.signatureProperties
         );
-        const filename = signatureToFilename(signature);
-        const filePath = safePath(this.baselinePath, `${filename}.png`);
+        // Use API-provided filename if available, otherwise generate hash-based filename
+        const filename = screenshot.filename || generateBaselineFilename(sanitizedName, signature);
+        const filePath = safePath(this.baselinePath, filename);
 
         // Check if we can skip via SHA comparison
         if (
@@ -1158,11 +1185,12 @@ export class TddService {
       validatedProperties,
       this.signatureProperties
     );
-    const filename = signatureToFilename(signature);
+    // Use hash-based filename for reliable matching (matches cloud format)
+    const filename = generateBaselineFilename(sanitizedName, signature);
 
-    const currentImagePath = safePath(this.currentPath, `${filename}.png`);
-    const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
-    const diffImagePath = safePath(this.diffPath, `${filename}.png`);
+    const currentImagePath = safePath(this.currentPath, filename);
+    const baselineImagePath = safePath(this.baselinePath, filename);
+    const diffImagePath = safePath(this.diffPath, filename);
 
     // Save current screenshot
     writeFileSync(currentImagePath, imageBuffer);
@@ -1627,9 +1655,9 @@ export class TddService {
         validatedProperties,
         this.signatureProperties
       );
-      const filename = signatureToFilename(signature);
+      const filename = generateBaselineFilename(sanitizedName, signature);
 
-      const baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
+      const baselineImagePath = safePath(this.baselinePath, filename);
 
       try {
         // Copy current screenshot to baseline
@@ -1848,10 +1876,10 @@ export class TddService {
       properties,
       this.signatureProperties
     );
-    const filename = signatureToFilename(signature);
+    const filename = generateBaselineFilename(sanitizedName, signature);
 
     // Find the current screenshot file
-    const currentImagePath = safePath(this.currentPath, `${filename}.png`);
+    const currentImagePath = safePath(this.currentPath, filename);
 
     if (!existsSync(currentImagePath)) {
       output.error(`Current screenshot not found at: ${currentImagePath}`);

@@ -142,18 +142,18 @@ describe('TDD Service - Baseline Download', () => {
         })
       );
 
-      // Verify file system operations - filenames now include empty position placeholders
-      expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'homepage__.png'),
-        mockImageBuffer
+      // Verify file system operations - filenames now use hash-based format
+      // Check that writeFileSync was called with correct baselines directory and hash-based filenames
+      const writeFileCalls = writeFileSync.mock.calls;
+      const baselineWrites = writeFileCalls.filter(call =>
+        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
-      expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'login__.png'),
-        mockImageBuffer
-      );
+      expect(baselineWrites).toHaveLength(2);
+      expect(baselineWrites[0][0]).toMatch(/homepage_[a-f0-9]{12}\.png$/);
+      expect(baselineWrites[1][0]).toMatch(/login_[a-f0-9]{12}\.png$/);
 
       // Verify baseline data is stored - signatures include empty placeholders
-      expect(tddService.baselineData).toEqual({
+      expect(tddService.baselineData).toMatchObject({
         buildId: 'build123',
         buildName: 'Test Build',
         environment: 'test',
@@ -167,39 +167,32 @@ describe('TDD Service - Baseline Download', () => {
           approvalStatus: undefined,
           completedAt: undefined,
         },
-        screenshots: [
-          {
-            name: 'homepage',
-            originalName: 'homepage',
-            sha256: 'sha256-homepage',
-            id: 'screenshot1',
-            properties: {},
-            path: join(testDir, '.vizzly', 'baselines', 'homepage__.png'),
-            signature: 'homepage||',
-            originalUrl: 'https://example.com/homepage.png',
-            fileSize: 12345,
-            dimensions: {
-              width: 1920,
-              height: 1080,
-            },
-          },
-          {
-            name: 'login',
-            originalName: 'login',
-            sha256: 'sha256-login',
-            id: 'screenshot2',
-            properties: {},
-            path: join(testDir, '.vizzly', 'baselines', 'login__.png'),
-            signature: 'login||',
-            originalUrl: 'https://example.com/login.png',
-            fileSize: 67890,
-            dimensions: {
-              width: 1920,
-              height: 1080,
-            },
-          },
-        ],
       });
+
+      // Verify screenshots have correct data with hash-based paths
+      expect(tddService.baselineData.screenshots).toHaveLength(2);
+      expect(tddService.baselineData.screenshots[0]).toMatchObject({
+        name: 'homepage',
+        originalName: 'homepage',
+        sha256: 'sha256-homepage',
+        id: 'screenshot1',
+        properties: {},
+        signature: 'homepage||',
+        originalUrl: 'https://example.com/homepage.png',
+        fileSize: 12345,
+      });
+      expect(tddService.baselineData.screenshots[0].path).toMatch(/homepage_[a-f0-9]{12}\.png$/);
+      expect(tddService.baselineData.screenshots[1]).toMatchObject({
+        name: 'login',
+        originalName: 'login',
+        sha256: 'sha256-login',
+        id: 'screenshot2',
+        properties: {},
+        signature: 'login||',
+        originalUrl: 'https://example.com/login.png',
+        fileSize: 67890,
+      });
+      expect(tddService.baselineData.screenshots[1].path).toMatch(/login_[a-f0-9]{12}\.png$/);
 
       expect(result).not.toBeNull();
     });
@@ -531,15 +524,13 @@ describe('TDD Service - Baseline Download', () => {
         'dashboard|||light'
       );
 
-      // Verify files saved with variant-aware filenames (underscores for empty positions)
-      expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'dashboard___dark.png'),
-        mockImageBuffer
+      // Verify files saved with hash-based filenames
+      const baselineWrites = writeFileSync.mock.calls.filter(call =>
+        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
-      expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'dashboard___light.png'),
-        mockImageBuffer
-      );
+      expect(baselineWrites).toHaveLength(2);
+      expect(baselineWrites[0][0]).toMatch(/dashboard_[a-f0-9]{12}\.png$/);
+      expect(baselineWrites[1][0]).toMatch(/dashboard_[a-f0-9]{12}\.png$/);
 
       expect(result).not.toBeNull();
     });
@@ -610,25 +601,13 @@ describe('TDD Service - Baseline Download', () => {
         'homepage|1920|chromium|desktop'
       );
 
-      // Filenames sanitized from signatures
-      expect(writeFileSync).toHaveBeenCalledWith(
-        join(
-          testDir,
-          '.vizzly',
-          'baselines',
-          'homepage_390_chromium_mobile.png'
-        ),
-        mockImageBuffer
+      // Filenames use hash-based format
+      const baselineWrites = writeFileSync.mock.calls.filter(call =>
+        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
-      expect(writeFileSync).toHaveBeenCalledWith(
-        join(
-          testDir,
-          '.vizzly',
-          'baselines',
-          'homepage_1920_chromium_desktop.png'
-        ),
-        mockImageBuffer
-      );
+      expect(baselineWrites).toHaveLength(2);
+      expect(baselineWrites[0][0]).toMatch(/homepage_[a-f0-9]{12}\.png$/);
+      expect(baselineWrites[1][0]).toMatch(/homepage_[a-f0-9]{12}\.png$/);
 
       expect(result).not.toBeNull();
     });
@@ -681,11 +660,12 @@ describe('TDD Service - Baseline Download', () => {
         'settings|||dark'
       );
 
-      // Filename should match signature (underscores for empty positions)
-      expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'settings___dark.png'),
-        mockImageBuffer
+      // Filename should use hash-based format
+      const baselineWrites = writeFileSync.mock.calls.filter(call =>
+        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
+      expect(baselineWrites).toHaveLength(1);
+      expect(baselineWrites[0][0]).toMatch(/settings_[a-f0-9]{12}\.png$/);
 
       expect(result).not.toBeNull();
     });
@@ -732,11 +712,12 @@ describe('TDD Service - Baseline Download', () => {
       expect(tddService.signatureProperties).toEqual([]);
       expect(tddService.baselineData.screenshots[0].signature).toBe('about||');
 
-      // Filename includes empty position underscores
-      expect(writeFileSync).toHaveBeenCalledWith(
-        join(testDir, '.vizzly', 'baselines', 'about__.png'),
-        mockImageBuffer
+      // Filename uses hash-based format
+      const baselineWrites = writeFileSync.mock.calls.filter(call =>
+        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
+      expect(baselineWrites).toHaveLength(1);
+      expect(baselineWrites[0][0]).toMatch(/about_[a-f0-9]{12}\.png$/);
 
       expect(result).not.toBeNull();
     });

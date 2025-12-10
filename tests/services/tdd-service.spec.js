@@ -148,13 +148,15 @@ describe('TddService', () => {
       expect(result).toMatchObject({
         name: 'new-screenshot',
         status: 'new',
-        baseline: join(testDir, '.vizzly', 'baselines', 'new-screenshot.png'),
-        current: join(testDir, '.vizzly', 'current', 'new-screenshot.png'),
+        // Signature now includes empty placeholders for viewport and browser
+        baseline: join(testDir, '.vizzly', 'baselines', 'new-screenshot__.png'),
+        current: join(testDir, '.vizzly', 'current', 'new-screenshot__.png'),
         diff: null,
         properties: {},
       });
       expect(result.id).toBeDefined();
-      expect(result.signature).toBe('new-screenshot');
+      // Signature format: name|viewport_width|browser (with empty placeholders)
+      expect(result.signature).toBe('new-screenshot||');
 
       expect(tddService.comparisons).toHaveLength(1);
       expect(tddService.comparisons[0]).toEqual(result);
@@ -187,8 +189,14 @@ describe('TddService', () => {
       expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'passed',
-        baseline: join(testDir, '.vizzly', 'baselines', 'test-screenshot.png'),
-        current: join(testDir, '.vizzly', 'current', 'test-screenshot.png'),
+        // Signature format includes empty placeholders
+        baseline: join(
+          testDir,
+          '.vizzly',
+          'baselines',
+          'test-screenshot__.png'
+        ),
+        current: join(testDir, '.vizzly', 'current', 'test-screenshot__.png'),
         diff: null,
         properties: {},
         threshold: 0.1,
@@ -197,7 +205,7 @@ describe('TddService', () => {
         aaPercentage: 0,
       });
       expect(result.id).toBeDefined();
-      expect(result.signature).toBe('test-screenshot');
+      expect(result.signature).toBe('test-screenshot||');
 
       expect(tddService.comparisons).toHaveLength(1);
     });
@@ -229,9 +237,15 @@ describe('TddService', () => {
       expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'failed',
-        baseline: join(testDir, '.vizzly', 'baselines', 'test-screenshot.png'),
-        current: join(testDir, '.vizzly', 'current', 'test-screenshot.png'),
-        diff: join(testDir, '.vizzly', 'diffs', 'test-screenshot.png'),
+        // Signature format includes empty placeholders
+        baseline: join(
+          testDir,
+          '.vizzly',
+          'baselines',
+          'test-screenshot__.png'
+        ),
+        current: join(testDir, '.vizzly', 'current', 'test-screenshot__.png'),
+        diff: join(testDir, '.vizzly', 'diffs', 'test-screenshot__.png'),
         properties: {},
         threshold: 0.1,
         diffCount: 52000,
@@ -246,7 +260,7 @@ describe('TddService', () => {
         diffClusters: null,
       });
       expect(result.id).toBeDefined();
-      expect(result.signature).toBe('test-screenshot');
+      expect(result.signature).toBe('test-screenshot||');
     });
 
     it('handles honeydiff execution errors', async () => {
@@ -263,14 +277,20 @@ describe('TddService', () => {
       expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'error',
-        baseline: join(testDir, '.vizzly', 'baselines', 'test-screenshot.png'),
-        current: join(testDir, '.vizzly', 'current', 'test-screenshot.png'),
+        // Signature format includes empty placeholders
+        baseline: join(
+          testDir,
+          '.vizzly',
+          'baselines',
+          'test-screenshot__.png'
+        ),
+        current: join(testDir, '.vizzly', 'current', 'test-screenshot__.png'),
         diff: null,
         properties: {},
         error: 'honeydiff not found',
       });
       expect(result.id).toBeDefined();
-      expect(result.signature).toBe('test-screenshot');
+      expect(result.signature).toBe('test-screenshot||');
     });
 
     it('includes custom properties in comparison result', async () => {
@@ -592,6 +612,154 @@ describe('TddService', () => {
       expect(results.new).toBe(1);
       expect(results.comparisons[0].name).toBe('test1');
       expect(results.comparisons[0].status).toBe('new');
+    });
+  });
+
+  describe('signature generation (cloud compatibility)', () => {
+    // These tests verify that the CLI generates signatures matching the cloud's
+    // screenshot-identity.js format: name|viewport_width|browser|custom_props...
+    // Empty strings are used for null/undefined values to maintain position
+
+    it('generates signature with all default properties present', async () => {
+      const { existsSync } = await import('node:fs');
+      existsSync.mockReturnValue(false);
+
+      const result = await tddService.compareScreenshot(
+        'homepage',
+        Buffer.from('test'),
+        { viewport: { width: 1920, height: 1080 }, browser: 'chrome' }
+      );
+
+      // Signature should be: name|viewport_width|browser
+      expect(result.signature).toBe('homepage|1920|chrome');
+      // Filename should convert pipes to underscores
+      expect(result.baseline).toContain('homepage_1920_chrome.png');
+    });
+
+    it('generates signature with empty browser placeholder when null', async () => {
+      const { existsSync } = await import('node:fs');
+      existsSync.mockReturnValue(false);
+
+      const result = await tddService.compareScreenshot(
+        'homepage',
+        Buffer.from('test'),
+        { viewport: { width: 1920, height: 1080 }, browser: null }
+      );
+
+      // Cloud format: name|viewport_width| (empty browser, but position preserved)
+      expect(result.signature).toBe('homepage|1920|');
+      // Filename: underscores preserved (no collapsing for cloud compatibility)
+      expect(result.baseline).toContain('homepage_1920_.png');
+    });
+
+    it('generates signature with empty viewport placeholder when null', async () => {
+      const { existsSync } = await import('node:fs');
+      existsSync.mockReturnValue(false);
+
+      const result = await tddService.compareScreenshot(
+        'homepage',
+        Buffer.from('test'),
+        { browser: 'chrome' }
+      );
+
+      // Cloud format: name||browser (empty viewport, position preserved)
+      expect(result.signature).toBe('homepage||chrome');
+      expect(result.baseline).toContain('homepage__chrome.png');
+    });
+
+    it('generates signature with both empty placeholders when no properties', async () => {
+      const { existsSync } = await import('node:fs');
+      existsSync.mockReturnValue(false);
+
+      const result = await tddService.compareScreenshot(
+        'homepage',
+        Buffer.from('test'),
+        {}
+      );
+
+      // Cloud format: name|| (both viewport and browser empty, positions preserved)
+      expect(result.signature).toBe('homepage||');
+      // Note: auto-detection of image dimensions may populate viewport
+    });
+
+    it('handles custom signature properties in order', async () => {
+      const { existsSync } = await import('node:fs');
+      existsSync.mockReturnValue(false);
+
+      // Set custom signature properties (normally loaded from cloud project settings)
+      tddService.signatureProperties = ['device', 'theme'];
+
+      const result = await tddService.compareScreenshot(
+        'settings',
+        Buffer.from('test'),
+        {
+          viewport: { width: 393, height: 852 },
+          browser: null,
+          device: 'iPhone 15 Pro',
+          theme: 'dark',
+        }
+      );
+
+      // Cloud format: name|viewport_width|browser|device|theme
+      expect(result.signature).toBe('settings|393||iPhone 15 Pro|dark');
+      // Filename: spaces converted to hyphens (not underscores) to distinguish from position separators
+      expect(result.baseline).toContain('settings_393__iPhone-15-Pro_dark.png');
+    });
+
+    it('handles custom properties with empty values', async () => {
+      const { existsSync } = await import('node:fs');
+      existsSync.mockReturnValue(false);
+
+      tddService.signatureProperties = ['device', 'theme'];
+
+      const result = await tddService.compareScreenshot(
+        'settings',
+        Buffer.from('test'),
+        {
+          viewport: { width: 1920, height: 1080 },
+          browser: 'chrome',
+          // device and theme not provided - should be empty strings
+        }
+      );
+
+      // Custom properties should be empty strings when not provided
+      expect(result.signature).toBe('settings|1920|chrome||');
+    });
+
+    it('extracts custom properties from metadata object', async () => {
+      const { existsSync } = await import('node:fs');
+      existsSync.mockReturnValue(false);
+
+      tddService.signatureProperties = ['device'];
+
+      // Note: In actual usage, the tdd-handler extracts properties and passes
+      // them with top-level device. For testing, we pass device at top level
+      // since that's how it arrives at tdd-service after validation.
+      const result = await tddService.compareScreenshot(
+        'app-screen',
+        Buffer.from('test'),
+        {
+          viewport: { width: 393, height: 852 },
+          device: 'Pixel 8',
+        }
+      );
+
+      expect(result.signature).toBe('app-screen|393||Pixel 8');
+    });
+
+    it('trims whitespace from property values', async () => {
+      const { existsSync } = await import('node:fs');
+      existsSync.mockReturnValue(false);
+
+      const result = await tddService.compareScreenshot(
+        '  homepage  ',
+        Buffer.from('test'),
+        { viewport: { width: 1920, height: 1080 }, browser: '  chrome  ' }
+      );
+
+      // Note: name is sanitized separately, but browser should be trimmed
+      expect(result.signature).toContain('chrome');
+      expect(result.signature).not.toContain('  chrome  ');
     });
   });
 

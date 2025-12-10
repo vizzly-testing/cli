@@ -29,7 +29,17 @@ export interface UploadConfig {
 }
 
 export interface ComparisonConfig {
+  /** CIEDE2000 Delta E threshold (0=exact, 1=JND, 2=recommended default) */
   threshold?: number;
+  /**
+   * Minimum cluster size to count as a real difference.
+   * Filters out scattered single-pixel noise from rendering variance.
+   * - 1 = Exact matching (any different pixel counts)
+   * - 2 = Default (filters single isolated pixels as noise)
+   * - 3+ = More permissive (only larger clusters detected)
+   * @default 2
+   */
+  minClusterSize?: number;
 }
 
 export interface TddConfig {

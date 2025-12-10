@@ -662,7 +662,8 @@ Configuration loaded via cosmiconfig in this order:
 
   // Comparison Configuration
   comparison: {
-    threshold: number         // CIEDE2000 Delta E (default: 2.0)
+    threshold: number,        // CIEDE2000 Delta E (default: 2.0)
+    minClusterSize: number    // Min cluster size for noise filtering (default: 2)
   }
 }
 ```

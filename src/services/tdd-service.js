@@ -147,6 +147,7 @@ export class TddService {
     this.baselineData = null;
     this.comparisons = [];
     this.threshold = config.comparison?.threshold || 2.0;
+    this.minClusterSize = config.comparison?.minClusterSize ?? 2; // Filter single-pixel noise by default
     this.signatureProperties = []; // Custom properties from project's baseline_signature_properties
 
     // Check if we're in baseline update mode
@@ -1242,6 +1243,7 @@ export class TddService {
         diffPath: diffImagePath,
         overwrite: true,
         includeClusters: true, // Enable spatial clustering analysis
+        minClusterSize: this.minClusterSize, // Filter single-pixel noise (default: 2)
       });
 
       if (!result.isDifferent) {

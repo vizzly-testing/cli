@@ -28,6 +28,7 @@ import {
 import { uploadCommand, validateUploadOptions } from './commands/upload.js';
 import { validateWhoamiOptions, whoamiCommand } from './commands/whoami.js';
 import { loadPlugins } from './plugin-loader.js';
+import { createPluginServices } from './plugin-api.js';
 import { createServices } from './services/index.js';
 import { loadConfig } from './utils/config-loader.js';
 import * as output from './utils/output.js';
@@ -78,6 +79,7 @@ output.configure({
 
 const config = await loadConfig(configPath, {});
 const services = createServices(config);
+const pluginServices = createPluginServices(services);
 
 let plugins = [];
 try {
@@ -88,7 +90,7 @@ try {
       // Add timeout protection for plugin registration (5 seconds)
       const registerPromise = plugin.register(program, {
         config,
-        services,
+        services: pluginServices,
         output,
         // Backwards compatibility alias for plugins using old API
         logger: output,

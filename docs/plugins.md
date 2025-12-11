@@ -134,26 +134,55 @@ The `register` function receives two arguments:
    - `output` - Unified output module with `.debug()`, `.info()`, `.warn()`, `.error()`, `.success()` methods
    - `services` - Service container with access to internal Vizzly services
 
-### Available Services
+### Available Services (Stable API)
 
-Plugins can access these services from the container:
+The `services` object provides a stable API for plugins. Only these services and methods are
+guaranteed to remain stable across minor versions:
 
-- **`apiService`** - Vizzly API client for interacting with the platform
-- **`uploader`** - Screenshot upload service
-- **`buildManager`** - Build lifecycle management
-- **`serverManager`** - Screenshot server management
-- **`tddService`** - TDD mode services
-- **`testRunner`** - Test execution service
+#### `services.testRunner`
 
-Example accessing a service:
+Manages build lifecycle and emits events:
+
+- **`once(event, callback)`** - Listen for a single event emission
+- **`on(event, callback)`** - Subscribe to events
+- **`off(event, callback)`** - Unsubscribe from events
+- **`createBuild(options, isTddMode)`** - Create a new build, returns `Promise<buildId>`
+- **`finalizeBuild(buildId, isTddMode, success, executionTime)`** - Finalize a build
+
+Events emitted:
+- `build-created` - Emitted with `{ url }` when a build is created
+
+#### `services.serverManager`
+
+Controls the screenshot capture server:
+
+- **`start(buildId, tddMode, setBaseline)`** - Start the screenshot server
+- **`stop()`** - Stop the screenshot server
+
+Example accessing services:
 
 ```javascript
 register(program, { config, output, services }) {
   program
-    .command('upload-screenshots <dir>')
-    .action(async (dir) => {
-      let uploader = services.uploader;
-      await uploader.uploadScreenshots(screenshots);
+    .command('capture')
+    .description('Capture screenshots with custom workflow')
+    .action(async () => {
+      let { testRunner, serverManager } = services;
+
+      // Listen for build creation
+      testRunner.once('build-created', ({ url }) => {
+        output.info(`Build created: ${url}`);
+      });
+
+      // Create build and start server
+      let buildId = await testRunner.createBuild({ buildName: 'Custom' }, false);
+      await serverManager.start(buildId, false, false);
+
+      // ... capture screenshots ...
+
+      // Finalize and cleanup
+      await testRunner.finalizeBuild(buildId, false, true, Date.now());
+      await serverManager.stop();
     });
 }
 ```
@@ -290,9 +319,9 @@ Use async/await for asynchronous operations:
 
 ```javascript
 .action(async (options) => {
-  let apiService = services.apiService;
-  let result = await apiService.doSomething();
-  output.info(`Result: ${result}`);
+  let { testRunner } = services;
+  let buildId = await testRunner.createBuild({ buildName: 'Test' }, false);
+  output.info(`Created build: ${buildId}`);
 });
 ```
 
@@ -384,21 +413,27 @@ export default {
       .description('Capture screenshots from Storybook build')
       .option('--viewports <list>', 'Comma-separated viewports', '1280x720')
       .action(async (path, options) => {
+        let { testRunner, serverManager } = services;
+        let startTime = Date.now();
+
+        // Create build and start server
+        let buildId = await testRunner.createBuild({ buildName: 'Storybook' }, false);
+        await serverManager.start(buildId, false, false);
+
         output.info(`Crawling Storybook at ${path}`);
 
         // Import dependencies lazily
         let { crawlStorybook } = await import('./crawler.js');
 
-        // Capture screenshots
-        let screenshots = await crawlStorybook(path, {
+        // Capture screenshots (uses vizzlyScreenshot internally)
+        await crawlStorybook(path, {
           viewports: options.viewports.split(','),
         });
 
-        output.info(`Captured ${screenshots.length} screenshots`);
-
-        // Upload using Vizzly's uploader service
-        let uploader = services.uploader;
-        await uploader.uploadScreenshots(screenshots);
+        // Finalize build
+        let executionTime = Date.now() - startTime;
+        await testRunner.finalizeBuild(buildId, false, true, executionTime);
+        await serverManager.stop();
 
         output.success('Upload complete!');
       });

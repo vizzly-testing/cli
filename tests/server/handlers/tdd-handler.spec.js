@@ -286,9 +286,39 @@ describe('createTddHandler', () => {
           viewport_width: null,
           viewport_height: null,
           browser: null,
-          device: null,
-          url: null,
-          selector: null,
+          metadata: {},
+        })
+      );
+    });
+
+    it('should preserve custom properties like theme and device for signature generation', async () => {
+      const mockComparison = {
+        name: screenshotName,
+        status: 'passed',
+      };
+      mockTddService.compareScreenshot.mockResolvedValue(mockComparison);
+
+      const result = await handler.handleScreenshot(
+        buildId,
+        screenshotName,
+        imageData,
+        {
+          viewport: { width: 1920, height: 1080 },
+          browser: 'chromium',
+          properties: { theme: 'dark', device: 'desktop' },
+        }
+      );
+
+      expect(result.statusCode).toBe(200);
+      expect(mockTddService.compareScreenshot).toHaveBeenCalledWith(
+        screenshotName,
+        expect.any(Buffer),
+        expect.objectContaining({
+          viewport_width: 1920,
+          viewport_height: 1080,
+          browser: 'chromium',
+          theme: 'dark',
+          device: 'desktop',
         })
       );
     });

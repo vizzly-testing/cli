@@ -77,23 +77,6 @@ function generateScreenshotSignature(
 }
 
 /**
- * Create a safe filename from signature (legacy method)
- * Handles custom property values that may contain spaces or special characters
- *
- * IMPORTANT: Does NOT collapse multiple underscores because empty signature
- * positions (e.g., null browser) result in `||` which becomes `__` and must
- * be preserved for cloud compatibility.
- *
- * @deprecated Use generateBaselineFilename instead for new code
- */
-function signatureToFilename(signature) {
-  return signature
-    .replace(/\|/g, '_') // pipes to underscores
-    .replace(/\s+/g, '-') // spaces to hyphens (not underscores, to distinguish from position separators)
-    .replace(/[/\\:*?"<>]/g, ''); // remove unsafe filesystem chars
-}
-
-/**
  * Generate a stable, filesystem-safe filename for a screenshot baseline
  * Uses a hash of the signature to avoid character encoding issues
  * Matches the cloud's generateBaselineFilename implementation exactly
@@ -103,7 +86,11 @@ function signatureToFilename(signature) {
  * @returns {string} Filename like "homepage_a1b2c3d4e5f6.png"
  */
 function generateBaselineFilename(name, signature) {
-  const hash = crypto.createHash('sha256').update(signature).digest('hex').slice(0, 12);
+  const hash = crypto
+    .createHash('sha256')
+    .update(signature)
+    .digest('hex')
+    .slice(0, 12);
 
   // Sanitize the name for filesystem safety
   const safeName = name
@@ -440,7 +427,9 @@ export class TddService {
 
         // Use API-provided filename if available, otherwise generate hash-based filename
         // Both return the full filename with .png extension
-        const filename = screenshot.filename || generateBaselineFilename(sanitizedName, signature);
+        const filename =
+          screenshot.filename ||
+          generateBaselineFilename(sanitizedName, signature);
 
         const imagePath = safePath(this.baselinePath, filename);
 
@@ -950,7 +939,9 @@ export class TddService {
           this.signatureProperties
         );
         // Use API-provided filename if available, otherwise generate hash-based filename
-        const filename = screenshot.filename || generateBaselineFilename(sanitizedName, signature);
+        const filename =
+          screenshot.filename ||
+          generateBaselineFilename(sanitizedName, signature);
         const filePath = safePath(this.baselinePath, filename);
 
         // Check if we can skip via SHA comparison

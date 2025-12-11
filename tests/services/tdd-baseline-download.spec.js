@@ -145,8 +145,9 @@ describe('TDD Service - Baseline Download', () => {
       // Verify file system operations - filenames now use hash-based format
       // Check that writeFileSync was called with correct baselines directory and hash-based filenames
       const writeFileCalls = writeFileSync.mock.calls;
-      const baselineWrites = writeFileCalls.filter(call =>
-        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
+      const baselineWrites = writeFileCalls.filter(
+        call =>
+          call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(2);
       expect(baselineWrites[0][0]).toMatch(/homepage_[a-f0-9]{12}\.png$/);
@@ -181,7 +182,9 @@ describe('TDD Service - Baseline Download', () => {
         originalUrl: 'https://example.com/homepage.png',
         fileSize: 12345,
       });
-      expect(tddService.baselineData.screenshots[0].path).toMatch(/homepage_[a-f0-9]{12}\.png$/);
+      expect(tddService.baselineData.screenshots[0].path).toMatch(
+        /homepage_[a-f0-9]{12}\.png$/
+      );
       expect(tddService.baselineData.screenshots[1]).toMatchObject({
         name: 'login',
         originalName: 'login',
@@ -192,7 +195,9 @@ describe('TDD Service - Baseline Download', () => {
         originalUrl: 'https://example.com/login.png',
         fileSize: 67890,
       });
-      expect(tddService.baselineData.screenshots[1].path).toMatch(/login_[a-f0-9]{12}\.png$/);
+      expect(tddService.baselineData.screenshots[1].path).toMatch(
+        /login_[a-f0-9]{12}\.png$/
+      );
 
       expect(result).not.toBeNull();
     });
@@ -525,8 +530,9 @@ describe('TDD Service - Baseline Download', () => {
       );
 
       // Verify files saved with hash-based filenames
-      const baselineWrites = writeFileSync.mock.calls.filter(call =>
-        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
+      const baselineWrites = writeFileSync.mock.calls.filter(
+        call =>
+          call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(2);
       expect(baselineWrites[0][0]).toMatch(/dashboard_[a-f0-9]{12}\.png$/);
@@ -602,8 +608,9 @@ describe('TDD Service - Baseline Download', () => {
       );
 
       // Filenames use hash-based format
-      const baselineWrites = writeFileSync.mock.calls.filter(call =>
-        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
+      const baselineWrites = writeFileSync.mock.calls.filter(
+        call =>
+          call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(2);
       expect(baselineWrites[0][0]).toMatch(/homepage_[a-f0-9]{12}\.png$/);
@@ -661,8 +668,9 @@ describe('TDD Service - Baseline Download', () => {
       );
 
       // Filename should use hash-based format
-      const baselineWrites = writeFileSync.mock.calls.filter(call =>
-        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
+      const baselineWrites = writeFileSync.mock.calls.filter(
+        call =>
+          call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(1);
       expect(baselineWrites[0][0]).toMatch(/settings_[a-f0-9]{12}\.png$/);
@@ -713,8 +721,9 @@ describe('TDD Service - Baseline Download', () => {
       expect(tddService.baselineData.screenshots[0].signature).toBe('about||');
 
       // Filename uses hash-based format
-      const baselineWrites = writeFileSync.mock.calls.filter(call =>
-        call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
+      const baselineWrites = writeFileSync.mock.calls.filter(
+        call =>
+          call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(1);
       expect(baselineWrites[0][0]).toMatch(/about_[a-f0-9]{12}\.png$/);

@@ -1,3 +1,25 @@
+/**
+ * TDD Service - Local Visual Testing
+ *
+ * ⚠️  CRITICAL: Signature/filename generation MUST stay in sync with the cloud!
+ *
+ * Cloud counterpart: vizzly/src/utils/screenshot-identity.js
+ *   - generateScreenshotSignature()
+ *   - generateBaselineFilename()
+ *
+ * Contract tests: Both repos have golden tests that must produce identical values:
+ *   - Cloud: tests/contracts/signature-parity.test.js
+ *   - CLI:   tests/contracts/signature-parity.spec.js
+ *
+ * If you modify signature or filename generation here, you MUST:
+ *   1. Make the same change in the cloud repo
+ *   2. Update golden test values in BOTH repos
+ *   3. Run contract tests in both repos to verify parity
+ *
+ * The signature format is: name|viewport_width|browser|custom1|custom2|...
+ * The filename format is: {sanitized-name}_{12-char-sha256-hash}.png
+ */
+
 import crypto from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -18,13 +40,10 @@ import { HtmlReportGenerator } from './html-report-generator.js';
 
 /**
  * Generate a screenshot signature for baseline matching
- * Uses same logic as screenshot-identity.js: name + viewport_width + browser + custom properties
  *
- * Matches backend signature generation which uses:
- * - screenshot.name
- * - screenshot.viewport_width (top-level property)
- * - screenshot.browser (top-level property)
- * - custom properties from project's baseline_signature_properties setting
+ * ⚠️  SYNC WITH: vizzly/src/utils/screenshot-identity.js - generateScreenshotSignature()
+ *
+ * Uses same logic as cloud: name + viewport_width + browser + custom properties
  *
  * @param {string} name - Screenshot name
  * @param {Object} properties - Screenshot properties (viewport, browser, metadata, etc.)
@@ -1159,6 +1178,12 @@ export class TddService {
         `Property validation failed for '${sanitizedName}': ${error.message}`
       );
       validatedProperties = {};
+    }
+
+    // Preserve metadata object through validation (validateScreenshotProperties strips non-primitives)
+    // This is needed because signature generation checks properties.metadata.* for custom properties
+    if (properties.metadata && typeof properties.metadata === 'object') {
+      validatedProperties.metadata = properties.metadata;
     }
 
     // Normalize properties to match backend format (viewport_width at top level)

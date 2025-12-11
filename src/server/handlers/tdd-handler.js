@@ -288,17 +288,24 @@ export const createTddHandler = (
       };
     }
 
-    // Extract viewport/browser to top-level properties (matching cloud API behavior)
-    // This ensures signature generation works correctly with: name|viewport_width|browser
+    // Extract ALL properties to top-level (matching cloud API behavior)
+    // This ensures signature generation works correctly for custom properties like theme, device, etc.
+    // Spread all validated properties first, then normalize viewport/browser for cloud format
     const extractedProperties = {
-      viewport_width: validatedProperties.viewport?.width || null,
-      viewport_height: validatedProperties.viewport?.height || null,
-      browser: validatedProperties.browser || null,
-      device: validatedProperties.device || null,
-      url: validatedProperties.url || null,
-      selector: validatedProperties.selector || null,
-      threshold: validatedProperties.threshold,
-      // Preserve full nested structure in metadata for compatibility
+      ...validatedProperties,
+      // Normalize viewport to top-level viewport_width/height (cloud format)
+      // Use nullish coalescing to preserve any existing top-level values
+      viewport_width:
+        validatedProperties.viewport?.width ??
+        validatedProperties.viewport_width ??
+        null,
+      viewport_height:
+        validatedProperties.viewport?.height ??
+        validatedProperties.viewport_height ??
+        null,
+      browser: validatedProperties.browser ?? null,
+      // Preserve nested structure in metadata for backward compatibility
+      // Signature generation checks multiple locations: top-level, metadata.*, metadata.properties.*
       metadata: validatedProperties,
     };
 

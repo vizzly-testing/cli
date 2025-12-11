@@ -148,12 +148,12 @@ describe('TddService', () => {
       expect(result).toMatchObject({
         name: 'new-screenshot',
         status: 'new',
-        // Signature now includes empty placeholders for viewport and browser
-        baseline: join(testDir, '.vizzly', 'baselines', 'new-screenshot__.png'),
-        current: join(testDir, '.vizzly', 'current', 'new-screenshot__.png'),
         diff: null,
         properties: {},
       });
+      // Filenames now use hash-based format: {name}_{12-char-hash}.png
+      expect(result.baseline).toMatch(/new-screenshot_[a-f0-9]{12}\.png$/);
+      expect(result.current).toMatch(/new-screenshot_[a-f0-9]{12}\.png$/);
       expect(result.id).toBeDefined();
       // Signature format: name|viewport_width|browser (with empty placeholders)
       expect(result.signature).toBe('new-screenshot||');
@@ -189,14 +189,6 @@ describe('TddService', () => {
       expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'passed',
-        // Signature format includes empty placeholders
-        baseline: join(
-          testDir,
-          '.vizzly',
-          'baselines',
-          'test-screenshot__.png'
-        ),
-        current: join(testDir, '.vizzly', 'current', 'test-screenshot__.png'),
         diff: null,
         properties: {},
         threshold: 0.1,
@@ -204,6 +196,9 @@ describe('TddService', () => {
         aaPixelsIgnored: 0,
         aaPercentage: 0,
       });
+      // Filenames use hash-based format
+      expect(result.baseline).toMatch(/test-screenshot_[a-f0-9]{12}\.png$/);
+      expect(result.current).toMatch(/test-screenshot_[a-f0-9]{12}\.png$/);
       expect(result.id).toBeDefined();
       expect(result.signature).toBe('test-screenshot||');
 
@@ -237,15 +232,6 @@ describe('TddService', () => {
       expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'failed',
-        // Signature format includes empty placeholders
-        baseline: join(
-          testDir,
-          '.vizzly',
-          'baselines',
-          'test-screenshot__.png'
-        ),
-        current: join(testDir, '.vizzly', 'current', 'test-screenshot__.png'),
-        diff: join(testDir, '.vizzly', 'diffs', 'test-screenshot__.png'),
         properties: {},
         threshold: 0.1,
         diffCount: 52000,
@@ -259,6 +245,10 @@ describe('TddService', () => {
         intensityStats: null,
         diffClusters: null,
       });
+      // Filenames use hash-based format
+      expect(result.baseline).toMatch(/test-screenshot_[a-f0-9]{12}\.png$/);
+      expect(result.current).toMatch(/test-screenshot_[a-f0-9]{12}\.png$/);
+      expect(result.diff).toMatch(/test-screenshot_[a-f0-9]{12}\.png$/);
       expect(result.id).toBeDefined();
       expect(result.signature).toBe('test-screenshot||');
     });
@@ -277,18 +267,13 @@ describe('TddService', () => {
       expect(result).toMatchObject({
         name: 'test-screenshot',
         status: 'error',
-        // Signature format includes empty placeholders
-        baseline: join(
-          testDir,
-          '.vizzly',
-          'baselines',
-          'test-screenshot__.png'
-        ),
-        current: join(testDir, '.vizzly', 'current', 'test-screenshot__.png'),
         diff: null,
         properties: {},
         error: 'honeydiff not found',
       });
+      // Filenames use hash-based format
+      expect(result.baseline).toMatch(/test-screenshot_[a-f0-9]{12}\.png$/);
+      expect(result.current).toMatch(/test-screenshot_[a-f0-9]{12}\.png$/);
       expect(result.id).toBeDefined();
       expect(result.signature).toBe('test-screenshot||');
     });
@@ -350,10 +335,11 @@ describe('TddService', () => {
         { viewport: { width: 768, height: 1024 } }
       );
 
-      // Should have different file paths (different baselines)
+      // Should have different file paths (different baselines) - different hashes
       expect(result1.baseline).not.toBe(result2.baseline);
-      expect(result1.baseline).toContain('homepage_1920');
-      expect(result2.baseline).toContain('homepage_768');
+      // Both use hash-based filenames starting with 'homepage'
+      expect(result1.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
+      expect(result2.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
 
       // Should have two separate comparisons
       expect(tddService.comparisons).toHaveLength(2);
@@ -392,10 +378,11 @@ describe('TddService', () => {
         { browser: 'Firefox', viewport: { width: 1920, height: 1080 } }
       );
 
-      // Should have different file paths (different baselines)
+      // Should have different file paths (different baselines) - different hashes
       expect(result1.baseline).not.toBe(result2.baseline);
-      expect(result1.baseline).toContain('Chrome');
-      expect(result2.baseline).toContain('Firefox');
+      // Both use hash-based filenames
+      expect(result1.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
+      expect(result2.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
 
       // Should have two separate comparisons
       expect(tddService.comparisons).toHaveLength(2);
@@ -461,13 +448,12 @@ describe('TddService', () => {
         }
       );
 
-      // Should strip version, keeping only "Chrome"
-      expect(result.baseline).toContain('Chrome');
-      expect(result.baseline).not.toContain('139.0.7258.138');
+      // Signature should strip version, keeping only "Chrome"
+      expect(result.signature).toContain('Chrome');
+      expect(result.signature).not.toContain('139.0.7258.138');
 
-      // Get just the filename from the path
-      const filename = result.baseline.split('/').pop();
-      expect(filename).toBe('homepage_1920_Chrome.png');
+      // Filename uses hash-based format (version stripping affects the hash)
+      expect(result.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
     });
   });
 
@@ -632,8 +618,8 @@ describe('TddService', () => {
 
       // Signature should be: name|viewport_width|browser
       expect(result.signature).toBe('homepage|1920|chrome');
-      // Filename should convert pipes to underscores
-      expect(result.baseline).toContain('homepage_1920_chrome.png');
+      // Filename now uses hash-based format for reliable matching
+      expect(result.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
     });
 
     it('generates signature with empty browser placeholder when null', async () => {
@@ -648,8 +634,8 @@ describe('TddService', () => {
 
       // Cloud format: name|viewport_width| (empty browser, but position preserved)
       expect(result.signature).toBe('homepage|1920|');
-      // Filename: underscores preserved (no collapsing for cloud compatibility)
-      expect(result.baseline).toContain('homepage_1920_.png');
+      // Filename uses hash-based format
+      expect(result.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
     });
 
     it('generates signature with empty viewport placeholder when null', async () => {
@@ -664,7 +650,8 @@ describe('TddService', () => {
 
       // Cloud format: name||browser (empty viewport, position preserved)
       expect(result.signature).toBe('homepage||chrome');
-      expect(result.baseline).toContain('homepage__chrome.png');
+      // Filename uses hash-based format
+      expect(result.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
     });
 
     it('generates signature with both empty placeholders when no properties', async () => {
@@ -679,7 +666,8 @@ describe('TddService', () => {
 
       // Cloud format: name|| (both viewport and browser empty, positions preserved)
       expect(result.signature).toBe('homepage||');
-      // Note: auto-detection of image dimensions may populate viewport
+      // Filename uses hash-based format
+      expect(result.baseline).toMatch(/homepage_[a-f0-9]{12}\.png$/);
     });
 
     it('handles custom signature properties in order', async () => {
@@ -702,8 +690,8 @@ describe('TddService', () => {
 
       // Cloud format: name|viewport_width|browser|device|theme
       expect(result.signature).toBe('settings|393||iPhone 15 Pro|dark');
-      // Filename: spaces converted to hyphens (not underscores) to distinguish from position separators
-      expect(result.baseline).toContain('settings_393__iPhone-15-Pro_dark.png');
+      // Filename uses hash-based format
+      expect(result.baseline).toMatch(/settings_[a-f0-9]{12}\.png$/);
     });
 
     it('handles custom properties with empty values', async () => {

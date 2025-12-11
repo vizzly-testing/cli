@@ -104,8 +104,8 @@ export default {
       .action(async (arg, options) => {
         output.info(`Running my-command with ${arg}`);
 
-        // Access shared services if needed
-        let apiService = await services.get('apiService');
+        // Access shared services directly
+        let apiService = services.apiService;
 
         // Your command logic here
       });
@@ -152,7 +152,7 @@ register(program, { config, output, services }) {
   program
     .command('upload-screenshots <dir>')
     .action(async (dir) => {
-      let uploader = await services.get('uploader');
+      let uploader = services.uploader;
       await uploader.uploadScreenshots(screenshots);
     });
 }
@@ -290,8 +290,8 @@ Use async/await for asynchronous operations:
 
 ```javascript
 .action(async (options) => {
-  let service = await services.get('apiService');
-  let result = await service.doSomething();
+  let apiService = services.apiService;
+  let result = await apiService.doSomething();
   output.info(`Result: ${result}`);
 });
 ```
@@ -397,7 +397,7 @@ export default {
         output.info(`Captured ${screenshots.length} screenshots`);
 
         // Upload using Vizzly's uploader service
-        let uploader = await services.get('uploader');
+        let uploader = services.uploader;
         await uploader.uploadScreenshots(screenshots);
 
         output.success('Upload complete!');

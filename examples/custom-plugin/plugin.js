@@ -55,8 +55,8 @@ export default {
         try {
           logger.info('Checking API connection...');
 
-          // Access the API service from the container
-          let apiService = await services.get('apiService');
+          // Access the API service directly
+          let apiService = services.apiService;
 
           logger.info(`API URL: ${config.apiUrl || 'https://app.vizzly.dev'}`);
           logger.info(`API Token: ${config.apiKey ? '***' + config.apiKey.slice(-4) : 'Not set'}`);

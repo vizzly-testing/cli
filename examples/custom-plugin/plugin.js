@@ -3,7 +3,7 @@
  *
  * This demonstrates how to create a custom plugin for the Vizzly CLI.
  * Plugins can add new commands, extend functionality, and integrate with
- * the shared Vizzly infrastructure (config, logger, services).
+ * the shared Vizzly infrastructure (config, output, services).
  */
 
 export default {
@@ -16,20 +16,17 @@ export default {
   /**
    * Register plugin commands and functionality
    *
-   * @param {Object} program - Commander.js program instance
-   * @param {Object} context - Shared Vizzly context
-   * @param {Object} context.config - Merged Vizzly configuration
-   * @param {Object} context.logger - Component logger instance
-   * @param {Object} context.services - Service container
+   * @param {import('commander').Command} program - Commander.js program instance
+   * @param {import('@vizzly-testing/cli').PluginContext} context - Plugin context
    */
-  register(program, { config, logger, services }) {
+  register(program, { config, output, services }) {
     // Example 1: Simple command with no arguments
     program
       .command('hello')
       .description('Say hello from the example plugin')
       .action(() => {
-        logger.info('Hello from the example plugin!');
-        logger.info(`Config environment: ${config.build.environment}`);
+        output.info('Hello from the example plugin!');
+        output.info(`Config environment: ${config.build?.environment || 'not set'}`);
       });
 
     // Example 2: Command with arguments and options
@@ -44,26 +41,42 @@ export default {
           greeting = greeting.toUpperCase();
         }
 
-        logger.info(greeting);
+        output.info(greeting);
       });
 
-    // Example 3: Command that uses Vizzly services
+    // Example 3: Command that uses Vizzly stable services API
     program
-      .command('check-api')
-      .description('Check connection to Vizzly API')
+      .command('check-services')
+      .description('Verify access to Vizzly services')
       .action(async () => {
         try {
-          logger.info('Checking API connection...');
+          output.info('Checking Vizzly services...');
 
-          // Access the API service directly
-          let apiService = services.apiService;
+          // Access services from the stable API
+          let { testRunner, serverManager } = services;
 
-          logger.info(`API URL: ${config.apiUrl || 'https://app.vizzly.dev'}`);
-          logger.info(`API Token: ${config.apiKey ? '***' + config.apiKey.slice(-4) : 'Not set'}`);
+          // Verify testRunner is available
+          if (typeof testRunner.createBuild === 'function') {
+            output.success('testRunner.createBuild is available');
+          }
 
-          logger.info('API service is available!');
+          if (typeof testRunner.finalizeBuild === 'function') {
+            output.success('testRunner.finalizeBuild is available');
+          }
+
+          // Verify serverManager is available
+          if (typeof serverManager.start === 'function') {
+            output.success('serverManager.start is available');
+          }
+
+          if (typeof serverManager.stop === 'function') {
+            output.success('serverManager.stop is available');
+          }
+
+          output.info(`API URL: ${config.apiUrl || 'https://app.vizzly.dev'}`);
+          output.info(`API Token: ${config.apiKey ? '***' + config.apiKey.slice(-4) : 'Not set'}`);
         } catch (error) {
-          logger.error(`Failed to access API service: ${error.message}`);
+          output.error(`Failed to access services: ${error.message}`);
           process.exit(1);
         }
       });
@@ -77,7 +90,7 @@ export default {
           let { glob } = await import('glob');
           let screenshotsDir = config.upload?.screenshotsDir || './screenshots';
 
-          logger.info(`Looking for screenshots in: ${screenshotsDir}`);
+          output.info(`Looking for screenshots in: ${screenshotsDir}`);
 
           let files = await glob('**/*.{png,jpg,jpeg}', {
             cwd: screenshotsDir,
@@ -85,17 +98,17 @@ export default {
           });
 
           if (files.length === 0) {
-            logger.warn('No screenshot files found');
+            output.warn('No screenshot files found');
           } else {
-            logger.info(`Found ${files.length} screenshot(s):`);
-            files.forEach(file => logger.info(`  - ${file}`));
+            output.info(`Found ${files.length} screenshot(s):`);
+            files.forEach(file => output.info(`  - ${file}`));
           }
         } catch (error) {
-          logger.error(`Failed to list screenshots: ${error.message}`);
+          output.error(`Failed to list screenshots: ${error.message}`);
           process.exit(1);
         }
       });
 
-    logger.debug('Example plugin registered successfully');
+    output.debug('Example plugin registered successfully');
   },
 };

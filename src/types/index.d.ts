@@ -352,6 +352,90 @@ export interface Services {
 }
 
 // ============================================================================
+// Plugin API Types (Stable Contract)
+// ============================================================================
+
+/**
+ * Stable TestRunner interface for plugins.
+ * Only these methods are guaranteed to remain stable across minor versions.
+ */
+export interface PluginTestRunner {
+  /** Listen for a single event emission */
+  once(event: string, callback: (...args: unknown[]) => void): void;
+  /** Subscribe to events */
+  on(event: string, callback: (...args: unknown[]) => void): void;
+  /** Unsubscribe from events */
+  off(event: string, callback: (...args: unknown[]) => void): void;
+  /** Create a new build and return the build ID */
+  createBuild(options: BuildOptions, isTddMode: boolean): Promise<string>;
+  /** Finalize a build after all screenshots are captured */
+  finalizeBuild(
+    buildId: string,
+    isTddMode: boolean,
+    success: boolean,
+    executionTime: number
+  ): Promise<void>;
+}
+
+/**
+ * Stable ServerManager interface for plugins.
+ * Only these methods are guaranteed to remain stable across minor versions.
+ */
+export interface PluginServerManager {
+  /** Start the screenshot server */
+  start(buildId: string, tddMode: boolean, setBaseline: boolean): Promise<void>;
+  /** Stop the screenshot server */
+  stop(): Promise<void>;
+}
+
+/**
+ * Stable services interface for plugins.
+ * This is the public API contract - internal services are NOT exposed.
+ */
+export interface PluginServices {
+  testRunner: PluginTestRunner;
+  serverManager: PluginServerManager;
+}
+
+/**
+ * Build options for createBuild()
+ */
+export interface BuildOptions {
+  port?: number;
+  timeout?: number;
+  buildName?: string;
+  branch?: string;
+  commit?: string;
+  message?: string;
+  environment?: string;
+  threshold?: number;
+  eager?: boolean;
+  allowNoToken?: boolean;
+  wait?: boolean;
+  uploadAll?: boolean;
+  pullRequestNumber?: string;
+  parallelId?: string;
+}
+
+/**
+ * Context object passed to plugin register() function.
+ * This is the stable plugin API contract.
+ */
+export interface PluginContext {
+  /** Merged Vizzly configuration */
+  config: VizzlyConfig;
+  /** Stable services for plugins */
+  services: PluginServices;
+  /** Output utilities for logging */
+  output: OutputUtils;
+  /** @deprecated Use output instead. Alias for backwards compatibility. */
+  logger: OutputUtils;
+}
+
+/** Create stable plugin services from internal services */
+export function createPluginServices(services: Services): PluginServices;
+
+// ============================================================================
 // Output Utilities
 // ============================================================================
 

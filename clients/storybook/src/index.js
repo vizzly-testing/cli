@@ -207,8 +207,8 @@ export async function run(storybookPath, options = {}, context = {}) {
     if (!isTdd && hasToken && services) {
       // Run mode: Initialize test runner for build management
       try {
-        testRunner = await services.get('testRunner');
-        serverManager = await services.get('serverManager');
+        testRunner = services.testRunner;
+        serverManager = services.serverManager;
         startTime = Date.now();
 
         // Listen for build-created event to get the URL

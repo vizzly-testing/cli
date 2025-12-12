@@ -16,14 +16,9 @@ import {
  * @param {Object} context - Router context
  * @param {Object} context.screenshotHandler - Screenshot handler
  * @param {Object} context.tddService - TDD service for baseline downloads
- * @param {Object} context.authService - Auth service for OAuth requests
  * @returns {Function} Route handler
  */
-export function createBaselineRouter({
-  screenshotHandler,
-  tddService,
-  authService,
-}) {
+export function createBaselineRouter({ screenshotHandler, tddService }) {
   return async function handleBaselineRoute(req, res, pathname) {
     // Accept a single screenshot as baseline
     if (req.method === 'POST' && pathname === '/api/baseline/accept') {
@@ -109,8 +104,8 @@ export function createBaselineRouter({
       }
 
       try {
-        const body = await parseJsonBody(req);
-        const { buildId, organizationSlug, projectSlug } = body;
+        let body = await parseJsonBody(req);
+        let { buildId } = body;
 
         if (!buildId) {
           sendError(res, 400, 'buildId is required');
@@ -119,50 +114,7 @@ export function createBaselineRouter({
 
         output.info(`Downloading baselines from build ${buildId}...`);
 
-        // If organizationSlug and projectSlug are provided, use OAuth-based download
-        if (organizationSlug && projectSlug && authService) {
-          try {
-            const result = await tddService.downloadBaselinesWithAuth(
-              buildId,
-              organizationSlug,
-              projectSlug,
-              authService
-            );
-
-            sendSuccess(res, {
-              success: true,
-              message: `Baselines downloaded from build ${buildId}`,
-              ...result,
-            });
-            return true;
-          } catch (authError) {
-            // Log the OAuth error with details
-            output.warn(
-              `OAuth download failed (org=${organizationSlug}, project=${projectSlug}): ${authError.message}`
-            );
-
-            // If the error is a 404, it's likely the build doesn't belong to the project
-            // or the project/org is incorrect - provide a helpful error
-            if (authError.message?.includes('404')) {
-              sendError(
-                res,
-                404,
-                `Build not found or does not belong to project "${projectSlug}" in organization "${organizationSlug}". ` +
-                  `Please verify the build exists and you have access to it.`
-              );
-              return true;
-            }
-
-            // For auth errors, try API token fallback
-            if (!authError.message?.includes('401')) {
-              // For other errors, don't fall through - report them directly
-              throw authError;
-            }
-          }
-        }
-
-        // Fall back to API token-based download (when no OAuth info or OAuth auth failed)
-        const result = await tddService.downloadBaselines(
+        let result = await tddService.downloadBaselines(
           'test', // environment
           null, // branch (not needed when buildId is specified)
           buildId, // specific build to download from

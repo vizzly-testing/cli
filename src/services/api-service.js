@@ -150,6 +150,16 @@ export class ApiService {
   }
 
   /**
+   * Get TDD baselines for a build
+   * Returns screenshots with pre-computed filenames for baseline download
+   * @param {string} buildId - Build ID
+   * @returns {Promise<Object>} { build, screenshots, signatureProperties }
+   */
+  async getTddBaselines(buildId) {
+    return this.request(`/api/sdk/builds/${buildId}/tdd-baselines`);
+  }
+
+  /**
    * Get comparison information
    * @param {string} comparisonId - Comparison ID
    * @returns {Promise<Object>} Comparison data

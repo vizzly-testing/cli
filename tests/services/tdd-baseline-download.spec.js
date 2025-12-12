@@ -51,6 +51,7 @@ describe('TDD Service - Baseline Download', () => {
       getBuild: vi.fn(),
       getBuilds: vi.fn(),
       getComparison: vi.fn(),
+      getTddBaselines: vi.fn(),
     };
     // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
     ApiService.mockImplementation(function () {
@@ -67,11 +68,13 @@ describe('TDD Service - Baseline Download', () => {
 
   describe('downloadBaselines', () => {
     it('should download baselines successfully with build ID', async () => {
-      // Mock API response - getBuild with 'screenshots' parameter returns full build details
-      const mockBuildWithScreenshots = {
-        id: 'build123',
-        name: 'Test Build',
-        status: 'passed',
+      // Mock API response - getTddBaselines returns build, screenshots with filenames, and signatureProperties
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'build123',
+          name: 'Test Build',
+          status: 'passed',
+        },
         screenshots: [
           {
             name: 'homepage',
@@ -82,6 +85,7 @@ describe('TDD Service - Baseline Download', () => {
             file_size_bytes: 12345,
             width: 1920,
             height: 1080,
+            filename: 'homepage_abc123def456.png',
           },
           {
             name: 'login',
@@ -92,11 +96,15 @@ describe('TDD Service - Baseline Download', () => {
             file_size_bytes: 67890,
             width: 1920,
             height: 1080,
+            filename: 'login_789xyz012abc.png',
           },
         ],
+        signatureProperties: [],
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       // Mock fetch responses for image downloads
       const mockImageBuffer = Buffer.from('fake-image-data');
@@ -121,11 +129,8 @@ describe('TDD Service - Baseline Download', () => {
         'build123'
       );
 
-      // Verify API calls
-      expect(mockApiService.getBuild).toHaveBeenCalledWith(
-        'build123',
-        'screenshots'
-      );
+      // Verify API calls - now uses getTddBaselines instead of getBuild
+      expect(mockApiService.getTddBaselines).toHaveBeenCalledWith('build123');
 
       // Verify fetch calls with timeout
       expect(global.fetch).toHaveBeenCalledTimes(2);
@@ -142,18 +147,17 @@ describe('TDD Service - Baseline Download', () => {
         })
       );
 
-      // Verify file system operations - filenames now use hash-based format
-      // Check that writeFileSync was called with correct baselines directory and hash-based filenames
+      // Verify file system operations - filenames come from API response
       const writeFileCalls = writeFileSync.mock.calls;
       const baselineWrites = writeFileCalls.filter(
         call =>
           call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(2);
-      expect(baselineWrites[0][0]).toMatch(/homepage_[a-f0-9]{12}\.png$/);
-      expect(baselineWrites[1][0]).toMatch(/login_[a-f0-9]{12}\.png$/);
+      expect(baselineWrites[0][0]).toContain('homepage_abc123def456.png');
+      expect(baselineWrites[1][0]).toContain('login_789xyz012abc.png');
 
-      // Verify baseline data is stored - signatures include empty placeholders
+      // Verify baseline data is stored
       expect(tddService.baselineData).toMatchObject({
         buildId: 'build123',
         buildName: 'Test Build',
@@ -162,52 +166,44 @@ describe('TDD Service - Baseline Download', () => {
         threshold: 0.1,
         signatureProperties: [],
         createdAt: expect.any(String),
-        buildInfo: {
-          commitSha: undefined,
-          commitMessage: undefined,
-          approvalStatus: undefined,
-          completedAt: undefined,
-        },
       });
 
-      // Verify screenshots have correct data with hash-based paths
+      // Verify screenshots have correct data with API-provided filenames
       expect(tddService.baselineData.screenshots).toHaveLength(2);
       expect(tddService.baselineData.screenshots[0]).toMatchObject({
         name: 'homepage',
         originalName: 'homepage',
         sha256: 'sha256-homepage',
         id: 'screenshot1',
-        properties: {},
-        signature: 'homepage||',
         originalUrl: 'https://example.com/homepage.png',
         fileSize: 12345,
       });
-      expect(tddService.baselineData.screenshots[0].path).toMatch(
-        /homepage_[a-f0-9]{12}\.png$/
+      expect(tddService.baselineData.screenshots[0].path).toContain(
+        'homepage_abc123def456.png'
       );
       expect(tddService.baselineData.screenshots[1]).toMatchObject({
         name: 'login',
         originalName: 'login',
         sha256: 'sha256-login',
         id: 'screenshot2',
-        properties: {},
-        signature: 'login||',
         originalUrl: 'https://example.com/login.png',
         fileSize: 67890,
       });
-      expect(tddService.baselineData.screenshots[1].path).toMatch(
-        /login_[a-f0-9]{12}\.png$/
+      expect(tddService.baselineData.screenshots[1].path).toContain(
+        'login_789xyz012abc.png'
       );
 
       expect(result).not.toBeNull();
     });
 
     it('should handle download failures gracefully', async () => {
-      // Mock API response - getBuild with 'screenshots' parameter returns full build details
-      const mockBuildWithScreenshots = {
-        id: 'build123',
-        name: 'Test Build',
-        status: 'passed',
+      // Mock API response - getTddBaselines returns build, screenshots with filenames
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'build123',
+          name: 'Test Build',
+          status: 'passed',
+        },
         screenshots: [
           {
             name: 'homepage',
@@ -218,11 +214,15 @@ describe('TDD Service - Baseline Download', () => {
             file_size_bytes: 12345,
             width: 1920,
             height: 1080,
+            filename: 'homepage_abc123def456.png',
           },
         ],
+        signatureProperties: [],
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       // Mock failed fetch response
       global.fetch.mockResolvedValueOnce({
@@ -248,11 +248,13 @@ describe('TDD Service - Baseline Download', () => {
     });
 
     it('should handle fetch timeout scenarios', async () => {
-      // Mock API response - getBuild with 'screenshots' parameter returns full build details
-      const mockBuildWithScreenshots = {
-        id: 'build123',
-        name: 'Test Build',
-        status: 'passed',
+      // Mock API response - getTddBaselines returns build, screenshots with filenames
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'build123',
+          name: 'Test Build',
+          status: 'passed',
+        },
         screenshots: [
           {
             name: 'homepage',
@@ -263,11 +265,15 @@ describe('TDD Service - Baseline Download', () => {
             file_size_bytes: 12345,
             width: 1920,
             height: 1080,
+            filename: 'homepage_abc123def456.png',
           },
         ],
+        signatureProperties: [],
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       // Mock fetch that throws timeout error
       const timeoutError = new Error('The operation was aborted');
@@ -303,8 +309,13 @@ describe('TDD Service - Baseline Download', () => {
         ],
       };
 
-      const mockBuildDetails = {
-        id: 'latest-build-456',
+      // Mock getTddBaselines response (now used instead of getBuild)
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'latest-build-456',
+          name: 'Latest Passed Build',
+          status: 'passed',
+        },
         screenshots: [
           {
             name: 'dashboard',
@@ -315,12 +326,16 @@ describe('TDD Service - Baseline Download', () => {
             file_size_bytes: 12345,
             width: 1920,
             height: 1080,
+            filename: 'dashboard_abc123def456.png',
           },
         ],
+        signatureProperties: [],
       };
 
       mockApiService.getBuilds.mockResolvedValueOnce(mockBuildsResponse);
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildDetails);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       // Mock successful image download
       const mockImageBuffer = Buffer.from('dashboard-image-data');
@@ -339,9 +354,9 @@ describe('TDD Service - Baseline Download', () => {
         status: 'passed',
         limit: 1,
       });
-      expect(mockApiService.getBuild).toHaveBeenCalledWith(
-        'latest-build-456',
-        'screenshots'
+      // Now uses getTddBaselines instead of getBuild
+      expect(mockApiService.getTddBaselines).toHaveBeenCalledWith(
+        'latest-build-456'
       );
 
       // Verify download occurred
@@ -382,20 +397,20 @@ describe('TDD Service - Baseline Download', () => {
     });
 
     it('should handle builds with no screenshots', async () => {
-      // Mock API responses
-      const mockBuild = {
-        id: 'empty-build',
-        name: 'Empty Build',
-        status: 'passed',
-      };
-
-      const mockBuildDetails = {
-        id: 'empty-build',
+      // Mock getTddBaselines response with empty screenshots
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'empty-build',
+          name: 'Empty Build',
+          status: 'passed',
+        },
         screenshots: [], // No screenshots
+        signatureProperties: [],
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuild);
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildDetails);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       // Execute
       const result = await tddService.downloadBaselines(
@@ -431,6 +446,8 @@ describe('TDD Service - Baseline Download', () => {
         arrayBuffer: () => Promise.resolve(mockImageBuffer),
       });
 
+      const { writeFileSync } = await import('node:fs');
+
       // Execute with comparison ID
       const result = await tddService.downloadBaselines(
         'test',
@@ -441,8 +458,8 @@ describe('TDD Service - Baseline Download', () => {
 
       // Verify API calls
       expect(mockApiService.getComparison).toHaveBeenCalledWith('comp123');
-      // Should NOT call getBuild when using comparison ID - we create a mock build
-      expect(mockApiService.getBuild).not.toHaveBeenCalled();
+      // Should NOT call getTddBaselines when using comparison ID - filename is generated locally
+      expect(mockApiService.getTddBaselines).not.toHaveBeenCalled();
 
       // Verify download
       expect(global.fetch).toHaveBeenCalledWith(
@@ -452,6 +469,14 @@ describe('TDD Service - Baseline Download', () => {
         })
       );
 
+      // Verify file saved with hash-based filename (generated locally for comparison path)
+      const baselineWrites = writeFileSync.mock.calls.filter(
+        call =>
+          call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
+      );
+      expect(baselineWrites).toHaveLength(1);
+      expect(baselineWrites[0][0]).toMatch(/profile_[a-f0-9]{12}\.png$/);
+
       expect(result).not.toBeNull();
       expect(tddService.baselineData.buildId).toBe('baseline-build-789');
       expect(tddService.baselineData.screenshots).toHaveLength(1);
@@ -459,11 +484,13 @@ describe('TDD Service - Baseline Download', () => {
     });
 
     it('should use signatureProperties from API response for variant support', async () => {
-      // Mock API response with signatureProperties (baseline_signature_properties from project settings)
-      const mockBuildWithScreenshots = {
-        id: 'build-with-variants',
-        name: 'Build With Variants',
-        status: 'passed',
+      // Mock getTddBaselines response with signatureProperties
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'build-with-variants',
+          name: 'Build With Variants',
+          status: 'passed',
+        },
         screenshots: [
           {
             name: 'dashboard',
@@ -475,6 +502,7 @@ describe('TDD Service - Baseline Download', () => {
             width: 1920,
             height: 1080,
             metadata: { theme: 'dark', locale: 'en-US' },
+            filename: 'dashboard_dark123abc456.png',
           },
           {
             name: 'dashboard',
@@ -486,12 +514,15 @@ describe('TDD Service - Baseline Download', () => {
             width: 1920,
             height: 1080,
             metadata: { theme: 'light', locale: 'en-US' },
+            filename: 'dashboard_light789xyz012.png',
           },
         ],
         signatureProperties: ['theme'], // Only theme is configured as baseline property
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       // Mock fetch responses for image downloads
       const mockImageBuffer = Buffer.from('fake-image-data');
@@ -518,35 +549,29 @@ describe('TDD Service - Baseline Download', () => {
       expect(tddService.signatureProperties).toEqual(['theme']);
       expect(tddService.baselineData.signatureProperties).toEqual(['theme']);
 
-      // Verify screenshots have different signatures based on theme
-      // Signature format: name|viewport_width|browser|custom_props
-      // When viewport_width and browser are empty, they're placeholders
+      // Verify screenshots downloaded
       expect(tddService.baselineData.screenshots).toHaveLength(2);
-      expect(tddService.baselineData.screenshots[0].signature).toBe(
-        'dashboard|||dark'
-      );
-      expect(tddService.baselineData.screenshots[1].signature).toBe(
-        'dashboard|||light'
-      );
 
-      // Verify files saved with hash-based filenames
+      // Verify files saved with API-provided filenames
       const baselineWrites = writeFileSync.mock.calls.filter(
         call =>
           call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(2);
-      expect(baselineWrites[0][0]).toMatch(/dashboard_[a-f0-9]{12}\.png$/);
-      expect(baselineWrites[1][0]).toMatch(/dashboard_[a-f0-9]{12}\.png$/);
+      expect(baselineWrites[0][0]).toContain('dashboard_dark123abc456.png');
+      expect(baselineWrites[1][0]).toContain('dashboard_light789xyz012.png');
 
       expect(result).not.toBeNull();
     });
 
     it('should handle screenshots with viewport and browser in signature when signatureProperties set', async () => {
-      // Mock API response with viewport, browser, and custom signatureProperties
-      const mockBuildWithScreenshots = {
-        id: 'build-full-sig',
-        name: 'Full Signature Build',
-        status: 'passed',
+      // Mock getTddBaselines response with viewport, browser, and custom signatureProperties
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'build-full-sig',
+          name: 'Full Signature Build',
+          status: 'passed',
+        },
         screenshots: [
           {
             name: 'homepage',
@@ -560,6 +585,7 @@ describe('TDD Service - Baseline Download', () => {
             viewport_width: 390,
             browser: 'chromium',
             metadata: { device: 'mobile' },
+            filename: 'homepage_mobile123abc.png',
           },
           {
             name: 'homepage',
@@ -573,12 +599,15 @@ describe('TDD Service - Baseline Download', () => {
             viewport_width: 1920,
             browser: 'chromium',
             metadata: { device: 'desktop' },
+            filename: 'homepage_desktop456xyz.png',
           },
         ],
         signatureProperties: ['device'],
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       const mockImageBuffer = Buffer.from('fake-image-data');
       global.fetch
@@ -599,32 +628,29 @@ describe('TDD Service - Baseline Download', () => {
         'build-full-sig'
       );
 
-      // Signatures should include name|viewport|browser|device
-      expect(tddService.baselineData.screenshots[0].signature).toBe(
-        'homepage|390|chromium|mobile'
-      );
-      expect(tddService.baselineData.screenshots[1].signature).toBe(
-        'homepage|1920|chromium|desktop'
-      );
+      // Verify screenshots downloaded
+      expect(tddService.baselineData.screenshots).toHaveLength(2);
 
-      // Filenames use hash-based format
+      // Filenames use API-provided format
       const baselineWrites = writeFileSync.mock.calls.filter(
         call =>
           call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(2);
-      expect(baselineWrites[0][0]).toMatch(/homepage_[a-f0-9]{12}\.png$/);
-      expect(baselineWrites[1][0]).toMatch(/homepage_[a-f0-9]{12}\.png$/);
+      expect(baselineWrites[0][0]).toContain('homepage_mobile123abc.png');
+      expect(baselineWrites[1][0]).toContain('homepage_desktop456xyz.png');
 
       expect(result).not.toBeNull();
     });
 
     it('should ignore custom properties that are not in signatureProperties', async () => {
-      // Mock API response with extra properties not in signatureProperties
-      const mockBuildWithScreenshots = {
-        id: 'build-extra-props',
-        name: 'Extra Props Build',
-        status: 'passed',
+      // Mock getTddBaselines response with extra properties not in signatureProperties
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'build-extra-props',
+          name: 'Extra Props Build',
+          status: 'passed',
+        },
         screenshots: [
           {
             name: 'settings',
@@ -640,12 +666,15 @@ describe('TDD Service - Baseline Download', () => {
               locale: 'en-US', // Not in signatureProperties
               user_role: 'admin', // Not in signatureProperties
             },
+            filename: 'settings_abc123def456.png',
           },
         ],
         signatureProperties: ['theme'], // Only theme affects baseline matching
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       const mockImageBuffer = Buffer.from('fake-image-data');
       global.fetch.mockResolvedValueOnce({
@@ -661,29 +690,28 @@ describe('TDD Service - Baseline Download', () => {
         'build-extra-props'
       );
 
-      // Signature should include default props (empty) + theme, not locale or user_role
-      // Format: name|viewport_width|browser|theme
-      expect(tddService.baselineData.screenshots[0].signature).toBe(
-        'settings|||dark'
-      );
+      // Verify screenshot downloaded
+      expect(tddService.baselineData.screenshots).toHaveLength(1);
 
-      // Filename should use hash-based format
+      // Filename uses API-provided format
       const baselineWrites = writeFileSync.mock.calls.filter(
         call =>
           call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(1);
-      expect(baselineWrites[0][0]).toMatch(/settings_[a-f0-9]{12}\.png$/);
+      expect(baselineWrites[0][0]).toContain('settings_abc123def456.png');
 
       expect(result).not.toBeNull();
     });
 
     it('should handle empty signatureProperties gracefully', async () => {
-      // Mock API response with empty signatureProperties (default behavior)
-      const mockBuildWithScreenshots = {
-        id: 'build-no-props',
-        name: 'No Custom Props Build',
-        status: 'passed',
+      // Mock getTddBaselines response with empty signatureProperties (default behavior)
+      const mockTddBaselinesResponse = {
+        build: {
+          id: 'build-no-props',
+          name: 'No Custom Props Build',
+          status: 'passed',
+        },
         screenshots: [
           {
             name: 'about',
@@ -695,12 +723,15 @@ describe('TDD Service - Baseline Download', () => {
             width: 1920,
             height: 1080,
             metadata: { theme: 'dark' }, // Has metadata but not used
+            filename: 'about_abc123def456.png',
           },
         ],
         signatureProperties: [], // Empty - no custom properties affect matching
       };
 
-      mockApiService.getBuild.mockResolvedValueOnce(mockBuildWithScreenshots);
+      mockApiService.getTddBaselines.mockResolvedValueOnce(
+        mockTddBaselinesResponse
+      );
 
       const mockImageBuffer = Buffer.from('fake-image-data');
       global.fetch.mockResolvedValueOnce({
@@ -716,17 +747,19 @@ describe('TDD Service - Baseline Download', () => {
         'build-no-props'
       );
 
-      // Signature includes empty placeholders for default properties (viewport_width, browser)
+      // signatureProperties should be empty
       expect(tddService.signatureProperties).toEqual([]);
-      expect(tddService.baselineData.screenshots[0].signature).toBe('about||');
 
-      // Filename uses hash-based format
+      // Verify screenshot downloaded
+      expect(tddService.baselineData.screenshots).toHaveLength(1);
+
+      // Filename uses API-provided format
       const baselineWrites = writeFileSync.mock.calls.filter(
         call =>
           call[0].includes('.vizzly/baselines/') && call[0].endsWith('.png')
       );
       expect(baselineWrites).toHaveLength(1);
-      expect(baselineWrites[0][0]).toMatch(/about_[a-f0-9]{12}\.png$/);
+      expect(baselineWrites[0][0]).toContain('about_abc123def456.png');
 
       expect(result).not.toBeNull();
     });

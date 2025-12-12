@@ -223,13 +223,8 @@ export class TddService {
       let baselineBuild;
 
       if (buildId) {
-        // Use specific build ID - get it with screenshots in one call
-        const apiResponse = await this.api.getBuild(buildId, 'screenshots');
-
-        // API response available in verbose mode
-        output.debug('tdd', 'fetched baseline build', {
-          id: apiResponse?.build?.id || apiResponse?.id,
-        });
+        // Use the tdd-baselines endpoint which returns pre-computed filenames
+        let apiResponse = await this.api.getTddBaselines(buildId);
 
         if (!apiResponse) {
           throw new Error(`Build ${buildId} not found or API returned null`);
@@ -248,17 +243,7 @@ export class TddService {
           }
         }
 
-        // Handle wrapped response format
-        baselineBuild = apiResponse.build || apiResponse;
-
-        if (!baselineBuild.id) {
-          output.warn(
-            `⚠️  Build response structure: ${JSON.stringify(Object.keys(apiResponse))}`
-          );
-          output.warn(
-            `⚠️  Extracted build keys: ${JSON.stringify(Object.keys(baselineBuild))}`
-          );
-        }
+        baselineBuild = apiResponse.build;
 
         // Check build status and warn if it's not successful
         if (baselineBuild.status === 'failed') {
@@ -268,13 +253,15 @@ export class TddService {
           output.info(
             `💡 To use remote baselines, specify a successful build ID instead`
           );
-          // Fall back to local baseline logic
           return await this.handleLocalBaselines();
         } else if (baselineBuild.status !== 'completed') {
           output.warn(
             `⚠️  Build ${buildId} has status: ${baselineBuild.status} (expected: completed)`
           );
         }
+
+        // Attach screenshots to build for unified processing below
+        baselineBuild.screenshots = apiResponse.screenshots;
       } else if (comparisonId) {
         // Use specific comparison ID - download only this comparison's baseline screenshot
         output.info(`Using comparison: ${comparisonId}`);
@@ -337,6 +324,16 @@ export class TddService {
           `📊 Extracted properties for signature: ${JSON.stringify(screenshotProperties)}`
         );
 
+        // Generate filename locally for comparison path (we don't have API-provided filename)
+        const screenshotName =
+          comparison.baseline_name || comparison.current_name;
+        const signature = generateScreenshotSignature(
+          screenshotName,
+          screenshotProperties,
+          this.signatureProperties
+        );
+        const filename = generateBaselineFilename(screenshotName, signature);
+
         // For a specific comparison, we only download that one baseline screenshot
         // Create a mock build structure with just this one screenshot
         baselineBuild = {
@@ -345,10 +342,11 @@ export class TddService {
           screenshots: [
             {
               id: comparison.baseline_screenshot.id,
-              name: comparison.baseline_name || comparison.current_name,
+              name: screenshotName,
               original_url: baselineUrl,
               metadata: screenshotProperties,
               properties: screenshotProperties,
+              filename: filename, // Generated locally for comparison path
             },
           ],
         };
@@ -371,18 +369,35 @@ export class TddService {
           return null;
         }
 
-        baselineBuild = builds.data[0];
+        // Use getTddBaselines to get screenshots with pre-computed filenames
+        const apiResponse = await this.api.getTddBaselines(builds.data[0].id);
+
+        if (!apiResponse) {
+          throw new Error(
+            `Build ${builds.data[0].id} not found or API returned null`
+          );
+        }
+
+        // Extract signature properties from API response (for variant support)
+        if (
+          apiResponse.signatureProperties &&
+          Array.isArray(apiResponse.signatureProperties)
+        ) {
+          this.signatureProperties = apiResponse.signatureProperties;
+          if (this.signatureProperties.length > 0) {
+            output.info(
+              `Using custom signature properties: ${this.signatureProperties.join(', ')}`
+            );
+          }
+        }
+
+        baselineBuild = apiResponse.build;
+        baselineBuild.screenshots = apiResponse.screenshots;
       }
 
-      // For specific buildId, we already have screenshots
+      // For both buildId and getBuilds paths, we now have screenshots with filenames
       // For comparisonId, we created a mock build with just the one screenshot
-      // Otherwise, get build details with screenshots
       let buildDetails = baselineBuild;
-      if (!buildId && !comparisonId) {
-        // Get build details with screenshots for non-buildId/non-comparisonId cases
-        const actualBuildId = baselineBuild.id;
-        buildDetails = await this.api.getBuild(actualBuildId, 'screenshots');
-      }
 
       if (!buildDetails.screenshots || buildDetails.screenshots.length === 0) {
         output.warn('⚠️  No screenshots found in baseline build');
@@ -397,13 +412,13 @@ export class TddService {
       );
 
       // Check existing baseline metadata for efficient SHA comparison
-      const existingBaseline = await this.loadBaseline();
-      const existingShaMap = new Map();
+      let existingBaseline = await this.loadBaseline();
+      let existingShaMap = new Map();
 
       if (existingBaseline) {
         existingBaseline.screenshots.forEach(s => {
-          if (s.sha256 && s.signature) {
-            existingShaMap.set(s.signature, s.sha256);
+          if (s.sha256 && s.filename) {
+            existingShaMap.set(s.filename, s.sha256);
           }
         });
       }
@@ -430,34 +445,24 @@ export class TddService {
           continue;
         }
 
-        // Generate signature for baseline matching (same as compareScreenshot)
-        // Build properties object with top-level viewport_width and browser
-        // These are returned as top-level fields from the API, not inside metadata
-        const properties = validateScreenshotProperties({
-          viewport_width: screenshot.viewport_width,
-          browser: screenshot.browser,
-          ...(screenshot.metadata || screenshot.properties || {}),
-        });
-        const signature = generateScreenshotSignature(
-          sanitizedName,
-          properties,
-          this.signatureProperties
-        );
+        // Use API-provided filename (required from tdd-baselines endpoint)
+        // This ensures filenames match between cloud and local TDD
+        let filename = screenshot.filename;
+        if (!filename) {
+          output.warn(
+            `⚠️  Screenshot ${sanitizedName} has no filename from API - skipping`
+          );
+          errorCount++;
+          continue;
+        }
 
-        // Use API-provided filename if available, otherwise generate hash-based filename
-        // Both return the full filename with .png extension
-        const filename =
-          screenshot.filename ||
-          generateBaselineFilename(sanitizedName, signature);
+        let imagePath = safePath(this.baselinePath, filename);
 
-        const imagePath = safePath(this.baselinePath, filename);
-
-        // Check if we already have this file with the same SHA (using metadata)
+        // Check if we already have this file with the same SHA
         if (existsSync(imagePath) && screenshot.sha256) {
-          const storedSha = existingShaMap.get(signature);
-
+          let storedSha = existingShaMap.get(filename);
           if (storedSha === screenshot.sha256) {
-            downloadedCount++; // Count as "downloaded" since we have it
+            downloadedCount++;
             skippedCount++;
             continue;
           }
@@ -479,9 +484,7 @@ export class TddService {
           sanitizedName,
           imagePath,
           downloadUrl,
-          signature,
           filename,
-          properties,
         });
       }
 
@@ -586,48 +589,23 @@ export class TddService {
           completedAt: baselineBuild.completed_at,
         },
         screenshots: buildDetails.screenshots
-          .map(s => {
-            let sanitizedName;
-            try {
-              sanitizedName = sanitizeScreenshotName(s.name);
-            } catch (error) {
-              output.warn(
-                `Screenshot name sanitization failed for '${s.name}': ${error.message}`
-              );
-              return null; // Skip invalid screenshots
-            }
-
-            // Build properties object with top-level viewport_width and browser
-            // These are returned as top-level fields from the API, not inside metadata
-            const properties = validateScreenshotProperties({
-              viewport_width: s.viewport_width,
-              browser: s.browser,
-              ...(s.metadata || s.properties || {}),
-            });
-            const signature = generateScreenshotSignature(
-              sanitizedName,
-              properties,
-              this.signatureProperties
-            );
-            const filename = generateBaselineFilename(sanitizedName, signature);
-
-            return {
-              name: sanitizedName,
-              originalName: s.name,
-              sha256: s.sha256, // Store remote SHA for quick comparison
-              id: s.id,
-              properties: properties,
-              path: safePath(this.baselinePath, filename),
-              signature: signature,
-              originalUrl: s.original_url,
-              fileSize: s.file_size_bytes,
-              dimensions: {
-                width: s.width,
-                height: s.height,
-              },
-            };
-          })
-          .filter(Boolean), // Remove null entries from invalid screenshots
+          .filter(s => s.filename) // Only include screenshots with filenames
+          .map(s => ({
+            name: sanitizeScreenshotName(s.name),
+            originalName: s.name,
+            sha256: s.sha256,
+            id: s.id,
+            filename: s.filename,
+            path: safePath(this.baselinePath, s.filename),
+            browser: s.browser,
+            viewport_width: s.viewport_width,
+            originalUrl: s.original_url,
+            fileSize: s.file_size_bytes,
+            dimensions: {
+              width: s.width,
+              height: s.height,
+            },
+          })),
       };
 
       const metadataPath = join(this.baselinePath, 'metadata.json');
@@ -864,228 +842,6 @@ export class TddService {
       linesInHotspots,
       totalLines: diffLines.length,
     };
-  }
-
-  /**
-   * Download baselines using OAuth authentication
-   * Used when user is logged in via device flow but no API token is configured
-   * @param {string} buildId - Build ID to download from
-   * @param {string} organizationSlug - Organization slug
-   * @param {string} projectSlug - Project slug
-   * @param {Object} authService - Auth service for OAuth requests
-   * @returns {Promise<Object>} Download result
-   */
-  async downloadBaselinesWithAuth(
-    buildId,
-    organizationSlug,
-    projectSlug,
-    authService
-  ) {
-    output.info(`Downloading baselines using OAuth from build ${buildId}...`);
-
-    try {
-      // Fetch build with screenshots via OAuth endpoint
-      const endpoint = `/api/build/${projectSlug}/${buildId}/tdd-baselines`;
-
-      const response = await authService.authenticatedRequest(endpoint, {
-        method: 'GET',
-        headers: { 'X-Organization': organizationSlug },
-      });
-
-      const { build, screenshots, signatureProperties } = response;
-
-      // Extract signature properties from API response (for variant support)
-      if (signatureProperties && Array.isArray(signatureProperties)) {
-        this.signatureProperties = signatureProperties;
-        if (this.signatureProperties.length > 0) {
-          output.info(
-            `Using custom signature properties: ${this.signatureProperties.join(', ')}`
-          );
-        }
-      }
-
-      if (!screenshots || screenshots.length === 0) {
-        output.warn('⚠️  No screenshots found in build');
-        return { downloadedCount: 0, skippedCount: 0, errorCount: 0 };
-      }
-
-      output.info(
-        `Using baseline from build: ${colors.cyan(build.name || 'Unknown')} (${build.id})`
-      );
-      output.info(
-        `Checking ${colors.cyan(screenshots.length)} baseline screenshots...`
-      );
-
-      // Load existing baseline metadata for SHA comparison
-      const existingBaseline = await this.loadBaseline();
-      const existingShaMap = new Map();
-      if (existingBaseline) {
-        existingBaseline.screenshots.forEach(s => {
-          if (s.sha256 && s.signature) {
-            existingShaMap.set(s.signature, s.sha256);
-          }
-        });
-      }
-
-      // Process and download screenshots
-      let downloadedCount = 0;
-      let skippedCount = 0;
-      let errorCount = 0;
-      const downloadedScreenshots = [];
-
-      for (const screenshot of screenshots) {
-        let sanitizedName;
-        try {
-          sanitizedName = sanitizeScreenshotName(screenshot.name);
-        } catch (error) {
-          output.warn(
-            `Screenshot name sanitization failed for '${screenshot.name}': ${error.message}`
-          );
-          errorCount++;
-          continue;
-        }
-
-        // Build properties object with top-level viewport_width and browser
-        // These are returned as top-level fields from the API, not inside metadata
-        const properties = validateScreenshotProperties({
-          viewport_width: screenshot.viewport_width,
-          browser: screenshot.browser,
-          ...screenshot.metadata,
-        });
-        const signature = generateScreenshotSignature(
-          sanitizedName,
-          properties,
-          this.signatureProperties
-        );
-        // Use API-provided filename if available, otherwise generate hash-based filename
-        const filename =
-          screenshot.filename ||
-          generateBaselineFilename(sanitizedName, signature);
-        const filePath = safePath(this.baselinePath, filename);
-
-        // Check if we can skip via SHA comparison
-        if (
-          screenshot.sha256 &&
-          existingShaMap.get(signature) === screenshot.sha256
-        ) {
-          skippedCount++;
-          downloadedScreenshots.push({
-            name: sanitizedName,
-            sha256: screenshot.sha256,
-            signature,
-            path: filePath,
-            properties,
-          });
-          continue;
-        }
-
-        // Download the screenshot
-        const downloadUrl = screenshot.original_url;
-        if (!downloadUrl) {
-          output.warn(`⚠️  No download URL for screenshot: ${sanitizedName}`);
-          errorCount++;
-          continue;
-        }
-
-        try {
-          const imageResponse = await fetchWithTimeout(downloadUrl, {}, 30000);
-          if (!imageResponse.ok) {
-            throw new Error(`HTTP ${imageResponse.status}`);
-          }
-
-          const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-
-          // Calculate SHA256 of downloaded content
-          const sha256 = crypto
-            .createHash('sha256')
-            .update(imageBuffer)
-            .digest('hex');
-
-          writeFileSync(filePath, imageBuffer);
-          downloadedCount++;
-
-          downloadedScreenshots.push({
-            name: sanitizedName,
-            sha256,
-            signature,
-            path: filePath,
-            properties,
-            originalUrl: downloadUrl,
-          });
-        } catch (error) {
-          output.warn(
-            `⚠️  Failed to download ${sanitizedName}: ${error.message}`
-          );
-          errorCount++;
-        }
-      }
-
-      // Store baseline metadata
-      this.baselineData = {
-        buildId: build.id,
-        buildName: build.name,
-        branch: build.branch,
-        threshold: this.threshold,
-        signatureProperties: this.signatureProperties, // Store for TDD comparison
-        screenshots: downloadedScreenshots,
-      };
-
-      const metadataPath = join(this.baselinePath, 'metadata.json');
-      writeFileSync(metadataPath, JSON.stringify(this.baselineData, null, 2));
-
-      // Save baseline build metadata
-      const baselineMetadataPath = safePath(
-        this.workingDir,
-        '.vizzly',
-        'baseline-metadata.json'
-      );
-      writeFileSync(
-        baselineMetadataPath,
-        JSON.stringify(
-          {
-            buildId: build.id,
-            buildName: build.name,
-            branch: build.branch,
-            commitSha: build.commit_sha,
-            downloadedAt: new Date().toISOString(),
-          },
-          null,
-          2
-        )
-      );
-
-      // Summary
-      if (skippedCount > 0 && downloadedCount === 0) {
-        output.info(
-          `✅ All ${skippedCount} baselines up-to-date (matching local SHA)`
-        );
-      } else if (skippedCount > 0) {
-        output.info(
-          `✅ Downloaded ${downloadedCount} new screenshots, ${skippedCount} already up-to-date`
-        );
-      } else {
-        output.info(
-          `✅ Downloaded ${downloadedCount}/${screenshots.length} screenshots successfully`
-        );
-      }
-
-      if (errorCount > 0) {
-        output.warn(`⚠️  ${errorCount} screenshots failed to download`);
-      }
-
-      return {
-        downloadedCount,
-        skippedCount,
-        errorCount,
-        buildId: build.id,
-        buildName: build.name,
-      };
-    } catch (error) {
-      output.error(
-        `❌ OAuth download failed: ${error.message} (org=${organizationSlug}, project=${projectSlug}, build=${buildId})`
-      );
-      throw error;
-    }
   }
 
   /**

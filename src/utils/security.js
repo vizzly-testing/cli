@@ -53,10 +53,24 @@ export function validateScreenshotName(name, maxLength = 255) {
 }
 
 /**
- * Legacy function for backwards compatibility
- * Use validateScreenshotName instead for validation only
+ * Validate screenshot name for security (allows spaces, preserves original name)
  *
- * @deprecated Use validateScreenshotName for validation or handle transformations explicitly
+ * This function only validates for security - it does NOT transform spaces.
+ * Spaces are preserved so that:
+ * 1. generateScreenshotSignature() uses the original name with spaces (matches cloud)
+ * 2. generateBaselineFilename() handles space→hyphen conversion (matches cloud)
+ *
+ * Flow: "VBtn dark" → sanitize → "VBtn dark" → signature: "VBtn dark|1265||" → filename: "VBtn-dark_hash.png"
+ *
+ * @param {string} name - Screenshot name to validate
+ * @param {number} maxLength - Maximum allowed length (default: 255)
+ * @param {boolean} allowSlashes - Whether to allow forward slashes (for browser version strings)
+ * @returns {string} The validated name (unchanged if valid, spaces preserved)
+ * @throws {Error} If name contains dangerous patterns
+ *
+ * @example
+ * sanitizeScreenshotName("VBtn dark") // Returns "VBtn dark" (spaces preserved)
+ * sanitizeScreenshotName("My/Component") // Throws error (contains /)
  */
 export function sanitizeScreenshotName(
   name,

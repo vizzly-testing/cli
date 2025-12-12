@@ -238,7 +238,7 @@ export class TddService {
 
         // When downloading baselines, always start with a clean slate
         // This handles signature property changes, build switches, and any stale state
-        output.debug('tdd', 'Clearing local state before baseline download');
+        output.info('Clearing local state before downloading baselines...');
         try {
           // Clear everything - baselines, current screenshots, diffs, and metadata
           // This ensures we start fresh with the new baseline build

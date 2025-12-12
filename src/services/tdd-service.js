@@ -21,7 +21,13 @@
  */
 
 import crypto from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { compare } from '@vizzly-testing/honeydiff';
 import { NetworkError } from '../errors/vizzly-error.js';
@@ -230,6 +236,32 @@ export class TddService {
           throw new Error(`Build ${buildId} not found or API returned null`);
         }
 
+        // When downloading baselines, always start with a clean slate
+        // This handles signature property changes, build switches, and any stale state
+        output.info('Clearing local state before downloading baselines...');
+        try {
+          // Clear everything - baselines, current screenshots, diffs, and metadata
+          // This ensures we start fresh with the new baseline build
+          rmSync(this.baselinePath, { recursive: true, force: true });
+          rmSync(this.currentPath, { recursive: true, force: true });
+          rmSync(this.diffPath, { recursive: true, force: true });
+          mkdirSync(this.baselinePath, { recursive: true });
+          mkdirSync(this.currentPath, { recursive: true });
+          mkdirSync(this.diffPath, { recursive: true });
+
+          // Clear baseline metadata file (will be regenerated with new baseline)
+          const baselineMetadataPath = safePath(
+            this.workingDir,
+            '.vizzly',
+            'baseline-metadata.json'
+          );
+          if (existsSync(baselineMetadataPath)) {
+            rmSync(baselineMetadataPath, { force: true });
+          }
+        } catch (error) {
+          output.error(`Failed to clear local state: ${error.message}`);
+        }
+
         // Extract signature properties from API response (for variant support)
         if (
           apiResponse.signatureProperties &&
@@ -238,7 +270,7 @@ export class TddService {
           this.signatureProperties = apiResponse.signatureProperties;
           if (this.signatureProperties.length > 0) {
             output.info(
-              `Using custom signature properties: ${this.signatureProperties.join(', ')}`
+              `Using signature properties: ${this.signatureProperties.join(', ')}`
             );
           }
         }

@@ -324,6 +324,16 @@ export class TddService {
           `📊 Extracted properties for signature: ${JSON.stringify(screenshotProperties)}`
         );
 
+        // Generate filename locally for comparison path (we don't have API-provided filename)
+        const screenshotName =
+          comparison.baseline_name || comparison.current_name;
+        const signature = generateScreenshotSignature(
+          screenshotName,
+          screenshotProperties,
+          this.signatureProperties
+        );
+        const filename = generateBaselineFilename(screenshotName, signature);
+
         // For a specific comparison, we only download that one baseline screenshot
         // Create a mock build structure with just this one screenshot
         baselineBuild = {
@@ -332,10 +342,11 @@ export class TddService {
           screenshots: [
             {
               id: comparison.baseline_screenshot.id,
-              name: comparison.baseline_name || comparison.current_name,
+              name: screenshotName,
               original_url: baselineUrl,
               metadata: screenshotProperties,
               properties: screenshotProperties,
+              filename: filename, // Generated locally for comparison path
             },
           ],
         };
@@ -358,18 +369,35 @@ export class TddService {
           return null;
         }
 
-        baselineBuild = builds.data[0];
+        // Use getTddBaselines to get screenshots with pre-computed filenames
+        const apiResponse = await this.api.getTddBaselines(builds.data[0].id);
+
+        if (!apiResponse) {
+          throw new Error(
+            `Build ${builds.data[0].id} not found or API returned null`
+          );
+        }
+
+        // Extract signature properties from API response (for variant support)
+        if (
+          apiResponse.signatureProperties &&
+          Array.isArray(apiResponse.signatureProperties)
+        ) {
+          this.signatureProperties = apiResponse.signatureProperties;
+          if (this.signatureProperties.length > 0) {
+            output.info(
+              `Using custom signature properties: ${this.signatureProperties.join(', ')}`
+            );
+          }
+        }
+
+        baselineBuild = apiResponse.build;
+        baselineBuild.screenshots = apiResponse.screenshots;
       }
 
-      // For specific buildId, we already have screenshots
+      // For both buildId and getBuilds paths, we now have screenshots with filenames
       // For comparisonId, we created a mock build with just the one screenshot
-      // Otherwise, get build details with screenshots
       let buildDetails = baselineBuild;
-      if (!buildId && !comparisonId) {
-        // Get build details with screenshots for non-buildId/non-comparisonId cases
-        const actualBuildId = baselineBuild.id;
-        buildDetails = await this.api.getBuild(actualBuildId, 'screenshots');
-      }
 
       if (!buildDetails.screenshots || buildDetails.screenshots.length === 0) {
         output.warn('⚠️  No screenshots found in baseline build');

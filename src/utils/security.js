@@ -13,6 +13,51 @@ import * as output from './output.js';
  * @param {boolean} allowSlashes - Whether to allow forward slashes (for browser version strings)
  * @returns {string} Sanitized screenshot name
  */
+/**
+ * Validate screenshot name for security (no transformations, just validation)
+ * Throws if name contains path traversal or other dangerous patterns
+ *
+ * @param {string} name - Screenshot name to validate
+ * @param {number} maxLength - Maximum allowed length
+ * @returns {string} The original name (unchanged) if valid
+ * @throws {Error} If name contains dangerous patterns
+ */
+export function validateScreenshotName(name, maxLength = 255) {
+  if (typeof name !== 'string' || name.length === 0) {
+    throw new Error('Screenshot name must be a non-empty string');
+  }
+
+  if (name.length > maxLength) {
+    throw new Error(
+      `Screenshot name exceeds maximum length of ${maxLength} characters`
+    );
+  }
+
+  // Block directory traversal patterns
+  if (name.includes('..') || name.includes('\\')) {
+    throw new Error('Screenshot name contains invalid path characters');
+  }
+
+  // Block forward slashes (path separators)
+  if (name.includes('/')) {
+    throw new Error('Screenshot name cannot contain forward slashes');
+  }
+
+  // Block absolute paths
+  if (isAbsolute(name)) {
+    throw new Error('Screenshot name cannot be an absolute path');
+  }
+
+  // Return the original name unchanged - validation only!
+  return name;
+}
+
+/**
+ * Legacy function for backwards compatibility
+ * Use validateScreenshotName instead for validation only
+ *
+ * @deprecated Use validateScreenshotName for validation or handle transformations explicitly
+ */
 export function sanitizeScreenshotName(
   name,
   maxLength = 255,
@@ -43,9 +88,12 @@ export function sanitizeScreenshotName(
     throw new Error('Screenshot name cannot be an absolute path');
   }
 
-  // Allow only safe characters: alphanumeric, hyphens, underscores, dots, and optionally slashes
+  // Allow only safe characters: alphanumeric, hyphens, underscores, dots, spaces, and optionally slashes
+  // Spaces are allowed here and will be converted to hyphens in generateBaselineFilename() to match cloud behavior
   // Replace other characters with underscores
-  const allowedChars = allowSlashes ? /[^a-zA-Z0-9._/-]/g : /[^a-zA-Z0-9._-]/g;
+  const allowedChars = allowSlashes
+    ? /[^a-zA-Z0-9._ /-]/g
+    : /[^a-zA-Z0-9._ -]/g;
   let sanitized = name.replace(allowedChars, '_');
 
   // Prevent names that start with dots (hidden files)

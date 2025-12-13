@@ -183,7 +183,7 @@ export class TddService {
     this.comparisons = [];
     this.threshold = config.comparison?.threshold || 2.0;
     this.minClusterSize = config.comparison?.minClusterSize ?? 2; // Filter single-pixel noise by default
-    this.signatureProperties = []; // Custom properties from project's baseline_signature_properties
+    this.signatureProperties = config.signatureProperties ?? []; // Custom properties from project's baseline_signature_properties
 
     // Check if we're in baseline update mode
     if (this.setBaseline) {
@@ -933,7 +933,8 @@ export class TddService {
       this.threshold = metadata.threshold || this.threshold;
 
       // Restore signature properties from saved metadata (for variant support)
-      this.signatureProperties = metadata.signatureProperties || [];
+      this.signatureProperties =
+        metadata.signatureProperties || this.signatureProperties;
       if (this.signatureProperties.length > 0) {
         output.debug(
           'tdd',
@@ -1068,14 +1069,28 @@ export class TddService {
 
     // Baseline exists - compare with it
     try {
+      // Per-screenshot threshold/minClusterSize override support
+      // Priority: screenshot-level > config > defaults
+      // Validate overrides before using them
+      const effectiveThreshold =
+        typeof validatedProperties.threshold === 'number' &&
+        validatedProperties.threshold >= 0
+          ? validatedProperties.threshold
+          : this.threshold;
+      const effectiveMinClusterSize =
+        Number.isInteger(validatedProperties.minClusterSize) &&
+        validatedProperties.minClusterSize >= 1
+          ? validatedProperties.minClusterSize
+          : this.minClusterSize;
+
       // Try to compare - honeydiff will throw if dimensions don't match
       const result = await compare(baselineImagePath, currentImagePath, {
-        threshold: this.threshold, // CIEDE2000 Delta E (2.0 = recommended default)
+        threshold: effectiveThreshold, // CIEDE2000 Delta E (2.0 = recommended default)
         antialiasing: true,
         diffPath: diffImagePath,
         overwrite: true,
         includeClusters: true, // Enable spatial clustering analysis
-        minClusterSize: this.minClusterSize, // Filter single-pixel noise (default: 2)
+        minClusterSize: effectiveMinClusterSize, // Filter single-pixel noise (default: 2)
       });
 
       if (!result.isDifferent) {
@@ -1089,7 +1104,8 @@ export class TddService {
           diff: null,
           properties: validatedProperties,
           signature,
-          threshold: this.threshold,
+          threshold: effectiveThreshold,
+          minClusterSize: effectiveMinClusterSize,
           // Include honeydiff metrics even for passing comparisons
           totalPixels: result.totalPixels,
           aaPixelsIgnored: result.aaPixelsIgnored,
@@ -1149,7 +1165,8 @@ export class TddService {
           diff: diffImagePath,
           properties: validatedProperties,
           signature,
-          threshold: this.threshold,
+          threshold: effectiveThreshold,
+          minClusterSize: effectiveMinClusterSize,
           diffPercentage: result.diffPercentage,
           diffCount: result.diffPixels,
           reason: isHotspotFiltered ? 'hotspot-filtered' : 'pixel-diff',

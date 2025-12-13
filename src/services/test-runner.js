@@ -202,10 +202,14 @@ export class TestRunner extends EventEmitter {
         };
 
         // Only include metadata if we have meaningful config to send
-        if (this.config.comparison?.threshold != null) {
+        if (
+          this.config.comparison?.threshold != null ||
+          this.config.comparison?.minClusterSize != null
+        ) {
           buildPayload.metadata = {
             comparison: {
               threshold: this.config.comparison.threshold,
+              minClusterSize: this.config.comparison.minClusterSize,
             },
           };
         }

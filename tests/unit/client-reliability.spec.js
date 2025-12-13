@@ -174,4 +174,53 @@ describe('Client SDK - Request Timeout', () => {
       diffPercentage: 5.5,
     });
   });
+
+  it('should send threshold and minClusterSize in properties when provided', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+
+    const { vizzlyScreenshot } = await import('../../src/client/index.js');
+
+    await vizzlyScreenshot('override-test', Buffer.from('data'), {
+      threshold: 5.0,
+      minClusterSize: 10,
+      viewport: { width: 1920, height: 1080 },
+    });
+
+    // Verify fetch was called with threshold and minClusterSize in properties
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:47392/screenshot',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+
+    // Parse the body to verify structure
+    const callBody = JSON.parse(global.fetch.mock.calls[0][1].body);
+    expect(callBody.properties).toMatchObject({
+      threshold: 5.0,
+      minClusterSize: 10,
+      viewport: { width: 1920, height: 1080 },
+    });
+  });
+
+  it('should handle threshold: 0 for exact match requirement', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+
+    const { vizzlyScreenshot } = await import('../../src/client/index.js');
+
+    await vizzlyScreenshot('exact-match-test', Buffer.from('data'), {
+      threshold: 0,
+      minClusterSize: 1,
+    });
+
+    const callBody = JSON.parse(global.fetch.mock.calls[0][1].body);
+    expect(callBody.properties.threshold).toBe(0);
+    expect(callBody.properties.minClusterSize).toBe(1);
+  });
 });

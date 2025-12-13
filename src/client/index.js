@@ -139,7 +139,6 @@ function createSimpleClient(serverUrl) {
             name,
             image,
             properties: options,
-            threshold: options.threshold || 0,
             fullPage: options.fullPage || false,
           }),
           signal: controller.signal,

@@ -38,9 +38,11 @@ const uploadSchema = z.object({
 /**
  * Comparison configuration schema
  * threshold: CIEDE2000 Delta E units (0.0 = exact, 1.0 = JND, 2.0 = recommended, 3.0+ = permissive)
+ * minClusterSize: pixels (1 = exact)
  */
 const comparisonSchema = z.object({
   threshold: z.number().min(0).default(2.0),
+  minClusterSize: z.int().min(1).default(2),
 });
 
 /**
@@ -69,8 +71,9 @@ export const vizzlyConfigSchema = z
       batchSize: 10,
       timeout: 30000,
     }),
-    comparison: comparisonSchema.default({ threshold: 2.0 }),
+    comparison: comparisonSchema.default({ threshold: 2.0, minClusterSize: 2 }),
     tdd: tddSchema.default({ openReport: false }),
+    signatureProperties: z.array(z.string()).default([]),
     plugins: z.array(z.string()).default([]),
 
     // Additional optional fields
@@ -86,7 +89,7 @@ export const vizzlyConfigSchema = z
     server: { port: 47392, timeout: 30000 },
     build: { name: 'Build {timestamp}', environment: 'test' },
     upload: { screenshotsDir: './screenshots', batchSize: 10, timeout: 30000 },
-    comparison: { threshold: 2.0 },
+    comparison: { threshold: 2.0, minClusterSize: 2 },
     tdd: { openReport: false },
     plugins: [],
   });

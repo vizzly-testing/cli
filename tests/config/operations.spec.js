@@ -368,6 +368,21 @@ describe('config/operations', () => {
         })
       ).rejects.toThrow('Unsupported config file format');
     });
+
+    it('throws for malformed package.json', async () => {
+      let fs = createInMemoryFs({
+        '/project/package.json': 'invalid json {',
+      });
+
+      await expect(
+        writeProjectConfigFile({
+          filepath: '/project/package.json',
+          config: { port: 3000 },
+          writeFile: fs.writeFile,
+          readFile: fs.readFile,
+        })
+      ).rejects.toThrow('Failed to parse package.json');
+    });
   });
 
   describe('updateGlobalConfig', () => {

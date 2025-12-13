@@ -90,7 +90,7 @@ export function validateWriteScope(scope) {
 export function deepMerge(target, source) {
   let output = { ...target };
 
-  for (let key in source) {
+  for (let key of Object.keys(source)) {
     if (
       source[key] &&
       typeof source[key] === 'object' &&
@@ -118,6 +118,18 @@ export function deepMerge(target, source) {
 // ============================================================================
 
 /**
+ * Ensure value is a plain object, return empty object otherwise
+ * @param {*} value - Value to check
+ * @returns {Object} The value if it's an object, empty object otherwise
+ */
+function ensureObject(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+  return {};
+}
+
+/**
  * Build merged config from layers with source tracking
  * @param {Object} options - Config layers
  * @param {Object} options.projectConfig - Project config (from vizzly.config.js)
@@ -129,7 +141,12 @@ export function buildMergedConfig({
   projectConfig = {},
   globalConfig = {},
   envOverrides = {},
-}) {
+} = {}) {
+  // Ensure all inputs are plain objects
+  let safeProjectConfig = ensureObject(projectConfig);
+  let safeGlobalConfig = ensureObject(globalConfig);
+  let safeEnvOverrides = ensureObject(envOverrides);
+
   let mergedConfig = {};
   let sources = {};
 
@@ -140,25 +157,25 @@ export function buildMergedConfig({
   }
 
   // Layer 2: Global config (auth, project mappings, user preferences)
-  if (globalConfig.auth) {
-    mergedConfig.auth = globalConfig.auth;
+  if (safeGlobalConfig.auth) {
+    mergedConfig.auth = safeGlobalConfig.auth;
     sources.auth = 'global';
   }
 
-  if (globalConfig.projects) {
-    mergedConfig.projects = globalConfig.projects;
+  if (safeGlobalConfig.projects) {
+    mergedConfig.projects = safeGlobalConfig.projects;
     sources.projects = 'global';
   }
 
   // Layer 3: Project config file
-  for (let key of Object.keys(projectConfig)) {
-    mergedConfig[key] = projectConfig[key];
+  for (let key of Object.keys(safeProjectConfig)) {
+    mergedConfig[key] = safeProjectConfig[key];
     sources[key] = 'project';
   }
 
   // Layer 4: Environment variables
-  for (let key of Object.keys(envOverrides)) {
-    mergedConfig[key] = envOverrides[key];
+  for (let key of Object.keys(safeEnvOverrides)) {
+    mergedConfig[key] = safeEnvOverrides[key];
     sources[key] = 'env';
   }
 
@@ -353,25 +370,27 @@ export function getConfigFormat(filepath) {
  * Serialize config for writing to file
  * @param {Object} config - Config object to serialize
  * @param {string} filepath - Target file path
- * @returns {{ content: string, format: string } | { error: Error }}
+ * @returns {{ content: string|null, format: string, error: Error|null }}
  */
 export function serializeConfig(config, filepath) {
   let format = getConfigFormat(filepath);
 
   if (format === 'javascript') {
-    return { content: serializeToJavaScript(config), format };
+    return { content: serializeToJavaScript(config), format, error: null };
   }
 
   if (format === 'json') {
-    return { content: serializeToJson(config), format };
+    return { content: serializeToJson(config), format, error: null };
   }
 
   if (format === 'package') {
     // Can't serialize standalone, need existing package.json
-    return { content: null, format };
+    return { content: null, format, error: null };
   }
 
   return {
+    content: null,
+    format,
     error: new VizzlyError(
       `Unsupported config file format: ${filepath}`,
       'UNSUPPORTED_CONFIG_FORMAT'

@@ -196,7 +196,15 @@ export async function writeProjectConfigFile({
   if (format === 'package') {
     // For package.json, merge into existing
     let pkgContent = await readFile(filepath);
-    let pkg = JSON.parse(pkgContent);
+    let pkg;
+    try {
+      pkg = JSON.parse(pkgContent);
+    } catch (error) {
+      throw new VizzlyError(
+        `Failed to parse package.json: ${error.message}`,
+        'INVALID_PACKAGE_JSON'
+      );
+    }
     pkg.vizzly = config;
     await writeFile(filepath, JSON.stringify(pkg, null, 2));
     return;

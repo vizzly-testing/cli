@@ -191,6 +191,35 @@ describe('config/core', () => {
       expect(config.apiKey).toBe('env_key');
       expect(sources.apiKey).toBe('env');
     });
+
+    it('handles null inputs gracefully', () => {
+      let { config, sources } = buildMergedConfig({
+        projectConfig: null,
+        globalConfig: null,
+        envOverrides: null,
+      });
+
+      expect(config.apiUrl).toBe(CONFIG_DEFAULTS.apiUrl);
+      expect(sources.apiUrl).toBe('default');
+    });
+
+    it('handles non-object inputs gracefully', () => {
+      let { config, sources } = buildMergedConfig({
+        projectConfig: 'string',
+        globalConfig: 123,
+        envOverrides: ['array'],
+      });
+
+      expect(config.apiUrl).toBe(CONFIG_DEFAULTS.apiUrl);
+      expect(sources.apiUrl).toBe('default');
+    });
+
+    it('handles undefined options', () => {
+      let { config, sources } = buildMergedConfig();
+
+      expect(config.apiUrl).toBe(CONFIG_DEFAULTS.apiUrl);
+      expect(sources.apiUrl).toBe('default');
+    });
   });
 
   describe('extractEnvOverrides', () => {
@@ -373,6 +402,7 @@ describe('config/core', () => {
 
       expect(result.format).toBe('javascript');
       expect(result.content).toContain('defineConfig');
+      expect(result.error).toBeNull();
     });
 
     it('serializes to JSON', () => {
@@ -380,6 +410,7 @@ describe('config/core', () => {
 
       expect(result.format).toBe('json');
       expect(result.content).toBe('{\n  "port": 3000\n}');
+      expect(result.error).toBeNull();
     });
 
     it('returns null content for package.json', () => {
@@ -387,11 +418,14 @@ describe('config/core', () => {
 
       expect(result.format).toBe('package');
       expect(result.content).toBeNull();
+      expect(result.error).toBeNull();
     });
 
     it('returns error for unknown format', () => {
       let result = serializeConfig({ port: 3000 }, 'config.yaml');
 
+      expect(result.format).toBe('unknown');
+      expect(result.content).toBeNull();
       expect(result.error).toBeInstanceOf(VizzlyError);
       expect(result.error.code).toBe('UNSUPPORTED_CONFIG_FORMAT');
     });

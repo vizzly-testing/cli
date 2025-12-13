@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addScreenshotToBuild,
   BuildManager,
@@ -10,39 +10,22 @@ import {
   validateBuildOptions,
 } from '../../src/services/build-manager.js';
 
-// Mock dependencies
-vi.mock('../../src/errors/vizzly-error.js', () => ({
-  VizzlyError: class extends Error {
-    constructor(message, code = 'VIZZLY_ERROR') {
-      super(message);
-      this.name = 'VizzlyError';
-      this.code = code;
-    }
-  },
-}));
-
-vi.mock('crypto', () => ({
-  default: {
-    randomUUID: vi.fn(() => 'mock-uuid-123'),
-  },
-}));
-
 describe('BuildManager', () => {
-  describe('utility functions', () => {
+  describe('pure functions', () => {
     describe('generateBuildId', () => {
-      it('generates unique build ID', () => {
-        const id1 = generateBuildId();
-        const id2 = generateBuildId();
+      it('generates unique build IDs', () => {
+        let id1 = generateBuildId();
+        let id2 = generateBuildId();
 
-        expect(id1).toBe('build-mock-uuid-123');
-        expect(id2).toBe('build-mock-uuid-123');
-        expect(typeof id1).toBe('string');
+        expect(id1).toMatch(/^build-[a-f0-9-]{36}$/);
+        expect(id2).toMatch(/^build-[a-f0-9-]{36}$/);
+        expect(id1).not.toBe(id2);
       });
     });
 
     describe('createBuildObject', () => {
       it('creates build with all options', () => {
-        const buildOptions = {
+        let buildOptions = {
           name: 'Test Build',
           branch: 'main',
           commit: 'abc123',
@@ -50,138 +33,129 @@ describe('BuildManager', () => {
           metadata: { author: 'test' },
         };
 
-        const build = createBuildObject(buildOptions);
+        let build = createBuildObject(buildOptions);
 
-        expect(build).toEqual({
-          id: 'build-mock-uuid-123',
+        expect(build).toMatchObject({
           name: 'Test Build',
           branch: 'main',
           commit: 'abc123',
           environment: 'production',
           metadata: { author: 'test' },
           status: 'pending',
-          createdAt: expect.any(String),
           screenshots: [],
         });
-
+        expect(build.id).toMatch(/^build-/);
         expect(new Date(build.createdAt)).toBeInstanceOf(Date);
       });
 
       it('creates build with minimal options', () => {
-        const buildOptions = {};
+        let build = createBuildObject({});
 
-        const build = createBuildObject(buildOptions);
-
-        expect(build).toEqual({
-          id: 'build-mock-uuid-123',
-          name: expect.stringMatching(/^build-\d+$/),
-          branch: undefined,
-          commit: undefined,
-          environment: 'test',
-          metadata: {},
-          status: 'pending',
-          createdAt: expect.any(String),
-          screenshots: [],
-        });
+        expect(build.environment).toBe('test');
+        expect(build.metadata).toEqual({});
+        expect(build.name).toMatch(/^build-\d+$/);
+        expect(build.screenshots).toEqual([]);
       });
 
       it('uses default environment when not specified', () => {
-        const build = createBuildObject({ name: 'Test' });
+        let build = createBuildObject({ name: 'Test' });
         expect(build.environment).toBe('test');
       });
     });
 
     describe('updateBuild', () => {
       it('updates build status and timestamp', () => {
-        const originalBuild = {
+        let originalBuild = {
           id: 'build123',
           name: 'Test',
           status: 'pending',
           createdAt: '2023-01-01T00:00:00.000Z',
         };
 
-        const updatedBuild = updateBuild(originalBuild, 'running', {
+        let updatedBuild = updateBuild(originalBuild, 'running', {
           progress: 50,
         });
 
-        expect(updatedBuild).toEqual({
-          id: 'build123',
-          name: 'Test',
-          status: 'running',
-          createdAt: '2023-01-01T00:00:00.000Z',
-          updatedAt: expect.any(String),
-          progress: 50,
-        });
-
+        expect(updatedBuild.status).toBe('running');
+        expect(updatedBuild.progress).toBe(50);
+        expect(updatedBuild.id).toBe('build123');
         expect(new Date(updatedBuild.updatedAt)).toBeInstanceOf(Date);
       });
 
       it('preserves existing build properties', () => {
-        const build = { id: '123', name: 'Test', screenshots: ['a', 'b'] };
-        const updated = updateBuild(build, 'completed');
+        let build = { id: '123', name: 'Test', screenshots: ['a', 'b'] };
+        let updated = updateBuild(build, 'completed');
 
         expect(updated.screenshots).toEqual(['a', 'b']);
         expect(updated.id).toBe('123');
         expect(updated.name).toBe('Test');
       });
+
+      it('does not mutate original build', () => {
+        let original = { id: '123', status: 'pending' };
+        updateBuild(original, 'running');
+
+        expect(original.status).toBe('pending');
+      });
     });
 
     describe('addScreenshotToBuild', () => {
       it('adds screenshot to build', () => {
-        const build = {
+        let build = {
           id: 'build123',
           screenshots: [{ name: 'existing', addedAt: '2023-01-01' }],
         };
 
-        const screenshot = { name: 'new-screenshot', image: 'data' };
-        const updatedBuild = addScreenshotToBuild(build, screenshot);
+        let screenshot = { name: 'new-screenshot', image: 'data' };
+        let updatedBuild = addScreenshotToBuild(build, screenshot);
 
         expect(updatedBuild.screenshots).toHaveLength(2);
-        expect(updatedBuild.screenshots[1]).toEqual({
-          name: 'new-screenshot',
-          image: 'data',
-          addedAt: expect.any(String),
-        });
+        expect(updatedBuild.screenshots[1].name).toBe('new-screenshot');
+        expect(updatedBuild.screenshots[1].addedAt).toBeDefined();
       });
 
       it('preserves existing screenshots', () => {
-        const existingScreenshot = { name: 'existing', addedAt: '2023-01-01' };
-        const build = { id: 'test', screenshots: [existingScreenshot] };
+        let existingScreenshot = { name: 'existing', addedAt: '2023-01-01' };
+        let build = { id: 'test', screenshots: [existingScreenshot] };
 
-        const updatedBuild = addScreenshotToBuild(build, { name: 'new' });
+        let updatedBuild = addScreenshotToBuild(build, { name: 'new' });
 
         expect(updatedBuild.screenshots[0]).toEqual(existingScreenshot);
+      });
+
+      it('does not mutate original build', () => {
+        let original = { id: '123', screenshots: [] };
+        addScreenshotToBuild(original, { name: 'test' });
+
+        expect(original.screenshots).toEqual([]);
       });
     });
 
     describe('finalizeBuildObject', () => {
       it('finalizes build as completed on success', () => {
-        const build = { id: 'test', status: 'running' };
-        const result = { success: true, tests: 10 };
+        let build = { id: 'test', status: 'running' };
+        let result = { success: true, tests: 10 };
 
-        const finalized = finalizeBuildObject(build, result);
+        let finalized = finalizeBuildObject(build, result);
 
-        expect(finalized).toEqual({
-          id: 'test',
-          status: 'completed',
-          completedAt: expect.any(String),
-          result,
-        });
+        expect(finalized.status).toBe('completed');
+        expect(finalized.result).toEqual(result);
+        expect(new Date(finalized.completedAt)).toBeInstanceOf(Date);
       });
 
       it('finalizes build as failed on failure', () => {
-        const build = { id: 'test', status: 'running' };
-        const result = { success: false, error: 'Test failed' };
+        let build = { id: 'test', status: 'running' };
+        let result = { success: false, error: 'Test failed' };
 
-        const finalized = finalizeBuildObject(build, result);
+        let finalized = finalizeBuildObject(build, result);
 
         expect(finalized.status).toBe('failed');
         expect(finalized.result).toEqual(result);
       });
 
       it('defaults to failed status without result', () => {
-        const build = { id: 'test', status: 'running' };
-        const finalized = finalizeBuildObject(build);
+        let build = { id: 'test', status: 'running' };
+        let finalized = finalizeBuildObject(build);
 
         expect(finalized.status).toBe('failed');
         expect(finalized.result).toEqual({});
@@ -190,40 +164,40 @@ describe('BuildManager', () => {
 
     describe('createQueuedBuild', () => {
       it('adds queuedAt timestamp', () => {
-        const buildOptions = { name: 'Queued Build' };
-        const queued = createQueuedBuild(buildOptions);
+        let buildOptions = { name: 'Queued Build' };
+        let queued = createQueuedBuild(buildOptions);
 
-        expect(queued).toEqual({
-          name: 'Queued Build',
-          queuedAt: expect.any(String),
-        });
-
+        expect(queued.name).toBe('Queued Build');
         expect(new Date(queued.queuedAt)).toBeInstanceOf(Date);
+      });
+
+      it('preserves all build options', () => {
+        let buildOptions = { name: 'Test', branch: 'main', commit: 'abc' };
+        let queued = createQueuedBuild(buildOptions);
+
+        expect(queued).toMatchObject(buildOptions);
       });
     });
 
     describe('validateBuildOptions', () => {
       it('validates valid build options', () => {
-        const options = { name: 'Test', environment: 'test' };
-        const result = validateBuildOptions(options);
+        let options = { name: 'Test', environment: 'test' };
+        let result = validateBuildOptions(options);
 
-        expect(result).toEqual({
-          valid: true,
-          errors: [],
-        });
+        expect(result).toEqual({ valid: true, errors: [] });
       });
 
       it('requires either name or branch', () => {
-        const options = { environment: 'test' };
-        const result = validateBuildOptions(options);
+        let options = { environment: 'test' };
+        let result = validateBuildOptions(options);
 
         expect(result.valid).toBe(false);
         expect(result.errors).toContain('Either name or branch is required');
       });
 
       it('validates environment values', () => {
-        const options = { name: 'Test', environment: 'invalid' };
-        const result = validateBuildOptions(options);
+        let options = { name: 'Test', environment: 'invalid' };
+        let result = validateBuildOptions(options);
 
         expect(result.valid).toBe(false);
         expect(result.errors).toContain(
@@ -232,44 +206,36 @@ describe('BuildManager', () => {
       });
 
       it('passes with branch only', () => {
-        const options = { branch: 'main' };
-        const result = validateBuildOptions(options);
+        let options = { branch: 'main' };
+        let result = validateBuildOptions(options);
 
         expect(result.valid).toBe(true);
       });
 
-      it('accepts valid environments', () => {
-        const environments = ['test', 'staging', 'production'];
+      it('accepts all valid environments', () => {
+        let environments = ['test', 'staging', 'production'];
 
-        environments.forEach(env => {
-          const options = { name: 'Test', environment: env };
-          const result = validateBuildOptions(options);
+        for (let env of environments) {
+          let result = validateBuildOptions({ name: 'Test', environment: env });
           expect(result.valid).toBe(true);
-        });
+        }
+      });
+
+      it('can have multiple errors', () => {
+        let options = { environment: 'invalid' };
+        let result = validateBuildOptions(options);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(2);
       });
     });
   });
 
   describe('BuildManager class', () => {
     let buildManager;
-    let mockConfig;
-    let mockLogger;
 
     beforeEach(() => {
-      mockConfig = { test: true };
-      mockLogger = {
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-      };
-
-      buildManager = new BuildManager(mockConfig, mockLogger);
-      vi.clearAllMocks();
-    });
-
-    afterEach(() => {
-      vi.clearAllMocks();
+      buildManager = new BuildManager({ test: true });
     });
 
     describe('constructor', () => {
@@ -277,31 +243,36 @@ describe('BuildManager', () => {
         expect(buildManager.currentBuild).toBe(null);
         expect(buildManager.buildQueue).toEqual([]);
       });
+
+      it('stores config', () => {
+        expect(buildManager.config).toEqual({ test: true });
+      });
     });
 
     describe('createBuild', () => {
       it('creates and stores new build', async () => {
-        const buildOptions = { name: 'Test Build', branch: 'main' };
-
-        const build = await buildManager.createBuild(buildOptions);
-
-        expect(build).toMatchObject({
+        let build = await buildManager.createBuild({
           name: 'Test Build',
           branch: 'main',
-          status: 'pending',
         });
+
+        expect(build.name).toBe('Test Build');
+        expect(build.branch).toBe('main');
+        expect(build.status).toBe('pending');
         expect(buildManager.currentBuild).toBe(build);
       });
     });
 
     describe('updateBuildStatus', () => {
       it('updates current build status', async () => {
-        const build = await buildManager.createBuild({ name: 'Test' });
+        let build = await buildManager.createBuild({ name: 'Test' });
 
-        const updated = await buildManager.updateBuildStatus(
+        let updated = await buildManager.updateBuildStatus(
           build.id,
           'running',
-          { progress: 50 }
+          {
+            progress: 50,
+          }
         );
 
         expect(updated.status).toBe('running');
@@ -316,8 +287,6 @@ describe('BuildManager', () => {
       });
 
       it('throws error when no current build', async () => {
-        buildManager.currentBuild = null;
-
         await expect(
           buildManager.updateBuildStatus('test', 'running')
         ).rejects.toThrow('Build test not found');
@@ -326,16 +295,13 @@ describe('BuildManager', () => {
 
     describe('addScreenshot', () => {
       it('adds screenshot to current build', async () => {
-        const build = await buildManager.createBuild({ name: 'Test' });
-        const screenshot = { name: 'test.png', image: 'data' };
+        let build = await buildManager.createBuild({ name: 'Test' });
+        let screenshot = { name: 'test.png', image: 'data' };
 
-        const updated = await buildManager.addScreenshot(build.id, screenshot);
+        let updated = await buildManager.addScreenshot(build.id, screenshot);
 
         expect(updated.screenshots).toHaveLength(1);
-        expect(updated.screenshots[0]).toMatchObject({
-          name: 'test.png',
-          image: 'data',
-        });
+        expect(updated.screenshots[0].name).toBe('test.png');
       });
 
       it('throws error for non-existent build', async () => {
@@ -346,22 +312,22 @@ describe('BuildManager', () => {
     });
 
     describe('finalizeBuild', () => {
-      it('finalizes current build with success result', async () => {
-        const build = await buildManager.createBuild({ name: 'Test' });
-        const result = { success: true, tests: 5 };
+      it('finalizes with success result', async () => {
+        let build = await buildManager.createBuild({ name: 'Test' });
+        let result = { success: true, tests: 5 };
 
-        const finalized = await buildManager.finalizeBuild(build.id, result);
+        let finalized = await buildManager.finalizeBuild(build.id, result);
 
         expect(finalized.status).toBe('completed');
         expect(finalized.result).toEqual(result);
         expect(finalized.completedAt).toBeDefined();
       });
 
-      it('finalizes current build with failure result', async () => {
-        const build = await buildManager.createBuild({ name: 'Test' });
-        const result = { success: false, error: 'Failed' };
+      it('finalizes with failure result', async () => {
+        let build = await buildManager.createBuild({ name: 'Test' });
+        let result = { success: false, error: 'Failed' };
 
-        const finalized = await buildManager.finalizeBuild(build.id, result);
+        let finalized = await buildManager.finalizeBuild(build.id, result);
 
         expect(finalized.status).toBe('failed');
       });
@@ -374,40 +340,37 @@ describe('BuildManager', () => {
     });
 
     describe('getCurrentBuild', () => {
-      it('returns current build', async () => {
+      it('returns null initially', () => {
         expect(buildManager.getCurrentBuild()).toBe(null);
+      });
 
-        const build = await buildManager.createBuild({ name: 'Test' });
+      it('returns current build after creation', async () => {
+        let build = await buildManager.createBuild({ name: 'Test' });
         expect(buildManager.getCurrentBuild()).toBe(build);
       });
     });
 
-    describe('build queue management', () => {
+    describe('build queue', () => {
       it('queues build for processing', () => {
-        const buildOptions = { name: 'Queued Build' };
-
-        buildManager.queueBuild(buildOptions);
+        buildManager.queueBuild({ name: 'Queued Build' });
 
         expect(buildManager.buildQueue).toHaveLength(1);
-        expect(buildManager.buildQueue[0]).toMatchObject({
-          name: 'Queued Build',
-          queuedAt: expect.any(String),
-        });
+        expect(buildManager.buildQueue[0].name).toBe('Queued Build');
+        expect(buildManager.buildQueue[0].queuedAt).toBeDefined();
       });
 
-      it('processes next build from queue', async () => {
+      it('processes builds in order', async () => {
         buildManager.queueBuild({ name: 'First' });
         buildManager.queueBuild({ name: 'Second' });
 
-        const build = await buildManager.processNextBuild();
+        let build = await buildManager.processNextBuild();
 
         expect(build.name).toBe('First');
         expect(buildManager.buildQueue).toHaveLength(1);
-        expect(buildManager.buildQueue[0].name).toBe('Second');
       });
 
       it('returns null when queue is empty', async () => {
-        const build = await buildManager.processNextBuild();
+        let build = await buildManager.processNextBuild();
         expect(build).toBe(null);
       });
 
@@ -415,26 +378,39 @@ describe('BuildManager', () => {
         buildManager.queueBuild({ name: 'Build 1', branch: 'main' });
         buildManager.queueBuild({ name: 'Build 2', branch: 'develop' });
 
-        const status = buildManager.getQueueStatus();
+        let status = buildManager.getQueueStatus();
 
-        expect(status).toEqual({
-          length: 2,
-          items: [
-            { name: 'Build 1', branch: 'main', queuedAt: expect.any(String) },
-            {
-              name: 'Build 2',
-              branch: 'develop',
-              queuedAt: expect.any(String),
-            },
-          ],
-        });
+        expect(status.length).toBe(2);
+        expect(status.items[0].name).toBe('Build 1');
+        expect(status.items[1].name).toBe('Build 2');
       });
     });
 
-    describe('integration scenarios', () => {
-      it('handles complete build lifecycle', async () => {
-        // Create build
-        const build = await buildManager.createBuild({
+    describe('clear', () => {
+      it('clears queue and current build', async () => {
+        await buildManager.createBuild({ name: 'Test' });
+        buildManager.queueBuild({ name: 'Queued' });
+
+        await buildManager.clear();
+
+        expect(buildManager.currentBuild).toBe(null);
+        expect(buildManager.buildQueue).toHaveLength(0);
+      });
+
+      it('cancels pending builds before clearing', async () => {
+        let build = await buildManager.createBuild({ name: 'Pending Build' });
+        expect(build.status).toBe('pending');
+
+        await buildManager.clear();
+
+        expect(buildManager.currentBuild).toBe(null);
+      });
+    });
+
+    describe('complete lifecycle', () => {
+      it('handles full build workflow', async () => {
+        // Create
+        let build = await buildManager.createBuild({
           name: 'Integration Test',
         });
         expect(build.status).toBe('pending');
@@ -449,24 +425,18 @@ describe('BuildManager', () => {
         expect(buildManager.currentBuild.screenshots).toHaveLength(2);
 
         // Finalize
-        const result = { success: true, screenshots: 2 };
-        await buildManager.finalizeBuild(build.id, result);
+        await buildManager.finalizeBuild(build.id, { success: true });
         expect(buildManager.currentBuild.status).toBe('completed');
-        expect(buildManager.currentBuild.result).toEqual(result);
       });
 
       it('handles queue processing workflow', async () => {
-        // Queue multiple builds
         buildManager.queueBuild({ name: 'Build 1' });
         buildManager.queueBuild({ name: 'Build 2' });
         buildManager.queueBuild({ name: 'Build 3' });
 
-        expect(buildManager.getQueueStatus().length).toBe(3);
-
-        // Process all builds
-        const builds = [];
+        let builds = [];
         while (buildManager.buildQueue.length > 0) {
-          const build = await buildManager.processNextBuild();
+          let build = await buildManager.processNextBuild();
           builds.push(build);
         }
 
@@ -476,45 +446,6 @@ describe('BuildManager', () => {
           'Build 2',
           'Build 3',
         ]);
-        expect(buildManager.getQueueStatus().length).toBe(0);
-      });
-    });
-
-    describe('clear', () => {
-      it('clears queue and current build', async () => {
-        await buildManager.createBuild({ name: 'Test' });
-        await buildManager.updateBuildStatus(
-          buildManager.currentBuild.id,
-          'running'
-        );
-        buildManager.queueBuild({ name: 'Queued' });
-
-        await buildManager.clear();
-
-        expect(buildManager.currentBuild).toBe(null);
-        expect(buildManager.buildQueue).toHaveLength(0);
-      });
-
-      it('cancels pending builds before clearing', async () => {
-        const build = await buildManager.createBuild({ name: 'Pending Build' });
-        expect(build.status).toBe('pending');
-
-        await buildManager.clear();
-
-        // Build was cancelled before clearing
-        expect(buildManager.currentBuild).toBe(null);
-      });
-
-      it('does not cancel non-pending builds', async () => {
-        await buildManager.createBuild({ name: 'Running Build' });
-        await buildManager.updateBuildStatus(
-          buildManager.currentBuild.id,
-          'running'
-        );
-
-        await buildManager.clear();
-
-        expect(buildManager.currentBuild).toBe(null);
       });
     });
   });

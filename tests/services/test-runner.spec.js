@@ -609,4 +609,118 @@ describe('TestRunner', () => {
       expect(mockServerManager.getTddResults).not.toHaveBeenCalled();
     });
   });
+
+  describe('Build Metadata', () => {
+    it('should include threshold in build metadata when provided', async () => {
+      testRunner = new TestRunner(
+        {
+          ...mockConfig,
+          comparison: { threshold: 5.0 },
+        },
+        mockBuildManager,
+        mockServerManager,
+        mockTddService
+      );
+
+      const mockApiService = {
+        createBuild: vi
+          .fn()
+          .mockResolvedValue({
+            id: 'build-123',
+            url: 'https://app.vizzly.dev/builds/build-123',
+          }),
+        getBuild: vi.fn(),
+        finalizeBuild: vi.fn(),
+      };
+      const { ApiService } = await import('../../src/services/api-service.js');
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
+
+      await testRunner.createBuild({ buildName: 'Test Build' }, false);
+
+      expect(mockApiService.createBuild).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: {
+            comparison: {
+              threshold: 5.0,
+              minClusterSize: undefined,
+            },
+          },
+        })
+      );
+    });
+
+    it('should include minClusterSize in build metadata when provided', async () => {
+      testRunner = new TestRunner(
+        {
+          ...mockConfig,
+          comparison: { threshold: 2.0, minClusterSize: 5 },
+        },
+        mockBuildManager,
+        mockServerManager,
+        mockTddService
+      );
+
+      const mockApiService = {
+        createBuild: vi
+          .fn()
+          .mockResolvedValue({
+            id: 'build-456',
+            url: 'https://app.vizzly.dev/builds/build-456',
+          }),
+        getBuild: vi.fn(),
+        finalizeBuild: vi.fn(),
+      };
+      const { ApiService } = await import('../../src/services/api-service.js');
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
+
+      await testRunner.createBuild({ buildName: 'Test Build' }, false);
+
+      expect(mockApiService.createBuild).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: {
+            comparison: {
+              threshold: 2.0,
+              minClusterSize: 5,
+            },
+          },
+        })
+      );
+    });
+
+    it('should not include metadata when no comparison config provided', async () => {
+      testRunner = new TestRunner(
+        mockConfig,
+        mockBuildManager,
+        mockServerManager,
+        mockTddService
+      );
+
+      const mockApiService = {
+        createBuild: vi
+          .fn()
+          .mockResolvedValue({
+            id: 'build-789',
+            url: 'https://app.vizzly.dev/builds/build-789',
+          }),
+        getBuild: vi.fn(),
+        finalizeBuild: vi.fn(),
+      };
+      const { ApiService } = await import('../../src/services/api-service.js');
+      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
+      ApiService.mockImplementation(function () {
+        return mockApiService;
+      });
+
+      await testRunner.createBuild({ buildName: 'Test Build' }, false);
+
+      const createBuildCall = mockApiService.createBuild.mock.calls[0][0];
+      expect(createBuildCall.metadata).toBeUndefined();
+    });
+  });
 });

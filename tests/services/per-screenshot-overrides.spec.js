@@ -4,7 +4,6 @@
  * Tests verify that screenshot-level comparison settings override global config values.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { compare } from '@vizzly-testing/honeydiff';

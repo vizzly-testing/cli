@@ -933,7 +933,8 @@ export class TddService {
       this.threshold = metadata.threshold || this.threshold;
 
       // Restore signature properties from saved metadata (for variant support)
-      this.signatureProperties = metadata.signatureProperties || this.signatureProperties;
+      this.signatureProperties =
+        metadata.signatureProperties || this.signatureProperties;
       if (this.signatureProperties.length > 0) {
         output.debug(
           'tdd',
@@ -1068,14 +1069,21 @@ export class TddService {
 
     // Baseline exists - compare with it
     try {
+      // Per-screenshot threshold/minClusterSize override support
+      // Priority: screenshot-level > config > defaults
+      const effectiveThreshold =
+        validatedProperties.threshold ?? this.threshold;
+      const effectiveMinClusterSize =
+        validatedProperties.minClusterSize ?? this.minClusterSize;
+
       // Try to compare - honeydiff will throw if dimensions don't match
       const result = await compare(baselineImagePath, currentImagePath, {
-        threshold: this.threshold, // CIEDE2000 Delta E (2.0 = recommended default)
+        threshold: effectiveThreshold, // CIEDE2000 Delta E (2.0 = recommended default)
         antialiasing: true,
         diffPath: diffImagePath,
         overwrite: true,
         includeClusters: true, // Enable spatial clustering analysis
-        minClusterSize: this.minClusterSize, // Filter single-pixel noise (default: 2)
+        minClusterSize: effectiveMinClusterSize, // Filter single-pixel noise (default: 2)
       });
 
       if (!result.isDifferent) {
@@ -1089,7 +1097,8 @@ export class TddService {
           diff: null,
           properties: validatedProperties,
           signature,
-          threshold: this.threshold,
+          threshold: effectiveThreshold,
+          minClusterSize: effectiveMinClusterSize,
           // Include honeydiff metrics even for passing comparisons
           totalPixels: result.totalPixels,
           aaPixelsIgnored: result.aaPixelsIgnored,
@@ -1149,7 +1158,8 @@ export class TddService {
           diff: diffImagePath,
           properties: validatedProperties,
           signature,
-          threshold: this.threshold,
+          threshold: effectiveThreshold,
+          minClusterSize: effectiveMinClusterSize,
           diffPercentage: result.diffPercentage,
           diffCount: result.diffPixels,
           reason: isHotspotFiltered ? 'hotspot-filtered' : 'pixel-diff',

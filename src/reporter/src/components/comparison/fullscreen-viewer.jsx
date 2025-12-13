@@ -407,6 +407,7 @@ export default function FullscreenViewer({
               <button
                 type="button"
                 onClick={() => onReject(getComparisonId(comparison))}
+                data-testid="btn-reject"
                 className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   isRejected
                     ? 'bg-red-600 text-white'
@@ -419,6 +420,7 @@ export default function FullscreenViewer({
               <button
                 type="button"
                 onClick={() => onAccept(getComparisonId(comparison))}
+                data-testid="btn-approve"
                 className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   isAccepted
                     ? 'bg-green-600 text-white'

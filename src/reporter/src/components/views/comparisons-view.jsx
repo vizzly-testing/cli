@@ -150,6 +150,7 @@ export default function ComparisonsView() {
               loading={acceptAllMutation.isPending}
               icon={CheckCircleIcon}
               className="w-full sm:w-auto"
+              data-testid="btn-accept-all"
             >
               Accept All ({totalToAccept})
             </Button>

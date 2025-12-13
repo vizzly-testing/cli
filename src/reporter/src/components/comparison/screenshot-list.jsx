@@ -81,10 +81,14 @@ function ScreenshotRow({ comparison, onClick, userAction }) {
   // Choose the best image to show as thumbnail
   const thumbnailSrc = comparison.current || comparison.baseline;
 
+  // Generate a stable test ID from comparison ID/name
+  const testId = `comparison-card-${comparison.id || comparison.name || 'unknown'}`;
+
   return (
     <button
       type="button"
       onClick={() => onClick(comparison)}
+      data-testid={testId}
       className={`
         w-full flex items-center gap-3 md:gap-4 p-3 md:p-4
         bg-white/5 hover:bg-white/10 active:bg-white/15

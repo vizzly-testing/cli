@@ -44,7 +44,7 @@ test.describe('Viewer Modes', () => {
 
     // Open a failed comparison (has diff image)
     await page
-      .getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      .getByTestId('comparison-card-pricing-page-firefox-1920x1080')
       .click();
 
     // Verify fullscreen viewer opens
@@ -92,7 +92,7 @@ test.describe('Viewer Modes', () => {
 
     // Open a passed comparison (no diff image)
     await page
-      .getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      .getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
       .click();
 
     // Verify fullscreen viewer opens
@@ -119,7 +119,7 @@ test.describe('Viewer Modes', () => {
 
     // Open a comparison
     await page
-      .getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      .getByTestId('comparison-card-pricing-page-firefox-1920x1080')
       .click();
 
     await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();

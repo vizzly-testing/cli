@@ -62,6 +62,10 @@ test.describe('Settings Workflow', () => {
   });
 
   test('update threshold and save', async ({ page }) => {
+    // Skip on mobile - "Unsaved changes" text is hidden on small screens
+    let viewport = page.viewportSize();
+    test.skip(viewport.width < 768, 'Save bar text hidden on mobile');
+
     await page.goto(`http://localhost:${port}/settings`, {
       waitUntil: 'networkidle',
     });

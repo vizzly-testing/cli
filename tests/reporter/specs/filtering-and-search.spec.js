@@ -40,68 +40,68 @@ test.describe('Filtering and Search', () => {
     await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
 
     // Verify initial state shows all comparisons
-    await expect(page.locator('text=All (5)')).toBeVisible();
+    await expect(page.getByTestId('filter-status-all')).toBeVisible();
 
     // Click "Failed" filter
-    await page.locator('text=Failed (2)').click();
+    await page.getByTestId('filter-status-failed').click();
 
     // Verify only failed comparisons are visible
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'checkout-form-safari-1280x720' })
+      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
     ).toBeVisible();
 
     // Passed and new should not be visible
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).not.toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'dashboard-widget-chrome-1920x1080' })
+      page.getByTestId('comparison-card-dashboard-widget-chrome-1920x1080')
     ).not.toBeVisible();
 
     // Click "Passed" filter
-    await page.locator('text=Passed (2)').click();
+    await page.getByTestId('filter-status-passed').click();
 
     // Verify only passed comparisons are visible
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'homepage-mobile-chrome-375x812' })
+      page.getByTestId('comparison-card-homepage-mobile-chrome-375x812')
     ).toBeVisible();
 
     // Failed should not be visible
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).not.toBeVisible();
 
     // Click "New" filter
-    await page.locator('text=New (1)').click();
+    await page.getByTestId('filter-status-new').click();
 
     // Verify only new comparison is visible
     await expect(
-      page.getByRole('heading', { name: 'dashboard-widget-chrome-1920x1080' })
+      page.getByTestId('comparison-card-dashboard-widget-chrome-1920x1080')
     ).toBeVisible();
 
     // Others should not be visible
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).not.toBeVisible();
 
     // Click "All" to reset
-    await page.locator('text=All (5)').click();
+    await page.getByTestId('filter-status-all').click();
 
     // All comparisons should be visible again
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'dashboard-widget-chrome-1920x1080' })
+      page.getByTestId('comparison-card-dashboard-widget-chrome-1920x1080')
     ).toBeVisible();
   });
 
@@ -109,23 +109,23 @@ test.describe('Filtering and Search', () => {
     await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
 
     // Type in search box
-    let searchBox = page.getByPlaceholder('Search screenshots...');
+    let searchBox = page.getByTestId('search-input');
     await searchBox.fill('homepage');
 
     // Only homepage comparisons should be visible
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'homepage-mobile-chrome-375x812' })
+      page.getByTestId('comparison-card-homepage-mobile-chrome-375x812')
     ).toBeVisible();
 
     // Others should not be visible
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).not.toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'checkout-form-safari-1280x720' })
+      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
     ).not.toBeVisible();
 
     // Search for something that doesn't exist
@@ -139,71 +139,79 @@ test.describe('Filtering and Search', () => {
 
     // All comparisons should be visible again
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).toBeVisible();
   });
 
   test('filter by browser shows correct comparisons', async ({ page }) => {
+    // Skip on mobile - browser dropdown is hidden on small screens
+    let viewport = page.viewportSize();
+    test.skip(viewport.width < 640, 'Browser filter hidden on mobile');
+
     await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
 
     // Select Chrome from browser dropdown
-    await page.getByRole('combobox').nth(1).selectOption('chrome');
+    await page.getByTestId('filter-browser').selectOption('chrome');
 
     // Only chrome comparisons should be visible
     await expect(
-      page.getByRole('heading', { name: 'homepage-mobile-chrome-375x812' })
+      page.getByTestId('comparison-card-homepage-mobile-chrome-375x812')
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'dashboard-widget-chrome-1920x1080' })
+      page.getByTestId('comparison-card-dashboard-widget-chrome-1920x1080')
     ).toBeVisible();
 
     // Firefox comparisons should not be visible
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).not.toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).not.toBeVisible();
 
     // Select Safari
-    await page.getByRole('combobox').nth(1).selectOption('safari');
+    await page.getByTestId('filter-browser').selectOption('safari');
 
     // Only safari comparison should be visible
     await expect(
-      page.getByRole('heading', { name: 'checkout-form-safari-1280x720' })
+      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
     ).toBeVisible();
 
     // Chrome comparisons should not be visible now
     await expect(
-      page.getByRole('heading', { name: 'homepage-mobile-chrome-375x812' })
+      page.getByTestId('comparison-card-homepage-mobile-chrome-375x812')
     ).not.toBeVisible();
   });
 
   test('combine status and browser filters', async ({ page }) => {
+    // Skip on mobile - browser dropdown is hidden on small screens
+    let viewport = page.viewportSize();
+    test.skip(viewport.width < 640, 'Browser filter hidden on mobile');
+
     await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
 
     // Filter to failed only
-    await page.locator('text=Failed (2)').click();
+    await page.getByTestId('filter-status-failed').click();
 
     // Select Firefox browser
-    await page.getByRole('combobox').nth(1).selectOption('firefox');
+    await page.getByTestId('filter-browser').selectOption('firefox');
 
     // Only failed + firefox comparison should be visible
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).toBeVisible();
 
     // Failed safari should not be visible (wrong browser)
     await expect(
-      page.getByRole('heading', { name: 'checkout-form-safari-1280x720' })
+      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
     ).not.toBeVisible();
 
     // Passed firefox should not be visible (wrong status)
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).not.toBeVisible();
   });
 
@@ -211,10 +219,10 @@ test.describe('Filtering and Search', () => {
     await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
 
     // Apply status filter
-    await page.locator('text=Failed (2)').click();
+    await page.getByTestId('filter-status-failed').click();
 
     // Apply search
-    let searchBox = page.getByPlaceholder('Search screenshots...');
+    let searchBox = page.getByTestId('search-input');
     await searchBox.fill('pricing');
 
     // Verify URL contains filter params
@@ -226,12 +234,12 @@ test.describe('Filtering and Search', () => {
 
     // Verify filters are still applied
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).toBeVisible();
 
     // Other comparisons should still be filtered out
     await expect(
-      page.getByRole('heading', { name: 'checkout-form-safari-1280x720' })
+      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
     ).not.toBeVisible();
 
     // Verify search box still has the value

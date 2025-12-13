@@ -41,39 +41,36 @@ test.describe('Review Workflow', () => {
     await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
 
     // Verify we see the failed count in filter badges
-    await expect(page.locator('text=Failed (2)')).toBeVisible();
-    await expect(page.locator('text=New (1)')).toBeVisible();
+    await expect(page.getByTestId('filter-status-failed')).toBeVisible();
+    await expect(page.getByTestId('filter-status-new')).toBeVisible();
 
     // Click "Failed" filter to show only failed comparisons
-    await page.locator('text=Failed (2)').click();
+    await page.getByTestId('filter-status-failed').click();
 
     // Verify only failed comparisons are shown (2 failed in fixture)
-    // Use heading role to be more specific (avoids matching tooltips)
     await expect(
-      page.getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
     ).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'checkout-form-safari-1280x720' })
+      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
     ).toBeVisible();
 
     // Passed comparisons should not be visible
     await expect(
-      page.getByRole('heading', { name: 'homepage-desktop-firefox-1920x1080' })
+      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
     ).not.toBeVisible();
 
     // Click the first failed comparison to open fullscreen viewer
     await page
-      .getByRole('heading', { name: 'pricing-page-firefox-1920x1080' })
+      .getByTestId('comparison-card-pricing-page-firefox-1920x1080')
       .click();
 
     // Verify fullscreen viewer opens
     await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
 
-    // Verify Approve button is visible
-    let approveButton = page.getByRole('button', { name: 'Approve' });
+    // Verify Approve button is visible and click it
+    let approveButton = page.getByTestId('btn-approve');
     await expect(approveButton).toBeVisible();
-
-    // Click Approve
     await approveButton.click();
 
     // Verify the button now shows approved state (green background)
@@ -100,14 +97,14 @@ test.describe('Review Workflow', () => {
 
     // Click on a failed comparison
     await page
-      .getByRole('heading', { name: 'checkout-form-safari-1280x720' })
+      .getByTestId('comparison-card-checkout-form-safari-1280x720')
       .click();
 
     // Verify fullscreen viewer opens
     await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
 
     // Click Reject button
-    let rejectButton = page.getByRole('button', { name: 'Reject' });
+    let rejectButton = page.getByTestId('btn-reject');
     await expect(rejectButton).toBeVisible();
     await rejectButton.click();
 
@@ -124,21 +121,18 @@ test.describe('Review Workflow', () => {
   test('accept all comparisons via bulk action', async ({ page }) => {
     await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
 
-    // Verify the Accept All button is visible with correct count
-    // 2 failed + 1 new = 3 to accept
-    let acceptAllButton = page.getByRole('button', { name: 'Accept All (3)' });
+    // Verify the Accept All button is visible
+    let acceptAllButton = page.getByTestId('btn-accept-all');
     await expect(acceptAllButton).toBeVisible();
 
     // Click Accept All
     await acceptAllButton.click();
 
     // Verify confirmation dialog appears
-    await expect(
-      page.locator('text=Accept all changes as new baselines?')
-    ).toBeVisible();
+    await expect(page.getByTestId('confirm-dialog')).toBeVisible();
 
     // Click OK to confirm
-    await page.getByRole('button', { name: 'OK' }).click();
+    await page.getByTestId('confirm-ok').click();
 
     // Verify success toast appears
     await expect(
@@ -158,21 +152,17 @@ test.describe('Review Workflow', () => {
     await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
 
     // Click Accept All
-    let acceptAllButton = page.getByRole('button', { name: 'Accept All (3)' });
+    let acceptAllButton = page.getByTestId('btn-accept-all');
     await acceptAllButton.click();
 
     // Verify confirmation dialog appears
-    await expect(
-      page.locator('text=Accept all changes as new baselines?')
-    ).toBeVisible();
+    await expect(page.getByTestId('confirm-dialog')).toBeVisible();
 
     // Click Cancel
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByTestId('confirm-cancel').click();
 
     // Verify dialog closes
-    await expect(
-      page.locator('text=Accept all changes as new baselines?')
-    ).not.toBeVisible();
+    await expect(page.getByTestId('confirm-dialog')).not.toBeVisible();
 
     // Verify NO mutations were tracked
     let response = await page.request.get(

@@ -1,12 +1,32 @@
 /**
  * Configuration Service
  * Manages reading and writing Vizzly configuration files
+ *
+ * This is a thin wrapper around the functional config module for backwards compatibility.
+ * For new code, prefer using the functions from src/config/ directly.
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
-import { VizzlyError } from '../errors/vizzly-error.js';
+// Import core functions (pure, no I/O)
+import {
+  buildGlobalConfigResult,
+  buildMergedConfigResult,
+  buildProjectConfigResult,
+  deepMerge,
+  extractCosmiconfigResult,
+  extractEnvOverrides,
+  serializeConfig,
+  stringifyWithIndent,
+  validateReadScope,
+  validateWriteScope,
+} from '../config/core.js';
+// Import operations (I/O with dependency injection)
+import {
+  updateProjectConfig as updateProjectConfigOp,
+  validateConfig as validateConfigOp,
+  writeProjectConfigFile as writeProjectConfigFileOp,
+} from '../config/operations.js';
 import { validateVizzlyConfigWithDefaults } from '../utils/config-schema.js';
 import {
   getGlobalConfigPath,
@@ -16,12 +36,21 @@ import {
 
 /**
  * ConfigService for reading and writing configuration
+ *
+ * @deprecated Use functions from src/config/ directly for new code
  */
 export class ConfigService {
   constructor(config, options = {}) {
     this.config = config;
     this.projectRoot = options.projectRoot || process.cwd();
     this.explorer = cosmiconfigSync('vizzly');
+
+    // Create global config store adapter
+    this._globalConfigStore = {
+      load: loadGlobalConfig,
+      save: saveGlobalConfig,
+      getPath: getGlobalConfigPath,
+    };
   }
 
   /**
@@ -30,6 +59,11 @@ export class ConfigService {
    * @returns {Promise<Object>} Config object with metadata
    */
   async getConfig(scope = 'merged') {
+    let validation = validateReadScope(scope);
+    if (!validation.valid) {
+      throw validation.error;
+    }
+
     if (scope === 'project') {
       return this._getProjectConfig();
     }
@@ -38,14 +72,7 @@ export class ConfigService {
       return this._getGlobalConfig();
     }
 
-    if (scope === 'merged') {
-      return this._getMergedConfig();
-    }
-
-    throw new VizzlyError(
-      `Invalid config scope: ${scope}. Must be 'project', 'global', or 'merged'`,
-      'INVALID_CONFIG_SCOPE'
-    );
+    return this._getMergedConfig();
   }
 
   /**
@@ -54,23 +81,9 @@ export class ConfigService {
    * @returns {Promise<Object>}
    */
   async _getProjectConfig() {
-    const result = this.explorer.search(this.projectRoot);
-
-    if (!result || !result.config) {
-      return {
-        config: {},
-        filepath: null,
-        isEmpty: true,
-      };
-    }
-
-    const config = result.config.default || result.config;
-
-    return {
-      config,
-      filepath: result.filepath,
-      isEmpty: Object.keys(config).length === 0,
-    };
+    let result = this.explorer.search(this.projectRoot);
+    let { config, filepath } = extractCosmiconfigResult(result);
+    return buildProjectConfigResult(config, filepath);
   }
 
   /**
@@ -79,13 +92,8 @@ export class ConfigService {
    * @returns {Promise<Object>}
    */
   async _getGlobalConfig() {
-    const globalConfig = await loadGlobalConfig();
-
-    return {
-      config: globalConfig,
-      filepath: getGlobalConfigPath(),
-      isEmpty: Object.keys(globalConfig).length === 0,
-    };
+    let globalConfig = await loadGlobalConfig();
+    return buildGlobalConfigResult(globalConfig, getGlobalConfigPath());
   }
 
   /**
@@ -94,67 +102,17 @@ export class ConfigService {
    * @returns {Promise<Object>}
    */
   async _getMergedConfig() {
-    const projectConfigData = await this._getProjectConfig();
-    const globalConfigData = await this._getGlobalConfig();
+    let projectConfigData = await this._getProjectConfig();
+    let globalConfigData = await this._getGlobalConfig();
+    let envOverrides = extractEnvOverrides();
 
-    // Build config with source tracking
-    const mergedConfig = {};
-    const sources = {};
-
-    // Layer 1: Defaults
-    const defaults = {
-      apiUrl: 'https://app.vizzly.dev',
-      server: { port: 47392, timeout: 30000 },
-      build: { name: 'Build {timestamp}', environment: 'test' },
-      upload: {
-        screenshotsDir: './screenshots',
-        batchSize: 10,
-        timeout: 30000,
-      },
-      comparison: { threshold: 2.0 },
-      tdd: { openReport: false },
-      plugins: [],
-    };
-
-    Object.keys(defaults).forEach(key => {
-      mergedConfig[key] = defaults[key];
-      sources[key] = 'default';
-    });
-
-    // Layer 2: Global config (auth, project mappings, user preferences)
-    if (globalConfigData.config.auth) {
-      mergedConfig.auth = globalConfigData.config.auth;
-      sources.auth = 'global';
-    }
-
-    if (globalConfigData.config.projects) {
-      mergedConfig.projects = globalConfigData.config.projects;
-      sources.projects = 'global';
-    }
-
-    // Layer 3: Project config file
-    Object.keys(projectConfigData.config).forEach(key => {
-      mergedConfig[key] = projectConfigData.config[key];
-      sources[key] = 'project';
-    });
-
-    // Layer 4: Environment variables (tracked separately)
-    const envOverrides = {};
-    if (process.env.VIZZLY_TOKEN) {
-      envOverrides.apiKey = process.env.VIZZLY_TOKEN;
-      sources.apiKey = 'env';
-    }
-    if (process.env.VIZZLY_API_URL) {
-      envOverrides.apiUrl = process.env.VIZZLY_API_URL;
-      sources.apiUrl = 'env';
-    }
-
-    return {
-      config: { ...mergedConfig, ...envOverrides },
-      sources,
+    return buildMergedConfigResult({
+      projectConfig: projectConfigData.config,
+      globalConfig: globalConfigData.config,
+      envOverrides,
       projectFilepath: projectConfigData.filepath,
       globalFilepath: globalConfigData.filepath,
-    };
+    });
   }
 
   /**
@@ -164,18 +122,16 @@ export class ConfigService {
    * @returns {Promise<Object>} Updated config
    */
   async updateConfig(scope, updates) {
+    let validation = validateWriteScope(scope);
+    if (!validation.valid) {
+      throw validation.error;
+    }
+
     if (scope === 'project') {
       return this._updateProjectConfig(updates);
     }
 
-    if (scope === 'global') {
-      return this._updateGlobalConfig(updates);
-    }
-
-    throw new VizzlyError(
-      `Invalid config scope for update: ${scope}. Must be 'project' or 'global'`,
-      'INVALID_CONFIG_SCOPE'
-    );
+    return this._updateGlobalConfig(updates);
   }
 
   /**
@@ -185,44 +141,14 @@ export class ConfigService {
    * @returns {Promise<Object>} Updated config
    */
   async _updateProjectConfig(updates) {
-    const result = this.explorer.search(this.projectRoot);
-
-    // Determine config file path
-    let configPath;
-    let currentConfig = {};
-
-    if (result?.filepath) {
-      configPath = result.filepath;
-      currentConfig = result.config.default || result.config;
-    } else {
-      // Create new config file - prefer vizzly.config.js
-      configPath = join(this.projectRoot, 'vizzly.config.js');
-    }
-
-    // Merge updates with current config
-    const newConfig = this._deepMerge(currentConfig, updates);
-
-    // Validate before writing
-    try {
-      validateVizzlyConfigWithDefaults(newConfig);
-    } catch (error) {
-      throw new VizzlyError(
-        `Invalid configuration: ${error.message}`,
-        'CONFIG_VALIDATION_ERROR',
-        { errors: error.errors }
-      );
-    }
-
-    // Write config file
-    await this._writeProjectConfigFile(configPath, newConfig);
-
-    // Clear cosmiconfig cache
-    this.explorer.clearCaches();
-
-    return {
-      config: newConfig,
-      filepath: configPath,
-    };
+    return updateProjectConfigOp({
+      updates,
+      explorer: this.explorer,
+      projectRoot: this.projectRoot,
+      writeFile: (path, content) => writeFile(path, content, 'utf-8'),
+      readFile: path => readFile(path, 'utf-8'),
+      validate: validateVizzlyConfigWithDefaults,
+    });
   }
 
   /**
@@ -232,8 +158,8 @@ export class ConfigService {
    * @returns {Promise<Object>} Updated config
    */
   async _updateGlobalConfig(updates) {
-    const currentConfig = await loadGlobalConfig();
-    const newConfig = this._deepMerge(currentConfig, updates);
+    let currentConfig = await loadGlobalConfig();
+    let newConfig = deepMerge(currentConfig, updates);
 
     await saveGlobalConfig(newConfig);
 
@@ -251,103 +177,12 @@ export class ConfigService {
    * @returns {Promise<void>}
    */
   async _writeProjectConfigFile(filepath, config) {
-    // For .js files, export as ES module
-    if (filepath.endsWith('.js') || filepath.endsWith('.mjs')) {
-      const content = this._serializeToJavaScript(config);
-      await writeFile(filepath, content, 'utf-8');
-      return;
-    }
-
-    // For .json files
-    if (filepath.endsWith('.json')) {
-      const content = JSON.stringify(config, null, 2);
-      await writeFile(filepath, content, 'utf-8');
-      return;
-    }
-
-    // For package.json, merge into existing
-    if (filepath.endsWith('package.json')) {
-      const pkgContent = await readFile(filepath, 'utf-8');
-      const pkg = JSON.parse(pkgContent);
-      pkg.vizzly = config;
-      await writeFile(filepath, JSON.stringify(pkg, null, 2), 'utf-8');
-      return;
-    }
-
-    throw new VizzlyError(
-      `Unsupported config file format: ${filepath}`,
-      'UNSUPPORTED_CONFIG_FORMAT'
-    );
-  }
-
-  /**
-   * Serialize config object to JavaScript module
-   * @private
-   * @param {Object} config - Config object
-   * @returns {string} JavaScript source code
-   */
-  _serializeToJavaScript(config) {
-    const lines = [
-      '/**',
-      ' * Vizzly Configuration',
-      ' * @see https://docs.vizzly.dev/cli/configuration',
-      ' */',
-      '',
-      "import { defineConfig } from '@vizzly-testing/cli/config';",
-      '',
-      'export default defineConfig(',
-      this._stringifyWithIndent(config, 1),
-      ');',
-      '',
-    ];
-
-    return lines.join('\n');
-  }
-
-  /**
-   * Stringify object with proper indentation (2 spaces)
-   * @private
-   * @param {*} value - Value to stringify
-   * @param {number} depth - Current depth
-   * @returns {string}
-   */
-  _stringifyWithIndent(value, depth = 0) {
-    const indent = '  '.repeat(depth);
-    const prevIndent = '  '.repeat(depth - 1);
-
-    if (value === null || value === undefined) {
-      return String(value);
-    }
-
-    if (typeof value === 'string') {
-      return `'${value.replace(/'/g, "\\'")}'`;
-    }
-
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      return String(value);
-    }
-
-    if (Array.isArray(value)) {
-      if (value.length === 0) return '[]';
-      const items = value.map(
-        item => `${indent}${this._stringifyWithIndent(item, depth + 1)}`
-      );
-      return `[\n${items.join(',\n')}\n${prevIndent}]`;
-    }
-
-    if (typeof value === 'object') {
-      const keys = Object.keys(value);
-      if (keys.length === 0) return '{}';
-
-      const items = keys.map(key => {
-        const val = this._stringifyWithIndent(value[key], depth + 1);
-        return `${indent}${key}: ${val}`;
-      });
-
-      return `{\n${items.join(',\n')}\n${prevIndent}}`;
-    }
-
-    return String(value);
+    return writeProjectConfigFileOp({
+      filepath,
+      config,
+      writeFile: (path, content) => writeFile(path, content, 'utf-8'),
+      readFile: path => readFile(path, 'utf-8'),
+    });
   }
 
   /**
@@ -356,20 +191,7 @@ export class ConfigService {
    * @returns {Promise<Object>} Validation result
    */
   async validateConfig(config) {
-    try {
-      const validated = validateVizzlyConfigWithDefaults(config);
-      return {
-        valid: true,
-        config: validated,
-        errors: [],
-      };
-    } catch (error) {
-      return {
-        valid: false,
-        config: null,
-        errors: error.errors || [{ message: error.message }],
-      };
-    }
+    return validateConfigOp(config, validateVizzlyConfigWithDefaults);
   }
 
   /**
@@ -378,40 +200,39 @@ export class ConfigService {
    * @returns {Promise<string>} Source ('default', 'global', 'project', 'env', 'cli')
    */
   async getConfigSource(key) {
-    const merged = await this._getMergedConfig();
+    let merged = await this._getMergedConfig();
     return merged.sources[key] || 'unknown';
   }
+
+  // ============================================================================
+  // Legacy compatibility methods (delegate to core functions)
+  // ============================================================================
 
   /**
    * Deep merge two objects
    * @private
-   * @param {Object} target - Target object
-   * @param {Object} source - Source object
-   * @returns {Object} Merged object
+   * @deprecated Use deepMerge from src/config/core.js
    */
   _deepMerge(target, source) {
-    const output = { ...target };
+    return deepMerge(target, source);
+  }
 
-    for (const key in source) {
-      if (
-        source[key] &&
-        typeof source[key] === 'object' &&
-        !Array.isArray(source[key])
-      ) {
-        if (
-          target[key] &&
-          typeof target[key] === 'object' &&
-          !Array.isArray(target[key])
-        ) {
-          output[key] = this._deepMerge(target[key], source[key]);
-        } else {
-          output[key] = source[key];
-        }
-      } else {
-        output[key] = source[key];
-      }
-    }
+  /**
+   * Serialize config object to JavaScript module
+   * @private
+   * @deprecated Use serializeToJavaScript from src/config/core.js
+   */
+  _serializeToJavaScript(config) {
+    let result = serializeConfig(config, 'config.js');
+    return result.content;
+  }
 
-    return output;
+  /**
+   * Stringify object with proper indentation (2 spaces)
+   * @private
+   * @deprecated Use stringifyWithIndent from src/config/core.js
+   */
+  _stringifyWithIndent(value, depth = 0) {
+    return stringifyWithIndent(value, depth);
   }
 }

@@ -38,6 +38,7 @@ export default function DashboardFilters({
             placeholder="Search screenshots..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            data-testid="search-input"
             className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-3 md:py-2.5 text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors text-base md:text-sm"
           />
         </div>
@@ -105,6 +106,7 @@ export default function DashboardFilters({
         <button
           type="button"
           onClick={() => setFilter(FILTER_TYPES.ALL)}
+          data-testid="filter-status-all"
           className={`flex-shrink-0 px-3 py-2 md:py-1.5 rounded-lg text-sm font-medium transition-all touch-manipulation scroll-snap-item ${
             filter === FILTER_TYPES.ALL
               ? 'bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/30'
@@ -116,6 +118,7 @@ export default function DashboardFilters({
         <button
           type="button"
           onClick={() => setFilter(FILTER_TYPES.FAILED)}
+          data-testid="filter-status-failed"
           className={`flex-shrink-0 px-3 py-2 md:py-1.5 rounded-lg text-sm font-medium transition-all touch-manipulation scroll-snap-item ${
             filter === FILTER_TYPES.FAILED
               ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
@@ -128,6 +131,7 @@ export default function DashboardFilters({
         <button
           type="button"
           onClick={() => setFilter(FILTER_TYPES.NEW)}
+          data-testid="filter-status-new"
           className={`flex-shrink-0 px-3 py-2 md:py-1.5 rounded-lg text-sm font-medium transition-all touch-manipulation scroll-snap-item ${
             filter === FILTER_TYPES.NEW
               ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
@@ -139,6 +143,7 @@ export default function DashboardFilters({
         <button
           type="button"
           onClick={() => setFilter(FILTER_TYPES.PASSED)}
+          data-testid="filter-status-passed"
           className={`flex-shrink-0 px-3 py-2 md:py-1.5 rounded-lg text-sm font-medium transition-all touch-manipulation scroll-snap-item ${
             filter === FILTER_TYPES.PASSED
               ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
@@ -156,6 +161,7 @@ export default function DashboardFilters({
             <select
               value={selectedBrowser}
               onChange={e => setSelectedBrowser(e.target.value)}
+              data-testid="filter-browser"
               className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
             >
               <option value="all">All</option>
@@ -174,6 +180,7 @@ export default function DashboardFilters({
             <select
               value={selectedViewport}
               onChange={e => setSelectedViewport(e.target.value)}
+              data-testid="filter-viewport"
               className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
             >
               <option value="all">All</option>

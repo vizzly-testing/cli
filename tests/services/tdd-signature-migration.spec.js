@@ -4,7 +4,7 @@
  * This handles signature property changes, build switches, and stale state
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createTDDService } from '../../src/services/tdd-service.js';

@@ -3,8 +3,8 @@
  * Ensures CLI matches cloud behavior for filename generation
  */
 
-import { describe, expect, test } from 'vitest';
 import crypto from 'node:crypto';
+import { describe, expect, test } from 'vitest';
 
 // Import the functions from tdd-service (they're not exported, so we'll test the behavior indirectly)
 // For now, let's just test the expected behavior

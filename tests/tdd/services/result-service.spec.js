@@ -6,14 +6,14 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  calculateSummary,
   buildResults,
+  calculateSummary,
+  findComparison,
+  findComparisonById,
+  getErrorComparisons,
   getFailedComparisons,
   getNewComparisons,
-  getErrorComparisons,
   isSuccessful,
-  findComparisonById,
-  findComparison,
 } from '../../../src/tdd/services/result-service.js';
 
 describe('result-service', () => {

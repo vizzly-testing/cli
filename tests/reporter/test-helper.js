@@ -7,8 +7,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '..', '..');
 
-export function createReporterTestServer(fixtureData, port = 3456) {
+export function createReporterTestServer(
+  fixtureData,
+  port = 3456,
+  options = {}
+) {
   let server = null;
+  let { authenticated = false } = options;
+
+  // Track mutations for test verification
+  let mutations = [];
+
+  // Mutable copy of fixture data for state changes
+  let currentData = JSON.parse(JSON.stringify(fixtureData));
+
+  // Mutable config for settings tests
+  let currentConfig = {
+    comparison: { threshold: 2.0 },
+    server: { port: 47392, timeout: 30000 },
+    build: { name: 'Build {timestamp}', environment: 'test' },
+    tdd: { openReport: false },
+  };
 
   const handleRequest = (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -53,7 +72,7 @@ export function createReporterTestServer(fixtureData, port = 3456) {
     </div>
 
     <script>
-        window.VIZZLY_REPORTER_DATA = ${JSON.stringify(fixtureData)};
+        window.VIZZLY_REPORTER_DATA = ${JSON.stringify(currentData)};
     </script>
     <script src="/reporter-bundle.js"></script>
 </body>
@@ -99,7 +118,100 @@ export function createReporterTestServer(fixtureData, port = 3456) {
     if (req.method === 'GET' && parsedUrl.pathname === '/api/report-data') {
       res.setHeader('Content-Type', 'application/json');
       res.statusCode = 200;
-      res.end(JSON.stringify(fixtureData));
+      res.end(JSON.stringify(currentData));
+      return;
+    }
+
+    // Accept single baseline
+    if (
+      req.method === 'POST' &&
+      parsedUrl.pathname === '/api/baseline/accept'
+    ) {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        let { id } = JSON.parse(body);
+        mutations.push({ type: 'accept', id, timestamp: Date.now() });
+
+        // Update comparison status in current data
+        let comparison = currentData.comparisons.find(
+          c => c.id === id || c.name === id
+        );
+        if (comparison) {
+          comparison.userAction = 'accepted';
+        }
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, id }));
+      });
+      return;
+    }
+
+    // Accept all baselines
+    if (
+      req.method === 'POST' &&
+      parsedUrl.pathname === '/api/baseline/accept-all'
+    ) {
+      mutations.push({ type: 'accept-all', timestamp: Date.now() });
+
+      // Update all non-passed comparisons
+      for (let comparison of currentData.comparisons) {
+        if (comparison.status !== 'passed') {
+          comparison.userAction = 'accepted';
+        }
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
+
+    // Reject baseline (mark as rejected in UI)
+    if (
+      req.method === 'POST' &&
+      parsedUrl.pathname === '/api/baseline/reject'
+    ) {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        let { id } = JSON.parse(body);
+        mutations.push({ type: 'reject', id, timestamp: Date.now() });
+
+        let comparison = currentData.comparisons.find(
+          c => c.id === id || c.name === id
+        );
+        if (comparison) {
+          comparison.userAction = 'rejected';
+        }
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, id }));
+      });
+      return;
+    }
+
+    // Test helper: get mutations
+    if (req.method === 'GET' && parsedUrl.pathname === '/__test__/mutations') {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(JSON.stringify({ mutations }));
+      return;
+    }
+
+    // Test helper: reset state
+    if (req.method === 'POST' && parsedUrl.pathname === '/__test__/reset') {
+      mutations = [];
+      currentData = JSON.parse(JSON.stringify(fixtureData));
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(JSON.stringify({ success: true }));
       return;
     }
 
@@ -109,14 +221,44 @@ export function createReporterTestServer(fixtureData, port = 3456) {
       res.statusCode = 200;
       res.end(
         JSON.stringify({
-          config: {
-            comparison: { threshold: 2.0 },
-            server: { port: 47392, timeout: 30000 },
-            build: { environment: 'test' },
+          config: currentConfig,
+          sources: {
+            comparison: 'project',
+            server: 'default',
+            build: 'default',
           },
-          source: 'vizzly.config.js',
         })
       );
+      return;
+    }
+
+    // Update project config
+    if (req.method === 'POST' && parsedUrl.pathname === '/api/config/project') {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        let updates = JSON.parse(body);
+        // Merge updates into current config
+        currentConfig = {
+          ...currentConfig,
+          ...updates,
+          comparison: { ...currentConfig.comparison, ...updates.comparison },
+          server: { ...currentConfig.server, ...updates.server },
+          build: { ...currentConfig.build, ...updates.build },
+          tdd: { ...currentConfig.tdd, ...updates.tdd },
+        };
+        mutations.push({
+          type: 'config-update',
+          data: updates,
+          timestamp: Date.now(),
+        });
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, config: currentConfig }));
+      });
       return;
     }
 
@@ -126,8 +268,8 @@ export function createReporterTestServer(fixtureData, port = 3456) {
       res.statusCode = 200;
       res.end(
         JSON.stringify({
-          authenticated: false,
-          user: null,
+          authenticated,
+          user: authenticated ? { email: 'test@example.com' } : null,
         })
       );
       return;

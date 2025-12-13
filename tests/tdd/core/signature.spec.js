@@ -7,9 +7,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  generateScreenshotSignature,
   generateBaselineFilename,
   generateComparisonId,
+  generateScreenshotSignature,
 } from '../../../src/tdd/core/signature.js';
 
 describe('signature', () => {

@@ -118,9 +118,13 @@ function Toast({ toast, onRemove }) {
         ? 'text-amber-400'
         : 'text-red-400';
 
+  // Confirm dialogs get a specific test ID
+  const isConfirm = toast.type === 'confirm';
+
   return (
     <div
       className={`${bgColor} border rounded-lg p-4 shadow-lg backdrop-blur-sm pointer-events-auto animate-slide-up`}
+      data-testid={isConfirm ? 'confirm-dialog' : undefined}
     >
       <div className="flex items-start gap-3">
         <Icon className={`w-5 h-5 ${iconColor} flex-shrink-0 mt-0.5`} />
@@ -136,6 +140,11 @@ function Toast({ toast, onRemove }) {
                   type="button"
                   key={action.label}
                   onClick={action.onClick}
+                  data-testid={
+                    isConfirm
+                      ? `confirm-${action.label.toLowerCase()}`
+                      : undefined
+                  }
                   className={
                     action.variant === 'primary'
                       ? 'px-4 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded transition-colors'

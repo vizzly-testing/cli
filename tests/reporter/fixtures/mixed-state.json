@@ -1,0 +1,107 @@
+{
+  "timestamp": 1700000000000,
+  "comparisons": [
+    {
+      "id": "homepage-desktop-firefox-1920x1080",
+      "name": "homepage-desktop-firefox-1920x1080",
+      "originalName": "homepage-desktop",
+      "status": "passed",
+      "baseline": "/images/baselines/homepage-desktop.png",
+      "current": "/images/screenshots/homepage-desktop.png",
+      "diff": null,
+      "diffPercentage": 0,
+      "threshold": 2.0,
+      "properties": {
+        "browser": "firefox",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "timestamp": 1700000001000
+    },
+    {
+      "id": "homepage-mobile-chrome-375x812",
+      "name": "homepage-mobile-chrome-375x812",
+      "originalName": "homepage-mobile",
+      "status": "passed",
+      "baseline": "/images/baselines/homepage-mobile.png",
+      "current": "/images/screenshots/homepage-mobile.png",
+      "diff": null,
+      "diffPercentage": 0.1,
+      "threshold": 2.0,
+      "properties": {
+        "browser": "chrome",
+        "viewport": {
+          "width": 375,
+          "height": 812
+        }
+      },
+      "timestamp": 1700000002000
+    },
+    {
+      "id": "pricing-page-firefox-1920x1080",
+      "name": "pricing-page-firefox-1920x1080",
+      "originalName": "pricing-page",
+      "status": "failed",
+      "baseline": "/images/baselines/pricing-page.png",
+      "current": "/images/screenshots/pricing-page.png",
+      "diff": "/images/diffs/homepage-desktop.png",
+      "diffPercentage": 3.2,
+      "threshold": 2.0,
+      "properties": {
+        "browser": "firefox",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "timestamp": 1700000003000
+    },
+    {
+      "id": "checkout-form-safari-1280x720",
+      "name": "checkout-form-safari-1280x720",
+      "originalName": "checkout-form",
+      "status": "failed",
+      "baseline": "/images/baselines/homepage-mobile.png",
+      "current": "/images/screenshots/homepage-mobile.png",
+      "diff": "/images/diffs/homepage-mobile.png",
+      "diffPercentage": 5.7,
+      "threshold": 2.0,
+      "properties": {
+        "browser": "safari",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        }
+      },
+      "timestamp": 1700000004000
+    },
+    {
+      "id": "dashboard-widget-chrome-1920x1080",
+      "name": "dashboard-widget-chrome-1920x1080",
+      "originalName": "dashboard-widget",
+      "status": "new",
+      "baseline": null,
+      "current": "/images/screenshots/homepage-desktop.png",
+      "diff": null,
+      "diffPercentage": null,
+      "threshold": 2.0,
+      "properties": {
+        "browser": "chrome",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "timestamp": 1700000005000
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 2,
+    "failed": 2,
+    "new": 1,
+    "errors": 0
+  }
+}

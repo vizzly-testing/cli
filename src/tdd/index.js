@@ -4,77 +4,71 @@
  * Re-exports all TDD functionality for clean imports.
  */
 
-// Core pure functions
-export {
-  generateScreenshotSignature,
-  generateBaselineFilename,
-  generateComparisonId,
-} from './core/signature.js';
-
 export {
   calculateHotspotCoverage,
   shouldFilterAsHotspot,
 } from './core/hotspot-coverage.js';
+// Core pure functions
+export {
+  generateBaselineFilename,
+  generateComparisonId,
+  generateScreenshotSignature,
+} from './core/signature.js';
 
 // Metadata I/O
 export {
+  createEmptyBaselineMetadata,
+  findScreenshotBySignature,
   loadBaselineMetadata,
   saveBaselineMetadata,
-  createEmptyBaselineMetadata,
   upsertScreenshotInMetadata,
-  findScreenshotBySignature,
 } from './metadata/baseline-metadata.js';
 
 export {
+  createHotspotCache,
+  getHotspotForScreenshot,
   loadHotspotMetadata,
   saveHotspotMetadata,
-  getHotspotForScreenshot,
-  createHotspotCache,
 } from './metadata/hotspot-metadata.js';
-
+export {
+  baselineMatchesSha,
+  buildBaselineMetadataEntry,
+  downloadBaselineImage,
+  downloadBaselinesInBatches,
+} from './services/baseline-downloader.js';
 // Services
 export {
-  initializeDirectories,
-  clearBaselineData,
-  saveBaseline,
-  saveCurrent,
   baselineExists,
+  clearBaselineData,
   getBaselinePath,
   getCurrentPath,
   getDiffPath,
+  initializeDirectories,
   promoteCurrentToBaseline,
   readBaseline,
   readCurrent,
+  saveBaseline,
+  saveCurrent,
 } from './services/baseline-manager.js';
-
 export {
-  compareImages,
-  buildPassedComparison,
-  buildNewComparison,
-  buildFailedComparison,
   buildErrorComparison,
+  buildFailedComparison,
+  buildNewComparison,
+  buildPassedComparison,
+  compareImages,
   isDimensionMismatchError,
 } from './services/comparison-service.js';
-
-export {
-  calculateSummary,
-  buildResults,
-  getFailedComparisons,
-  getNewComparisons,
-  getErrorComparisons,
-  isSuccessful,
-  findComparisonById,
-  findComparison,
-} from './services/result-service.js';
-
-export {
-  downloadBaselineImage,
-  baselineMatchesSha,
-  downloadBaselinesInBatches,
-  buildBaselineMetadataEntry,
-} from './services/baseline-downloader.js';
-
 export {
   downloadHotspots,
   extractScreenshotNames,
 } from './services/hotspot-service.js';
+export {
+  buildResults,
+  calculateSummary,
+  findComparison,
+  findComparisonById,
+  getErrorComparisons,
+  getFailedComparisons,
+  getNewComparisons,
+  isSuccessful,
+} from './services/result-service.js';

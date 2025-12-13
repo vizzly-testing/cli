@@ -8,7 +8,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPluginServices } from '../../src/plugin-api.js';
 
 describe('Plugin API Contract', () => {

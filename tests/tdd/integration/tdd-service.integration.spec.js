@@ -5,10 +5,10 @@
  * Tests the full flow as users would experience it.
  */
 
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTDDService } from '../../../src/tdd/tdd-service.js';
 
 // Use real test images from fixtures

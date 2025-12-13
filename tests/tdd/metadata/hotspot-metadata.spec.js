@@ -5,21 +5,21 @@
  */
 
 import {
-  mkdtempSync,
-  rmSync,
-  mkdirSync,
-  writeFileSync,
   existsSync,
+  mkdirSync,
+  mkdtempSync,
   readFileSync,
+  rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  createHotspotCache,
+  getHotspotForScreenshot,
   loadHotspotMetadata,
   saveHotspotMetadata,
-  getHotspotForScreenshot,
-  createHotspotCache,
 } from '../../../src/tdd/metadata/hotspot-metadata.js';
 
 describe('hotspot-metadata', () => {

@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  buildPassedComparison,
-  buildNewComparison,
-  buildFailedComparison,
   buildErrorComparison,
+  buildFailedComparison,
+  buildNewComparison,
+  buildPassedComparison,
   isDimensionMismatchError,
 } from '../../../src/tdd/services/comparison-service.js';
 

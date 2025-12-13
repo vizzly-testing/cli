@@ -5,27 +5,27 @@
  */
 
 import {
-  mkdtempSync,
-  rmSync,
   existsSync,
-  writeFileSync,
+  mkdtempSync,
   readFileSync,
+  rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  initializeDirectories,
-  clearBaselineData,
-  saveBaseline,
-  saveCurrent,
   baselineExists,
+  clearBaselineData,
   getBaselinePath,
   getCurrentPath,
   getDiffPath,
+  initializeDirectories,
   promoteCurrentToBaseline,
   readBaseline,
   readCurrent,
+  saveBaseline,
+  saveCurrent,
 } from '../../../src/tdd/services/baseline-manager.js';
 
 describe('baseline-manager', () => {

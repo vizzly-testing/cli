@@ -27,8 +27,8 @@ import {
 } from './commands/tdd-daemon.js';
 import { uploadCommand, validateUploadOptions } from './commands/upload.js';
 import { validateWhoamiOptions, whoamiCommand } from './commands/whoami.js';
-import { loadPlugins } from './plugin-loader.js';
 import { createPluginServices } from './plugin-api.js';
+import { loadPlugins } from './plugin-loader.js';
 import { createServices } from './services/index.js';
 import { loadConfig } from './utils/config-loader.js';
 import * as output from './utils/output.js';

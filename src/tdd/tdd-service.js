@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { NetworkError } from '../errors/vizzly-error.js';
 import { ApiService } from '../services/api-service.js';
+import { HtmlReportGenerator } from '../services/html-report-generator.js';
 import { colors } from '../utils/colors.js';
 import { fetchWithTimeout } from '../utils/fetch-utils.js';
 import { getDefaultBranch } from '../utils/git.js';
@@ -21,21 +22,18 @@ import {
   validatePathSecurity,
   validateScreenshotProperties,
 } from '../utils/security.js';
-import { HtmlReportGenerator } from '../services/html-report-generator.js';
-
+import { calculateHotspotCoverage } from './core/hotspot-coverage.js';
 // Import from extracted modules
 import {
-  generateScreenshotSignature,
   generateBaselineFilename,
   generateComparisonId,
+  generateScreenshotSignature,
 } from './core/signature.js';
 
-import { calculateHotspotCoverage } from './core/hotspot-coverage.js';
-
 import {
+  createEmptyBaselineMetadata,
   loadBaselineMetadata,
   saveBaselineMetadata,
-  createEmptyBaselineMetadata,
   upsertScreenshotInMetadata,
 } from './metadata/baseline-metadata.js';
 
@@ -45,22 +43,22 @@ import {
 } from './metadata/hotspot-metadata.js';
 
 import {
-  initializeDirectories,
-  clearBaselineData,
-  saveBaseline,
-  saveCurrent,
   baselineExists,
+  clearBaselineData,
   getBaselinePath,
   getCurrentPath,
   getDiffPath,
+  initializeDirectories,
+  saveBaseline,
+  saveCurrent,
 } from './services/baseline-manager.js';
 
 import {
-  compareImages,
-  buildPassedComparison,
-  buildNewComparison,
-  buildFailedComparison,
   buildErrorComparison,
+  buildFailedComparison,
+  buildNewComparison,
+  buildPassedComparison,
+  compareImages,
   isDimensionMismatchError,
 } from './services/comparison-service.js';
 

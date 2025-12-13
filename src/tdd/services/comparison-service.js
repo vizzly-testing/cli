@@ -5,8 +5,8 @@
  */
 
 import { compare } from '@vizzly-testing/honeydiff';
-import { generateComparisonId } from '../core/signature.js';
 import { calculateHotspotCoverage } from '../core/hotspot-coverage.js';
+import { generateComparisonId } from '../core/signature.js';
 
 /**
  * Compare two images using honeydiff

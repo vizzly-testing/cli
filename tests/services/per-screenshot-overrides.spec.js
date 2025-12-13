@@ -6,8 +6,8 @@
 
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { compare } from '@vizzly-testing/honeydiff';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { TddService } from '../../src/services/tdd-service.js';
 
 // Mock honeydiff to capture what threshold/minClusterSize it's called with

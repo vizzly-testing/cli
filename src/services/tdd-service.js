@@ -11,4 +11,4 @@
  * Contract tests: tests/contracts/signature-parity.spec.js
  */
 
-export { TddService, createTDDService } from '../tdd/tdd-service.js';
+export { createTDDService, TddService } from '../tdd/tdd-service.js';

@@ -5,21 +5,21 @@
  */
 
 import {
-  mkdtempSync,
-  rmSync,
   existsSync,
+  mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  createEmptyBaselineMetadata,
+  findScreenshotBySignature,
   loadBaselineMetadata,
   saveBaselineMetadata,
-  createEmptyBaselineMetadata,
   upsertScreenshotInMetadata,
-  findScreenshotBySignature,
 } from '../../../src/tdd/metadata/baseline-metadata.js';
 
 describe('baseline-metadata', () => {

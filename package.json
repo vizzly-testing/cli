@@ -71,12 +71,10 @@
     "test:watch": "vitest",
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",
     "test:reporter:visual": "node bin/vizzly.js run \"npm run test:reporter\"",
-    "lint": "biome lint src tests",
-    "lint:fix": "biome lint --write src tests",
+    "lint": "biome check src tests",
+    "lint:fix": "biome check --write src tests",
     "format": "biome format --write src tests",
-    "format:check": "biome format src tests",
-    "check": "biome check src tests",
-    "check:fix": "biome check --write src tests"
+    "format:check": "biome format src tests"
   },
   "engines": {
     "node": ">=22.0.0"

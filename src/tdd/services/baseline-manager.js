@@ -6,12 +6,12 @@
  */
 
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
-  writeFileSync,
   readFileSync,
   rmSync,
-  copyFileSync,
+  writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
 

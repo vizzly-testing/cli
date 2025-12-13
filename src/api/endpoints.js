@@ -6,6 +6,7 @@
  */
 
 import { VizzlyError } from '../errors/vizzly-error.js';
+import * as output from '../utils/output.js';
 import {
   buildBuildPayload,
   buildEndpointWithParams,
@@ -139,10 +140,9 @@ export async function checkShas(client, screenshots, buildId) {
     });
   } catch (error) {
     // Continue without deduplication on error
-    console.debug(
-      'SHA check failed, continuing without deduplication:',
-      error.message
-    );
+    output.debug('sha-check', 'failed, continuing without deduplication', {
+      error: error.message,
+    });
 
     // Extract SHAs for fallback response
     let shaList =

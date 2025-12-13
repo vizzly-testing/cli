@@ -21,7 +21,7 @@ import {
 /**
  * Default API URL
  */
-export let DEFAULT_API_URL = 'https://app.vizzly.dev';
+export const DEFAULT_API_URL = 'https://app.vizzly.dev';
 
 /**
  * Create an API client with the given configuration

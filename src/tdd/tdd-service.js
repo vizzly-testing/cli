@@ -600,6 +600,10 @@ export class TddService {
 
   /**
    * Get hotspot for a specific screenshot
+   *
+   * Note: Once hotspotData is loaded (from disk or cloud), we don't reload.
+   * This is intentional - hotspots are downloaded once per session and cached.
+   * If a screenshot isn't in the cache, it means no hotspot data exists for it.
    */
   getHotspotForScreenshot(screenshotName) {
     // Check memory cache first
@@ -607,7 +611,7 @@ export class TddService {
       return this.hotspotData[screenshotName];
     }
 
-    // Try loading from disk
+    // Try loading from disk (only if we haven't loaded yet)
     if (!this.hotspotData) {
       this.hotspotData = this.loadHotspots();
     }

@@ -18,6 +18,7 @@ import { calculateHotspotCoverage } from '../core/hotspot-coverage.js';
  * @param {number} options.threshold - CIEDE2000 Delta E threshold (default: 2.0)
  * @param {number} options.minClusterSize - Minimum cluster size (default: 2)
  * @returns {Promise<Object>} Honeydiff result
+ * @throws {Error} When honeydiff binary fails (e.g., corrupt images, dimension mismatch)
  */
 export async function compareImages(
   baselinePath,

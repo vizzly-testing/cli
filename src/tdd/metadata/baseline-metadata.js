@@ -24,8 +24,9 @@ export function loadBaselineMetadata(baselinePath) {
   try {
     let content = readFileSync(metadataPath, 'utf8');
     return JSON.parse(content);
-  } catch {
-    // Return null for parse errors - caller can handle
+  } catch (error) {
+    // Log for debugging but return null - caller can handle missing metadata
+    console.debug?.(`Failed to parse baseline metadata: ${error.message}`);
     return null;
   }
 }

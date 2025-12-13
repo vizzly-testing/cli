@@ -10,7 +10,7 @@
  * must produce.
  *
  * If you need to change signature/filename generation:
- *   1. Update vizzly-cli/src/services/tdd-service.js
+ *   1. Update vizzly-cli/src/tdd/core/signature.js
  *   2. Update vizzly/src/utils/screenshot-identity.js (same logic)
  *   3. Update golden values in THIS file
  *   4. Update golden values in vizzly/tests/contracts/signature-parity.test.js

@@ -23,10 +23,11 @@
  * await vizzlyScreenshot('homepage', './screenshots/homepage.png');
  *
  * @example
- * // With properties and threshold
+ * // With properties and comparison settings
  * await vizzlyScreenshot('checkout-form', screenshot, {
  *   properties: { browser: 'chrome', viewport: '1920x1080' },
- *   threshold: 5
+ *   threshold: 5,
+ *   minClusterSize: 10
  * });
  */
 export function vizzlyScreenshot(
@@ -35,6 +36,7 @@ export function vizzlyScreenshot(
   options?: {
     properties?: Record<string, unknown>;
     threshold?: number;
+    minClusterSize?: number;
     fullPage?: boolean;
   }
 ): Promise<void>;

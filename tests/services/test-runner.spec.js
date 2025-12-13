@@ -623,12 +623,10 @@ describe('TestRunner', () => {
       );
 
       const mockApiService = {
-        createBuild: vi
-          .fn()
-          .mockResolvedValue({
-            id: 'build-123',
-            url: 'https://app.vizzly.dev/builds/build-123',
-          }),
+        createBuild: vi.fn().mockResolvedValue({
+          id: 'build-123',
+          url: 'https://app.vizzly.dev/builds/build-123',
+        }),
         getBuild: vi.fn(),
         finalizeBuild: vi.fn(),
       };
@@ -664,12 +662,10 @@ describe('TestRunner', () => {
       );
 
       const mockApiService = {
-        createBuild: vi
-          .fn()
-          .mockResolvedValue({
-            id: 'build-456',
-            url: 'https://app.vizzly.dev/builds/build-456',
-          }),
+        createBuild: vi.fn().mockResolvedValue({
+          id: 'build-456',
+          url: 'https://app.vizzly.dev/builds/build-456',
+        }),
         getBuild: vi.fn(),
         finalizeBuild: vi.fn(),
       };
@@ -702,12 +698,10 @@ describe('TestRunner', () => {
       );
 
       const mockApiService = {
-        createBuild: vi
-          .fn()
-          .mockResolvedValue({
-            id: 'build-789',
-            url: 'https://app.vizzly.dev/builds/build-789',
-          }),
+        createBuild: vi.fn().mockResolvedValue({
+          id: 'build-789',
+          url: 'https://app.vizzly.dev/builds/build-789',
+        }),
         getBuild: vi.fn(),
         finalizeBuild: vi.fn(),
       };

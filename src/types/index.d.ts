@@ -54,6 +54,8 @@ export interface VizzlyConfig {
   upload?: UploadConfig;
   comparison?: ComparisonConfig;
   tdd?: TddConfig;
+  /** Custom properties for baseline matching (e.g., ['theme', 'device']) */
+  signatureProperties?: string[];
   plugins?: string[];
   parallelId?: string;
   baselineBuildId?: string;
@@ -72,6 +74,7 @@ export interface VizzlyConfig {
 export interface ScreenshotOptions {
   properties?: Record<string, unknown>;
   threshold?: number;
+  minClusterSize?: number;
   fullPage?: boolean;
   buildId?: string;
 }
@@ -97,6 +100,7 @@ export interface ComparisonResult {
   properties: Record<string, unknown>;
   signature: string;
   threshold?: number;
+  minClusterSize?: number;
   diffPercentage?: number;
   diffCount?: number;
   error?: string;
@@ -465,6 +469,7 @@ export function vizzlyScreenshot(
   options?: {
     properties?: Record<string, unknown>;
     threshold?: number;
+    minClusterSize?: number;
     fullPage?: boolean;
   }
 ): Promise<void>;

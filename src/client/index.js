@@ -138,12 +138,7 @@ function createSimpleClient(serverUrl) {
             buildId: getBuildId(),
             name,
             image,
-            properties: {
-              ...options,
-              // Include comparison settings at top level for easy access
-              threshold: options.threshold,
-              minClusterSize: options.minClusterSize,
-            },
+            properties: options,
             fullPage: options.fullPage || false,
           }),
           signal: controller.signal,

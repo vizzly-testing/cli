@@ -1071,10 +1071,17 @@ export class TddService {
     try {
       // Per-screenshot threshold/minClusterSize override support
       // Priority: screenshot-level > config > defaults
+      // Validate overrides before using them
       const effectiveThreshold =
-        validatedProperties.threshold ?? this.threshold;
+        typeof validatedProperties.threshold === 'number' &&
+        validatedProperties.threshold >= 0
+          ? validatedProperties.threshold
+          : this.threshold;
       const effectiveMinClusterSize =
-        validatedProperties.minClusterSize ?? this.minClusterSize;
+        Number.isInteger(validatedProperties.minClusterSize) &&
+        validatedProperties.minClusterSize >= 1
+          ? validatedProperties.minClusterSize
+          : this.minClusterSize;
 
       // Try to compare - honeydiff will throw if dimensions don't match
       const result = await compare(baselineImagePath, currentImagePath, {

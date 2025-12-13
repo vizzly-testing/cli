@@ -4,8 +4,9 @@
  * Tests verify that screenshot-level comparison settings override global config values.
  */
 
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { compare } from '@vizzly-testing/honeydiff';
 import { TddService } from '../../src/services/tdd-service.js';
 
@@ -28,6 +29,10 @@ describe('Per-Screenshot Comparison Overrides', () => {
   beforeEach(() => {
     testDir = join(process.cwd(), '.tmp', `test-overrides-${Date.now()}`);
     vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
   });
 
   test('should pass threshold and minClusterSize from config to honeydiff', async () => {
@@ -126,5 +131,42 @@ describe('Per-Screenshot Comparison Overrides', () => {
     // Comparison result should include the values used
     expect(result.threshold).toBe(7.5);
     expect(result.minClusterSize).toBe(3);
+  });
+
+  test('should reject invalid threshold/minClusterSize and fallback to config', async () => {
+    tddService = new TddService(
+      {
+        comparison: { threshold: 2.0, minClusterSize: 2 },
+      },
+      testDir
+    );
+
+    let fakeImage = Buffer.from('fake-png-data');
+
+    // Create baseline
+    await tddService.compareScreenshot('test-invalid', fakeImage, {
+      viewport_width: 1920,
+      viewport_height: 1080,
+    });
+
+    // Compare with invalid values - should fallback to config
+    let result = await tddService.compareScreenshot('test-invalid', fakeImage, {
+      viewport_width: 1920,
+      viewport_height: 1080,
+      threshold: -5, // Invalid: negative
+      minClusterSize: 0.5, // Invalid: not an integer
+    });
+
+    // Should use config values, not invalid overrides
+    expect(compare).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        threshold: 2.0, // Config fallback
+        minClusterSize: 2, // Config fallback
+      })
+    );
+    expect(result.threshold).toBe(2.0);
+    expect(result.minClusterSize).toBe(2);
   });
 });

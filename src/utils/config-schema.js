@@ -71,7 +71,7 @@ export const vizzlyConfigSchema = z
       batchSize: 10,
       timeout: 30000,
     }),
-    comparison: comparisonSchema.default({ threshold: 2.0 }),
+    comparison: comparisonSchema.default({ threshold: 2.0, minClusterSize: 2 }),
     tdd: tddSchema.default({ openReport: false }),
     signatureProperties: z.array(z.string()).default([]),
     plugins: z.array(z.string()).default([]),
@@ -89,7 +89,7 @@ export const vizzlyConfigSchema = z
     server: { port: 47392, timeout: 30000 },
     build: { name: 'Build {timestamp}', environment: 'test' },
     upload: { screenshotsDir: './screenshots', batchSize: 10, timeout: 30000 },
-    comparison: { threshold: 2.0 },
+    comparison: { threshold: 2.0, minClusterSize: 2 },
     tdd: { openReport: false },
     plugins: [],
   });

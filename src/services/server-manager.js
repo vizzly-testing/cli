@@ -5,6 +5,7 @@
 
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createApiClient } from '../api/index.js';
 import { createApiHandler } from '../server/handlers/api-handler.js';
 import { createTddHandler } from '../server/handlers/tdd-handler.js';
 import { createHttpServer } from '../server/http-server.js';
@@ -35,8 +36,8 @@ export class ServerManager {
 
       await this.handler.initialize();
     } else {
-      const apiService = await this.createApiService();
-      this.handler = createApiHandler(apiService);
+      let client = this.createClient();
+      this.handler = createApiHandler(client);
     }
 
     // Pass buildId and tddService in services so http-server can use them
@@ -77,11 +78,14 @@ export class ServerManager {
     }
   }
 
-  async createApiService() {
+  createClient() {
     if (!this.config.apiKey) return null;
 
-    const { ApiService } = await import('./api-service.js');
-    return new ApiService({ ...this.config, command: 'run' });
+    return createApiClient({
+      baseUrl: this.config.apiUrl,
+      token: this.config.apiKey,
+      command: 'run',
+    });
   }
 
   async stop() {

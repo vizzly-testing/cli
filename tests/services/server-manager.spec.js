@@ -25,8 +25,8 @@ vi.mock('../../src/server/handlers/api-handler.js', () => ({
   createApiHandler: vi.fn(),
 }));
 
-vi.mock('../../src/services/api-service.js', () => ({
-  ApiService: vi.fn(),
+vi.mock('../../src/api/index.js', () => ({
+  createApiClient: vi.fn(),
 }));
 
 vi.mock('events', () => ({
@@ -43,12 +43,13 @@ describe('ServerManager', () => {
   let mockHttpServer;
   let mockTddHandler;
   let mockApiHandler;
-  let mockApiService;
+  let mockClient;
 
   beforeEach(async () => {
     mockConfig = {
       server: { port: 47392 },
       apiKey: 'test-api-key',
+      apiUrl: 'https://api.vizzly.dev',
       baselineBuildId: 'baseline-123',
       baselineComparisonId: 'comparison-456',
     };
@@ -74,8 +75,11 @@ describe('ServerManager', () => {
       cleanup: vi.fn(),
     };
 
-    mockApiService = {
-      uploadScreenshot: vi.fn(),
+    mockClient = {
+      request: vi.fn(),
+      getBaseUrl: vi.fn(() => 'https://api.vizzly.dev'),
+      getToken: vi.fn(() => 'test-api-key'),
+      getUserAgent: vi.fn(() => 'vizzly-cli/test'),
     };
 
     // Mock implementations
@@ -88,15 +92,12 @@ describe('ServerManager', () => {
     const { createApiHandler } = await import(
       '../../src/server/handlers/api-handler.js'
     );
-    const { ApiService } = await import('../../src/services/api-service.js');
+    const { createApiClient } = await import('../../src/api/index.js');
 
     createHttpServer.mockReturnValue(mockHttpServer);
     createTddHandler.mockReturnValue(mockTddHandler);
     createApiHandler.mockReturnValue(mockApiHandler);
-    // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-    ApiService.mockImplementation(function () {
-      return mockApiService;
-    });
+    createApiClient.mockReturnValue(mockClient);
 
     serverManager = new ServerManager(mockConfig);
 
@@ -177,7 +178,7 @@ describe('ServerManager', () => {
 
       await serverManager.start('build-123', false);
 
-      expect(createApiHandler).toHaveBeenCalledWith(mockApiService);
+      expect(createApiHandler).toHaveBeenCalledWith(mockClient);
       expect(createHttpServer).toHaveBeenCalledWith(
         47392,
         mockApiHandler,
@@ -426,26 +427,27 @@ describe('ServerManager', () => {
     });
   });
 
-  describe('createApiService', () => {
-    it('should create API service with correct configuration', async () => {
-      const { ApiService } = await import('../../src/services/api-service.js');
+  describe('createClient', () => {
+    it('should create API client with correct configuration', async () => {
+      const { createApiClient } = await import('../../src/api/index.js');
 
-      const apiService = await serverManager.createApiService();
+      const client = serverManager.createClient();
 
-      expect(ApiService).toHaveBeenCalledWith({
-        ...mockConfig,
+      expect(createApiClient).toHaveBeenCalledWith({
+        baseUrl: mockConfig.apiUrl,
+        token: mockConfig.apiKey,
         command: 'run',
       });
-      expect(apiService).toBe(mockApiService);
+      expect(client).toBe(mockClient);
     });
 
-    it('should return null when no API key', async () => {
+    it('should return null when no API key', () => {
       const configWithoutKey = { ...mockConfig, apiKey: null };
       const serverManagerWithoutKey = new ServerManager(configWithoutKey);
 
-      const apiService = await serverManagerWithoutKey.createApiService();
+      const client = serverManagerWithoutKey.createClient();
 
-      expect(apiService).toBe(null);
+      expect(client).toBe(null);
     });
   });
 

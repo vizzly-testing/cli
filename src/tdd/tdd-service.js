@@ -9,8 +9,14 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  createApiClient,
+  getBatchHotspots,
+  getBuilds,
+  getComparison,
+  getTddBaselines,
+} from '../api/index.js';
 import { NetworkError } from '../errors/vizzly-error.js';
-import { ApiService } from '../services/api-service.js';
 import { HtmlReportGenerator } from '../services/html-report-generator.js';
 import { colors } from '../utils/colors.js';
 import { fetchWithTimeout } from '../utils/fetch-utils.js';
@@ -90,7 +96,7 @@ export class TddService {
     this.config = config;
     this.setBaseline = setBaseline;
     this.authService = authService;
-    this.api = new ApiService({
+    this.client = createApiClient({
       baseUrl: config.apiUrl,
       token: config.apiKey,
       command: 'tdd',
@@ -154,7 +160,7 @@ export class TddService {
       let baselineBuild;
 
       if (buildId) {
-        let apiResponse = await this.api.getTddBaselines(buildId);
+        let apiResponse = await getTddBaselines(this.client, buildId);
 
         if (!apiResponse) {
           throw new Error(`Build ${buildId} not found or API returned null`);
@@ -198,7 +204,7 @@ export class TddService {
       } else if (comparisonId) {
         // Handle specific comparison download
         output.info(`Using comparison: ${comparisonId}`);
-        let comparison = await this.api.getComparison(comparisonId);
+        let comparison = await getComparison(this.client, comparisonId);
 
         if (!comparison.baseline_screenshot) {
           throw new Error(
@@ -267,7 +273,7 @@ export class TddService {
         };
       } else {
         // Get latest passed build
-        let builds = await this.api.getBuilds({
+        let builds = await getBuilds(this.client, {
           environment,
           branch,
           status: 'passed',
@@ -284,7 +290,7 @@ export class TddService {
           return null;
         }
 
-        let apiResponse = await this.api.getTddBaselines(builds.data[0].id);
+        let apiResponse = await getTddBaselines(this.client, builds.data[0].id);
 
         if (!apiResponse) {
           throw new Error(
@@ -559,7 +565,7 @@ export class TddService {
         `🔥 Fetching hotspot data for ${screenshotNames.length} screenshots...`
       );
 
-      let response = await this.api.getBatchHotspots(screenshotNames);
+      let response = await getBatchHotspots(this.client, screenshotNames);
 
       if (!response.hotspots || Object.keys(response.hotspots).length === 0) {
         output.debug('tdd', 'No hotspot data available from cloud');

@@ -31,6 +31,14 @@ export function createInMemoryTokenStore(initialTokens = null) {
 
 /**
  * Create a mock HTTP client for testing
+ *
+ * Response matching priority:
+ * 1. Exact endpoint match: `{ '/api/auth/login': { ... } }`
+ * 2. Method + endpoint: `{ 'POST /api/auth/login': { ... } }`
+ * 3. Partial match (use with caution): `{ '/api/auth': { ... } }` matches any /api/auth/* endpoint
+ *
+ * To throw an error, pass an Error instance as the response value.
+ *
  * @param {Object} responses - Map of endpoint patterns to responses
  * @returns {Object} HTTP client with request, authenticatedRequest
  */
@@ -38,18 +46,18 @@ export function createMockHttpClient(responses = {}) {
   let calls = [];
 
   function findResponse(endpoint, method = 'GET') {
-    // Try exact match first
+    // 1. Exact endpoint match
     if (responses[endpoint]) {
       return responses[endpoint];
     }
 
-    // Try with method prefix
+    // 2. Method + endpoint match
     let key = `${method} ${endpoint}`;
     if (responses[key]) {
       return responses[key];
     }
 
-    // Try pattern matching
+    // 3. Partial/substring match (for convenience, but be careful with overlapping patterns)
     for (let pattern of Object.keys(responses)) {
       if (endpoint.includes(pattern) || pattern.includes(endpoint)) {
         return responses[pattern];

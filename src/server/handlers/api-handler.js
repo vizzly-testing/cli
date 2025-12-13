@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { uploadScreenshot as defaultUploadScreenshot } from '../../api/index.js';
 import { detectImageInputType } from '../../utils/image-input-detector.js';
 import * as output from '../../utils/output.js';
 
@@ -34,7 +35,16 @@ import * as output from '../../utils/output.js';
  * └─────────────────────────────────────────────────────────────┘
  */
 
-export const createApiHandler = apiService => {
+/**
+ * Create an API handler for screenshot uploads.
+ * @param {Object} client - API client with request method
+ * @param {Object} options - Optional dependencies for testing
+ * @param {Function} options.uploadScreenshot - Upload function (defaults to API uploadScreenshot)
+ */
+export const createApiHandler = (
+  client,
+  { uploadScreenshot = defaultUploadScreenshot } = {}
+) => {
   let vizzlyDisabled = false;
   let screenshotCount = 0;
   let uploadPromises = [];
@@ -53,13 +63,13 @@ export const createApiHandler = apiService => {
       };
     }
 
-    // buildId is optional - API service will handle it appropriately
+    // buildId is optional - API will handle it appropriately
 
-    if (!apiService) {
+    if (!client) {
       return {
         statusCode: 500,
         body: {
-          error: 'API service not available',
+          error: 'API client not available',
         },
       };
     }
@@ -119,8 +129,13 @@ export const createApiHandler = apiService => {
     screenshotCount++;
 
     // Fire upload in background - DON'T AWAIT!
-    const uploadPromise = apiService
-      .uploadScreenshot(buildId, name, imageBuffer, properties ?? {})
+    let uploadPromise = uploadScreenshot(
+      client,
+      buildId,
+      name,
+      imageBuffer,
+      properties ?? {}
+    )
       .then(result => {
         if (!result.skipped) {
           output.debug('upload', name);

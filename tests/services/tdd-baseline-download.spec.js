@@ -5,12 +5,29 @@ import { TddService } from '../../src/services/tdd-service.js';
 
 // Don't mock fetch-utils - we want to test it!
 // Mock fs for file operations but keep functionality testable
-vi.mock('fs', () => ({
-  writeFileSync: vi.fn(),
-  mkdirSync: vi.fn(),
-  existsSync: vi.fn(() => false),
+vi.mock('fs', async importOriginal => {
+  let original = await importOriginal();
+  return {
+    ...original,
+    writeFileSync: vi.fn(),
+    mkdirSync: vi.fn(),
+    existsSync: vi.fn(() => false),
+  };
+});
+
+// Mock the new API module
+vi.mock('../../src/api/index.js', () => ({
+  createApiClient: vi.fn(() => ({
+    request: vi.fn(),
+    getBaseUrl: vi.fn(() => 'https://test.vizzly.com'),
+    getToken: vi.fn(() => 'test-api-key'),
+    getUserAgent: vi.fn(() => 'vizzly-cli/test'),
+  })),
+  getTddBaselines: vi.fn(),
+  getComparison: vi.fn(),
+  getBuilds: vi.fn(),
+  getBatchHotspots: vi.fn(),
 }));
-vi.mock('../../src/services/api-service.js');
 vi.mock('../../src/utils/logger.js', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),
@@ -30,7 +47,7 @@ describe('TDD Service - Baseline Download', () => {
   let tddService;
   let mockConfig;
   let testDir;
-  let mockApiService;
+  let mockApiFns;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -45,18 +62,8 @@ describe('TDD Service - Baseline Download', () => {
       },
     };
 
-    // Setup API service mock
-    const { ApiService } = await import('../../src/services/api-service.js');
-    mockApiService = {
-      getBuild: vi.fn(),
-      getBuilds: vi.fn(),
-      getComparison: vi.fn(),
-      getTddBaselines: vi.fn(),
-    };
-    // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-    ApiService.mockImplementation(function () {
-      return mockApiService;
-    });
+    // Import mocked API functions
+    mockApiFns = await import('../../src/api/index.js');
 
     tddService = new TddService(mockConfig, testDir);
   });
@@ -102,7 +109,7 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: [],
       };
 
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 
@@ -130,7 +137,11 @@ describe('TDD Service - Baseline Download', () => {
       );
 
       // Verify API calls - now uses getTddBaselines instead of getBuild
-      expect(mockApiService.getTddBaselines).toHaveBeenCalledWith('build123');
+      // Note: functional API takes client as first param
+      expect(mockApiFns.getTddBaselines).toHaveBeenCalledWith(
+        expect.anything(),
+        'build123'
+      );
 
       // Verify fetch calls with timeout
       expect(global.fetch).toHaveBeenCalledTimes(2);
@@ -220,7 +231,7 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: [],
       };
 
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 
@@ -271,7 +282,7 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: [],
       };
 
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 
@@ -332,8 +343,8 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: [],
       };
 
-      mockApiService.getBuilds.mockResolvedValueOnce(mockBuildsResponse);
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getBuilds.mockResolvedValueOnce(mockBuildsResponse);
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 
@@ -347,15 +358,16 @@ describe('TDD Service - Baseline Download', () => {
       // Execute without specifying build ID
       const result = await tddService.downloadBaselines('production', 'main');
 
-      // Verify API calls
-      expect(mockApiService.getBuilds).toHaveBeenCalledWith({
+      // Verify API calls - note: functional API takes client as first param
+      expect(mockApiFns.getBuilds).toHaveBeenCalledWith(expect.anything(), {
         environment: 'production',
         branch: 'main',
         status: 'passed',
         limit: 1,
       });
       // Now uses getTddBaselines instead of getBuild
-      expect(mockApiService.getTddBaselines).toHaveBeenCalledWith(
+      expect(mockApiFns.getTddBaselines).toHaveBeenCalledWith(
+        expect.anything(),
         'latest-build-456'
       );
 
@@ -373,7 +385,7 @@ describe('TDD Service - Baseline Download', () => {
 
     it('should handle cases where no baseline builds are found', async () => {
       // Mock empty builds response
-      mockApiService.getBuilds.mockResolvedValueOnce({
+      mockApiFns.getBuilds.mockResolvedValueOnce({
         data: [],
       });
 
@@ -383,8 +395,8 @@ describe('TDD Service - Baseline Download', () => {
         'feature-branch'
       );
 
-      // Verify API call
-      expect(mockApiService.getBuilds).toHaveBeenCalledWith({
+      // Verify API call - note: functional API takes client as first param
+      expect(mockApiFns.getBuilds).toHaveBeenCalledWith(expect.anything(), {
         environment: 'staging',
         branch: 'feature-branch',
         status: 'passed',
@@ -408,7 +420,7 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: [],
       };
 
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 
@@ -437,7 +449,7 @@ describe('TDD Service - Baseline Download', () => {
         baseline_screenshot_url: 'https://example.com/profile.png',
       };
 
-      mockApiService.getComparison.mockResolvedValueOnce(mockComparison);
+      mockApiFns.getComparison.mockResolvedValueOnce(mockComparison);
 
       // Mock successful image download
       const mockImageBuffer = Buffer.from('profile-image-data');
@@ -456,10 +468,13 @@ describe('TDD Service - Baseline Download', () => {
         'comp123'
       );
 
-      // Verify API calls
-      expect(mockApiService.getComparison).toHaveBeenCalledWith('comp123');
+      // Verify API calls - note: functional API takes client as first param
+      expect(mockApiFns.getComparison).toHaveBeenCalledWith(
+        expect.anything(),
+        'comp123'
+      );
       // Should NOT call getTddBaselines when using comparison ID - filename is generated locally
-      expect(mockApiService.getTddBaselines).not.toHaveBeenCalled();
+      expect(mockApiFns.getTddBaselines).not.toHaveBeenCalled();
 
       // Verify download
       expect(global.fetch).toHaveBeenCalledWith(
@@ -520,7 +535,7 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: ['theme'], // Only theme is configured as baseline property
       };
 
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 
@@ -605,7 +620,7 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: ['device'],
       };
 
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 
@@ -672,7 +687,7 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: ['theme'], // Only theme affects baseline matching
       };
 
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 
@@ -729,7 +744,7 @@ describe('TDD Service - Baseline Download', () => {
         signatureProperties: [], // Empty - no custom properties affect matching
       };
 
-      mockApiService.getTddBaselines.mockResolvedValueOnce(
+      mockApiFns.getTddBaselines.mockResolvedValueOnce(
         mockTddBaselinesResponse
       );
 

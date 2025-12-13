@@ -5,20 +5,42 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TddService } from '../../src/services/tdd-service.js';
 
 // Mock all external dependencies
-vi.mock('fs', () => ({
-  writeFileSync: vi.fn(),
-  readFileSync: vi.fn(() => Buffer.from('mock-image-data')),
-  existsSync: vi.fn(() => true),
-  mkdirSync: vi.fn(),
-  copyFileSync: vi.fn(),
-}));
+vi.mock('fs', async importOriginal => {
+  let original = await importOriginal();
+  return {
+    ...original,
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn((path, ...args) => {
+      // Allow package.json to be read for version info
+      if (String(path).endsWith('package.json')) {
+        return original.readFileSync(path, ...args);
+      }
+      return Buffer.from('mock-image-data');
+    }),
+    existsSync: vi.fn(() => true),
+    mkdirSync: vi.fn(),
+    copyFileSync: vi.fn(),
+  };
+});
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(() => ''),
   exec: vi.fn((_cmd, callback) => callback(null, '', '')),
 }));
 
-vi.mock('../../src/services/api-service.js');
+// Mock the new API module
+vi.mock('../../src/api/index.js', () => ({
+  createApiClient: vi.fn(() => ({
+    request: vi.fn(),
+    getBaseUrl: vi.fn(() => 'https://test.vizzly.com'),
+    getToken: vi.fn(() => 'test-api-key'),
+    getUserAgent: vi.fn(() => 'vizzly-cli/test'),
+  })),
+  getTddBaselines: vi.fn(),
+  getComparison: vi.fn(),
+  getBuilds: vi.fn(),
+  getBatchHotspots: vi.fn(),
+}));
 vi.mock('../../src/utils/logger.js', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),

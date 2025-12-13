@@ -25,15 +25,17 @@ vi.mock('child_process', () => ({
   spawn: vi.fn(),
 }));
 
-vi.mock('../../src/services/api-service.js', () => ({
-  // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-  ApiService: vi.fn(function () {
-    return {
-      createBuild: vi.fn(),
-      getBuild: vi.fn(),
-      finalizeBuild: vi.fn(),
-    };
-  }),
+// Mock the functional API module
+vi.mock('../../src/api/index.js', () => ({
+  createApiClient: vi.fn(() => ({
+    request: vi.fn(),
+    getBaseUrl: vi.fn(() => 'https://api.vizzly.dev'),
+    getToken: vi.fn(() => 'test-api-key'),
+    getUserAgent: vi.fn(() => 'vizzly-cli/test'),
+  })),
+  createBuild: vi.fn(),
+  getBuild: vi.fn(),
+  finalizeBuild: vi.fn(),
 }));
 
 describe('TestRunner', () => {
@@ -115,24 +117,17 @@ describe('TestRunner', () => {
     });
 
     it('successfully runs test command without TDD', async () => {
-      // Mock the API service methods
-      const mockApiService = {
-        createBuild: vi.fn().mockResolvedValue({
-          id: 'build123',
-          url: 'http://example.com/build/123',
-        }),
-        getBuild: vi.fn().mockResolvedValue({
-          id: 'build123',
-          url: 'http://example.com/build/123',
-        }),
-        finalizeBuild: vi.fn().mockResolvedValue(),
-      };
-
-      const { ApiService } = await import('../../src/services/api-service.js');
-      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-      ApiService.mockImplementation(function () {
-        return mockApiService;
+      // Mock the API functions
+      let api = await import('../../src/api/index.js');
+      api.createBuild.mockResolvedValue({
+        id: 'build123',
+        url: 'http://example.com/build/123',
       });
+      api.getBuild.mockResolvedValue({
+        id: 'build123',
+        url: 'http://example.com/build/123',
+      });
+      api.finalizeBuild.mockResolvedValue();
 
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
@@ -144,7 +139,7 @@ describe('TestRunner', () => {
         }
       });
 
-      const options = {
+      let options = {
         testCommand: 'npm test',
         tdd: false,
       };
@@ -156,8 +151,8 @@ describe('TestRunner', () => {
         false,
         undefined
       );
-      expect(mockApiService.createBuild).toHaveBeenCalled();
-      expect(mockApiService.finalizeBuild).toHaveBeenCalled();
+      expect(api.createBuild).toHaveBeenCalled();
+      expect(api.finalizeBuild).toHaveBeenCalled();
       expect(mockServerManager.stop).toHaveBeenCalled();
       expect(mockBuildManager.createBuild).not.toHaveBeenCalled();
     });
@@ -229,23 +224,17 @@ describe('TestRunner', () => {
     });
 
     it('handles server start failure', async () => {
-      // Mock API service for build creation
-      const mockApiService = {
-        createBuild: vi.fn().mockResolvedValue({ id: 'build123' }),
-        finalizeBuild: vi.fn().mockResolvedValue(),
-      };
-      const { ApiService } = await import('../../src/services/api-service.js');
-      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-      ApiService.mockImplementation(function () {
-        return mockApiService;
-      });
+      // Mock API functions for build creation
+      let api = await import('../../src/api/index.js');
+      api.createBuild.mockResolvedValue({ id: 'build123' });
+      api.finalizeBuild.mockResolvedValue();
 
       mockServerManager.start.mockRejectedValue(
         new Error('Server failed to start')
       );
       mockServerManager.stop.mockResolvedValue();
 
-      const options = {
+      let options = {
         testCommand: 'npm test',
       };
 
@@ -436,19 +425,13 @@ describe('TestRunner', () => {
 
   describe('integration workflow', () => {
     it('properly sets up environment variables', async () => {
-      const { spawn } = await import('node:child_process');
+      let { spawn } = await import('node:child_process');
 
-      // Mock API service for build creation
-      const mockApiService = {
-        createBuild: vi.fn().mockResolvedValue({ id: 'integration-build' }),
-        getBuild: vi.fn().mockResolvedValue({ id: 'integration-build' }),
-        finalizeBuild: vi.fn().mockResolvedValue(),
-      };
-      const { ApiService } = await import('../../src/services/api-service.js');
-      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-      ApiService.mockImplementation(function () {
-        return mockApiService;
-      });
+      // Mock API functions for build creation
+      let api = await import('../../src/api/index.js');
+      api.createBuild.mockResolvedValue({ id: 'integration-build' });
+      api.getBuild.mockResolvedValue({ id: 'integration-build' });
+      api.finalizeBuild.mockResolvedValue();
 
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
@@ -459,7 +442,7 @@ describe('TestRunner', () => {
         }
       });
 
-      const options = {
+      let options = {
         testCommand: 'npm run e2e',
       };
 
@@ -478,17 +461,11 @@ describe('TestRunner', () => {
     });
 
     it('maintains process reference during execution', async () => {
-      // Mock API service for build creation
-      const mockApiService = {
-        createBuild: vi.fn().mockResolvedValue({ id: 'ref-test' }),
-        getBuild: vi.fn().mockResolvedValue({ id: 'ref-test' }),
-        finalizeBuild: vi.fn().mockResolvedValue(),
-      };
-      const { ApiService } = await import('../../src/services/api-service.js');
-      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-      ApiService.mockImplementation(function () {
-        return mockApiService;
-      });
+      // Mock API functions for build creation
+      let api = await import('../../src/api/index.js');
+      api.createBuild.mockResolvedValue({ id: 'ref-test' });
+      api.getBuild.mockResolvedValue({ id: 'ref-test' });
+      api.finalizeBuild.mockResolvedValue();
 
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
@@ -579,16 +556,10 @@ describe('TestRunner', () => {
     });
 
     it('should not call getTddResults in API mode', async () => {
-      const mockApiService = {
-        createBuild: vi.fn().mockResolvedValue({ id: 'api-build-123' }),
-        getBuild: vi.fn().mockResolvedValue({ id: 'api-build-123' }),
-        finalizeBuild: vi.fn().mockResolvedValue(),
-      };
-      const { ApiService } = await import('../../src/services/api-service.js');
-      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-      ApiService.mockImplementation(function () {
-        return mockApiService;
-      });
+      let api = await import('../../src/api/index.js');
+      api.createBuild.mockResolvedValue({ id: 'api-build-123' });
+      api.getBuild.mockResolvedValue({ id: 'api-build-123' });
+      api.finalizeBuild.mockResolvedValue();
 
       mockServerManager.start.mockResolvedValue();
       mockServerManager.stop.mockResolvedValue();
@@ -622,23 +593,16 @@ describe('TestRunner', () => {
         mockTddService
       );
 
-      const mockApiService = {
-        createBuild: vi.fn().mockResolvedValue({
-          id: 'build-123',
-          url: 'https://app.vizzly.dev/builds/build-123',
-        }),
-        getBuild: vi.fn(),
-        finalizeBuild: vi.fn(),
-      };
-      const { ApiService } = await import('../../src/services/api-service.js');
-      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-      ApiService.mockImplementation(function () {
-        return mockApiService;
+      let api = await import('../../src/api/index.js');
+      api.createBuild.mockResolvedValue({
+        id: 'build-123',
+        url: 'https://app.vizzly.dev/builds/build-123',
       });
 
       await testRunner.createBuild({ buildName: 'Test Build' }, false);
 
-      expect(mockApiService.createBuild).toHaveBeenCalledWith(
+      expect(api.createBuild).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           metadata: {
             comparison: {
@@ -661,23 +625,16 @@ describe('TestRunner', () => {
         mockTddService
       );
 
-      const mockApiService = {
-        createBuild: vi.fn().mockResolvedValue({
-          id: 'build-456',
-          url: 'https://app.vizzly.dev/builds/build-456',
-        }),
-        getBuild: vi.fn(),
-        finalizeBuild: vi.fn(),
-      };
-      const { ApiService } = await import('../../src/services/api-service.js');
-      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-      ApiService.mockImplementation(function () {
-        return mockApiService;
+      let api = await import('../../src/api/index.js');
+      api.createBuild.mockResolvedValue({
+        id: 'build-456',
+        url: 'https://app.vizzly.dev/builds/build-456',
       });
 
       await testRunner.createBuild({ buildName: 'Test Build' }, false);
 
-      expect(mockApiService.createBuild).toHaveBeenCalledWith(
+      expect(api.createBuild).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           metadata: {
             comparison: {
@@ -697,23 +654,16 @@ describe('TestRunner', () => {
         mockTddService
       );
 
-      const mockApiService = {
-        createBuild: vi.fn().mockResolvedValue({
-          id: 'build-789',
-          url: 'https://app.vizzly.dev/builds/build-789',
-        }),
-        getBuild: vi.fn(),
-        finalizeBuild: vi.fn(),
-      };
-      const { ApiService } = await import('../../src/services/api-service.js');
-      // biome-ignore lint/complexity/useArrowFunction: Must use function for constructor mock
-      ApiService.mockImplementation(function () {
-        return mockApiService;
+      let api = await import('../../src/api/index.js');
+      api.createBuild.mockResolvedValue({
+        id: 'build-789',
+        url: 'https://app.vizzly.dev/builds/build-789',
       });
 
       await testRunner.createBuild({ buildName: 'Test Build' }, false);
 
-      const createBuildCall = mockApiService.createBuild.mock.calls[0][0];
+      // The second arg to createBuild is the payload
+      let createBuildCall = api.createBuild.mock.calls[0][1];
       expect(createBuildCall.metadata).toBeUndefined();
     });
   });

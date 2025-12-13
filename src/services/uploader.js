@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { glob } from 'glob';
+import { checkShas, createApiClient, createBuild } from '../api/index.js';
 import {
   TimeoutError,
   UploadError,
@@ -14,7 +15,6 @@ import {
 } from '../errors/vizzly-error.js';
 import { getDefaultBranch } from '../utils/git.js';
 import * as output from '../utils/output.js';
-import { ApiService } from './api-service.js';
 
 const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_SHA_CHECK_BATCH_SIZE = 100;
@@ -28,11 +28,11 @@ export function createUploader(
   options = {}
 ) {
   const signal = options.signal || new AbortController().signal;
-  const api = new ApiService({
+  const client = createApiClient({
     baseUrl: apiUrl,
     token: apiKey,
     command: command || 'upload',
-    userAgent,
+    sdkUserAgent: userAgent,
     allowNoToken: true,
   });
 
@@ -114,13 +114,13 @@ export function createUploader(
         parallel_id: parallelId,
       };
 
-      const build = await api.createBuild(buildInfo);
+      const build = await createBuild(client, buildInfo);
       const buildId = build.id;
 
       // Check which files need uploading (now with buildId)
       const { toUpload, existing, screenshots } = await checkExistingFiles(
         fileMetadata,
-        api,
+        client,
         signal,
         buildId
       );
@@ -140,7 +140,7 @@ export function createUploader(
         screenshots,
         buildId,
         buildInfo,
-        api,
+        client,
         signal,
         batchSize: batchSize,
         onProgress: current =>
@@ -198,7 +198,7 @@ export function createUploader(
 
       let resp;
       try {
-        resp = await api.request(`/api/sdk/builds/${buildId}`, { signal });
+        resp = await client.request(`/api/sdk/builds/${buildId}`, { signal });
       } catch (err) {
         const match = String(err?.message || '').match(
           /API request failed: (\d+)/
@@ -298,7 +298,7 @@ async function processFiles(files, signal, onProgress) {
 /**
  * Check which files already exist on the server using signature-based deduplication
  */
-async function checkExistingFiles(fileMetadata, api, signal, buildId) {
+async function checkExistingFiles(fileMetadata, client, signal, buildId) {
   const existingShas = new Set();
   const allScreenshots = [];
 
@@ -320,7 +320,7 @@ async function checkExistingFiles(fileMetadata, api, signal, buildId) {
     }));
 
     try {
-      const res = await api.checkShas(screenshotBatch, buildId);
+      const res = await checkShas(client, screenshotBatch, buildId);
       const { existing = [], screenshots = [] } = res || {};
       for (let sha of existing) {
         existingShas.add(sha);
@@ -366,7 +366,7 @@ function extractBrowserFromFilename(filename) {
 async function uploadFiles({
   toUpload,
   buildId,
-  api,
+  client,
   signal,
   batchSize,
   onProgress,
@@ -396,7 +396,7 @@ async function uploadFiles({
     }
 
     try {
-      result = await api.request('/api/sdk/upload', {
+      result = await client.request('/api/sdk/upload', {
         method: 'POST',
         body: form,
         signal,

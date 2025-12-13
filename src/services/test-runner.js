@@ -5,6 +5,12 @@
 
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import {
+  createBuild as createApiBuild,
+  createApiClient,
+  finalizeBuild as finalizeApiBuild,
+  getBuild,
+} from '../api/index.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import * as output from '../utils/output.js';
 
@@ -82,10 +88,10 @@ export class TestRunner extends EventEmitter {
       buildId = await this.createBuild(options, tdd);
       if (!tdd && buildId) {
         // Get build URL for API mode
-        const apiService = await this.createApiService();
-        if (apiService) {
+        let client = this.createApiClient();
+        if (client) {
           try {
-            const build = await apiService.getBuild(buildId);
+            let build = await getBuild(client, buildId);
             buildUrl = build.url;
             if (buildUrl) {
               output.info(`Build URL: ${buildUrl}`);
@@ -184,14 +190,14 @@ export class TestRunner extends EventEmitter {
   async createBuild(options, tdd) {
     if (tdd) {
       // TDD mode: create local build
-      const build = await this.buildManager.createBuild(options);
+      let build = await this.buildManager.createBuild(options);
       output.debug('build', `created ${build.id.substring(0, 8)}`);
       return build.id;
     } else {
       // API mode: create build via API
-      const apiService = await this.createApiService();
-      if (apiService) {
-        const buildPayload = {
+      let client = this.createApiClient();
+      if (client) {
+        let buildPayload = {
           name: options.buildName || `Test Run ${new Date().toISOString()}`,
           branch: options.branch || 'main',
           environment: options.environment || 'test',
@@ -214,7 +220,7 @@ export class TestRunner extends EventEmitter {
           };
         }
 
-        const buildResult = await apiService.createBuild(buildPayload);
+        let buildResult = await createApiBuild(client, buildPayload);
         output.debug('build', `created ${buildResult.id}`);
 
         // Emit build created event
@@ -234,14 +240,13 @@ export class TestRunner extends EventEmitter {
     }
   }
 
-  async createApiService() {
+  createApiClient() {
     if (!this.config.apiKey) return null;
 
-    const { ApiService } = await import('./api-service.js');
-    return new ApiService({
-      ...this.config,
+    return createApiClient({
+      baseUrl: this.config.apiUrl,
+      token: this.config.apiKey,
       command: 'run',
-      uploadAll: this.config.uploadAll,
     });
   }
 
@@ -264,9 +269,9 @@ export class TestRunner extends EventEmitter {
         }
 
         // Then update build status via API
-        const apiService = await this.createApiService();
-        if (apiService) {
-          await apiService.finalizeBuild(buildId, success, executionTime);
+        let client = this.createApiClient();
+        if (client) {
+          await finalizeApiBuild(client, buildId, success, executionTime);
           output.debug('build', 'finalized via api', { success });
         } else {
           output.warn(`No API service available to finalize build ${buildId}`);

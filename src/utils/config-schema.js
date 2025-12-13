@@ -73,6 +73,7 @@ export const vizzlyConfigSchema = z
     }),
     comparison: comparisonSchema.default({ threshold: 2.0 }),
     tdd: tddSchema.default({ openReport: false }),
+    signatureProperties: z.array(z.string()).default([]),
     plugins: z.array(z.string()).default([]),
 
     // Additional optional fields

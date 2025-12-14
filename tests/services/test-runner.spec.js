@@ -149,7 +149,7 @@ describe('TestRunner', () => {
       expect(mockServerManager.start).toHaveBeenCalledWith(
         'build123',
         false,
-        undefined
+        false // setBaseline is now normalized to false instead of undefined
       );
       expect(api.createBuild).toHaveBeenCalled();
       expect(api.finalizeBuild).toHaveBeenCalled();
@@ -184,7 +184,7 @@ describe('TestRunner', () => {
       expect(mockServerManager.start).toHaveBeenCalledWith(
         'build456',
         true,
-        undefined
+        false // setBaseline is now normalized to false instead of undefined
       );
       expect(mockBuildManager.createBuild).toHaveBeenCalled();
       expect(mockServerManager.server.finishBuild).toHaveBeenCalledWith(

@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getDimensionsSync } from '@vizzly-testing/honeydiff';
-import { TddService } from '../../services/tdd-service.js';
+import { TddService } from '../../tdd/tdd-service.js';
 import { detectImageInputType } from '../../utils/image-input-detector.js';
 import * as output from '../../utils/output.js';
 import {

@@ -58,10 +58,9 @@
   ],
   "scripts": {
     "start": "node src/index.js",
-    "build": "npm run clean && npm run compile && npm run copy-assets && npm run build:reporter && npm run copy-types",
+    "build": "npm run clean && npm run compile && npm run build:reporter && npm run copy-types",
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",
-    "copy-assets": "cp src/services/report-generator/report.css dist/services/report-generator/",
     "copy-types": "mkdir -p dist/types && cp src/types/*.d.ts dist/types/",
     "build:reporter": "cd src/reporter && vite build",
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",

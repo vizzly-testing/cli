@@ -8,11 +8,13 @@
  */
 
 // Re-export token store utilities for convenience
-export {
+import {
   clearAuthTokens,
   getAuthTokens,
   saveAuthTokens,
 } from '../utils/global-config.js';
+
+export { clearAuthTokens, getAuthTokens, saveAuthTokens };
 // HTTP client factory
 export { createAuthClient } from './client.js';
 // Core pure functions

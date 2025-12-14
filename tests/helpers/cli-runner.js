@@ -45,6 +45,8 @@ function createCleanEnv(overrides = {}) {
     // Remove any tokens
     VIZZLY_TOKEN: undefined,
     VIZZLY_API_KEY: undefined,
+    // Pass through V8 coverage directory so child processes contribute to coverage
+    NODE_V8_COVERAGE: process.env.NODE_V8_COVERAGE,
     ...overrides,
   };
 }

@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     testTimeout: 8000,
+    fileParallelism: false,
     setupFiles: ['./tests/setup.js'],
     include: ['tests/**/*.spec.js', 'tests/**/*.spec.jsx'],
     exclude: ['tests/reporter/**'],
@@ -21,7 +22,8 @@ export default defineConfig({
         'dist/**',
         'bin/**',
         'scripts/**',
-        '**/*.config.js'
+        '**/*.config.js',
+        'src/reporter/**'
       ],
       include: ['src/**/*.js', 'src/**/*.jsx'],
       all: true,

@@ -4,7 +4,6 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import {
   createBuild as createApiBuild,
   createApiClient,
@@ -12,15 +11,7 @@ import {
   getBuild,
 } from '../api/index.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
-import { createApiHandler } from '../server/handlers/api-handler.js';
-import { createTddHandler } from '../server/handlers/tdd-handler.js';
-import { createHttpServer } from '../server/http-server.js';
-import {
-  buildServerInterface,
-  getTddResults,
-  startServer,
-  stopServer,
-} from '../server-manager/index.js';
+import { createServerManager } from '../server-manager/index.js';
 import { createBuildObject } from '../services/build-manager.js';
 import { createUploader } from '../services/uploader.js';
 import { finalizeBuild, runTests } from '../test-runner/index.js';
@@ -33,55 +24,6 @@ import {
   generateBuildNameWithGit,
 } from '../utils/git.js';
 import * as output from '../utils/output.js';
-
-/**
- * Create a server manager object that provides the interface runTests expects.
- */
-function createServerManager(config, services = {}) {
-  let httpServer = null;
-  let handler = null;
-
-  let deps = {
-    createHttpServer,
-    createTddHandler,
-    createApiHandler,
-    createApiClient,
-    fs: { mkdirSync, writeFileSync, existsSync, unlinkSync },
-  };
-
-  return {
-    async start(buildId, tddMode, setBaseline) {
-      let result = await startServer({
-        config,
-        buildId,
-        tddMode,
-        setBaseline,
-        projectRoot: process.cwd(),
-        services,
-        deps,
-      });
-      httpServer = result.httpServer;
-      handler = result.handler;
-    },
-
-    async stop() {
-      await stopServer({
-        httpServer,
-        handler,
-        projectRoot: process.cwd(),
-        deps,
-      });
-    },
-
-    async getTddResults() {
-      return getTddResults({ tddMode: true, handler });
-    },
-
-    get server() {
-      return buildServerInterface({ handler, httpServer });
-    },
-  };
-}
 
 /**
  * Run command implementation

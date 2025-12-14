@@ -1,41 +1,65 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 // Mock fetch globally
 global.fetch = vi.fn();
 
 describe('Client SDK - File Path Support', () => {
+  let baseDir;
   let testDir;
   let testImagePath;
   let vizzlyScreenshot;
+  let testCounter = 0;
+
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-client-file-path-'));
+  });
+
+  afterAll(() => {
+    try {
+      rmSync(baseDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
 
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    // Create test directory and test image file
-    testDir = join(
-      process.cwd(),
-      'tests',
-      'fixtures',
-      'temp-client-screenshots'
-    );
+    // Create isolated test directory
+    testCounter++;
+    let workDir = join(baseDir, `test-${testCounter}`);
+    testDir = join(workDir, 'screenshots');
     mkdirSync(testDir, { recursive: true });
 
     testImagePath = join(testDir, 'test-screenshot.png');
-    const testImageBuffer = Buffer.from('fake-png-data');
+    let testImageBuffer = Buffer.from('fake-png-data');
     writeFileSync(testImagePath, testImageBuffer);
 
     // Mock server.json for auto-discovery
-    const vizzlyDir = join(process.cwd(), '.vizzly');
+    let vizzlyDir = join(workDir, '.vizzly');
     mkdirSync(vizzlyDir, { recursive: true });
     writeFileSync(
       join(vizzlyDir, 'server.json'),
       JSON.stringify({ port: 47392 })
     );
 
+    // Change working directory for auto-discovery
+    process.chdir(workDir);
+
     // Import fresh module
-    const clientModule = await import('../../src/client/index.js');
+    let clientModule = await import('../../src/client/index.js');
     vizzlyScreenshot = clientModule.vizzlyScreenshot;
 
     // Mock successful response
@@ -46,19 +70,6 @@ describe('Client SDK - File Path Support', () => {
   });
 
   afterEach(() => {
-    // Clean up test files
-    try {
-      rmSync(testDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    try {
-      rmSync(join(process.cwd(), '.vizzly'), { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-
     vi.resetModules();
   });
 

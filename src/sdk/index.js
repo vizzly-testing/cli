@@ -13,8 +13,8 @@
 import { EventEmitter } from 'node:events';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { ScreenshotServer } from '../services/screenshot-server.js';
-import { createTDDService } from '../services/tdd-service.js';
 import { createUploader } from '../services/uploader.js';
+import { createTDDService } from '../tdd/tdd-service.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { resolveImageBuffer } from '../utils/file-helpers.js';
 import * as output from '../utils/output.js';
@@ -370,9 +370,9 @@ export class VizzlySDK extends EventEmitter {
   }
 }
 
-export { createTDDService } from '../services/tdd-service.js';
 // Export service creators for advanced usage
 export { createUploader } from '../services/uploader.js';
+export { createTDDService } from '../tdd/tdd-service.js';
 // Re-export key utilities and errors
 export { loadConfig } from '../utils/config-loader.js';
 export * as output from '../utils/output.js';

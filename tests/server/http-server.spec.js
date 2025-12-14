@@ -166,8 +166,7 @@ describe('createHttpServer', () => {
 
       await makeScreenshotRequest(requestBody);
 
-      // Give time for event to potentially fire
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Event should not fire - check immediately since emission is synchronous
       expect(eventEmitted).toBe(false);
     });
 

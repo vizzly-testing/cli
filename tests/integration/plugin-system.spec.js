@@ -1,52 +1,66 @@
-import { execSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+/**
+ * Plugin System Integration Tests
+ *
+ * Tests the plugin discovery and registration system.
+ * Uses a shared temp directory to reduce filesystem churn.
+ */
+
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createCLIRunner } from '../helpers/cli-runner.js';
 
 describe('Plugin System Integration', () => {
-  let testDir;
+  let baseDir;
+  let cli;
 
-  beforeEach(() => {
-    testDir = join(process.cwd(), `test-plugin-integration-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+  beforeAll(() => {
+    // Create ONE temp directory for all tests
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-plugin-test-'));
+    cli = createCLIRunner(baseDir);
   });
 
-  afterEach(() => {
+  afterAll(() => {
     try {
-      rmSync(testDir, { recursive: true, force: true });
+      rmSync(baseDir, { recursive: true, force: true });
     } catch {
       // Ignore cleanup errors
     }
   });
 
-  it('should register plugin commands and show them in help', async () => {
-    // Create mock @vizzly-testing/test-plugin package
-    const pluginDir = join(
-      testDir,
-      'node_modules',
-      '@vizzly-testing',
-      'test-plugin'
-    );
+  /**
+   * Helper to create a test plugin in node_modules
+   */
+  function createPlugin(name, pluginCode, packageJsonExtras = {}) {
+    let pluginDir = join(baseDir, 'node_modules', '@vizzly-testing', name);
     mkdirSync(pluginDir, { recursive: true });
 
-    // Write package.json
     writeFileSync(
       join(pluginDir, 'package.json'),
-      JSON.stringify(
-        {
-          name: '@vizzly-testing/test-plugin',
-          version: '1.0.0',
-          vizzly: {
-            plugin: './plugin.js',
-          },
-        },
-        null,
-        2
-      )
+      JSON.stringify({
+        name: `@vizzly-testing/${name}`,
+        version: '1.0.0',
+        vizzly: { plugin: './plugin.js' },
+        ...packageJsonExtras,
+      })
     );
 
-    // Write plugin that adds a command
-    const pluginCode = `
+    writeFileSync(join(pluginDir, 'plugin.js'), pluginCode);
+    return pluginDir;
+  }
+
+  /**
+   * Helper to create a vizzly config file
+   */
+  function createConfig(content = 'export default {};') {
+    writeFileSync(join(baseDir, 'vizzly.config.js'), content);
+  }
+
+  it('registers plugin commands and shows them in help', async () => {
+    createPlugin(
+      'test-plugin',
+      `
       export default {
         name: 'test-plugin',
         version: '1.0.0',
@@ -59,55 +73,21 @@ describe('Plugin System Integration', () => {
             });
         }
       };
-    `;
-    writeFileSync(join(pluginDir, 'plugin.js'), pluginCode);
+    `
+    );
+    createConfig();
 
-    // Create minimal vizzly config
-    writeFileSync(join(testDir, 'vizzly.config.js'), 'export default {};');
+    let result = await cli.run(['--help']);
 
-    // Try to run vizzly --help from test directory
-    // This tests that the plugin is loaded and command is registered
-    const cliPath = join(process.cwd(), 'src', 'cli.js');
-
-    try {
-      const output = execSync(`node ${cliPath} --help`, {
-        cwd: testDir,
-        encoding: 'utf-8',
-        env: { ...process.env, NODE_ENV: 'test' },
-      });
-
-      // Check that help output includes the plugin command
-      expect(output).toContain('test-command');
-      expect(output).toContain('A test command from plugin');
-    } catch (error) {
-      // The CLI might exit with non-zero, but we still want to check output
-      if (error.stdout) {
-        expect(error.stdout.toString()).toContain('test-command');
-      } else {
-        throw error;
-      }
-    }
+    // Plugin command should appear in help output
+    expect(result.stdout).toContain('test-command');
+    expect(result.stdout).toContain('A test command from plugin');
   });
 
-  it('should provide context to plugins', async () => {
-    const pluginDir = join(
-      testDir,
-      'node_modules',
-      '@vizzly-testing',
-      'context-plugin'
-    );
-    mkdirSync(pluginDir, { recursive: true });
-
-    writeFileSync(
-      join(pluginDir, 'package.json'),
-      JSON.stringify({
-        name: '@vizzly-testing/context-plugin',
-        vizzly: { plugin: './plugin.js' },
-      })
-    );
-
-    // Plugin that validates context
-    const pluginCode = `
+  it('provides context to plugins', async () => {
+    createPlugin(
+      'context-plugin',
+      `
       export default {
         name: 'context-plugin',
         register(program, context) {
@@ -122,78 +102,39 @@ describe('Plugin System Integration', () => {
             });
         }
       };
-    `;
-    writeFileSync(join(pluginDir, 'plugin.js'), pluginCode);
+    `
+    );
+    createConfig();
 
-    writeFileSync(join(testDir, 'vizzly.config.js'), 'export default {};');
+    let result = await cli.run(['--help']);
 
-    const cliPath = join(process.cwd(), 'src', 'cli.js');
-
-    // If this doesn't throw, context was provided correctly
-    try {
-      execSync(`node ${cliPath} --help`, {
-        cwd: testDir,
-        encoding: 'utf-8',
-        env: { ...process.env, NODE_ENV: 'test' },
-      });
-    } catch (error) {
-      // Check for our validation errors
-      const stderr = error.stderr?.toString() || error.stdout?.toString() || '';
-      expect(stderr).not.toContain('Missing config');
-      expect(stderr).not.toContain('Missing output');
-      expect(stderr).not.toContain('Missing services');
-    }
+    // If context validation failed, we'd see the error in stderr
+    expect(result.stderr).not.toContain('Missing config');
+    expect(result.stderr).not.toContain('Missing output');
+    expect(result.stderr).not.toContain('Missing services');
   });
 
-  it('should handle plugin registration errors gracefully', async () => {
-    const pluginDir = join(
-      testDir,
-      'node_modules',
-      '@vizzly-testing',
-      'bad-plugin'
-    );
-    mkdirSync(pluginDir, { recursive: true });
-
-    writeFileSync(
-      join(pluginDir, 'package.json'),
-      JSON.stringify({
-        name: '@vizzly-testing/bad-plugin',
-        vizzly: { plugin: './plugin.js' },
-      })
-    );
-
-    // Plugin that throws during registration
-    const pluginCode = `
+  it('handles plugin registration errors gracefully', async () => {
+    createPlugin(
+      'bad-plugin',
+      `
       export default {
         name: 'bad-plugin',
         register(program, context) {
           throw new Error('Registration failed intentionally');
         }
       };
-    `;
-    writeFileSync(join(pluginDir, 'plugin.js'), pluginCode);
+    `
+    );
+    createConfig();
 
-    writeFileSync(join(testDir, 'vizzly.config.js'), 'export default {};');
-
-    const cliPath = join(process.cwd(), 'src', 'cli.js');
+    let result = await cli.run(['--version']);
 
     // CLI should still work despite plugin error
-    try {
-      const output = execSync(`node ${cliPath} --version`, {
-        cwd: testDir,
-        encoding: 'utf-8',
-        env: { ...process.env, NODE_ENV: 'test' },
-      });
-
-      // Should still show version
-      expect(output).toMatch(/\d+\.\d+\.\d+/);
-    } catch (error) {
-      // Even if it errors, check it's not from the plugin
-      const stderr = error.stderr?.toString() || '';
-      // We expect a warning but not a crash
-      if (stderr) {
-        expect(stderr).not.toContain('Registration failed intentionally');
-      }
-    }
+    expect(result.code).toBe(0);
+    expect(result.stdout).toMatch(/\d+\.\d+\.\d+/);
+    // Plugin error should be warned but not crash
+    expect(result.stderr).toContain('Failed to register plugin');
+    expect(result.stderr).toContain('bad-plugin');
   });
 });

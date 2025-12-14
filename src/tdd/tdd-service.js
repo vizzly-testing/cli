@@ -17,7 +17,7 @@ import {
   getTddBaselines,
 } from '../api/index.js';
 import { NetworkError } from '../errors/vizzly-error.js';
-import { HtmlReportGenerator } from '../services/html-report-generator.js';
+import { StaticReportGenerator } from '../services/static-report-generator.js';
 import { colors } from '../utils/colors.js';
 import { fetchWithTimeout } from '../utils/fetch-utils.js';
 import { getDefaultBranch } from '../utils/git.js';
@@ -978,18 +978,31 @@ export class TddService {
   }
 
   /**
-   * Generate HTML report
+   * Generate HTML report using React reporter
    */
   async generateHtmlReport(results) {
     try {
-      let reportGenerator = new HtmlReportGenerator(
+      let reportGenerator = new StaticReportGenerator(
         this.workingDir,
         this.config
       );
-      let reportPath = await reportGenerator.generateReport(results, {
+
+      // Transform results to React reporter format
+      let reportData = {
+        buildId: this.baselineData?.buildId || 'local-tdd',
+        summary: {
+          passed: results.passed,
+          failed: results.failed,
+          total: results.total,
+          new: results.new,
+          errors: results.errors,
+        },
+        comparisons: results.comparisons,
         baseline: this.baselineData,
         threshold: this.threshold,
-      });
+      };
+
+      let reportPath = await reportGenerator.generateReport(reportData);
 
       output.info(
         `\n🐻 View detailed report: ${colors.cyan(`file://${reportPath}`)}`

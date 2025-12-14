@@ -3,9 +3,13 @@
  * Shows current user and authentication status
  */
 
-import { AuthService } from '../services/auth-service.js';
+import {
+  createAuthClient,
+  createTokenStore,
+  getAuthTokens,
+  whoami,
+} from '../auth/index.js';
 import { getApiUrl } from '../utils/environment-config.js';
-import { getAuthTokens } from '../utils/global-config.js';
 import * as output from '../utils/output.js';
 
 /**
@@ -39,11 +43,12 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
     // Get current user info
     output.startSpinner('Fetching user information...');
 
-    const authService = new AuthService({
+    let client = createAuthClient({
       baseUrl: options.apiUrl || getApiUrl(),
     });
+    let tokenStore = createTokenStore();
 
-    const response = await authService.whoami();
+    let response = await whoami(client, tokenStore);
 
     output.stopSpinner();
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createServices } from '../../src/services/index.js';
+import { createUploader } from '../../src/services/uploader.js';
 import { loadConfig } from '../../src/utils/config-loader.js';
 
 // Mock global fetch
@@ -15,15 +15,14 @@ describe('Uploader Service Integration Test', () => {
   });
 
   it('should be able to instantiate the uploader and call the upload method', async () => {
-    const config = await loadConfig();
+    let config = await loadConfig();
     config.allowNoToken = true; // Allow test to run without API token
-    const services = createServices(config);
 
-    const uploader = services.uploader;
+    let uploader = createUploader(config);
 
-    const uploadSpy = vi.spyOn(uploader, 'upload').mockResolvedValue();
+    let uploadSpy = vi.spyOn(uploader, 'upload').mockResolvedValue();
 
-    const flags = {
+    let flags = {
       path: './screenshots',
       buildName: 'test-build',
     };
@@ -35,12 +34,11 @@ describe('Uploader Service Integration Test', () => {
 
   describe('waitForBuild', () => {
     it('should return comparison data including failedComparisons when build completes', async () => {
-      const config = await loadConfig();
+      let config = await loadConfig();
       config.apiKey = 'test-api-key';
       config.apiUrl = 'https://api.test.com';
 
-      const services = createServices(config);
-      const uploader = services.uploader;
+      let uploader = createUploader(config);
 
       // Mock API response with comparison data
       const mockBuildResponse = {
@@ -75,12 +73,11 @@ describe('Uploader Service Integration Test', () => {
     });
 
     it('should handle build failure status', async () => {
-      const config = await loadConfig();
+      let config = await loadConfig();
       config.apiKey = 'test-api-key';
       config.apiUrl = 'https://api.test.com';
 
-      const services = createServices(config);
-      const uploader = services.uploader;
+      let uploader = createUploader(config);
 
       // Mock API response for failed build
       global.fetch.mockResolvedValue({
@@ -101,12 +98,11 @@ describe('Uploader Service Integration Test', () => {
     });
 
     it('should handle API request failure', async () => {
-      const config = await loadConfig();
+      let config = await loadConfig();
       config.apiKey = 'test-api-key';
       config.apiUrl = 'https://api.test.com';
 
-      const services = createServices(config);
-      const uploader = services.uploader;
+      let uploader = createUploader(config);
 
       global.fetch.mockResolvedValue({
         ok: false,

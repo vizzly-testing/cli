@@ -1,17 +1,29 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { LocalTDDProvider } from '../../claude-plugin/mcp/vizzly-server/local-tdd-provider.js';
 
 describe('LocalTDDProvider', () => {
   let provider;
+  let baseDir;
   let testDir;
   let vizzlyDir;
+  let testCounter = 0;
+
+  beforeAll(async () => {
+    // Create ONE temp directory for all tests
+    baseDir = await mkdtemp(join(tmpdir(), 'vizzly-test-'));
+  });
+
+  afterAll(async () => {
+    await rm(baseDir, { recursive: true, force: true });
+  });
 
   beforeEach(async () => {
     provider = new LocalTDDProvider();
-    testDir = await mkdtemp(join(tmpdir(), 'vizzly-test-'));
+    testCounter++;
+    testDir = join(baseDir, `test-${testCounter}`);
     vizzlyDir = join(testDir, '.vizzly');
 
     // Create basic .vizzly structure
@@ -19,10 +31,6 @@ describe('LocalTDDProvider', () => {
     await mkdir(join(vizzlyDir, 'baselines'), { recursive: true });
     await mkdir(join(vizzlyDir, 'current'), { recursive: true });
     await mkdir(join(vizzlyDir, 'diffs'), { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(testDir, { recursive: true, force: true });
   });
 
   describe('getTDDStatus', () => {

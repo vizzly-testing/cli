@@ -1,10 +1,8 @@
 /**
- * Build Manager Service
- * Manages the build lifecycle and coordinates test execution
+ * Build Manager - Pure functions for build lifecycle management
  */
 
 import crypto from 'node:crypto';
-import { VizzlyError } from '../errors/vizzly-error.js';
 
 /**
  * Generate unique build ID for local build management only.
@@ -113,7 +111,7 @@ export function createQueuedBuild(buildOptions) {
  * @returns {Object} Validation result
  */
 export function validateBuildOptions(buildOptions) {
-  const errors = [];
+  let errors = [];
 
   if (!buildOptions.name && !buildOptions.branch) {
     errors.push('Either name or branch is required');
@@ -130,79 +128,4 @@ export function validateBuildOptions(buildOptions) {
     valid: errors.length === 0,
     errors,
   };
-}
-
-export class BuildManager {
-  constructor(config) {
-    this.config = config;
-    this.currentBuild = null;
-    this.buildQueue = [];
-  }
-
-  async createBuild(buildOptions) {
-    const build = createBuildObject(buildOptions);
-    this.currentBuild = build;
-    return build;
-  }
-
-  async updateBuildStatus(buildId, status, updates = {}) {
-    if (!this.currentBuild || this.currentBuild.id !== buildId) {
-      throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
-    }
-    this.currentBuild = updateBuild(this.currentBuild, status, updates);
-    return this.currentBuild;
-  }
-
-  async addScreenshot(buildId, screenshot) {
-    if (!this.currentBuild || this.currentBuild.id !== buildId) {
-      throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
-    }
-    this.currentBuild = addScreenshotToBuild(this.currentBuild, screenshot);
-    return this.currentBuild;
-  }
-
-  async finalizeBuild(buildId, result = {}) {
-    if (!this.currentBuild || this.currentBuild.id !== buildId) {
-      throw new VizzlyError(`Build ${buildId} not found`, 'BUILD_NOT_FOUND');
-    }
-    this.currentBuild = finalizeBuildObject(this.currentBuild, result);
-    return this.currentBuild;
-  }
-
-  getCurrentBuild() {
-    return this.currentBuild;
-  }
-
-  queueBuild(buildOptions) {
-    const queuedBuild = createQueuedBuild(buildOptions);
-    this.buildQueue.push(queuedBuild);
-  }
-
-  async clear() {
-    // Cancel pending build if exists
-    if (this.currentBuild && this.currentBuild.status === 'pending') {
-      await this.updateBuildStatus(this.currentBuild.id, 'cancelled');
-    }
-    this.buildQueue.length = 0;
-    this.currentBuild = null;
-  }
-
-  async processNextBuild() {
-    if (this.buildQueue.length === 0) {
-      return null;
-    }
-    const buildOptions = this.buildQueue.shift();
-    return await this.createBuild(buildOptions);
-  }
-
-  getQueueStatus() {
-    return {
-      length: this.buildQueue.length,
-      items: this.buildQueue.map(item => ({
-        name: item.name,
-        branch: item.branch,
-        queuedAt: item.queuedAt,
-      })),
-    };
-  }
 }

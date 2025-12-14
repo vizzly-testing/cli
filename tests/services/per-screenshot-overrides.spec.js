@@ -4,11 +4,20 @@
  * Tests verify that screenshot-level comparison settings override global config values.
  */
 
-import { rm } from 'node:fs/promises';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { compare } from '@vizzly-testing/honeydiff';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { TddService } from '../../src/services/tdd-service.js';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest';
+import { TddService } from '../../src/tdd/tdd-service.js';
 
 // Mock honeydiff to capture what threshold/minClusterSize it's called with
 vi.mock('@vizzly-testing/honeydiff', () => ({
@@ -23,16 +32,28 @@ vi.mock('@vizzly-testing/honeydiff', () => ({
 }));
 
 describe('Per-Screenshot Comparison Overrides', () => {
-  let tddService;
+  let baseDir;
   let testDir;
+  let tddService;
+  let testCounter = 0;
 
-  beforeEach(() => {
-    testDir = join(process.cwd(), '.tmp', `test-overrides-${Date.now()}`);
-    vi.clearAllMocks();
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-overrides-'));
   });
 
-  afterEach(async () => {
-    await rm(testDir, { recursive: true, force: true });
+  afterAll(() => {
+    try {
+      rmSync(baseDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
+
+  beforeEach(() => {
+    testCounter++;
+    testDir = join(baseDir, `test-${testCounter}`);
+    mkdirSync(testDir, { recursive: true });
+    vi.clearAllMocks();
   });
 
   test('should pass threshold and minClusterSize from config to honeydiff', async () => {

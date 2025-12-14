@@ -6,6 +6,7 @@
 
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -13,7 +14,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   createEmptyBaselineMetadata,
   findScreenshotBySignature,
@@ -23,14 +24,22 @@ import {
 } from '../../../src/tdd/metadata/baseline-metadata.js';
 
 describe('baseline-metadata', () => {
+  let baseDir;
   let tempDir;
+  let testCounter = 0;
 
-  beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-baseline-'));
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-test-baseline-'));
   });
 
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+  afterAll(() => {
+    rmSync(baseDir, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    testCounter++;
+    tempDir = join(baseDir, `test-${testCounter}`);
+    mkdirSync(tempDir, { recursive: true });
   });
 
   describe('loadBaselineMetadata', () => {

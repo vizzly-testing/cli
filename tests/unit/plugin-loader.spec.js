@@ -1,6 +1,15 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 // Mock output module
 vi.mock('../../src/utils/output.js', () => ({
@@ -14,11 +23,25 @@ import { loadPlugins } from '../../src/plugin-loader.js';
 import * as output from '../../src/utils/output.js';
 
 describe('Plugin Loader', () => {
+  let baseDir;
   let testDir;
+  let testCounter = 0;
+
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-plugins-test-'));
+  });
+
+  afterAll(() => {
+    try {
+      rmSync(baseDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
 
   beforeEach(() => {
-    // Create test directory
-    testDir = join(process.cwd(), `test-plugins-${Date.now()}`);
+    testCounter++;
+    testDir = join(baseDir, `test-${testCounter}`);
     mkdirSync(testDir, { recursive: true });
 
     // Mock cwd to point to test directory
@@ -26,17 +49,6 @@ describe('Plugin Loader', () => {
 
     // Clear mock calls
     vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    // Cleanup test directory
-    try {
-      rmSync(testDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    vi.restoreAllMocks();
   });
 
   describe('Auto-discovery', () => {

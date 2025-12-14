@@ -1,4 +1,9 @@
-import { createServices } from '../services/index.js';
+/**
+ * Finalize command implementation
+ * Uses functional API operations directly
+ */
+
+import { createApiClient, finalizeParallelBuild } from '../api/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import * as output from '../utils/output.js';
 
@@ -21,8 +26,8 @@ export async function finalizeCommand(
 
   try {
     // Load configuration with CLI overrides
-    const allOptions = { ...globalOptions, ...options };
-    const config = await loadConfig(globalOptions.config, allOptions);
+    let allOptions = { ...globalOptions, ...options };
+    let config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token
     if (!config.apiKey) {
@@ -40,14 +45,15 @@ export async function finalizeCommand(
       });
     }
 
-    // Create services and get API service
+    // Call finalize endpoint via functional API
     output.startSpinner('Finalizing parallel build...');
-    const services = createServices(config, 'finalize');
-    const apiService = services.apiService;
+    let client = createApiClient({
+      baseUrl: config.apiUrl,
+      token: config.apiKey,
+      command: 'finalize',
+    });
+    let result = await finalizeParallelBuild(client, parallelId);
     output.stopSpinner();
-
-    // Call finalize endpoint
-    const result = await apiService.finalizeParallelBuild(parallelId);
 
     if (globalOptions.json) {
       output.data(result);
@@ -73,7 +79,7 @@ export async function finalizeCommand(
  * @param {Object} options - Command options
  */
 export function validateFinalizeOptions(parallelId, _options) {
-  const errors = [];
+  let errors = [];
 
   if (!parallelId || parallelId.trim() === '') {
     errors.push('Parallel ID is required');

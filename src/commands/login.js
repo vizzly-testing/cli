@@ -3,7 +3,13 @@
  * Authenticates user via OAuth device flow
  */
 
-import { AuthService } from '../services/auth-service.js';
+import {
+  completeDeviceFlow,
+  createAuthClient,
+  createTokenStore,
+  initiateDeviceFlow,
+  pollDeviceAuthorization,
+} from '../auth/index.js';
 import { openBrowser } from '../utils/browser.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import * as output from '../utils/output.js';
@@ -26,14 +32,15 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     output.info('Starting Vizzly authentication...');
     output.blank();
 
-    // Create auth service
-    const authService = new AuthService({
+    // Create auth client and token store
+    let client = createAuthClient({
       baseUrl: options.apiUrl || getApiUrl(),
     });
+    let tokenStore = createTokenStore();
 
     // Initiate device flow
     output.startSpinner('Connecting to Vizzly...');
-    const deviceFlow = await authService.initiateDeviceFlow();
+    let deviceFlow = await initiateDeviceFlow(client);
     output.stopSpinner();
 
     // Handle both snake_case and camelCase field names
@@ -93,7 +100,7 @@ export async function loginCommand(options = {}, globalOptions = {}) {
     // Check authorization status
     output.startSpinner('Checking authorization status...');
 
-    const pollResponse = await authService.pollDeviceAuthorization(deviceCode);
+    let pollResponse = await pollDeviceAuthorization(client, deviceCode);
 
     output.stopSpinner();
 
@@ -132,7 +139,7 @@ export async function loginCommand(options = {}, globalOptions = {}) {
       user: tokenData.user,
       organizations: tokenData.organizations,
     };
-    await authService.completeDeviceFlow(tokens);
+    await completeDeviceFlow(tokenStore, tokens);
 
     // Display success message
     output.success('Successfully authenticated!');

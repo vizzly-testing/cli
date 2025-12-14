@@ -1,15 +1,43 @@
 /**
  * Project Service
  * Manages project mappings and project-related operations
+ *
+ * This class is a thin wrapper around the functional project module.
+ * It provides backwards compatibility while delegating to pure functions.
  */
 
-import { VizzlyError } from '../errors/vizzly-error.js';
+import {
+  createMapping,
+  createProjectToken,
+  getMapping,
+  getProject,
+  getRecentBuilds,
+  listMappings,
+  listProjects,
+  listProjectTokens,
+  removeMapping,
+  revokeProjectToken,
+  switchProject,
+} from '../project/index.js';
 import {
   deleteProjectMapping,
   getProjectMapping,
   getProjectMappings,
   saveProjectMapping,
 } from '../utils/global-config.js';
+
+/**
+ * Create a mapping store adapter from global-config functions
+ * @returns {Object} Mapping store with standard interface
+ */
+function createMappingStore() {
+  return {
+    getMappings: getProjectMappings,
+    getMapping: getProjectMapping,
+    saveMapping: saveProjectMapping,
+    deleteMapping: deleteProjectMapping,
+  };
+}
 
 /**
  * ProjectService for managing project mappings and operations
@@ -19,6 +47,7 @@ export class ProjectService {
     this.config = config;
     this.apiService = options.apiService;
     this.authService = options.authService;
+    this._mappingStore = createMappingStore();
   }
 
   /**
@@ -26,13 +55,7 @@ export class ProjectService {
    * @returns {Promise<Array>} Array of project mappings
    */
   async listMappings() {
-    const mappings = await getProjectMappings();
-
-    // Convert object to array with directory path included
-    return Object.entries(mappings).map(([directory, data]) => ({
-      directory,
-      ...data,
-    }));
+    return listMappings(this._mappingStore);
   }
 
   /**
@@ -41,7 +64,7 @@ export class ProjectService {
    * @returns {Promise<Object|null>} Project mapping or null
    */
   async getMapping(directory) {
-    return getProjectMapping(directory);
+    return getMapping(this._mappingStore, directory);
   }
 
   /**
@@ -55,34 +78,7 @@ export class ProjectService {
    * @returns {Promise<Object>} Created mapping
    */
   async createMapping(directory, projectData) {
-    if (!directory) {
-      throw new VizzlyError('Directory path is required', 'INVALID_DIRECTORY');
-    }
-
-    if (!projectData.projectSlug) {
-      throw new VizzlyError('Project slug is required', 'INVALID_PROJECT_DATA');
-    }
-
-    if (!projectData.organizationSlug) {
-      throw new VizzlyError(
-        'Organization slug is required',
-        'INVALID_PROJECT_DATA'
-      );
-    }
-
-    if (!projectData.token) {
-      throw new VizzlyError(
-        'Project token is required',
-        'INVALID_PROJECT_DATA'
-      );
-    }
-
-    await saveProjectMapping(directory, projectData);
-
-    return {
-      directory,
-      ...projectData,
-    };
+    return createMapping(this._mappingStore, directory, projectData);
   }
 
   /**
@@ -91,11 +87,7 @@ export class ProjectService {
    * @returns {Promise<void>}
    */
   async removeMapping(directory) {
-    if (!directory) {
-      throw new VizzlyError('Directory path is required', 'INVALID_DIRECTORY');
-    }
-
-    await deleteProjectMapping(directory);
+    return removeMapping(this._mappingStore, directory);
   }
 
   /**
@@ -106,13 +98,14 @@ export class ProjectService {
    * @returns {Promise<Object>} Updated mapping
    */
   async switchProject(projectSlug, organizationSlug, token) {
-    const currentDir = process.cwd();
-
-    return this.createMapping(currentDir, {
+    let currentDir = process.cwd();
+    return switchProject(
+      this._mappingStore,
+      currentDir,
       projectSlug,
       organizationSlug,
-      token,
-    });
+      token
+    );
   }
 
   /**
@@ -121,65 +114,10 @@ export class ProjectService {
    * @returns {Promise<Array>} Array of projects with organization info
    */
   async listProjects() {
-    // Try OAuth-based request first (user login via device flow)
-    if (this.authService) {
-      try {
-        // First get the user's organizations via whoami
-        const whoami = await this.authService.authenticatedRequest(
-          '/api/auth/cli/whoami',
-          { method: 'GET' }
-        );
-
-        const organizations = whoami.organizations || [];
-        if (organizations.length === 0) {
-          return [];
-        }
-
-        // Fetch projects for each organization
-        const allProjects = [];
-        for (const org of organizations) {
-          try {
-            const response = await this.authService.authenticatedRequest(
-              '/api/project',
-              {
-                method: 'GET',
-                headers: { 'X-Organization': org.slug },
-              }
-            );
-
-            // Add organization info to each project
-            const projects = (response.projects || []).map(project => ({
-              ...project,
-              organizationSlug: org.slug,
-              organizationName: org.name,
-            }));
-
-            allProjects.push(...projects);
-          } catch {
-            // Silently skip failed orgs
-          }
-        }
-
-        return allProjects;
-      } catch {
-        // Fall back to API token
-      }
-    }
-
-    // Fall back to API token-based request (tokens are org-scoped, so no org header needed)
-    if (this.apiService) {
-      try {
-        const response = await this.apiService.request('/api/project', {
-          method: 'GET',
-        });
-        return response.projects || [];
-      } catch {
-        return [];
-      }
-    }
-
-    // No authentication available
-    return [];
+    return listProjects({
+      oauthClient: this.authService,
+      apiClient: this.apiService,
+    });
   }
 
   /**
@@ -189,43 +127,12 @@ export class ProjectService {
    * @returns {Promise<Object>} Project details
    */
   async getProject(projectSlug, organizationSlug) {
-    // Try OAuth-based request first
-    if (this.authService) {
-      try {
-        const response = await this.authService.authenticatedRequest(
-          `/api/project/${projectSlug}`,
-          {
-            method: 'GET',
-            headers: { 'X-Organization': organizationSlug },
-          }
-        );
-        return response.project || response;
-      } catch {
-        // Fall back to API token
-      }
-    }
-
-    // Fall back to API token
-    if (this.apiService) {
-      try {
-        const response = await this.apiService.request(
-          `/api/project/${projectSlug}`,
-          {
-            method: 'GET',
-            headers: { 'X-Organization': organizationSlug },
-          }
-        );
-        return response.project || response;
-      } catch (error) {
-        throw new VizzlyError(
-          `Failed to fetch project: ${error.message}`,
-          'PROJECT_FETCH_FAILED',
-          { originalError: error }
-        );
-      }
-    }
-
-    throw new VizzlyError('No authentication available', 'NO_AUTH_SERVICE');
+    return getProject({
+      oauthClient: this.authService,
+      apiClient: this.apiService,
+      projectSlug,
+      organizationSlug,
+    });
   }
 
   /**
@@ -239,41 +146,14 @@ export class ProjectService {
    * @returns {Promise<Array>} Array of builds
    */
   async getRecentBuilds(projectSlug, organizationSlug, options = {}) {
-    const queryParams = new globalThis.URLSearchParams();
-    if (options.limit) queryParams.append('limit', String(options.limit));
-    if (options.branch) queryParams.append('branch', options.branch);
-
-    const query = queryParams.toString();
-    const url = `/api/build/${projectSlug}${query ? `?${query}` : ''}`;
-
-    // Try OAuth-based request first (user login via device flow)
-    if (this.authService) {
-      try {
-        const response = await this.authService.authenticatedRequest(url, {
-          method: 'GET',
-          headers: { 'X-Organization': organizationSlug },
-        });
-        return response.builds || [];
-      } catch {
-        // Fall back to API token
-      }
-    }
-
-    // Fall back to API token-based request
-    if (this.apiService) {
-      try {
-        const response = await this.apiService.request(url, {
-          method: 'GET',
-          headers: { 'X-Organization': organizationSlug },
-        });
-        return response.builds || [];
-      } catch {
-        return [];
-      }
-    }
-
-    // No authentication available
-    return [];
+    return getRecentBuilds({
+      oauthClient: this.authService,
+      apiClient: this.apiService,
+      projectSlug,
+      organizationSlug,
+      limit: options.limit,
+      branch: options.branch,
+    });
   }
 
   /**
@@ -286,28 +166,12 @@ export class ProjectService {
    * @returns {Promise<Object>} Created token
    */
   async createProjectToken(projectSlug, organizationSlug, tokenData) {
-    if (!this.apiService) {
-      throw new VizzlyError('API service not available', 'NO_API_SERVICE');
-    }
-
-    try {
-      const response = await this.apiService.request(
-        `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/tokens`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(tokenData),
-        }
-      );
-
-      return response.token;
-    } catch (error) {
-      throw new VizzlyError(
-        `Failed to create project token: ${error.message}`,
-        'TOKEN_CREATE_FAILED',
-        { originalError: error }
-      );
-    }
+    return createProjectToken(
+      this.apiService,
+      projectSlug,
+      organizationSlug,
+      tokenData
+    );
   }
 
   /**
@@ -317,26 +181,7 @@ export class ProjectService {
    * @returns {Promise<Array>} Array of tokens
    */
   async listProjectTokens(projectSlug, organizationSlug) {
-    if (!this.apiService) {
-      throw new VizzlyError('API service not available', 'NO_API_SERVICE');
-    }
-
-    try {
-      const response = await this.apiService.request(
-        `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/tokens`,
-        {
-          method: 'GET',
-        }
-      );
-
-      return response.tokens || [];
-    } catch (error) {
-      throw new VizzlyError(
-        `Failed to fetch project tokens: ${error.message}`,
-        'TOKENS_FETCH_FAILED',
-        { originalError: error }
-      );
-    }
+    return listProjectTokens(this.apiService, projectSlug, organizationSlug);
   }
 
   /**
@@ -347,23 +192,11 @@ export class ProjectService {
    * @returns {Promise<void>}
    */
   async revokeProjectToken(projectSlug, organizationSlug, tokenId) {
-    if (!this.apiService) {
-      throw new VizzlyError('API service not available', 'NO_API_SERVICE');
-    }
-
-    try {
-      await this.apiService.request(
-        `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/tokens/${tokenId}`,
-        {
-          method: 'DELETE',
-        }
-      );
-    } catch (error) {
-      throw new VizzlyError(
-        `Failed to revoke project token: ${error.message}`,
-        'TOKEN_REVOKE_FAILED',
-        { originalError: error }
-      );
-    }
+    return revokeProjectToken(
+      this.apiService,
+      projectSlug,
+      organizationSlug,
+      tokenId
+    );
   }
 }

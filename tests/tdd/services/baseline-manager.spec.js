@@ -6,6 +6,7 @@
 
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -13,7 +14,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   baselineExists,
   clearBaselineData,
@@ -29,14 +30,23 @@ import {
 } from '../../../src/tdd/services/baseline-manager.js';
 
 describe('baseline-manager', () => {
+  let baseDir;
   let tempDir;
+  let testCounter = 0;
 
-  beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-manager-'));
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-test-manager-'));
   });
 
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+  afterAll(() => {
+    rmSync(baseDir, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    // Each test gets isolated subdirectory
+    testCounter++;
+    tempDir = join(baseDir, `test-${testCounter}`);
+    mkdirSync(tempDir, { recursive: true });
   });
 
   describe('initializeDirectories', () => {

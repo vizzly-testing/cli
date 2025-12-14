@@ -4,32 +4,55 @@
  * This handles signature property changes, build switches, and stale state
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createTDDService } from '../../src/services/tdd-service.js';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest';
+import { createTDDService } from '../../src/tdd/tdd-service.js';
 
 describe('TDD Service - Baseline Download Cleanup (#112)', () => {
+  let baseDir;
   let testDir;
   let tddService;
   let mockFetch;
+  let testCounter = 0;
 
-  beforeEach(async () => {
-    // Create a unique temp directory for this test
-    testDir = join(
-      process.cwd(),
-      '.tmp',
-      `test-baseline-cleanup-${Date.now()}`
-    );
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-baseline-cleanup-'));
+  });
+
+  afterAll(() => {
+    try {
+      rmSync(baseDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
+
+  beforeEach(() => {
+    testCounter++;
+    testDir = join(baseDir, `test-${testCounter}`);
     mkdirSync(testDir, { recursive: true });
 
     // Mock fetch
     mockFetch = vi.fn();
     global.fetch = mockFetch;
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   test('should always clear current/diffs/metadata when downloading baselines', async () => {

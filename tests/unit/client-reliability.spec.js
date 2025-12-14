@@ -1,17 +1,42 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 describe('Client SDK - Request Timeout', () => {
+  let baseDir;
   let testDir;
   let originalFetch;
+  let testCounter = 0;
+
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-client-reliability-'));
+  });
+
+  afterAll(() => {
+    try {
+      rmSync(baseDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
     originalFetch = global.fetch;
 
-    // Create test directory
-    testDir = join(process.cwd(), '.vizzly');
+    // Create isolated test directory
+    testCounter++;
+    testDir = join(baseDir, `test-${testCounter}`, '.vizzly');
     mkdirSync(testDir, { recursive: true });
 
     // Mock server.json for auto-discovery
@@ -19,18 +44,13 @@ describe('Client SDK - Request Timeout', () => {
       join(testDir, 'server.json'),
       JSON.stringify({ port: 47392 })
     );
+
+    // Change working directory for auto-discovery
+    process.chdir(join(baseDir, `test-${testCounter}`));
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
-
-    // Clean up test files
-    try {
-      rmSync(testDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-
     vi.resetModules();
     vi.useRealTimers();
   });

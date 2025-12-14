@@ -24,15 +24,19 @@ import {
   runTests,
 } from '../test-runner/index.js';
 import * as output from '../utils/output.js';
+import { createBuildObject } from './build-manager.js';
 
 export class TestRunner extends EventEmitter {
-  constructor(config, buildManager, serverManager, tddService, options = {}) {
+  constructor(config, serverManager, options = {}) {
     super();
     this.config = config;
-    this.buildManager = buildManager;
     this.serverManager = serverManager;
-    this.tddService = tddService;
     this.testProcess = null;
+
+    // Simple buildManager using pure function
+    this.buildManager = {
+      createBuild: buildOptions => createBuildObject(buildOptions),
+    };
 
     // Dependency injection for testing - defaults to real implementations
     this.deps = options.deps || {

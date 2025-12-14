@@ -7,7 +7,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 /**
  * Tests for initialStatus preservation in TDD handler
@@ -16,24 +16,29 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
  * but we need to preserve the initialStatus so sorting remains stable.
  */
 describe('TDD Handler - initialStatus preservation', () => {
+  let baseDir;
   let tempDir;
   let vizzlyDir;
   let reportDataPath;
+  let testCounter = 0;
+
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
+  });
+
+  afterAll(() => {
+    rmSync(baseDir, { recursive: true, force: true });
+  });
 
   beforeEach(() => {
-    // Create a temp directory for test files
-    tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
+    testCounter++;
+    tempDir = join(baseDir, `test-${testCounter}`);
     vizzlyDir = join(tempDir, '.vizzly');
     mkdirSync(vizzlyDir, { recursive: true });
     mkdirSync(join(vizzlyDir, 'baselines'), { recursive: true });
     mkdirSync(join(vizzlyDir, 'current'), { recursive: true });
     mkdirSync(join(vizzlyDir, 'diffs'), { recursive: true });
     reportDataPath = join(vizzlyDir, 'report-data.json');
-  });
-
-  afterEach(() => {
-    // Clean up temp directory
-    rmSync(tempDir, { recursive: true, force: true });
   });
 
   const readReportData = () => {

@@ -14,7 +14,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   createHotspotCache,
   getHotspotForScreenshot,
@@ -23,14 +23,22 @@ import {
 } from '../../../src/tdd/metadata/hotspot-metadata.js';
 
 describe('hotspot-metadata', () => {
+  let baseDir;
   let tempDir;
+  let testCounter = 0;
 
-  beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-hotspot-'));
+  beforeAll(() => {
+    baseDir = mkdtempSync(join(tmpdir(), 'vizzly-test-hotspot-'));
   });
 
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+  afterAll(() => {
+    rmSync(baseDir, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    testCounter++;
+    tempDir = join(baseDir, `test-${testCounter}`);
+    mkdirSync(tempDir, { recursive: true });
   });
 
   describe('loadHotspotMetadata', () => {

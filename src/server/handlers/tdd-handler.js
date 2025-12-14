@@ -14,7 +14,7 @@ import {
  * Group comparisons by screenshot name with variant structure
  * Matches cloud product's grouping logic from comparison.js
  */
-const groupComparisons = comparisons => {
+export const groupComparisons = comparisons => {
   const groups = new Map();
 
   // Group by screenshot name

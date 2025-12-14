@@ -427,29 +427,8 @@ describe('ServerManager', () => {
     });
   });
 
-  describe('createClient', () => {
-    it('should create API client with correct configuration', async () => {
-      const { createApiClient } = await import('../../src/api/index.js');
-
-      const client = serverManager.createClient();
-
-      expect(createApiClient).toHaveBeenCalledWith({
-        baseUrl: mockConfig.apiUrl,
-        token: mockConfig.apiKey,
-        command: 'run',
-      });
-      expect(client).toBe(mockClient);
-    });
-
-    it('should return null when no API key', () => {
-      const configWithoutKey = { ...mockConfig, apiKey: null };
-      const serverManagerWithoutKey = new ServerManager(configWithoutKey);
-
-      const client = serverManagerWithoutKey.createClient();
-
-      expect(client).toBe(null);
-    });
-  });
+  // NOTE: createClient tests removed - method is now internal to startServer operation.
+  // See tests/server-manager/operations.spec.js for API client creation tests.
 
   describe('error handling', () => {
     it('should propagate HTTP server start errors', async () => {

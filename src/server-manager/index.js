@@ -28,6 +28,8 @@ export {
 } from './core.js';
 
 // Server operations (take dependencies as parameters)
+import { getTddResults, startServer, stopServer } from './operations.js';
+
 export {
   getTddResults,
   removeServerJson,
@@ -56,18 +58,8 @@ export function createServerManager(config, services = {}) {
     fs: { mkdirSync, writeFileSync, existsSync, unlinkSync },
   };
 
-  // Import operations lazily to avoid circular deps
-  let ops = null;
-  let getOps = async () => {
-    if (!ops) {
-      ops = await import('./operations.js');
-    }
-    return ops;
-  };
-
   return {
     async start(buildId, tddMode, setBaseline) {
-      let { startServer } = await getOps();
       let result = await startServer({
         config,
         buildId,
@@ -82,7 +74,6 @@ export function createServerManager(config, services = {}) {
     },
 
     async stop() {
-      let { stopServer } = await getOps();
       await stopServer({
         httpServer,
         handler,
@@ -92,7 +83,6 @@ export function createServerManager(config, services = {}) {
     },
 
     async getTddResults() {
-      let { getTddResults } = await getOps();
       return getTddResults({ tddMode: true, handler });
     },
 

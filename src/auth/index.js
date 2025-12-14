@@ -44,27 +44,9 @@ export {
  * Used by auth operations that need tokenStore parameter
  */
 export function createTokenStore() {
-  // Late import to avoid circular dependencies
-  let globalConfig = null;
-  let getConfig = async () => {
-    if (!globalConfig) {
-      globalConfig = await import('../utils/global-config.js');
-    }
-    return globalConfig;
-  };
-
   return {
-    getTokens: async () => {
-      let config = await getConfig();
-      return config.getAuthTokens();
-    },
-    saveTokens: async tokens => {
-      let config = await getConfig();
-      return config.saveAuthTokens(tokens);
-    },
-    clearTokens: async () => {
-      let config = await getConfig();
-      return config.clearAuthTokens();
-    },
+    getTokens: getAuthTokens,
+    saveTokens: saveAuthTokens,
+    clearTokens: clearAuthTokens,
   };
 }

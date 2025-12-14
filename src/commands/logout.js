@@ -3,9 +3,13 @@
  * Clears stored authentication tokens
  */
 
-import { AuthService } from '../services/auth-service.js';
+import {
+  createAuthClient,
+  createTokenStore,
+  getAuthTokens,
+  logout,
+} from '../auth/index.js';
 import { getApiUrl } from '../utils/environment-config.js';
-import { getAuthTokens } from '../utils/global-config.js';
 import * as output from '../utils/output.js';
 
 /**
@@ -33,11 +37,12 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
     // Logout
     output.startSpinner('Logging out...');
 
-    const authService = new AuthService({
+    let client = createAuthClient({
       baseUrl: options.apiUrl || getApiUrl(),
     });
+    let tokenStore = createTokenStore();
 
-    await authService.logout();
+    await logout(client, tokenStore);
 
     output.stopSpinner();
     output.success('Successfully logged out');

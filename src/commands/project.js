@@ -5,11 +5,15 @@
 
 import { resolve } from 'node:path';
 import readline from 'node:readline';
-import { AuthService } from '../services/auth-service.js';
+import {
+  createAuthClient,
+  createTokenStore,
+  getAuthTokens,
+  whoami,
+} from '../auth/index.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import {
   deleteProjectMapping,
-  getAuthTokens,
   getProjectMapping,
   getProjectMappings,
   saveProjectMapping,
@@ -38,13 +42,14 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
       process.exit(1);
     }
 
-    const authService = new AuthService({
+    let client = createAuthClient({
       baseUrl: options.apiUrl || getApiUrl(),
     });
+    let tokenStore = createTokenStore();
 
     // Get user info to show organizations
     output.startSpinner('Fetching organizations...');
-    const userInfo = await authService.whoami();
+    let userInfo = await whoami(client, tokenStore);
     output.stopSpinner();
 
     if (!userInfo.organizations || userInfo.organizations.length === 0) {

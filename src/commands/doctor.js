@@ -1,6 +1,6 @@
 import { URL } from 'node:url';
+import { createApiClient, getBuilds } from '../api/index.js';
 import { ConfigError } from '../errors/vizzly-error.js';
-import { ApiService } from '../services/api-service.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { getApiToken } from '../utils/environment-config.js';
 import * as output from '../utils/output.js';
@@ -110,13 +110,13 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
       } else {
         output.progress('Checking API connectivity...');
         try {
-          const api = new ApiService({
+          let client = createApiClient({
             baseUrl: config.apiUrl,
             token: config.apiKey,
             command: 'doctor',
           });
           // Minimal, read-only call
-          await api.getBuilds({ limit: 1 });
+          await getBuilds(client, { limit: 1 });
           diagnostics.connectivity.ok = true;
           output.success('API connectivity OK');
         } catch (err) {

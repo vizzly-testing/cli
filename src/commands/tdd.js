@@ -1,4 +1,19 @@
-import { createServices } from '../services/index.js';
+/**
+ * TDD command implementation
+ * Uses functional operations directly - no class wrappers needed
+ */
+
+import { spawn } from 'node:child_process';
+import {
+  createBuild as createApiBuild,
+  createApiClient,
+  finalizeBuild as finalizeApiBuild,
+  getBuild,
+} from '../api/index.js';
+import { VizzlyError } from '../errors/vizzly-error.js';
+import { createServerManager } from '../server-manager/index.js';
+import { createBuildObject } from '../services/build-manager.js';
+import { initializeDaemon, runTests } from '../test-runner/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { detectBranch, detectCommit } from '../utils/git.js';
 import * as output from '../utils/output.js';
@@ -21,27 +36,31 @@ export async function tddCommand(
     color: !globalOptions.noColor,
   });
 
-  let testRunner = null;
+  let serverManager = null;
+  let testProcess = null;
   let isCleanedUp = false;
 
   // Create cleanup function that can be called by the caller
-  const cleanup = async () => {
+  let cleanup = async () => {
     if (isCleanedUp) return;
     isCleanedUp = true;
 
     output.cleanup();
-    if (testRunner?.cancel) {
-      await testRunner.cancel();
+    if (testProcess && !testProcess.killed) {
+      testProcess.kill('SIGKILL');
+    }
+    if (serverManager) {
+      await serverManager.stop();
     }
   };
 
   try {
     // Load configuration with CLI overrides
-    const allOptions = { ...globalOptions, ...options };
-    const config = await loadConfig(globalOptions.config, allOptions);
+    let allOptions = { ...globalOptions, ...options };
+    let config = await loadConfig(globalOptions.config, allOptions);
 
     // Dev mode works locally by default - only needs token for baseline download
-    const needsToken = options.baselineBuild || options.baselineComparison;
+    let needsToken = options.baselineBuild || options.baselineComparison;
 
     if (!config.apiKey && needsToken) {
       throw new Error(
@@ -53,12 +72,12 @@ export async function tddCommand(
     config.allowNoToken = true;
 
     // Collect git metadata
-    const branch = await detectBranch(options.branch);
-    const commit = await detectCommit(options.commit);
+    let branch = await detectBranch(options.branch);
+    let commit = await detectCommit(options.commit);
 
     // Show header (skip in daemon mode)
     if (!options.daemon) {
-      const mode = config.apiKey ? 'local' : 'local';
+      let mode = config.apiKey ? 'local' : 'local';
       output.header('tdd', mode);
 
       // Show config in verbose mode
@@ -69,75 +88,53 @@ export async function tddCommand(
       });
     }
 
-    // Create services
+    // Create functional dependencies
     output.startSpinner('Initializing TDD server...');
-    const configWithVerbose = { ...config, verbose: globalOptions.verbose };
-    const services = createServices(configWithVerbose, 'tdd');
-    testRunner = services.testRunner;
+    let configWithVerbose = { ...config, verbose: globalOptions.verbose };
+
+    // Create server manager (functional object)
+    serverManager = createServerManager(configWithVerbose, {});
+
+    // Create build manager (functional object that provides the interface runTests expects)
+    let buildManager = {
+      async createBuild(buildOptions) {
+        return createBuildObject(buildOptions);
+      },
+    };
+
     output.stopSpinner();
 
-    // Set up event handlers for user feedback
-    testRunner.on('progress', progressData => {
-      const { message: progressMessage } = progressData;
-      output.progress(progressMessage || 'Running tests...');
-    });
-
-    testRunner.on('test-output', data => {
-      // In non-JSON mode, show test output directly
-      if (!globalOptions.json) {
-        output.stopSpinner();
-        output.print(data.data);
-      }
-    });
-
-    testRunner.on('server-ready', serverInfo => {
-      // Only show in non-daemon mode (daemon shows its own startup message)
-      if (!options.daemon) {
-        output.debug('server', `listening on :${serverInfo.port}`);
-      }
-    });
-
-    testRunner.on('screenshot-captured', screenshotInfo => {
-      output.debug('capture', screenshotInfo.name);
-    });
-
-    testRunner.on('comparison-result', comparisonInfo => {
-      const { name, status, pixelDifference } = comparisonInfo;
-      if (status === 'passed') {
-        output.debug('compare', `${name} passed`);
-      } else if (status === 'failed') {
-        output.warn(`${name}: ${pixelDifference}% difference`);
-      } else if (status === 'new') {
-        output.debug('compare', `${name} (new baseline)`);
-      }
-    });
-
-    testRunner.on('error', error => {
-      output.error('Test runner error', error);
-    });
-
-    const runOptions = {
+    let runOptions = {
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
       tdd: true,
-      daemon: options.daemon || false, // Daemon mode flag
-      setBaseline: options.setBaseline || false, // Pass through baseline update mode
+      daemon: options.daemon || false,
+      setBaseline: options.setBaseline || false,
       branch,
       commit,
       environment: config.build.environment,
       threshold: config.comparison.threshold,
-      allowNoToken: config.allowNoToken || false, // Pass through the allow-no-token setting
+      allowNoToken: config.allowNoToken || false,
       baselineBuildId: config.baselineBuildId,
       baselineComparisonId: config.baselineComparisonId,
-      wait: false, // No build to wait for in dev mode
+      wait: false,
     };
 
     // In daemon mode, just start the server without running tests
     if (options.daemon) {
-      await testRunner.initialize(runOptions);
+      await initializeDaemon({
+        initOptions: runOptions,
+        deps: {
+          serverManager,
+          createError: (message, code) => new VizzlyError(message, code),
+          output,
+          onServerReady: data => {
+            output.debug('server', `listening on :${data.port}`);
+          },
+        },
+      });
 
-      // Return immediately so daemon can set up its lifecycle
       return {
         result: {
           success: true,
@@ -150,19 +147,47 @@ export async function tddCommand(
 
     // Normal dev mode - run tests
     output.debug('run', testCommand);
-    const runResult = await testRunner.run(runOptions);
+
+    let runResult = await runTests({
+      runOptions,
+      config: configWithVerbose,
+      deps: {
+        serverManager,
+        buildManager,
+        spawn: (command, spawnOptions) => {
+          let proc = spawn(command, spawnOptions);
+          testProcess = proc;
+          return proc;
+        },
+        createApiClient,
+        createApiBuild,
+        getBuild,
+        finalizeApiBuild,
+        createError: (message, code) => new VizzlyError(message, code),
+        output,
+        onBuildCreated: data => {
+          output.debug('build', `created ${data.buildId?.substring(0, 8)}`);
+        },
+        onServerReady: data => {
+          output.debug('server', `listening on :${data.port}`);
+        },
+        onFinalizeFailed: data => {
+          output.warn(`Failed to finalize build: ${data.error}`);
+        },
+      },
+    });
 
     // Show summary
-    const { screenshotsCaptured, comparisons } = runResult;
+    let { screenshotsCaptured, comparisons } = runResult;
 
     // Determine success based on comparison results
-    const hasFailures =
+    let hasFailures =
       runResult.failed ||
       runResult.comparisons?.some(c => c.status === 'failed');
 
     if (comparisons && comparisons.length > 0) {
-      const passed = comparisons.filter(c => c.status === 'passed').length;
-      const failed = comparisons.filter(c => c.status === 'failed').length;
+      let passed = comparisons.filter(c => c.status === 'passed').length;
+      let failed = comparisons.filter(c => c.status === 'failed').length;
 
       if (hasFailures) {
         output.error(
@@ -180,7 +205,6 @@ export async function tddCommand(
       );
     }
 
-    // Return result and cleanup function
     return {
       result: {
         success: !hasFailures,
@@ -208,28 +232,28 @@ export async function tddCommand(
  * @param {Object} options - Command options
  */
 export function validateTddOptions(testCommand, options) {
-  const errors = [];
+  let errors = [];
 
   if (!testCommand || testCommand.trim() === '') {
     errors.push('Test command is required');
   }
 
   if (options.port) {
-    const port = parseInt(options.port, 10);
+    let port = parseInt(options.port, 10);
     if (Number.isNaN(port) || port < 1 || port > 65535) {
       errors.push('Port must be a valid number between 1 and 65535');
     }
   }
 
   if (options.timeout) {
-    const timeout = parseInt(options.timeout, 10);
+    let timeout = parseInt(options.timeout, 10);
     if (Number.isNaN(timeout) || timeout < 1000) {
       errors.push('Timeout must be at least 1000 milliseconds');
     }
   }
 
   if (options.threshold !== undefined) {
-    const threshold = parseFloat(options.threshold);
+    let threshold = parseFloat(options.threshold);
     if (Number.isNaN(threshold) || threshold < 0) {
       errors.push(
         'Threshold must be a non-negative number (CIEDE2000 Delta E)'

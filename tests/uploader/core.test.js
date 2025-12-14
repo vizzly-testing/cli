@@ -120,7 +120,10 @@ describe('uploader/core', () => {
 
   describe('extractBrowserFromFilename', () => {
     it('extracts chrome from filename', () => {
-      assert.strictEqual(extractBrowserFromFilename('homepage-chrome.png'), 'chrome');
+      assert.strictEqual(
+        extractBrowserFromFilename('homepage-chrome.png'),
+        'chrome'
+      );
     });
 
     it('extracts firefox from filename', () => {
@@ -131,15 +134,24 @@ describe('uploader/core', () => {
     });
 
     it('extracts safari from filename', () => {
-      assert.strictEqual(extractBrowserFromFilename('Safari_Dashboard.png'), 'safari');
+      assert.strictEqual(
+        extractBrowserFromFilename('Safari_Dashboard.png'),
+        'safari'
+      );
     });
 
     it('extracts edge from filename', () => {
-      assert.strictEqual(extractBrowserFromFilename('test-edge-mobile.png'), 'edge');
+      assert.strictEqual(
+        extractBrowserFromFilename('test-edge-mobile.png'),
+        'edge'
+      );
     });
 
     it('extracts webkit from filename', () => {
-      assert.strictEqual(extractBrowserFromFilename('webkit-test.png'), 'webkit');
+      assert.strictEqual(
+        extractBrowserFromFilename('webkit-test.png'),
+        'webkit'
+      );
     });
 
     it('returns null for unknown browser', () => {
@@ -147,7 +159,10 @@ describe('uploader/core', () => {
     });
 
     it('is case insensitive', () => {
-      assert.strictEqual(extractBrowserFromFilename('CHROME-TEST.PNG'), 'chrome');
+      assert.strictEqual(
+        extractBrowserFromFilename('CHROME-TEST.PNG'),
+        'chrome'
+      );
     });
   });
 
@@ -401,7 +416,10 @@ describe('uploader/core', () => {
 
   describe('resolveBatchSize', () => {
     it('uses options.batchSize first', () => {
-      assert.strictEqual(resolveBatchSize({ batchSize: 25 }, { batchSize: 75 }), 25);
+      assert.strictEqual(
+        resolveBatchSize({ batchSize: 25 }, { batchSize: 75 }),
+        25
+      );
     });
 
     it('falls back to config.batchSize', () => {
@@ -413,13 +431,19 @@ describe('uploader/core', () => {
     });
 
     it('handles undefined values', () => {
-      assert.strictEqual(resolveBatchSize(undefined, undefined), DEFAULT_BATCH_SIZE);
+      assert.strictEqual(
+        resolveBatchSize(undefined, undefined),
+        DEFAULT_BATCH_SIZE
+      );
     });
   });
 
   describe('resolveTimeout', () => {
     it('uses options.timeout first', () => {
-      assert.strictEqual(resolveTimeout({ timeout: 5000 }, { timeout: 60000 }), 5000);
+      assert.strictEqual(
+        resolveTimeout({ timeout: 5000 }, { timeout: 60000 }),
+        5000
+      );
     });
 
     it('falls back to config.timeout', () => {
@@ -469,11 +493,17 @@ describe('uploader/core', () => {
 
   describe('extractStatusCodeFromError', () => {
     it('extracts status code from error message', () => {
-      assert.strictEqual(extractStatusCodeFromError('API request failed: 404'), '404');
+      assert.strictEqual(
+        extractStatusCodeFromError('API request failed: 404'),
+        '404'
+      );
     });
 
     it('returns unknown for non-matching message', () => {
-      assert.strictEqual(extractStatusCodeFromError('Some other error'), 'unknown');
+      assert.strictEqual(
+        extractStatusCodeFromError('Some other error'),
+        'unknown'
+      );
     });
 
     it('handles null message', () => {

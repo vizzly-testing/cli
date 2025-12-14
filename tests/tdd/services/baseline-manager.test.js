@@ -38,8 +38,14 @@ describe('tdd/services/baseline-manager', () => {
     it('creates baseline, current, and diff directories', () => {
       let paths = initializeDirectories(testDir);
 
-      assert.strictEqual(paths.baselinePath, join(testDir, '.vizzly', 'baselines'));
-      assert.strictEqual(paths.currentPath, join(testDir, '.vizzly', 'current'));
+      assert.strictEqual(
+        paths.baselinePath,
+        join(testDir, '.vizzly', 'baselines')
+      );
+      assert.strictEqual(
+        paths.currentPath,
+        join(testDir, '.vizzly', 'current')
+      );
       assert.strictEqual(paths.diffPath, join(testDir, '.vizzly', 'diffs'));
 
       assert.ok(existsSync(paths.baselinePath));
@@ -109,7 +115,10 @@ describe('tdd/services/baseline-manager', () => {
       let paths = initializeDirectories(testDir);
       writeFileSync(join(paths.baselinePath, 'exists.png'), 'data');
 
-      assert.strictEqual(baselineExists(paths.baselinePath, 'exists.png'), true);
+      assert.strictEqual(
+        baselineExists(paths.baselinePath, 'exists.png'),
+        true
+      );
     });
 
     it('returns false when baseline does not exist', () => {

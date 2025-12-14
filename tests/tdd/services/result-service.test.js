@@ -235,7 +235,11 @@ describe('tdd/services/result-service', () => {
         { name: 'homepage', signature: 'homepage|1080|firefox' },
       ];
 
-      let found = findComparison(comparisons, 'homepage', 'homepage|1080|firefox');
+      let found = findComparison(
+        comparisons,
+        'homepage',
+        'homepage|1080|firefox'
+      );
 
       assert.strictEqual(found.signature, 'homepage|1080|firefox');
     });

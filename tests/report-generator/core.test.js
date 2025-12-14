@@ -38,7 +38,10 @@ describe('report-generator/core', () => {
   describe('buildReportPath', () => {
     it('builds correct path', () => {
       let result = buildReportPath('/home/user/project/.vizzly/report');
-      assert.strictEqual(result, '/home/user/project/.vizzly/report/index.html');
+      assert.strictEqual(
+        result,
+        '/home/user/project/.vizzly/report/index.html'
+      );
     });
   });
 
@@ -209,7 +212,9 @@ describe('report-generator/core', () => {
         displayDate: '1/1/2024',
       });
 
-      assert.ok(result.includes('<script src="./reporter-bundle.js"></script>'));
+      assert.ok(
+        result.includes('<script src="./reporter-bundle.js"></script>')
+      );
     });
 
     it('includes loading spinner', () => {

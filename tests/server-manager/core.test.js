@@ -210,7 +210,9 @@ describe('server-manager/core', () => {
       let iface = buildServerInterface({ handler, httpServer });
 
       assert.strictEqual(iface.getScreenshotCount('any'), 42);
-      assert.deepStrictEqual(iface.finishBuild('build-123'), { id: 'build-123' });
+      assert.deepStrictEqual(iface.finishBuild('build-123'), {
+        id: 'build-123',
+      });
     });
 
     it('returns 0 for getScreenshotCount when handler is null', () => {

@@ -17,9 +17,7 @@ describe('Git Utilities - Simple Tests', () => {
     originalEnv = { ...process.env };
 
     Date.now = () => new Date('2023-01-01T12:00:00Z').getTime();
-    Date.prototype.toISOString = function () {
-      return '2023-01-01T12:00:00.000Z';
-    };
+    Date.prototype.toISOString = () => '2023-01-01T12:00:00.000Z';
 
     // Clear CI env vars that affect git detection
     delete process.env.VIZZLY_BRANCH;

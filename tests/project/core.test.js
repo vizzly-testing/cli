@@ -146,7 +146,10 @@ describe('project/core', () => {
     });
 
     it('builds query string with branch', () => {
-      assert.strictEqual(buildBuildsQueryParams({ branch: 'main' }), '?branch=main');
+      assert.strictEqual(
+        buildBuildsQueryParams({ branch: 'main' }),
+        '?branch=main'
+      );
     });
 
     it('builds query string with both params', () => {
@@ -167,7 +170,10 @@ describe('project/core', () => {
 
   describe('buildProjectUrl', () => {
     it('builds project API URL', () => {
-      assert.strictEqual(buildProjectUrl('my-project'), '/api/project/my-project');
+      assert.strictEqual(
+        buildProjectUrl('my-project'),
+        '/api/project/my-project'
+      );
     });
   });
 
@@ -228,7 +234,10 @@ describe('project/core', () => {
   describe('extractBuilds', () => {
     it('extracts builds array from response', () => {
       let response = { builds: [{ id: 'b1' }, { id: 'b2' }] };
-      assert.deepStrictEqual(extractBuilds(response), [{ id: 'b1' }, { id: 'b2' }]);
+      assert.deepStrictEqual(extractBuilds(response), [
+        { id: 'b1' },
+        { id: 'b2' },
+      ]);
     });
 
     it('returns empty array for missing builds', () => {
@@ -239,7 +248,10 @@ describe('project/core', () => {
   describe('extractToken', () => {
     it('extracts token from response', () => {
       let response = { token: { id: 't1', value: 'vzt_xxx' } };
-      assert.deepStrictEqual(extractToken(response), { id: 't1', value: 'vzt_xxx' });
+      assert.deepStrictEqual(extractToken(response), {
+        id: 't1',
+        value: 'vzt_xxx',
+      });
     });
 
     it('returns undefined for missing token', () => {
@@ -250,7 +262,10 @@ describe('project/core', () => {
   describe('extractTokens', () => {
     it('extracts tokens array from response', () => {
       let response = { tokens: [{ id: 't1' }, { id: 't2' }] };
-      assert.deepStrictEqual(extractTokens(response), [{ id: 't1' }, { id: 't2' }]);
+      assert.deepStrictEqual(extractTokens(response), [
+        { id: 't1' },
+        { id: 't2' },
+      ]);
     });
 
     it('returns empty array for missing tokens', () => {
@@ -276,7 +291,10 @@ describe('project/core', () => {
     });
 
     it('handles empty projects array', () => {
-      assert.deepStrictEqual(enrichProjectsWithOrg([], { slug: 'org', name: 'Org' }), []);
+      assert.deepStrictEqual(
+        enrichProjectsWithOrg([], { slug: 'org', name: 'Org' }),
+        []
+      );
     });
   });
 

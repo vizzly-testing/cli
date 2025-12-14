@@ -27,7 +27,10 @@ describe('validateScreenshotName', () => {
   it('should throw on names exceeding max length', () => {
     let longName = 'a'.repeat(256);
     assert.throws(() => validateScreenshotName(longName), /maximum length/);
-    assert.throws(() => validateScreenshotName(longName, 100), /maximum length/);
+    assert.throws(
+      () => validateScreenshotName(longName, 100),
+      /maximum length/
+    );
   });
 
   it('should throw on path traversal patterns', () => {

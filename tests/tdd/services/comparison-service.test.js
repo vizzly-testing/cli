@@ -246,7 +246,9 @@ describe('tdd/services/comparison-service', () => {
 
   describe('isDimensionMismatchError', () => {
     it('returns true for dimension mismatch error', () => {
-      let error = new Error("Image dimensions don't match: 1920x1080 vs 1920x1200");
+      let error = new Error(
+        "Image dimensions don't match: 1920x1080 vs 1920x1200"
+      );
 
       assert.strictEqual(isDimensionMismatchError(error), true);
     });

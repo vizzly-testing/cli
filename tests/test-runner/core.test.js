@@ -408,7 +408,10 @@ describe('test-runner/core', () => {
     });
 
     it('returns false when no API key', () => {
-      assert.strictEqual(hasApiKey({ apiUrl: 'https://api.example.com' }), false);
+      assert.strictEqual(
+        hasApiKey({ apiUrl: 'https://api.example.com' }),
+        false
+      );
     });
 
     it('returns false for empty API key', () => {

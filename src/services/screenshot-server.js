@@ -1,105 +1,75 @@
 /**
  * Screenshot Server Service
  * Listens for and processes screenshots from the test runner
+ *
+ * This class is a thin wrapper around the functional operations in
+ * src/screenshot-server/. It maintains backwards compatibility while
+ * delegating to pure functions for testability.
  */
 
 import { createServer } from 'node:http';
 import { VizzlyError } from '../errors/vizzly-error.js';
+import {
+  handleRequest,
+  parseRequestBody,
+  startServer,
+  stopServer,
+} from '../screenshot-server/index.js';
 import * as output from '../utils/output.js';
 
 export class ScreenshotServer {
-  constructor(config, buildManager) {
+  constructor(config, buildManager, options = {}) {
     this.config = config;
     this.buildManager = buildManager;
     this.server = null;
+
+    // Dependency injection for testing
+    this.deps = options.deps || {
+      createHttpServer: createServer,
+      output,
+      createError: (message, code) => new VizzlyError(message, code),
+    };
   }
 
   async start() {
-    this.server = createServer(this.handleRequest.bind(this));
-    return new Promise((resolve, reject) => {
-      this.server.listen(this.config.server.port, '127.0.0.1', error => {
-        if (error) {
-          reject(
-            new VizzlyError(
-              `Failed to start screenshot server: ${error.message}`,
-              'SERVER_ERROR'
-            )
-          );
-        } else {
-          output.info(
-            `Screenshot server listening on http://127.0.0.1:${this.config.server.port}`
-          );
-          resolve();
-        }
-      });
+    this.server = await startServer({
+      config: this.config,
+      requestHandler: this.handleRequest.bind(this),
+      deps: {
+        createHttpServer: this.deps.createHttpServer,
+        createError: this.deps.createError,
+        output: this.deps.output,
+      },
     });
   }
 
   async stop() {
-    if (this.server) {
-      return new Promise(resolve => {
-        this.server.close(() => {
-          output.info('Screenshot server stopped');
-          resolve();
-        });
-      });
-    }
+    await stopServer({
+      server: this.server,
+      deps: {
+        output: this.deps.output,
+      },
+    });
   }
 
   async handleRequest(req, res) {
-    if (req.method === 'POST' && req.url === '/screenshot') {
-      try {
-        const body = await this.parseRequestBody(req);
-        const { buildId, name, image, properties } = body;
-
-        if (!name || !image) {
-          res.statusCode = 400;
-          res.end(JSON.stringify({ error: 'name and image are required' }));
-          return;
-        }
-
-        // Use default buildId if none provided
-        const effectiveBuildId = buildId || 'default';
-
-        await this.buildManager.addScreenshot(effectiveBuildId, {
-          name,
-          image,
-          properties,
-        });
-
-        res.statusCode = 200;
-        res.end(JSON.stringify({ success: true }));
-      } catch (error) {
-        output.error('Failed to process screenshot:', error);
-        res.statusCode = 500;
-        res.end(JSON.stringify({ error: 'Internal server error' }));
-      }
-    } else {
-      res.statusCode = 404;
-      res.end(JSON.stringify({ error: 'Not found' }));
-    }
+    await handleRequest({
+      req,
+      res,
+      deps: {
+        buildManager: this.buildManager,
+        createError: this.deps.createError,
+        output: this.deps.output,
+      },
+    });
   }
 
   async parseRequestBody(req) {
-    return new Promise((resolve, reject) => {
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk.toString();
-      });
-      req.on('end', () => {
-        try {
-          resolve(JSON.parse(body));
-        } catch {
-          reject(
-            new VizzlyError('Invalid JSON in request body', 'INVALID_JSON')
-          );
-        }
-      });
-      req.on('error', error => {
-        reject(
-          new VizzlyError(`Request error: ${error.message}`, 'REQUEST_ERROR')
-        );
-      });
+    return parseRequestBody({
+      req,
+      deps: {
+        createError: this.deps.createError,
+      },
     });
   }
 }

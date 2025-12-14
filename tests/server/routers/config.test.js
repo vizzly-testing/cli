@@ -112,7 +112,9 @@ describe('server/routers/config', () => {
     describe('GET /api/config', () => {
       it('returns merged config', async () => {
         let handler = createConfigRouter({
-          configService: createMockConfigService({ config: { threshold: 0.5 } }),
+          configService: createMockConfigService({
+            config: { threshold: 0.5 },
+          }),
         });
         let req = createMockRequest('GET');
         let res = createMockResponse();
@@ -204,7 +206,9 @@ describe('server/routers/config', () => {
     describe('POST /api/config/project', () => {
       it('updates project config', async () => {
         let handler = createConfigRouter({
-          configService: createMockConfigService({ updateResult: { saved: true } }),
+          configService: createMockConfigService({
+            updateResult: { saved: true },
+          }),
         });
         let req = createMockRequest('POST', { threshold: 0.2 });
         let res = createMockResponse();
@@ -237,7 +241,9 @@ describe('server/routers/config', () => {
     describe('POST /api/config/global', () => {
       it('updates global config', async () => {
         let handler = createConfigRouter({
-          configService: createMockConfigService({ updateResult: { saved: true } }),
+          configService: createMockConfigService({
+            updateResult: { saved: true },
+          }),
         });
         let req = createMockRequest('POST', { threshold: 0.3 });
         let res = createMockResponse();

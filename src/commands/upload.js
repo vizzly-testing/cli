@@ -1,27 +1,34 @@
 import {
-  createApiClient,
-  finalizeBuild,
-  getTokenContext,
+  createApiClient as defaultCreateApiClient,
+  finalizeBuild as defaultFinalizeBuild,
+  getTokenContext as defaultGetTokenContext,
 } from '../api/index.js';
-import { createUploader } from '../services/uploader.js';
-import { loadConfig } from '../utils/config-loader.js';
+import { createUploader as defaultCreateUploader } from '../services/uploader.js';
+import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import {
-  detectBranch,
-  detectCommit,
-  detectCommitMessage,
-  detectPullRequestNumber,
-  generateBuildNameWithGit,
+  detectBranch as defaultDetectBranch,
+  detectCommit as defaultDetectCommit,
+  detectCommitMessage as defaultDetectCommitMessage,
+  detectPullRequestNumber as defaultDetectPullRequestNumber,
+  generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
 } from '../utils/git.js';
-import * as output from '../utils/output.js';
+import * as defaultOutput from '../utils/output.js';
 
 /**
  * Construct proper build URL with org/project context
  * @param {string} buildId - Build ID
  * @param {string} apiUrl - API base URL
  * @param {string} apiToken - API token
+ * @param {Object} deps - Dependencies
  * @returns {Promise<string>} Proper build URL
  */
-async function constructBuildUrl(buildId, apiUrl, apiToken) {
+export async function constructBuildUrl(buildId, apiUrl, apiToken, deps = {}) {
+  let {
+    createApiClient = defaultCreateApiClient,
+    getTokenContext = defaultGetTokenContext,
+    output = defaultOutput,
+  } = deps;
+
   try {
     let client = createApiClient({
       baseUrl: apiUrl,
@@ -43,7 +50,7 @@ async function constructBuildUrl(buildId, apiUrl, apiToken) {
   }
 
   // Fallback URL construction
-  const baseUrl = apiUrl.replace(/\/api.*$/, '');
+  let baseUrl = apiUrl.replace(/\/api.*$/, '');
   return `${baseUrl}/builds/${buildId}`;
 }
 
@@ -52,12 +59,29 @@ async function constructBuildUrl(buildId, apiUrl, apiToken) {
  * @param {string} screenshotsPath - Path to screenshots
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
  */
 export async function uploadCommand(
   screenshotsPath,
   options = {},
-  globalOptions = {}
+  globalOptions = {},
+  deps = {}
 ) {
+  let {
+    loadConfig = defaultLoadConfig,
+    createApiClient = defaultCreateApiClient,
+    finalizeBuild = defaultFinalizeBuild,
+    createUploader = defaultCreateUploader,
+    detectBranch = defaultDetectBranch,
+    detectCommit = defaultDetectCommit,
+    detectCommitMessage = defaultDetectCommitMessage,
+    detectPullRequestNumber = defaultDetectPullRequestNumber,
+    generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
+    output = defaultOutput,
+    exit = code => process.exit(code),
+    buildUrlConstructor = constructBuildUrl,
+  } = deps;
+
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -80,7 +104,8 @@ export async function uploadCommand(
       output.error(
         'API token required. Use --token or set VIZZLY_TOKEN environment variable'
       );
-      process.exit(1);
+      exit(1);
+      return { success: false, reason: 'no-api-key' };
     }
 
     // Collect git metadata if not provided
@@ -174,9 +199,9 @@ export async function uploadCommand(
         `🐻 Vizzly: Uploaded ${result.stats.uploaded} of ${result.stats.total} screenshots to build ${result.buildId}`
       );
       // Use API-provided URL or construct proper URL with org/project context
-      const buildUrl =
+      let buildUrl =
         result.url ||
-        (await constructBuildUrl(result.buildId, config.apiUrl, config.apiKey));
+        (await buildUrlConstructor(result.buildId, config.apiUrl, config.apiKey, deps));
       output.info(`🔗 Vizzly: View results at ${buildUrl}`);
     }
 
@@ -200,13 +225,14 @@ export async function uploadCommand(
         );
       }
       // Use API-provided URL or construct proper URL with org/project context
-      const buildUrl =
+      let waitBuildUrl =
         buildResult.url ||
-        (await constructBuildUrl(result.buildId, config.apiUrl, config.apiKey));
-      output.info(`🔗 Vizzly: View results at ${buildUrl}`);
+        (await buildUrlConstructor(result.buildId, config.apiUrl, config.apiKey, deps));
+      output.info(`🔗 Vizzly: View results at ${waitBuildUrl}`);
     }
 
     output.cleanup();
+    return { success: true, result };
   } catch (error) {
     // Mark build as failed if we have a buildId and config
     if (buildId && config) {
@@ -223,11 +249,12 @@ export async function uploadCommand(
       }
     }
     // Use user-friendly error message if available
-    const errorMessage = error?.getUserMessage
+    let errorMessage = error?.getUserMessage
       ? error.getUserMessage()
       : error.message;
     output.error(errorMessage || 'Upload failed', error);
-    process.exit(1);
+    exit(1);
+    return { success: false, error };
   }
 }
 

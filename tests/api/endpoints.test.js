@@ -8,20 +8,20 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import {
+  checkShas,
   createBuild,
+  finalizeBuild,
+  finalizeParallelBuild,
+  getBatchHotspots,
   getBuild,
   getBuilds,
-  updateBuildStatus,
-  finalizeBuild,
-  getTddBaselines,
-  checkShas,
-  uploadScreenshot,
   getComparison,
-  searchComparisons,
   getScreenshotHotspots,
-  getBatchHotspots,
+  getTddBaselines,
   getTokenContext,
-  finalizeParallelBuild,
+  searchComparisons,
+  updateBuildStatus,
+  uploadScreenshot,
 } from '../../src/api/endpoints.js';
 
 /**

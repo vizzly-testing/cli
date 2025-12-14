@@ -76,7 +76,8 @@ function createMockAuthService(options = {}) {
           device_code: 'device-123',
           user_code: 'ABCD-1234',
           verification_uri: 'https://auth.example.com/device',
-          verification_uri_complete: 'https://auth.example.com/device?code=ABCD-1234',
+          verification_uri_complete:
+            'https://auth.example.com/device?code=ABCD-1234',
           expires_in: 600,
           interval: 5,
         }
@@ -185,7 +186,10 @@ describe('server/routers/auth', () => {
         let body = res.getParsedBody();
         assert.strictEqual(body.deviceCode, 'device-123');
         assert.strictEqual(body.userCode, 'ABCD-1234');
-        assert.strictEqual(body.verificationUri, 'https://auth.example.com/device');
+        assert.strictEqual(
+          body.verificationUri,
+          'https://auth.example.com/device'
+        );
         assert.strictEqual(body.expiresIn, 600);
       });
 

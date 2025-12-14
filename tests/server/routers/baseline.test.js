@@ -111,7 +111,9 @@ describe('server/routers/baseline', () => {
     describe('POST /api/baseline/accept', () => {
       it('accepts baseline with ID', async () => {
         let handler = createBaselineRouter({
-          screenshotHandler: createMockScreenshotHandler({ acceptBaseline: true }),
+          screenshotHandler: createMockScreenshotHandler({
+            acceptBaseline: true,
+          }),
           tddService: null,
         });
         let req = createMockRequest('POST', { id: 'comparison-123' });
@@ -142,7 +144,9 @@ describe('server/routers/baseline', () => {
 
       it('returns 400 when ID is missing', async () => {
         let handler = createBaselineRouter({
-          screenshotHandler: createMockScreenshotHandler({ acceptBaseline: true }),
+          screenshotHandler: createMockScreenshotHandler({
+            acceptBaseline: true,
+          }),
           tddService: null,
         });
         let req = createMockRequest('POST', {});
@@ -232,7 +236,9 @@ describe('server/routers/baseline', () => {
     describe('POST /api/baseline/reset', () => {
       it('resets baselines', async () => {
         let handler = createBaselineRouter({
-          screenshotHandler: createMockScreenshotHandler({ resetBaselines: true }),
+          screenshotHandler: createMockScreenshotHandler({
+            resetBaselines: true,
+          }),
           tddService: null,
         });
         let req = createMockRequest('POST', {});

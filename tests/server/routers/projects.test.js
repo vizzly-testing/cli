@@ -379,7 +379,12 @@ describe('server/routers/projects', () => {
         let res = createMockResponse();
         let url = createMockUrl();
 
-        await handler(req, res, '/api/projects/my%20org/my%20project/builds', url);
+        await handler(
+          req,
+          res,
+          '/api/projects/my%20org/my%20project/builds',
+          url
+        );
 
         assert.strictEqual(capturedArgs.projectSlug, 'my project');
         assert.strictEqual(capturedArgs.orgSlug, 'my org');

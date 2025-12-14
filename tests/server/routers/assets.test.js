@@ -135,7 +135,10 @@ describe('server/routers/assets', () => {
     describe('/images/*', () => {
       it('serves image from .vizzly directory', async () => {
         // Create a test image file
-        writeFileSync(join(testDir, '.vizzly', 'test-image.png'), 'fake png data');
+        writeFileSync(
+          join(testDir, '.vizzly', 'test-image.png'),
+          'fake png data'
+        );
 
         let handler = createAssetsRouter();
         let req = createMockRequest('GET');

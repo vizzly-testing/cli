@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { VizzlyError, AuthError } from '../../src/errors/vizzly-error.js';
+import { AuthError, VizzlyError } from '../../src/errors/vizzly-error.js';
 
 describe('errors/vizzly-error', () => {
   describe('VizzlyError', () => {

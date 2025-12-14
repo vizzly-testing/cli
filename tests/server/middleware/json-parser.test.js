@@ -1,6 +1,6 @@
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
 import { EventEmitter } from 'node:events';
+import { describe, it } from 'node:test';
 import { parseJsonBody } from '../../../src/server/middleware/json-parser.js';
 
 /**

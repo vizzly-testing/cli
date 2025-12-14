@@ -183,10 +183,7 @@ describe('server/http-server', () => {
 
       let server2 = createHttpServer(testPort, null);
 
-      await assert.rejects(
-        server2.start(),
-        /already in use/
-      );
+      await assert.rejects(server2.start(), /already in use/);
     });
   });
 });

@@ -48,7 +48,7 @@ describe('utils/fetch-utils', () => {
         `http://127.0.0.1:${serverPort}/fast`,
         {
           method: 'GET',
-          headers: { 'Accept': 'application/json' },
+          headers: { Accept: 'application/json' },
         }
       );
 

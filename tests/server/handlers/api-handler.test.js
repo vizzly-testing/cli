@@ -53,7 +53,13 @@ describe('server/handlers/api-handler', () => {
 
     it('handles base64 image data', async () => {
       let uploadedData = null;
-      let mockUploadScreenshot = async (client, buildId, name, buffer, props) => {
+      let mockUploadScreenshot = async (
+        client,
+        buildId,
+        name,
+        buffer,
+        props
+      ) => {
         uploadedData = { buildId, name, buffer, props };
         return { success: true };
       };
@@ -91,7 +97,13 @@ describe('server/handlers/api-handler', () => {
 
     it('handles file path image', async () => {
       let uploadedData = null;
-      let mockUploadScreenshot = async (client, buildId, name, buffer, props) => {
+      let mockUploadScreenshot = async (
+        client,
+        buildId,
+        name,
+        buffer,
+        props
+      ) => {
         uploadedData = { buildId, name, buffer, props };
         return { success: true };
       };

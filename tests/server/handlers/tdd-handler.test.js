@@ -1,10 +1,10 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import {
-  unwrapProperties,
-  extractProperties,
   convertPathToUrl,
+  extractProperties,
   groupComparisons,
+  unwrapProperties,
 } from '../../../src/server/handlers/tdd-handler.js';
 
 describe('server/handlers/tdd-handler', () => {
@@ -223,12 +223,20 @@ describe('server/handlers/tdd-handler', () => {
         {
           name: 'test',
           id: '1',
-          properties: { browser: 'chrome', viewport_width: 1920, viewport_height: 1080 },
+          properties: {
+            browser: 'chrome',
+            viewport_width: 1920,
+            viewport_height: 1080,
+          },
         },
         {
           name: 'test',
           id: '2',
-          properties: { browser: 'chrome', viewport_width: 375, viewport_height: 667 },
+          properties: {
+            browser: 'chrome',
+            viewport_width: 375,
+            viewport_height: 667,
+          },
         },
       ];
 
@@ -262,12 +270,20 @@ describe('server/handlers/tdd-handler', () => {
         {
           name: 'test',
           id: '1',
-          properties: { browser: 'chrome', viewport_width: 1920, viewport_height: 1080 },
+          properties: {
+            browser: 'chrome',
+            viewport_width: 1920,
+            viewport_height: 1080,
+          },
         },
         {
           name: 'test',
           id: '2',
-          properties: { browser: 'chrome', viewport_width: 375, viewport_height: 667 },
+          properties: {
+            browser: 'chrome',
+            viewport_width: 375,
+            viewport_height: 667,
+          },
         },
       ]);
       assert.strictEqual(multiViewport[0].groupingStrategy, 'viewport');

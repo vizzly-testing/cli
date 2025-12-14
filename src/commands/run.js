@@ -1,4 +1,29 @@
-import { createServices } from '../services/index.js';
+/**
+ * Run command implementation
+ * Uses functional operations directly - no class wrappers needed
+ */
+
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  createBuild as createApiBuild,
+  createApiClient,
+  finalizeBuild as finalizeApiBuild,
+  getBuild,
+} from '../api/index.js';
+import { VizzlyError } from '../errors/vizzly-error.js';
+import { createApiHandler } from '../server/handlers/api-handler.js';
+import { createTddHandler } from '../server/handlers/tdd-handler.js';
+import { createHttpServer } from '../server/http-server.js';
+import {
+  buildServerInterface,
+  getTddResults,
+  startServer,
+  stopServer,
+} from '../server-manager/index.js';
+import { createBuildObject } from '../services/build-manager.js';
+import { createUploader } from '../services/uploader.js';
+import { finalizeBuild, runTests } from '../test-runner/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import {
   detectBranch,
@@ -8,6 +33,55 @@ import {
   generateBuildNameWithGit,
 } from '../utils/git.js';
 import * as output from '../utils/output.js';
+
+/**
+ * Create a server manager object that provides the interface runTests expects.
+ */
+function createServerManager(config, services = {}) {
+  let httpServer = null;
+  let handler = null;
+
+  let deps = {
+    createHttpServer,
+    createTddHandler,
+    createApiHandler,
+    createApiClient,
+    fs: { mkdirSync, writeFileSync, existsSync, unlinkSync },
+  };
+
+  return {
+    async start(buildId, tddMode, setBaseline) {
+      let result = await startServer({
+        config,
+        buildId,
+        tddMode,
+        setBaseline,
+        projectRoot: process.cwd(),
+        services,
+        deps,
+      });
+      httpServer = result.httpServer;
+      handler = result.handler;
+    },
+
+    async stop() {
+      await stopServer({
+        httpServer,
+        handler,
+        projectRoot: process.cwd(),
+        deps,
+      });
+    },
+
+    async getTddResults() {
+      return getTddResults({ tddMode: true, handler });
+    },
+
+    get server() {
+      return buildServerInterface({ handler, httpServer });
+    },
+  };
+}
 
 /**
  * Run command implementation
@@ -26,59 +100,73 @@ export async function runCommand(
     color: !globalOptions.noColor,
   });
 
-  let testRunner = null;
+  let serverManager = null;
+  let testProcess = null;
   let buildId = null;
   let startTime = null;
   let isTddMode = false;
+  let config = null;
 
   // Ensure cleanup on exit
-  const cleanup = async () => {
+  let cleanup = async () => {
     output.cleanup();
 
-    // Cancel test runner (kills process and stops server)
-    if (testRunner) {
+    // Kill test process if running
+    if (testProcess && !testProcess.killed) {
+      testProcess.kill('SIGKILL');
+    }
+
+    // Stop server
+    if (serverManager) {
       try {
-        await testRunner.cancel();
+        await serverManager.stop();
       } catch {
         // Silent fail
       }
     }
 
     // Finalize build if we have one
-    if (testRunner && buildId) {
+    if (buildId && config) {
       try {
-        const executionTime = Date.now() - (startTime || Date.now());
-        await testRunner.finalizeBuild(
+        let executionTime = Date.now() - (startTime || Date.now());
+        await finalizeBuild({
           buildId,
-          isTddMode,
-          false,
-          executionTime
-        );
+          tdd: isTddMode,
+          success: false,
+          executionTime,
+          config,
+          deps: {
+            serverManager,
+            createApiClient,
+            finalizeApiBuild,
+            output,
+          },
+        });
       } catch {
         // Silent fail on cleanup
       }
     }
   };
 
-  const sigintHandler = async () => {
+  let sigintHandler = async () => {
     await cleanup();
     process.exit(1);
   };
 
-  const exitHandler = () => output.cleanup();
+  let exitHandler = () => output.cleanup();
 
   process.on('SIGINT', sigintHandler);
   process.on('exit', exitHandler);
 
   try {
     // Load configuration with CLI overrides
-    const allOptions = { ...globalOptions, ...options };
+    let allOptions = { ...globalOptions, ...options };
 
     output.debug('[RUN] Loading config', {
       hasToken: !!allOptions.token,
     });
 
-    const config = await loadConfig(globalOptions.config, allOptions);
+    config = await loadConfig(globalOptions.config, allOptions);
 
     output.debug('[RUN] Config loaded', {
       hasApiKey: !!config.apiKey,
@@ -110,11 +198,11 @@ export async function runCommand(
     }
 
     // Collect git metadata and build info
-    const branch = await detectBranch(options.branch);
-    const commit = await detectCommit(options.commit);
-    const message = options.message || (await detectCommitMessage());
-    const buildName = await generateBuildNameWithGit(options.buildName);
-    const pullRequestNumber = detectPullRequestNumber();
+    let branch = await detectBranch(options.branch);
+    let commit = await detectCommit(options.commit);
+    let message = options.message || (await detectCommitMessage());
+    let buildName = await generateBuildNameWithGit(options.buildName);
+    let pullRequestNumber = detectPullRequestNumber();
 
     if (globalOptions.verbose) {
       output.info('Configuration loaded');
@@ -131,9 +219,9 @@ export async function runCommand(
       });
     }
 
-    // Create service container and get test runner service
+    // Create functional dependencies
     output.startSpinner('Initializing test runner...');
-    const configWithVerbose = {
+    let configWithVerbose = {
       ...config,
       verbose: globalOptions.verbose,
       uploadAll: options.uploadAll || false,
@@ -143,66 +231,26 @@ export async function runCommand(
       hasApiKey: !!configWithVerbose.apiKey,
     });
 
-    const services = createServices(configWithVerbose, 'run');
-    testRunner = services.testRunner;
+    // Create server manager (functional object)
+    serverManager = createServerManager(configWithVerbose, {});
+
+    // Create build manager (functional object)
+    let buildManager = {
+      async createBuild(buildOptions) {
+        return createBuildObject(buildOptions);
+      },
+    };
+
+    // Create uploader for --wait functionality
+    let uploader = createUploader({ ...configWithVerbose, command: 'run' });
+
     output.stopSpinner();
 
     // Track build URL for display
     let buildUrl = null;
 
-    // Set up event handlers
-    testRunner.on('progress', progressData => {
-      const { message: progressMessage } = progressData;
-      output.progress(progressMessage || 'Running tests...');
-    });
-
-    testRunner.on('test-output', data => {
-      // In non-JSON mode, show test output directly
-      if (!globalOptions.json) {
-        output.stopSpinner();
-        output.print(data.data);
-      }
-    });
-
-    testRunner.on('server-ready', serverInfo => {
-      if (globalOptions.verbose) {
-        output.info(`Screenshot server running on port ${serverInfo.port}`);
-        output.debug('Server details', serverInfo);
-      }
-    });
-
-    testRunner.on('screenshot-captured', screenshotInfo => {
-      output.info(`Vizzly: Screenshot captured - ${screenshotInfo.name}`);
-    });
-
-    testRunner.on('build-created', buildInfo => {
-      buildUrl = buildInfo.url;
-      buildId = buildInfo.buildId;
-      if (globalOptions.verbose) {
-        output.info(`Build created: ${buildInfo.buildId} - ${buildInfo.name}`);
-      }
-      if (buildUrl) {
-        output.info(`Vizzly: ${buildUrl}`);
-      }
-    });
-
-    testRunner.on('build-failed', buildError => {
-      output.error('Failed to create build', buildError);
-    });
-
-    testRunner.on('error', error => {
-      output.stopSpinner();
-      output.error('Test runner error occurred', error);
-    });
-
-    testRunner.on('build-finalize-failed', errorInfo => {
-      output.warn(
-        `Failed to finalize build ${errorInfo.buildId}: ${errorInfo.error}`
-      );
-    });
-
     // Prepare run options
-    const runOptions = {
+    let runOptions = {
       testCommand,
       port: config.server.port,
       timeout: config.server.timeout,
@@ -227,7 +275,45 @@ export async function runCommand(
 
     let result;
     try {
-      result = await testRunner.run(runOptions);
+      result = await runTests({
+        runOptions,
+        config: configWithVerbose,
+        deps: {
+          serverManager,
+          buildManager,
+          spawn: (command, spawnOptions) => {
+            let proc = spawn(command, spawnOptions);
+            testProcess = proc;
+            return proc;
+          },
+          createApiClient,
+          createApiBuild,
+          getBuild,
+          finalizeApiBuild,
+          createError: (message, code) => new VizzlyError(message, code),
+          output,
+          onBuildCreated: data => {
+            buildUrl = data.url;
+            buildId = data.buildId;
+            if (globalOptions.verbose) {
+              output.info(`Build created: ${data.buildId}`);
+            }
+            if (buildUrl) {
+              output.info(`Vizzly: ${buildUrl}`);
+            }
+          },
+          onServerReady: data => {
+            if (globalOptions.verbose) {
+              output.info(`Screenshot server running on port ${data.port}`);
+            }
+          },
+          onFinalizeFailed: data => {
+            output.warn(
+              `Failed to finalize build ${data.buildId}: ${data.error}`
+            );
+          },
+        },
+      });
 
       // Store buildId for cleanup purposes
       if (result.buildId) {
@@ -255,8 +341,8 @@ export async function runCommand(
         error.code === 'TEST_COMMAND_INTERRUPTED'
       ) {
         // Extract exit code from error message if available
-        const exitCodeMatch = error.message.match(/exited with code (\d+)/);
-        const exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
+        let exitCodeMatch = error.message.match(/exited with code (\d+)/);
+        let exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
 
         output.error('Test run failed');
         return { success: false, exitCode };
@@ -274,8 +360,7 @@ export async function runCommand(
         output.info('Waiting for build completion...');
         output.startSpinner('Processing comparisons...');
 
-        const { uploader } = services;
-        const buildResult = await uploader.waitForBuild(result.buildId);
+        let buildResult = await uploader.waitForBuild(result.buildId);
 
         output.success('Build processing completed');
 
@@ -318,35 +403,35 @@ export async function runCommand(
  * @param {Object} options - Command options
  */
 export function validateRunOptions(testCommand, options) {
-  const errors = [];
+  let errors = [];
 
   if (!testCommand || testCommand.trim() === '') {
     errors.push('Test command is required');
   }
 
   if (options.port) {
-    const port = parseInt(options.port, 10);
+    let port = parseInt(options.port, 10);
     if (Number.isNaN(port) || port < 1 || port > 65535) {
       errors.push('Port must be a valid number between 1 and 65535');
     }
   }
 
   if (options.timeout) {
-    const timeout = parseInt(options.timeout, 10);
+    let timeout = parseInt(options.timeout, 10);
     if (Number.isNaN(timeout) || timeout < 1000) {
       errors.push('Timeout must be at least 1000 milliseconds');
     }
   }
 
   if (options.batchSize !== undefined) {
-    const n = parseInt(options.batchSize, 10);
+    let n = parseInt(options.batchSize, 10);
     if (!Number.isFinite(n) || n <= 0) {
       errors.push('Batch size must be a positive integer');
     }
   }
 
   if (options.uploadTimeout !== undefined) {
-    const n = parseInt(options.uploadTimeout, 10);
+    let n = parseInt(options.uploadTimeout, 10);
     if (!Number.isFinite(n) || n <= 0) {
       errors.push('Upload timeout must be a positive integer (milliseconds)');
     }

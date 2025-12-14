@@ -1,5 +1,9 @@
-import { ApiService } from '../services/api-service.js';
-import { createServices } from '../services/index.js';
+import {
+  createApiClient,
+  finalizeBuild,
+  getTokenContext,
+} from '../api/index.js';
+import { createUploader } from '../services/uploader.js';
 import { loadConfig } from '../utils/config-loader.js';
 import {
   detectBranch,
@@ -19,14 +23,14 @@ import * as output from '../utils/output.js';
  */
 async function constructBuildUrl(buildId, apiUrl, apiToken) {
   try {
-    const apiService = new ApiService({
+    let client = createApiClient({
       baseUrl: apiUrl,
       token: apiToken,
       command: 'upload',
     });
 
-    const tokenContext = await apiService.getTokenContext();
-    const baseUrl = apiUrl.replace(/\/api.*$/, '');
+    let tokenContext = await getTokenContext(client);
+    let baseUrl = apiUrl.replace(/\/api.*$/, '');
 
     if (tokenContext.organization?.slug && tokenContext.project?.slug) {
       return `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${buildId}`;
@@ -97,10 +101,9 @@ export async function uploadCommand(
       });
     }
 
-    // Get uploader service
+    // Create uploader
     output.startSpinner('Initializing uploader...');
-    const services = createServices(config, 'upload');
-    const uploader = services.uploader;
+    let uploader = createUploader({ ...config, command: 'upload' });
 
     // Prepare upload options with progress callback
     const uploadOptions = {
@@ -151,13 +154,13 @@ export async function uploadCommand(
     if (result.buildId) {
       output.progress('Finalizing build...');
       try {
-        const apiService = new ApiService({
+        let client = createApiClient({
           baseUrl: config.apiUrl,
           token: config.apiKey,
           command: 'upload',
         });
-        const executionTime = Date.now() - uploadStartTime;
-        await apiService.finalizeBuild(result.buildId, true, executionTime);
+        let executionTime = Date.now() - uploadStartTime;
+        await finalizeBuild(client, result.buildId, true, executionTime);
       } catch (error) {
         output.warn(`Failed to finalize build: ${error.message}`);
       }
@@ -208,13 +211,13 @@ export async function uploadCommand(
     // Mark build as failed if we have a buildId and config
     if (buildId && config) {
       try {
-        const apiService = new ApiService({
+        let client = createApiClient({
           baseUrl: config.apiUrl,
           token: config.apiKey,
           command: 'upload',
         });
-        const executionTime = Date.now() - uploadStartTime;
-        await apiService.finalizeBuild(buildId, false, executionTime);
+        let executionTime = Date.now() - uploadStartTime;
+        await finalizeBuild(client, buildId, false, executionTime);
       } catch {
         // Silent fail on cleanup
       }

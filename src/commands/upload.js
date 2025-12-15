@@ -201,7 +201,12 @@ export async function uploadCommand(
       // Use API-provided URL or construct proper URL with org/project context
       let buildUrl =
         result.url ||
-        (await buildUrlConstructor(result.buildId, config.apiUrl, config.apiKey, deps));
+        (await buildUrlConstructor(
+          result.buildId,
+          config.apiUrl,
+          config.apiKey,
+          deps
+        ));
       output.info(`🔗 Vizzly: View results at ${buildUrl}`);
     }
 
@@ -227,7 +232,12 @@ export async function uploadCommand(
       // Use API-provided URL or construct proper URL with org/project context
       let waitBuildUrl =
         buildResult.url ||
-        (await buildUrlConstructor(result.buildId, config.apiUrl, config.apiKey, deps));
+        (await buildUrlConstructor(
+          result.buildId,
+          config.apiUrl,
+          config.apiKey,
+          deps
+        ));
       output.info(`🔗 Vizzly: View results at ${waitBuildUrl}`);
     }
 

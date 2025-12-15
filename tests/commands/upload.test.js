@@ -278,18 +278,23 @@ describe('uploadCommand', () => {
     let output = createMockOutput();
     let exitCode = null;
 
-    let result = await uploadCommand('./screenshots', {}, {}, {
-      loadConfig: async () => ({
-        apiKey: null,
-        apiUrl: 'https://api.test',
-        build: { environment: 'test' },
-        comparison: { threshold: 2.0 },
-      }),
-      output,
-      exit: code => {
-        exitCode = code;
-      },
-    });
+    let result = await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
+        }),
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
 
     assert.strictEqual(result.success, false);
     assert.strictEqual(result.reason, 'no-api-key');
@@ -302,36 +307,42 @@ describe('uploadCommand', () => {
     let finalizeCalled = false;
     let finalizeSuccess = null;
 
-    let result = await uploadCommand('./screenshots', {}, {}, {
-      loadConfig: async () => ({
-        apiKey: 'test-token',
-        apiUrl: 'https://api.test',
-        build: { environment: 'test' },
-        comparison: { threshold: 2.0 },
-      }),
-      detectBranch: async () => 'main',
-      detectCommit: async () => 'abc123',
-      detectCommitMessage: async () => 'Test commit',
-      detectPullRequestNumber: () => null,
-      generateBuildNameWithGit: async () => 'Test Build',
-      createUploader: () => ({
-        upload: async () => {
-          uploadCalled = true;
-          return {
-            buildId: 'build-123',
-            stats: { uploaded: 5, total: 5 },
-          };
+    let result = await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
+        }),
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async () => {
+            uploadCalled = true;
+            return {
+              buildId: 'build-123',
+              stats: { uploaded: 5, total: 5 },
+            };
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async (_client, _buildId, success) => {
+          finalizeCalled = true;
+          finalizeSuccess = success;
         },
-      }),
-      createApiClient: () => ({}),
-      finalizeBuild: async (_client, _buildId, success) => {
-        finalizeCalled = true;
-        finalizeSuccess = success;
-      },
-      buildUrlConstructor: async () => 'https://app.vizzly.dev/builds/build-123',
-      output,
-      exit: () => {},
-    });
+        buildUrlConstructor: async () =>
+          'https://app.vizzly.dev/builds/build-123',
+        output,
+        exit: () => {},
+      }
+    );
 
     assert.strictEqual(result.success, true);
     assert.strictEqual(uploadCalled, true);
@@ -345,36 +356,41 @@ describe('uploadCommand', () => {
     let exitCode = null;
     let finalizeSuccess = null;
 
-    let result = await uploadCommand('./screenshots', {}, {}, {
-      loadConfig: async () => ({
-        apiKey: 'test-token',
-        apiUrl: 'https://api.test',
-        build: { environment: 'test' },
-        comparison: { threshold: 2.0 },
-      }),
-      detectBranch: async () => 'main',
-      detectCommit: async () => 'abc123',
-      detectCommitMessage: async () => 'Test commit',
-      detectPullRequestNumber: () => null,
-      generateBuildNameWithGit: async () => 'Test Build',
-      createUploader: () => ({
-        upload: async opts => {
-          // Simulate progress callback that sets buildId
-          if (opts.onProgress) {
-            opts.onProgress({ buildId: 'build-123' });
-          }
-          throw new Error('Upload failed');
+    let result = await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
+        }),
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async opts => {
+            // Simulate progress callback that sets buildId
+            if (opts.onProgress) {
+              opts.onProgress({ buildId: 'build-123' });
+            }
+            throw new Error('Upload failed');
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async (_client, _buildId, success) => {
+          finalizeSuccess = success;
         },
-      }),
-      createApiClient: () => ({}),
-      finalizeBuild: async (_client, _buildId, success) => {
-        finalizeSuccess = success;
-      },
-      output,
-      exit: code => {
-        exitCode = code;
-      },
-    });
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
 
     assert.strictEqual(result.success, false);
     assert.strictEqual(exitCode, 1);
@@ -385,34 +401,40 @@ describe('uploadCommand', () => {
     let output = createMockOutput();
     let waitForBuildCalled = false;
 
-    let result = await uploadCommand('./screenshots', { wait: true }, {}, {
-      loadConfig: async () => ({
-        apiKey: 'test-token',
-        apiUrl: 'https://api.test',
-        build: { environment: 'test' },
-        comparison: { threshold: 2.0 },
-      }),
-      detectBranch: async () => 'main',
-      detectCommit: async () => 'abc123',
-      detectCommitMessage: async () => 'Test commit',
-      detectPullRequestNumber: () => null,
-      generateBuildNameWithGit: async () => 'Test Build',
-      createUploader: () => ({
-        upload: async () => ({
-          buildId: 'build-123',
-          stats: { uploaded: 5, total: 5 },
+    let result = await uploadCommand(
+      './screenshots',
+      { wait: true },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
         }),
-        waitForBuild: async () => {
-          waitForBuildCalled = true;
-          return { passedComparisons: 5, failedComparisons: 0 };
-        },
-      }),
-      createApiClient: () => ({}),
-      finalizeBuild: async () => {},
-      buildUrlConstructor: async () => 'https://app.vizzly.dev/builds/build-123',
-      output,
-      exit: () => {},
-    });
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async () => ({
+            buildId: 'build-123',
+            stats: { uploaded: 5, total: 5 },
+          }),
+          waitForBuild: async () => {
+            waitForBuildCalled = true;
+            return { passedComparisons: 5, failedComparisons: 0 };
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        buildUrlConstructor: async () =>
+          'https://app.vizzly.dev/builds/build-123',
+        output,
+        exit: () => {},
+      }
+    );
 
     assert.strictEqual(result.success, true);
     assert.strictEqual(waitForBuildCalled, true);
@@ -421,34 +443,40 @@ describe('uploadCommand', () => {
   it('shows warning when wait returns failed comparisons', async () => {
     let output = createMockOutput();
 
-    await uploadCommand('./screenshots', { wait: true }, {}, {
-      loadConfig: async () => ({
-        apiKey: 'test-token',
-        apiUrl: 'https://api.test',
-        build: { environment: 'test' },
-        comparison: { threshold: 2.0 },
-      }),
-      detectBranch: async () => 'main',
-      detectCommit: async () => 'abc123',
-      detectCommitMessage: async () => 'Test commit',
-      detectPullRequestNumber: () => null,
-      generateBuildNameWithGit: async () => 'Test Build',
-      createUploader: () => ({
-        upload: async () => ({
-          buildId: 'build-123',
-          stats: { uploaded: 5, total: 5 },
+    await uploadCommand(
+      './screenshots',
+      { wait: true },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
         }),
-        waitForBuild: async () => ({
-          passedComparisons: 3,
-          failedComparisons: 2,
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async () => ({
+            buildId: 'build-123',
+            stats: { uploaded: 5, total: 5 },
+          }),
+          waitForBuild: async () => ({
+            passedComparisons: 3,
+            failedComparisons: 2,
+          }),
         }),
-      }),
-      createApiClient: () => ({}),
-      finalizeBuild: async () => {},
-      buildUrlConstructor: async () => 'https://app.vizzly.dev/builds/build-123',
-      output,
-      exit: () => {},
-    });
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        buildUrlConstructor: async () =>
+          'https://app.vizzly.dev/builds/build-123',
+        output,
+        exit: () => {},
+      }
+    );
 
     assert.ok(output.calls.some(c => c.method === 'warn'));
   });
@@ -456,32 +484,38 @@ describe('uploadCommand', () => {
   it('handles finalize error gracefully', async () => {
     let output = createMockOutput();
 
-    let result = await uploadCommand('./screenshots', {}, {}, {
-      loadConfig: async () => ({
-        apiKey: 'test-token',
-        apiUrl: 'https://api.test',
-        build: { environment: 'test' },
-        comparison: { threshold: 2.0 },
-      }),
-      detectBranch: async () => 'main',
-      detectCommit: async () => 'abc123',
-      detectCommitMessage: async () => 'Test commit',
-      detectPullRequestNumber: () => null,
-      generateBuildNameWithGit: async () => 'Test Build',
-      createUploader: () => ({
-        upload: async () => ({
-          buildId: 'build-123',
-          stats: { uploaded: 5, total: 5 },
+    let result = await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
         }),
-      }),
-      createApiClient: () => ({}),
-      finalizeBuild: async () => {
-        throw new Error('Finalize failed');
-      },
-      buildUrlConstructor: async () => 'https://app.vizzly.dev/builds/build-123',
-      output,
-      exit: () => {},
-    });
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async () => ({
+            buildId: 'build-123',
+            stats: { uploaded: 5, total: 5 },
+          }),
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {
+          throw new Error('Finalize failed');
+        },
+        buildUrlConstructor: async () =>
+          'https://app.vizzly.dev/builds/build-123',
+        output,
+        exit: () => {},
+      }
+    );
 
     // Should still succeed since upload completed
     assert.strictEqual(result.success, true);
@@ -492,38 +526,44 @@ describe('uploadCommand', () => {
   it('uses result.url when provided', async () => {
     let output = createMockOutput();
 
-    await uploadCommand('./screenshots', {}, {}, {
-      loadConfig: async () => ({
-        apiKey: 'test-token',
-        apiUrl: 'https://api.test',
-        build: { environment: 'test' },
-        comparison: { threshold: 2.0 },
-      }),
-      detectBranch: async () => 'main',
-      detectCommit: async () => 'abc123',
-      detectCommitMessage: async () => 'Test commit',
-      detectPullRequestNumber: () => null,
-      generateBuildNameWithGit: async () => 'Test Build',
-      createUploader: () => ({
-        upload: async () => ({
-          buildId: 'build-123',
-          url: 'https://custom.url/build',
-          stats: { uploaded: 5, total: 5 },
+    await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
         }),
-      }),
-      createApiClient: () => ({}),
-      finalizeBuild: async () => {},
-      buildUrlConstructor: async () => {
-        throw new Error('Should not be called');
-      },
-      output,
-      exit: () => {},
-    });
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async () => ({
+            buildId: 'build-123',
+            url: 'https://custom.url/build',
+            stats: { uploaded: 5, total: 5 },
+          }),
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        buildUrlConstructor: async () => {
+          throw new Error('Should not be called');
+        },
+        output,
+        exit: () => {},
+      }
+    );
 
     // Check that the custom URL was used
     assert.ok(
       output.calls.some(
-        c => c.method === 'info' && c.args[0].includes('https://custom.url/build')
+        c =>
+          c.method === 'info' && c.args[0].includes('https://custom.url/build')
       )
     );
   });
@@ -531,30 +571,36 @@ describe('uploadCommand', () => {
   it('shows verbose output when verbose flag is set', async () => {
     let output = createMockOutput();
 
-    await uploadCommand('./screenshots', {}, { verbose: true }, {
-      loadConfig: async () => ({
-        apiKey: 'test-token',
-        apiUrl: 'https://api.test',
-        build: { environment: 'test', name: 'Test' },
-        comparison: { threshold: 2.0 },
-      }),
-      detectBranch: async () => 'main',
-      detectCommit: async () => 'abc123',
-      detectCommitMessage: async () => 'Test commit',
-      detectPullRequestNumber: () => null,
-      generateBuildNameWithGit: async () => 'Test Build',
-      createUploader: () => ({
-        upload: async () => ({
-          buildId: 'build-123',
-          stats: { uploaded: 5, total: 5 },
+    await uploadCommand(
+      './screenshots',
+      {},
+      { verbose: true },
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test', name: 'Test' },
+          comparison: { threshold: 2.0 },
         }),
-      }),
-      createApiClient: () => ({}),
-      finalizeBuild: async () => {},
-      buildUrlConstructor: async () => 'https://app.vizzly.dev/builds/build-123',
-      output,
-      exit: () => {},
-    });
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async () => ({
+            buildId: 'build-123',
+            stats: { uploaded: 5, total: 5 },
+          }),
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        buildUrlConstructor: async () =>
+          'https://app.vizzly.dev/builds/build-123',
+        output,
+        exit: () => {},
+      }
+    );
 
     assert.ok(output.calls.some(c => c.method === 'debug'));
   });

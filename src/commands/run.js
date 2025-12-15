@@ -3,39 +3,68 @@
  * Uses functional operations directly - no class wrappers needed
  */
 
-import { spawn } from 'node:child_process';
+import { spawn as defaultSpawn } from 'node:child_process';
 import {
-  createBuild as createApiBuild,
-  createApiClient,
-  finalizeBuild as finalizeApiBuild,
-  getBuild,
+  createBuild as defaultCreateApiBuild,
+  createApiClient as defaultCreateApiClient,
+  finalizeBuild as defaultFinalizeApiBuild,
+  getBuild as defaultGetBuild,
 } from '../api/index.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
-import { createServerManager } from '../server-manager/index.js';
-import { createBuildObject } from '../services/build-manager.js';
-import { createUploader } from '../services/uploader.js';
-import { finalizeBuild, runTests } from '../test-runner/index.js';
-import { loadConfig } from '../utils/config-loader.js';
+import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
+import { createBuildObject as defaultCreateBuildObject } from '../services/build-manager.js';
+import { createUploader as defaultCreateUploader } from '../services/uploader.js';
 import {
-  detectBranch,
-  detectCommit,
-  detectCommitMessage,
-  detectPullRequestNumber,
-  generateBuildNameWithGit,
+  finalizeBuild as defaultFinalizeBuild,
+  runTests as defaultRunTests,
+} from '../test-runner/index.js';
+import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
+import {
+  detectBranch as defaultDetectBranch,
+  detectCommit as defaultDetectCommit,
+  detectCommitMessage as defaultDetectCommitMessage,
+  detectPullRequestNumber as defaultDetectPullRequestNumber,
+  generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
 } from '../utils/git.js';
-import * as output from '../utils/output.js';
+import * as defaultOutput from '../utils/output.js';
 
 /**
  * Run command implementation
  * @param {string} testCommand - Test command to execute
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
  */
 export async function runCommand(
   testCommand,
   options = {},
-  globalOptions = {}
+  globalOptions = {},
+  deps = {}
 ) {
+  let {
+    loadConfig = defaultLoadConfig,
+    createApiClient = defaultCreateApiClient,
+    createApiBuild = defaultCreateApiBuild,
+    finalizeApiBuild = defaultFinalizeApiBuild,
+    getBuild = defaultGetBuild,
+    createServerManager = defaultCreateServerManager,
+    createBuildObject = defaultCreateBuildObject,
+    createUploader = defaultCreateUploader,
+    finalizeBuild = defaultFinalizeBuild,
+    runTests = defaultRunTests,
+    detectBranch = defaultDetectBranch,
+    detectCommit = defaultDetectCommit,
+    detectCommitMessage = defaultDetectCommitMessage,
+    detectPullRequestNumber = defaultDetectPullRequestNumber,
+    generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
+    spawn = defaultSpawn,
+    output = defaultOutput,
+    exit = code => process.exit(code),
+    processOn = (event, handler) => process.on(event, handler),
+    processRemoveListener = (event, handler) =>
+      process.removeListener(event, handler),
+  } = deps;
+
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -92,13 +121,13 @@ export async function runCommand(
 
   let sigintHandler = async () => {
     await cleanup();
-    process.exit(1);
+    exit(1);
   };
 
   let exitHandler = () => output.cleanup();
 
-  process.on('SIGINT', sigintHandler);
-  process.on('exit', exitHandler);
+  processOn('SIGINT', sigintHandler);
+  processOn('exit', exitHandler);
 
   try {
     // Load configuration with CLI overrides
@@ -136,7 +165,8 @@ export async function runCommand(
       output.error(
         'API token required. Use --token, set VIZZLY_TOKEN environment variable, or use --allow-no-token to run without uploading'
       );
-      process.exit(1);
+      exit(1);
+      return { success: false, reason: 'no-api-key' };
     }
 
     // Collect git metadata and build info
@@ -232,7 +262,7 @@ export async function runCommand(
           createApiBuild,
           getBuild,
           finalizeApiBuild,
-          createError: (message, code) => new VizzlyError(message, code),
+          createError: (msg, code) => new VizzlyError(msg, code),
           output,
           onBuildCreated: data => {
             buildUrl = data.url;
@@ -317,6 +347,7 @@ export async function runCommand(
     }
 
     output.cleanup();
+    return { success: true, result };
   } catch (error) {
     output.stopSpinner();
 
@@ -331,11 +362,12 @@ export async function runCommand(
     }
 
     output.error(errorContext, error);
-    process.exit(1);
+    exit(1);
+    return { success: false, error };
   } finally {
     // Remove event listeners to prevent memory leaks
-    process.removeListener('SIGINT', sigintHandler);
-    process.removeListener('exit', exitHandler);
+    processRemoveListener('SIGINT', sigintHandler);
+    processRemoveListener('exit', exitHandler);
   }
 }
 

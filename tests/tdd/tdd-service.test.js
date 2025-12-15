@@ -885,4 +885,146 @@ describe('tdd/tdd-service', () => {
       assert.ok(service.baselineData.screenshots);
     });
   });
+
+  describe('createNewBaseline', () => {
+    it('creates a new baseline and updates metadata', () => {
+      let writeFileSync = (path, buffer) => {
+        assert.ok(path.includes('baselines'));
+        assert.ok(buffer instanceof Buffer);
+      };
+
+      let mockDeps = createMockDeps({
+        fs: { writeFileSync },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let result = service.createNewBaseline(
+        'homepage',
+        Buffer.from('image-data'),
+        { browser: 'chrome', viewport_width: 1920 },
+        '/test/.vizzly/current/homepage.png',
+        '/test/.vizzly/baselines/homepage.png'
+      );
+
+      assert.strictEqual(result.name, 'homepage');
+      assert.strictEqual(result.status, 'new');
+      assert.ok(result.id);
+      assert.ok(result.signature);
+    });
+
+    it('initializes baseline metadata when not present', () => {
+      let mockDeps = createMockDeps({
+        fs: { writeFileSync: () => {} },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      assert.strictEqual(service.baselineData, null);
+
+      service.createNewBaseline(
+        'button',
+        Buffer.from('image-data'),
+        { browser: 'firefox' },
+        '/test/.vizzly/current/button.png',
+        '/test/.vizzly/baselines/button.png'
+      );
+
+      assert.ok(service.baselineData);
+      assert.strictEqual(service.baselineData.buildId, 'local');
+      assert.strictEqual(service.baselineData.buildName, 'Local TDD');
+    });
+
+    it('adds comparison to service.comparisons array', () => {
+      let mockDeps = createMockDeps({
+        fs: { writeFileSync: () => {} },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      assert.strictEqual(service.comparisons.length, 0);
+
+      service.createNewBaseline(
+        'card',
+        Buffer.from('image-data'),
+        { viewport_width: 768 },
+        '/test/.vizzly/current/card.png',
+        '/test/.vizzly/baselines/card.png'
+      );
+
+      assert.strictEqual(service.comparisons.length, 1);
+      assert.strictEqual(service.comparisons[0].name, 'card');
+      assert.strictEqual(service.comparisons[0].status, 'new');
+    });
+
+    it('generates correct signature and filename', () => {
+      let mockDeps = createMockDeps({
+        fs: { writeFileSync: () => {} },
+        signature: {
+          generateScreenshotSignature: (name, props) =>
+            `${name}|${props.viewport_width || 'unknown'}|${props.browser || 'unknown'}`,
+          generateComparisonId: sig => `comp-${sig}`,
+          generateBaselineFilename: (name, sig) => `${name}_${sig}`,
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let result = service.createNewBaseline(
+        'modal',
+        Buffer.from('image-data'),
+        { browser: 'safari', viewport_width: 1024 },
+        '/test/.vizzly/current/modal.png',
+        '/test/.vizzly/baselines/modal.png'
+      );
+
+      assert.ok(result.signature.includes('modal'));
+      assert.ok(result.id.startsWith('comp-'));
+    });
+
+    it('preserves properties in comparison object', () => {
+      let mockDeps = createMockDeps({
+        fs: { writeFileSync: () => {} },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let properties = {
+        browser: 'chrome',
+        viewport_width: 1440,
+        viewport_height: 900,
+        device: 'desktop',
+      };
+
+      let result = service.createNewBaseline(
+        'responsive',
+        Buffer.from('image-data'),
+        properties,
+        '/test/.vizzly/current/responsive.png',
+        '/test/.vizzly/baselines/responsive.png'
+      );
+
+      assert.strictEqual(result.properties.browser, 'chrome');
+      assert.strictEqual(result.properties.viewport_width, 1440);
+      assert.strictEqual(result.properties.device, 'desktop');
+    });
+
+    it('outputs info message when baseline is created', () => {
+      let mockDeps = createMockDeps({
+        fs: { writeFileSync: () => {} },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      service.createNewBaseline(
+        'hero',
+        Buffer.from('image-data'),
+        {},
+        '/test/.vizzly/current/hero.png',
+        '/test/.vizzly/baselines/hero.png'
+      );
+
+      let infoCall = mockDeps.output.calls.find(
+        c => c.method === 'info' && c.args[0].includes('Creating baseline')
+      );
+      assert.ok(infoCall);
+
+      let successCall = mockDeps.output.calls.find(
+        c => c.method === 'info' && c.args[0].includes('Baseline created')
+      );
+      assert.ok(successCall);
+    });
+  });
 });

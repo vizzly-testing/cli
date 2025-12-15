@@ -1321,6 +1321,7 @@ export class TddService {
       output,
       generateScreenshotSignature,
       generateBaselineFilename,
+      sanitizeScreenshotName,
       safePath,
       existsSync,
       readFileSync,
@@ -1342,7 +1343,17 @@ export class TddService {
       comparison = idOrComparison;
     }
 
-    let sanitizedName = comparison.name;
+    // Sanitize name for consistency, even though comparison.name is typically pre-sanitized
+    let sanitizedName;
+    try {
+      sanitizedName = sanitizeScreenshotName(comparison.name);
+    } catch (error) {
+      output.error(
+        `Invalid screenshot name '${comparison.name}': ${error.message}`
+      );
+      throw new Error(`Screenshot name validation failed: ${error.message}`);
+    }
+
     let properties = comparison.properties || {};
 
     // Generate signature from properties (don't rely on comparison.signature)

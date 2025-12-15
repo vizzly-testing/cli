@@ -145,13 +145,6 @@ function createMockDeps(overrides = {}) {
         linesInHotspots: 0,
         totalLines: 0,
       })),
-    StaticReportGenerator:
-      overrides.StaticReportGenerator ??
-      class {
-        generateReport() {
-          return '/test/.vizzly/report.html';
-        }
-      },
 
     // Grouped dependencies - merge defaults with overrides
     fs: { ...defaultFs, ...overrides.fs },
@@ -651,7 +644,7 @@ describe('tdd/tdd-service', () => {
       assert.ok(failedNameCall, 'Should print failed comparison name');
     });
 
-    it('prints dashboard link when there are changes', async () => {
+    it('prints start command hint when there are changes', async () => {
       let mockOutput = createMockOutput();
       let mockDeps = createMockDeps({ output: mockOutput });
       let service = new TddService(
@@ -669,13 +662,13 @@ describe('tdd/tdd-service', () => {
       await service.printResults();
 
       let printCalls = mockOutput.calls.filter(c => c.method === 'print');
-      let dashboardCall = printCalls.find(c =>
-        c.args[0]?.includes('View changes')
+      let hintCall = printCalls.find(c =>
+        c.args[0]?.includes('vizzly tdd start --open')
       );
-      assert.ok(dashboardCall, 'Should print dashboard link');
+      assert.ok(hintCall, 'Should print tdd start command hint');
     });
 
-    it('does not print dashboard link when all passed', async () => {
+    it('does not print start command hint when all passed', async () => {
       let mockOutput = createMockOutput();
       let mockDeps = createMockDeps({ output: mockOutput });
       let service = new TddService({}, '/test', false, null, mockDeps);
@@ -685,12 +678,12 @@ describe('tdd/tdd-service', () => {
       await service.printResults();
 
       let printCalls = mockOutput.calls.filter(c => c.method === 'print');
-      let dashboardCall = printCalls.find(c =>
-        c.args[0]?.includes('View changes')
+      let hintCall = printCalls.find(c =>
+        c.args[0]?.includes('vizzly tdd start --open')
       );
       assert.ok(
-        !dashboardCall,
-        'Should NOT print dashboard link when all passed'
+        !hintCall,
+        'Should NOT print start command hint when all passed'
       );
     });
   });

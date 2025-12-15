@@ -81,6 +81,14 @@ function createMockScreenshotHandler(results = {}) {
           return { id };
         }
       : undefined,
+    getResults: results.getResults
+      ? async () => {
+          if (results.getResultsError) {
+            throw results.getResultsError;
+          }
+          return results.getResultsData || { total: 0, passed: 0, failed: 0 };
+        }
+      : undefined,
   };
 }
 
@@ -299,6 +307,101 @@ describe('server/routers/screenshot', () => {
         assert.strictEqual(res.statusCode, 500);
         let body = res.getParsedBody();
         assert.ok(body.error.includes('Failed to accept'));
+      });
+    });
+
+    describe('/flush endpoint', () => {
+      it('returns summary when getResults is available', async () => {
+        let handler = createScreenshotRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            getResults: true,
+            getResultsData: {
+              total: 10,
+              passed: 7,
+              failed: 2,
+              new: 1,
+              errors: 0,
+            },
+          }),
+          defaultBuildId: 'build-1',
+        });
+        let req = createMockRequest('POST', {});
+        let res = createMockResponse();
+
+        let result = await handler(req, res, '/flush');
+
+        assert.strictEqual(result, true);
+        assert.strictEqual(res.statusCode, 200);
+
+        let body = res.getParsedBody();
+        assert.strictEqual(body.success, true);
+        assert.deepStrictEqual(body.summary, {
+          total: 10,
+          passed: 7,
+          failed: 2,
+          new: 1,
+          errors: 0,
+        });
+      });
+
+      it('returns success with message when getResults not implemented', async () => {
+        let handler = createScreenshotRouter({
+          screenshotHandler: createMockScreenshotHandler(), // No getResults
+          defaultBuildId: 'build-1',
+        });
+        let req = createMockRequest('POST', {});
+        let res = createMockResponse();
+
+        let result = await handler(req, res, '/flush');
+
+        assert.strictEqual(result, true);
+        assert.strictEqual(res.statusCode, 200);
+
+        let body = res.getParsedBody();
+        assert.strictEqual(body.success, true);
+        assert.strictEqual(body.message, 'No TDD results');
+      });
+
+      it('handles missing summary fields with defaults', async () => {
+        let handler = createScreenshotRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            getResults: true,
+            getResultsData: {}, // Empty results
+          }),
+          defaultBuildId: 'build-1',
+        });
+        let req = createMockRequest('POST', {});
+        let res = createMockResponse();
+
+        await handler(req, res, '/flush');
+
+        assert.strictEqual(res.statusCode, 200);
+        let body = res.getParsedBody();
+        assert.deepStrictEqual(body.summary, {
+          total: 0,
+          passed: 0,
+          failed: 0,
+          new: 0,
+          errors: 0,
+        });
+      });
+
+      it('returns 500 on getResults error', async () => {
+        let handler = createScreenshotRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            getResults: true,
+            getResultsError: new Error('Results fetch failed'),
+          }),
+          defaultBuildId: 'build-1',
+        });
+        let req = createMockRequest('POST', {});
+        let res = createMockResponse();
+
+        await handler(req, res, '/flush');
+
+        assert.strictEqual(res.statusCode, 500);
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('Failed to flush'));
       });
     });
   });

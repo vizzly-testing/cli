@@ -83,6 +83,7 @@ export async function startServer({
     services,
     buildId,
     tddService: tddMode ? handler.tddService : null,
+    workingDir: projectRoot,
   });
 
   // Create and start HTTP server

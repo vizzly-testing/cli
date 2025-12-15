@@ -22,7 +22,6 @@ import {
   getTddBaselines as defaultGetTddBaselines,
 } from '../api/index.js';
 import { NetworkError } from '../errors/vizzly-error.js';
-import { StaticReportGenerator as DefaultStaticReportGenerator } from '../services/static-report-generator.js';
 import { colors as defaultColors } from '../utils/colors.js';
 import { fetchWithTimeout as defaultFetchWithTimeout } from '../utils/fetch-utils.js';
 import { getDefaultBranch as defaultGetDefaultBranch } from '../utils/git.js';
@@ -137,7 +136,6 @@ export class TddService {
 
       // Other
       calculateHotspotCoverage = defaultCalculateHotspotCoverage,
-      StaticReportGenerator = DefaultStaticReportGenerator,
     } = deps;
 
     // Merge grouped deps with defaults
@@ -215,7 +213,6 @@ export class TddService {
       validatePathSecurity,
       initializeDirectories,
       calculateHotspotCoverage,
-      StaticReportGenerator,
       ...fsOps,
       ...apiOps,
       ...metadataOps,
@@ -259,9 +256,12 @@ export class TddService {
     // Hotspot data (loaded lazily from disk or downloaded from cloud)
     this.hotspotData = null;
 
+    // Track whether results have been printed (to avoid duplicate output)
+    this._resultsPrinted = false;
+
     if (this.setBaseline) {
       output.info(
-        '🐻 Baseline update mode - will overwrite existing baselines with new ones'
+        '[vizzly] Baseline update mode - will overwrite existing baselines with new ones'
       );
     }
   }
@@ -1081,8 +1081,15 @@ export class TddService {
 
   /**
    * Print results to console
+   * Only prints once per test run to avoid duplicate output
    */
   async printResults() {
+    // Skip if already printed (prevents duplicate output from vizzlyFlush)
+    if (this._resultsPrinted) {
+      return this.getResults();
+    }
+    this._resultsPrinted = true;
+
     let { output, colors, getFailedComparisons, getNewComparisons } =
       this._deps;
     let results = this.getResults();
@@ -1158,91 +1165,15 @@ export class TddService {
       output.blank();
     }
 
-    // Show dashboard link only if there are changes to review
+    // Show how to view results
     if (hasChanges) {
-      let port = this.config?.server?.port || 47392;
       output.print(
-        `  ${colors.dim('>')} View changes: ${colors.cyan(`http://localhost:${port}/dashboard`)}`
+        `  ${colors.dim('>')} To review changes: ${colors.cyan('vizzly tdd start --open')}`
       );
       output.blank();
     }
-
-    await this.generateHtmlReport(results);
 
     return results;
-  }
-
-  /**
-   * Generate HTML report using React reporter
-   */
-  async generateHtmlReport(results) {
-    let { output, colors, StaticReportGenerator } = this._deps;
-    try {
-      let reportGenerator = new StaticReportGenerator(
-        this.workingDir,
-        this.config
-      );
-
-      // Transform results to React reporter format
-      let reportData = {
-        buildId: this.baselineData?.buildId || 'local-tdd',
-        summary: {
-          passed: results.passed,
-          failed: results.failed,
-          total: results.total,
-          new: results.new,
-          errors: results.errors,
-        },
-        comparisons: results.comparisons,
-        baseline: this.baselineData,
-        threshold: this.threshold,
-      };
-
-      let reportPath = await reportGenerator.generateReport(reportData);
-
-      output.print(
-        `  ${colors.dim('>')} Report: ${colors.cyan(`file://${reportPath}`)}`
-      );
-      output.blank();
-
-      if (this.config.tdd?.openReport) {
-        await this.openReport(reportPath);
-      }
-
-      return reportPath;
-    } catch (error) {
-      output.warn(`Failed to generate HTML report: ${error.message}`);
-    }
-  }
-
-  /**
-   * Open report in browser
-   */
-  async openReport(reportPath) {
-    let { output } = this._deps;
-    try {
-      let { exec } = await import('node:child_process');
-      let { promisify } = await import('node:util');
-      let execAsync = promisify(exec);
-
-      let command;
-      switch (process.platform) {
-        case 'darwin':
-          command = `open "${reportPath}"`;
-          break;
-        case 'win32':
-          command = `start "" "${reportPath}"`;
-          break;
-        default:
-          command = `xdg-open "${reportPath}"`;
-          break;
-      }
-
-      await execAsync(command);
-      output.info('Report opened in browser');
-    } catch {
-      // Browser open may fail silently
-    }
   }
 
   /**

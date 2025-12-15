@@ -224,15 +224,15 @@ describe('server/routers/dashboard', () => {
         assert.ok(res.body.includes('Vizzly Dev Dashboard'));
       });
 
-      it('serves dashboard HTML for /dashboard route', async () => {
+      it('returns false for removed /dashboard route', async () => {
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
         let res = createMockResponse();
 
-        await handler(req, res, '/dashboard');
+        let result = await handler(req, res, '/dashboard');
 
-        assert.strictEqual(res.statusCode, 200);
-        assert.ok(res.body.includes('<!DOCTYPE html>'));
+        // /dashboard route was removed - users should use / instead
+        assert.strictEqual(result, false);
       });
 
       it('serves dashboard HTML for /stats route', async () => {

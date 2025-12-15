@@ -9,21 +9,17 @@ import * as output from '../../utils/output.js';
 import { sendHtml, sendSuccess } from '../middleware/response.js';
 
 // SPA routes that should serve the dashboard HTML
-const SPA_ROUTES = [
-  '/',
-  '/dashboard',
-  '/stats',
-  '/settings',
-  '/projects',
-  '/builds',
-];
+const SPA_ROUTES = ['/', '/stats', '/settings', '/projects', '/builds'];
 
 /**
  * Create dashboard router
  * @param {Object} context - Router context
+ * @param {string} context.workingDir - Working directory for report data
  * @returns {Function} Route handler
  */
-export function createDashboardRouter() {
+export function createDashboardRouter(context) {
+  const { workingDir = process.cwd() } = context || {};
+
   return async function handleDashboardRoute(req, res, pathname) {
     if (req.method !== 'GET') {
       return false;
@@ -31,7 +27,7 @@ export function createDashboardRouter() {
 
     // API endpoint for fetching report data
     if (pathname === '/api/report-data') {
-      const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+      const reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
 
       if (existsSync(reportDataPath)) {
         try {
@@ -54,9 +50,9 @@ export function createDashboardRouter() {
 
     // API endpoint for real-time status
     if (pathname === '/api/status') {
-      const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+      const reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
       const baselineMetadataPath = join(
-        process.cwd(),
+        workingDir,
         '.vizzly',
         'baselines',
         'metadata.json'
@@ -97,7 +93,7 @@ export function createDashboardRouter() {
 
     // Serve React SPA for dashboard routes
     if (SPA_ROUTES.includes(pathname) || pathname.startsWith('/comparison/')) {
-      const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
+      const reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
       let reportData = null;
 
       if (existsSync(reportDataPath)) {

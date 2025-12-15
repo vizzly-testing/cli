@@ -131,6 +131,7 @@ describe('server-manager/core', () => {
       assert.deepStrictEqual(result, {
         buildId: null,
         tddService: null,
+        workingDir: null,
       });
     });
 

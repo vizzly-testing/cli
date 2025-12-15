@@ -196,7 +196,7 @@ export async function uploadCommand(
     // Show Vizzly summary
     if (result.buildId) {
       output.info(
-        `🐻 Vizzly: Uploaded ${result.stats.uploaded} of ${result.stats.total} screenshots to build ${result.buildId}`
+        `[vizzly] Uploaded ${result.stats.uploaded} of ${result.stats.total} screenshots to build ${result.buildId}`
       );
       // Use API-provided URL or construct proper URL with org/project context
       let buildUrl =
@@ -207,7 +207,7 @@ export async function uploadCommand(
           config.apiKey,
           deps
         ));
-      output.info(`🔗 Vizzly: View results at ${buildUrl}`);
+      output.info(`[vizzly] View results at ${buildUrl}`);
     }
 
     // Wait for build completion if requested
@@ -238,7 +238,7 @@ export async function uploadCommand(
           config.apiKey,
           deps
         ));
-      output.info(`🔗 Vizzly: View results at ${waitBuildUrl}`);
+      output.info(`[vizzly] View results at ${waitBuildUrl}`);
     }
 
     output.cleanup();

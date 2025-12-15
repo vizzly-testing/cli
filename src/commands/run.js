@@ -297,10 +297,10 @@ export async function runCommand(
       // Show Vizzly summary
       if (result.buildId) {
         output.print(
-          `🐻 Vizzly: Captured ${result.screenshotsCaptured} screenshots in build ${result.buildId}`
+          `[vizzly] Captured ${result.screenshotsCaptured} screenshots in build ${result.buildId}`
         );
         if (result.url) {
-          output.print(`🔗 Vizzly: View results at ${result.url}`);
+          output.print(`[vizzly] View results at ${result.url}`);
         }
       }
     } catch (error) {

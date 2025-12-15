@@ -25,7 +25,8 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
   const defaultBuildId = services.buildId || null;
 
   // Extract services
-  const { configService, authService, projectService, tddService } = services;
+  const { configService, authService, projectService, tddService, workingDir } =
+    services;
 
   // Create router context
   const routerContext = {
@@ -36,6 +37,7 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
     authService,
     projectService,
     tddService,
+    workingDir: workingDir || process.cwd(),
     apiUrl: 'https://app.vizzly.dev',
   };
 

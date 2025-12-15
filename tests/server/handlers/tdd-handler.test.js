@@ -346,10 +346,10 @@ describe('server/handlers/tdd-handler', () => {
       let variants = result[0].variants;
 
       // Should have chrome browser key
-      assert.ok(variants['chrome']);
+      assert.ok(variants.chrome);
       // Should have two viewport keys under chrome
-      assert.ok(variants['chrome']['1920x1080']);
-      assert.ok(variants['chrome']['375x667']);
+      assert.ok(variants.chrome['1920x1080']);
+      assert.ok(variants.chrome['375x667']);
     });
 
     it('determines grouping strategy correctly', () => {
@@ -624,7 +624,7 @@ describe('server/handlers/tdd-handler', () => {
           existsSync: () => true,
           readFileSync: () => Buffer.from(fileContent),
           tddServiceOverrides: {
-            compareScreenshot: (name, buffer) => ({
+            compareScreenshot: (name, _buffer) => ({
               id: `comp-${name}`,
               name,
               status: 'passed',
@@ -827,7 +827,7 @@ describe('server/handlers/tdd-handler', () => {
 
     describe('resetBaselines', () => {
       it('clears report data and returns counts', async () => {
-        let deletedFiles = [];
+        let _deletedFiles = [];
         let deps = createMockDeps({
           existsSync: path => {
             // Simulate existing files

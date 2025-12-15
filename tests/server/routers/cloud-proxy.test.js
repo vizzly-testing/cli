@@ -72,7 +72,7 @@ function createMockUrl(params = {}) {
  */
 function createMockAuthService(options = {}) {
   return {
-    authenticatedRequest: async (endpoint, fetchOptions) => {
+    authenticatedRequest: async (_endpoint, _fetchOptions) => {
       if (options.requestError) throw options.requestError;
       return options.response || { success: true };
     },

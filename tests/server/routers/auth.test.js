@@ -83,11 +83,11 @@ function createMockAuthService(options = {}) {
         }
       );
     },
-    pollDeviceAuthorization: async deviceCode => {
+    pollDeviceAuthorization: async _deviceCode => {
       if (options.pollError) throw options.pollError;
       return options.pollResult || { status: 'pending' };
     },
-    completeDeviceFlow: async tokens => {
+    completeDeviceFlow: async _tokens => {
       if (options.completeError) throw options.completeError;
     },
     logout: async () => {

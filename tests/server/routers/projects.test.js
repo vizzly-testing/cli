@@ -84,14 +84,14 @@ function createMockProjectService(options = {}) {
       if (options.createMappingError) throw options.createMappingError;
       return { directory, ...data };
     },
-    removeMapping: async directory => {
+    removeMapping: async _directory => {
       if (options.removeMappingError) throw options.removeMappingError;
     },
-    getMapping: async directory => {
+    getMapping: async _directory => {
       if (options.getMappingError) throw options.getMappingError;
       return options.mapping || null;
     },
-    getRecentBuilds: async (projectSlug, orgSlug, filters) => {
+    getRecentBuilds: async (_projectSlug, _orgSlug, _filters) => {
       if (options.getBuildsError) throw options.getBuildsError;
       return (
         options.builds || [

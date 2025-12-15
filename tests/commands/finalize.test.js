@@ -97,7 +97,7 @@ describe('commands/finalize', () => {
             capturedClient = opts;
             return { request: async () => ({}) };
           },
-          finalizeParallelBuild: async (client, parallelId) => {
+          finalizeParallelBuild: async (_client, parallelId) => {
             capturedParallelId = parallelId;
             return {
               build: {

@@ -61,19 +61,19 @@ function createMockResponse() {
  */
 function createMockConfigService(results = {}) {
   return {
-    getConfig: async scope => {
+    getConfig: async _scope => {
       if (results.getConfigError) {
         throw results.getConfigError;
       }
       return results.config || { threshold: 0.1 };
     },
-    updateConfig: async (scope, data) => {
+    updateConfig: async (_scope, _data) => {
       if (results.updateConfigError) {
         throw results.updateConfigError;
       }
       return results.updateResult || { updated: true };
     },
-    validateConfig: async data => {
+    validateConfig: async _data => {
       if (results.validateError) {
         throw results.validateError;
       }

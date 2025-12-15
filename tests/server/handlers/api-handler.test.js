@@ -54,7 +54,7 @@ describe('server/handlers/api-handler', () => {
     it('handles base64 image data', async () => {
       let uploadedData = null;
       let mockUploadScreenshot = async (
-        client,
+        _client,
         buildId,
         name,
         buffer,
@@ -98,7 +98,7 @@ describe('server/handlers/api-handler', () => {
     it('handles file path image', async () => {
       let uploadedData = null;
       let mockUploadScreenshot = async (
-        client,
+        _client,
         buildId,
         name,
         buffer,
@@ -258,7 +258,7 @@ describe('server/handlers/api-handler', () => {
 
     it('awaits all pending uploads', async () => {
       let completed = [];
-      let mockUploadScreenshot = async (client, buildId, name) => {
+      let mockUploadScreenshot = async (_client, _buildId, name) => {
         completed.push(name);
         return { success: true };
       };

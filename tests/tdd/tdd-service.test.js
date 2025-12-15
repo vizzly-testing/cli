@@ -87,14 +87,14 @@ function createMockDeps(overrides = {}) {
     }),
     isDimensionMismatchError: () => false,
     // Signature/security
-    generateScreenshotSignature: (name, props) => `${name}|1920|chrome`,
+    generateScreenshotSignature: (name, _props) => `${name}|1920|chrome`,
     generateBaselineFilename: (name, sig) => `${name}_${sig}`,
     generateComparisonId: sig => `comp-${sig}`,
     sanitizeScreenshotName: name => name,
     validateScreenshotProperties: props => props,
     safePath: (...parts) => parts.join('/'),
     // Result service
-    buildResults: (comparisons, baseline) => ({
+    buildResults: (comparisons, _baseline) => ({
       total: comparisons.length,
       passed: comparisons.filter(c => c.status === 'passed').length,
       failed: comparisons.filter(c => c.status === 'failed').length,
@@ -470,7 +470,7 @@ describe('tdd/tdd-service', () => {
       let mockDeps = createMockDeps({
         baselineExists: () => true,
         validateScreenshotProperties: props => props,
-        compareImages: async (base, current, diff, options) => {
+        compareImages: async (_base, _current, _diff, options) => {
           capturedThreshold = options.threshold;
           return { isDifferent: false };
         },

@@ -86,7 +86,7 @@ function createMockScreenshotHandler(options = {}) {
  */
 function createMockTddService(options = {}) {
   return {
-    downloadBaselines: async (env, branch, buildId) => {
+    downloadBaselines: async (_env, _branch, _buildId) => {
       if (options.downloadError) throw options.downloadError;
       return { downloaded: options.downloadCount || 10 };
     },

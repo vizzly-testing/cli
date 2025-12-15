@@ -62,7 +62,7 @@ function createMockResponse() {
  */
 function createMockScreenshotHandler(results = {}) {
   return {
-    handleScreenshot: async (buildId, name) => {
+    handleScreenshot: async (_buildId, name) => {
       if (results.error) {
         throw results.error;
       }

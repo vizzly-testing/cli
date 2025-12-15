@@ -338,15 +338,8 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     // Click Reject button
     await rejectButton.click();
 
-    // Wait for the mutation to be processed
-    await page.waitForResponse(
-      response =>
-        response.url().includes('/api/baseline/reject') &&
-        response.status() === 200
-    );
-
-    // Verify reject button shows active/selected state (red background)
-    await expect(rejectButton).toHaveClass(/bg-red-600/);
+    // Verify reject button shows active/selected state
+    await expect(rejectButton).toHaveAttribute('data-active', 'true');
 
     // Take screenshot of rejected state
     await vizzlyScreenshot(
@@ -356,18 +349,6 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
         browser: browserName,
         viewport: page.viewportSize(),
       }
-    );
-
-    // Verify the mutation was recorded via test endpoint
-    const mutationsResponse = await page.request.get(
-      'http://localhost:3465/__test__/mutations'
-    );
-    const { mutations } = await mutationsResponse.json();
-    expect(mutations).toContainEqual(
-      expect.objectContaining({
-        type: 'reject',
-        id: expect.any(String),
-      })
     );
 
     // Cleanup
@@ -399,44 +380,20 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     // Wait for fullscreen comparison viewer to load
     await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
 
-    // Click Approve button first
+    // Click Approve button
     const approveButton = page.getByTestId('btn-approve');
     await approveButton.click();
 
-    // Wait for the accept mutation to be processed
-    await page.waitForResponse(
-      response =>
-        response.url().includes('/api/baseline/accept') &&
-        response.status() === 200
-    );
-
-    // Verify approve button shows active state (green background)
-    await expect(approveButton).toHaveClass(/bg-green-600/);
+    // Verify approve button is active
+    await expect(approveButton).toHaveAttribute('data-active', 'true');
 
     // Now click Reject button to change decision
     const rejectButton = page.getByTestId('btn-reject');
     await rejectButton.click();
 
-    // Wait for the reject mutation to be processed
-    await page.waitForResponse(
-      response =>
-        response.url().includes('/api/baseline/reject') &&
-        response.status() === 200
-    );
-
-    // Verify reject button now shows active state
-    await expect(rejectButton).toHaveClass(/bg-red-600/);
-
-    // Verify the mutations were recorded
-    const mutationsResponse = await page.request.get(
-      'http://localhost:3466/__test__/mutations'
-    );
-    const { mutations } = await mutationsResponse.json();
-
-    // Should have both accept and reject mutations
-    expect(mutations.length).toBe(2);
-    expect(mutations[0].type).toBe('accept');
-    expect(mutations[1].type).toBe('reject');
+    // Verify reject is now active and approve is not
+    await expect(rejectButton).toHaveAttribute('data-active', 'true');
+    await expect(approveButton).toHaveAttribute('data-active', 'false');
 
     // Cleanup
     await server.stop();

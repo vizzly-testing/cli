@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import {
   useAcceptBaseline,
@@ -14,7 +14,6 @@ import FullscreenViewer from '../comparison/fullscreen-viewer.jsx';
 export default function ComparisonDetailView() {
   const [, setLocation] = useLocation();
   const [, params] = useRoute('/comparison/:id');
-  const [loadingStates, setLoadingStates] = useState({});
 
   const { data: reportData } = useReportData();
   const acceptMutation = useAcceptBaseline();
@@ -58,33 +57,16 @@ export default function ComparisonDetailView() {
     setLocation('/');
   }, [setLocation]);
 
-  // Get the stable ID for current comparison (for actions)
-  const comparisonId = useMemo(() => {
-    if (!comparison) return null;
-    return comparison.id || comparison.signature || comparison.name;
-  }, [comparison]);
-
-  // Handle accept/reject with the stable ID
   const handleAccept = useCallback(
     id => {
-      setLoadingStates(prev => ({ ...prev, [id]: 'accepting' }));
-      acceptMutation.mutate(id, {
-        onSettled: () => {
-          setLoadingStates(prev => ({ ...prev, [id]: undefined }));
-        },
-      });
+      acceptMutation.mutate(id);
     },
     [acceptMutation]
   );
 
   const handleReject = useCallback(
     id => {
-      setLoadingStates(prev => ({ ...prev, [id]: 'rejecting' }));
-      rejectMutation.mutate(id, {
-        onSettled: () => {
-          setLoadingStates(prev => ({ ...prev, [id]: undefined }));
-        },
-      });
+      rejectMutation.mutate(id);
     },
     [rejectMutation]
   );
@@ -120,7 +102,6 @@ export default function ComparisonDetailView() {
       onAccept={handleAccept}
       onReject={handleReject}
       onNavigate={handleNavigate}
-      userAction={loadingStates[comparisonId]}
     />
   );
 }

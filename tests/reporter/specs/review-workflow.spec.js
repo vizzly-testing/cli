@@ -73,8 +73,8 @@ test.describe('Review Workflow', () => {
     await expect(approveButton).toBeVisible();
     await approveButton.click();
 
-    // Verify the button now shows approved state (green background)
-    await expect(approveButton).toHaveClass(/bg-green-600/);
+    // Verify the button now shows approved state
+    await expect(approveButton).toHaveAttribute('data-active', 'true');
 
     // Close the viewer with ESC
     await page.keyboard.press('Escape');
@@ -108,8 +108,8 @@ test.describe('Review Workflow', () => {
     await expect(rejectButton).toBeVisible();
     await rejectButton.click();
 
-    // Verify the button shows rejected state (red background)
-    await expect(rejectButton).toHaveClass(/bg-red-600/);
+    // Verify the button shows rejected state
+    await expect(rejectButton).toHaveAttribute('data-active', 'true');
 
     // In TDD mode, reject is a no-op (no API call) - it just updates UI state
     // The "rejected" state means "don't accept this change"

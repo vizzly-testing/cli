@@ -300,17 +300,22 @@ export default function FullscreenViewer({
   // Show actions for comparisons that can be approved/rejected
   // - failed: needs review, can approve (accept change) or reject
   // - passed: auto-matched baseline, can still reject if needed
+  // - rejected: previously rejected, can still change decision
   // - new/baseline-created: no baseline to compare, no approve/reject needed
   const canReview =
-    comparison.status === 'failed' || comparison.status === 'passed';
+    comparison.status === 'failed' ||
+    comparison.status === 'passed' ||
+    comparison.status === 'rejected';
 
   // Determine current approval state:
-  // - userAction takes precedence if set
+  // - userAction takes precedence if set (for in-flight mutations)
+  // - comparison.status reflects persisted state
   // - passed comparisons are implicitly approved unless user rejected
   const isAccepted =
     userAction === 'accepted' ||
     (comparison.status === 'passed' && userAction !== 'rejected');
-  const isRejected = userAction === 'rejected';
+  const isRejected =
+    userAction === 'rejected' || comparison.status === 'rejected';
 
   // View mode options
   const viewModes = [

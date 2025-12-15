@@ -79,6 +79,18 @@ export const tdd = {
   },
 
   /**
+   * Reject a single comparison (keep current baseline)
+   * @param {string} id - Comparison ID
+   * @returns {Promise<Object>}
+   */
+  async rejectBaseline(id) {
+    return fetchJson('/api/baseline/reject', {
+      method: 'POST',
+      body: JSON.stringify({ id }),
+    });
+  },
+
+  /**
    * Reset baselines to previous state
    * @returns {Promise<Object>}
    */

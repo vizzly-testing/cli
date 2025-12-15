@@ -30,6 +30,7 @@ export const COMPARISON_STATUS = {
   NEW: 'new',
   BASELINE_CREATED: 'baseline-created',
   ERROR: 'error',
+  REJECTED: 'rejected',
 };
 
 export const USER_ACTION = {

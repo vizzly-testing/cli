@@ -40,6 +40,13 @@ const STATUS_CONFIG = {
     icon: ExclamationTriangleIcon,
     colorClass: 'yellow',
   },
+  [COMPARISON_STATUS.REJECTED]: {
+    type: 'warning',
+    label: 'Changes Rejected',
+    description: 'Visual changes were rejected - baseline kept',
+    icon: XCircleIcon,
+    colorClass: 'yellow',
+  },
 };
 
 export function getStatusInfo(comparison) {

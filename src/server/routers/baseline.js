@@ -71,6 +71,34 @@ export function createBaselineRouter({ screenshotHandler, tddService }) {
       }
     }
 
+    // Reject a single comparison (keep current baseline, discard changes)
+    if (req.method === 'POST' && pathname === '/api/baseline/reject') {
+      if (!screenshotHandler?.rejectBaseline) {
+        sendError(res, 400, 'Baseline management not available');
+        return true;
+      }
+
+      try {
+        const { id } = await parseJsonBody(req);
+        if (!id) {
+          sendError(res, 400, 'Comparison ID required');
+          return true;
+        }
+
+        await screenshotHandler.rejectBaseline(id);
+
+        sendSuccess(res, {
+          success: true,
+          message: `Changes rejected for comparison ${id}`,
+        });
+        return true;
+      } catch (error) {
+        output.error('Error rejecting baseline:', error);
+        sendError(res, 500, error.message);
+        return true;
+      }
+    }
+
     // Reset baselines to previous state
     if (req.method === 'POST' && pathname === '/api/baseline/reset') {
       if (!screenshotHandler?.resetBaselines) {

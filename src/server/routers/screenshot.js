@@ -50,6 +50,33 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
       }
     }
 
+    // Flush endpoint - signals test completion and prints summary
+    if (pathname === '/flush') {
+      try {
+        if (screenshotHandler.getResults) {
+          // This triggers printResults() which outputs the summary
+          const results = await screenshotHandler.getResults();
+          sendJson(res, 200, {
+            success: true,
+            summary: {
+              total: results.total || 0,
+              passed: results.passed || 0,
+              failed: results.failed || 0,
+              new: results.new || 0,
+              errors: results.errors || 0,
+            },
+          });
+        } else {
+          sendJson(res, 200, { success: true, message: 'No TDD results' });
+        }
+        return true;
+      } catch (error) {
+        output.debug('Flush error:', { error: error.message });
+        sendError(res, 500, 'Failed to flush');
+        return true;
+      }
+    }
+
     // Legacy accept-baseline endpoint
     if (pathname === '/accept-baseline') {
       try {

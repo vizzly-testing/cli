@@ -212,7 +212,7 @@ export function generateFallbackTemplate({
                 ${failed.map(c => `<li>${c.name} - ${c.diffPercentage || 0}% difference</li>`).join('')}
             </ul>
         `
-      : '<p style="text-align: center; font-size: 1.5rem;">✅ All tests passed!</p>';
+      : '<p style="text-align: center; font-size: 1.5rem; color: #10b981;">All tests passed!</p>';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -273,7 +273,7 @@ export function generateFallbackTemplate({
         </div>
 
         <div class="warning">
-            <strong>⚠️ Limited Report</strong>
+            <strong>Limited Report</strong>
             <p>This is a fallback report. For the full interactive experience, ensure the reporter bundle is built:</p>
             <code>npm run build:reporter</code>
         </div>

@@ -281,7 +281,7 @@ export class TddService {
       if (!branch) {
         branch = 'main';
         output.warn(
-          `⚠️  Could not detect default branch, using 'main' as fallback`
+          `Could not detect default branch, using 'main' as fallback`
         );
       } else {
         output.debug('tdd', `detected default branch: ${branch}`);
@@ -323,12 +323,12 @@ export class TddService {
 
         if (baselineBuild.status === 'failed') {
           output.warn(
-            `⚠️  Build ${buildId} is marked as FAILED - falling back to local baselines`
+            `Build ${buildId} is marked as FAILED - falling back to local baselines`
           );
           return await this.handleLocalBaselines();
         } else if (baselineBuild.status !== 'completed') {
           output.warn(
-            `⚠️  Build ${buildId} has status: ${baselineBuild.status} (expected: completed)`
+            `Build ${buildId} has status: ${baselineBuild.status} (expected: completed)`
           );
         }
 
@@ -413,11 +413,9 @@ export class TddService {
         });
 
         if (!builds.data || builds.data.length === 0) {
-          output.warn(
-            `⚠️  No baseline builds found for ${environment}/${branch}`
-          );
+          output.warn(`No baseline builds found for ${environment}/${branch}`);
           output.info(
-            '💡 Run a build in normal mode first to create baselines'
+            'Tip: Run a build in normal mode first to create baselines'
           );
           return null;
         }
@@ -449,7 +447,7 @@ export class TddService {
       let buildDetails = baselineBuild;
 
       if (!buildDetails.screenshots || buildDetails.screenshots.length === 0) {
-        output.warn('⚠️  No screenshots found in baseline build');
+        output.warn('No screenshots found in baseline build');
         return null;
       }
 
@@ -494,7 +492,7 @@ export class TddService {
         let filename = screenshot.filename;
         if (!filename) {
           output.warn(
-            `⚠️  Screenshot ${sanitizedName} has no filename from API - skipping`
+            `Screenshot ${sanitizedName} has no filename from API - skipping`
           );
           errorCount++;
           continue;
@@ -515,7 +513,7 @@ export class TddService {
         let downloadUrl = screenshot.original_url || screenshot.url;
         if (!downloadUrl) {
           output.warn(
-            `⚠️  Screenshot ${sanitizedName} has no download URL - skipping`
+            `Screenshot ${sanitizedName} has no download URL - skipping`
           );
           errorCount++;
           continue;
@@ -560,7 +558,7 @@ export class TddService {
                 return { success: true, name: sanitizedName };
               } catch (error) {
                 output.warn(
-                  `⚠️  Failed to download ${sanitizedName}: ${error.message}`
+                  `Failed to download ${sanitizedName}: ${error.message}`
                 );
                 return {
                   success: false,
@@ -581,7 +579,7 @@ export class TddService {
       }
 
       if (downloadedCount === 0 && skippedCount === 0) {
-        output.error('❌ No screenshots were successfully downloaded');
+        output.error('No screenshots were successfully downloaded');
         return null;
       }
 
@@ -651,25 +649,25 @@ export class TddService {
       let actualDownloads = downloadedCount - skippedCount;
       if (skippedCount > 0) {
         if (actualDownloads === 0) {
-          output.info(`✅ All ${skippedCount} baselines up-to-date`);
+          output.info(`All ${skippedCount} baselines up-to-date`);
         } else {
           output.info(
-            `✅ Downloaded ${actualDownloads} new screenshots, ${skippedCount} already up-to-date`
+            `Downloaded ${actualDownloads} new screenshots, ${skippedCount} already up-to-date`
           );
         }
       } else {
         output.info(
-          `✅ Downloaded ${downloadedCount}/${buildDetails.screenshots.length} screenshots successfully`
+          `Downloaded ${downloadedCount}/${buildDetails.screenshots.length} screenshots successfully`
         );
       }
 
       if (errorCount > 0) {
-        output.warn(`⚠️  ${errorCount} screenshots failed to download`);
+        output.warn(`${errorCount} screenshots failed to download`);
       }
 
       return this.baselineData;
     } catch (error) {
-      output.error(`❌ Failed to download baseline: ${error.message}`);
+      output.error(`Failed to download baseline: ${error.message}`);
       throw error;
     }
   }
@@ -717,12 +715,12 @@ export class TddService {
       );
 
       output.info(
-        `✅ Downloaded hotspot data for ${hotspotCount} screenshots (${totalRegions} regions total)`
+        `Downloaded hotspot data for ${hotspotCount} screenshots (${totalRegions} regions total)`
       );
     } catch (error) {
       output.debug('tdd', `Hotspot download failed: ${error.message}`);
       output.warn(
-        '⚠️  Could not fetch hotspot data - comparisons will run without noise filtering'
+        'Could not fetch hotspot data - comparisons will run without noise filtering'
       );
     }
   }
@@ -784,13 +782,13 @@ export class TddService {
         output.info('🆕 Current run will create new local baselines');
       } else {
         output.info(
-          '📝 No local baseline found - all screenshots will be marked as new'
+          'No local baseline found - all screenshots will be marked as new'
         );
       }
       return null;
     } else {
       output.info(
-        `✅ Using existing baseline: ${colors.cyan(baseline.buildName)}`
+        `Using existing baseline: ${colors.cyan(baseline.buildName)}`
       );
       return baseline;
     }
@@ -854,7 +852,6 @@ export class TddService {
       buildFailedComparison,
       buildErrorComparison,
       isDimensionMismatchError,
-      colors,
     } = this._deps;
 
     // Sanitize and validate
@@ -1004,35 +1001,23 @@ export class TddService {
           hotspotAnalysis,
         });
 
-        // Log result
-        let diffInfo = ` (${honeydiffResult.diffPercentage.toFixed(2)}% different, ${honeydiffResult.diffPixels} pixels)`;
-
+        // Log at debug level only (shown with --verbose)
+        let diffInfo = `${honeydiffResult.diffPercentage.toFixed(2)}% diff, ${honeydiffResult.diffPixels} pixels`;
         if (honeydiffResult.diffClusters?.length > 0) {
-          diffInfo += `, ${honeydiffResult.diffClusters.length} region${honeydiffResult.diffClusters.length > 1 ? 's' : ''}`;
+          diffInfo += `, ${honeydiffResult.diffClusters.length} regions`;
         }
-
-        if (result.hotspotAnalysis?.coverage > 0) {
-          diffInfo += `, ${Math.round(result.hotspotAnalysis.coverage * 100)}% in hotspots`;
-        }
-
-        if (result.status === 'passed') {
-          output.info(
-            `✅ ${colors.green('PASSED')} ${sanitizedName} - differences in known hotspots${diffInfo}`
-          );
-        } else {
-          output.warn(
-            `❌ ${colors.red('FAILED')} ${sanitizedName} - differences detected${diffInfo}`
-          );
-          output.info(`    Diff saved to: ${diffImagePath}`);
-        }
+        output.debug('comparison', `${sanitizedName}: ${result.status}`, {
+          diff: diffInfo,
+        });
 
         this.comparisons.push(result);
         return result;
       }
     } catch (error) {
       if (isDimensionMismatchError(error)) {
-        output.warn(
-          `⚠️  Dimension mismatch for ${sanitizedName} - creating new baseline`
+        output.debug(
+          'comparison',
+          `${sanitizedName}: dimension mismatch, creating new baseline`
         );
 
         saveBaseline(this.baselinePath, filename, imageBuffer);
@@ -1058,10 +1043,6 @@ export class TddService {
         );
         saveBaselineMetadata(this.baselinePath, this.baselineData);
 
-        output.info(
-          `✅ Created new baseline for ${sanitizedName} (different dimensions)`
-        );
-
         let result = buildNewComparison({
           name: sanitizedName,
           signature,
@@ -1074,7 +1055,7 @@ export class TddService {
         return result;
       }
 
-      output.error(`❌ Error comparing ${sanitizedName}: ${error.message}`);
+      output.debug('comparison', `${sanitizedName}: error - ${error.message}`);
 
       let result = buildErrorComparison({
         name: sanitizedName,
@@ -1102,38 +1083,88 @@ export class TddService {
    * Print results to console
    */
   async printResults() {
+    let { output, colors, getFailedComparisons, getNewComparisons } =
+      this._deps;
     let results = this.getResults();
-
-    output.info('\n📊 TDD Results:');
-    output.info(`Total: ${colors.cyan(results.total)}`);
-    output.info(`Passed: ${colors.green(results.passed)}`);
-
-    if (results.failed > 0) {
-      output.info(`Failed: ${colors.red(results.failed)}`);
-    }
-
-    if (results.new > 0) {
-      output.info(`New: ${colors.yellow(results.new)}`);
-    }
-
-    if (results.errors > 0) {
-      output.info(`Errors: ${colors.red(results.errors)}`);
-    }
-
     let failedComparisons = getFailedComparisons(this.comparisons);
-    if (failedComparisons.length > 0) {
-      output.info('\n❌ Failed comparisons:');
-      for (let comp of failedComparisons) {
-        output.info(`  • ${comp.name}`);
+    let newComparisons = getNewComparisons(this.comparisons);
+    let passedComparisons = this.comparisons.filter(
+      c =>
+        c.status === 'passed' ||
+        c.status === 'baseline-created' ||
+        c.status === 'baseline-updated'
+    );
+    let hasChanges = failedComparisons.length > 0 || newComparisons.length > 0;
+
+    // Header
+    output.blank();
+    output.print(
+      `${colors.cyan('[vizzly]')} ${results.total} screenshot${results.total !== 1 ? 's' : ''} compared`
+    );
+    output.blank();
+
+    // Verbose mode: show each screenshot
+    if (output.isVerbose()) {
+      // Show passed screenshots
+      for (let comp of passedComparisons) {
+        output.print(`  ${colors.green('+')} ${comp.name}`);
+      }
+      if (passedComparisons.length > 0) {
+        output.blank();
+      }
+    } else {
+      // Default mode: just show count
+      if (results.passed > 0) {
+        output.print(`  ${colors.green('+')} ${results.passed} passed`);
+        output.blank();
       }
     }
 
-    let newComparisons = getNewComparisons(this.comparisons);
-    if (newComparisons.length > 0) {
-      output.info('\n📸 New screenshots:');
-      for (let comp of newComparisons) {
-        output.info(`  • ${comp.name}`);
+    // Show failed comparisons
+    if (failedComparisons.length > 0) {
+      output.print(
+        `  ${colors.yellow('!')} ${failedComparisons.length} visual change${failedComparisons.length !== 1 ? 's' : ''} detected`
+      );
+      for (let comp of failedComparisons) {
+        let diffInfo =
+          output.isVerbose() && comp.diffPercentage
+            ? ` (${comp.diffPercentage.toFixed(2)}% diff)`
+            : '';
+        output.print(`    ${colors.red('-')} ${comp.name}${diffInfo}`);
       }
+      output.blank();
+    }
+
+    // Show new screenshots
+    if (newComparisons.length > 0) {
+      output.print(
+        `  ${colors.yellow('*')} ${newComparisons.length} new screenshot${newComparisons.length !== 1 ? 's' : ''}`
+      );
+      for (let comp of newComparisons) {
+        output.print(`    ${colors.cyan('+')} ${comp.name}`);
+      }
+      output.blank();
+    }
+
+    // Show errors
+    if (results.errors > 0) {
+      let errorComparisons = this.comparisons.filter(c => c.status === 'error');
+      output.print(
+        `  ${colors.red('!')} ${results.errors} error${results.errors !== 1 ? 's' : ''}`
+      );
+      for (let comp of errorComparisons) {
+        output.print(`    ${colors.red('-')} ${comp.name}`);
+      }
+      output.blank();
+    }
+
+    // Show dashboard link only if there are changes to review
+    if (hasChanges) {
+      let port = this.config?.server?.port || 47392;
+      output.print(
+        `  ${colors.dim('>')} View changes: ${colors.cyan(`http://localhost:${port}/dashboard`)}`
+      );
+      output.blank();
     }
 
     await this.generateHtmlReport(results);
@@ -1145,6 +1176,7 @@ export class TddService {
    * Generate HTML report using React reporter
    */
   async generateHtmlReport(results) {
+    let { output, colors, StaticReportGenerator } = this._deps;
     try {
       let reportGenerator = new StaticReportGenerator(
         this.workingDir,
@@ -1168,9 +1200,10 @@ export class TddService {
 
       let reportPath = await reportGenerator.generateReport(reportData);
 
-      output.info(
-        `\n🐻 View detailed report: ${colors.cyan(`file://${reportPath}`)}`
+      output.print(
+        `  ${colors.dim('>')} Report: ${colors.cyan(`file://${reportPath}`)}`
       );
+      output.blank();
 
       if (this.config.tdd?.openReport) {
         await this.openReport(reportPath);
@@ -1186,6 +1219,7 @@ export class TddService {
    * Open report in browser
    */
   async openReport(reportPath) {
+    let { output } = this._deps;
     try {
       let { exec } = await import('node:child_process');
       let { promisify } = await import('node:util');
@@ -1205,7 +1239,7 @@ export class TddService {
       }
 
       await execAsync(command);
-      output.info('📖 Report opened in browser');
+      output.info('Report opened in browser');
     } catch {
       // Browser open may fail silently
     }
@@ -1292,10 +1326,10 @@ export class TddService {
         );
 
         updatedCount++;
-        output.info(`✅ Updated baseline for ${sanitizedName}`);
+        output.info(`Updated baseline for ${sanitizedName}`);
       } catch (error) {
         output.error(
-          `❌ Failed to update baseline for ${sanitizedName}: ${error.message}`
+          `Failed to update baseline for ${sanitizedName}: ${error.message}`
         );
       }
     }
@@ -1303,9 +1337,9 @@ export class TddService {
     if (updatedCount > 0) {
       try {
         saveBaselineMetadata(this.baselinePath, this.baselineData);
-        output.info(`✅ Updated ${updatedCount} baseline(s)`);
+        output.info(`Updated ${updatedCount} baseline(s)`);
       } catch (error) {
-        output.error(`❌ Failed to save baseline metadata: ${error.message}`);
+        output.error(`Failed to save baseline metadata: ${error.message}`);
       }
     }
 
@@ -1434,7 +1468,7 @@ export class TddService {
       saveBaselineMetadata,
     } = this._deps;
 
-    output.info(`🐻 Creating baseline for ${name}`);
+    output.info(`Creating baseline for ${name}`);
 
     writeFileSync(baselineImagePath, imageBuffer);
 
@@ -1473,7 +1507,7 @@ export class TddService {
     };
 
     this.comparisons.push(result);
-    output.info(`✅ Baseline created for ${name}`);
+    output.info(`Baseline created for ${name}`);
     return result;
   }
 }

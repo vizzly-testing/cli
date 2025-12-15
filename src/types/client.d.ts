@@ -42,14 +42,37 @@ export function vizzlyScreenshot(
 ): Promise<void>;
 
 /**
- * Wait for all queued screenshots to be processed
+ * Flush result summary returned by vizzlyFlush
+ */
+export interface FlushResult {
+  success: boolean;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    new: number;
+    errors: number;
+  };
+}
+
+/**
+ * Signal test completion and trigger the results summary.
+ * Call this in your test framework's global teardown to see a summary of all visual comparisons.
+ *
+ * @returns The flush result with summary, or null if no server is connected
  *
  * @example
+ * // In Playwright global teardown
+ * import { vizzlyFlush } from '@vizzly-testing/cli/client';
+ * export default async () => await vizzlyFlush();
+ *
+ * @example
+ * // In Jest/Vitest
  * afterAll(async () => {
  *   await vizzlyFlush();
  * });
  */
-export function vizzlyFlush(): Promise<void>;
+export function vizzlyFlush(): Promise<FlushResult | null>;
 
 /**
  * Check if the Vizzly client is initialized and ready

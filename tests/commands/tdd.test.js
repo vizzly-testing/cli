@@ -231,11 +231,7 @@ describe('commands/tdd', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.exitCode, 0);
-      assert.ok(
-        output.calls.some(
-          c => c.method === 'result' && c.args[0].includes('3 passed')
-        )
-      );
+      // Summary output is handled by printResults() in tdd-service.js
     });
 
     it('handles test run with failed comparisons', async () => {
@@ -267,41 +263,7 @@ describe('commands/tdd', () => {
 
       assert.strictEqual(result.success, false);
       assert.strictEqual(result.exitCode, 1);
-      assert.ok(
-        output.calls.some(
-          c => c.method === 'error' && c.args[0].includes('2 visual difference')
-        )
-      );
-    });
-
-    it('shows screenshot count when no comparisons', async () => {
-      let output = createMockOutput();
-
-      await tddCommand(
-        'npm test',
-        {},
-        {},
-        {
-          loadConfig: async () => createMockConfig(),
-          createServerManager: () => ({
-            start: async () => {},
-            stop: async () => {},
-          }),
-          runTests: async () => ({
-            screenshotsCaptured: 5,
-            comparisons: [],
-          }),
-          detectBranch: async () => 'main',
-          detectCommit: async () => 'abc',
-          output,
-        }
-      );
-
-      assert.ok(
-        output.calls.some(
-          c => c.method === 'result' && c.args[0].includes('5 screenshots')
-        )
-      );
+      // Summary output is handled by printResults() in tdd-service.js
     });
 
     it('handles config loading error', async () => {
@@ -566,66 +528,7 @@ describe('commands/tdd', () => {
       );
     });
 
-    it('handles single screenshot pluralization', async () => {
-      let output = createMockOutput();
-
-      await tddCommand(
-        'npm test',
-        {},
-        {},
-        {
-          loadConfig: async () => createMockConfig(),
-          createServerManager: () => ({
-            start: async () => {},
-            stop: async () => {},
-          }),
-          runTests: async () => ({
-            screenshotsCaptured: 1,
-            comparisons: [],
-          }),
-          detectBranch: async () => 'main',
-          detectCommit: async () => 'abc',
-          output,
-        }
-      );
-
-      assert.ok(
-        output.calls.some(
-          c => c.method === 'result' && c.args[0] === '1 screenshot'
-        )
-      );
-    });
-
-    it('handles single failure pluralization', async () => {
-      let output = createMockOutput();
-
-      await tddCommand(
-        'npm test',
-        {},
-        {},
-        {
-          loadConfig: async () => createMockConfig(),
-          createServerManager: () => ({
-            start: async () => {},
-            stop: async () => {},
-          }),
-          runTests: async () => ({
-            screenshotsCaptured: 1,
-            comparisons: [{ status: 'failed' }],
-          }),
-          detectBranch: async () => 'main',
-          detectCommit: async () => 'abc',
-          output,
-        }
-      );
-
-      assert.ok(
-        output.calls.some(
-          c =>
-            c.method === 'error' && c.args[0] === '1 visual difference detected'
-        )
-      );
-    });
+    // Output pluralization tests removed - summary output is handled by printResults() in tdd-service.js
 
     it('handles runResult.failed flag', async () => {
       let output = createMockOutput();

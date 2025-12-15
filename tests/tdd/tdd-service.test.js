@@ -18,25 +18,21 @@ function createMockOutput() {
 
 /**
  * Create base mock dependencies for TddService tests
+ * Uses grouped dependency structure for cleaner organization
  */
 function createMockDeps(overrides = {}) {
   let mockOutput = createMockOutput();
 
-  return {
-    output: mockOutput,
-    createApiClient: () => ({ baseUrl: 'https://api.test' }),
-    validatePathSecurity: path => path,
-    initializeDirectories: () => ({
-      baselinePath: '/test/.vizzly/baselines',
-      currentPath: '/test/.vizzly/current',
-      diffPath: '/test/.vizzly/diffs',
-    }),
-    // File system
+  // Default values for each group
+  let defaultFs = {
     existsSync: () => false,
     mkdirSync: () => {},
     readFileSync: () => Buffer.from('test'),
     writeFileSync: () => {},
-    // API
+  };
+
+  let defaultApi = {
+    createApiClient: () => ({ baseUrl: 'https://api.test' }),
     getTddBaselines: async () => null,
     getBuilds: async () => ({ data: [] }),
     getComparison: async () => null,
@@ -46,7 +42,9 @@ function createMockDeps(overrides = {}) {
       arrayBuffer: async () => new ArrayBuffer(0),
     }),
     getDefaultBranch: async () => 'main',
-    // Baseline metadata
+  };
+
+  let defaultMetadata = {
     loadBaselineMetadata: () => null,
     saveBaselineMetadata: () => {},
     createEmptyBaselineMetadata: opts => ({
@@ -56,10 +54,11 @@ function createMockDeps(overrides = {}) {
       ...opts,
     }),
     upsertScreenshotInMetadata: () => {},
-    // Hotspot metadata
     loadHotspotMetadata: () => null,
     saveHotspotMetadata: () => {},
-    // Baseline manager
+  };
+
+  let defaultBaseline = {
     baselineExists: () => false,
     clearBaselineData: () => {},
     getBaselinePath: (base, filename) => `${base}/${filename}.png`,
@@ -67,14 +66,20 @@ function createMockDeps(overrides = {}) {
     getDiffPath: (base, filename) => `${base}/${filename}.png`,
     saveBaseline: () => {},
     saveCurrent: () => {},
-    // Comparison service
+  };
+
+  let defaultComparison = {
     compareImages: async () => ({ isDifferent: false }),
     buildPassedComparison: params => ({
       id: 'test-id',
       status: 'passed',
       ...params,
     }),
-    buildNewComparison: params => ({ id: 'test-id', status: 'new', ...params }),
+    buildNewComparison: params => ({
+      id: 'test-id',
+      status: 'new',
+      ...params,
+    }),
     buildFailedComparison: params => ({
       id: 'test-id',
       status: 'failed',
@@ -86,14 +91,18 @@ function createMockDeps(overrides = {}) {
       ...params,
     }),
     isDimensionMismatchError: () => false,
-    // Signature/security
+  };
+
+  let defaultSignature = {
     generateScreenshotSignature: (name, _props) => `${name}|1920|chrome`,
     generateBaselineFilename: (name, sig) => `${name}_${sig}`,
     generateComparisonId: sig => `comp-${sig}`,
     sanitizeScreenshotName: name => name,
     validateScreenshotProperties: props => props,
     safePath: (...parts) => parts.join('/'),
-    // Result service
+  };
+
+  let defaultResults = {
     buildResults: (comparisons, _baseline) => ({
       total: comparisons.length,
       passed: comparisons.filter(c => c.status === 'passed').length,
@@ -106,24 +115,48 @@ function createMockDeps(overrides = {}) {
       comparisons.filter(c => c.status === 'failed'),
     getNewComparisons: comparisons =>
       comparisons.filter(c => c.status === 'new'),
-    // Other
-    calculateHotspotCoverage: () => ({
-      coverage: 0,
-      linesInHotspots: 0,
-      totalLines: 0,
-    }),
-    colors: {
+  };
+
+  return {
+    // Core utilities
+    output: overrides.output ?? mockOutput,
+    colors: overrides.colors ?? {
       cyan: s => s,
       green: s => s,
       red: s => s,
       yellow: s => s,
     },
-    StaticReportGenerator: class {
-      generateReport() {
-        return '/test/.vizzly/report.html';
-      }
-    },
-    ...overrides,
+    validatePathSecurity: overrides.validatePathSecurity ?? (path => path),
+    initializeDirectories:
+      overrides.initializeDirectories ??
+      (() => ({
+        baselinePath: '/test/.vizzly/baselines',
+        currentPath: '/test/.vizzly/current',
+        diffPath: '/test/.vizzly/diffs',
+      })),
+    calculateHotspotCoverage:
+      overrides.calculateHotspotCoverage ??
+      (() => ({
+        coverage: 0,
+        linesInHotspots: 0,
+        totalLines: 0,
+      })),
+    StaticReportGenerator:
+      overrides.StaticReportGenerator ??
+      class {
+        generateReport() {
+          return '/test/.vizzly/report.html';
+        }
+      },
+
+    // Grouped dependencies - merge defaults with overrides
+    fs: { ...defaultFs, ...overrides.fs },
+    api: { ...defaultApi, ...overrides.api },
+    metadata: { ...defaultMetadata, ...overrides.metadata },
+    baseline: { ...defaultBaseline, ...overrides.baseline },
+    comparison: { ...defaultComparison, ...overrides.comparison },
+    signature: { ...defaultSignature, ...overrides.signature },
+    results: { ...defaultResults, ...overrides.results },
   };
 }
 
@@ -217,7 +250,7 @@ describe('tdd/tdd-service', () => {
 
     it('returns null when no metadata exists', async () => {
       let mockDeps = createMockDeps({
-        loadBaselineMetadata: () => null,
+        metadata: { loadBaselineMetadata: () => null },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -235,7 +268,7 @@ describe('tdd/tdd-service', () => {
         screenshots: [],
       };
       let mockDeps = createMockDeps({
-        loadBaselineMetadata: () => metadata,
+        metadata: { loadBaselineMetadata: () => metadata },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -261,7 +294,7 @@ describe('tdd/tdd-service', () => {
 
     it('returns null and logs message when no baseline exists (no API key)', async () => {
       let mockDeps = createMockDeps({
-        loadBaselineMetadata: () => null,
+        metadata: { loadBaselineMetadata: () => null },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -277,7 +310,7 @@ describe('tdd/tdd-service', () => {
 
     it('returns null and logs different message when no baseline exists (with API key)', async () => {
       let mockDeps = createMockDeps({
-        loadBaselineMetadata: () => null,
+        metadata: { loadBaselineMetadata: () => null },
       });
       let service = new TddService(
         { apiKey: 'test-key' },
@@ -303,7 +336,7 @@ describe('tdd/tdd-service', () => {
         screenshots: [],
       };
       let mockDeps = createMockDeps({
-        loadBaselineMetadata: () => metadata,
+        metadata: { loadBaselineMetadata: () => metadata },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -318,12 +351,14 @@ describe('tdd/tdd-service', () => {
       let savedBaseline = null;
       let savedCurrent = null;
       let mockDeps = createMockDeps({
-        baselineExists: () => false,
-        saveBaseline: (path, filename, buffer) => {
-          savedBaseline = { path, filename, buffer };
-        },
-        saveCurrent: (path, filename, buffer) => {
-          savedCurrent = { path, filename, buffer };
+        baseline: {
+          baselineExists: () => false,
+          saveBaseline: (path, filename, buffer) => {
+            savedBaseline = { path, filename, buffer };
+          },
+          saveCurrent: (path, filename, buffer) => {
+            savedCurrent = { path, filename, buffer };
+          },
         },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
@@ -340,8 +375,13 @@ describe('tdd/tdd-service', () => {
 
     it('returns passed comparison when images match', async () => {
       let mockDeps = createMockDeps({
-        baselineExists: () => true,
-        compareImages: async () => ({ isDifferent: false, totalPixels: 1000 }),
+        baseline: { baselineExists: () => true },
+        comparison: {
+          compareImages: async () => ({
+            isDifferent: false,
+            totalPixels: 1000,
+          }),
+        },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -357,18 +397,20 @@ describe('tdd/tdd-service', () => {
 
     it('returns failed comparison when images differ', async () => {
       let mockDeps = createMockDeps({
-        baselineExists: () => true,
-        compareImages: async () => ({
-          isDifferent: true,
-          diffPercentage: 5.5,
-          diffPixels: 1000,
-          diffClusters: [],
-        }),
-        buildFailedComparison: params => ({
-          id: 'test-id',
-          status: 'failed',
-          ...params,
-        }),
+        baseline: { baselineExists: () => true },
+        comparison: {
+          compareImages: async () => ({
+            isDifferent: true,
+            diffPercentage: 5.5,
+            diffPixels: 1000,
+            diffClusters: [],
+          }),
+          buildFailedComparison: params => ({
+            id: 'test-id',
+            status: 'failed',
+            ...params,
+          }),
+        },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -384,12 +426,14 @@ describe('tdd/tdd-service', () => {
 
     it('handles dimension mismatch by creating new baseline', async () => {
       let mockDeps = createMockDeps({
-        baselineExists: () => true,
-        compareImages: async () => {
-          throw new Error("Image dimensions don't match");
+        baseline: { baselineExists: () => true },
+        comparison: {
+          compareImages: async () => {
+            throw new Error("Image dimensions don't match");
+          },
+          isDimensionMismatchError: error =>
+            error.message.includes("dimensions don't match"),
         },
-        isDimensionMismatchError: error =>
-          error.message.includes("dimensions don't match"),
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -408,11 +452,13 @@ describe('tdd/tdd-service', () => {
 
     it('returns error comparison on unexpected error', async () => {
       let mockDeps = createMockDeps({
-        baselineExists: () => true,
-        compareImages: async () => {
-          throw new Error('Unexpected error');
+        baseline: { baselineExists: () => true },
+        comparison: {
+          compareImages: async () => {
+            throw new Error('Unexpected error');
+          },
+          isDimensionMismatchError: () => false,
         },
-        isDimensionMismatchError: () => false,
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -427,8 +473,10 @@ describe('tdd/tdd-service', () => {
 
     it('throws error for invalid screenshot name', async () => {
       let mockDeps = createMockDeps({
-        sanitizeScreenshotName: () => {
-          throw new Error('Invalid name');
+        signature: {
+          sanitizeScreenshotName: () => {
+            throw new Error('Invalid name');
+          },
         },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
@@ -442,9 +490,11 @@ describe('tdd/tdd-service', () => {
 
     it('handles invalid properties gracefully', async () => {
       let mockDeps = createMockDeps({
-        baselineExists: () => false,
-        validateScreenshotProperties: () => {
-          throw new Error('Invalid properties');
+        baseline: { baselineExists: () => false },
+        signature: {
+          validateScreenshotProperties: () => {
+            throw new Error('Invalid properties');
+          },
         },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
@@ -468,11 +518,13 @@ describe('tdd/tdd-service', () => {
     it('uses per-screenshot threshold when provided', async () => {
       let capturedThreshold = null;
       let mockDeps = createMockDeps({
-        baselineExists: () => true,
-        validateScreenshotProperties: props => props,
-        compareImages: async (_base, _current, _diff, options) => {
-          capturedThreshold = options.threshold;
-          return { isDifferent: false };
+        baseline: { baselineExists: () => true },
+        signature: { validateScreenshotProperties: props => props },
+        comparison: {
+          compareImages: async (_base, _current, _diff, options) => {
+            capturedThreshold = options.threshold;
+            return { isDifferent: false };
+          },
         },
       });
       let service = new TddService(
@@ -493,11 +545,13 @@ describe('tdd/tdd-service', () => {
     it('normalizes viewport_width from viewport.width', async () => {
       let capturedProperties = null;
       let mockDeps = createMockDeps({
-        baselineExists: () => false,
-        validateScreenshotProperties: props => props,
-        buildNewComparison: params => {
-          capturedProperties = params.properties;
-          return { id: 'test-id', status: 'new', ...params };
+        baseline: { baselineExists: () => false },
+        signature: { validateScreenshotProperties: props => props },
+        comparison: {
+          buildNewComparison: params => {
+            capturedProperties = params.properties;
+            return { id: 'test-id', status: 'new', ...params };
+          },
         },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
@@ -550,9 +604,11 @@ describe('tdd/tdd-service', () => {
 
     it('loads hotspots from disk if not in memory', () => {
       let mockDeps = createMockDeps({
-        loadHotspotMetadata: () => ({
-          homepage: { regions: [], confidence: 'low' },
-        }),
+        metadata: {
+          loadHotspotMetadata: () => ({
+            homepage: { regions: [], confidence: 'low' },
+          }),
+        },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -564,7 +620,7 @@ describe('tdd/tdd-service', () => {
 
     it('returns null when no hotspot data exists', () => {
       let mockDeps = createMockDeps({
-        loadHotspotMetadata: () => null,
+        metadata: { loadHotspotMetadata: () => null },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
@@ -578,7 +634,7 @@ describe('tdd/tdd-service', () => {
     it('delegates to loadHotspotMetadata', () => {
       let hotspotData = { homepage: { regions: [] } };
       let mockDeps = createMockDeps({
-        loadHotspotMetadata: () => hotspotData,
+        metadata: { loadHotspotMetadata: () => hotspotData },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 

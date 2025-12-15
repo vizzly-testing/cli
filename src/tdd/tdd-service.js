@@ -106,117 +106,129 @@ export class TddService {
     authService = null,
     deps = {}
   ) {
-    // Inject dependencies with defaults
+    // Grouped dependencies with defaults
     let {
-      createApiClient = defaultCreateApiClient,
+      // Core utilities
+      output = defaultOutput,
+      colors = defaultColors,
       validatePathSecurity = defaultValidatePathSecurity,
       initializeDirectories = defaultInitializeDirectories,
-      output = defaultOutput,
-      // File system
-      existsSync = defaultExistsSync,
-      mkdirSync = defaultMkdirSync,
-      readFileSync = defaultReadFileSync,
-      writeFileSync = defaultWriteFileSync,
-      // API
-      getTddBaselines = defaultGetTddBaselines,
-      getBuilds = defaultGetBuilds,
-      getComparison = defaultGetComparison,
-      getBatchHotspots = defaultGetBatchHotspots,
-      fetchWithTimeout = defaultFetchWithTimeout,
-      getDefaultBranch = defaultGetDefaultBranch,
-      // Baseline metadata
-      loadBaselineMetadata = defaultLoadBaselineMetadata,
-      saveBaselineMetadata = defaultSaveBaselineMetadata,
-      createEmptyBaselineMetadata = defaultCreateEmptyBaselineMetadata,
-      upsertScreenshotInMetadata = defaultUpsertScreenshotInMetadata,
-      // Hotspot metadata
-      loadHotspotMetadata = defaultLoadHotspotMetadata,
-      saveHotspotMetadata = defaultSaveHotspotMetadata,
-      // Baseline manager
-      baselineExists = defaultBaselineExists,
-      clearBaselineData = defaultClearBaselineData,
-      getBaselinePath = defaultGetBaselinePath,
-      getCurrentPath = defaultGetCurrentPath,
-      getDiffPath = defaultGetDiffPath,
-      saveBaseline = defaultSaveBaseline,
-      saveCurrent = defaultSaveCurrent,
-      // Comparison service
-      compareImages = defaultCompareImages,
-      buildPassedComparison = defaultBuildPassedComparison,
-      buildNewComparison = defaultBuildNewComparison,
-      buildFailedComparison = defaultBuildFailedComparison,
-      buildErrorComparison = defaultBuildErrorComparison,
-      isDimensionMismatchError = defaultIsDimensionMismatchError,
-      // Signature/security
-      generateScreenshotSignature = defaultGenerateScreenshotSignature,
-      generateBaselineFilename = defaultGenerateBaselineFilename,
-      generateComparisonId = defaultGenerateComparisonId,
-      sanitizeScreenshotName = defaultSanitizeScreenshotName,
-      validateScreenshotProperties = defaultValidateScreenshotProperties,
-      safePath = defaultSafePath,
-      // Result service
-      buildResults = defaultBuildResults,
-      getFailedComparisons = defaultGetFailedComparisons,
-      getNewComparisons = defaultGetNewComparisons,
+
+      // File system operations
+      fs = {},
+
+      // API operations
+      api = {},
+
+      // Baseline metadata operations
+      metadata = {},
+
+      // Baseline file management
+      baseline = {},
+
+      // Screenshot comparison
+      comparison = {},
+
+      // Signature generation and security
+      signature = {},
+
+      // Result building
+      results = {},
+
       // Other
       calculateHotspotCoverage = defaultCalculateHotspotCoverage,
-      colors = defaultColors,
       StaticReportGenerator = DefaultStaticReportGenerator,
     } = deps;
 
-    // Store injected dependencies for use in methods
+    // Merge grouped deps with defaults
+    let fsOps = {
+      existsSync: defaultExistsSync,
+      mkdirSync: defaultMkdirSync,
+      readFileSync: defaultReadFileSync,
+      writeFileSync: defaultWriteFileSync,
+      ...fs,
+    };
+
+    let apiOps = {
+      createApiClient: defaultCreateApiClient,
+      getTddBaselines: defaultGetTddBaselines,
+      getBuilds: defaultGetBuilds,
+      getComparison: defaultGetComparison,
+      getBatchHotspots: defaultGetBatchHotspots,
+      fetchWithTimeout: defaultFetchWithTimeout,
+      getDefaultBranch: defaultGetDefaultBranch,
+      ...api,
+    };
+
+    let metadataOps = {
+      loadBaselineMetadata: defaultLoadBaselineMetadata,
+      saveBaselineMetadata: defaultSaveBaselineMetadata,
+      createEmptyBaselineMetadata: defaultCreateEmptyBaselineMetadata,
+      upsertScreenshotInMetadata: defaultUpsertScreenshotInMetadata,
+      loadHotspotMetadata: defaultLoadHotspotMetadata,
+      saveHotspotMetadata: defaultSaveHotspotMetadata,
+      ...metadata,
+    };
+
+    let baselineOps = {
+      baselineExists: defaultBaselineExists,
+      clearBaselineData: defaultClearBaselineData,
+      getBaselinePath: defaultGetBaselinePath,
+      getCurrentPath: defaultGetCurrentPath,
+      getDiffPath: defaultGetDiffPath,
+      saveBaseline: defaultSaveBaseline,
+      saveCurrent: defaultSaveCurrent,
+      ...baseline,
+    };
+
+    let comparisonOps = {
+      compareImages: defaultCompareImages,
+      buildPassedComparison: defaultBuildPassedComparison,
+      buildNewComparison: defaultBuildNewComparison,
+      buildFailedComparison: defaultBuildFailedComparison,
+      buildErrorComparison: defaultBuildErrorComparison,
+      isDimensionMismatchError: defaultIsDimensionMismatchError,
+      ...comparison,
+    };
+
+    let signatureOps = {
+      generateScreenshotSignature: defaultGenerateScreenshotSignature,
+      generateBaselineFilename: defaultGenerateBaselineFilename,
+      generateComparisonId: defaultGenerateComparisonId,
+      sanitizeScreenshotName: defaultSanitizeScreenshotName,
+      validateScreenshotProperties: defaultValidateScreenshotProperties,
+      safePath: defaultSafePath,
+      ...signature,
+    };
+
+    let resultsOps = {
+      buildResults: defaultBuildResults,
+      getFailedComparisons: defaultGetFailedComparisons,
+      getNewComparisons: defaultGetNewComparisons,
+      ...results,
+    };
+
+    // Store flattened dependencies for use in methods
     this._deps = {
-      createApiClient,
+      output,
+      colors,
       validatePathSecurity,
       initializeDirectories,
-      output,
-      existsSync,
-      mkdirSync,
-      readFileSync,
-      writeFileSync,
-      getTddBaselines,
-      getBuilds,
-      getComparison,
-      getBatchHotspots,
-      fetchWithTimeout,
-      getDefaultBranch,
-      loadBaselineMetadata,
-      saveBaselineMetadata,
-      createEmptyBaselineMetadata,
-      upsertScreenshotInMetadata,
-      loadHotspotMetadata,
-      saveHotspotMetadata,
-      baselineExists,
-      clearBaselineData,
-      getBaselinePath,
-      getCurrentPath,
-      getDiffPath,
-      saveBaseline,
-      saveCurrent,
-      compareImages,
-      buildPassedComparison,
-      buildNewComparison,
-      buildFailedComparison,
-      buildErrorComparison,
-      isDimensionMismatchError,
-      generateScreenshotSignature,
-      generateBaselineFilename,
-      generateComparisonId,
-      sanitizeScreenshotName,
-      validateScreenshotProperties,
-      safePath,
-      buildResults,
-      getFailedComparisons,
-      getNewComparisons,
       calculateHotspotCoverage,
-      colors,
       StaticReportGenerator,
+      ...fsOps,
+      ...apiOps,
+      ...metadataOps,
+      ...baselineOps,
+      ...comparisonOps,
+      ...signatureOps,
+      ...resultsOps,
     };
 
     this.config = config;
     this.setBaseline = setBaseline;
     this.authService = authService;
-    this.client = createApiClient({
+    this.client = apiOps.createApiClient({
       baseUrl: config.apiUrl,
       token: config.apiKey,
       command: 'tdd',

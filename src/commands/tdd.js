@@ -3,33 +3,57 @@
  * Uses functional operations directly - no class wrappers needed
  */
 
-import { spawn } from 'node:child_process';
+import { spawn as defaultSpawn } from 'node:child_process';
 import {
-  createBuild as createApiBuild,
-  createApiClient,
-  finalizeBuild as finalizeApiBuild,
-  getBuild,
+  createBuild as defaultCreateApiBuild,
+  createApiClient as defaultCreateApiClient,
+  finalizeBuild as defaultFinalizeApiBuild,
+  getBuild as defaultGetBuild,
 } from '../api/index.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
-import { createServerManager } from '../server-manager/index.js';
-import { createBuildObject } from '../services/build-manager.js';
-import { initializeDaemon, runTests } from '../test-runner/index.js';
-import { loadConfig } from '../utils/config-loader.js';
-import { detectBranch, detectCommit } from '../utils/git.js';
-import * as output from '../utils/output.js';
+import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
+import { createBuildObject as defaultCreateBuildObject } from '../services/build-manager.js';
+import {
+  initializeDaemon as defaultInitializeDaemon,
+  runTests as defaultRunTests,
+} from '../test-runner/index.js';
+import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
+import {
+  detectBranch as defaultDetectBranch,
+  detectCommit as defaultDetectCommit,
+} from '../utils/git.js';
+import * as defaultOutput from '../utils/output.js';
 
 /**
  * TDD command implementation
  * @param {string} testCommand - Test command to execute
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
  * @returns {Promise<{result: Object, cleanup: Function}>} Result and cleanup function
  */
 export async function tddCommand(
   testCommand,
   options = {},
-  globalOptions = {}
+  globalOptions = {},
+  deps = {}
 ) {
+  let {
+    loadConfig = defaultLoadConfig,
+    createApiClient = defaultCreateApiClient,
+    createApiBuild = defaultCreateApiBuild,
+    finalizeApiBuild = defaultFinalizeApiBuild,
+    getBuild = defaultGetBuild,
+    createServerManager = defaultCreateServerManager,
+    createBuildObject = defaultCreateBuildObject,
+    initializeDaemon = defaultInitializeDaemon,
+    runTests = defaultRunTests,
+    detectBranch = defaultDetectBranch,
+    detectCommit = defaultDetectCommit,
+    spawn = defaultSpawn,
+    output = defaultOutput,
+  } = deps;
+
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -127,7 +151,7 @@ export async function tddCommand(
         initOptions: runOptions,
         deps: {
           serverManager,
-          createError: (message, code) => new VizzlyError(message, code),
+          createError: (msg, code) => new VizzlyError(msg, code),
           output,
           onServerReady: data => {
             output.debug('server', `listening on :${data.port}`);
@@ -163,7 +187,7 @@ export async function tddCommand(
         createApiBuild,
         getBuild,
         finalizeApiBuild,
-        createError: (message, code) => new VizzlyError(message, code),
+        createError: (msg, code) => new VizzlyError(msg, code),
         output,
         onBuildCreated: data => {
           output.debug('build', `created ${data.buildId?.substring(0, 8)}`);

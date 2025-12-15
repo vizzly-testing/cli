@@ -3,21 +3,34 @@
  * Uses functional API operations directly
  */
 
-import { createApiClient, finalizeParallelBuild } from '../api/index.js';
-import { loadConfig } from '../utils/config-loader.js';
-import * as output from '../utils/output.js';
+import {
+  createApiClient as defaultCreateApiClient,
+  finalizeParallelBuild as defaultFinalizeParallelBuild,
+} from '../api/index.js';
+import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
+import * as defaultOutput from '../utils/output.js';
 
 /**
  * Finalize command implementation
  * @param {string} parallelId - Parallel ID to finalize
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
  */
 export async function finalizeCommand(
   parallelId,
   options = {},
-  globalOptions = {}
+  globalOptions = {},
+  deps = {}
 ) {
+  let {
+    loadConfig = defaultLoadConfig,
+    createApiClient = defaultCreateApiClient,
+    finalizeParallelBuild = defaultFinalizeParallelBuild,
+    output = defaultOutput,
+    exit = code => process.exit(code),
+  } = deps;
+
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -34,7 +47,8 @@ export async function finalizeCommand(
       output.error(
         'API token required. Use --token or set VIZZLY_TOKEN environment variable'
       );
-      process.exit(1);
+      exit(1);
+      return { success: false, reason: 'no-api-key' };
     }
 
     if (globalOptions.verbose) {
@@ -64,10 +78,13 @@ export async function finalizeCommand(
       output.info(`Status: ${result.build.status}`);
       output.info(`Parallel ID: ${result.build.parallel_id}`);
     }
+
+    return { success: true, result };
   } catch (error) {
     output.stopSpinner();
     output.error('Failed to finalize parallel build', error);
-    process.exit(1);
+    exit(1);
+    return { success: false, error };
   } finally {
     output.cleanup();
   }

@@ -8,81 +8,93 @@
  * See src/tdd/core/signature.js for details.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import {
-  createApiClient,
-  getBatchHotspots,
-  getBuilds,
-  getComparison,
-  getTddBaselines,
+  existsSync as defaultExistsSync,
+  mkdirSync as defaultMkdirSync,
+  readFileSync as defaultReadFileSync,
+  writeFileSync as defaultWriteFileSync,
+} from 'node:fs';
+import {
+  createApiClient as defaultCreateApiClient,
+  getBatchHotspots as defaultGetBatchHotspots,
+  getBuilds as defaultGetBuilds,
+  getComparison as defaultGetComparison,
+  getTddBaselines as defaultGetTddBaselines,
 } from '../api/index.js';
 import { NetworkError } from '../errors/vizzly-error.js';
-import { StaticReportGenerator } from '../services/static-report-generator.js';
-import { colors } from '../utils/colors.js';
-import { fetchWithTimeout } from '../utils/fetch-utils.js';
-import { getDefaultBranch } from '../utils/git.js';
-import * as output from '../utils/output.js';
+import { StaticReportGenerator as DefaultStaticReportGenerator } from '../services/static-report-generator.js';
+import { colors as defaultColors } from '../utils/colors.js';
+import { fetchWithTimeout as defaultFetchWithTimeout } from '../utils/fetch-utils.js';
+import { getDefaultBranch as defaultGetDefaultBranch } from '../utils/git.js';
+import * as defaultOutput from '../utils/output.js';
 import {
-  safePath,
-  sanitizeScreenshotName,
-  validatePathSecurity,
-  validateScreenshotProperties,
+  safePath as defaultSafePath,
+  sanitizeScreenshotName as defaultSanitizeScreenshotName,
+  validatePathSecurity as defaultValidatePathSecurity,
+  validateScreenshotProperties as defaultValidateScreenshotProperties,
 } from '../utils/security.js';
-import { calculateHotspotCoverage } from './core/hotspot-coverage.js';
+import { calculateHotspotCoverage as defaultCalculateHotspotCoverage } from './core/hotspot-coverage.js';
 // Import from extracted modules
 import {
-  generateBaselineFilename,
-  generateComparisonId,
-  generateScreenshotSignature,
+  generateBaselineFilename as defaultGenerateBaselineFilename,
+  generateComparisonId as defaultGenerateComparisonId,
+  generateScreenshotSignature as defaultGenerateScreenshotSignature,
 } from './core/signature.js';
 
 import {
-  createEmptyBaselineMetadata,
-  loadBaselineMetadata,
-  saveBaselineMetadata,
-  upsertScreenshotInMetadata,
+  createEmptyBaselineMetadata as defaultCreateEmptyBaselineMetadata,
+  loadBaselineMetadata as defaultLoadBaselineMetadata,
+  saveBaselineMetadata as defaultSaveBaselineMetadata,
+  upsertScreenshotInMetadata as defaultUpsertScreenshotInMetadata,
 } from './metadata/baseline-metadata.js';
 
 import {
-  loadHotspotMetadata,
-  saveHotspotMetadata,
+  loadHotspotMetadata as defaultLoadHotspotMetadata,
+  saveHotspotMetadata as defaultSaveHotspotMetadata,
 } from './metadata/hotspot-metadata.js';
 
 import {
-  baselineExists,
-  clearBaselineData,
-  getBaselinePath,
-  getCurrentPath,
-  getDiffPath,
-  initializeDirectories,
-  saveBaseline,
-  saveCurrent,
+  baselineExists as defaultBaselineExists,
+  clearBaselineData as defaultClearBaselineData,
+  getBaselinePath as defaultGetBaselinePath,
+  getCurrentPath as defaultGetCurrentPath,
+  getDiffPath as defaultGetDiffPath,
+  initializeDirectories as defaultInitializeDirectories,
+  saveBaseline as defaultSaveBaseline,
+  saveCurrent as defaultSaveCurrent,
 } from './services/baseline-manager.js';
 
 import {
-  buildErrorComparison,
-  buildFailedComparison,
-  buildNewComparison,
-  buildPassedComparison,
-  compareImages,
-  isDimensionMismatchError,
+  buildErrorComparison as defaultBuildErrorComparison,
+  buildFailedComparison as defaultBuildFailedComparison,
+  buildNewComparison as defaultBuildNewComparison,
+  buildPassedComparison as defaultBuildPassedComparison,
+  compareImages as defaultCompareImages,
+  isDimensionMismatchError as defaultIsDimensionMismatchError,
 } from './services/comparison-service.js';
 
 import {
-  buildResults,
-  getFailedComparisons,
-  getNewComparisons,
+  buildResults as defaultBuildResults,
+  getFailedComparisons as defaultGetFailedComparisons,
+  getNewComparisons as defaultGetNewComparisons,
 } from './services/result-service.js';
 
 /**
  * Create a new TDD service instance
+ * @param {Object} config - Configuration object
+ * @param {Object} options - Options
+ * @param {string} options.workingDir - Working directory
+ * @param {boolean} options.setBaseline - Whether to set baselines
+ * @param {Object} options.authService - Authentication service
+ * @param {Object} deps - Injectable dependencies for testing
  */
-export function createTDDService(config, options = {}) {
+export function createTDDService(config, options = {}, deps = {}) {
   return new TddService(
     config,
     options.workingDir,
     options.setBaseline,
-    options.authService
+    options.authService,
+    deps
   );
 }
 
@@ -91,12 +103,132 @@ export class TddService {
     config,
     workingDir = process.cwd(),
     setBaseline = false,
-    authService = null
+    authService = null,
+    deps = {}
   ) {
+    // Grouped dependencies with defaults
+    let {
+      // Core utilities
+      output = defaultOutput,
+      colors = defaultColors,
+      validatePathSecurity = defaultValidatePathSecurity,
+      initializeDirectories = defaultInitializeDirectories,
+
+      // File system operations
+      fs = {},
+
+      // API operations
+      api = {},
+
+      // Baseline metadata operations
+      metadata = {},
+
+      // Baseline file management
+      baseline = {},
+
+      // Screenshot comparison
+      comparison = {},
+
+      // Signature generation and security
+      signature = {},
+
+      // Result building
+      results = {},
+
+      // Other
+      calculateHotspotCoverage = defaultCalculateHotspotCoverage,
+      StaticReportGenerator = DefaultStaticReportGenerator,
+    } = deps;
+
+    // Merge grouped deps with defaults
+    let fsOps = {
+      existsSync: defaultExistsSync,
+      mkdirSync: defaultMkdirSync,
+      readFileSync: defaultReadFileSync,
+      writeFileSync: defaultWriteFileSync,
+      ...fs,
+    };
+
+    let apiOps = {
+      createApiClient: defaultCreateApiClient,
+      getTddBaselines: defaultGetTddBaselines,
+      getBuilds: defaultGetBuilds,
+      getComparison: defaultGetComparison,
+      getBatchHotspots: defaultGetBatchHotspots,
+      fetchWithTimeout: defaultFetchWithTimeout,
+      getDefaultBranch: defaultGetDefaultBranch,
+      ...api,
+    };
+
+    let metadataOps = {
+      loadBaselineMetadata: defaultLoadBaselineMetadata,
+      saveBaselineMetadata: defaultSaveBaselineMetadata,
+      createEmptyBaselineMetadata: defaultCreateEmptyBaselineMetadata,
+      upsertScreenshotInMetadata: defaultUpsertScreenshotInMetadata,
+      loadHotspotMetadata: defaultLoadHotspotMetadata,
+      saveHotspotMetadata: defaultSaveHotspotMetadata,
+      ...metadata,
+    };
+
+    let baselineOps = {
+      baselineExists: defaultBaselineExists,
+      clearBaselineData: defaultClearBaselineData,
+      getBaselinePath: defaultGetBaselinePath,
+      getCurrentPath: defaultGetCurrentPath,
+      getDiffPath: defaultGetDiffPath,
+      saveBaseline: defaultSaveBaseline,
+      saveCurrent: defaultSaveCurrent,
+      ...baseline,
+    };
+
+    let comparisonOps = {
+      compareImages: defaultCompareImages,
+      buildPassedComparison: defaultBuildPassedComparison,
+      buildNewComparison: defaultBuildNewComparison,
+      buildFailedComparison: defaultBuildFailedComparison,
+      buildErrorComparison: defaultBuildErrorComparison,
+      isDimensionMismatchError: defaultIsDimensionMismatchError,
+      ...comparison,
+    };
+
+    let signatureOps = {
+      generateScreenshotSignature: defaultGenerateScreenshotSignature,
+      generateBaselineFilename: defaultGenerateBaselineFilename,
+      generateComparisonId: defaultGenerateComparisonId,
+      sanitizeScreenshotName: defaultSanitizeScreenshotName,
+      validateScreenshotProperties: defaultValidateScreenshotProperties,
+      safePath: defaultSafePath,
+      ...signature,
+    };
+
+    let resultsOps = {
+      buildResults: defaultBuildResults,
+      getFailedComparisons: defaultGetFailedComparisons,
+      getNewComparisons: defaultGetNewComparisons,
+      ...results,
+    };
+
+    // Store flattened dependencies for use in methods
+    this._deps = {
+      output,
+      colors,
+      validatePathSecurity,
+      initializeDirectories,
+      calculateHotspotCoverage,
+      StaticReportGenerator,
+      ...fsOps,
+      ...apiOps,
+      ...metadataOps,
+      ...baselineOps,
+      ...comparisonOps,
+      ...signatureOps,
+      ...resultsOps,
+    };
+
     this.config = config;
     this.setBaseline = setBaseline;
     this.authService = authService;
-    this.client = createApiClient({
+    this.client = apiOps.createApiClient({
       baseUrl: config.apiUrl,
       token: config.apiKey,
       command: 'tdd',
@@ -599,6 +731,7 @@ export class TddService {
    * Load hotspot data from disk
    */
   loadHotspots() {
+    let { loadHotspotMetadata } = this._deps;
     return loadHotspotMetadata(this.workingDir);
   }
 
@@ -627,6 +760,7 @@ export class TddService {
    * Calculate hotspot coverage (delegating to pure function)
    */
   calculateHotspotCoverage(diffClusters, hotspotAnalysis) {
+    let { calculateHotspotCoverage } = this._deps;
     return calculateHotspotCoverage(diffClusters, hotspotAnalysis);
   }
 
@@ -634,6 +768,8 @@ export class TddService {
    * Handle local baselines logic
    */
   async handleLocalBaselines() {
+    let { output, colors } = this._deps;
+
     if (this.setBaseline) {
       output.info('📁 Ready for new baseline creation');
       this.baselineData = null;
@@ -664,6 +800,8 @@ export class TddService {
    * Load baseline metadata
    */
   async loadBaseline() {
+    let { output, loadBaselineMetadata } = this._deps;
+
     if (this.setBaseline) {
       output.debug('tdd', 'baseline update mode - skipping loading');
       return null;
@@ -694,6 +832,31 @@ export class TddService {
    * Compare a screenshot against baseline
    */
   async compareScreenshot(name, imageBuffer, properties = {}) {
+    // Destructure dependencies
+    let {
+      output,
+      sanitizeScreenshotName,
+      validateScreenshotProperties,
+      generateScreenshotSignature,
+      generateBaselineFilename,
+      getCurrentPath,
+      getBaselinePath,
+      getDiffPath,
+      saveCurrent,
+      baselineExists,
+      saveBaseline,
+      createEmptyBaselineMetadata,
+      upsertScreenshotInMetadata,
+      saveBaselineMetadata,
+      buildNewComparison,
+      compareImages,
+      buildPassedComparison,
+      buildFailedComparison,
+      buildErrorComparison,
+      isDimensionMismatchError,
+      colors,
+    } = this._deps;
+
     // Sanitize and validate
     let sanitizedName;
     try {
@@ -931,6 +1094,7 @@ export class TddService {
    * Get results summary
    */
   getResults() {
+    let { buildResults } = this._deps;
     return buildResults(this.comparisons, this.baselineData);
   }
 

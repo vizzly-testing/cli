@@ -1,20 +1,79 @@
-import { Buffer } from 'node:buffer';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { getDimensionsSync } from '@vizzly-testing/honeydiff';
-import { TddService } from '../../tdd/tdd-service.js';
-import { detectImageInputType } from '../../utils/image-input-detector.js';
-import * as output from '../../utils/output.js';
+import { Buffer as defaultBuffer } from 'node:buffer';
 import {
-  sanitizeScreenshotName,
-  validateScreenshotProperties,
+  existsSync as defaultExistsSync,
+  readFileSync as defaultReadFileSync,
+  writeFileSync as defaultWriteFileSync,
+} from 'node:fs';
+import { join as defaultJoin, resolve as defaultResolve } from 'node:path';
+import { getDimensionsSync as defaultGetDimensionsSync } from '@vizzly-testing/honeydiff';
+import { TddService as DefaultTddService } from '../../tdd/tdd-service.js';
+import { detectImageInputType as defaultDetectImageInputType } from '../../utils/image-input-detector.js';
+import * as defaultOutput from '../../utils/output.js';
+import {
+  sanitizeScreenshotName as defaultSanitizeScreenshotName,
+  validateScreenshotProperties as defaultValidateScreenshotProperties,
 } from '../../utils/security.js';
+
+/**
+ * Unwrap double-nested properties if needed
+ * Client SDK wraps options in properties field, so we may get { properties: { properties: {...} } }
+ */
+export const unwrapProperties = properties => {
+  if (!properties) return {};
+  if (properties.properties && typeof properties.properties === 'object') {
+    // Merge top-level properties with nested properties
+    let unwrapped = {
+      ...properties,
+      ...properties.properties,
+    };
+    // Remove the nested properties field to avoid confusion
+    delete unwrapped.properties;
+    return unwrapped;
+  }
+  return properties;
+};
+
+/**
+ * Extract properties to top-level format matching cloud API
+ * Normalizes viewport to viewport_width/height, ensures browser is set
+ */
+export const extractProperties = validatedProperties => {
+  if (!validatedProperties) return {};
+  return {
+    ...validatedProperties,
+    // Normalize viewport to top-level viewport_width/height (cloud format)
+    viewport_width:
+      validatedProperties.viewport?.width ??
+      validatedProperties.viewport_width ??
+      null,
+    viewport_height:
+      validatedProperties.viewport?.height ??
+      validatedProperties.viewport_height ??
+      null,
+    browser: validatedProperties.browser ?? null,
+    // Preserve nested structure in metadata for backward compatibility
+    metadata: validatedProperties,
+  };
+};
+
+/**
+ * Convert absolute file paths to web-accessible URLs
+ */
+export const convertPathToUrl = (filePath, vizzlyDir) => {
+  if (!filePath) return null;
+  // Convert absolute path to relative path from .vizzly directory
+  if (filePath.startsWith(vizzlyDir)) {
+    let relativePath = filePath.substring(vizzlyDir.length + 1);
+    return `/images/${relativePath}`;
+  }
+  return filePath;
+};
 
 /**
  * Group comparisons by screenshot name with variant structure
  * Matches cloud product's grouping logic from comparison.js
  */
-const groupComparisons = comparisons => {
+export const groupComparisons = comparisons => {
   const groups = new Map();
 
   // Group by screenshot name
@@ -114,8 +173,25 @@ export const createTddHandler = (
   workingDir,
   baselineBuild,
   baselineComparison,
-  setBaseline = false
+  setBaseline = false,
+  deps = {}
 ) => {
+  // Inject dependencies with defaults
+  let {
+    TddService = DefaultTddService,
+    existsSync = defaultExistsSync,
+    readFileSync = defaultReadFileSync,
+    writeFileSync = defaultWriteFileSync,
+    join = defaultJoin,
+    resolve = defaultResolve,
+    Buffer = defaultBuffer,
+    getDimensionsSync = defaultGetDimensionsSync,
+    detectImageInputType = defaultDetectImageInputType,
+    sanitizeScreenshotName = defaultSanitizeScreenshotName,
+    validateScreenshotProperties = defaultValidateScreenshotProperties,
+    output = defaultOutput,
+  } = deps;
+
   const tddService = new TddService(config, workingDir, setBaseline);
   const reportPath = join(workingDir, '.vizzly', 'report-data.json');
 
@@ -260,18 +336,7 @@ export const createTddHandler = (
     }
 
     // Unwrap double-nested properties if needed (client SDK wraps options in properties field)
-    // This happens when test helper passes { properties: {...}, threshold: 2.0 }
-    // and client SDK wraps it as { properties: options }
-    let unwrappedProperties = properties;
-    if (properties.properties && typeof properties.properties === 'object') {
-      // Merge top-level properties with nested properties
-      unwrappedProperties = {
-        ...properties,
-        ...properties.properties,
-      };
-      // Remove the nested properties field to avoid confusion
-      delete unwrappedProperties.properties;
-    }
+    let unwrappedProperties = unwrapProperties(properties);
 
     // Validate and sanitize properties
     let validatedProperties;
@@ -289,25 +354,7 @@ export const createTddHandler = (
     }
 
     // Extract ALL properties to top-level (matching cloud API behavior)
-    // This ensures signature generation works correctly for custom properties like theme, device, etc.
-    // Spread all validated properties first, then normalize viewport/browser for cloud format
-    const extractedProperties = {
-      ...validatedProperties,
-      // Normalize viewport to top-level viewport_width/height (cloud format)
-      // Use nullish coalescing to preserve any existing top-level values
-      viewport_width:
-        validatedProperties.viewport?.width ??
-        validatedProperties.viewport_width ??
-        null,
-      viewport_height:
-        validatedProperties.viewport?.height ??
-        validatedProperties.viewport_height ??
-        null,
-      browser: validatedProperties.browser ?? null,
-      // Preserve nested structure in metadata for backward compatibility
-      // Signature generation checks multiple locations: top-level, metadata.*, metadata.properties.*
-      metadata: validatedProperties,
-    };
+    const extractedProperties = extractProperties(validatedProperties);
 
     // Support both base64 encoded images and file paths
     // Vitest browser mode returns file paths, so we need to handle both
@@ -396,16 +443,7 @@ export const createTddHandler = (
     // Comparison tracked by tdd.js event handler
 
     // Convert absolute file paths to web-accessible URLs
-    const convertPathToUrl = filePath => {
-      if (!filePath) return null;
-      // Convert absolute path to relative path from .vizzly directory
-      const vizzlyDir = join(workingDir, '.vizzly');
-      if (filePath.startsWith(vizzlyDir)) {
-        const relativePath = filePath.substring(vizzlyDir.length + 1);
-        return `/images/${relativePath}`;
-      }
-      return filePath;
-    };
+    const vizzlyDir = join(workingDir, '.vizzly');
 
     // Record the comparison for the dashboard
     const newComparison = {
@@ -413,9 +451,9 @@ export const createTddHandler = (
       name: comparison.name,
       originalName: name,
       status: comparison.status,
-      baseline: convertPathToUrl(comparison.baseline),
-      current: convertPathToUrl(comparison.current),
-      diff: convertPathToUrl(comparison.diff),
+      baseline: convertPathToUrl(comparison.baseline, vizzlyDir),
+      current: convertPathToUrl(comparison.current, vizzlyDir),
+      diff: convertPathToUrl(comparison.diff, vizzlyDir),
       diffPercentage: comparison.diffPercentage,
       threshold: comparison.threshold,
       properties: extractedProperties, // Use extracted properties with top-level viewport_width/browser

@@ -2,10 +2,111 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import {
   convertPathToUrl,
+  createTddHandler,
   extractProperties,
   groupComparisons,
   unwrapProperties,
 } from '../../../src/server/handlers/tdd-handler.js';
+
+/**
+ * Create mock output for testing
+ */
+function createMockOutput() {
+  let calls = [];
+  return {
+    calls,
+    info: (...args) => calls.push({ method: 'info', args }),
+    debug: (...args) => calls.push({ method: 'debug', args }),
+    warn: (...args) => calls.push({ method: 'warn', args }),
+    error: (...args) => calls.push({ method: 'error', args }),
+  };
+}
+
+/**
+ * Create mock TddService for testing
+ */
+function createMockTddService(overrides = {}) {
+  return class MockTddService {
+    constructor(config, workingDir, setBaseline) {
+      this.config = config;
+      this.workingDir = workingDir;
+      this.setBaseline = setBaseline;
+      this.comparisons = [];
+      this.baselineData = null;
+    }
+
+    async loadBaseline() {
+      return overrides.loadBaseline?.() ?? null;
+    }
+
+    async downloadBaselines() {
+      return overrides.downloadBaselines?.() ?? null;
+    }
+
+    async compareScreenshot(name, imageBuffer, properties) {
+      if (overrides.compareScreenshot) {
+        return overrides.compareScreenshot(name, imageBuffer, properties);
+      }
+      return {
+        id: `comp-${name}`,
+        name,
+        status: 'passed',
+        baseline: `/baselines/${name}.png`,
+        current: `/current/${name}.png`,
+        diff: null,
+        properties,
+      };
+    }
+
+    async printResults() {
+      return overrides.printResults?.() ?? { total: 0, passed: 0, failed: 0 };
+    }
+
+    async acceptBaseline(comparison) {
+      return overrides.acceptBaseline?.(comparison) ?? { success: true };
+    }
+  };
+}
+
+/**
+ * Create mock dependencies for createTddHandler tests
+ */
+function createMockDeps(overrides = {}) {
+  let mockOutput = createMockOutput();
+  let fileSystem = {};
+
+  return {
+    TddService:
+      overrides.TddService ??
+      createMockTddService(overrides.tddServiceOverrides),
+    existsSync: overrides.existsSync ?? (path => path in fileSystem),
+    readFileSync:
+      overrides.readFileSync ??
+      (path => {
+        if (path in fileSystem) return fileSystem[path];
+        throw new Error(`File not found: ${path}`);
+      }),
+    writeFileSync:
+      overrides.writeFileSync ??
+      ((path, content) => {
+        fileSystem[path] = content;
+      }),
+    join: overrides.join ?? ((...parts) => parts.join('/')),
+    resolve: overrides.resolve ?? (path => path.replace('file://', '')),
+    Buffer: overrides.Buffer ?? {
+      from: (data, encoding) => ({ data, encoding, length: data.length }),
+    },
+    getDimensionsSync:
+      overrides.getDimensionsSync ?? (() => ({ width: 1920, height: 1080 })),
+    detectImageInputType: overrides.detectImageInputType ?? (() => 'base64'),
+    sanitizeScreenshotName: overrides.sanitizeScreenshotName ?? (name => name),
+    validateScreenshotProperties:
+      overrides.validateScreenshotProperties ?? (props => props),
+    output: overrides.output ?? mockOutput,
+    _fileSystem: fileSystem,
+    _mockOutput: mockOutput,
+  };
+}
 
 describe('server/handlers/tdd-handler', () => {
   describe('unwrapProperties', () => {
@@ -348,6 +449,498 @@ describe('server/handlers/tdd-handler', () => {
 
       assert.strictEqual(result.length, 1);
       assert.strictEqual(result[0].totalVariants, 2);
+    });
+  });
+
+  describe('createTddHandler', () => {
+    it('creates handler with all required methods', () => {
+      let deps = createMockDeps();
+      let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+      assert.ok(typeof handler.initialize === 'function');
+      assert.ok(typeof handler.handleScreenshot === 'function');
+      assert.ok(typeof handler.getResults === 'function');
+      assert.ok(typeof handler.acceptBaseline === 'function');
+      assert.ok(typeof handler.acceptAllBaselines === 'function');
+      assert.ok(typeof handler.resetBaselines === 'function');
+      assert.ok(typeof handler.cleanup === 'function');
+      assert.ok(handler.tddService);
+    });
+
+    describe('initialize', () => {
+      it('skips loading in setBaseline mode', async () => {
+        let deps = createMockDeps();
+        let handler = createTddHandler({}, '/test', null, null, true, deps);
+
+        await handler.initialize();
+
+        let debugCall = deps._mockOutput.calls.find(
+          c =>
+            c.method === 'debug' && c.args[1]?.includes('baseline update mode')
+        );
+        assert.ok(debugCall);
+      });
+
+      it('downloads baselines when build ID provided with API key', async () => {
+        let downloadCalled = false;
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            downloadBaselines: () => {
+              downloadCalled = true;
+              return null;
+            },
+          },
+        });
+        let handler = createTddHandler(
+          { apiKey: 'test-key' },
+          '/test',
+          'build-123',
+          null,
+          false,
+          deps
+        );
+
+        await handler.initialize();
+
+        assert.strictEqual(downloadCalled, true);
+      });
+
+      it('loads local baseline when no override flags', async () => {
+        let loadCalled = false;
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            loadBaseline: () => {
+              loadCalled = true;
+              return { buildName: 'Local Build' };
+            },
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.initialize();
+
+        assert.strictEqual(loadCalled, true);
+      });
+    });
+
+    describe('handleScreenshot', () => {
+      it('returns passed comparison result', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'passed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'homepage',
+          'base64imagedata',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+        assert.strictEqual(result.body.success, true);
+        assert.strictEqual(result.body.comparison.status, 'passed');
+      });
+
+      it('returns 422 for failed comparison', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'failed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: '/diffs/test.png',
+              diffPercentage: 5.5,
+              threshold: 2.0,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'homepage',
+          'base64imagedata',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 422);
+        assert.ok(result.body.error.includes('Visual difference detected'));
+      });
+
+      it('returns 400 for invalid screenshot name', async () => {
+        let deps = createMockDeps({
+          sanitizeScreenshotName: () => {
+            throw new Error('Invalid characters');
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'invalid<>name',
+          'base64imagedata',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 400);
+        assert.ok(result.body.error.includes('Invalid screenshot name'));
+      });
+
+      it('returns 400 for invalid properties', async () => {
+        let deps = createMockDeps({
+          validateScreenshotProperties: () => {
+            throw new Error('Invalid property value');
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'base64imagedata',
+          { bad: 'props' }
+        );
+
+        assert.strictEqual(result.statusCode, 400);
+        assert.ok(result.body.error.includes('Invalid screenshot properties'));
+      });
+
+      it('handles file path image input', async () => {
+        let fileContent = 'fake-png-data';
+        let deps = createMockDeps({
+          detectImageInputType: () => 'file-path',
+          existsSync: () => true,
+          readFileSync: () => Buffer.from(fileContent),
+          tddServiceOverrides: {
+            compareScreenshot: (name, buffer) => ({
+              id: `comp-${name}`,
+              name,
+              status: 'passed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'file:///path/to/screenshot.png',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+      });
+
+      it('returns 400 for missing file', async () => {
+        let deps = createMockDeps({
+          detectImageInputType: () => 'file-path',
+          existsSync: () => false,
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'file:///missing/file.png',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 400);
+        assert.ok(result.body.error.includes('not found'));
+      });
+
+      it('returns 500 for error comparison', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'error',
+              error: 'Comparison failed',
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'base64imagedata',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 500);
+        assert.ok(result.body.error.includes('Comparison failed'));
+      });
+
+      it('returns 200 for baseline-updated status', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'baseline-updated',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'base64imagedata',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+        assert.ok(result.body.message.includes('Baseline updated'));
+      });
+
+      it('returns 400 for unknown image input type', async () => {
+        let deps = createMockDeps({
+          detectImageInputType: () => 'unknown',
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          12345, // Not a string
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 400);
+        assert.ok(result.body.error.includes('Invalid image input'));
+      });
+    });
+
+    describe('getResults', () => {
+      it('returns results from tddService', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            printResults: () => ({ total: 5, passed: 3, failed: 2 }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let results = await handler.getResults();
+
+        assert.strictEqual(results.total, 5);
+        assert.strictEqual(results.passed, 3);
+        assert.strictEqual(results.failed, 2);
+      });
+    });
+
+    describe('acceptBaseline', () => {
+      it('accepts baseline for existing comparison', async () => {
+        let acceptedComparison = null;
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            acceptBaseline: comp => {
+              acceptedComparison = comp;
+              return { success: true };
+            },
+          },
+        });
+
+        // Pre-populate report data with a comparison
+        let reportData = {
+          timestamp: Date.now(),
+          comparisons: [{ id: 'comp-1', name: 'test', status: 'failed' }],
+          groups: [],
+          summary: { total: 1, passed: 0, failed: 1, errors: 0 },
+        };
+        deps._fileSystem['/test/.vizzly/report-data.json'] =
+          JSON.stringify(reportData);
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.acceptBaseline('comp-1');
+
+        assert.ok(result.success);
+        assert.strictEqual(acceptedComparison.id, 'comp-1');
+      });
+
+      it('throws error for non-existent comparison', async () => {
+        let deps = createMockDeps();
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await assert.rejects(
+          () => handler.acceptBaseline('non-existent'),
+          /Comparison not found/
+        );
+      });
+    });
+
+    describe('acceptAllBaselines', () => {
+      it('accepts all failed and new comparisons', async () => {
+        let acceptedIds = [];
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            acceptBaseline: comp => {
+              acceptedIds.push(comp.id);
+              return { success: true };
+            },
+          },
+        });
+
+        let reportData = {
+          timestamp: Date.now(),
+          comparisons: [
+            { id: 'comp-1', name: 'test1', status: 'failed' },
+            { id: 'comp-2', name: 'test2', status: 'passed' },
+            { id: 'comp-3', name: 'test3', status: 'new' },
+          ],
+          groups: [],
+          summary: { total: 3, passed: 1, failed: 1, errors: 0 },
+        };
+        deps._fileSystem['/test/.vizzly/report-data.json'] =
+          JSON.stringify(reportData);
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.acceptAllBaselines();
+
+        assert.strictEqual(result.count, 2);
+        assert.ok(acceptedIds.includes('comp-1'));
+        assert.ok(acceptedIds.includes('comp-3'));
+        assert.ok(!acceptedIds.includes('comp-2')); // Already passed
+      });
+    });
+
+    describe('resetBaselines', () => {
+      it('clears report data and returns counts', async () => {
+        let deletedFiles = [];
+        let deps = createMockDeps({
+          existsSync: path => {
+            // Simulate existing files
+            return (
+              path.includes('baselines') ||
+              path.includes('current') ||
+              path.includes('diffs') ||
+              path.includes('metadata.json')
+            );
+          },
+        });
+
+        let reportData = {
+          timestamp: Date.now(),
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'test',
+              baseline: '/images/baselines/test.png',
+              current: '/images/current/test.png',
+              diff: '/images/diffs/test.png',
+            },
+          ],
+          groups: [],
+          summary: { total: 1, passed: 0, failed: 1, errors: 0 },
+        };
+        deps._fileSystem['/test/.vizzly/report-data.json'] =
+          JSON.stringify(reportData);
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.resetBaselines();
+
+        assert.ok(result.success);
+        // Check report was cleared
+        let newReportData = JSON.parse(
+          deps._fileSystem['/test/.vizzly/report-data.json']
+        );
+        assert.strictEqual(newReportData.comparisons.length, 0);
+      });
+    });
+
+    describe('cleanup', () => {
+      it('cleanup function exists and can be called', () => {
+        let deps = createMockDeps();
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        // Should not throw
+        handler.cleanup();
+      });
+    });
+
+    describe('readReportData / updateComparison', () => {
+      it('creates empty report data when file does not exist', async () => {
+        let deps = createMockDeps();
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        // Trigger a screenshot which calls updateComparison
+        await handler.handleScreenshot('build-1', 'test', 'base64data', {});
+
+        // Check report was created
+        let reportData = JSON.parse(
+          deps._fileSystem['/test/.vizzly/report-data.json']
+        );
+        assert.ok(reportData.timestamp);
+        assert.ok(Array.isArray(reportData.comparisons));
+        assert.ok(Array.isArray(reportData.groups));
+      });
+
+      it('updates existing comparison by ID', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: 'same-id',
+              name,
+              status: 'passed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        // First screenshot
+        await handler.handleScreenshot('build-1', 'test', 'base64data', {});
+
+        // Same ID, should update not add
+        await handler.handleScreenshot('build-1', 'test', 'base64data', {});
+
+        let reportData = JSON.parse(
+          deps._fileSystem['/test/.vizzly/report-data.json']
+        );
+        assert.strictEqual(reportData.comparisons.length, 1);
+      });
+
+      it('handles read error gracefully', async () => {
+        let deps = createMockDeps({
+          existsSync: () => true,
+          readFileSync: () => {
+            throw new Error('Read error');
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        // Should not throw, returns empty data
+        await handler.handleScreenshot('build-1', 'test', 'base64data', {});
+
+        let errorCall = deps._mockOutput.calls.find(
+          c => c.method === 'error' && c.args[0].includes('Failed to read')
+        );
+        assert.ok(errorCall);
+      });
     });
   });
 });

@@ -1,13 +1,17 @@
-import { Buffer } from 'node:buffer';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { getDimensionsSync } from '@vizzly-testing/honeydiff';
-import { TddService } from '../../tdd/tdd-service.js';
-import { detectImageInputType } from '../../utils/image-input-detector.js';
-import * as output from '../../utils/output.js';
+import { Buffer as defaultBuffer } from 'node:buffer';
 import {
-  sanitizeScreenshotName,
-  validateScreenshotProperties,
+  existsSync as defaultExistsSync,
+  readFileSync as defaultReadFileSync,
+  writeFileSync as defaultWriteFileSync,
+} from 'node:fs';
+import { join as defaultJoin, resolve as defaultResolve } from 'node:path';
+import { getDimensionsSync as defaultGetDimensionsSync } from '@vizzly-testing/honeydiff';
+import { TddService as DefaultTddService } from '../../tdd/tdd-service.js';
+import { detectImageInputType as defaultDetectImageInputType } from '../../utils/image-input-detector.js';
+import * as defaultOutput from '../../utils/output.js';
+import {
+  sanitizeScreenshotName as defaultSanitizeScreenshotName,
+  validateScreenshotProperties as defaultValidateScreenshotProperties,
 } from '../../utils/security.js';
 
 /**
@@ -169,8 +173,25 @@ export const createTddHandler = (
   workingDir,
   baselineBuild,
   baselineComparison,
-  setBaseline = false
+  setBaseline = false,
+  deps = {}
 ) => {
+  // Inject dependencies with defaults
+  let {
+    TddService = DefaultTddService,
+    existsSync = defaultExistsSync,
+    readFileSync = defaultReadFileSync,
+    writeFileSync = defaultWriteFileSync,
+    join = defaultJoin,
+    resolve = defaultResolve,
+    Buffer = defaultBuffer,
+    getDimensionsSync = defaultGetDimensionsSync,
+    detectImageInputType = defaultDetectImageInputType,
+    sanitizeScreenshotName = defaultSanitizeScreenshotName,
+    validateScreenshotProperties = defaultValidateScreenshotProperties,
+    output = defaultOutput,
+  } = deps;
+
   const tddService = new TddService(config, workingDir, setBaseline);
   const reportPath = join(workingDir, '.vizzly', 'report-data.json');
 

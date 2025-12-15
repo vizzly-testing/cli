@@ -266,6 +266,8 @@ export const createTddHandler = (
         ).length,
         failed: reportData.comparisons.filter(c => c.status === 'failed')
           .length,
+        rejected: reportData.comparisons.filter(c => c.status === 'rejected')
+          .length,
         errors: reportData.comparisons.filter(c => c.status === 'error').length,
       };
 
@@ -562,6 +564,36 @@ export const createTddHandler = (
     }
   };
 
+  const rejectBaseline = async comparisonId => {
+    try {
+      // Read current report data to get the comparison
+      const reportData = readReportData();
+      const comparison = reportData.comparisons.find(
+        c => c.id === comparisonId
+      );
+
+      if (!comparison) {
+        throw new Error(`Comparison not found with ID: ${comparisonId}`);
+      }
+
+      // Rejecting means: keep the current baseline, mark comparison as rejected
+      // The user is saying "I don't want this change, the baseline is correct"
+      // We update the status to 'rejected' so the UI shows the decision was made
+      const updatedComparison = {
+        ...comparison,
+        status: 'rejected',
+      };
+
+      updateComparison(updatedComparison);
+
+      output.info(`Changes rejected for comparison ${comparisonId}`);
+      return { success: true, id: comparisonId };
+    } catch (error) {
+      output.error(`Failed to reject baseline for ${comparisonId}:`, error);
+      throw error;
+    }
+  };
+
   const acceptAllBaselines = async () => {
     try {
       output.debug('tdd', 'accepting all baselines');
@@ -716,6 +748,7 @@ export const createTddHandler = (
     handleScreenshot,
     getResults,
     acceptBaseline,
+    rejectBaseline,
     acceptAllBaselines,
     resetBaselines,
     cleanup,

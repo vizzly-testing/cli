@@ -306,6 +306,99 @@ test.describe('Vizzly Reporter - Visual Tests', () => {
     await server.stop();
   });
 
+  test('Reject Comparison', async ({ page, browserName }) => {
+    // Skip on mobile - view mode buttons are hidden on small screens
+    const viewport = page.viewportSize();
+    test.skip(viewport.width < 640, 'Action buttons hidden on mobile');
+
+    let server;
+
+    // Load failed state fixture
+    const fixtureData = JSON.parse(
+      readFileSync(join(__dirname, 'fixtures', 'failed-state.json'), 'utf8')
+    );
+
+    // Start test server with fixture (unique port for this test)
+    server = createReporterTestServer(fixtureData, 3465);
+    await server.start();
+
+    // Navigate to reporter
+    await page.goto('http://localhost:3465/', { waitUntil: 'networkidle' });
+
+    // Click on the failed comparison to open it
+    await page.locator('text=homepage-desktop').click();
+
+    // Wait for fullscreen comparison viewer to load
+    await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
+
+    // Verify Reject button is visible
+    const rejectButton = page.getByTestId('btn-reject');
+    await expect(rejectButton).toBeVisible();
+
+    // Click Reject button
+    await rejectButton.click();
+
+    // Verify reject button shows active/selected state
+    await expect(rejectButton).toHaveAttribute('data-active', 'true');
+
+    // Take screenshot of rejected state
+    await vizzlyScreenshot(
+      'reporter-comparison-rejected',
+      await page.screenshot({ fullPage: true }),
+      {
+        browser: browserName,
+        viewport: page.viewportSize(),
+      }
+    );
+
+    // Cleanup
+    await server.stop();
+  });
+
+  test('Accept then Reject Comparison', async ({ page }) => {
+    // Skip on mobile - view mode buttons are hidden on small screens
+    const viewport = page.viewportSize();
+    test.skip(viewport.width < 640, 'Action buttons hidden on mobile');
+
+    let server;
+
+    // Load failed state fixture
+    const fixtureData = JSON.parse(
+      readFileSync(join(__dirname, 'fixtures', 'failed-state.json'), 'utf8')
+    );
+
+    // Start test server with fixture (unique port for this test)
+    server = createReporterTestServer(fixtureData, 3466);
+    await server.start();
+
+    // Navigate to reporter
+    await page.goto('http://localhost:3466/', { waitUntil: 'networkidle' });
+
+    // Click on the failed comparison to open it
+    await page.locator('text=homepage-desktop').click();
+
+    // Wait for fullscreen comparison viewer to load
+    await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
+
+    // Click Approve button
+    const approveButton = page.getByTestId('btn-approve');
+    await approveButton.click();
+
+    // Verify approve button is active
+    await expect(approveButton).toHaveAttribute('data-active', 'true');
+
+    // Now click Reject button to change decision
+    const rejectButton = page.getByTestId('btn-reject');
+    await rejectButton.click();
+
+    // Verify reject is now active and approve is not
+    await expect(rejectButton).toHaveAttribute('data-active', 'true');
+    await expect(approveButton).toHaveAttribute('data-active', 'false');
+
+    // Cleanup
+    await server.stop();
+  });
+
   test('Projects View - Not Authenticated', async ({ page, browserName }) => {
     let server;
 

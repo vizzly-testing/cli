@@ -131,6 +131,7 @@ export default function useComparisonFilters(comparisons = []) {
       failed: comparisons.filter(c => c.status === 'failed').length,
       passed: comparisons.filter(c => c.status === 'passed').length,
       new: comparisons.filter(c => c.status === 'new').length,
+      rejected: comparisons.filter(c => c.status === 'rejected').length,
     },
   };
 }

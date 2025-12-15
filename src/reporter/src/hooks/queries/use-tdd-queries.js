@@ -114,17 +114,18 @@ export function useResetBaselines() {
 }
 
 export function useRejectBaseline() {
-  // Rejection in TDD mode is essentially "don't accept" - the default state
-  // This is a no-op mutation that could be extended for future features
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async id => {
+    mutationFn: id => {
       if (isStaticMode()) {
         throw new Error(
           'Cannot reject baselines in static report mode. Use the live dev server.'
         );
       }
-      // Rejection is a no-op in TDD mode - it just means "keep the current baseline"
-      return { success: true, id };
+      return tdd.rejectBaseline(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
     },
   });
 }

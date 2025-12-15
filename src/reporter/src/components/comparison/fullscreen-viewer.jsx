@@ -174,7 +174,6 @@ export default function FullscreenViewer({
   onAccept,
   onReject,
   onNavigate,
-  userAction,
 }) {
   const [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
   const [showMetadata, setShowMetadata] = useState(false);
@@ -300,17 +299,22 @@ export default function FullscreenViewer({
   // Show actions for comparisons that can be approved/rejected
   // - failed: needs review, can approve (accept change) or reject
   // - passed: auto-matched baseline, can still reject if needed
+  // - rejected: previously rejected, can still change decision
   // - new/baseline-created: no baseline to compare, no approve/reject needed
   const canReview =
-    comparison.status === 'failed' || comparison.status === 'passed';
+    comparison.status === 'failed' ||
+    comparison.status === 'passed' ||
+    comparison.status === 'rejected';
 
   // Determine current approval state:
-  // - userAction takes precedence if set
+  // - comparison.userAction reflects the user's explicit decision (from server)
+  // - comparison.status reflects persisted state
   // - passed comparisons are implicitly approved unless user rejected
   const isAccepted =
-    userAction === 'accepted' ||
-    (comparison.status === 'passed' && userAction !== 'rejected');
-  const isRejected = userAction === 'rejected';
+    comparison.userAction === 'accepted' ||
+    (comparison.status === 'passed' && comparison.userAction !== 'rejected');
+  const isRejected =
+    comparison.userAction === 'rejected' || comparison.status === 'rejected';
 
   // View mode options
   const viewModes = [
@@ -408,6 +412,7 @@ export default function FullscreenViewer({
                 type="button"
                 onClick={() => onReject(getComparisonId(comparison))}
                 data-testid="btn-reject"
+                data-active={isRejected}
                 className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   isRejected
                     ? 'bg-red-600 text-white'
@@ -421,6 +426,7 @@ export default function FullscreenViewer({
                 type="button"
                 onClick={() => onAccept(getComparisonId(comparison))}
                 data-testid="btn-approve"
+                data-active={isAccepted}
                 className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   isAccepted
                     ? 'bg-green-600 text-white'

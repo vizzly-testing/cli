@@ -461,6 +461,7 @@ describe('server/handlers/tdd-handler', () => {
       assert.ok(typeof handler.handleScreenshot === 'function');
       assert.ok(typeof handler.getResults === 'function');
       assert.ok(typeof handler.acceptBaseline === 'function');
+      assert.ok(typeof handler.rejectBaseline === 'function');
       assert.ok(typeof handler.acceptAllBaselines === 'function');
       assert.ok(typeof handler.resetBaselines === 'function');
       assert.ok(typeof handler.cleanup === 'function');
@@ -786,6 +787,121 @@ describe('server/handlers/tdd-handler', () => {
           () => handler.acceptBaseline('non-existent'),
           /Comparison not found/
         );
+      });
+    });
+
+    describe('rejectBaseline', () => {
+      it('rejects baseline for existing comparison', async () => {
+        let deps = createMockDeps();
+
+        // Pre-populate report data with a failed comparison
+        let reportData = {
+          timestamp: Date.now(),
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'test',
+              status: 'failed',
+              diffPercentage: 5.5,
+              diff: '/images/diffs/test.png',
+            },
+          ],
+          groups: [],
+          summary: { total: 1, passed: 0, failed: 1, errors: 0 },
+        };
+        deps._fileSystem['/test/.vizzly/report-data.json'] =
+          JSON.stringify(reportData);
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.rejectBaseline('comp-1');
+
+        assert.ok(result.success);
+        assert.strictEqual(result.id, 'comp-1');
+
+        // Check that comparison was updated to rejected status
+        let updatedReportData = JSON.parse(
+          deps._fileSystem['/test/.vizzly/report-data.json']
+        );
+        let comparison = updatedReportData.comparisons.find(
+          c => c.id === 'comp-1'
+        );
+        assert.strictEqual(comparison.status, 'rejected');
+      });
+
+      it('throws error for non-existent comparison', async () => {
+        let deps = createMockDeps();
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await assert.rejects(
+          () => handler.rejectBaseline('non-existent'),
+          /Comparison not found/
+        );
+      });
+
+      it('preserves other comparison fields when rejecting', async () => {
+        let deps = createMockDeps();
+
+        let reportData = {
+          timestamp: Date.now(),
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'test',
+              status: 'failed',
+              diffPercentage: 5.5,
+              diff: '/images/diffs/test.png',
+              baseline: '/images/baselines/test.png',
+              current: '/images/current/test.png',
+              properties: { browser: 'chrome' },
+            },
+          ],
+          groups: [],
+          summary: { total: 1, passed: 0, failed: 1, errors: 0 },
+        };
+        deps._fileSystem['/test/.vizzly/report-data.json'] =
+          JSON.stringify(reportData);
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.rejectBaseline('comp-1');
+
+        let updatedReportData = JSON.parse(
+          deps._fileSystem['/test/.vizzly/report-data.json']
+        );
+        let comparison = updatedReportData.comparisons.find(
+          c => c.id === 'comp-1'
+        );
+
+        // Status should be rejected
+        assert.strictEqual(comparison.status, 'rejected');
+        // Other fields should be preserved
+        assert.strictEqual(comparison.diffPercentage, 5.5);
+        assert.strictEqual(comparison.diff, '/images/diffs/test.png');
+        assert.strictEqual(comparison.baseline, '/images/baselines/test.png');
+        assert.strictEqual(comparison.properties.browser, 'chrome');
+      });
+
+      it('logs info message on successful rejection', async () => {
+        let deps = createMockDeps();
+
+        let reportData = {
+          timestamp: Date.now(),
+          comparisons: [{ id: 'comp-1', name: 'test', status: 'failed' }],
+          groups: [],
+          summary: { total: 1, passed: 0, failed: 1, errors: 0 },
+        };
+        deps._fileSystem['/test/.vizzly/report-data.json'] =
+          JSON.stringify(reportData);
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.rejectBaseline('comp-1');
+
+        let infoCall = deps._mockOutput.calls.find(
+          c => c.method === 'info' && c.args[0].includes('rejected')
+        );
+        assert.ok(infoCall);
       });
     });
 

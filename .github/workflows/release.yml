@@ -12,6 +12,12 @@ on:
           - patch
           - minor
           - major
+          - prerelease
+      prerelease_id:
+        description: 'Prerelease identifier (e.g., "beta", "alpha"). Only used with prerelease version type.'
+        required: false
+        type: string
+        default: 'beta'
 
 jobs:
   release:
@@ -45,9 +51,19 @@ jobs:
       - name: Bump version and push
         id: version
         run: |
-          npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
+          VERSION_TYPE="${{ github.event.inputs.version_type }}"
+          PREID="${{ github.event.inputs.prerelease_id }}"
+
+          if [ "$VERSION_TYPE" = "prerelease" ]; then
+            npm version prerelease --preid=$PREID --no-git-tag-version
+          else
+            npm version $VERSION_TYPE --no-git-tag-version
+          fi
+
           NEW_VERSION=$(node -p "require('./package.json').version")
           echo "new_version=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${{ github.event.inputs.version_type == 'prerelease' }}" >> $GITHUB_OUTPUT
+
           git add package.json
           git commit -m "🔖 v$NEW_VERSION"
           git push origin main
@@ -74,12 +90,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.version.outputs.new_version }}
-          release_name: ✨ ${{ steps.version.outputs.new_version }}
+          release_name: ${{ steps.version.outputs.is_prerelease == 'true' && '🧪' || '✨' }} ${{ steps.version.outputs.new_version }}
           body: ${{ steps.release_notes.outputs.notes }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.version.outputs.is_prerelease }}
 
       - name: Publish to NPM
-        run: npm publish
+        run: |
+          if [ "${{ steps.version.outputs.is_prerelease }}" = "true" ]; then
+            npm publish --tag ${{ github.event.inputs.prerelease_id }}
+          else
+            npm publish
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

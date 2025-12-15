@@ -27,7 +27,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
   if (await isServerRunning(options.port || 47392)) {
     const port = options.port || 47392;
     output.info(`TDD server already running at http://localhost:${port}`);
-    output.info(`Dashboard: http://localhost:${port}/dashboard`);
+    output.info(`Dashboard: http://localhost:${port}`);
 
     if (options.open) {
       openDashboard(port);
@@ -185,7 +185,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     output.info('  2. View live visual comparisons in the dashboard');
     output.info('  3. Accept/reject baselines directly in the UI');
     output.blank();
-    output.info('Stop server: npx vizzly dev stop');
+    output.info('Stop server: npx vizzly tdd stop');
 
     if (options.open) {
       openDashboard(port);
@@ -491,7 +491,7 @@ async function checkServerHealth(port = 47392) {
  * @private
  */
 function openDashboard(port = 47392) {
-  const url = `http://localhost:${port}/dashboard`;
+  const url = `http://localhost:${port}`;
 
   // Cross-platform open command
   let openCmd;

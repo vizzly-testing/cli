@@ -201,33 +201,11 @@ export async function tddCommand(
       },
     });
 
-    // Show summary
-    let { screenshotsCaptured, comparisons } = runResult;
-
     // Determine success based on comparison results
+    // (Summary is printed by printResults() in tdd-service.js, called from getTddResults)
     let hasFailures =
       runResult.failed ||
       runResult.comparisons?.some(c => c.status === 'failed');
-
-    if (comparisons && comparisons.length > 0) {
-      let passed = comparisons.filter(c => c.status === 'passed').length;
-      let failed = comparisons.filter(c => c.status === 'failed').length;
-
-      if (hasFailures) {
-        output.error(
-          `${failed} visual difference${failed !== 1 ? 's' : ''} detected`
-        );
-        output.info(`Check .vizzly/diffs/ for diff images`);
-      } else {
-        output.result(
-          `${screenshotsCaptured} screenshot${screenshotsCaptured !== 1 ? 's' : ''} · ${passed} passed`
-        );
-      }
-    } else {
-      output.result(
-        `${screenshotsCaptured} screenshot${screenshotsCaptured !== 1 ? 's' : ''}`
-      );
-    }
 
     return {
       result: {

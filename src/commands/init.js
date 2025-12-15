@@ -16,7 +16,7 @@ export class InitCommand {
   }
 
   async run(options = {}) {
-    output.info('🎯 Initializing Vizzly configuration...');
+    output.info('Initializing Vizzly configuration...');
     output.blank();
 
     try {
@@ -26,7 +26,7 @@ export class InitCommand {
 
       if (hasConfig && !options.force) {
         output.info(
-          '❌ A vizzly.config.js file already exists. Use --force to overwrite.'
+          'A vizzly.config.js file already exists. Use --force to overwrite.'
         );
         return;
       }

@@ -15,10 +15,23 @@ import {
 // Internal client state
 let currentClient = null;
 let isDisabled = false;
-let hasLoggedWarning = false;
 
 // Default timeout for screenshot requests (30 seconds)
 const DEFAULT_TIMEOUT_MS = 30000;
+
+// Log levels for client SDK output control
+const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+
+/**
+ * Check if client should log at the given level
+ * Respects VIZZLY_CLIENT_LOG_LEVEL env var (default: 'error' - only show errors)
+ * @private
+ */
+function shouldLogClient(level) {
+  let configLevel =
+    process.env.VIZZLY_CLIENT_LOG_LEVEL?.toLowerCase() || 'error';
+  return (LOG_LEVELS[level] || 0) >= (LOG_LEVELS[configLevel] || 3);
+}
 
 /**
  * Check if Vizzly is currently disabled
@@ -33,16 +46,10 @@ function isVizzlyDisabled() {
 /**
  * Disable Vizzly SDK for the current session
  * @private
- * @param {string} [reason] - Optional reason for disabling
  */
-function disableVizzly(reason = 'disabled') {
+function disableVizzly() {
   isDisabled = true;
   currentClient = null;
-  if (reason !== 'disabled') {
-    console.warn(
-      `Vizzly SDK disabled due to ${reason}. Screenshots will be skipped for the remainder of this session.`
-    );
-  }
 }
 
 /**
@@ -152,30 +159,18 @@ function createSimpleClient(serverUrl) {
             return { error: errorText };
           });
 
-          // In TDD mode, if we get 422 (visual difference), log but DON'T throw
+          // In TDD mode, if we get 422 (visual difference), don't throw
           // This allows all screenshots in the test to be captured and compared
+          // The summary will show all failures at the end
           if (
             response.status === 422 &&
             errorData.tddMode &&
             errorData.comparison
           ) {
-            const comp = errorData.comparison;
-            const diffPercent = comp.diffPercentage
-              ? comp.diffPercentage.toFixed(2)
-              : '0.00';
-
-            // Extract port from serverUrl (e.g., "http://localhost:47392" -> "47392")
-            const urlMatch = serverUrl.match(/:(\d+)/);
-            const port = urlMatch ? urlMatch[1] : '47392';
-            const dashboardUrl = `http://localhost:${port}/dashboard`;
-
-            // Just log warning - don't throw by default in TDD mode
-            // This allows all screenshots to be captured
-            console.warn(
-              `⚠️  Visual diff: ${comp.name} (${diffPercent}%) → ${dashboardUrl}`
-            );
+            let comp = errorData.comparison;
 
             // Return success so test continues and captures remaining screenshots
+            // Visual diff details will be shown in the summary after tests complete
             return {
               success: true,
               status: 'failed',
@@ -196,53 +191,64 @@ function createSimpleClient(serverUrl) {
 
         // Handle timeout (AbortError)
         if (error.name === 'AbortError') {
-          console.error(
-            `Vizzly screenshot timed out for "${name}" after ${DEFAULT_TIMEOUT_MS / 1000}s`
-          );
-          console.error(
-            'The server may be overloaded or unresponsive. Check server health.'
-          );
-          disableVizzly('timeout');
+          if (shouldLogClient('error')) {
+            console.error(
+              `[vizzly] Screenshot timed out for "${name}" after ${DEFAULT_TIMEOUT_MS / 1000}s`
+            );
+          }
+          disableVizzly();
           return null;
         }
 
         // In TDD mode with visual differences, throw the error to fail the test
         if (error.message?.toLowerCase().includes('visual diff')) {
-          // Clean output for TDD mode - don't spam with additional logs
           throw error;
         }
 
-        console.error(`Vizzly screenshot failed for ${name}:`, error.message);
-
-        if (error.message?.includes('fetch') || error.code === 'ECONNREFUSED') {
-          console.error(`Server URL: ${serverUrl}/screenshot`);
-          console.error(
-            'This usually means the Vizzly server is not running or not accessible'
-          );
-          console.error(
-            'Check that the server is started and the port is correct'
-          );
-        } else if (
-          error.message?.includes('404') ||
-          error.message?.includes('Not Found')
-        ) {
-          console.error(`Server URL: ${serverUrl}/screenshot`);
-          console.error(
-            'The screenshot endpoint was not found - check server configuration'
-          );
+        // Log connection errors (these indicate setup problems)
+        if (shouldLogClient('error')) {
+          if (
+            error.message?.includes('fetch') ||
+            error.code === 'ECONNREFUSED'
+          ) {
+            console.error(
+              `[vizzly] Server not accessible at ${serverUrl}/screenshot`
+            );
+          } else if (
+            error.message?.includes('404') ||
+            error.message?.includes('Not Found')
+          ) {
+            console.error(
+              `[vizzly] Screenshot endpoint not found at ${serverUrl}/screenshot`
+            );
+          } else {
+            console.error(`[vizzly] Screenshot failed for ${name}`);
+          }
         }
 
         // Disable the SDK after first failure to prevent spam
-        disableVizzly('failure');
+        disableVizzly();
 
-        // Don't throw - just return silently to not break tests (except TDD mode)
+        // Don't throw - just return silently to not break tests
         return null;
       }
     },
 
     async flush() {
-      // Simple client doesn't need explicit flushing
-      return Promise.resolve();
+      // Call the /flush endpoint to signal test completion and trigger summary output
+      try {
+        let response = await fetch(`${serverUrl}/flush`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        if (response.ok) {
+          return response.json();
+        }
+      } catch {
+        // Silently ignore flush errors - server may not be running
+      }
+      return null;
     },
   };
 }
@@ -289,15 +295,10 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
     return; // Silently skip when disabled
   }
 
-  const client = getClient();
+  let client = getClient();
   if (!client) {
-    if (!hasLoggedWarning) {
-      console.warn(
-        'Vizzly client not initialized. Screenshots will be skipped.'
-      );
-      hasLoggedWarning = true;
-      disableVizzly();
-    }
+    // Silently disable - no server running, nothing to do
+    disableVizzly();
     return;
   }
 

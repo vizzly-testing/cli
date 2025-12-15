@@ -48,8 +48,9 @@ expectError(vizzlyScreenshot('test', Buffer.from('test'), { threshold: 'high' })
 // vizzlyFlush
 // ============================================================================
 
-// Should return Promise<void>
-expectType<Promise<void>>(vizzlyFlush());
+// Should return Promise<FlushResult | null>
+import type { FlushResult } from '../src/types/client';
+expectType<Promise<FlushResult | null>>(vizzlyFlush());
 
 // ============================================================================
 // isVizzlyReady

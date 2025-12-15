@@ -72,17 +72,20 @@ export function buildServerInfo({ port, pid, startTime, buildId = null }) {
  * @param {Object} [options.services] - Base services object
  * @param {string|null} [options.buildId] - Build ID
  * @param {Object|null} [options.tddService] - TDD service (only in TDD mode)
+ * @param {string|null} [options.workingDir] - Working directory for report data
  * @returns {Object} Services object with extras
  */
 export function buildServicesWithExtras({
   services = {},
   buildId = null,
   tddService = null,
+  workingDir = null,
 }) {
   return {
     ...services,
     buildId,
     tddService,
+    workingDir,
   };
 }
 

@@ -13,6 +13,9 @@ function createMockOutput() {
     debug: (...args) => calls.push({ method: 'debug', args }),
     warn: (...args) => calls.push({ method: 'warn', args }),
     error: (...args) => calls.push({ method: 'error', args }),
+    blank: () => calls.push({ method: 'blank', args: [] }),
+    print: (...args) => calls.push({ method: 'print', args }),
+    isVerbose: () => false,
   };
 }
 
@@ -125,6 +128,7 @@ function createMockDeps(overrides = {}) {
       green: s => s,
       red: s => s,
       yellow: s => s,
+      dim: s => s,
     },
     validatePathSecurity: overrides.validatePathSecurity ?? (path => path),
     initializeDirectories:
@@ -141,13 +145,6 @@ function createMockDeps(overrides = {}) {
         linesInHotspots: 0,
         totalLines: 0,
       })),
-    StaticReportGenerator:
-      overrides.StaticReportGenerator ??
-      class {
-        generateReport() {
-          return '/test/.vizzly/report.html';
-        }
-      },
 
     // Grouped dependencies - merge defaults with overrides
     fs: { ...defaultFs, ...overrides.fs },
@@ -444,10 +441,11 @@ describe('tdd/tdd-service', () => {
       );
 
       assert.strictEqual(result.status, 'new');
-      let warnCall = mockDeps.output.calls.find(
-        c => c.method === 'warn' && c.args[0].includes('Dimension mismatch')
+      // Dimension mismatch now logs at debug level (shown with --verbose)
+      let debugCall = mockDeps.output.calls.find(
+        c => c.method === 'debug' && c.args[1]?.includes('dimension mismatch')
       );
-      assert.ok(warnCall);
+      assert.ok(debugCall);
     });
 
     it('returns error comparison on unexpected error', async () => {
@@ -582,6 +580,111 @@ describe('tdd/tdd-service', () => {
       assert.strictEqual(results.passed, 1);
       assert.strictEqual(results.failed, 1);
       assert.strictEqual(results.new, 1);
+    });
+  });
+
+  describe('printResults', () => {
+    it('prints summary header with screenshot count', async () => {
+      let mockOutput = createMockOutput();
+      let mockDeps = createMockDeps({ output: mockOutput });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      service.comparisons = [
+        { id: '1', status: 'passed', name: 'test1' },
+        { id: '2', status: 'passed', name: 'test2' },
+      ];
+
+      await service.printResults();
+
+      // Should have printed the header
+      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
+      let headerCall = printCalls.find(c =>
+        c.args[0]?.includes('2 screenshots compared')
+      );
+      assert.ok(headerCall, 'Should print header with screenshot count');
+    });
+
+    it('prints passed count in default mode', async () => {
+      let mockOutput = createMockOutput();
+      let mockDeps = createMockDeps({ output: mockOutput });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      service.comparisons = [
+        { id: '1', status: 'passed', name: 'test1' },
+        { id: '2', status: 'passed', name: 'test2' },
+      ];
+
+      await service.printResults();
+
+      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
+      let passedCall = printCalls.find(c => c.args[0]?.includes('2 passed'));
+      assert.ok(passedCall, 'Should print passed count');
+    });
+
+    it('prints failed comparisons', async () => {
+      let mockOutput = createMockOutput();
+      let mockDeps = createMockDeps({ output: mockOutput });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      service.comparisons = [
+        { id: '1', status: 'passed', name: 'test1' },
+        { id: '2', status: 'failed', name: 'failed-test', diffPercentage: 1.5 },
+      ];
+
+      await service.printResults();
+
+      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
+      let failedHeaderCall = printCalls.find(c =>
+        c.args[0]?.includes('1 visual change')
+      );
+      let failedNameCall = printCalls.find(c =>
+        c.args[0]?.includes('failed-test')
+      );
+      assert.ok(failedHeaderCall, 'Should print visual changes header');
+      assert.ok(failedNameCall, 'Should print failed comparison name');
+    });
+
+    it('prints start command hint when there are changes', async () => {
+      let mockOutput = createMockOutput();
+      let mockDeps = createMockDeps({ output: mockOutput });
+      let service = new TddService(
+        { server: { port: 47392 } },
+        '/test',
+        false,
+        null,
+        mockDeps
+      );
+
+      service.comparisons = [
+        { id: '1', status: 'failed', name: 'failed-test' },
+      ];
+
+      await service.printResults();
+
+      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
+      let hintCall = printCalls.find(c =>
+        c.args[0]?.includes('vizzly tdd start --open')
+      );
+      assert.ok(hintCall, 'Should print tdd start command hint');
+    });
+
+    it('does not print start command hint when all passed', async () => {
+      let mockOutput = createMockOutput();
+      let mockDeps = createMockDeps({ output: mockOutput });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      service.comparisons = [{ id: '1', status: 'passed', name: 'test1' }];
+
+      await service.printResults();
+
+      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
+      let hintCall = printCalls.find(c =>
+        c.args[0]?.includes('vizzly tdd start --open')
+      );
+      assert.ok(
+        !hintCall,
+        'Should NOT print start command hint when all passed'
+      );
     });
   });
 

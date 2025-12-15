@@ -84,20 +84,53 @@ await vizzlyScreenshot('homepage', './screenshots/homepage.png', {
 
 ### `vizzlyFlush()`
 
-Wait for all queued screenshots to be processed.
+Signal test completion and trigger the results summary. Call this in your test framework's global teardown to see a summary of all visual comparisons.
 
-**Returns:** `Promise<void>`
+**Returns:** `Promise<{ success: boolean, summary: object } | null>`
 
-**Example:**
+**Summary object:**
+```javascript
+{
+  total: number,    // Total screenshots compared
+  passed: number,   // Screenshots that matched baseline
+  failed: number,   // Screenshots with visual differences
+  new: number,      // New screenshots (no baseline)
+  errors: number    // Screenshots that failed to process
+}
+```
+
+**Example - Playwright global teardown:**
+```javascript
+// playwright.config.js or global-teardown.js
+import { vizzlyFlush } from '@vizzly-testing/cli/client';
+
+export default async function globalTeardown() {
+  await vizzlyFlush();
+}
+```
+
+**Example - Jest/Vitest:**
 ```javascript
 import { vizzlyFlush } from '@vizzly-testing/cli/client';
 
-// Take multiple screenshots
-await vizzlyScreenshot('page1', screenshot1);
-await vizzlyScreenshot('page2', screenshot2);
+afterAll(async () => {
+  await vizzlyFlush();
+});
+```
 
-// Wait for all to be processed
-await vizzlyFlush();
+When `vizzlyFlush()` is called, the TDD server prints a summary like:
+
+```
+[vizzly] 8 screenshots compared
+
+  + 5 passed
+
+  ! 3 visual changes detected
+    - billing-settings-page
+    - checkout-form
+    - profile-page
+
+  > View changes: http://localhost:47392/dashboard
 ```
 
 ### `isVizzlyEnabled()`
@@ -664,6 +697,11 @@ Configuration loaded via cosmiconfig in this order:
   comparison: {
     threshold: number,        // CIEDE2000 Delta E (default: 2.0)
     minClusterSize: number    // Min cluster size for noise filtering (default: 2)
+  },
+
+  // Output Configuration
+  output: {
+    logLevel: string          // Log level: 'debug', 'info', 'warn', 'error' (default: 'info')
   }
 }
 ```
@@ -726,6 +764,133 @@ These are set automatically when running `vizzly run` or `vizzly tdd`:
 | Variable | Description |
 |----------|-------------|
 | `VIZZLY_USER_AGENT` | Custom User-Agent string for API requests |
+
+## Controlling Output
+
+Vizzly is designed to be quiet by default - it won't clutter your test runner output.
+
+### Default Behavior
+
+- **During tests**: Zero output from Vizzly (test runner owns the terminal)
+- **After tests**: Summary showing pass/fail counts and dashboard link
+
+### When is the Summary Shown?
+
+The summary is automatically displayed in these scenarios:
+
+1. **`vizzly tdd run "npm test"`** - Summary shown when the test command completes
+2. **`vizzlyFlush()` called** - Summary shown when flush is called (use in global teardown)
+
+If you're using `vizzly tdd start` (daemon mode) and running tests directly, add `vizzlyFlush()` to your test framework's global teardown to see the summary.
+
+#### Playwright
+
+```javascript
+// playwright.config.js
+export default {
+  globalTeardown: './global-teardown.js'
+};
+```
+
+```javascript
+// global-teardown.js
+import { vizzlyFlush } from '@vizzly-testing/cli/client';
+
+export default async function globalTeardown() {
+  // Show Vizzly visual test summary (if TDD server is running)
+  await vizzlyFlush();
+
+  // ... your other teardown logic
+}
+```
+
+#### Jest
+
+```javascript
+// jest.config.js
+module.exports = {
+  globalTeardown: './global-teardown.js'
+};
+```
+
+```javascript
+// global-teardown.js
+const { vizzlyFlush } = require('@vizzly-testing/cli/client');
+
+module.exports = async () => {
+  await vizzlyFlush();
+};
+```
+
+#### Vitest
+
+```javascript
+// vitest.config.js
+export default {
+  test: {
+    globalSetup: './global-teardown.js'
+  }
+};
+```
+
+```javascript
+// global-teardown.js
+import { vizzlyFlush } from '@vizzly-testing/cli/client';
+
+export async function teardown() {
+  await vizzlyFlush();
+}
+```
+
+### Example Output
+
+```
+[vizzly] 8 screenshots compared
+
+  + 5 passed
+
+  ! 3 visual changes detected
+    - billing-settings-page
+    - checkout-form
+    - profile-page
+
+  > View changes: http://localhost:47392/dashboard
+```
+
+### Verbose Mode
+
+Use `--verbose` or `-v` to see per-screenshot details:
+
+```bash
+vizzly tdd run "npm test" --verbose
+```
+
+In verbose mode, each screenshot is listed individually with diff percentages for failures.
+
+### Environment Variables for Output
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VIZZLY_LOG_LEVEL` | CLI verbosity: `debug`, `info`, `warn`, `error` | `info` |
+| `VIZZLY_CLIENT_LOG_LEVEL` | Client SDK verbosity (runs in test process) | `error` |
+
+The client SDK defaults to `error` to minimize noise in test output. Set to `debug` for troubleshooting:
+
+```bash
+VIZZLY_CLIENT_LOG_LEVEL=debug npm test
+```
+
+### Config File
+
+You can also configure output settings in `vizzly.config.js`:
+
+```javascript
+export default defineConfig({
+  output: {
+    logLevel: 'debug'  // Show detailed per-screenshot output
+  }
+});
+```
 
 ## Error Handling
 

@@ -660,4 +660,229 @@ describe('tdd/tdd-service', () => {
       assert.strictEqual(result.coverage, 0.85);
     });
   });
+
+  describe('acceptBaseline', () => {
+    it('accepts a comparison by ID and creates baseline', async () => {
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: path => path.includes('current'),
+          mkdirSync: () => {},
+          readFileSync: () => Buffer.from('image-data'),
+          writeFileSync: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      service.comparisons = [
+        {
+          id: 'comp-1',
+          name: 'homepage',
+          status: 'failed',
+          properties: { browser: 'chrome', viewport_width: 1920 },
+        },
+      ];
+
+      let result = await service.acceptBaseline('comp-1');
+
+      assert.strictEqual(result.status, 'accepted');
+      assert.strictEqual(result.name, 'homepage');
+      assert.ok(result.message.includes('Screenshot accepted'));
+    });
+
+    it('accepts a comparison by object', async () => {
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: path => path.includes('current'),
+          mkdirSync: () => {},
+          readFileSync: () => Buffer.from('image-data'),
+          writeFileSync: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      let comparison = {
+        id: 'comp-1',
+        name: 'button',
+        status: 'failed',
+        properties: { browser: 'firefox' },
+      };
+
+      let result = await service.acceptBaseline(comparison);
+
+      assert.strictEqual(result.status, 'accepted');
+      assert.strictEqual(result.name, 'button');
+    });
+
+    it('throws error when current screenshot not found', async () => {
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: () => false,
+          mkdirSync: () => {},
+          readFileSync: () => Buffer.from('image-data'),
+          writeFileSync: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      let comparison = {
+        id: 'comp-1',
+        name: 'homepage',
+        status: 'failed',
+        properties: {},
+      };
+
+      await assert.rejects(
+        () => service.acceptBaseline(comparison),
+        /Current screenshot not found/
+      );
+    });
+
+    it('throws error when comparison not found by ID', async () => {
+      let mockDeps = createMockDeps();
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      await assert.rejects(
+        () => service.acceptBaseline('nonexistent-id'),
+        /No comparison found with ID/
+      );
+    });
+
+    it('creates baseline metadata if it does not exist', async () => {
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: path => path.includes('current'),
+          mkdirSync: () => {},
+          readFileSync: () => Buffer.from('image-data'),
+          writeFileSync: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      assert.strictEqual(service.baselineData, null);
+
+      let comparison = {
+        id: 'comp-1',
+        name: 'homepage',
+        properties: {},
+      };
+
+      await service.acceptBaseline(comparison);
+
+      assert.ok(service.baselineData);
+      assert.strictEqual(service.baselineData.buildId, 'local');
+    });
+  });
+
+  describe('updateBaselines', () => {
+    it('updates all comparisons with current screenshots', () => {
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: () => true,
+          readFileSync: () => Buffer.from('updated-image'),
+          writeFileSync: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      service.comparisons = [
+        {
+          name: 'homepage',
+          current: '/test/.vizzly/current/homepage.png',
+          properties: { browser: 'chrome' },
+        },
+        {
+          name: 'button',
+          current: '/test/.vizzly/current/button.png',
+          properties: {},
+        },
+      ];
+
+      let count = service.updateBaselines();
+
+      assert.strictEqual(count, 2);
+    });
+
+    it('returns 0 when no comparisons exist', () => {
+      let mockDeps = createMockDeps();
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let count = service.updateBaselines();
+
+      assert.strictEqual(count, 0);
+      let warnCall = mockDeps.output.calls.find(
+        c => c.method === 'warn' && c.args[0].includes('No comparisons found')
+      );
+      assert.ok(warnCall);
+    });
+
+    it('skips comparisons with missing current screenshot', () => {
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: () => false,
+          readFileSync: () => Buffer.from('image'),
+          writeFileSync: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      service.comparisons = [
+        {
+          name: 'homepage',
+          current: '/test/.vizzly/current/missing.png',
+          properties: {},
+        },
+      ];
+
+      let count = service.updateBaselines();
+
+      assert.strictEqual(count, 0);
+      let warnCall = mockDeps.output.calls.find(
+        c =>
+          c.method === 'warn' &&
+          c.args[0].includes('Current screenshot not found')
+      );
+      assert.ok(warnCall);
+    });
+
+    it('creates baseline metadata if it does not exist', () => {
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: () => true,
+          readFileSync: () => Buffer.from('image'),
+          writeFileSync: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      assert.strictEqual(service.baselineData, null);
+      service.comparisons = [
+        {
+          name: 'homepage',
+          current: '/test/.vizzly/current/homepage.png',
+          properties: {},
+        },
+      ];
+
+      service.updateBaselines();
+
+      assert.ok(service.baselineData);
+      assert.strictEqual(service.baselineData.buildId, 'local');
+    });
+
+    it('updates baseline metadata with screenshot entries', () => {
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: () => true,
+          readFileSync: () => Buffer.from('image'),
+          writeFileSync: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+      service.comparisons = [
+        {
+          name: 'homepage',
+          current: '/test/.vizzly/current/homepage.png',
+          properties: { browser: 'chrome' },
+        },
+      ];
+
+      service.updateBaselines();
+
+      assert.ok(service.baselineData);
+      assert.ok(service.baselineData.screenshots);
+    });
+  });
 });

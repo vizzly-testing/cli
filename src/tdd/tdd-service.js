@@ -1215,6 +1215,22 @@ export class TddService {
    * Update all baselines with current screenshots
    */
   updateBaselines() {
+    // Destructure dependencies
+    let {
+      output,
+      generateScreenshotSignature,
+      generateBaselineFilename,
+      sanitizeScreenshotName,
+      validateScreenshotProperties,
+      getBaselinePath,
+      existsSync,
+      readFileSync,
+      writeFileSync,
+      createEmptyBaselineMetadata,
+      upsertScreenshotInMetadata,
+      saveBaselineMetadata,
+    } = this._deps;
+
     if (this.comparisons.length === 0) {
       output.warn('No comparisons found - nothing to update');
       return 0;
@@ -1300,6 +1316,21 @@ export class TddService {
    * Accept a single baseline
    */
   async acceptBaseline(idOrComparison) {
+    // Destructure dependencies
+    let {
+      output,
+      generateScreenshotSignature,
+      generateBaselineFilename,
+      safePath,
+      existsSync,
+      readFileSync,
+      mkdirSync,
+      writeFileSync,
+      createEmptyBaselineMetadata,
+      upsertScreenshotInMetadata,
+      saveBaselineMetadata,
+    } = this._deps;
+
     let comparison;
 
     if (typeof idOrComparison === 'string') {
@@ -1381,6 +1412,17 @@ export class TddService {
     currentImagePath,
     baselineImagePath
   ) {
+    // Destructure dependencies
+    let {
+      output,
+      generateScreenshotSignature,
+      generateComparisonId,
+      writeFileSync,
+      createEmptyBaselineMetadata,
+      upsertScreenshotInMetadata,
+      saveBaselineMetadata,
+    } = this._deps;
+
     output.info(`🐻 Creating baseline for ${name}`);
 
     writeFileSync(baselineImagePath, imageBuffer);

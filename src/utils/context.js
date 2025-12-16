@@ -10,7 +10,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 /**
  * Get dynamic context about the current Vizzly state
@@ -68,14 +68,17 @@ export function getContext() {
     }
 
     // Check for project mapping (from vizzly project:select)
+    // Traverse up to find project config, with bounds check for Windows compatibility
     let projectMapping = null;
     let checkPath = cwd;
-    while (checkPath !== '/' && checkPath !== '') {
+    let prevPath = null;
+    while (checkPath && checkPath !== prevPath) {
       if (globalConfig.projects?.[checkPath]) {
         projectMapping = globalConfig.projects[checkPath];
         break;
       }
-      checkPath = join(checkPath, '..');
+      prevPath = checkPath;
+      checkPath = dirname(checkPath);
     }
 
     // Check for OAuth login (from vizzly login)
@@ -212,13 +215,16 @@ export function getDetailedContext() {
     }
 
     // Check for project mapping
+    // Traverse up to find project config, with bounds check for Windows compatibility
     let checkPath = cwd;
-    while (checkPath !== '/' && checkPath !== '') {
+    let prevPath = null;
+    while (checkPath && checkPath !== prevPath) {
       if (globalConfig.projects?.[checkPath]) {
         context.project.mapping = globalConfig.projects[checkPath];
         break;
       }
-      checkPath = join(checkPath, '..');
+      prevPath = checkPath;
+      checkPath = dirname(checkPath);
     }
 
     // Check auth status

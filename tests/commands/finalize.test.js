@@ -21,6 +21,13 @@ function createMockOutput() {
     startSpinner: msg => calls.push({ method: 'startSpinner', args: [msg] }),
     stopSpinner: () => calls.push({ method: 'stopSpinner', args: [] }),
     cleanup: () => calls.push({ method: 'cleanup', args: [] }),
+    // TUI helpers
+    header: (cmd, mode) => calls.push({ method: 'header', args: [cmd, mode] }),
+    complete: (msg, opts) =>
+      calls.push({ method: 'complete', args: [msg, opts] }),
+    keyValue: (data, opts) =>
+      calls.push({ method: 'keyValue', args: [data, opts] }),
+    blank: () => calls.push({ method: 'blank', args: [] }),
   };
 }
 
@@ -144,7 +151,8 @@ describe('commands/finalize', () => {
       );
 
       assert.ok(output.calls.some(c => c.method === 'data'));
-      assert.ok(!output.calls.some(c => c.method === 'success'));
+      // In JSON mode, no header/complete messages are shown
+      assert.ok(!output.calls.some(c => c.method === 'complete'));
     });
 
     it('outputs success message when not JSON mode', async () => {
@@ -172,8 +180,10 @@ describe('commands/finalize', () => {
         }
       );
 
-      assert.ok(output.calls.some(c => c.method === 'success'));
-      assert.ok(output.calls.some(c => c.method === 'info'));
+      // Now uses output.complete() instead of output.success()
+      assert.ok(output.calls.some(c => c.method === 'complete'));
+      // Now uses keyValue for build details instead of info
+      assert.ok(output.calls.some(c => c.method === 'keyValue'));
     });
 
     it('shows verbose output when verbose flag is set', async () => {

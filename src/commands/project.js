@@ -33,12 +33,13 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
   });
 
   try {
+    output.header('project:select');
+
     // Check authentication
-    const auth = await getAuthTokens();
+    let auth = await getAuthTokens();
     if (!auth || !auth.accessToken) {
       output.error('Not authenticated');
-      output.blank();
-      output.info('Run "vizzly login" to authenticate first');
+      output.hint('Run "vizzly login" to authenticate first');
       process.exit(1);
     }
 
@@ -54,32 +55,28 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
 
     if (!userInfo.organizations || userInfo.organizations.length === 0) {
       output.error('No organizations found');
-      output.blank();
-      output.info('Create an organization at https://vizzly.dev');
+      output.hint('Create an organization at https://vizzly.dev');
       process.exit(1);
     }
 
     // Select organization
-    output.blank();
-    output.info('Select an organization:');
-    output.blank();
-
+    output.labelValue('Organizations', '');
     userInfo.organizations.forEach((org, index) => {
       output.print(`  ${index + 1}. ${org.name} (@${org.slug})`);
     });
 
     output.blank();
-    const orgChoice = await promptNumber(
+    let orgChoice = await promptNumber(
       'Enter number',
       1,
       userInfo.organizations.length
     );
-    const selectedOrg = userInfo.organizations[orgChoice - 1];
+    let selectedOrg = userInfo.organizations[orgChoice - 1];
 
     // List projects for organization
     output.startSpinner(`Fetching projects for ${selectedOrg.name}...`);
 
-    const response = await makeAuthenticatedRequest(
+    let response = await makeAuthenticatedRequest(
       `${options.apiUrl || getApiUrl()}/api/project`,
       {
         headers: {
@@ -92,14 +89,11 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     output.stopSpinner();
 
     // Handle both array response and object with projects property
-    const projects = Array.isArray(response)
-      ? response
-      : response.projects || [];
+    let projects = Array.isArray(response) ? response : response.projects || [];
 
     if (projects.length === 0) {
       output.error('No projects found');
-      output.blank();
-      output.info(
+      output.hint(
         `Create a project in ${selectedOrg.name} at https://vizzly.dev`
       );
       process.exit(1);
@@ -107,25 +101,19 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
 
     // Select project
     output.blank();
-    output.info('Select a project:');
-    output.blank();
-
+    output.labelValue('Projects', '');
     projects.forEach((project, index) => {
       output.print(`  ${index + 1}. ${project.name} (${project.slug})`);
     });
 
     output.blank();
-    const projectChoice = await promptNumber(
-      'Enter number',
-      1,
-      projects.length
-    );
-    const selectedProject = projects[projectChoice - 1];
+    let projectChoice = await promptNumber('Enter number', 1, projects.length);
+    let selectedProject = projects[projectChoice - 1];
 
     // Create API token for project
     output.startSpinner(`Creating API token for ${selectedProject.name}...`);
 
-    const tokenResponse = await makeAuthenticatedRequest(
+    let tokenResponse = await makeAuthenticatedRequest(
       `${options.apiUrl || getApiUrl()}/api/project/${selectedProject.slug}/tokens`,
       {
         method: 'POST',
@@ -144,7 +132,7 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
     output.stopSpinner();
 
     // Save project mapping
-    const currentDir = resolve(process.cwd());
+    let currentDir = resolve(process.cwd());
     await saveProjectMapping(currentDir, {
       token: tokenResponse.token,
       projectSlug: selectedProject.slug,
@@ -152,11 +140,13 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
       organizationSlug: selectedOrg.slug,
     });
 
-    output.success('Project configured!');
+    output.complete('Project configured');
     output.blank();
-    output.info(`Project: ${selectedProject.name}`);
-    output.info(`Organization: ${selectedOrg.name}`);
-    output.info(`Directory: ${currentDir}`);
+    output.keyValue({
+      Project: selectedProject.name,
+      Organization: selectedOrg.name,
+      Directory: currentDir,
+    });
 
     output.cleanup();
   } catch (error) {
@@ -179,13 +169,18 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
   });
 
   try {
-    const mappings = await getProjectMappings();
-    const paths = Object.keys(mappings);
+    let mappings = await getProjectMappings();
+    let paths = Object.keys(mappings);
 
     if (paths.length === 0) {
-      output.info('No projects configured');
-      output.blank();
-      output.info('Run "vizzly project:select" to configure a project');
+      if (globalOptions.json) {
+        output.data({});
+      } else {
+        output.header('project:list');
+        output.print('  No projects configured');
+        output.blank();
+        output.hint('Run "vizzly project:select" to configure a project');
+      }
       output.cleanup();
       return;
     }
@@ -196,31 +191,36 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
       return;
     }
 
-    output.info('Configured projects:');
-    output.blank();
+    output.header('project:list');
 
-    const currentDir = resolve(process.cwd());
+    let colors = output.getColors();
+    let currentDir = resolve(process.cwd());
 
-    for (const path of paths) {
-      const mapping = mappings[path];
-      const isCurrent = path === currentDir;
-      const marker = isCurrent ? '→' : ' ';
+    for (let path of paths) {
+      let mapping = mappings[path];
+      let isCurrent = path === currentDir;
+      let marker = isCurrent ? colors.brand.amber('→') : ' ';
 
-      // Extract token string (handle both string and object formats)
-      const tokenStr =
-        typeof mapping.token === 'string'
-          ? mapping.token
-          : mapping.token?.token || '[invalid token]';
-
-      output.print(`${marker} ${path}`);
-      output.print(
-        `  Project: ${mapping.projectName} (${mapping.projectSlug})`
+      output.print(`${marker} ${isCurrent ? colors.bold(path) : path}`);
+      output.keyValue(
+        {
+          Project: `${mapping.projectName} (${mapping.projectSlug})`,
+          Org: mapping.organizationSlug,
+        },
+        { indent: 4 }
       );
-      output.print(`  Organization: ${mapping.organizationSlug}`);
+
       if (globalOptions.verbose) {
-        output.print(`  Token: ${tokenStr.substring(0, 20)}...`);
-        output.print(
-          `  Created: ${new Date(mapping.createdAt).toLocaleString()}`
+        // Extract token string (handle both string and object formats)
+        let tokenStr =
+          typeof mapping.token === 'string'
+            ? mapping.token
+            : mapping.token?.token || '[invalid token]';
+
+        output.hint(`Token: ${tokenStr.substring(0, 20)}...`, { indent: 4 });
+        output.hint(
+          `Created: ${new Date(mapping.createdAt).toLocaleString()}`,
+          { indent: 4 }
         );
       }
       output.blank();
@@ -246,18 +246,17 @@ export async function projectTokenCommand(_options = {}, globalOptions = {}) {
   });
 
   try {
-    const currentDir = resolve(process.cwd());
-    const mapping = await getProjectMapping(currentDir);
+    let currentDir = resolve(process.cwd());
+    let mapping = await getProjectMapping(currentDir);
 
     if (!mapping) {
       output.error('No project configured for this directory');
-      output.blank();
-      output.info('Run "vizzly project:select" to configure a project');
+      output.hint('Run "vizzly project:select" to configure a project');
       process.exit(1);
     }
 
     // Extract token string (handle both string and object formats)
-    const tokenStr =
+    let tokenStr =
       typeof mapping.token === 'string'
         ? mapping.token
         : mapping.token?.token || '[invalid token]';
@@ -272,12 +271,13 @@ export async function projectTokenCommand(_options = {}, globalOptions = {}) {
       return;
     }
 
-    output.info('Project token:');
+    output.header('project:token');
+    output.printBox(tokenStr, { title: 'Token' });
     output.blank();
-    output.print(`  ${tokenStr}`);
-    output.blank();
-    output.info(`Project: ${mapping.projectName} (${mapping.projectSlug})`);
-    output.info(`Organization: ${mapping.organizationSlug}`);
+    output.keyValue({
+      Project: `${mapping.projectName} (${mapping.projectSlug})`,
+      Org: mapping.organizationSlug,
+    });
 
     output.cleanup();
   } catch (error) {
@@ -348,36 +348,49 @@ export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
   });
 
   try {
-    const currentDir = resolve(process.cwd());
-    const mapping = await getProjectMapping(currentDir);
+    let currentDir = resolve(process.cwd());
+    let mapping = await getProjectMapping(currentDir);
 
     if (!mapping) {
-      output.info('No project configured for this directory');
+      if (globalOptions.json) {
+        output.data({ removed: false, reason: 'not_configured' });
+      } else {
+        output.header('project:remove');
+        output.print('  No project configured for this directory');
+      }
       output.cleanup();
       return;
     }
 
     // Confirm removal
-    output.blank();
-    output.info('Current project configuration:');
-    output.print(`  Project: ${mapping.projectName} (${mapping.projectSlug})`);
-    output.print(`  Organization: ${mapping.organizationSlug}`);
-    output.print(`  Directory: ${currentDir}`);
+    output.header('project:remove');
+    output.labelValue('Current configuration', '');
+    output.keyValue({
+      Project: `${mapping.projectName} (${mapping.projectSlug})`,
+      Org: mapping.organizationSlug,
+      Directory: currentDir,
+    });
     output.blank();
 
-    const confirmed = await promptConfirm('Remove this project configuration?');
+    let confirmed = await promptConfirm('Remove this project configuration?');
 
     if (!confirmed) {
-      output.info('Cancelled');
+      output.print('  Cancelled');
       output.cleanup();
       return;
     }
 
     await deleteProjectMapping(currentDir);
 
-    output.success('Project configuration removed');
-    output.blank();
-    output.info('Run "vizzly project:select" to configure a different project');
+    if (globalOptions.json) {
+      output.data({ removed: true });
+    } else {
+      output.complete('Project configuration removed');
+      output.blank();
+      output.hint(
+        'Run "vizzly project:select" to configure a different project'
+      );
+    }
 
     output.cleanup();
   } catch (error) {

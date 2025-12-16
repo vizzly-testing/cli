@@ -22,8 +22,6 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
   });
 
   try {
-    output.info(`Checking status for build: ${buildId}`);
-
     // Load configuration with CLI overrides
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
@@ -49,62 +47,7 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
     // Extract build data from API response
     let build = buildStatus.build || buildStatus;
 
-    // Display build summary
-    output.success(`Build: ${build.name || build.id}`);
-    output.info(`Status: ${build.status.toUpperCase()}`);
-    output.info(`Environment: ${build.environment}`);
-
-    if (build.branch) {
-      output.info(`Branch: ${build.branch}`);
-    }
-
-    if (build.commit_sha) {
-      output.info(
-        `Commit: ${build.commit_sha.substring(0, 8)} - ${build.commit_message || 'No message'}`
-      );
-    }
-
-    // Show screenshot and comparison stats
-    output.info(`Screenshots: ${build.screenshot_count || 0} total`);
-    output.info(
-      `Comparisons: ${build.total_comparisons || 0} total (${build.new_comparisons || 0} new, ${build.changed_comparisons || 0} changed, ${build.identical_comparisons || 0} identical)`
-    );
-
-    if (build.approval_status) {
-      output.info(`Approval Status: ${build.approval_status}`);
-    }
-
-    // Show timing information
-    if (build.created_at) {
-      output.info(`Created: ${new Date(build.created_at).toLocaleString()}`);
-    }
-
-    if (build.completed_at) {
-      output.info(
-        `Completed: ${new Date(build.completed_at).toLocaleString()}`
-      );
-    } else if (build.status !== 'completed' && build.status !== 'failed') {
-      output.info(
-        `Started: ${new Date(build.started_at || build.created_at).toLocaleString()}`
-      );
-    }
-
-    if (build.execution_time_ms) {
-      output.info(
-        `Execution Time: ${Math.round(build.execution_time_ms / 1000)}s`
-      );
-    }
-
-    // Show build URL if we can construct it
-    let baseUrl = config.baseUrl || getApiUrl();
-    if (baseUrl && build.project_id) {
-      let buildUrl =
-        baseUrl.replace('/api', '') +
-        `/projects/${build.project_id}/builds/${build.id}`;
-      output.info(`View Build: ${buildUrl}`);
-    }
-
-    // Output JSON data for --json mode
+    // Output in JSON mode
     if (globalOptions.json) {
       let statusData = {
         buildId: build.id,
@@ -128,39 +71,125 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
         userAgent: build.user_agent,
       };
       output.data(statusData);
+      output.cleanup();
+      return;
+    }
+
+    // Human-readable output
+    output.header('status', build.status);
+
+    // Build info section
+    let buildInfo = {
+      Name: build.name || build.id,
+      Status: build.status.toUpperCase(),
+      Environment: build.environment,
+    };
+
+    if (build.branch) {
+      buildInfo.Branch = build.branch;
+    }
+
+    if (build.commit_sha) {
+      buildInfo.Commit = `${build.commit_sha.substring(0, 8)} - ${build.commit_message || 'No message'}`;
+    }
+
+    output.keyValue(buildInfo);
+    output.blank();
+
+    // Comparison stats with visual indicators
+    let colors = output.getColors();
+    let stats = [];
+    let newCount = build.new_comparisons || 0;
+    let changedCount = build.changed_comparisons || 0;
+    let identicalCount = build.identical_comparisons || 0;
+    let screenshotCount = build.screenshot_count || 0;
+
+    output.labelValue('Screenshots', String(screenshotCount));
+
+    if (newCount > 0) {
+      stats.push(`${colors.brand.info(newCount)} new`);
+    }
+    if (changedCount > 0) {
+      stats.push(`${colors.brand.warning(changedCount)} changed`);
+    }
+    if (identicalCount > 0) {
+      stats.push(`${colors.brand.success(identicalCount)} identical`);
+    }
+
+    if (stats.length > 0) {
+      output.labelValue(
+        'Comparisons',
+        stats.join(colors.brand.textMuted(' · '))
+      );
+    }
+
+    if (build.approval_status) {
+      output.labelValue('Approval', build.approval_status);
+    }
+
+    output.blank();
+
+    // Timing info
+    if (build.created_at) {
+      output.hint(`Created ${new Date(build.created_at).toLocaleString()}`);
+    }
+
+    if (build.completed_at) {
+      output.hint(`Completed ${new Date(build.completed_at).toLocaleString()}`);
+    } else if (build.status !== 'completed' && build.status !== 'failed') {
+      output.hint(
+        `Started ${new Date(build.started_at || build.created_at).toLocaleString()}`
+      );
+    }
+
+    if (build.execution_time_ms) {
+      output.hint(`Took ${Math.round(build.execution_time_ms / 1000)}s`);
+    }
+
+    // Show build URL if we can construct it
+    let baseUrl = config.baseUrl || getApiUrl();
+    if (baseUrl && build.project_id) {
+      let buildUrl =
+        baseUrl.replace('/api', '') +
+        `/projects/${build.project_id}/builds/${build.id}`;
+      output.blank();
+      output.labelValue('View', output.link('Build', buildUrl));
     }
 
     // Show additional info in verbose mode
     if (globalOptions.verbose) {
-      output.info('\n--- Additional Details ---');
+      output.blank();
+      output.divider();
+      output.blank();
+
+      let verboseInfo = {};
 
       if (
         build.approved_screenshots > 0 ||
         build.rejected_screenshots > 0 ||
         build.pending_screenshots > 0
       ) {
-        output.info(
-          `Screenshot Approvals: ${build.approved_screenshots || 0} approved, ${build.rejected_screenshots || 0} rejected, ${build.pending_screenshots || 0} pending`
-        );
+        verboseInfo.Approvals = `${build.approved_screenshots || 0} approved, ${build.rejected_screenshots || 0} rejected, ${build.pending_screenshots || 0} pending`;
       }
 
       if (build.avg_diff_percentage !== null) {
-        output.info(
-          `Average Diff: ${(build.avg_diff_percentage * 100).toFixed(2)}%`
-        );
+        verboseInfo['Avg Diff'] =
+          `${(build.avg_diff_percentage * 100).toFixed(2)}%`;
       }
 
       if (build.github_pull_request_number) {
-        output.info(`GitHub PR: #${build.github_pull_request_number}`);
+        verboseInfo['GitHub PR'] = `#${build.github_pull_request_number}`;
       }
 
       if (build.is_baseline) {
-        output.info('This build is marked as a baseline');
+        verboseInfo.Baseline = 'Yes';
       }
 
-      output.info(`User Agent: ${build.user_agent || 'Unknown'}`);
-      output.info(`Build ID: ${build.id}`);
-      output.info(`Project ID: ${build.project_id}`);
+      verboseInfo['User Agent'] = build.user_agent || 'Unknown';
+      verboseInfo['Build ID'] = build.id;
+      verboseInfo['Project ID'] = build.project_id;
+
+      output.keyValue(verboseInfo);
     }
 
     // Show progress if build is still processing
@@ -169,7 +198,10 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
         build.completed_jobs + build.failed_jobs + build.processing_screenshots;
       if (totalJobs > 0) {
         let progress = (build.completed_jobs + build.failed_jobs) / totalJobs;
-        output.info(`Progress: ${Math.round(progress * 100)}% complete`);
+        output.blank();
+        output.print(
+          `  ${output.progressBar(progress * 100, 100)} ${Math.round(progress * 100)}%`
+        );
       }
     }
 

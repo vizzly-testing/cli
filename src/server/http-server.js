@@ -104,7 +104,8 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
         if (error) {
           reject(error);
         } else {
-          output.debug('server', `listening on :${port}`);
+          // Don't log here - let the caller handle success logging via onServerReady callback
+          // This prevents duplicate "listening on" messages
           resolve();
         }
       });
@@ -128,7 +129,6 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
       return new Promise(resolve => {
         server.close(() => {
           server = null;
-          output.debug('server', 'stopped');
           resolve();
         });
       });

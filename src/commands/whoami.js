@@ -26,15 +26,16 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
 
   try {
     // Check if user is logged in
-    const auth = await getAuthTokens();
+    let auth = await getAuthTokens();
 
     if (!auth || !auth.accessToken) {
       if (globalOptions.json) {
         output.data({ authenticated: false });
       } else {
-        output.info('You are not logged in');
+        output.header('whoami');
+        output.print('  Not logged in');
         output.blank();
-        output.info('Run "vizzly login" to authenticate');
+        output.hint('Run "vizzly login" to authenticate');
       }
       output.cleanup();
       return;
@@ -65,39 +66,43 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
     }
 
     // Human-readable output
-    output.success('Authenticated');
-    output.blank();
+    output.header('whoami');
 
-    // Show user info
+    // Show user info using keyValue
     if (response.user) {
-      output.info(`User: ${response.user.name || response.user.username}`);
-      output.info(`Email: ${response.user.email}`);
+      let userInfo = {
+        User: response.user.name || response.user.username,
+        Email: response.user.email,
+      };
 
       if (response.user.username) {
-        output.info(`Username: ${response.user.username}`);
+        userInfo.Username = response.user.username;
       }
 
       if (globalOptions.verbose && response.user.id) {
-        output.info(`User ID: ${response.user.id}`);
+        userInfo['User ID'] = response.user.id;
       }
+
+      output.keyValue(userInfo);
     }
 
-    // Show organizations
+    // Show organizations as a list
     if (response.organizations && response.organizations.length > 0) {
       output.blank();
-      output.info('Organizations:');
-      for (const org of response.organizations) {
-        let orgInfo = `  - ${org.name}`;
-        if (org.slug) {
-          orgInfo += ` (@${org.slug})`;
-        }
-        if (org.role) {
-          orgInfo += ` [${org.role}]`;
-        }
-        output.print(orgInfo);
+      output.labelValue('Organizations', '');
+      let orgItems = response.organizations.map(org => {
+        let parts = [org.name];
+        if (org.slug) parts.push(`@${org.slug}`);
+        if (org.role) parts.push(`[${org.role}]`);
+        return parts.join(' ');
+      });
+      output.list(orgItems);
 
-        if (globalOptions.verbose && org.id) {
-          output.print(`    ID: ${org.id}`);
+      if (globalOptions.verbose) {
+        for (let org of response.organizations) {
+          if (org.id) {
+            output.hint(`  ${org.name} ID: ${org.id}`);
+          }
         }
       }
     }
@@ -105,37 +110,35 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
     // Show token expiry info
     if (auth.expiresAt) {
       output.blank();
-      const expiresAt = new Date(auth.expiresAt);
-      const now = new Date();
-      const msUntilExpiry = expiresAt.getTime() - now.getTime();
-      const daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
-      const hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
-      const minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
+      let expiresAt = new Date(auth.expiresAt);
+      let now = new Date();
+      let msUntilExpiry = expiresAt.getTime() - now.getTime();
+      let daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
+      let hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
+      let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
 
       if (msUntilExpiry <= 0) {
         output.warn('Token has expired');
-        output.blank();
-        output.info('Run "vizzly login" to refresh your authentication');
+        output.hint('Run "vizzly login" to refresh your authentication');
       } else if (daysUntilExpiry > 0) {
-        output.info(
+        output.hint(
           `Token expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} (${expiresAt.toLocaleDateString()})`
         );
       } else if (hoursUntilExpiry > 0) {
-        output.info(
-          `Token expires in ${hoursUntilExpiry} hour${hoursUntilExpiry !== 1 ? 's' : ''} (${expiresAt.toLocaleString()})`
+        output.hint(
+          `Token expires in ${hoursUntilExpiry} hour${hoursUntilExpiry !== 1 ? 's' : ''}`
         );
       } else if (minutesUntilExpiry > 0) {
-        output.info(
+        output.hint(
           `Token expires in ${minutesUntilExpiry} minute${minutesUntilExpiry !== 1 ? 's' : ''}`
         );
       } else {
         output.warn('Token expires in less than a minute');
-        output.blank();
-        output.info('Run "vizzly login" to refresh your authentication');
+        output.hint('Run "vizzly login" to refresh your authentication');
       }
 
       if (globalOptions.verbose) {
-        output.info(`Token expires at: ${expiresAt.toISOString()}`);
+        output.hint(`Token expires at: ${expiresAt.toISOString()}`);
       }
     }
 
@@ -153,7 +156,7 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
       } else {
         output.error('Authentication token is invalid or expired', error);
         output.blank();
-        output.info('Run "vizzly login" to authenticate again');
+        output.hint('Run "vizzly login" to authenticate again');
       }
       output.cleanup();
       process.exit(1);

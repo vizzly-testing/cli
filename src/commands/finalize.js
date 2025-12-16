@@ -72,11 +72,14 @@ export async function finalizeCommand(
     if (globalOptions.json) {
       output.data(result);
     } else {
-      output.success(
-        `Parallel build ${result.build.id} finalized successfully`
-      );
-      output.info(`Status: ${result.build.status}`);
-      output.info(`Parallel ID: ${result.build.parallel_id}`);
+      output.header('finalize');
+      output.complete(`Parallel build finalized`);
+      output.blank();
+      output.keyValue({
+        Build: result.build.id,
+        Status: result.build.status,
+        'Parallel ID': result.build.parallel_id,
+      });
     }
 
     return { success: true, result };

@@ -16,18 +16,16 @@ export class InitCommand {
   }
 
   async run(options = {}) {
-    output.info('Initializing Vizzly configuration...');
-    output.blank();
+    output.header('init');
 
     try {
       // Check for existing config
-      const configPath = path.join(process.cwd(), 'vizzly.config.js');
-      const hasConfig = await this.fileExists(configPath);
+      let configPath = path.join(process.cwd(), 'vizzly.config.js');
+      let hasConfig = await this.fileExists(configPath);
 
       if (hasConfig && !options.force) {
-        output.info(
-          'A vizzly.config.js file already exists. Use --force to overwrite.'
-        );
+        output.warn('A vizzly.config.js file already exists');
+        output.hint('Use --force to overwrite');
         return;
       }
 
@@ -38,7 +36,7 @@ export class InitCommand {
       this.showNextSteps();
 
       output.blank();
-      output.success('Vizzly CLI setup complete!');
+      output.complete('Vizzly CLI setup complete');
     } catch (error) {
       throw new VizzlyError(
         'Failed to initialize Vizzly configuration',
@@ -88,15 +86,16 @@ export class InitCommand {
     coreConfig += '\n};\n';
 
     await fs.writeFile(configPath, coreConfig, 'utf8');
-    output.info(`📄 Created vizzly.config.js`);
+    output.complete('Created vizzly.config.js');
 
     // Log discovered plugins
-    const pluginsWithConfig = this.plugins.filter(p => p.configSchema);
+    let pluginsWithConfig = this.plugins.filter(p => p.configSchema);
     if (pluginsWithConfig.length > 0) {
-      output.info(`   Added config for ${pluginsWithConfig.length} plugin(s):`);
-      pluginsWithConfig.forEach(p => {
-        output.info(`   - ${p.name}`);
-      });
+      output.hint(`Added config for ${pluginsWithConfig.length} plugin(s):`);
+      output.list(
+        pluginsWithConfig.map(p => p.name),
+        { indent: 4 }
+      );
     }
   }
 
@@ -211,13 +210,12 @@ export class InitCommand {
 
   showNextSteps() {
     output.blank();
-    output.info('📚 Next steps:');
-    output.info('   1. Set your API token:');
-    output.info('      export VIZZLY_TOKEN="your-api-key"');
-    output.info('   2. Run your tests with Vizzly:');
-    output.info('      npx vizzly run "npm test"');
-    output.info('   3. Upload screenshots:');
-    output.info('      npx vizzly upload ./screenshots');
+    output.labelValue('Next steps', '');
+    output.list([
+      'Set your API token: export VIZZLY_TOKEN="your-api-key"',
+      'Run your tests with Vizzly: npx vizzly run "npm test"',
+      'Upload screenshots: npx vizzly upload ./screenshots',
+    ]);
   }
 
   async fileExists(filePath) {

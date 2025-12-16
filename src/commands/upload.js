@@ -191,13 +191,15 @@ export async function uploadCommand(
       }
     }
 
-    output.success('Upload completed successfully');
+    output.complete('Upload completed');
 
     // Show Vizzly summary
     if (result.buildId) {
-      output.info(
-        `[vizzly] Uploaded ${result.stats.uploaded} of ${result.stats.total} screenshots to build ${result.buildId}`
-      );
+      output.blank();
+      output.keyValue({
+        Uploaded: `${result.stats.uploaded} of ${result.stats.total}`,
+        Build: result.buildId,
+      });
       // Use API-provided URL or construct proper URL with org/project context
       let buildUrl =
         result.url ||
@@ -207,26 +209,30 @@ export async function uploadCommand(
           config.apiKey,
           deps
         ));
-      output.info(`[vizzly] View results at ${buildUrl}`);
+      output.blank();
+      output.labelValue('View', output.link('Results', buildUrl));
     }
 
     // Wait for build completion if requested
     if (options.wait && result.buildId) {
-      output.info('Waiting for build completion...');
       output.startSpinner('Processing comparisons...');
 
-      const buildResult = await uploader.waitForBuild(result.buildId);
+      let buildResult = await uploader.waitForBuild(result.buildId);
 
-      output.success('Build processing completed');
+      output.stopSpinner();
+      output.complete('Build processing completed');
 
       // Show build processing results
+      let colors = output.getColors();
       if (buildResult.failedComparisons > 0) {
-        output.warn(
-          `${buildResult.failedComparisons} visual comparisons failed`
+        output.blank();
+        output.print(
+          `  ${colors.brand.danger(buildResult.failedComparisons)} visual comparisons failed`
         );
       } else {
-        output.success(
-          `All ${buildResult.passedComparisons} visual comparisons passed`
+        output.blank();
+        output.print(
+          `  ${colors.brand.success(buildResult.passedComparisons)} visual comparisons passed`
         );
       }
       // Use API-provided URL or construct proper URL with org/project context
@@ -238,7 +244,8 @@ export async function uploadCommand(
           config.apiKey,
           deps
         ));
-      output.info(`[vizzly] View results at ${waitBuildUrl}`);
+      output.blank();
+      output.labelValue('View', output.link('Results', waitBuildUrl));
     }
 
     output.cleanup();

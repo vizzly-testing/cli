@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import 'dotenv/config';
+import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { program } from 'commander';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
@@ -30,9 +33,313 @@ import { validateWhoamiOptions, whoamiCommand } from './commands/whoami.js';
 import { createPluginServices } from './plugin-api.js';
 import { loadPlugins } from './plugin-loader.js';
 import { createServices } from './services/index.js';
+import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
 import * as output from './utils/output.js';
 import { getPackageVersion } from './utils/package-info.js';
+
+// Custom help formatting with Observatory design system
+const formatHelp = (cmd, helper) => {
+  let c = colors;
+  let lines = [];
+  let isRootCommand = !cmd.parent;
+  let version = getPackageVersion();
+
+  // Branded header with grizzly bear
+  lines.push('');
+  if (isRootCommand) {
+    // Cute grizzly bear mascot with square eyes (like the Vizzly logo!)
+    lines.push(c.brand.amber('    ʕ□ᴥ□ʔ'));
+    lines.push(`   ${c.brand.amber(c.bold('vizzly'))} ${c.dim(`v${version}`)}`);
+    lines.push(`   ${c.gray('Visual regression testing for UI teams')}`);
+  } else {
+    // Compact header for subcommands
+    lines.push(`  ${c.brand.amber(c.bold('vizzly'))} ${c.white(cmd.name())}`);
+    let desc = cmd.description();
+    if (desc) {
+      lines.push(`  ${c.gray(desc)}`);
+    }
+  }
+  lines.push('');
+
+  // Usage
+  let usage = helper.commandUsage(cmd).replace('Usage: ', '');
+  lines.push(`  ${c.dim('Usage')}  ${c.white(usage)}`);
+  lines.push('');
+
+  // Get all subcommands
+  let commands = helper.visibleCommands(cmd);
+
+  if (commands.length > 0) {
+    if (isRootCommand) {
+      // Group commands by category for root help with icons
+      let categories = [
+        {
+          key: 'core',
+          icon: '▸',
+          title: 'Core',
+          names: ['run', 'tdd', 'upload', 'status', 'finalize'],
+        },
+        { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor'] },
+        {
+          key: 'auth',
+          icon: '▸',
+          title: 'Account',
+          names: ['login', 'logout', 'whoami'],
+        },
+        {
+          key: 'project',
+          icon: '▸',
+          title: 'Projects',
+          names: [
+            'project:select',
+            'project:list',
+            'project:token',
+            'project:remove',
+          ],
+        },
+      ];
+
+      let grouped = { core: [], setup: [], auth: [], project: [], other: [] };
+
+      for (let command of commands) {
+        let name = command.name();
+        if (name === 'help') continue;
+
+        let found = false;
+        for (let cat of categories) {
+          if (cat.names.includes(name)) {
+            grouped[cat.key].push(command);
+            found = true;
+            break;
+          }
+        }
+        if (!found) grouped.other.push(command);
+      }
+
+      for (let cat of categories) {
+        let cmds = grouped[cat.key];
+        if (cmds.length === 0) continue;
+
+        lines.push(`  ${c.brand.amber(cat.icon)} ${c.bold(cat.title)}`);
+        for (let command of cmds) {
+          let name = command.name();
+          let desc = command.description() || '';
+          // Truncate long descriptions
+          if (desc.length > 48) desc = `${desc.substring(0, 45)}...`;
+          lines.push(`      ${c.white(name.padEnd(18))} ${c.gray(desc)}`);
+        }
+        lines.push('');
+      }
+
+      // Plugins (other commands from plugins)
+      if (grouped.other.length > 0) {
+        lines.push(`  ${c.brand.amber('▸')} ${c.bold('Plugins')}`);
+        for (let command of grouped.other) {
+          let name = command.name();
+          let desc = command.description() || '';
+          if (desc.length > 48) desc = `${desc.substring(0, 45)}...`;
+          lines.push(`      ${c.white(name.padEnd(18))} ${c.gray(desc)}`);
+        }
+        lines.push('');
+      }
+    } else {
+      // For subcommands, simple list
+      lines.push(`  ${c.brand.amber('▸')} ${c.bold('Commands')}`);
+      for (let command of commands) {
+        let name = command.name();
+        if (name === 'help') continue;
+        let desc = command.description() || '';
+        if (desc.length > 48) desc = `${desc.substring(0, 45)}...`;
+        lines.push(`      ${c.white(name.padEnd(18))} ${c.gray(desc)}`);
+      }
+      lines.push('');
+    }
+  }
+
+  // Options - use dimmer styling for less visual weight
+  let options = helper.visibleOptions(cmd);
+  if (options.length > 0) {
+    lines.push(`  ${c.brand.amber('▸')} ${c.bold('Options')}`);
+    for (let option of options) {
+      let flags = option.flags;
+      let desc = option.description || '';
+      if (desc.length > 40) desc = `${desc.substring(0, 37)}...`;
+      lines.push(`      ${c.cyan(flags.padEnd(22))} ${c.dim(desc)}`);
+    }
+    lines.push('');
+  }
+
+  // Quick start examples (only for root command)
+  if (isRootCommand) {
+    lines.push(`  ${c.brand.amber('▸')} ${c.bold('Quick Start')}`);
+    lines.push('');
+    lines.push(`      ${c.dim('# Local visual testing')}`);
+    lines.push(`      ${c.gray('$')} ${c.white('vizzly tdd start')}`);
+    lines.push('');
+    lines.push(`      ${c.dim('# CI pipeline')}`);
+    lines.push(
+      `      ${c.gray('$')} ${c.white('vizzly run "npm test" --wait')}`
+    );
+    lines.push('');
+  }
+
+  // Dynamic context section (only for root)
+  if (isRootCommand) {
+    let contextItems = getHelpContext();
+    if (contextItems.length > 0) {
+      lines.push(`  ${c.dim('─'.repeat(52))}`);
+      for (let item of contextItems) {
+        if (item.type === 'success') {
+          lines.push(
+            `  ${c.green('✓')} ${c.gray(item.label)}  ${c.white(item.value)}`
+          );
+        } else if (item.type === 'warning') {
+          lines.push(
+            `  ${c.yellow('!')} ${c.gray(item.label)}  ${c.yellow(item.value)}`
+          );
+        } else {
+          lines.push(
+            `  ${c.dim('○')} ${c.gray(item.label)}  ${c.dim(item.value)}`
+          );
+        }
+      }
+      lines.push('');
+    }
+  }
+
+  // Footer with links
+  lines.push(`  ${c.dim('─'.repeat(52))}`);
+  lines.push(
+    `  ${c.dim('Docs')} ${c.cyan(c.underline('docs.vizzly.dev'))}  ${c.dim('GitHub')} ${c.cyan(c.underline('github.com/vizzly-testing/cli'))}`
+  );
+  lines.push('');
+
+  return lines.join('\n');
+};
+
+// Get dynamic context for help display
+const getHelpContext = () => {
+  let items = [];
+
+  try {
+    let cwd = process.cwd();
+    let globalConfigPath = join(
+      process.env.VIZZLY_HOME || join(homedir(), '.vizzly'),
+      'config.json'
+    );
+
+    // Load global config once
+    let globalConfig = {};
+    try {
+      if (existsSync(globalConfigPath)) {
+        globalConfig = JSON.parse(readFileSync(globalConfigPath, 'utf8'));
+      }
+    } catch {
+      // Ignore
+    }
+
+    // Check for vizzly.config.js (project config)
+    let hasProjectConfig = existsSync(join(cwd, 'vizzly.config.js'));
+
+    // Check for .vizzly directory (TDD baselines)
+    let baselineCount = 0;
+    try {
+      let metaPath = join(cwd, '.vizzly', 'baselines', 'metadata.json');
+      if (existsSync(metaPath)) {
+        let meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+        baselineCount = meta.screenshots?.length || 0;
+      }
+    } catch {
+      // Ignore
+    }
+
+    // Check for TDD server running
+    let serverRunning = false;
+    let serverPort = null;
+    try {
+      let serverFile = join(cwd, '.vizzly', 'server.json');
+      if (existsSync(serverFile)) {
+        let serverInfo = JSON.parse(readFileSync(serverFile, 'utf8'));
+        serverPort = serverInfo.port;
+        serverRunning = true;
+      }
+    } catch {
+      // Ignore
+    }
+
+    // Check for project mapping (from vizzly project:select)
+    let projectMapping = null;
+    let checkPath = cwd;
+    while (checkPath !== '/' && checkPath !== '') {
+      if (globalConfig.projects?.[checkPath]) {
+        projectMapping = globalConfig.projects[checkPath];
+        break;
+      }
+      checkPath = join(checkPath, '..');
+    }
+
+    // Check for OAuth login (from vizzly login)
+    let isLoggedIn = !!globalConfig.auth?.accessToken;
+    let userName =
+      globalConfig.auth?.user?.name || globalConfig.auth?.user?.email;
+
+    // Check for env token
+    let hasEnvToken = !!process.env.VIZZLY_TOKEN;
+
+    // Build context items - prioritize most useful info
+    if (serverRunning) {
+      items.push({
+        type: 'success',
+        label: 'TDD Server',
+        value: `running on :${serverPort}`,
+      });
+    }
+
+    if (projectMapping) {
+      items.push({
+        type: 'success',
+        label: 'Project',
+        value: `${projectMapping.projectName} (${projectMapping.organizationSlug})`,
+      });
+    } else if (isLoggedIn && userName) {
+      items.push({ type: 'success', label: 'Logged in', value: userName });
+    } else if (hasEnvToken) {
+      items.push({
+        type: 'success',
+        label: 'API Token',
+        value: 'via VIZZLY_TOKEN',
+      });
+    } else {
+      items.push({
+        type: 'info',
+        label: 'Not connected',
+        value: 'run vizzly login or project:select',
+      });
+    }
+
+    if (baselineCount > 0) {
+      items.push({
+        type: 'success',
+        label: 'Baselines',
+        value: `${baselineCount} screenshots`,
+      });
+    }
+
+    if (!hasProjectConfig && !serverRunning && baselineCount === 0) {
+      // Only show "no config" hint if there's nothing else useful
+      items.push({
+        type: 'info',
+        label: 'Get started',
+        value: 'run vizzly init',
+      });
+    }
+  } catch {
+    // If anything fails, just return empty - context is optional
+  }
+
+  return items;
+};
 
 program
   .name('vizzly')
@@ -46,7 +353,9 @@ program
     'Log level: debug, info, warn, error (default: info, or VIZZLY_LOG_LEVEL env var)'
   )
   .option('--json', 'Machine-readable output')
-  .option('--no-color', 'Disable colored output');
+  .option('--color', 'Force colored output (even in non-TTY)')
+  .option('--no-color', 'Disable colored output')
+  .configureHelp({ formatHelp });
 
 // Load plugins before defining commands
 // We need to manually parse to get the config option early
@@ -70,10 +379,17 @@ for (let i = 0; i < process.argv.length; i++) {
 
 // Configure output early
 // Priority: --log-level > --verbose > VIZZLY_LOG_LEVEL env var > default ('info')
+// Color priority: --no-color (off) > --color (on) > auto-detect
+let colorOverride;
+if (process.argv.includes('--no-color')) {
+  colorOverride = false;
+} else if (process.argv.includes('--color')) {
+  colorOverride = true;
+}
 output.configure({
   logLevel: logLevelArg,
   verbose: verboseMode,
-  color: !process.argv.includes('--no-color'),
+  color: colorOverride,
   json: process.argv.includes('--json'),
 });
 

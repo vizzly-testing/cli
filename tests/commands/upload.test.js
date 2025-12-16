@@ -24,6 +24,22 @@ function createMockOutput() {
     startSpinner: msg => calls.push({ method: 'startSpinner', args: [msg] }),
     stopSpinner: () => calls.push({ method: 'stopSpinner', args: [] }),
     cleanup: () => calls.push({ method: 'cleanup', args: [] }),
+    // TUI helpers
+    complete: (msg, opts) =>
+      calls.push({ method: 'complete', args: [msg, opts] }),
+    keyValue: (data, opts) =>
+      calls.push({ method: 'keyValue', args: [data, opts] }),
+    labelValue: (label, value, opts) =>
+      calls.push({ method: 'labelValue', args: [label, value, opts] }),
+    blank: () => calls.push({ method: 'blank', args: [] }),
+    print: msg => calls.push({ method: 'print', args: [msg] }),
+    link: (_label, url) => url, // Return the URL for testing
+    getColors: () => ({
+      brand: {
+        success: s => s,
+        danger: s => s,
+      },
+    }),
   };
 }
 
@@ -348,7 +364,8 @@ describe('uploadCommand', () => {
     assert.strictEqual(uploadCalled, true);
     assert.strictEqual(finalizeCalled, true);
     assert.strictEqual(finalizeSuccess, true);
-    assert.ok(output.calls.some(c => c.method === 'success'));
+    // Now uses output.complete() instead of output.success()
+    assert.ok(output.calls.some(c => c.method === 'complete'));
   });
 
   it('handles upload errors and marks build as failed', async () => {
@@ -478,7 +495,12 @@ describe('uploadCommand', () => {
       }
     );
 
-    assert.ok(output.calls.some(c => c.method === 'warn'));
+    // Now uses output.print() with styled text instead of warn
+    assert.ok(
+      output.calls.some(
+        c => c.method === 'print' && c.args[0].includes('failed')
+      )
+    );
   });
 
   it('handles finalize error gracefully', async () => {
@@ -559,11 +581,11 @@ describe('uploadCommand', () => {
       }
     );
 
-    // Check that the custom URL was used
+    // Check that the custom URL was used (now via labelValue)
     assert.ok(
       output.calls.some(
         c =>
-          c.method === 'info' && c.args[0].includes('https://custom.url/build')
+          c.method === 'labelValue' && c.args[1] === 'https://custom.url/build'
       )
     );
   });

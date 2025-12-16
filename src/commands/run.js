@@ -292,15 +292,18 @@ export async function runCommand(
         buildId = result.buildId;
       }
 
-      output.success('Test run completed successfully');
+      output.complete('Test run completed');
 
       // Show Vizzly summary
       if (result.buildId) {
-        output.print(
-          `[vizzly] Captured ${result.screenshotsCaptured} screenshots in build ${result.buildId}`
-        );
+        output.blank();
+        output.keyValue({
+          Screenshots: result.screenshotsCaptured,
+          Build: result.buildId,
+        });
         if (result.url) {
-          output.print(`[vizzly] View results at ${result.url}`);
+          output.blank();
+          output.labelValue('View', output.link('Results', result.url));
         }
       }
     } catch (error) {

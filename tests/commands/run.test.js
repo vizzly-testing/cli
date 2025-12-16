@@ -20,6 +20,15 @@ function createMockOutput() {
     startSpinner: msg => calls.push({ method: 'startSpinner', args: [msg] }),
     stopSpinner: () => calls.push({ method: 'stopSpinner', args: [] }),
     cleanup: () => calls.push({ method: 'cleanup', args: [] }),
+    // TUI helpers
+    complete: (msg, opts) =>
+      calls.push({ method: 'complete', args: [msg, opts] }),
+    keyValue: (data, opts) =>
+      calls.push({ method: 'keyValue', args: [data, opts] }),
+    labelValue: (label, value, opts) =>
+      calls.push({ method: 'labelValue', args: [label, value, opts] }),
+    blank: () => calls.push({ method: 'blank', args: [] }),
+    link: (_label, url) => url, // Return the URL for testing
   };
 }
 
@@ -197,10 +206,12 @@ describe('commands/run', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.result.buildId, 'build-123');
-      assert.ok(output.calls.some(c => c.method === 'success'));
+      // Now uses output.complete() instead of output.success()
+      assert.ok(output.calls.some(c => c.method === 'complete'));
+      // Now uses keyValue for screenshot count
       assert.ok(
         output.calls.some(
-          c => c.method === 'print' && c.args[0].includes('10 screenshots')
+          c => c.method === 'keyValue' && c.args[0].Screenshots === 10
         )
       );
     });

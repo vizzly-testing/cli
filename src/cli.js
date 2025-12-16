@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { program } from 'commander';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
@@ -35,6 +32,7 @@ import { loadPlugins } from './plugin-loader.js';
 import { createServices } from './services/index.js';
 import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
+import { getContext } from './utils/context.js';
 import * as output from './utils/output.js';
 import { getPackageVersion } from './utils/package-info.js';
 
@@ -49,7 +47,7 @@ const formatHelp = (cmd, helper) => {
   lines.push('');
   if (isRootCommand) {
     // Cute grizzly bear mascot with square eyes (like the Vizzly logo!)
-    lines.push(c.brand.amber('    ʕ□ᴥ□ʔ'));
+    lines.push(c.brand.amber('   ʕ□ᴥ□ʔ'));
     lines.push(`   ${c.brand.amber(c.bold('vizzly'))} ${c.dim(`v${version}`)}`);
     lines.push(`   ${c.gray('Visual regression testing for UI teams')}`);
   } else {
@@ -186,7 +184,7 @@ const formatHelp = (cmd, helper) => {
 
   // Dynamic context section (only for root)
   if (isRootCommand) {
-    let contextItems = getHelpContext();
+    let contextItems = getContext();
     if (contextItems.length > 0) {
       lines.push(`  ${c.dim('─'.repeat(52))}`);
       for (let item of contextItems) {
@@ -216,129 +214,6 @@ const formatHelp = (cmd, helper) => {
   lines.push('');
 
   return lines.join('\n');
-};
-
-// Get dynamic context for help display
-const getHelpContext = () => {
-  let items = [];
-
-  try {
-    let cwd = process.cwd();
-    let globalConfigPath = join(
-      process.env.VIZZLY_HOME || join(homedir(), '.vizzly'),
-      'config.json'
-    );
-
-    // Load global config once
-    let globalConfig = {};
-    try {
-      if (existsSync(globalConfigPath)) {
-        globalConfig = JSON.parse(readFileSync(globalConfigPath, 'utf8'));
-      }
-    } catch {
-      // Ignore
-    }
-
-    // Check for vizzly.config.js (project config)
-    let hasProjectConfig = existsSync(join(cwd, 'vizzly.config.js'));
-
-    // Check for .vizzly directory (TDD baselines)
-    let baselineCount = 0;
-    try {
-      let metaPath = join(cwd, '.vizzly', 'baselines', 'metadata.json');
-      if (existsSync(metaPath)) {
-        let meta = JSON.parse(readFileSync(metaPath, 'utf8'));
-        baselineCount = meta.screenshots?.length || 0;
-      }
-    } catch {
-      // Ignore
-    }
-
-    // Check for TDD server running
-    let serverRunning = false;
-    let serverPort = null;
-    try {
-      let serverFile = join(cwd, '.vizzly', 'server.json');
-      if (existsSync(serverFile)) {
-        let serverInfo = JSON.parse(readFileSync(serverFile, 'utf8'));
-        serverPort = serverInfo.port;
-        serverRunning = true;
-      }
-    } catch {
-      // Ignore
-    }
-
-    // Check for project mapping (from vizzly project:select)
-    let projectMapping = null;
-    let checkPath = cwd;
-    while (checkPath !== '/' && checkPath !== '') {
-      if (globalConfig.projects?.[checkPath]) {
-        projectMapping = globalConfig.projects[checkPath];
-        break;
-      }
-      checkPath = join(checkPath, '..');
-    }
-
-    // Check for OAuth login (from vizzly login)
-    let isLoggedIn = !!globalConfig.auth?.accessToken;
-    let userName =
-      globalConfig.auth?.user?.name || globalConfig.auth?.user?.email;
-
-    // Check for env token
-    let hasEnvToken = !!process.env.VIZZLY_TOKEN;
-
-    // Build context items - prioritize most useful info
-    if (serverRunning) {
-      items.push({
-        type: 'success',
-        label: 'TDD Server',
-        value: `running on :${serverPort}`,
-      });
-    }
-
-    if (projectMapping) {
-      items.push({
-        type: 'success',
-        label: 'Project',
-        value: `${projectMapping.projectName} (${projectMapping.organizationSlug})`,
-      });
-    } else if (isLoggedIn && userName) {
-      items.push({ type: 'success', label: 'Logged in', value: userName });
-    } else if (hasEnvToken) {
-      items.push({
-        type: 'success',
-        label: 'API Token',
-        value: 'via VIZZLY_TOKEN',
-      });
-    } else {
-      items.push({
-        type: 'info',
-        label: 'Not connected',
-        value: 'run vizzly login or project:select',
-      });
-    }
-
-    if (baselineCount > 0) {
-      items.push({
-        type: 'success',
-        label: 'Baselines',
-        value: `${baselineCount} screenshots`,
-      });
-    }
-
-    if (!hasProjectConfig && !serverRunning && baselineCount === 0) {
-      // Only show "no config" hint if there's nothing else useful
-      items.push({
-        type: 'info',
-        label: 'Get started',
-        value: 'run vizzly init',
-      });
-    }
-  } catch {
-    // If anything fails, just return empty - context is optional
-  }
-
-  return items;
 };
 
 program

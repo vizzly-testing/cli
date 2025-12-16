@@ -2,6 +2,7 @@ import { URL } from 'node:url';
 import { createApiClient, getBuilds } from '../api/index.js';
 import { ConfigError } from '../errors/vizzly-error.js';
 import { loadConfig } from '../utils/config-loader.js';
+import { getContext } from '../utils/context.js';
 import { getApiToken } from '../utils/environment-config.js';
 import * as output from '../utils/output.js';
 
@@ -152,22 +153,52 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
       });
     } else {
       // Human-readable output - display results as a checklist
+      // Use printErr to match header (both on stderr for consistent ordering)
       let colors = output.getColors();
       for (let check of checks) {
         let icon = check.ok
           ? colors.brand.success('✓')
           : colors.brand.danger('✗');
         let label = colors.brand.textTertiary(check.name.padEnd(12));
-        output.print(`  ${icon} ${label} ${check.value}`);
+        output.printErr(`  ${icon} ${label} ${check.value}`);
       }
-      output.blank();
+      output.printErr('');
 
       // Summary
       if (hasErrors) {
         output.warn('Preflight completed with issues');
       } else {
-        output.complete('Preflight passed');
+        output.printErr(`  ${colors.brand.success('✓')} Preflight passed`);
       }
+
+      // Dynamic context section (same as help output)
+      let contextItems = getContext();
+      if (contextItems.length > 0) {
+        output.printErr('');
+        output.printErr(`  ${colors.dim('─'.repeat(52))}`);
+        for (let item of contextItems) {
+          if (item.type === 'success') {
+            output.printErr(
+              `  ${colors.green('✓')} ${colors.gray(item.label)}  ${colors.white(item.value)}`
+            );
+          } else if (item.type === 'warning') {
+            output.printErr(
+              `  ${colors.yellow('!')} ${colors.gray(item.label)}  ${colors.yellow(item.value)}`
+            );
+          } else {
+            output.printErr(
+              `  ${colors.dim('○')} ${colors.gray(item.label)}  ${colors.dim(item.value)}`
+            );
+          }
+        }
+      }
+
+      // Footer with links
+      output.printErr('');
+      output.printErr(`  ${colors.dim('─'.repeat(52))}`);
+      output.printErr(
+        `  ${colors.dim('Docs')} ${colors.cyan(colors.underline('docs.vizzly.dev'))}  ${colors.dim('GitHub')} ${colors.cyan(colors.underline('github.com/vizzly-testing/cli'))}`
+      );
 
       // Emit structured data in verbose mode (in addition to visual output)
       if (globalOptions.verbose) {

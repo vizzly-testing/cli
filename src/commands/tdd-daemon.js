@@ -189,10 +189,8 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       style: 'branded',
     });
 
-    // Minimal output by default, verbose details with --verbose
+    // Verbose mode: show next steps
     if (globalOptions.verbose) {
-      output.blank();
-      output.labelValue('Views', 'comparisons · stats · settings · projects');
       output.blank();
       output.print(`  ${colors.brand.textTertiary('Next steps')}`);
       output.print(
@@ -466,12 +464,9 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
         style: 'branded',
       });
 
-      // Verbose mode: show all available views
+      // Verbose mode: show PID
       if (globalOptions.verbose) {
         output.blank();
-        output.print(
-          `  ${colors.brand.textTertiary('Views:')} comparisons · stats · settings · projects`
-        );
         output.print(`  ${colors.brand.textTertiary('PID:')} ${pid}`);
       }
     } else {

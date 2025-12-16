@@ -244,8 +244,8 @@ Single key-value pair (inline):
 output.labelValue('Status', 'ready');
 //   Status: ready
 
-output.labelValue('Views', 'comparisons · stats · settings');
-//   Views: comparisons · stats · settings
+output.labelValue('Screenshots', '15');
+//   Screenshots: 15
 ```
 
 ### Hint

@@ -294,16 +294,21 @@ export async function runCommand(
 
       output.complete('Test run completed');
 
-      // Show Vizzly summary
+      // Show Vizzly summary with link to results
       if (result.buildId) {
         output.blank();
-        output.keyValue({
-          Screenshots: result.screenshotsCaptured,
-          Build: result.buildId,
-        });
+        let colors = output.getColors();
+        output.print(
+          `  ${colors.brand.textTertiary('Screenshots')}  ${colors.white(result.screenshotsCaptured)}`
+        );
         if (result.url) {
-          output.blank();
-          output.labelValue('View', output.link('Results', result.url));
+          output.print(
+            `  ${colors.brand.textTertiary('Results')}      ${colors.cyan(colors.underline(result.url))}`
+          );
+        } else {
+          output.print(
+            `  ${colors.brand.textTertiary('Build')}        ${colors.dim(result.buildId)}`
+          );
         }
       }
     } catch (error) {

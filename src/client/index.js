@@ -283,13 +283,13 @@ function createSimpleClient(serverUrl) {
     async flush() {
       // Call the /flush endpoint to signal test completion and trigger summary output
       try {
-        let response = await fetch(`${serverUrl}/flush`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
-        if (response.ok) {
-          return response.json();
+        let { status, json } = await httpPost(
+          `${serverUrl}/flush`,
+          {},
+          DEFAULT_TIMEOUT_MS
+        );
+        if (status >= 200 && status < 300) {
+          return json;
         }
       } catch {
         // Silently ignore flush errors - server may not be running

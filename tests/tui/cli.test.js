@@ -1,100 +1,95 @@
-import { before, describe, test } from 'node:test';
+import { after, before, describe, test } from 'node:test';
 import { DependencyError, Terminal } from 'tui-driver';
+import { vizzlyScreenshot } from '../../src/client/index.js';
 
-let isAvailable = false;
+// Terminal dimensions
+let COLS = 100;
+let ROWS = 70; // Large enough for biggest output (help is ~55 lines)
+
+// Capture heights for each command
+let HELP_ROWS = 150;
+let DOCTOR_ROWS = 24;
+let TDD_HELP_ROWS = 24;
+let RUN_HELP_ROWS = 30;
+let ERROR_ROWS = 24;
+
+let term = null;
 let skipReason = null;
 
-// Check if x11 driver is available before running tests
-before(async () => {
-  let term = null;
-  try {
-    term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
-    isAvailable = true;
-  } catch (err) {
-    if (err instanceof DependencyError) {
-      skipReason = `Missing dependencies: ${err.missing?.join(', ') || err.message}`;
-    } else {
-      skipReason = err.message;
-    }
-  } finally {
-    if (term) await term.close();
-  }
-});
-
 describe('vizzly CLI visual tests', () => {
-  test('vizzly --help', async t => {
-    if (!isAvailable) return t.skip(skipReason);
-
-    let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
-
+  before(async () => {
     try {
-      await term.type('node bin/vizzly.js --help');
-      await term.press('Enter');
-      await term.waitForStable({ timeout: 10000 });
-      await term.screenshot({ name: 'vizzly-help' });
-    } finally {
-      await term.close();
+      term = await Terminal.launch({ driver: 'x11', cols: COLS, rows: ROWS });
+    } catch (err) {
+      if (err instanceof DependencyError) {
+        skipReason = `Missing dependencies: ${err.missing?.join(', ') || err.message}`;
+      } else {
+        skipReason = err.message;
+      }
     }
+  });
+
+  after(async () => {
+    if (term) await term.close();
+  });
+
+  test('vizzly --help', async t => {
+    if (!term) return t.skip(skipReason);
+
+    await term.resize(COLS, HELP_ROWS);
+    await term.type('node bin/vizzly.js --help');
+    await term.press('Enter');
+    await term.waitForStable({ timeout: 10000 });
+
+    let screenshot = await term.screenshot();
+    await vizzlyScreenshot('vizzly-help', screenshot);
   });
 
   test('vizzly doctor', async t => {
-    if (!isAvailable) return t.skip(skipReason);
+    if (!term) return t.skip(skipReason);
 
-    let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
+    await term.resize(COLS, DOCTOR_ROWS);
+    await term.type('node bin/vizzly.js doctor');
+    await term.press('Enter');
+    await term.waitForStable({ timeout: 15000 });
 
-    try {
-      await term.type('node bin/vizzly.js doctor');
-      await term.press('Enter');
-      // doctor runs system checks which can take longer
-      await term.waitForStable({ timeout: 15000 });
-      await term.screenshot({ name: 'vizzly-doctor' });
-    } finally {
-      await term.close();
-    }
+    let screenshot = await term.screenshot();
+    await vizzlyScreenshot('vizzly-doctor', screenshot);
   });
 
   test('vizzly tdd --help', async t => {
-    if (!isAvailable) return t.skip(skipReason);
+    if (!term) return t.skip(skipReason);
 
-    let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
+    await term.resize(COLS, TDD_HELP_ROWS);
+    await term.type('node bin/vizzly.js tdd --help');
+    await term.press('Enter');
+    await term.waitForStable({ timeout: 10000 });
 
-    try {
-      await term.type('node bin/vizzly.js tdd --help');
-      await term.press('Enter');
-      await term.waitForStable({ timeout: 10000 });
-      await term.screenshot({ name: 'vizzly-tdd-help' });
-    } finally {
-      await term.close();
-    }
+    let screenshot = await term.screenshot();
+    await vizzlyScreenshot('vizzly-tdd-help', screenshot);
   });
 
   test('vizzly run --help', async t => {
-    if (!isAvailable) return t.skip(skipReason);
+    if (!term) return t.skip(skipReason);
 
-    let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
+    await term.resize(COLS, RUN_HELP_ROWS);
+    await term.type('node bin/vizzly.js run --help');
+    await term.press('Enter');
+    await term.waitForStable({ timeout: 10000 });
 
-    try {
-      await term.type('node bin/vizzly.js run --help');
-      await term.press('Enter');
-      await term.waitForStable({ timeout: 10000 });
-      await term.screenshot({ name: 'vizzly-run-help' });
-    } finally {
-      await term.close();
-    }
+    let screenshot = await term.screenshot();
+    await vizzlyScreenshot('vizzly-run-help', screenshot);
   });
 
   test('vizzly with invalid command', async t => {
-    if (!isAvailable) return t.skip(skipReason);
+    if (!term) return t.skip(skipReason);
 
-    let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
+    await term.resize(COLS, ERROR_ROWS);
+    await term.type('node bin/vizzly.js notacommand');
+    await term.press('Enter');
+    await term.waitForStable({ timeout: 10000 });
 
-    try {
-      await term.type('node bin/vizzly.js notacommand');
-      await term.press('Enter');
-      await term.waitForStable({ timeout: 10000 });
-      await term.screenshot({ name: 'vizzly-invalid-command' });
-    } finally {
-      await term.close();
-    }
+    let screenshot = await term.screenshot();
+    await vizzlyScreenshot('vizzly-invalid-command', screenshot);
   });
 });

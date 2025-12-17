@@ -4,6 +4,8 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { dirname, join, parse } from 'node:path';
 import {
   getBuildId,
@@ -124,18 +126,72 @@ function getClient() {
 }
 
 /**
+ * Make HTTP/HTTPS request without keep-alive (so process can exit promptly)
+ * @private
+ * @param {string} url - Full URL to POST to (http or https)
+ * @param {object} body - JSON-serializable request body
+ * @param {number} timeoutMs - Request timeout in milliseconds
+ * @returns {Promise<{status: number, json: any}>} Response status and parsed JSON body
+ */
+function httpPost(url, body, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let parsedUrl = new URL(url);
+    let data = JSON.stringify(body);
+    let isHttps = parsedUrl.protocol === 'https:';
+    let request = isHttps ? httpsRequest : httpRequest;
+
+    let req = request(
+      {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: parsedUrl.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+          Connection: 'close',
+        },
+        agent: false, // Disable keep-alive agent so process can exit promptly
+      },
+      res => {
+        let chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => {
+          let responseBody = Buffer.concat(chunks).toString();
+          let json = null;
+          try {
+            json = JSON.parse(responseBody);
+          } catch (err) {
+            if (shouldLogClient('debug')) {
+              console.debug(
+                `[vizzly] Failed to parse response: ${err.message}`
+              );
+            }
+            json = { error: responseBody };
+          }
+          resolve({ status: res.statusCode, json });
+        });
+      }
+    );
+
+    req.on('error', reject);
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+
+    req.write(data);
+    req.end();
+  });
+}
+
+/**
  * Create a simple HTTP client for screenshots
  * @private
  */
 function createSimpleClient(serverUrl) {
   return {
     async screenshot(name, imageBuffer, options = {}) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        DEFAULT_TIMEOUT_MS
-      );
-
       try {
         // If it's a string, assume it's a file path and send directly
         // Otherwise it's a Buffer, so convert to base64
@@ -144,39 +200,24 @@ function createSimpleClient(serverUrl) {
             ? imageBuffer
             : imageBuffer.toString('base64');
 
-        const response = await fetch(`${serverUrl}/screenshot`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        const { status, json } = await httpPost(
+          `${serverUrl}/screenshot`,
+          {
             buildId: getBuildId(),
             name,
             image,
             properties: options,
             fullPage: options.fullPage || false,
-          }),
-          signal: controller.signal,
-        });
+          },
+          DEFAULT_TIMEOUT_MS
+        );
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(async () => {
-            const errorText = await response
-              .text()
-              .catch(() => 'Unknown error');
-            return { error: errorText };
-          });
-
+        if (status < 200 || status >= 300) {
           // In TDD mode, if we get 422 (visual difference), don't throw
           // This allows all screenshots in the test to be captured and compared
           // The summary will show all failures at the end
-          if (
-            response.status === 422 &&
-            errorData.tddMode &&
-            errorData.comparison
-          ) {
-            clearTimeout(timeoutId);
-            let comp = errorData.comparison;
+          if (status === 422 && json.tddMode && json.comparison) {
+            let comp = json.comparison;
 
             // Return success so test continues and captures remaining screenshots
             // Visual diff details will be shown in the summary after tests complete
@@ -189,17 +230,14 @@ function createSimpleClient(serverUrl) {
           }
 
           throw new Error(
-            `Screenshot failed: ${response.status} ${response.statusText} - ${errorData.error || 'Unknown error'}`
+            `Screenshot failed: ${status} - ${json.error || 'Unknown error'}`
           );
         }
 
-        clearTimeout(timeoutId);
-        return await response.json();
+        return json;
       } catch (error) {
-        clearTimeout(timeoutId);
-
-        // Handle timeout (AbortError)
-        if (error.name === 'AbortError') {
+        // Handle timeout
+        if (error.message === 'Request timeout') {
           if (shouldLogClient('error')) {
             console.error(
               `[vizzly] Screenshot timed out for "${name}" after ${DEFAULT_TIMEOUT_MS / 1000}s`
@@ -216,10 +254,7 @@ function createSimpleClient(serverUrl) {
 
         // Log connection errors (these indicate setup problems)
         if (shouldLogClient('error')) {
-          if (
-            error.message?.includes('fetch') ||
-            error.code === 'ECONNREFUSED'
-          ) {
+          if (error.code === 'ECONNREFUSED') {
             console.error(
               `[vizzly] Server not accessible at ${serverUrl}/screenshot`
             );
@@ -231,7 +266,9 @@ function createSimpleClient(serverUrl) {
               `[vizzly] Screenshot endpoint not found at ${serverUrl}/screenshot`
             );
           } else {
-            console.error(`[vizzly] Screenshot failed for ${name}`);
+            console.error(
+              `[vizzly] Screenshot failed for ${name}: ${error.message}`
+            );
           }
         }
 

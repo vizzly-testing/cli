@@ -4,10 +4,11 @@ import { DependencyError, Terminal } from 'tui-driver';
 let isAvailable = false;
 let skipReason = null;
 
+// Check if x11 driver is available before running tests
 before(async () => {
+  let term = null;
   try {
-    let term = await Terminal.launch({ driver: 'x11', cols: 80, rows: 24 });
-    await term.close();
+    term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
     isAvailable = true;
   } catch (err) {
     if (err instanceof DependencyError) {
@@ -15,6 +16,8 @@ before(async () => {
     } else {
       skipReason = err.message;
     }
+  } finally {
+    if (term) await term.close();
   }
 });
 
@@ -25,7 +28,7 @@ describe('vizzly CLI visual tests', () => {
     let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
 
     try {
-      await term.type('npx vizzly --help');
+      await term.type('node bin/vizzly.js --help');
       await term.press('Enter');
       await term.waitForStable({ timeout: 10000 });
       await term.screenshot({ name: 'vizzly-help' });
@@ -40,8 +43,9 @@ describe('vizzly CLI visual tests', () => {
     let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
 
     try {
-      await term.type('npx vizzly doctor');
+      await term.type('node bin/vizzly.js doctor');
       await term.press('Enter');
+      // doctor runs system checks which can take longer
       await term.waitForStable({ timeout: 15000 });
       await term.screenshot({ name: 'vizzly-doctor' });
     } finally {
@@ -55,7 +59,7 @@ describe('vizzly CLI visual tests', () => {
     let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
 
     try {
-      await term.type('npx vizzly tdd --help');
+      await term.type('node bin/vizzly.js tdd --help');
       await term.press('Enter');
       await term.waitForStable({ timeout: 10000 });
       await term.screenshot({ name: 'vizzly-tdd-help' });
@@ -70,7 +74,7 @@ describe('vizzly CLI visual tests', () => {
     let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
 
     try {
-      await term.type('npx vizzly run --help');
+      await term.type('node bin/vizzly.js run --help');
       await term.press('Enter');
       await term.waitForStable({ timeout: 10000 });
       await term.screenshot({ name: 'vizzly-run-help' });
@@ -85,7 +89,7 @@ describe('vizzly CLI visual tests', () => {
     let term = await Terminal.launch({ driver: 'x11', cols: 100, rows: 40 });
 
     try {
-      await term.type('npx vizzly notacommand');
+      await term.type('node bin/vizzly.js notacommand');
       await term.press('Enter');
       await term.waitForStable({ timeout: 10000 });
       await term.screenshot({ name: 'vizzly-invalid-command' });

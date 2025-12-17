@@ -173,6 +173,8 @@ jobs:
 
     - name: Run TUI visual tests
       run: npm run test:tui
+      env:
+        CI: true
 
   changes-ruby:
     runs-on: ubuntu-latest

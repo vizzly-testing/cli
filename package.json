@@ -72,9 +72,10 @@
     "test:reporter:visual": "node bin/vizzly.js run \"npm run test:reporter\"",
     "test:tui": "node --test tests/tui/*.test.js",
     "lint": "biome check src tests",
-    "lint:fix": "biome check --write src tests",
+    "lint:fix": "biome check --write --unsafe src tests",
     "format": "biome format --write src tests",
-    "format:check": "biome format src tests"
+    "format:check": "biome format src tests",
+    "fix": "npm run format && npm run lint:fix"
   },
   "engines": {
     "node": ">=22.0.0"

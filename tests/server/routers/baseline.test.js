@@ -78,6 +78,12 @@ function createMockScreenshotHandler(options = {}) {
           if (options.resetError) throw options.resetError;
         }
       : undefined,
+    deleteComparison: options.deleteComparison
+      ? async id => {
+          if (options.deleteError) throw options.deleteError;
+          return { success: true, id };
+        }
+      : undefined,
   };
 }
 
@@ -283,6 +289,96 @@ describe('server/routers/baseline', () => {
         assert.strictEqual(res.statusCode, 500);
         let body = res.getParsedBody();
         assert.ok(body.error.includes('Reset failed'));
+      });
+    });
+
+    describe('POST /api/baseline/delete', () => {
+      it('deletes comparison with ID', async () => {
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            deleteComparison: true,
+          }),
+          tddService: null,
+        });
+        let req = createMockRequest('POST', { id: 'comparison-123' });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/delete');
+
+        assert.strictEqual(res.statusCode, 200);
+        let body = res.getParsedBody();
+        assert.strictEqual(body.success, true);
+        assert.ok(body.message.includes('comparison-123'));
+      });
+
+      it('returns 400 when deleteComparison not available', async () => {
+        let handler = createBaselineRouter({
+          screenshotHandler: {},
+          tddService: null,
+        });
+        let req = createMockRequest('POST', { id: 'comparison-123' });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/delete');
+
+        assert.strictEqual(res.statusCode, 400);
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('not available'));
+      });
+
+      it('returns 400 when ID is missing', async () => {
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            deleteComparison: true,
+          }),
+          tddService: null,
+        });
+        let req = createMockRequest('POST', {});
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/delete');
+
+        assert.strictEqual(res.statusCode, 400);
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('ID'));
+      });
+
+      it('returns 404 when comparison not found', async () => {
+        let notFoundError = new Error('Comparison not found with ID: xyz');
+        notFoundError.code = 'NOT_FOUND';
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            deleteComparison: true,
+            deleteError: notFoundError,
+          }),
+          tddService: null,
+        });
+        let req = createMockRequest('POST', { id: 'xyz' });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/delete');
+
+        assert.strictEqual(res.statusCode, 404);
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('not found'));
+      });
+
+      it('returns 500 on other errors', async () => {
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            deleteComparison: true,
+            deleteError: new Error('Delete failed'),
+          }),
+          tddService: null,
+        });
+        let req = createMockRequest('POST', { id: 'comparison-123' });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/delete');
+
+        assert.strictEqual(res.statusCode, 500);
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('Delete failed'));
       });
     });
 

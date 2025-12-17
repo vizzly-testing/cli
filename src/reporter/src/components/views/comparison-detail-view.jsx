@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import {
   useAcceptBaseline,
+  useDeleteComparison,
   useRejectBaseline,
   useReportData,
 } from '../../hooks/queries/use-tdd-queries.js';
@@ -18,6 +19,7 @@ export default function ComparisonDetailView() {
   const { data: reportData } = useReportData();
   const acceptMutation = useAcceptBaseline();
   const rejectMutation = useRejectBaseline();
+  const deleteMutation = useDeleteComparison();
 
   // Memoize comparisons array to prevent dependency warnings
   const comparisons = useMemo(
@@ -71,6 +73,18 @@ export default function ComparisonDetailView() {
     [rejectMutation]
   );
 
+  const handleDelete = useCallback(
+    id => {
+      deleteMutation.mutate(id, {
+        onSuccess: () => {
+          // Navigate back to list after deletion
+          setLocation('/');
+        },
+      });
+    },
+    [deleteMutation, setLocation]
+  );
+
   // If no comparison found, show not found state
   if (!comparison) {
     return (
@@ -101,6 +115,7 @@ export default function ComparisonDetailView() {
       onClose={handleClose}
       onAccept={handleAccept}
       onReject={handleReject}
+      onDelete={handleDelete}
       onNavigate={handleNavigate}
     />
   );

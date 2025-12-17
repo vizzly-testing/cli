@@ -24,7 +24,12 @@ export default function ComparisonCard({
   const [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
   const [isExpanded, setIsExpanded] = useState(comparison.status === 'failed'); // Auto-expand failed tests
   const statusInfo = getStatusInfo(comparison);
-  const showActions = comparison.status === 'failed' && !userAction;
+  // Show actions for failed and new screenshots
+  const showActions =
+    (comparison.status === 'failed' ||
+      comparison.status === 'new' ||
+      comparison.status === 'baseline-created') &&
+    !userAction;
 
   // Determine card styling based on status
   const getBorderStyle = () => {

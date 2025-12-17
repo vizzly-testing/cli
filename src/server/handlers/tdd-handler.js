@@ -2,6 +2,7 @@ import { Buffer as defaultBuffer } from 'node:buffer';
 import {
   existsSync as defaultExistsSync,
   readFileSync as defaultReadFileSync,
+  unlinkSync as defaultUnlinkSync,
   writeFileSync as defaultWriteFileSync,
 } from 'node:fs';
 import { join as defaultJoin, resolve as defaultResolve } from 'node:path';
@@ -10,6 +11,7 @@ import { TddService as DefaultTddService } from '../../tdd/tdd-service.js';
 import { detectImageInputType as defaultDetectImageInputType } from '../../utils/image-input-detector.js';
 import * as defaultOutput from '../../utils/output.js';
 import {
+  safePath as defaultSafePath,
   sanitizeScreenshotName as defaultSanitizeScreenshotName,
   validateScreenshotProperties as defaultValidateScreenshotProperties,
 } from '../../utils/security.js';
@@ -181,12 +183,14 @@ export const createTddHandler = (
     TddService = DefaultTddService,
     existsSync = defaultExistsSync,
     readFileSync = defaultReadFileSync,
+    unlinkSync = defaultUnlinkSync,
     writeFileSync = defaultWriteFileSync,
     join = defaultJoin,
     resolve = defaultResolve,
     Buffer = defaultBuffer,
     getDimensionsSync = defaultGetDimensionsSync,
     detectImageInputType = defaultDetectImageInputType,
+    safePath = defaultSafePath,
     sanitizeScreenshotName = defaultSanitizeScreenshotName,
     validateScreenshotProperties = defaultValidateScreenshotProperties,
     output = defaultOutput,
@@ -739,6 +743,104 @@ export const createTddHandler = (
     }
   };
 
+  /**
+   * Safely delete a file within the .vizzly directory
+   * @param {string} imagePath - Path like "/images/baselines/foo.png"
+   * @param {string} label - Label for logging (e.g., "baseline", "current", "diff")
+   * @param {string} name - Screenshot name for logging
+   */
+  const safeDeleteFile = (imagePath, label, name) => {
+    if (!imagePath) return;
+
+    try {
+      // Use safePath to validate the path stays within workingDir
+      const filePath = safePath(
+        workingDir,
+        '.vizzly',
+        imagePath.replace('/images/', '')
+      );
+
+      if (existsSync(filePath)) {
+        unlinkSync(filePath);
+        output.debug(`Deleted ${label} for ${name}`);
+      }
+    } catch (error) {
+      // safePath throws if path traversal is attempted
+      output.warn(`Failed to delete ${label} for ${name}: ${error.message}`);
+    }
+  };
+
+  const deleteComparison = async comparisonId => {
+    const reportData = readReportData();
+    const comparison = reportData.comparisons.find(c => c.id === comparisonId);
+
+    if (!comparison) {
+      const error = new Error(`Comparison not found with ID: ${comparisonId}`);
+      error.code = 'NOT_FOUND';
+      throw error;
+    }
+
+    // Delete image files (safePath validates paths stay within workingDir)
+    safeDeleteFile(comparison.baseline, 'baseline', comparison.name);
+    safeDeleteFile(comparison.current, 'current', comparison.name);
+    safeDeleteFile(comparison.diff, 'diff', comparison.name);
+
+    // Remove from baseline metadata if it exists
+    try {
+      const metadataPath = safePath(
+        workingDir,
+        '.vizzly',
+        'baselines',
+        'metadata.json'
+      );
+      if (existsSync(metadataPath) && comparison.signature) {
+        const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'));
+        if (metadata.screenshots) {
+          const originalLength = metadata.screenshots.length;
+          metadata.screenshots = metadata.screenshots.filter(
+            s => s.signature !== comparison.signature
+          );
+          if (metadata.screenshots.length < originalLength) {
+            writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+            output.debug(
+              `Removed ${comparison.signature} from baseline metadata`
+            );
+          }
+        }
+      }
+    } catch (error) {
+      output.warn(`Failed to update baseline metadata: ${error.message}`);
+    }
+
+    // Remove comparison from report data
+    reportData.comparisons = reportData.comparisons.filter(
+      c => c.id !== comparisonId
+    );
+
+    // Regenerate groups and summary
+    reportData.groups = groupComparisons(reportData.comparisons);
+    reportData.timestamp = Date.now();
+    reportData.summary = {
+      total: reportData.comparisons.length,
+      groups: reportData.groups.length,
+      passed: reportData.comparisons.filter(
+        c =>
+          c.status === 'passed' ||
+          c.status === 'baseline-created' ||
+          c.status === 'new'
+      ).length,
+      failed: reportData.comparisons.filter(c => c.status === 'failed').length,
+      rejected: reportData.comparisons.filter(c => c.status === 'rejected')
+        .length,
+      errors: reportData.comparisons.filter(c => c.status === 'error').length,
+    };
+
+    writeFileSync(reportPath, JSON.stringify(reportData, null, 2));
+
+    output.info(`Deleted comparison ${comparisonId} (${comparison.name})`);
+    return { success: true, id: comparisonId };
+  };
+
   const cleanup = () => {
     // Report data is persisted to file, no in-memory cleanup needed
   };
@@ -751,6 +853,7 @@ export const createTddHandler = (
     rejectBaseline,
     acceptAllBaselines,
     resetBaselines,
+    deleteComparison,
     cleanup,
     // Expose tddService for baseline download operations
     tddService,

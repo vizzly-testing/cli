@@ -66,7 +66,7 @@
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",
     "test:types": "tsd",
     "prepublishOnly": "npm run build",
-    "test": "node --experimental-test-coverage --test --test-reporter=spec $(find tests -name '*.test.js')",
+    "test": "node --experimental-test-coverage --test --test-concurrency=1 --test-reporter=spec $(find tests -name '*.test.js')",
     "test:watch": "node --test --test-reporter=spec --watch $(find tests -name '*.test.js')",
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",
     "test:reporter:visual": "node bin/vizzly.js run \"npm run test:reporter\"",

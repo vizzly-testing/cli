@@ -739,6 +739,125 @@ export const createTddHandler = (
     }
   };
 
+  const deleteComparison = async comparisonId => {
+    try {
+      const reportData = readReportData();
+      const comparison = reportData.comparisons.find(
+        c => c.id === comparisonId
+      );
+
+      if (!comparison) {
+        throw new Error(`Comparison not found with ID: ${comparisonId}`);
+      }
+
+      const { unlinkSync } = await import('node:fs');
+
+      // Delete baseline image if it exists
+      if (comparison.baseline) {
+        const baselinePath = join(
+          workingDir,
+          '.vizzly',
+          comparison.baseline.replace('/images/', '')
+        );
+        if (existsSync(baselinePath)) {
+          try {
+            unlinkSync(baselinePath);
+            output.debug(`Deleted baseline for ${comparison.name}`);
+          } catch (error) {
+            output.warn(
+              `Failed to delete baseline for ${comparison.name}: ${error.message}`
+            );
+          }
+        }
+      }
+
+      // Delete current screenshot if it exists
+      if (comparison.current) {
+        const currentPath = join(
+          workingDir,
+          '.vizzly',
+          comparison.current.replace('/images/', '')
+        );
+        if (existsSync(currentPath)) {
+          try {
+            unlinkSync(currentPath);
+            output.debug(`Deleted current for ${comparison.name}`);
+          } catch (error) {
+            output.warn(
+              `Failed to delete current screenshot for ${comparison.name}: ${error.message}`
+            );
+          }
+        }
+      }
+
+      // Delete diff image if it exists
+      if (comparison.diff) {
+        const diffPath = join(
+          workingDir,
+          '.vizzly',
+          comparison.diff.replace('/images/', '')
+        );
+        if (existsSync(diffPath)) {
+          try {
+            unlinkSync(diffPath);
+            output.debug(`Deleted diff for ${comparison.name}`);
+          } catch (error) {
+            output.warn(
+              `Failed to delete diff for ${comparison.name}: ${error.message}`
+            );
+          }
+        }
+      }
+
+      // Remove from baseline metadata if it exists
+      const metadataPath = join(workingDir, '.vizzly', 'baselines', 'metadata.json');
+      if (existsSync(metadataPath)) {
+        try {
+          const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'));
+          if (metadata.screenshots) {
+            metadata.screenshots = metadata.screenshots.filter(
+              s => s.signature !== comparison.signature
+            );
+            writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+          }
+        } catch (error) {
+          output.warn(`Failed to update baseline metadata: ${error.message}`);
+        }
+      }
+
+      // Remove comparison from report data
+      reportData.comparisons = reportData.comparisons.filter(
+        c => c.id !== comparisonId
+      );
+
+      // Regenerate groups and summary
+      reportData.groups = groupComparisons(reportData.comparisons);
+      reportData.timestamp = Date.now();
+      reportData.summary = {
+        total: reportData.comparisons.length,
+        groups: reportData.groups.length,
+        passed: reportData.comparisons.filter(
+          c =>
+            c.status === 'passed' ||
+            c.status === 'baseline-created' ||
+            c.status === 'new'
+        ).length,
+        failed: reportData.comparisons.filter(c => c.status === 'failed').length,
+        rejected: reportData.comparisons.filter(c => c.status === 'rejected')
+          .length,
+        errors: reportData.comparisons.filter(c => c.status === 'error').length,
+      };
+
+      writeFileSync(reportPath, JSON.stringify(reportData, null, 2));
+
+      output.info(`Deleted comparison ${comparisonId} (${comparison.name})`);
+      return { success: true, id: comparisonId };
+    } catch (error) {
+      output.error(`Failed to delete comparison ${comparisonId}:`, error);
+      throw error;
+    }
+  };
+
   const cleanup = () => {
     // Report data is persisted to file, no in-memory cleanup needed
   };
@@ -751,6 +870,7 @@ export const createTddHandler = (
     rejectBaseline,
     acceptAllBaselines,
     resetBaselines,
+    deleteComparison,
     cleanup,
     // Expose tddService for baseline download operations
     tddService,

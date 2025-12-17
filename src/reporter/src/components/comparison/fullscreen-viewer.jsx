@@ -173,6 +173,7 @@ export default function FullscreenViewer({
   onClose,
   onAccept,
   onReject,
+  onDelete,
   onNavigate,
 }) {
   const [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
@@ -296,15 +297,21 @@ export default function FullscreenViewer({
     );
   }
 
-  // Show actions for comparisons that can be approved/rejected
+  // Show actions for comparisons that need review
   // - failed: needs review, can approve (accept change) or reject
+  // - new/baseline-created: new screenshot, can accept to confirm or delete to remove
   // - passed: auto-matched baseline, can still reject if needed
   // - rejected: previously rejected, can still change decision
-  // - new/baseline-created: no baseline to compare, no approve/reject needed
   const canReview =
     comparison.status === 'failed' ||
+    comparison.status === 'new' ||
+    comparison.status === 'baseline-created' ||
     comparison.status === 'passed' ||
     comparison.status === 'rejected';
+
+  // Only show delete for new screenshots (no baseline to keep)
+  const canDelete =
+    comparison.status === 'new' || comparison.status === 'baseline-created';
 
   // Determine current approval state:
   // - comparison.userAction reflects the user's explicit decision (from server)
@@ -405,23 +412,39 @@ export default function FullscreenViewer({
             )}
           </div>
 
-          {/* Center: Approval Actions - always show both buttons, highlight selected */}
+          {/* Center: Actions based on comparison status */}
           {canReview && (
             <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
-              <button
-                type="button"
-                onClick={() => onReject(getComparisonId(comparison))}
-                data-testid="btn-reject"
-                data-active={isRejected}
-                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                  isRejected
-                    ? 'bg-red-600 text-white'
-                    : 'text-red-400 hover:text-red-300 hover:bg-red-600/20'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                Reject
-              </button>
+              {/* For new screenshots: Delete and Accept */}
+              {canDelete && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(getComparisonId(comparison))}
+                  data-testid="btn-delete"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all text-red-400 hover:text-red-300 hover:bg-red-600/20"
+                >
+                  <span className="w-1.5 h-1.5 bg-current rounded-full" />
+                  Delete
+                </button>
+              )}
+              {/* Reject button - only for non-new screenshots */}
+              {!canDelete && (
+                <button
+                  type="button"
+                  onClick={() => onReject(getComparisonId(comparison))}
+                  data-testid="btn-reject"
+                  data-active={isRejected}
+                  className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    isRejected
+                      ? 'bg-red-600 text-white'
+                      : 'text-red-400 hover:text-red-300 hover:bg-red-600/20'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 bg-current rounded-full" />
+                  Reject
+                </button>
+              )}
+              {/* Accept/Approve button - shown for all reviewable screenshots */}
               <button
                 type="button"
                 onClick={() => onAccept(getComparisonId(comparison))}
@@ -434,7 +457,7 @@ export default function FullscreenViewer({
                 }`}
               >
                 <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                Approve
+                {canDelete ? 'Accept' : 'Approve'}
               </button>
             </div>
           )}

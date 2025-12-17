@@ -60,3 +60,13 @@ export function useRejectBaseline() {
     },
   });
 }
+
+export function useDeleteComparison() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: id => tdd.deleteComparison(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
+    },
+  });
+}

@@ -101,6 +101,18 @@ export const tdd = {
   },
 
   /**
+   * Delete a comparison entirely (removes from report and deletes files)
+   * @param {string} id - Comparison ID
+   * @returns {Promise<Object>}
+   */
+  async deleteComparison(id) {
+    return fetchJson('/api/baseline/delete', {
+      method: 'POST',
+      body: JSON.stringify({ id }),
+    });
+  },
+
+  /**
    * Download baselines from a remote build
    * @param {string} buildId - Build ID to download from
    * @param {string} [organizationSlug] - Organization slug for OAuth auth

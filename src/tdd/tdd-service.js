@@ -1090,8 +1090,14 @@ export class TddService {
     }
     this._resultsPrinted = true;
 
-    let { output, colors, getFailedComparisons, getNewComparisons } =
-      this._deps;
+    let {
+      output,
+      colors,
+      getFailedComparisons,
+      getNewComparisons,
+      existsSync,
+      readFileSync,
+    } = this._deps;
     let results = this.getResults();
     let failedComparisons = getFailedComparisons(this.comparisons);
     let newComparisons = getNewComparisons(this.comparisons);
@@ -1103,73 +1109,117 @@ export class TddService {
     );
     let hasChanges = failedComparisons.length > 0 || newComparisons.length > 0;
 
-    // Header
+    // Header with summary - use bear emoji as Vizzly mascot
     output.blank();
     output.print(
-      `${colors.cyan('[vizzly]')} ${results.total} screenshot${results.total !== 1 ? 's' : ''} compared`
+      `🐻 ${colors.bold(results.total)} screenshot${results.total !== 1 ? 's' : ''} compared`
     );
     output.blank();
 
-    // Verbose mode: show each screenshot
-    if (output.isVerbose()) {
-      // Show passed screenshots
-      for (let comp of passedComparisons) {
-        output.print(`  ${colors.green('+')} ${comp.name}`);
-      }
-      if (passedComparisons.length > 0) {
-        output.blank();
-      }
-    } else {
-      // Default mode: just show count
-      if (results.passed > 0) {
-        output.print(`  ${colors.green('+')} ${results.passed} passed`);
-        output.blank();
-      }
-    }
-
-    // Show failed comparisons
-    if (failedComparisons.length > 0) {
-      output.print(
-        `  ${colors.yellow('!')} ${failedComparisons.length} visual change${failedComparisons.length !== 1 ? 's' : ''} detected`
-      );
-      for (let comp of failedComparisons) {
-        let diffInfo =
-          output.isVerbose() && comp.diffPercentage
-            ? ` (${comp.diffPercentage.toFixed(2)}% diff)`
-            : '';
-        output.print(`    ${colors.red('-')} ${comp.name}${diffInfo}`);
+    // Passed section - use Observatory success color
+    if (results.passed > 0) {
+      let successColor = colors.brand?.success || colors.green;
+      if (output.isVerbose()) {
+        // Verbose mode: show each screenshot
+        for (let comp of passedComparisons) {
+          output.print(`  ${successColor('✓')} ${comp.name}`);
+        }
+      } else {
+        // Default mode: just show count with green checkmark and number
+        output.print(
+          `  ${successColor('✓')} ${successColor(results.passed)} passed`
+        );
       }
       output.blank();
     }
 
-    // Show new screenshots
-    if (newComparisons.length > 0) {
+    // Failed comparisons with diff bars - use Observatory warning/danger colors
+    if (failedComparisons.length > 0) {
+      let warningColor = colors.brand?.warning || colors.yellow;
+      let dangerColor = colors.brand?.danger || colors.red;
+
       output.print(
-        `  ${colors.yellow('*')} ${newComparisons.length} new screenshot${newComparisons.length !== 1 ? 's' : ''}`
+        `  ${warningColor('◐')} ${warningColor(failedComparisons.length)} visual change${failedComparisons.length !== 1 ? 's' : ''} detected`
+      );
+
+      // Find longest name for alignment
+      let maxNameLen = Math.max(...failedComparisons.map(c => c.name.length));
+      let textMuted = colors.brand?.textMuted || colors.dim;
+
+      for (let comp of failedComparisons) {
+        let diffDisplay = '';
+        if (comp.diffPercentage !== undefined) {
+          // Use the new diffBar helper for visual representation
+          let bar = output.diffBar(comp.diffPercentage, 10);
+          let paddedName = comp.name.padEnd(maxNameLen);
+          diffDisplay = ` ${bar} ${textMuted(`${comp.diffPercentage.toFixed(1)}%`)}`;
+          output.print(`    ${dangerColor('✗')} ${paddedName}${diffDisplay}`);
+        } else {
+          output.print(`    ${dangerColor('✗')} ${comp.name}`);
+        }
+      }
+      output.blank();
+    }
+
+    // New screenshots - use Observatory info color
+    if (newComparisons.length > 0) {
+      let infoColor = colors.brand?.info || colors.cyan;
+      let textMuted = colors.brand?.textMuted || colors.dim;
+      output.print(
+        `  ${infoColor('+')} ${infoColor(newComparisons.length)} new screenshot${newComparisons.length !== 1 ? 's' : ''}`
       );
       for (let comp of newComparisons) {
-        output.print(`    ${colors.cyan('+')} ${comp.name}`);
+        output.print(`    ${textMuted('○')} ${comp.name}`);
       }
       output.blank();
     }
 
-    // Show errors
+    // Errors - use Observatory danger color
     if (results.errors > 0) {
+      let dangerColor = colors.brand?.danger || colors.red;
       let errorComparisons = this.comparisons.filter(c => c.status === 'error');
       output.print(
-        `  ${colors.red('!')} ${results.errors} error${results.errors !== 1 ? 's' : ''}`
+        `  ${dangerColor('!')} ${dangerColor(results.errors)} error${results.errors !== 1 ? 's' : ''}`
       );
       for (let comp of errorComparisons) {
-        output.print(`    ${colors.red('-')} ${comp.name}`);
+        output.print(`    ${dangerColor('✗')} ${comp.name}`);
       }
       output.blank();
     }
 
-    // Show how to view results
+    // Dashboard link with prominent styling - detect if server is running
     if (hasChanges) {
-      output.print(
-        `  ${colors.dim('>')} To review changes: ${colors.cyan('vizzly tdd start --open')}`
-      );
+      let infoColor = colors.brand?.info || colors.cyan;
+      let textTertiary = colors.brand?.textTertiary || colors.dim;
+
+      // Check if TDD server is already running
+      let serverFile = `${this.workingDir}/.vizzly/server.json`;
+      let serverRunning = false;
+      let serverPort = 47392;
+
+      try {
+        if (existsSync(serverFile)) {
+          let serverInfo = JSON.parse(readFileSync(serverFile, 'utf8'));
+          if (serverInfo.port) {
+            serverPort = serverInfo.port;
+            serverRunning = true;
+          }
+        }
+      } catch {
+        // Ignore errors reading server file
+      }
+
+      if (serverRunning) {
+        // Server is running - show the dashboard URL
+        output.print(
+          `  ${textTertiary('→')} Review changes: ${infoColor(colors.underline(`http://localhost:${serverPort}`))}`
+        );
+      } else {
+        // Server not running - suggest starting it
+        output.print(
+          `  ${textTertiary('→')} Review changes: ${infoColor(colors.underline('vizzly tdd start --open'))}`
+        );
+      }
       output.blank();
     }
 

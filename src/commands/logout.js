@@ -26,10 +26,15 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
 
   try {
     // Check if user is logged in
-    const auth = await getAuthTokens();
+    let auth = await getAuthTokens();
 
     if (!auth || !auth.accessToken) {
-      output.info('You are not logged in');
+      if (globalOptions.json) {
+        output.data({ loggedOut: false, reason: 'not_logged_in' });
+      } else {
+        output.header('logout');
+        output.print('  Not logged in');
+      }
       output.cleanup();
       return;
     }
@@ -45,14 +50,14 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
     await logout(client, tokenStore);
 
     output.stopSpinner();
-    output.success('Successfully logged out');
 
     if (globalOptions.json) {
       output.data({ loggedOut: true });
     } else {
+      output.header('logout');
+      output.complete('Logged out');
       output.blank();
-      output.info('Your authentication tokens have been cleared');
-      output.info('Run "vizzly login" to authenticate again');
+      output.hint('Run "vizzly login" to authenticate again');
     }
 
     output.cleanup();

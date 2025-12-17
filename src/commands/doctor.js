@@ -2,6 +2,7 @@ import { URL } from 'node:url';
 import { createApiClient, getBuilds } from '../api/index.js';
 import { ConfigError } from '../errors/vizzly-error.js';
 import { loadConfig } from '../utils/config-loader.js';
+import { getContext } from '../utils/context.js';
 import { getApiToken } from '../utils/environment-config.js';
 import * as output from '../utils/output.js';
 
@@ -17,7 +18,7 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     color: !globalOptions.noColor,
   });
 
-  const diagnostics = {
+  let diagnostics = {
     environment: {
       nodeVersion: null,
       nodeVersionValid: null,
@@ -37,78 +38,90 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
   };
 
   let hasErrors = false;
+  let checks = [];
 
   try {
     // Determine if we'll attempt remote checks (API connectivity)
-    const willCheckConnectivity = Boolean(options.api || getApiToken());
+    let willCheckConnectivity = Boolean(options.api || getApiToken());
 
-    // Announce preflight, indicating local-only when no token/connectivity is planned
-    output.info(
-      `Running Vizzly preflight${willCheckConnectivity ? '' : ' (local checks only)'}...`
-    );
+    // Show header
+    output.header('doctor', willCheckConnectivity ? 'full' : 'local');
 
     // Node.js version check (require >= 20)
-    const nodeVersion = process.version;
-    const nodeMajor = parseInt(nodeVersion.slice(1).split('.')[0], 10);
+    let nodeVersion = process.version;
+    let nodeMajor = parseInt(nodeVersion.slice(1).split('.')[0], 10);
     diagnostics.environment.nodeVersion = nodeVersion;
     diagnostics.environment.nodeVersionValid = nodeMajor >= 20;
     if (nodeMajor >= 20) {
-      output.success(`Node.js version: ${nodeVersion} (supported)`);
+      checks.push({
+        name: 'Node.js',
+        value: `${nodeVersion} (supported)`,
+        ok: true,
+      });
     } else {
+      checks.push({
+        name: 'Node.js',
+        value: `${nodeVersion} (requires >= 20)`,
+        ok: false,
+      });
       hasErrors = true;
-      output.error('Node.js version must be >= 20');
     }
 
     // Load configuration (apply global CLI overrides like --config only)
-    const config = await loadConfig(globalOptions.config);
+    let config = await loadConfig(globalOptions.config);
 
     // Validate apiUrl
     diagnostics.configuration.apiUrl = config.apiUrl;
     try {
-      const url = new URL(config.apiUrl);
+      let url = new URL(config.apiUrl);
       if (!['http:', 'https:'].includes(url.protocol)) {
         throw new ConfigError('URL must use http or https');
       }
       diagnostics.configuration.apiUrlValid = true;
-      output.success(`API URL: ${config.apiUrl}`);
-    } catch (e) {
+      checks.push({ name: 'API URL', value: config.apiUrl, ok: true });
+    } catch (_e) {
       diagnostics.configuration.apiUrlValid = false;
+      checks.push({
+        name: 'API URL',
+        value: 'invalid (check VIZZLY_API_URL)',
+        ok: false,
+      });
       hasErrors = true;
-      output.error(
-        'Invalid apiUrl in configuration (set VIZZLY_API_URL or config file)',
-        e
-      );
     }
 
     // Validate threshold (0..1 inclusive)
-    const threshold = Number(config?.comparison?.threshold);
+    let threshold = Number(config?.comparison?.threshold);
     diagnostics.configuration.threshold = threshold;
     // CIEDE2000 threshold: 0 = exact, 1 = JND, 2 = recommended, 3+ = permissive
-    const thresholdValid = Number.isFinite(threshold) && threshold >= 0;
+    let thresholdValid = Number.isFinite(threshold) && threshold >= 0;
     diagnostics.configuration.thresholdValid = thresholdValid;
     if (thresholdValid) {
-      output.success(`Threshold: ${threshold} (CIEDE2000 Delta E)`);
+      checks.push({
+        name: 'Threshold',
+        value: `${threshold} (CIEDE2000)`,
+        ok: true,
+      });
     } else {
+      checks.push({ name: 'Threshold', value: 'invalid', ok: false });
       hasErrors = true;
-      output.error('Invalid threshold (expected non-negative number)');
     }
 
     // Report effective port without binding
-    const port = config?.server?.port ?? 47392;
+    let port = config?.server?.port ?? 47392;
     diagnostics.configuration.port = port;
-    output.info(`Effective port: ${port}`);
+    checks.push({ name: 'Port', value: String(port), ok: true });
 
     // Optional: API connectivity check when --api is provided or VIZZLY_TOKEN is present
-    const autoApi = Boolean(getApiToken());
+    let autoApi = Boolean(getApiToken());
     if (options.api || autoApi) {
       diagnostics.connectivity.checked = true;
       if (!config.apiKey) {
         diagnostics.connectivity.ok = false;
         diagnostics.connectivity.error = 'Missing API token (VIZZLY_TOKEN)';
+        checks.push({ name: 'API Token', value: 'missing', ok: false });
         hasErrors = true;
-        output.error('Missing API token for connectivity check');
       } else {
-        output.progress('Checking API connectivity...');
+        output.startSpinner('Checking API connectivity...');
         try {
           let client = createApiClient({
             baseUrl: config.apiUrl,
@@ -117,31 +130,84 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
           });
           // Minimal, read-only call
           await getBuilds(client, { limit: 1 });
+          output.stopSpinner();
           diagnostics.connectivity.ok = true;
-          output.success('API connectivity OK');
+          checks.push({ name: 'API', value: 'connected', ok: true });
         } catch (err) {
+          output.stopSpinner();
           diagnostics.connectivity.ok = false;
           diagnostics.connectivity.error = err?.message || String(err);
+          checks.push({ name: 'API', value: 'connection failed', ok: false });
           hasErrors = true;
-          output.error('API connectivity failed', err);
         }
       }
     }
 
-    // Summary
-    if (hasErrors) {
-      output.warn('Preflight completed with issues.');
-    } else {
-      output.success('Preflight passed.');
-    }
-
-    // Emit structured data in json/verbose modes
-    if (globalOptions.json || globalOptions.verbose) {
+    // Output results
+    if (globalOptions.json) {
+      // JSON mode - structured output only
       output.data({
         passed: !hasErrors,
         diagnostics,
         timestamp: new Date().toISOString(),
       });
+    } else {
+      // Human-readable output - display results as a checklist
+      // Use printErr to match header (both on stderr for consistent ordering)
+      let colors = output.getColors();
+      for (let check of checks) {
+        let icon = check.ok
+          ? colors.brand.success('✓')
+          : colors.brand.danger('✗');
+        let label = colors.brand.textTertiary(check.name.padEnd(12));
+        output.printErr(`  ${icon} ${label} ${check.value}`);
+      }
+      output.printErr('');
+
+      // Summary
+      if (hasErrors) {
+        output.warn('Preflight completed with issues');
+      } else {
+        output.printErr(`  ${colors.brand.success('✓')} Preflight passed`);
+      }
+
+      // Dynamic context section (same as help output)
+      let contextItems = getContext();
+      if (contextItems.length > 0) {
+        output.printErr('');
+        output.printErr(`  ${colors.dim('─'.repeat(52))}`);
+        for (let item of contextItems) {
+          if (item.type === 'success') {
+            output.printErr(
+              `  ${colors.green('✓')} ${colors.gray(item.label)}  ${colors.white(item.value)}`
+            );
+          } else if (item.type === 'warning') {
+            output.printErr(
+              `  ${colors.yellow('!')} ${colors.gray(item.label)}  ${colors.yellow(item.value)}`
+            );
+          } else {
+            output.printErr(
+              `  ${colors.dim('○')} ${colors.gray(item.label)}  ${colors.dim(item.value)}`
+            );
+          }
+        }
+      }
+
+      // Footer with links
+      output.printErr('');
+      output.printErr(`  ${colors.dim('─'.repeat(52))}`);
+      output.printErr(
+        `  ${colors.dim('Docs')} ${colors.cyan(colors.underline('docs.vizzly.dev'))}  ${colors.dim('GitHub')} ${colors.cyan(colors.underline('github.com/vizzly-testing/cli'))}`
+      );
+
+      // Emit structured data in verbose mode (in addition to visual output)
+      if (globalOptions.verbose) {
+        output.data({
+          passed: !hasErrors,
+          diagnostics,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   } catch (error) {
     hasErrors = true;

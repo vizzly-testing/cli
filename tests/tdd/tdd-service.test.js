@@ -16,6 +16,7 @@ function createMockOutput() {
     blank: () => calls.push({ method: 'blank', args: [] }),
     print: (...args) => calls.push({ method: 'print', args }),
     isVerbose: () => false,
+    diffBar: () => '░░░░░░░░░░', // Mock diffBar for visual output
   };
 }
 
@@ -129,6 +130,8 @@ function createMockDeps(overrides = {}) {
       red: s => s,
       yellow: s => s,
       dim: s => s,
+      bold: s => s,
+      underline: s => s,
     },
     validatePathSecurity: overrides.validatePathSecurity ?? (path => path),
     initializeDirectories:

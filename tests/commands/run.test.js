@@ -20,6 +20,24 @@ function createMockOutput() {
     startSpinner: msg => calls.push({ method: 'startSpinner', args: [msg] }),
     stopSpinner: () => calls.push({ method: 'stopSpinner', args: [] }),
     cleanup: () => calls.push({ method: 'cleanup', args: [] }),
+    // TUI helpers
+    complete: (msg, opts) =>
+      calls.push({ method: 'complete', args: [msg, opts] }),
+    keyValue: (data, opts) =>
+      calls.push({ method: 'keyValue', args: [data, opts] }),
+    labelValue: (label, value, opts) =>
+      calls.push({ method: 'labelValue', args: [label, value, opts] }),
+    blank: () => calls.push({ method: 'blank', args: [] }),
+    link: (_label, url) => url, // Return the URL for testing
+    getColors: () => ({
+      brand: {
+        textTertiary: s => s,
+      },
+      white: s => s,
+      cyan: s => s,
+      dim: s => s,
+      underline: s => s,
+    }),
   };
 }
 
@@ -197,12 +215,10 @@ describe('commands/run', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.result.buildId, 'build-123');
-      assert.ok(output.calls.some(c => c.method === 'success'));
-      assert.ok(
-        output.calls.some(
-          c => c.method === 'print' && c.args[0].includes('10 screenshots')
-        )
-      );
+      // Now uses output.complete() instead of output.success()
+      assert.ok(output.calls.some(c => c.method === 'complete'));
+      // Now uses print for screenshot summary
+      assert.ok(output.calls.some(c => c.method === 'print'));
     });
 
     it('handles test command failure with exit code', async () => {

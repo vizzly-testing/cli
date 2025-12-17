@@ -278,7 +278,7 @@ export const createTddHandler = (
   };
 
   const initialize = async () => {
-    output.debug('tdd', 'setting up local comparison');
+    output.debug('tdd', 'initializing local mode');
 
     // In baseline update mode, skip all baseline loading/downloading
     if (setBaseline) {
@@ -291,7 +291,7 @@ export const createTddHandler = (
       (baselineBuild || baselineComparison) && config.apiKey;
 
     if (shouldForceDownload) {
-      output.debug('tdd', 'downloading baselines from cloud');
+      output.debug('tdd', 'downloading baselines');
       await tddService.downloadBaselines(
         config.build?.environment || 'test',
         config.build?.branch || null,
@@ -306,7 +306,7 @@ export const createTddHandler = (
     if (!baseline) {
       // Only download baselines if explicitly requested via baseline flags
       if ((baselineBuild || baselineComparison) && config.apiKey) {
-        output.debug('tdd', 'downloading baselines from cloud');
+        output.debug('tdd', 'downloading baselines');
         await tddService.downloadBaselines(
           config.build?.environment || 'test',
           config.build?.branch || null,
@@ -314,10 +314,10 @@ export const createTddHandler = (
           baselineComparison
         );
       } else {
-        output.debug('tdd', 'no baselines found, will create on first run');
+        output.debug('tdd', 'no baselines yet');
       }
     } else {
-      output.debug('tdd', `using baseline: ${baseline.buildName}`);
+      output.debug('tdd', `baseline: ${baseline.buildName}`);
     }
   };
 

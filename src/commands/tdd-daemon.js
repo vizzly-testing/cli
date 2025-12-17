@@ -26,8 +26,18 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
   // Check if server already running
   if (await isServerRunning(options.port || 47392)) {
     const port = options.port || 47392;
-    output.info(`TDD server already running at http://localhost:${port}`);
-    output.info(`Dashboard: http://localhost:${port}`);
+    let colors = output.getColors();
+
+    output.header('tdd', 'local');
+    output.print(`  ${output.statusDot('success')} Already running`);
+    output.blank();
+    output.printBox(
+      colors.brand.info(colors.underline(`http://localhost:${port}`)),
+      {
+        title: 'Dashboard',
+        style: 'branded',
+      }
+    );
 
     if (options.open) {
       openDashboard(port);
@@ -43,6 +53,9 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     }
 
     const port = options.port || 47392;
+
+    // Show header first so debug messages appear below it
+    output.header('tdd', 'local');
 
     // Show loading indicator if downloading baselines (but not in verbose mode since child shows progress)
     if (options.baselineBuild && !globalOptions.verbose) {
@@ -149,8 +162,6 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       process.exit(1);
     }
 
-    output.success(`TDD server started at http://localhost:${port}`);
-
     // Write server info to global location for SDK discovery (iOS/Swift can read this)
     try {
       const globalVizzlyDir = join(homedir(), '.vizzly');
@@ -168,24 +179,34 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       // Non-fatal, SDK can still use health check
     }
 
+    // Get colors for styled output
+    let colors = output.getColors();
+
+    // Show dashboard URL in a branded box
+    let dashboardUrl = `http://localhost:${port}`;
+    output.printBox(colors.brand.info(colors.underline(dashboardUrl)), {
+      title: 'Dashboard',
+      style: 'branded',
+    });
+
+    // Verbose mode: show next steps
+    if (globalOptions.verbose) {
+      output.blank();
+      output.print(`  ${colors.brand.textTertiary('Next steps')}`);
+      output.print(
+        `    ${colors.brand.textMuted('1.')} Run tests in watch mode ${colors.brand.textMuted('(npm test -- --watch)')}`
+      );
+      output.print(
+        `    ${colors.brand.textMuted('2.')} Review visual changes in the dashboard`
+      );
+      output.print(
+        `    ${colors.brand.textMuted('3.')} Accept or reject baseline updates`
+      );
+    }
+
+    // Always show stop hint
     output.blank();
-    output.info('Dashboard:');
-    output.info(`  http://localhost:${port}/`);
-    output.blank();
-    output.info('Available views:');
-    output.info(`  Comparisons: http://localhost:${port}/`);
-    output.info(`  Stats:       http://localhost:${port}/stats`);
-    output.info(`  Settings:    http://localhost:${port}/settings`);
-    output.info(`  Projects:    http://localhost:${port}/projects`);
-    output.blank();
-    output.info('Next steps:');
-    output.info(
-      '  1. Run your tests in watch mode (e.g., npm test -- --watch)'
-    );
-    output.info('  2. View live visual comparisons in the dashboard');
-    output.info('  3. Accept/reject baselines directly in the UI');
-    output.blank();
-    output.info('Stop server: npx vizzly tdd stop');
+    output.hint('Stop with: vizzly tdd stop');
 
     if (options.open) {
       openDashboard(port);
@@ -341,10 +362,12 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
   }
 
   try {
+    let _colors = output.getColors();
+
     // Try to kill the process gracefully
     process.kill(pid, 'SIGTERM');
 
-    output.info(`Stopping TDD server (PID: ${pid})...`);
+    output.startSpinner('Stopping TDD server...');
 
     // Give it a moment to shut down gracefully
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -354,16 +377,16 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
       process.kill(pid, 0); // Just check if process exists
       // If we get here, process is still running, force kill it
       process.kill(pid, 'SIGKILL');
-      output.info('Force killed TDD server');
+      output.stopSpinner();
+      output.debug('tdd', 'Force killed process');
     } catch {
       // Process is gone, which is what we want
+      output.stopSpinner();
     }
 
     // Clean up files
     if (existsSync(pidFile)) unlinkSync(pidFile);
     if (existsSync(serverFile)) unlinkSync(serverFile);
-
-    output.success('TDD server stopped');
   } catch (error) {
     if (error.code === 'ESRCH') {
       // Process not found - clean up stale files
@@ -412,30 +435,39 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
     const health = await checkServerHealth(serverInfo.port);
 
     if (health.running) {
-      output.success(`TDD server running (PID: ${pid})`);
-      output.info(`Dashboard: http://localhost:${serverInfo.port}/`);
-      output.blank();
-      output.info('Available views:');
-      output.info(`  Comparisons: http://localhost:${serverInfo.port}/`);
-      output.info(`  Stats:       http://localhost:${serverInfo.port}/stats`);
-      output.info(
-        `  Settings:    http://localhost:${serverInfo.port}/settings`
-      );
-      output.info(
-        `  Projects:    http://localhost:${serverInfo.port}/projects`
-      );
+      let colors = output.getColors();
 
+      // Show header
+      output.header('tdd', 'local');
+
+      // Show running status with uptime
+      let uptimeStr = '';
       if (serverInfo.startTime) {
         const uptime = Math.floor((Date.now() - serverInfo.startTime) / 1000);
         const hours = Math.floor(uptime / 3600);
         const minutes = Math.floor((uptime % 3600) / 60);
         const seconds = uptime % 60;
-        let uptimeStr = '';
         if (hours > 0) uptimeStr += `${hours}h `;
         if (minutes > 0 || hours > 0) uptimeStr += `${minutes}m `;
         uptimeStr += `${seconds}s`;
+      }
+
+      output.print(
+        `  ${output.statusDot('success')} Running ${uptimeStr ? colors.brand.textTertiary(`· ${uptimeStr}`) : ''}`
+      );
+      output.blank();
+
+      // Show dashboard URL in a branded box
+      let dashboardUrl = `http://localhost:${serverInfo.port}`;
+      output.printBox(colors.brand.info(colors.underline(dashboardUrl)), {
+        title: 'Dashboard',
+        style: 'branded',
+      });
+
+      // Verbose mode: show PID
+      if (globalOptions.verbose) {
         output.blank();
-        output.info(`Uptime: ${uptimeStr}`);
+        output.print(`  ${colors.brand.textTertiary('PID:')} ${pid}`);
       }
     } else {
       output.warn(

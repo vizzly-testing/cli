@@ -105,11 +105,10 @@ export async function tddCommand(
       output.header('tdd', mode);
 
       // Show config in verbose mode
-      output.debug('config', 'loaded', {
-        port: config.server.port,
-        branch,
-        threshold: config.comparison.threshold,
-      });
+      output.debug(
+        'config',
+        `port=${config.server.port} threshold=${config.comparison.threshold}`
+      );
     }
 
     // Create functional dependencies
@@ -154,7 +153,7 @@ export async function tddCommand(
           createError: (msg, code) => new VizzlyError(msg, code),
           output,
           onServerReady: data => {
-            output.debug('server', `listening on :${data.port}`);
+            output.debug('server', `ready on :${data.port}`);
           },
         },
       });
@@ -193,7 +192,7 @@ export async function tddCommand(
           output.debug('build', `created ${data.buildId?.substring(0, 8)}`);
         },
         onServerReady: data => {
-          output.debug('server', `listening on :${data.port}`);
+          output.debug('server', `ready on :${data.port}`);
         },
         onFinalizeFailed: data => {
           output.warn(`Failed to finalize build: ${data.error}`);

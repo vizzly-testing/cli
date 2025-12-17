@@ -9,6 +9,7 @@ import {
   createApiClient as defaultCreateApiClient,
   finalizeBuild as defaultFinalizeApiBuild,
   getBuild as defaultGetBuild,
+  getTokenContext as defaultGetTokenContext,
 } from '../api/index.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
@@ -47,6 +48,7 @@ export async function runCommand(
     createApiBuild = defaultCreateApiBuild,
     finalizeApiBuild = defaultFinalizeApiBuild,
     getBuild = defaultGetBuild,
+    getTokenContext = defaultGetTokenContext,
     createServerManager = defaultCreateServerManager,
     createBuildObject = defaultCreateBuildObject,
     createUploader = defaultCreateUploader,
@@ -292,15 +294,45 @@ export async function runCommand(
         buildId = result.buildId;
       }
 
-      output.success('Test run completed successfully');
+      output.complete('Test run completed');
 
-      // Show Vizzly summary
+      // Show Vizzly summary with link to results
       if (result.buildId) {
+        output.blank();
+        let colors = output.getColors();
         output.print(
-          `[vizzly] Captured ${result.screenshotsCaptured} screenshots in build ${result.buildId}`
+          `  ${colors.brand.textTertiary('Screenshots')}  ${colors.white(result.screenshotsCaptured)}`
         );
-        if (result.url) {
-          output.print(`[vizzly] View results at ${result.url}`);
+
+        // Get URL from result, or construct one as fallback
+        let displayUrl = result.url;
+        if (!displayUrl && config.apiKey) {
+          try {
+            let client = createApiClient({
+              baseUrl: config.apiUrl,
+              token: config.apiKey,
+              command: 'run',
+            });
+            let tokenContext = await getTokenContext(client);
+            let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
+            if (tokenContext.organization?.slug && tokenContext.project?.slug) {
+              displayUrl = `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${result.buildId}`;
+            }
+          } catch {
+            // Fallback to simple URL if context fetch fails
+            let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
+            displayUrl = `${baseUrl}/builds/${result.buildId}`;
+          }
+        }
+
+        if (displayUrl) {
+          output.print(
+            `  ${colors.brand.textTertiary('Results')}      ${colors.cyan(colors.underline(displayUrl))}`
+          );
+        } else {
+          output.print(
+            `  ${colors.brand.textTertiary('Build')}        ${colors.dim(result.buildId)}`
+          );
         }
       }
     } catch (error) {

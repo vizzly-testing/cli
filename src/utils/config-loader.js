@@ -95,10 +95,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
       config.projectSlug = projectMapping.projectSlug;
       config.organizationSlug = projectMapping.organizationSlug;
 
-      output.debug('Using project mapping', {
-        project: projectMapping.projectSlug,
-        org: projectMapping.organizationSlug,
-      });
+      output.debug(
+        'config',
+        `linked to ${projectMapping.projectSlug} (${projectMapping.organizationSlug})`
+      );
     }
   }
 
@@ -109,14 +109,14 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   if (envApiKey) {
     config.apiKey = envApiKey;
-    output.debug('Using API token from environment');
+    output.debug('config', 'using token from environment');
   }
   if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
   if (envParallelId) config.parallelId = envParallelId;
 
   // 5. Apply CLI overrides (highest priority)
   if (cliOverrides.token) {
-    output.debug('Using API token from --token flag');
+    output.debug('config', 'using token from --token flag');
   }
 
   applyCLIOverrides(config, cliOverrides);

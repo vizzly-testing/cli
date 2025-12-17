@@ -11,8 +11,7 @@ try {
   vizzlyScreenshot = module.vizzlyScreenshot;
 } catch (error) {
   console.warn('Warning: Could not import Vizzly client SDK:', error.message);
-  // Mock for testing
-  vizzlyScreenshot = async () => {};
+  vizzlyScreenshot = null;
 }
 
 /**
@@ -64,10 +63,12 @@ export async function captureAndSendScreenshot(
   page,
   story,
   viewport,
-  screenshotOptions = {}
+  screenshotOptions = {},
+  sendScreenshot = vizzlyScreenshot
 ) {
   let name = generateScreenshotName(story, viewport);
   let screenshot = await captureScreenshot(page, screenshotOptions);
 
-  await vizzlyScreenshot(name, screenshot);
+  if (!sendScreenshot) return;
+  await sendScreenshot(name, screenshot);
 }

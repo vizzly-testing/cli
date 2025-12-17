@@ -2,7 +2,8 @@
  * Tests for viewport utilities
  */
 
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import {
   formatViewport,
   getCommonViewports,
@@ -13,7 +14,7 @@ describe('parseViewport', () => {
   it('should parse valid viewport string', () => {
     let viewport = parseViewport('mobile:375x667');
 
-    expect(viewport).toEqual({
+    assert.deepEqual(viewport, {
       name: 'mobile',
       width: 375,
       height: 667,
@@ -23,7 +24,7 @@ describe('parseViewport', () => {
   it('should parse viewport with spaces', () => {
     let viewport = parseViewport('  desktop : 1920 x 1080  ');
 
-    expect(viewport).toEqual({
+    assert.deepEqual(viewport, {
       name: 'desktop',
       width: 1920,
       height: 1080,
@@ -31,15 +32,15 @@ describe('parseViewport', () => {
   });
 
   it('should return null for invalid format', () => {
-    expect(parseViewport('invalid')).toBeNull();
-    expect(parseViewport('mobile-375x667')).toBeNull();
-    expect(parseViewport('mobile:375')).toBeNull();
+    assert.strictEqual(parseViewport('invalid'), null);
+    assert.strictEqual(parseViewport('mobile-375x667'), null);
+    assert.strictEqual(parseViewport('mobile:375'), null);
   });
 
   it('should return null for non-string input', () => {
-    expect(parseViewport(null)).toBeNull();
-    expect(parseViewport(undefined)).toBeNull();
-    expect(parseViewport(123)).toBeNull();
+    assert.strictEqual(parseViewport(null), null);
+    assert.strictEqual(parseViewport(undefined), null);
+    assert.strictEqual(parseViewport(123), null);
   });
 });
 
@@ -51,13 +52,13 @@ describe('formatViewport', () => {
       height: 667,
     });
 
-    expect(formatted).toBe('mobile:375x667');
+    assert.strictEqual(formatted, 'mobile:375x667');
   });
 
   it('should return empty string for invalid input', () => {
-    expect(formatViewport(null)).toBe('');
-    expect(formatViewport({})).toBe('');
-    expect(formatViewport({ name: 'test' })).toBe('');
+    assert.strictEqual(formatViewport(null), '');
+    assert.strictEqual(formatViewport({}), '');
+    assert.strictEqual(formatViewport({ name: 'test' }), '');
   });
 });
 
@@ -65,10 +66,10 @@ describe('getCommonViewports', () => {
   it('should return array of common viewports', () => {
     let viewports = getCommonViewports();
 
-    expect(viewports).toBeInstanceOf(Array);
-    expect(viewports.length).toBeGreaterThan(0);
-    expect(viewports[0]).toHaveProperty('name');
-    expect(viewports[0]).toHaveProperty('width');
-    expect(viewports[0]).toHaveProperty('height');
+    assert.ok(Array.isArray(viewports));
+    assert.ok(viewports.length > 0);
+    assert.ok('name' in viewports[0]);
+    assert.ok('width' in viewports[0]);
+    assert.ok('height' in viewports[0]);
   });
 });

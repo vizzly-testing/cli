@@ -310,6 +310,20 @@ jobs:
       env:
         CI: true
 
+    - name: Install Storybook fixture dependencies
+      working-directory: ./clients/storybook/example-storybook
+      run: npm ci
+
+    - name: Build Storybook fixture
+      working-directory: ./clients/storybook/example-storybook
+      run: npm run build-storybook
+
+    - name: Run E2E tests
+      working-directory: ./clients/storybook
+      run: npm run test:e2e
+      env:
+        CI: true
+
     - name: Build package
       working-directory: ./clients/storybook
       run: npm run build

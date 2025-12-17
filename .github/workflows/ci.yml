@@ -149,6 +149,31 @@ jobs:
         VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
         VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
+  test-tui:
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'npm'
+
+    - name: Setup tui-driver
+      uses: vizzly-testing/tui-driver@main
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build
+      run: npm run build
+
+    - name: Run TUI visual tests
+      run: npm run test:tui
+
   changes-ruby:
     runs-on: ubuntu-latest
     outputs:
@@ -443,13 +468,13 @@ jobs:
 
   ci-check:
     runs-on: ubuntu-latest
-    needs: [lint, test, test-site, test-reporter, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client, changes-vitest, test-vitest-client, changes-swift, test-swift-client]
+    needs: [lint, test, test-site, test-reporter, test-tui, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client, changes-vitest, test-vitest-client, changes-swift, test-swift-client]
     if: always()
     steps:
       - name: Check if all jobs passed
         run: |
           # Required jobs that always run
-          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.test-site.result }}" == "failure" || "${{ needs.test-reporter.result }}" == "failure" ]]; then
+          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.test-site.result }}" == "failure" || "${{ needs.test-reporter.result }}" == "failure" || "${{ needs.test-tui.result }}" == "failure" ]]; then
             echo "One or more required jobs failed"
             exit 1
           fi

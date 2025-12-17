@@ -70,6 +70,7 @@
     "test:watch": "node --test --watch $(find tests -name '*.test.js')",
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",
     "test:reporter:visual": "node bin/vizzly.js run \"npm run test:reporter\"",
+    "test:tui": "node --test tests/tui/*.test.js",
     "lint": "biome check src tests",
     "lint:fix": "biome check --write src tests",
     "format": "biome format --write src tests",
@@ -124,6 +125,7 @@
     "rimraf": "^6.0.1",
     "tailwindcss": "^4.1.13",
     "tsd": "^0.33.0",
+    "tui-driver": "github:vizzly-testing/tui-driver",
     "typescript": "^5.0.4",
     "vite": "^7.1.7",
     "wouter": "^3.7.1"

@@ -1397,8 +1397,8 @@ export class TddService {
       mkdirSync(this.baselinePath, { recursive: true });
     }
 
-    // Update the baseline
-    let baselineImagePath = safePath(this.baselinePath, `${filename}.png`);
+    // Update the baseline (filename already includes .png extension)
+    let baselineImagePath = safePath(this.baselinePath, filename);
 
     writeFileSync(baselineImagePath, imageBuffer);
 

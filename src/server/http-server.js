@@ -127,6 +127,10 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
   const stop = () => {
     if (server) {
       return new Promise(resolve => {
+        // Close all keep-alive connections immediately (Node 18.2+)
+        if (server.closeAllConnections) {
+          server.closeAllConnections();
+        }
         server.close(() => {
           server = null;
           resolve();

@@ -66,14 +66,17 @@
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",
     "test:types": "tsd",
     "prepublishOnly": "npm run build",
-    "test": "node --experimental-test-coverage --test --test-name-pattern='.*' $(find tests -name '*.test.js')",
-    "test:watch": "node --test --watch $(find tests -name '*.test.js')",
+    "test": "node --experimental-test-coverage --test --test-reporter=spec $(find tests -name '*.test.js')",
+    "test:watch": "node --test --test-reporter=spec --watch $(find tests -name '*.test.js')",
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",
     "test:reporter:visual": "node bin/vizzly.js run \"npm run test:reporter\"",
+    "test:tui": "node --test --test-reporter=spec tests/tui/*.test.js",
+    "test:tui:docker": "./tests/tui/run-tui-tests.sh",
     "lint": "biome check src tests",
-    "lint:fix": "biome check --write src tests",
+    "lint:fix": "biome check --write --unsafe src tests",
     "format": "biome format --write src tests",
-    "format:check": "biome format src tests"
+    "format:check": "biome format src tests",
+    "fix": "npm run format && npm run lint:fix"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -124,6 +127,7 @@
     "rimraf": "^6.0.1",
     "tailwindcss": "^4.1.13",
     "tsd": "^0.33.0",
+    "tui-driver": "github:vizzly-testing/tui-driver",
     "typescript": "^5.0.4",
     "vite": "^7.1.7",
     "wouter": "^3.7.1"

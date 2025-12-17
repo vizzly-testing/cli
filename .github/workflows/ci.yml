@@ -172,9 +172,12 @@ jobs:
       run: npm run build
 
     - name: Run TUI visual tests
-      run: npm run test:tui
+      run: node bin/vizzly.js run "npm run test:tui"
       env:
         CI: true
+        VIZZLY_TOKEN: ${{ secrets.VIZZLY_TUI_TOKEN }}
+        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
   changes-ruby:
     runs-on: ubuntu-latest

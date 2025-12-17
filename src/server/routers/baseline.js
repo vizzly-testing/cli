@@ -121,8 +121,12 @@ export function createBaselineRouter({ screenshotHandler, tddService }) {
         });
         return true;
       } catch (error) {
-        output.error('Error deleting comparison:', error);
-        sendError(res, 500, error.message);
+        if (error.code === 'NOT_FOUND') {
+          sendError(res, 404, error.message);
+        } else {
+          output.error('Error deleting comparison:', error);
+          sendError(res, 500, error.message);
+        }
         return true;
       }
     }

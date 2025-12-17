@@ -20,17 +20,23 @@ let isDisabled = false;
 const DEFAULT_TIMEOUT_MS = 30000;
 
 // Log levels for client SDK output control
-const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+export const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
 
 /**
  * Check if client should log at the given level
  * Respects VIZZLY_CLIENT_LOG_LEVEL env var (default: 'error' - only show errors)
- * @private
+ * @param {string} level - Log level to check
+ * @param {string} [configuredLevel] - Configured log level (defaults to env var)
+ * @returns {boolean} Whether to log at this level
  */
-function shouldLogClient(level) {
+export function shouldLogClient(level, configuredLevel) {
   let configLevel =
-    process.env.VIZZLY_CLIENT_LOG_LEVEL?.toLowerCase() || 'error';
-  return (LOG_LEVELS[level] || 0) >= (LOG_LEVELS[configLevel] || 3);
+    configuredLevel ||
+    process.env.VIZZLY_CLIENT_LOG_LEVEL?.toLowerCase() ||
+    'error';
+  let levelValue = LOG_LEVELS[level] ?? 0;
+  let configValue = LOG_LEVELS[configLevel] ?? 3;
+  return levelValue >= configValue;
 }
 
 /**
@@ -54,21 +60,23 @@ function disableVizzly() {
 
 /**
  * Auto-discover local TDD server by checking for server.json
- * @private
+ * @param {string} [startDir] - Directory to start search from (defaults to cwd)
+ * @param {Object} [deps] - Injectable dependencies for testing
  * @returns {string|null} Server URL if found
  */
-function autoDiscoverTddServer() {
+export function autoDiscoverTddServer(startDir, deps = {}) {
+  let { exists = existsSync, readFile = readFileSync } = deps;
   try {
     // Look for .vizzly/server.json in current directory and parent directories
-    let currentDir = process.cwd();
+    let currentDir = startDir || process.cwd();
     const root = parse(currentDir).root;
 
     while (currentDir !== root) {
       const serverJsonPath = join(currentDir, '.vizzly', 'server.json');
 
-      if (existsSync(serverJsonPath)) {
+      if (exists(serverJsonPath)) {
         try {
-          const serverInfo = JSON.parse(readFileSync(serverJsonPath, 'utf8'));
+          const serverInfo = JSON.parse(readFile(serverJsonPath, 'utf8'));
           if (serverInfo.port) {
             const url = `http://localhost:${serverInfo.port}`;
             return url;
@@ -167,6 +175,7 @@ function createSimpleClient(serverUrl) {
             errorData.tddMode &&
             errorData.comparison
           ) {
+            clearTimeout(timeoutId);
             let comp = errorData.comparison;
 
             // Return success so test continues and captures remaining screenshots

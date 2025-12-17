@@ -772,9 +772,7 @@ export const createTddHandler = (
 
   const deleteComparison = async comparisonId => {
     const reportData = readReportData();
-    const comparison = reportData.comparisons.find(
-      c => c.id === comparisonId
-    );
+    const comparison = reportData.comparisons.find(c => c.id === comparisonId);
 
     if (!comparison) {
       const error = new Error(`Comparison not found with ID: ${comparisonId}`);
@@ -804,7 +802,9 @@ export const createTddHandler = (
           );
           if (metadata.screenshots.length < originalLength) {
             writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-            output.debug(`Removed ${comparison.signature} from baseline metadata`);
+            output.debug(
+              `Removed ${comparison.signature} from baseline metadata`
+            );
           }
         }
       }

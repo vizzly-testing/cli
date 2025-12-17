@@ -873,6 +873,52 @@ describe('tdd/tdd-service', () => {
       assert.ok(service.baselineData);
       assert.strictEqual(service.baselineData.buildId, 'local');
     });
+
+    it('saves baseline to correct path without double .png extension', async () => {
+      // This test ensures that acceptBaseline saves to the same path
+      // that compareScreenshot will look for on subsequent runs.
+      // The bug was: generateBaselineFilename returns "name_hash.png"
+      // but acceptBaseline was appending ".png" again, saving to "name_hash.png.png"
+      let writtenPaths = [];
+      let mockDeps = createMockDeps({
+        fs: {
+          existsSync: path => path.includes('current'),
+          mkdirSync: () => {},
+          readFileSync: () => Buffer.from('image-data'),
+          writeFileSync: (path, _data) => writtenPaths.push(path),
+        },
+        signature: {
+          // Use realistic filename generation that includes .png
+          generateScreenshotSignature: (name, _props) => `${name}|1920|chrome`,
+          generateBaselineFilename: (name, _sig) => `${name}_abc123.png`,
+          generateComparisonId: sig => `comp-${sig}`,
+          sanitizeScreenshotName: name => name,
+          validateScreenshotProperties: props => props,
+          safePath: (...parts) => parts.join('/'),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let comparison = {
+        id: 'comp-1',
+        name: 'homepage',
+        properties: { browser: 'chrome', viewport_width: 1920 },
+      };
+
+      await service.acceptBaseline(comparison);
+
+      // Baseline should be saved to baselines/homepage_abc123.png (not .png.png)
+      let baselinePath = writtenPaths.find(p => p.includes('baselines'));
+      assert.ok(baselinePath, 'Should write to baselines directory');
+      assert.ok(
+        baselinePath.endsWith('homepage_abc123.png'),
+        `Baseline path should end with .png, got: ${baselinePath}`
+      );
+      assert.ok(
+        !baselinePath.endsWith('.png.png'),
+        `Baseline path should NOT have double .png extension, got: ${baselinePath}`
+      );
+    });
   });
 
   describe('updateBaselines', () => {

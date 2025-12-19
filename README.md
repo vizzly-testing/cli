@@ -238,13 +238,13 @@ vizzly run "npm test" --parallel-id "ci-run-123"  # For parallel CI builds
 - `--allow-no-token` - Allow running without API token (useful for local development)
 - `--token <token>` - API token override
 
-## Dev Command
+## TDD Command
 
-For local development with visual testing, use the `dev` command:
+For local development with visual testing, use the `tdd` command:
 
 ```bash
-# Start interactive dev server (runs in background)
-vizzly dev start
+# Start TDD server (runs in background)
+vizzly tdd start
 
 # Run your tests in watch mode (same terminal or new one)
 npm test -- --watch
@@ -252,7 +252,7 @@ npm test -- --watch
 # View the dashboard at http://localhost:47392
 ```
 
-**Interactive Dashboard:** The dev dashboard provides real-time feedback:
+**Interactive Dashboard:** The TDD dashboard provides real-time feedback:
 - **Visual Comparisons** - See diffs as tests run with multiple view modes
 - **Baseline Management** - Accept/reject changes directly from the UI
 - **Configuration Editor** - Edit settings without touching config files
@@ -260,23 +260,23 @@ npm test -- --watch
 - **Test Statistics** - Real-time pass/fail metrics
 - **Dark Theme** - Easy on the eyes during long sessions
 
-**Dev Subcommands:**
+**TDD Subcommands:**
 
 ```bash
-# Start the dev server (primary workflow)
-vizzly dev start [options]
+# Start the TDD server (primary workflow)
+vizzly tdd start [options]
 
 # Run tests once with ephemeral server (generates static report)
-vizzly dev run "npm test" [options]
+vizzly tdd run "npm test" [options]
 
-# Check dev server status
-vizzly dev status
+# Check TDD server status
+vizzly tdd status
 
-# Stop a running dev server
-vizzly dev stop
+# Stop a running TDD server
+vizzly tdd stop
 ```
 
-**Dev Command Options:**
+**TDD Command Options:**
 - `--set-baseline` - Accept current screenshots as new baseline
 - `--baseline-build <id>` - Use specific build as baseline (requires API token)
 - `--threshold <number>` - Comparison threshold (CIEDE2000 Delta E, default: 2.0)
@@ -340,10 +340,8 @@ VIZZLY_TOKEN=your-token vizzly doctor --api
 vizzly doctor --json
 ```
 
-The `dev` command provides fast local development with immediate visual feedback. See the
-[Dev Mode Guide](./docs/dev-mode.md) for complete details on local visual testing.
-
-> **Note:** The `vizzly tdd` command is deprecated and will be removed in the next major version. Please use `vizzly dev` instead.
+The `tdd` command provides fast local development with immediate visual feedback. See the
+[TDD Mode Guide](./docs/tdd-mode.md) for complete details on local visual testing.
 
 ## Configuration
 

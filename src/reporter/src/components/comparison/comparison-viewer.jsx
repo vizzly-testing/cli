@@ -1,8 +1,10 @@
+import {
+  OnionSkinMode,
+  OverlayMode,
+  ToggleView,
+} from '@vizzly-testing/observatory';
 import { useCallback, useMemo, useState } from 'react';
 import { VIEW_MODES } from '../../utils/constants.js';
-import { OnionSkinMode } from './comparison-modes/onion-skin-mode.jsx';
-import { OverlayMode } from './comparison-modes/overlay-mode.jsx';
-import { ToggleView } from './comparison-modes/toggle-view.jsx';
 
 /**
  * Comparison Viewer for inline card display

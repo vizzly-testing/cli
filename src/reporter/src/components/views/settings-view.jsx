@@ -1,9 +1,3 @@
-import {
-  CheckCircleIcon,
-  Cog6ToothIcon,
-  ServerIcon,
-  WrenchScrewdriverIcon,
-} from '@heroicons/react/24/outline';
 import { useCallback, useState } from 'react';
 import {
   useConfig,
@@ -15,12 +9,9 @@ import {
   Button,
   Card,
   CardBody,
-  CardHeader,
   Input,
   Select,
   Skeleton,
-  SkeletonCard,
-  Tabs,
   Toggle,
 } from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
@@ -37,7 +28,7 @@ function getInitialFormData(config) {
 }
 
 function SourceBadge({ source }) {
-  const variants = {
+  let variants = {
     default: 'default',
     project: 'info',
     global: 'purple',
@@ -45,7 +36,7 @@ function SourceBadge({ source }) {
     cli: 'warning',
   };
 
-  const labels = {
+  let labels = {
     default: 'Default',
     project: 'Project',
     global: 'Global',
@@ -60,24 +51,38 @@ function SourceBadge({ source }) {
   );
 }
 
-function SettingsForm({ config, sources, onSave, isSaving }) {
-  const initialFormData = getInitialFormData(config);
-  const [formData, setFormData] = useState(initialFormData);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [activeTab, setActiveTab] = useState('general');
+function SettingSection({ title, source, description, children }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
+          {title}
+        </h3>
+        <SourceBadge source={source || 'default'} />
+      </div>
+      {description && <p className="text-sm text-slate-400">{description}</p>}
+      <div className="space-y-4">{children}</div>
+    </div>
+  );
+}
 
-  const handleFieldChange = useCallback((name, value) => {
+function SettingsForm({ config, sources, onSave, isSaving }) {
+  let initialFormData = getInitialFormData(config);
+  let [formData, setFormData] = useState(initialFormData);
+  let [hasChanges, setHasChanges] = useState(false);
+
+  let handleFieldChange = useCallback((name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
     setHasChanges(true);
   }, []);
 
-  const handleReset = useCallback(() => {
+  let handleReset = useCallback(() => {
     setFormData(getInitialFormData(config));
     setHasChanges(false);
   }, [config]);
 
-  const handleSave = useCallback(() => {
-    const updates = {
+  let handleSave = useCallback(() => {
+    let updates = {
       comparison: {
         threshold: formData.threshold,
       },
@@ -96,148 +101,133 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
     onSave(updates, () => setHasChanges(false));
   }, [formData, onSave]);
 
-  const tabs = [
-    { key: 'general', label: 'General', icon: Cog6ToothIcon },
-    { key: 'server', label: 'Server', icon: ServerIcon },
-    { key: 'build', label: 'Build', icon: WrenchScrewdriverIcon },
-  ];
-
   return (
-    <div className="space-y-6">
-      {/* Tab Navigation */}
-      <Tabs
-        tabs={tabs}
-        activeTab={activeTab}
-        onChange={setActiveTab}
-        variant="default"
-      />
-
-      {/* Tab Content */}
-      {activeTab === 'general' && (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Left Column */}
+      <div className="space-y-6">
+        {/* Comparison Settings */}
         <Card hover={false}>
-          <CardHeader
-            icon={Cog6ToothIcon}
-            title="General Settings"
-            description="Configure visual comparison and TDD behavior"
-            iconColor="bg-amber-500/10 text-amber-400"
-          />
-          <CardBody className="space-y-6">
-            <Input
-              label="Visual Comparison Threshold"
-              type="number"
-              value={formData.threshold}
-              onChange={e =>
-                handleFieldChange('threshold', parseFloat(e.target.value))
-              }
-              hint="Percentage of pixel difference allowed before marking as failed (0.0 - 1.0)"
-              step="0.01"
-              min="0"
-              max="1"
-            />
-
-            <Toggle
-              label="Auto-open Report"
-              description="Automatically open the dashboard in your browser when starting TDD mode"
-              checked={formData.openReport}
-              onChange={e => handleFieldChange('openReport', e.target.checked)}
-            />
-
-            <div className="pt-4 border-t border-slate-700/50 flex items-center gap-2">
-              <span className="text-sm text-slate-500">Config source:</span>
-              <SourceBadge source={sources?.comparison || 'default'} />
-            </div>
+          <CardBody>
+            <SettingSection
+              title="Comparison"
+              source={sources?.comparison}
+              description="Configure how screenshots are compared"
+            >
+              <Input
+                label="Threshold"
+                type="number"
+                value={formData.threshold}
+                onChange={e =>
+                  handleFieldChange('threshold', parseFloat(e.target.value))
+                }
+                hint="CIEDE2000 Delta E. 0 = exact, 2 = recommended"
+                step="0.1"
+                min="0"
+              />
+            </SettingSection>
           </CardBody>
         </Card>
-      )}
 
-      {activeTab === 'server' && (
+        {/* Server Settings */}
         <Card hover={false}>
-          <CardHeader
-            icon={ServerIcon}
-            title="Server Settings"
-            description="Local screenshot server configuration"
-            iconColor="bg-blue-500/10 text-blue-400"
-          />
-          <CardBody className="space-y-6">
-            <Input
-              label="Server Port"
-              type="number"
-              value={formData.port}
-              onChange={e =>
-                handleFieldChange('port', parseInt(e.target.value, 10))
-              }
-              hint="Port for the local screenshot server"
-            />
-
-            <Input
-              label="Server Timeout"
-              type="number"
-              value={formData.timeout}
-              onChange={e =>
-                handleFieldChange('timeout', parseInt(e.target.value, 10))
-              }
-              hint="Request timeout in milliseconds"
-            />
-
-            <div className="pt-4 border-t border-slate-700/50 flex items-center gap-2">
-              <span className="text-sm text-slate-500">Config source:</span>
-              <SourceBadge source={sources?.server || 'default'} />
-            </div>
+          <CardBody>
+            <SettingSection
+              title="Server"
+              source={sources?.server}
+              description="Local screenshot server configuration"
+            >
+              <Input
+                label="Port"
+                type="number"
+                value={formData.port}
+                onChange={e =>
+                  handleFieldChange('port', parseInt(e.target.value, 10))
+                }
+                hint="Default: 47392"
+              />
+              <Input
+                label="Timeout"
+                type="number"
+                value={formData.timeout}
+                onChange={e =>
+                  handleFieldChange('timeout', parseInt(e.target.value, 10))
+                }
+                hint="Request timeout in milliseconds"
+              />
+            </SettingSection>
           </CardBody>
         </Card>
-      )}
+      </div>
 
-      {activeTab === 'build' && (
+      {/* Right Column */}
+      <div className="space-y-6">
+        {/* Build Settings */}
         <Card hover={false}>
-          <CardHeader
-            icon={WrenchScrewdriverIcon}
-            title="Build Settings"
-            description="Configure build naming and environment"
-            iconColor="bg-purple-500/10 text-purple-400"
-          />
-          <CardBody className="space-y-6">
-            <Input
-              label="Build Name Template"
-              type="text"
-              value={formData.buildName}
-              onChange={e => handleFieldChange('buildName', e.target.value)}
-              hint="Template for build names (use {timestamp} for current time)"
-            />
-
-            <Select
-              label="Environment"
-              value={formData.environment}
-              onChange={e => handleFieldChange('environment', e.target.value)}
-              hint="Target environment for builds"
-              options={[
-                { value: 'test', label: 'Test' },
-                { value: 'development', label: 'Development' },
-                { value: 'staging', label: 'Staging' },
-                { value: 'production', label: 'Production' },
-              ]}
-            />
-
-            <div className="pt-4 border-t border-slate-700/50 flex items-center gap-2">
-              <span className="text-sm text-slate-500">Config source:</span>
-              <SourceBadge source={sources?.build || 'default'} />
-            </div>
+          <CardBody>
+            <SettingSection
+              title="Build"
+              source={sources?.build}
+              description="Build naming and environment"
+            >
+              <Input
+                label="Name Template"
+                type="text"
+                value={formData.buildName}
+                onChange={e => handleFieldChange('buildName', e.target.value)}
+                hint="Use {timestamp} for current time"
+              />
+              <Select
+                label="Environment"
+                value={formData.environment}
+                onChange={e => handleFieldChange('environment', e.target.value)}
+                options={[
+                  { value: 'test', label: 'Test' },
+                  { value: 'development', label: 'Development' },
+                  { value: 'staging', label: 'Staging' },
+                  { value: 'production', label: 'Production' },
+                ]}
+              />
+            </SettingSection>
           </CardBody>
         </Card>
-      )}
 
-      {/* Floating Save Bar */}
-      {hasChanges && (
-        <div className="fixed bottom-6 right-6 left-6 md:left-auto md:w-auto">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-4 flex items-center gap-4">
-            <span className="text-sm text-slate-400 hidden md:inline">
-              Unsaved changes
-            </span>
-            <div className="flex gap-3 flex-1 md:flex-initial">
+        {/* TDD Settings */}
+        <Card hover={false}>
+          <CardBody>
+            <SettingSection
+              title="TDD Mode"
+              source={sources?.tdd}
+              description="Development workflow preferences"
+            >
+              <Toggle
+                label="Auto-open Report"
+                description="Open dashboard in browser when starting TDD mode"
+                checked={formData.openReport}
+                onChange={e =>
+                  handleFieldChange('openReport', e.target.checked)
+                }
+              />
+            </SettingSection>
+          </CardBody>
+        </Card>
+      </div>
+
+      {/* Full-width Actions */}
+      <div className="lg:col-span-2">
+        <Card hover={false}>
+          <CardBody className="flex items-center justify-between">
+            <div className="text-sm text-slate-400">
+              {hasChanges ? (
+                <span className="text-amber-400">You have unsaved changes</span>
+              ) : (
+                <span>Settings saved to project config</span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 onClick={handleReset}
-                disabled={isSaving}
-                className="flex-1 md:flex-initial"
+                disabled={!hasChanges || isSaving}
               >
                 Reset
               </Button>
@@ -245,25 +235,24 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
                 variant="primary"
                 onClick={handleSave}
                 loading={isSaving}
-                icon={CheckCircleIcon}
-                className="flex-1 md:flex-initial"
+                disabled={!hasChanges}
               >
                 Save Changes
               </Button>
             </div>
-          </div>
-        </div>
-      )}
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }
 
 export default function SettingsView() {
-  const { data: configData, isLoading, error, refetch } = useConfig();
-  const updateMutation = useUpdateProjectConfig();
-  const { addToast } = useToast();
+  let { data: configData, isLoading, error, refetch } = useConfig();
+  let updateMutation = useUpdateProjectConfig();
+  let { addToast } = useToast();
 
-  const handleSave = useCallback(
+  let handleSave = useCallback(
     (updates, onSuccess) => {
       updateMutation.mutate(updates, {
         onSuccess: () => {
@@ -285,8 +274,38 @@ export default function SettingsView() {
           <Skeleton variant="heading" className="w-32 mb-2" />
           <Skeleton variant="text" className="w-64" />
         </div>
-        <Skeleton variant="text" className="w-96 h-10" />
-        <SkeletonCard />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <Card hover={false}>
+              <CardBody className="space-y-4">
+                <Skeleton variant="text" className="w-24" />
+                <Skeleton variant="text" className="w-full h-10" />
+              </CardBody>
+            </Card>
+            <Card hover={false}>
+              <CardBody className="space-y-4">
+                <Skeleton variant="text" className="w-20" />
+                <Skeleton variant="text" className="w-full h-10" />
+                <Skeleton variant="text" className="w-full h-10" />
+              </CardBody>
+            </Card>
+          </div>
+          <div className="space-y-6">
+            <Card hover={false}>
+              <CardBody className="space-y-4">
+                <Skeleton variant="text" className="w-16" />
+                <Skeleton variant="text" className="w-full h-10" />
+                <Skeleton variant="text" className="w-full h-10" />
+              </CardBody>
+            </Card>
+            <Card hover={false}>
+              <CardBody className="space-y-4">
+                <Skeleton variant="text" className="w-24" />
+                <Skeleton variant="text" className="w-full h-10" />
+              </CardBody>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -321,7 +340,7 @@ export default function SettingsView() {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">Settings</h1>

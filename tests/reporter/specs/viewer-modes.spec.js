@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { vizzlyScreenshot } from '../../../dist/client/index.js';
 import { createReporterTestServer } from '../test-helper.js';
 
 let __filename = fileURLToPath(import.meta.url);
@@ -35,118 +36,144 @@ test.describe('Viewer Modes', () => {
     }
   });
 
-  test('switch between overlay, toggle, and slide modes', async ({ page }) => {
+  test('switch between overlay, toggle, and slide modes', async ({
+    page,
+    browserName,
+  }) => {
     // Skip on mobile - view mode buttons are hidden on small screens
     let viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
 
-    await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
+    await page.goto(`http://localhost:${port}/`);
 
     // Open a failed comparison (has diff image)
-    await page
-      .getByTestId('comparison-card-pricing-page-firefox-1920x1080')
-      .click();
+    await page.getByRole('heading', { name: /pricing-page/i }).click();
 
     // Verify fullscreen viewer opens
     await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
 
-    // Verify Overlay mode is active by default
-    let overlayButton = page.getByRole('button', {
-      name: 'Overlay',
-      exact: true,
+    // Verify View mode radiogroup is visible
+    let viewModeGroup = page.getByRole('radiogroup', { name: 'View mode' });
+    await expect(viewModeGroup).toBeVisible();
+
+    // Verify Overlay mode is checked by default
+    let overlayRadio = page.getByRole('radio', {
+      name: /overlay/i,
     });
-    await expect(overlayButton).toHaveClass(/bg-blue-600/);
+    await expect(overlayRadio).toBeChecked();
+
+    // 📸 Overlay mode
+    await vizzlyScreenshot(
+      'viewer-overlay-mode',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // Click Toggle mode
-    let toggleButton = page.getByRole('button', {
-      name: 'Toggle',
-      exact: true,
+    let toggleRadio = page.getByRole('radio', {
+      name: /toggle/i,
     });
-    await toggleButton.click();
+    await toggleRadio.click();
 
-    // Verify Toggle is now active
-    await expect(toggleButton).toHaveClass(/bg-blue-600/);
-    await expect(overlayButton).not.toHaveClass(/bg-blue-600/);
+    // Verify Toggle is now checked
+    await expect(toggleRadio).toBeChecked();
+    await expect(overlayRadio).not.toBeChecked();
+
+    // 📸 Toggle mode
+    await vizzlyScreenshot(
+      'viewer-toggle-mode',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // Click Slide mode
-    let slideButton = page.getByRole('button', { name: 'Slide', exact: true });
-    await slideButton.click();
+    let slideRadio = page.getByRole('radio', {
+      name: /slide/i,
+    });
+    await slideRadio.click();
 
-    // Verify Slide is now active
-    await expect(slideButton).toHaveClass(/bg-blue-600/);
-    await expect(toggleButton).not.toHaveClass(/bg-blue-600/);
+    // Verify Slide is now checked
+    await expect(slideRadio).toBeChecked();
+    await expect(toggleRadio).not.toBeChecked();
+
+    // 📸 Slide mode
+    await vizzlyScreenshot(
+      'viewer-slide-mode',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // Click back to Overlay
-    await overlayButton.click();
-    await expect(overlayButton).toHaveClass(/bg-blue-600/);
+    await overlayRadio.click();
+    await expect(overlayRadio).toBeChecked();
   });
 
-  test('view modes are disabled for passed comparisons without diff', async ({
+  test('view modes not shown for passed comparisons without diff', async ({
     page,
   }) => {
     // Skip on mobile - view mode buttons are hidden on small screens
     let viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
 
-    await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
+    await page.goto(`http://localhost:${port}/`);
+
+    // Filter to passed to find passed comparison
+    await page.getByRole('button', { name: /Passed/i }).click();
 
     // Open a passed comparison (no diff image)
-    await page
-      .getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
-      .click();
+    await page.getByRole('heading', { name: /homepage-desktop/i }).click();
 
     // Verify fullscreen viewer opens
     await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
 
-    // Verify view mode buttons are disabled (they have cursor-not-allowed class)
-    let overlayButton = page.getByRole('button', {
-      name: 'Overlay',
-      exact: true,
-    });
-    let toggleButton = page.getByRole('button', {
-      name: 'Toggle',
-      exact: true,
-    });
-    let slideButton = page.getByRole('button', { name: 'Slide', exact: true });
-
-    await expect(overlayButton).toHaveClass(/cursor-not-allowed/);
-    await expect(toggleButton).toHaveClass(/cursor-not-allowed/);
-    await expect(slideButton).toHaveClass(/cursor-not-allowed/);
+    // Verify view mode selector is NOT shown for passed comparisons
+    // (since there's nothing to compare - no diff)
+    let viewModeGroup = page.getByRole('radiogroup', { name: 'View mode' });
+    await expect(viewModeGroup).not.toBeVisible();
   });
 
-  test('zoom controls adjust zoom level', async ({ page }) => {
-    await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
+  test('zoom controls adjust zoom level', async ({ page, browserName }) => {
+    await page.goto(`http://localhost:${port}/`);
 
     // Open a comparison
-    await page
-      .getByTestId('comparison-card-pricing-page-firefox-1920x1080')
-      .click();
+    await page.getByRole('heading', { name: /pricing-page/i }).click();
 
     await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
 
-    // Verify initial zoom shows "Fit"
-    await expect(page.locator('text=Fit')).toBeVisible();
+    // Verify initial zoom shows "Fit" (exact match to avoid "Fit to screen")
+    await expect(
+      page.getByRole('button', { name: 'Fit', exact: true })
+    ).toBeVisible();
 
     // Click zoom in button
-    await page.getByTitle('Zoom in (+)').click();
+    await page.getByRole('button', { name: /zoom in/i }).click();
 
     // Verify zoom level changed (now shows percentage)
-    await expect(page.locator('text=75%')).toBeVisible();
+    await expect(page.getByRole('button', { name: /75%/ })).toBeVisible();
 
     // Click zoom in again
-    await page.getByTitle('Zoom in (+)').click();
-    await expect(page.locator('text=100%')).toBeVisible();
+    await page.getByRole('button', { name: /zoom in/i }).click();
+    await expect(page.getByRole('button', { name: /100%/ })).toBeVisible();
+
+    // 📸 Zoomed in view
+    await vizzlyScreenshot(
+      'viewer-zoomed-100',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // Click zoom out
-    await page.getByTitle('Zoom out (−)').click();
-    await expect(page.locator('text=75%')).toBeVisible();
+    await page.getByRole('button', { name: /zoom out/i }).click();
+    await expect(page.getByRole('button', { name: /75%/ })).toBeVisible();
 
     // Click Fit button to return to fit mode
-    await page.getByTitle('Fit to screen').click();
-    await expect(page.locator('text=Fit')).toBeVisible();
+    await page.getByRole('button', { name: /fit to screen/i }).click();
+    await expect(
+      page.getByRole('button', { name: 'Fit', exact: true })
+    ).toBeVisible();
 
     // Click 1:1 button for actual size
-    await page.getByTitle('Actual size').click();
-    await expect(page.locator('text=100%')).toBeVisible();
+    await page.getByRole('button', { name: '1:1' }).click();
+    await expect(page.getByRole('button', { name: /100%/ })).toBeVisible();
   });
 });

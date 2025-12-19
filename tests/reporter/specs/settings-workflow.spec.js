@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { vizzlyScreenshot } from '../../../dist/client/index.js';
 import { createReporterTestServer } from '../test-helper.js';
 
 let __filename = fileURLToPath(import.meta.url);
@@ -35,7 +36,7 @@ test.describe('Settings Workflow', () => {
     }
   });
 
-  test('view current settings values', async ({ page }) => {
+  test('view current settings values', async ({ page, browserName }) => {
     await page.goto(`http://localhost:${port}/settings`);
 
     // Verify page loaded
@@ -57,6 +58,13 @@ test.describe('Settings Workflow', () => {
 
     // Verify port shows default value
     await expect(page.getByText('47392')).toBeVisible();
+
+    // 📸 Settings page
+    await vizzlyScreenshot(
+      'settings-page',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
   });
 
   test('update threshold and save', async ({ page }) => {

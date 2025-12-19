@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { vizzlyScreenshot } from '../../../dist/client/index.js';
 import { createReporterTestServer } from '../test-helper.js';
 
 let __filename = fileURLToPath(import.meta.url);
@@ -35,7 +36,10 @@ test.describe('Viewer Modes', () => {
     }
   });
 
-  test('switch between overlay, toggle, and slide modes', async ({ page }) => {
+  test('switch between overlay, toggle, and slide modes', async ({
+    page,
+    browserName,
+  }) => {
     // Skip on mobile - view mode buttons are hidden on small screens
     let viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
@@ -58,6 +62,13 @@ test.describe('Viewer Modes', () => {
     });
     await expect(overlayRadio).toBeChecked();
 
+    // 📸 Overlay mode
+    await vizzlyScreenshot(
+      'viewer-overlay-mode',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
+
     // Click Toggle mode
     let toggleRadio = page.getByRole('radio', {
       name: /toggle/i,
@@ -68,6 +79,13 @@ test.describe('Viewer Modes', () => {
     await expect(toggleRadio).toBeChecked();
     await expect(overlayRadio).not.toBeChecked();
 
+    // 📸 Toggle mode
+    await vizzlyScreenshot(
+      'viewer-toggle-mode',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
+
     // Click Slide mode
     let slideRadio = page.getByRole('radio', {
       name: /slide/i,
@@ -77,6 +95,13 @@ test.describe('Viewer Modes', () => {
     // Verify Slide is now checked
     await expect(slideRadio).toBeChecked();
     await expect(toggleRadio).not.toBeChecked();
+
+    // 📸 Slide mode
+    await vizzlyScreenshot(
+      'viewer-slide-mode',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // Click back to Overlay
     await overlayRadio.click();
@@ -107,7 +132,7 @@ test.describe('Viewer Modes', () => {
     await expect(viewModeGroup).not.toBeVisible();
   });
 
-  test('zoom controls adjust zoom level', async ({ page }) => {
+  test('zoom controls adjust zoom level', async ({ page, browserName }) => {
     await page.goto(`http://localhost:${port}/`);
 
     // Open a comparison
@@ -129,6 +154,13 @@ test.describe('Viewer Modes', () => {
     // Click zoom in again
     await page.getByRole('button', { name: /zoom in/i }).click();
     await expect(page.getByRole('button', { name: /100%/ })).toBeVisible();
+
+    // 📸 Zoomed in view
+    await vizzlyScreenshot(
+      'viewer-zoomed-100',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // Click zoom out
     await page.getByRole('button', { name: /zoom out/i }).click();

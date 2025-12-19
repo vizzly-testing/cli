@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { vizzlyScreenshot } from '../../../dist/client/index.js';
 import { createReporterTestServer } from '../test-helper.js';
 
 let __filename = fileURLToPath(import.meta.url);
@@ -38,11 +39,19 @@ test.describe('Review Workflow', () => {
 
   test('user can open a screenshot and see the fullscreen viewer', async ({
     page,
+    browserName,
   }) => {
     await page.goto(`http://localhost:${port}/`);
 
     // User sees screenshot groups on the dashboard
     await expect(page.getByRole('heading', { level: 3 }).first()).toBeVisible();
+
+    // 📸 Dashboard with mixed state
+    await vizzlyScreenshot(
+      'dashboard-mixed-state',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // User clicks on a screenshot to open it
     await page.getByText('pricing-page').first().click();
@@ -58,6 +67,13 @@ test.describe('Review Workflow', () => {
     // User sees approve and reject buttons
     await expect(page.getByRole('button', { name: 'Approve' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reject' })).toBeVisible();
+
+    // 📸 Fullscreen viewer
+    await vizzlyScreenshot(
+      'fullscreen-viewer',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
   });
 
   test('user can close fullscreen viewer with Escape key', async ({ page }) => {
@@ -74,7 +90,10 @@ test.describe('Review Workflow', () => {
     await expect(page.getByTestId('fullscreen-viewer')).not.toBeVisible();
   });
 
-  test('user can accept all changes via bulk action', async ({ page }) => {
+  test('user can accept all changes via bulk action', async ({
+    page,
+    browserName,
+  }) => {
     await page.goto(`http://localhost:${port}/`);
 
     // User sees the Accept All button with count
@@ -88,6 +107,13 @@ test.describe('Review Workflow', () => {
     await expect(
       page.getByText('Accept all changes as new baselines?')
     ).toBeVisible();
+
+    // 📸 Bulk accept confirmation dialog
+    await vizzlyScreenshot(
+      'bulk-accept-dialog',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // User confirms
     await page.getByRole('button', { name: 'OK' }).click();

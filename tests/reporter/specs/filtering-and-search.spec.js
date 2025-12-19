@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { vizzlyScreenshot } from '../../../dist/client/index.js';
 import { createReporterTestServer } from '../test-helper.js';
 
 let __filename = fileURLToPath(import.meta.url);
@@ -36,7 +37,10 @@ test.describe('Filtering and Search', () => {
     }
   });
 
-  test('filter by status shows correct screenshots', async ({ page }) => {
+  test('filter by status shows correct screenshots', async ({
+    page,
+    browserName,
+  }) => {
     await page.goto(`http://localhost:${port}/`);
 
     // User sees filter buttons with counts
@@ -59,6 +63,13 @@ test.describe('Filtering and Search', () => {
     await expect(
       page.getByRole('heading', { name: /checkout-form/i })
     ).toBeVisible();
+
+    // 📸 Failed filter applied
+    await vizzlyScreenshot(
+      'filter-failed-only',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // Passed and new screenshots are hidden
     await expect(
@@ -112,7 +123,7 @@ test.describe('Filtering and Search', () => {
     ).toBeVisible();
   });
 
-  test('search filters screenshots by name', async ({ page }) => {
+  test('search filters screenshots by name', async ({ page, browserName }) => {
     await page.goto(`http://localhost:${port}/`);
 
     // User types in search box
@@ -137,6 +148,13 @@ test.describe('Filtering and Search', () => {
       page.getByRole('heading', { name: /checkout-form/i })
     ).not.toBeVisible();
 
+    // 📸 Search results
+    await vizzlyScreenshot(
+      'search-homepage',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
+
     // User searches for something that doesn't exist
     await searchBox.fill('nonexistent');
 
@@ -144,6 +162,13 @@ test.describe('Filtering and Search', () => {
     await expect(
       page.getByRole('heading', { name: /no matches/i })
     ).toBeVisible();
+
+    // 📸 Empty search results
+    await vizzlyScreenshot(
+      'search-no-results',
+      await page.screenshot({ fullPage: true }),
+      { browser: browserName, viewport: page.viewportSize() }
+    );
 
     // User clears search
     await searchBox.fill('');

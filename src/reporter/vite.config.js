@@ -7,6 +7,10 @@ export default defineConfig({
   css: {
     postcss: '../../postcss.config.js',
   },
+  resolve: {
+    preserveSymlinks: false,
+    dedupe: ['react', 'react-dom'],
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/main.jsx'),

@@ -1,41 +1,12 @@
 @import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import '../../../node_modules/@vizzly-testing/observatory/src/styles.css';
+@source "../../../node_modules/@vizzly-testing/observatory/src";
 
 /* ============================================
-   VIZZLY OBSERVATORY DESIGN SYSTEM
-   Aligned with main Vizzly product styling
+   VIZZLY REPORTER - LOCAL STYLES
+   Styles specific to the reporter that extend Observatory
    ============================================ */
-
-:root {
-  /* Core palette - Matching Observatory */
-  --vz-bg: #0f172a;
-  --vz-surface: #1a2332;
-  --vz-elevated: #1e293b;
-  --vz-border: #374151;
-  --vz-border-subtle: #2d3748;
-
-  /* Accent colors with muted variants */
-  --accent-success: #10b981;
-  --accent-success-muted: #132a23;
-  --accent-warning: #f59e0b;
-  --accent-warning-muted: #2a2317;
-  --accent-danger: #ef4444;
-  --accent-danger-muted: #2a1717;
-  --accent-info: #3b82f6;
-  --accent-info-muted: #172033;
-  --accent-purple: #a855f7;
-  --accent-purple-muted: #1f1733;
-
-  /* Text hierarchy */
-  --text-primary: #ffffff;
-  --text-secondary: #9ca3af;
-  --text-tertiary: #6b7280;
-  --text-muted: #4b5563;
-
-  /* Radial indicator sizing */
-  --ring-size: 120px;
-  --ring-stroke: 8px;
-}
 
 /* ============================================
    SYNTAX HIGHLIGHTING (CSS Custom Highlight API)
@@ -95,30 +66,6 @@ body {
   padding-top: env(safe-area-inset-top, 0);
 }
 
-/* Custom scrollbar styles */
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(75, 85, 99, 0.5);
-  border-radius: 3px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(107, 114, 128, 0.7);
-}
-
 /* Hide scrollbar but allow scroll */
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -140,7 +87,7 @@ body {
 }
 
 /* ============================================
-   ANIMATIONS
+   ANIMATIONS (reporter-specific)
    ============================================ */
 
 @keyframes fade-in-up {
@@ -173,15 +120,6 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
   }
 }
 
@@ -245,122 +183,6 @@ body {
 }
 
 /* ============================================
-   CARD SYSTEM - Observatory Aligned
-   ============================================ */
-
-.vz-card {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(51, 65, 85, 0.5);
-  border-radius: 12px;
-  overflow: hidden;
-  transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.vz-card:hover {
-  border-color: rgba(71, 85, 105, 0.7);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.vz-card--no-hover:hover {
-  border-color: rgba(51, 65, 85, 0.5);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-/* Accent border variants */
-.vz-card--success {
-  border-left: 2px solid var(--accent-success);
-}
-
-.vz-card--warning {
-  border-left: 2px solid var(--accent-warning);
-}
-
-.vz-card--danger {
-  border-left: 2px solid var(--accent-danger);
-}
-
-.vz-card--info {
-  border-left: 2px solid var(--accent-info);
-}
-
-.vz-card--purple {
-  border-left: 2px solid var(--accent-purple);
-}
-
-/* ============================================
-   HEALTH RING INDICATOR
-   ============================================ */
-
-.health-ring {
-  position: relative;
-  width: var(--ring-size);
-  height: var(--ring-size);
-}
-
-.health-ring__svg {
-  transform: rotate(-90deg);
-  width: 100%;
-  height: 100%;
-}
-
-.health-ring__track {
-  fill: none;
-  stroke: var(--vz-border);
-  stroke-width: var(--ring-stroke);
-}
-
-.health-ring__progress {
-  fill: none;
-  stroke-width: var(--ring-stroke);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.health-ring__progress--success {
-  stroke: var(--accent-success);
-  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.4));
-}
-
-.health-ring__progress--warning {
-  stroke: var(--accent-warning);
-  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4));
-}
-
-.health-ring__progress--danger {
-  stroke: var(--accent-danger);
-  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.4));
-}
-
-.health-ring__value {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.health-ring__percentage {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.75rem;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--text-primary);
-}
-
-.health-ring__label {
-  font-size: 0.625rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-}
-
-/* ============================================
    TIMELINE STRIP
    ============================================ */
 
@@ -416,7 +238,7 @@ body {
 }
 
 /* ============================================
-   STAT PILLS / BADGES
+   STAT PILLS / BADGES (reporter-specific variants)
    ============================================ */
 
 .stat-pill {
@@ -460,7 +282,7 @@ body {
 }
 
 /* ============================================
-   TABLE STYLES
+   TABLE STYLES (reporter-specific)
    ============================================ */
 
 .vz-table {
@@ -501,133 +323,11 @@ body {
 }
 
 /* ============================================
-   SKELETON LOADING
-   ============================================ */
-
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(30, 41, 59, 0.5) 0%,
-    rgba(51, 65, 85, 0.5) 50%,
-    rgba(30, 41, 59, 0.5) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: 6px;
-}
-
-.skeleton--text {
-  height: 16px;
-  width: 100%;
-}
-
-.skeleton--heading {
-  height: 24px;
-  width: 60%;
-}
-
-.skeleton--avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-}
-
-.skeleton--button {
-  height: 36px;
-  width: 100px;
-  border-radius: 8px;
-}
-
-/* ============================================
-   COMPARISON VIEWER STYLES
+   COMPARISON VIEWER STYLES (legacy - may be removable)
    ============================================ */
 
 .comparison-viewer {
   @apply relative flex justify-center;
-}
-
-/* Overlay Mode */
-.overlay-mode .overlay-container {
-  @apply relative cursor-pointer inline-block;
-}
-
-.overlay-mode .current-image {
-  @apply relative z-10 max-w-full h-auto border border-slate-600 rounded-lg;
-}
-
-.overlay-mode .baseline-image,
-.overlay-mode .diff-image {
-  @apply absolute top-0 left-0 max-w-full h-auto border border-slate-600 rounded-lg;
-}
-
-.overlay-mode .baseline-image {
-  @apply z-20;
-}
-
-.overlay-mode .diff-image {
-  @apply z-30 transition-opacity duration-200;
-}
-
-/* Toggle Mode */
-.toggle-mode .toggle-container {
-  @apply text-center;
-}
-
-.toggle-mode .toggle-image {
-  @apply max-w-full h-auto border border-slate-600 rounded-lg;
-}
-
-.toggle-mode .toggle-label {
-  @apply mt-2 text-sm text-slate-400;
-}
-
-/* Onion Skin Mode */
-.onion-mode .onion-container {
-  @apply relative inline-block cursor-col-resize select-none;
-}
-
-.onion-mode .onion-baseline,
-.onion-mode .onion-current {
-  @apply block max-w-full h-auto border border-slate-600 rounded-lg pointer-events-none;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
-.onion-mode .onion-current {
-  @apply absolute top-0 left-0 max-w-full h-auto;
-  clip-path: inset(0 50% 0 0);
-}
-
-.onion-mode .onion-divider {
-  @apply absolute top-0 h-full w-0.5 bg-amber-500 pointer-events-none z-10;
-  left: 50%;
-}
-
-.onion-mode .onion-divider::before {
-  content: '';
-  @apply absolute -top-2 -left-2 w-4 h-4 bg-amber-500 rounded-full;
-}
-
-.onion-mode .onion-divider::after {
-  content: '';
-  @apply absolute -bottom-2 -left-2 w-4 h-4 bg-amber-500 rounded-full;
-}
-
-/* Side by Side Mode */
-.side-by-side-mode .side-by-side-container {
-  @apply flex gap-4;
-}
-
-.side-by-side-mode .side-by-side-image {
-  @apply flex-1 text-center;
-}
-
-.side-by-side-mode .side-by-side-image img {
-  @apply max-w-full h-auto border border-slate-600 rounded-lg;
-}
-
-.side-by-side-mode .side-by-side-image label {
-  @apply block mt-2 text-sm text-slate-400 font-medium;
 }
 
 /* Filmstrip scroll behavior */

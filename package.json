@@ -106,6 +106,7 @@
     }
   },
   "devDependencies": {
+    "@vizzly-testing/observatory": "^0.1.0",
     "@babel/cli": "^7.28.0",
     "@babel/core": "^7.23.6",
     "@babel/preset-env": "^7.23.6",

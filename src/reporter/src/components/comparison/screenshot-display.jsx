@@ -1,8 +1,10 @@
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import {
+  OnionSkinMode,
+  OverlayMode,
+  ToggleView,
+} from '@vizzly-testing/observatory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { OnionSkinMode } from './comparison-modes/onion-skin-mode.jsx';
-import { OverlayMode } from './comparison-modes/overlay-mode.jsx';
-import { ToggleView } from './comparison-modes/toggle-view.jsx';
 
 /**
  * Unified Screenshot Display Component - matches Observatory architecture

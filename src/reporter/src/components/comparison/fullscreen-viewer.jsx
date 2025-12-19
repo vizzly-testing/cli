@@ -1,12 +1,47 @@
+/**
+ * Fullscreen Comparison Viewer
+ * Matches Observatory/Cloud product review UI patterns
+ *
+ * Features:
+ * - Clean, focused layout prioritizing the screenshot
+ * - Review queue with filtering (To Review, Changes, New, All)
+ * - Keyboard-driven review mode (Space to toggle, A/R/D/T shortcuts)
+ * - Inspector panel for metadata
+ * - View mode toggle (Overlay, Toggle, Slide)
+ * - Zoom controls with keyboard shortcuts
+ */
+
 import {
-  ArrowsPointingInIcon,
-  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  MagnifyingGlassMinusIcon,
-  MagnifyingGlassPlusIcon,
-  XMarkIcon,
+  ComputerDesktopIcon,
+  CubeTransparentIcon,
+  DocumentMagnifyingGlassIcon,
+  InformationCircleIcon,
+  ListBulletIcon,
 } from '@heroicons/react/24/outline';
+import {
+  ApprovalButtonGroup,
+  Badge,
+  BrowserIcon,
+  CloseButton,
+  DrawerContent,
+  DrawerFilterBar,
+  DrawerFilterButton,
+  DrawerFooter,
+  DrawerHeader,
+  InspectorPanel,
+  MobileApprovalBar,
+  MobileDrawer,
+  QueueItem,
+  ReviewModeProvider,
+  useReviewMode,
+  useReviewModeShortcuts,
+  useZoom,
+  VariantBreadcrumb,
+  ViewModeToggle,
+  ZoomControls,
+} from '@vizzly-testing/observatory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VIEW_MODES } from '../../utils/constants.js';
 import { ScreenshotDisplay } from './screenshot-display.jsx';
@@ -19,155 +54,37 @@ function getComparisonId(comparison) {
 }
 
 /**
- * Zoom Controls Component - matches Observatory design exactly
+ * Map CLI status to Observatory result type
  */
-function ZoomControls({ zoom, onZoomChange }) {
-  const zoomIn = useCallback(() => {
-    if (zoom === 'fit') {
-      onZoomChange(0.75);
-    } else {
-      onZoomChange(Math.min(3, zoom + 0.25));
-    }
-  }, [zoom, onZoomChange]);
+function mapStatusToResult(status) {
+  switch (status) {
+    case 'failed':
+      return 'changed';
+    case 'new':
+    case 'baseline-created':
+      return 'new';
+    case 'passed':
+      return 'unchanged';
+    default:
+      return status;
+  }
+}
 
-  const zoomOut = useCallback(() => {
-    if (zoom === 'fit') {
-      onZoomChange(0.5);
-    } else {
-      onZoomChange(Math.max(0.1, zoom - 0.25));
-    }
-  }, [zoom, onZoomChange]);
-
-  const fitToScreen = useCallback(() => {
-    onZoomChange('fit');
-  }, [onZoomChange]);
-
-  const actualSize = useCallback(() => {
-    onZoomChange(1);
-  }, [onZoomChange]);
-
-  const displayValue = zoom === 'fit' ? 'Fit' : `${Math.round(zoom * 100)}%`;
-
+/**
+ * Main component - wraps with ReviewModeProvider
+ */
+export default function FullscreenViewer(props) {
   return (
-    <div className="flex items-center gap-2">
-      {/* Compact zoom controls */}
-      <div className="flex items-center bg-gray-800/90 backdrop-blur-md rounded-lg border border-gray-600/40 shadow-lg">
-        <button
-          type="button"
-          onClick={zoomOut}
-          className="p-2 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-l-lg transition-colors"
-          title="Zoom out (−)"
-        >
-          <MagnifyingGlassMinusIcon className="w-4 h-4" />
-        </button>
-
-        <div className="px-3 py-1.5 min-w-[60px] text-center text-sm font-medium text-gray-200">
-          {displayValue}
-        </div>
-
-        <button
-          type="button"
-          onClick={zoomIn}
-          className="p-2 text-gray-300 hover:text-white hover:bg-gray-700/60 rounded-r-lg transition-colors"
-          title="Zoom in (+)"
-        >
-          <MagnifyingGlassPlusIcon className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Quick action buttons */}
-      <button
-        type="button"
-        onClick={fitToScreen}
-        className={`p-2 rounded-lg transition-colors ${
-          zoom === 'fit'
-            ? 'bg-blue-600/30 text-blue-400 border border-blue-500/40'
-            : 'bg-gray-800/90 text-gray-300 hover:text-white hover:bg-gray-700/60 border border-gray-600/40'
-        }`}
-        title="Fit to screen"
-      >
-        <ArrowsPointingInIcon className="w-4 h-4" />
-      </button>
-      <button
-        type="button"
-        onClick={actualSize}
-        className={`p-2 rounded-lg transition-colors ${
-          zoom === 1
-            ? 'bg-blue-600/30 text-blue-400 border border-blue-500/40'
-            : 'bg-gray-800/90 text-gray-300 hover:text-white hover:bg-gray-700/60 border border-gray-600/40'
-        }`}
-        title="Actual size"
-      >
-        <span className="text-xs font-bold w-4 h-4 flex items-center justify-center">
-          1:1
-        </span>
-      </button>
-    </div>
+    <ReviewModeProvider>
+      <FullscreenViewerInner {...props} />
+    </ReviewModeProvider>
   );
 }
 
 /**
- * Filmstrip thumbnail component - matches Observatory design
+ * Inner component that uses review mode
  */
-function FilmstripThumbnail({ comparison, isActive, onClick, index }) {
-  const thumbnailSrc = comparison.current || comparison.baseline;
-  const isFailed = comparison.status === 'failed';
-  const isNew =
-    comparison.status === 'new' || comparison.status === 'baseline-created';
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`relative flex-shrink-0 group transition-all duration-200 ${
-        isActive
-          ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900 rounded-lg scale-110'
-          : 'hover:ring-2 hover:ring-gray-500 hover:ring-offset-2 hover:ring-offset-gray-900 rounded-lg opacity-60 hover:opacity-100'
-      }`}
-      title={comparison.name || `Screenshot ${index + 1}`}
-    >
-      <div className="relative w-14 h-20 bg-gray-800 rounded-lg overflow-hidden">
-        {thumbnailSrc ? (
-          <img
-            src={thumbnailSrc}
-            alt={comparison.name || 'Thumbnail'}
-            className="absolute inset-0 w-full h-full object-cover object-top"
-            loading="lazy"
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-700 flex items-center justify-center">
-            <span className="text-lg font-medium text-gray-500">
-              {comparison.name ? comparison.name.charAt(0).toUpperCase() : '?'}
-            </span>
-          </div>
-        )}
-
-        {/* Change type badge */}
-        {isNew && (
-          <div className="absolute bottom-1 left-1 px-1 py-0.5 bg-blue-600/90 rounded text-[9px] font-bold text-white shadow-sm">
-            NEW
-          </div>
-        )}
-        {isFailed && !isNew && (
-          <div className="absolute bottom-1 left-1 px-1 py-0.5 bg-amber-600/90 rounded text-[9px] font-bold text-white shadow-sm">
-            DIFF
-          </div>
-        )}
-      </div>
-
-      {/* Hover tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 border border-gray-700 text-xs text-gray-200 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-lg">
-        {comparison.name || `Screenshot ${index + 1}`}
-      </div>
-    </button>
-  );
-}
-
-/**
- * Fullscreen comparison viewer - mirrors the Vizzly cloud product UI exactly
- * Displays a single comparison with navigation between screenshots
- */
-export default function FullscreenViewer({
+function FullscreenViewerInner({
   comparison,
   comparisons = [],
   onClose,
@@ -176,93 +93,251 @@ export default function FullscreenViewer({
   onDelete,
   onNavigate,
 }) {
-  const [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
-  const [showMetadata, setShowMetadata] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState('fit'); // 'fit' | number
-  const [showDiffOverlay, setShowDiffOverlay] = useState(true);
-  const [onionSkinPosition, setOnionSkinPosition] = useState(50);
-  const filmstripRef = useRef(null);
+  // UI state
+  let [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
+  let [showDiffOverlay, setShowDiffOverlay] = useState(true);
+  let [onionSkinPosition, setOnionSkinPosition] = useState(50);
+  let [showQueue, setShowQueue] = useState(true);
+  let [showInspector, setShowInspector] = useState(false);
+  let [queueFilter, setQueueFilter] = useState('needs-review');
+  let [_showBaseline, setShowBaseline] = useState(true);
 
-  // Sort comparisons: failed (diffs) first, then new, then passed
-  // Uses initialStatus to keep order stable after approval
-  const sortedComparisons = useMemo(() => {
-    const statusOrder = { failed: 0, new: 1, 'baseline-created': 1, passed: 2 };
-    return [...comparisons].sort((a, b) => {
-      // Use initialStatus for sorting to keep order stable after approval
-      const statusA = a.initialStatus || a.status;
-      const statusB = b.initialStatus || b.status;
-      const orderA = statusOrder[statusA] ?? 3;
-      const orderB = statusOrder[statusB] ?? 3;
-      return orderA - orderB;
-    });
+  let { zoom, setZoom } = useZoom('fit');
+  let { isActive: isReviewMode } = useReviewMode();
+
+  // Ref for scrolling active queue item into view
+  let activeQueueItemRef = useRef(null);
+
+  // Toggle inspector (closes other panels)
+  let toggleInspector = useCallback(() => {
+    setShowInspector(prev => !prev);
+  }, []);
+
+  // Transform comparisons for queue display
+  // Map CLI status to Observatory result format
+  // QueueItem expects: name, result, approval_status, diff_percentage, status
+  let queueItems = useMemo(() => {
+    return comparisons.map(comp => ({
+      ...comp,
+      // Ensure name is set
+      name: comp.name || comp.originalName || 'Unknown',
+      // Set result for Observatory (changed, new, unchanged)
+      result: mapStatusToResult(comp.status),
+      // Keep original status so QueueItem can check both formats
+      status: comp.status,
+      // Map approval_status from userAction
+      approval_status:
+        comp.userAction === 'accepted'
+          ? 'approved'
+          : comp.userAction === 'rejected'
+            ? 'rejected'
+            : comp.status === 'passed'
+              ? 'approved'
+              : 'pending',
+      // Ensure diff_percentage is available (Observatory format)
+      diff_percentage: comp.diffPercentage ?? comp.diff_percentage,
+      // Pass through diffClusters for change description
+      diffClusters: comp.diffClusters || [],
+      // Map properties for VariantBreadcrumb - support nested and flat formats
+      viewport_width: comp.properties?.viewport_width ?? comp.viewport_width,
+      viewport_height: comp.properties?.viewport_height ?? comp.viewport_height,
+      browser: comp.properties?.browser ?? comp.browser,
+    }));
   }, [comparisons]);
 
-  // Find current index in sorted list
-  const currentIndex = useMemo(() => {
-    const compId = getComparisonId(comparison);
-    return sortedComparisons.findIndex(
-      (c, i) => getComparisonId(c, i) === compId
+  // Group comparisons by original name (screenshots with same name but different variants)
+  // This enables the variant breadcrumb navigation
+  // Always show the breadcrumb for context (viewport/browser info), even with single variant
+  let currentGroup = useMemo(() => {
+    if (!comparison) return null;
+    let currentName = comparison.name || comparison.originalName;
+    let variants = queueItems.filter(
+      item => (item.name || item.originalName) === currentName
     );
-  }, [comparison, sortedComparisons]);
+    return { name: currentName, comparisons: variants };
+  }, [comparison, queueItems]);
+
+  // Handle variant selection from VariantBreadcrumb
+  let handleVariantSelect = useCallback(
+    variant => {
+      if (variant && onNavigate) {
+        onNavigate(variant);
+      }
+    },
+    [onNavigate]
+  );
+
+  // Filter queue items
+  let filteredQueueItems = useMemo(() => {
+    let filterFns = {
+      all: () => true,
+      'needs-review': item => {
+        return (
+          (item.result === 'changed' || item.result === 'new') &&
+          item.approval_status !== 'approved' &&
+          item.approval_status !== 'rejected'
+        );
+      },
+      changes: item => item.result === 'changed',
+      new: item => item.result === 'new',
+    };
+
+    let fn = filterFns[queueFilter] || filterFns.all;
+    return queueItems.filter(fn);
+  }, [queueItems, queueFilter]);
+
+  // Find current index in filtered queue
+  let currentFilteredIndex = useMemo(() => {
+    if (!comparison) return -1;
+    let compId = getComparisonId(comparison);
+    return filteredQueueItems.findIndex(
+      item => getComparisonId(item) === compId
+    );
+  }, [filteredQueueItems, comparison]);
 
   // Navigation capabilities
-  const canNavigate = useMemo(
+  let canNavigate = useMemo(
     () => ({
-      prev: currentIndex > 0,
-      next: currentIndex < sortedComparisons.length - 1,
+      prev: currentFilteredIndex > 0,
+      next:
+        currentFilteredIndex < filteredQueueItems.length - 1 &&
+        currentFilteredIndex !== -1,
     }),
-    [currentIndex, sortedComparisons.length]
+    [currentFilteredIndex, filteredQueueItems.length]
   );
 
   // Navigation handlers
-  const handlePrevious = useCallback(() => {
-    if (canNavigate.prev && sortedComparisons[currentIndex - 1]) {
-      onNavigate(sortedComparisons[currentIndex - 1]);
+  let handlePrevious = useCallback(() => {
+    if (canNavigate.prev) {
+      let prevItem = filteredQueueItems[currentFilteredIndex - 1];
+      onNavigate(prevItem);
     }
-  }, [canNavigate.prev, sortedComparisons, currentIndex, onNavigate]);
+  }, [canNavigate.prev, filteredQueueItems, currentFilteredIndex, onNavigate]);
 
-  const handleNext = useCallback(() => {
-    if (canNavigate.next && sortedComparisons[currentIndex + 1]) {
-      onNavigate(sortedComparisons[currentIndex + 1]);
+  let handleNext = useCallback(() => {
+    if (canNavigate.next) {
+      let nextItem = filteredQueueItems[currentFilteredIndex + 1];
+      onNavigate(nextItem);
     }
-  }, [canNavigate.next, sortedComparisons, currentIndex, onNavigate]);
+  }, [canNavigate.next, filteredQueueItems, currentFilteredIndex, onNavigate]);
 
-  // Scroll filmstrip to active thumbnail
+  // Get next item after approval action (for auto-advance)
+  let getNextItemAfterAction = useCallback(() => {
+    if (currentFilteredIndex < filteredQueueItems.length - 1) {
+      return filteredQueueItems[currentFilteredIndex + 1];
+    }
+    if (currentFilteredIndex > 0) {
+      return filteredQueueItems[currentFilteredIndex - 1];
+    }
+    return null;
+  }, [currentFilteredIndex, filteredQueueItems]);
+
+  // Approval handlers with auto-advance
+  let handleApprove = useCallback(() => {
+    if (!onAccept || !comparison) return;
+    let nextItem =
+      queueFilter === 'needs-review' ? getNextItemAfterAction() : null;
+    onAccept(getComparisonId(comparison));
+
+    if (nextItem) {
+      onNavigate(nextItem);
+    } else if (
+      queueFilter === 'needs-review' &&
+      filteredQueueItems.length <= 1
+    ) {
+      onClose();
+    }
+  }, [
+    onAccept,
+    comparison,
+    queueFilter,
+    getNextItemAfterAction,
+    filteredQueueItems.length,
+    onNavigate,
+    onClose,
+  ]);
+
+  let handleReject = useCallback(() => {
+    if (!onReject || !comparison) return;
+    let nextItem =
+      queueFilter === 'needs-review' ? getNextItemAfterAction() : null;
+    onReject(getComparisonId(comparison));
+
+    if (nextItem) {
+      onNavigate(nextItem);
+    } else if (
+      queueFilter === 'needs-review' &&
+      filteredQueueItems.length <= 1
+    ) {
+      onClose();
+    }
+  }, [
+    onReject,
+    comparison,
+    queueFilter,
+    getNextItemAfterAction,
+    filteredQueueItems.length,
+    onNavigate,
+    onClose,
+  ]);
+
+  let handleDelete = useCallback(() => {
+    if (!onDelete || !comparison) return;
+    onDelete(getComparisonId(comparison));
+  }, [onDelete, comparison]);
+
+  // View mode cycling for keyboard shortcut
+  let cycleViewMode = useCallback(() => {
+    setViewMode(current =>
+      current === VIEW_MODES.OVERLAY ? VIEW_MODES.TOGGLE : VIEW_MODES.OVERLAY
+    );
+  }, []);
+
+  // Toggle handler for 'd' - toggles diff overlay or baseline/current
+  let handleDiffToggle = useCallback(() => {
+    if (viewMode === VIEW_MODES.TOGGLE) {
+      setShowBaseline(prev => !prev);
+    } else {
+      setShowDiffOverlay(prev => !prev);
+    }
+  }, [viewMode]);
+
+  // Review mode shortcuts
+  let reviewModeShortcuts = useMemo(
+    () => ({
+      a: onAccept ? handleApprove : undefined,
+      r: onReject ? handleReject : undefined,
+      d: handleDiffToggle,
+      t: cycleViewMode,
+      1: () => setViewMode(VIEW_MODES.OVERLAY),
+      2: () => setViewMode(VIEW_MODES.TOGGLE),
+      3: () => setViewMode(VIEW_MODES.ONION),
+    }),
+    [
+      handleApprove,
+      handleReject,
+      onAccept,
+      onReject,
+      cycleViewMode,
+      handleDiffToggle,
+    ]
+  );
+
+  useReviewModeShortcuts(reviewModeShortcuts);
+
+  // Global keyboard navigation (always active)
   useEffect(() => {
-    if (filmstripRef.current && currentIndex >= 0) {
-      const container = filmstripRef.current;
-      const thumbnails = container.children;
-      if (thumbnails[currentIndex]) {
-        const thumb = thumbnails[currentIndex];
-        const containerRect = container.getBoundingClientRect();
-        const thumbRect = thumb.getBoundingClientRect();
-
-        if (
-          thumbRect.left < containerRect.left ||
-          thumbRect.right > containerRect.right
-        ) {
-          thumb.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center',
-          });
-        }
-      }
-    }
-  }, [currentIndex]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+    let handleKeyDown = e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')
         return;
-      }
 
       switch (e.key) {
+        case 'ArrowUp':
         case 'ArrowLeft':
           e.preventDefault();
           if (canNavigate.prev) handlePrevious();
           break;
+        case 'ArrowDown':
         case 'ArrowRight':
           e.preventDefault();
           if (canNavigate.next) handleNext();
@@ -271,24 +346,52 @@ export default function FullscreenViewer({
           e.preventDefault();
           onClose();
           break;
+        case 'i':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            toggleInspector();
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canNavigate, handlePrevious, handleNext, onClose]);
+  }, [canNavigate, handlePrevious, handleNext, onClose, toggleInspector]);
+
+  // Scroll active queue item into view
+  useEffect(() => {
+    let item = activeQueueItemRef.current;
+    if (!item) return;
+
+    let container = item.closest('.overflow-y-auto');
+    if (!container) return;
+
+    let itemRect = item.getBoundingClientRect();
+    let containerRect = container.getBoundingClientRect();
+
+    if (itemRect.top < containerRect.top) {
+      container.scrollBy({
+        top: itemRect.top - containerRect.top - 8,
+        behavior: 'smooth',
+      });
+    } else if (itemRect.bottom > containerRect.bottom) {
+      container.scrollBy({
+        top: itemRect.bottom - containerRect.bottom + 8,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
 
   if (!comparison) {
     return (
-      <div className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-lg text-white font-medium mb-2">
-            Comparison not found
-          </div>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center text-slate-400">
+          <div className="text-lg mb-2">Comparison not found</div>
           <button
             type="button"
             onClick={onClose}
-            className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+            className="text-blue-400 hover:text-blue-300"
           >
             Return to list
           </button>
@@ -297,272 +400,422 @@ export default function FullscreenViewer({
     );
   }
 
-  // Show actions for comparisons that need review
-  // - failed: needs review, can approve (accept change) or reject
-  // - new/baseline-created: new screenshot, can accept to confirm or delete to remove
-  // - passed: auto-matched baseline, can still reject if needed
-  // - rejected: previously rejected, can still change decision
-  const canReview =
-    comparison.status === 'failed' ||
-    comparison.status === 'new' ||
-    comparison.status === 'baseline-created' ||
-    comparison.status === 'passed' ||
-    comparison.status === 'rejected';
+  // Determine result and approval status for current comparison
+  let result = mapStatusToResult(comparison.status);
+  let approvalStatus =
+    comparison.userAction === 'accepted'
+      ? 'approved'
+      : comparison.userAction === 'rejected'
+        ? 'rejected'
+        : comparison.status === 'passed'
+          ? 'approved'
+          : 'pending';
 
-  // Only show delete for new screenshots (no baseline to keep)
-  const canDelete =
+  // Result badge config
+  let resultBadge = {
+    new: { variant: 'info', label: 'New' },
+    changed: { variant: 'warning', label: 'Changed' },
+    unchanged: { variant: 'default', label: 'Unchanged' },
+  }[result];
+
+  // Whether we can delete (only for new screenshots)
+  let canDelete =
     comparison.status === 'new' || comparison.status === 'baseline-created';
 
-  // Determine current approval state:
-  // - comparison.userAction reflects the user's explicit decision (from server)
-  // - comparison.status reflects persisted state
-  // - passed comparisons are implicitly approved unless user rejected
-  const isAccepted =
-    comparison.userAction === 'accepted' ||
-    (comparison.status === 'passed' && comparison.userAction !== 'rejected');
-  const isRejected =
-    comparison.userAction === 'rejected' || comparison.status === 'rejected';
-
-  // View mode options
-  const viewModes = [
-    { value: VIEW_MODES.OVERLAY, label: 'Overlay' },
-    { value: VIEW_MODES.TOGGLE, label: 'Toggle' },
-    { value: VIEW_MODES.ONION, label: 'Slide' },
-  ];
-
-  // Properties for dropdown
-  const props = [];
-  if (comparison.properties?.browser)
-    props.push({ key: 'Browser', value: comparison.properties.browser });
-  if (
-    comparison.properties?.viewport_width &&
-    comparison.properties?.viewport_height
-  ) {
-    props.push({
-      key: 'Viewport',
-      value: `${comparison.properties.viewport_width}×${comparison.properties.viewport_height}`,
-    });
-  }
-  if (comparison.properties?.device)
-    props.push({ key: 'Device', value: comparison.properties.device });
+  // Extract metadata
+  let metadata = comparison.properties || {};
 
   return (
     <div
-      className="fixed inset-0 bg-gray-900 z-50 flex flex-col"
+      className="h-screen bg-slate-950 flex flex-col overflow-hidden"
       data-testid="fullscreen-viewer"
     >
-      {/* Header Bar - matches Observatory design exactly */}
-      <div className="flex-shrink-0 bg-gray-900/95 backdrop-blur-md border-b border-gray-800/50 z-30">
-        <div className="px-4 py-2.5 flex items-center justify-between gap-2">
-          {/* Left: Close and Navigation */}
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/60 transition-colors"
-              title="Back (Esc)"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
+      {/* Header */}
+      <header className="flex-shrink-0 bg-slate-900 border-b border-slate-800/60 z-30">
+        {/* Primary row */}
+        <div className="px-2 sm:px-4 py-2 flex items-center gap-1 sm:gap-3">
+          <CloseButton onClick={onClose} />
 
-            {/* Navigation */}
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handlePrevious}
-                disabled={!canNavigate.prev}
-                className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-lg hover:bg-gray-700/60 transition-colors"
-                title="Previous (←)"
-              >
-                <ChevronLeftIcon className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-gray-500 font-medium tabular-nums min-w-[3rem] text-center">
-                {currentIndex + 1}/{sortedComparisons.length}
-              </span>
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={!canNavigate.next}
-                className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-lg hover:bg-gray-700/60 transition-colors"
-                title="Next (→)"
-              >
-                <ChevronRightIcon className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="h-5 w-px bg-gray-700/50" />
-
-            {/* Screenshot Name */}
-            <h1 className="text-sm font-medium text-gray-200 truncate max-w-[300px]">
+          {/* Title area */}
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <h1 className="text-sm font-medium text-white truncate">
               {comparison.name || comparison.originalName || 'Unknown'}
             </h1>
-
-            {/* Metadata toggle */}
-            {props.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowMetadata(!showMetadata)}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            {resultBadge && (
+              <Badge
+                variant={resultBadge.variant}
+                size="sm"
+                className="hidden xs:flex"
               >
-                <span>{props.length} props</span>
-                <ChevronDownIcon
-                  className={`w-3 h-3 transition-transform ${showMetadata ? 'rotate-180' : ''}`}
-                />
-              </button>
+                {resultBadge.label}
+              </Badge>
+            )}
+            {isReviewMode && (
+              <Badge
+                variant="warning"
+                size="sm"
+                dot
+                pulseDot
+                className="hidden sm:flex"
+              >
+                Review Mode
+              </Badge>
             )}
           </div>
 
-          {/* Center: Actions based on comparison status */}
-          {canReview && (
-            <div className="flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
-              {/* For new screenshots: Delete and Accept */}
-              {canDelete && onDelete && (
-                <button
-                  type="button"
-                  onClick={() => onDelete(getComparisonId(comparison))}
-                  data-testid="btn-delete"
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all text-red-400 hover:text-red-300 hover:bg-red-600/20"
-                >
-                  <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                  Delete
-                </button>
-              )}
-              {/* Reject button - only for non-new screenshots */}
-              {!canDelete && (
-                <button
-                  type="button"
-                  onClick={() => onReject(getComparisonId(comparison))}
-                  data-testid="btn-reject"
-                  data-active={isRejected}
-                  className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    isRejected
-                      ? 'bg-red-600 text-white'
-                      : 'text-red-400 hover:text-red-300 hover:bg-red-600/20'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                  Reject
-                </button>
-              )}
-              {/* Accept/Approve button - shown for all reviewable screenshots */}
+          {/* Navigation */}
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={handlePrevious}
+              disabled={!canNavigate.prev}
+              className="p-2 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-md hover:bg-slate-800/60 transition-colors"
+              aria-label="Previous"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
+            <span className="hidden sm:block text-xs text-slate-500 font-medium tabular-nums px-1 min-w-[3rem] text-center">
+              {currentFilteredIndex + 1}/{filteredQueueItems.length}
+            </span>
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={!canNavigate.next}
+              className="p-2 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-md hover:bg-slate-800/60 transition-colors"
+              aria-label="Next"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="hidden sm:block h-5 w-px bg-slate-700/60" />
+
+          {/* Approval buttons - desktop */}
+          <div className="hidden sm:flex items-center gap-2">
+            {canDelete && onDelete ? (
               <button
                 type="button"
-                onClick={() => onAccept(getComparisonId(comparison))}
-                data-testid="btn-approve"
-                data-active={isAccepted}
-                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                  isAccepted
-                    ? 'bg-green-600 text-white'
-                    : 'text-green-400 hover:text-green-300 hover:bg-green-600/20'
-                }`}
+                onClick={handleDelete}
+                className="px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-600/20 rounded-md transition-colors"
+                data-testid="btn-delete"
               >
-                <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                {canDelete ? 'Accept' : 'Approve'}
+                Delete
               </button>
-            </div>
-          )}
+            ) : null}
+            <ApprovalButtonGroup
+              status={approvalStatus}
+              onApprove={onAccept ? handleApprove : null}
+              onReject={onReject ? handleReject : null}
+              compact
+            />
+          </div>
 
-          {/* Right: Zoom Controls and View Modes */}
-          <div className="flex items-center gap-2">
-            {/* Zoom Controls */}
-            <ZoomControls zoom={zoomLevel} onZoomChange={setZoomLevel} />
+          {/* Tool buttons - desktop */}
+          <div className="hidden sm:flex items-center">
+            <button
+              type="button"
+              onClick={() => setShowQueue(!showQueue)}
+              className={`flex items-center justify-center p-2 rounded-md transition-colors ${showQueue ? 'bg-amber-500/15 text-amber-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+              title="Queue"
+              aria-label="Toggle queue"
+              data-testid="toggle-queue-btn"
+            >
+              <ListBulletIcon className="w-5 h-5 pointer-events-none" />
+            </button>
 
-            {/* View Mode Toggle - hidden on mobile, shown on larger screens */}
-            <div className="hidden sm:flex items-center bg-gray-800/60 rounded-lg p-0.5 border border-gray-700/50">
-              {viewModes.map(mode => (
-                <button
-                  type="button"
-                  key={mode.value}
-                  onClick={() => comparison.diff && setViewMode(mode.value)}
-                  disabled={!comparison.diff}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                    !comparison.diff
-                      ? 'text-gray-600 cursor-not-allowed'
-                      : viewMode === mode.value
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-700/60'
-                  }`}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={toggleInspector}
+              className={`p-2 rounded-md transition-colors ${showInspector ? 'bg-blue-500/15 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+              title="Details (I)"
+              aria-label="Screenshot details"
+              data-testid="toggle-inspector-btn"
+            >
+              <InformationCircleIcon className="w-5 h-5 pointer-events-none" />
+            </button>
           </div>
         </div>
 
-        {/* Expandable Metadata Panel - matches Observatory */}
-        {showMetadata && props.length > 0 && (
-          <div className="px-4 py-2 border-t border-gray-800/50 bg-gray-900/50">
-            <div className="flex flex-wrap gap-2">
-              {props.map(prop => (
-                <span
-                  key={prop.key}
-                  className="inline-flex items-center px-2 py-0.5 bg-gray-800/60 text-xs rounded-md"
+        {/* Secondary row: Variant selector + View mode + Zoom */}
+        <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-t border-slate-800/40 flex items-center gap-2 sm:gap-3">
+          {/* Variant breadcrumb - shows viewport/browser info, allows switching when multiple variants */}
+          {currentGroup && currentGroup.comparisons.length > 0 && (
+            <VariantBreadcrumb
+              variants={currentGroup.comparisons}
+              currentVariantId={getComparisonId(comparison)}
+              onVariantSelect={handleVariantSelect}
+            />
+          )}
+
+          <div className="flex-1" />
+
+          {/* View mode - hidden on mobile */}
+          {comparison.diff && (
+            <ViewModeToggle
+              value={viewMode}
+              onChange={setViewMode}
+              compact
+              className="hidden sm:flex"
+            />
+          )}
+
+          {/* Zoom */}
+          <ZoomControls zoom={zoom} onZoomChange={setZoom} />
+        </div>
+      </header>
+
+      {/* Main content area with sidebars */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        {/* Review Queue */}
+        <MobileDrawer
+          isOpen={showQueue}
+          onClose={() => setShowQueue(false)}
+          position="bottom"
+          desktopPosition="left"
+          width="w-80"
+          mobileHeight="30vh"
+          expandedHeight="80vh"
+          alwaysVisibleOnDesktop={false}
+          showBackdrop={false}
+          testId="queue-drawer"
+        >
+          <DrawerHeader
+            title="Queue"
+            subtitle={`${filteredQueueItems.length} of ${queueItems.length} items`}
+            onClose={() => setShowQueue(false)}
+          />
+
+          <DrawerFilterBar>
+            {[
+              { id: 'needs-review', label: 'To Review' },
+              { id: 'changes', label: 'Changes' },
+              { id: 'new', label: 'New' },
+              { id: 'all', label: 'All' },
+            ].map(filter => (
+              <DrawerFilterButton
+                key={filter.id}
+                isActive={queueFilter === filter.id}
+                onClick={() => setQueueFilter(filter.id)}
+              >
+                {filter.label}
+              </DrawerFilterButton>
+            ))}
+          </DrawerFilterBar>
+
+          <DrawerContent className="px-2 py-2 space-y-1">
+            {filteredQueueItems.map(item => {
+              let isActive =
+                getComparisonId(item) === getComparisonId(comparison);
+              return (
+                <div
+                  key={getComparisonId(item)}
+                  ref={isActive ? activeQueueItemRef : null}
                 >
-                  <span className="text-gray-500">{prop.key}:</span>
-                  <span className="ml-1 text-gray-300">{prop.value}</span>
-                </span>
-              ))}
+                  <QueueItem
+                    item={item}
+                    isActive={isActive}
+                    thumbnailUrl={item.current || item.baseline}
+                    onClick={() => onNavigate(item)}
+                  />
+                </div>
+              );
+            })}
+            {filteredQueueItems.length === 0 && (
+              <div className="text-center py-8 text-slate-600 text-xs">
+                {queueFilter === 'needs-review'
+                  ? 'All screenshots reviewed!'
+                  : 'No items match this filter'}
+              </div>
+            )}
+          </DrawerContent>
+
+          <DrawerFooter className="hidden sm:flex flex-col items-center gap-1.5">
+            <p className="text-xs text-slate-500 text-center">
+              <span className="text-slate-400">↑↓</span> navigate{' · '}
+              <span className="text-slate-400">Space</span>{' '}
+              {isReviewMode ? 'exit' : 'review mode'}
+            </p>
+            {isReviewMode && (
+              <p className="text-xs text-slate-500 text-center">
+                <span className="text-emerald-500 font-medium">A</span> approve
+                {' · '}
+                <span className="text-red-500 font-medium">R</span> reject
+                {' · '}
+                <span className="text-slate-400 font-medium">D</span> diff
+                {' · '}
+                <span className="text-slate-400 font-medium">T</span> view
+              </p>
+            )}
+          </DrawerFooter>
+        </MobileDrawer>
+
+        {/* Screenshot display area */}
+        <main className="flex-1 min-h-0 overflow-hidden relative">
+          <ScreenshotDisplay
+            key={getComparisonId(comparison)}
+            comparison={comparison}
+            viewMode={viewMode === VIEW_MODES.ONION ? 'onion-skin' : viewMode}
+            showDiffOverlay={showDiffOverlay}
+            onDiffToggle={() => setShowDiffOverlay(prev => !prev)}
+            onionSkinPosition={onionSkinPosition}
+            onOnionSkinChange={setOnionSkinPosition}
+            zoom={zoom}
+            disableLoadingOverlay={true}
+            className="w-full h-full"
+          />
+        </main>
+
+        {/* Inspector Panel - order-last ensures it appears on right in flex container */}
+        <InspectorPanel
+          isOpen={showInspector}
+          onClose={() => setShowInspector(false)}
+          title="Screenshot Details"
+          subtitle={comparison.name || comparison.originalName}
+          className="order-last"
+        >
+          {/* Status */}
+          <InspectorPanel.Section title="Status" icon={CubeTransparentIcon}>
+            <div className="flex items-center gap-2 flex-wrap">
+              {resultBadge && (
+                <Badge variant={resultBadge.variant} size="sm">
+                  {resultBadge.label}
+                </Badge>
+              )}
+              <Badge
+                variant={
+                  approvalStatus === 'approved'
+                    ? 'success'
+                    : approvalStatus === 'rejected'
+                      ? 'danger'
+                      : 'default'
+                }
+                size="sm"
+              >
+                {approvalStatus}
+              </Badge>
             </div>
-          </div>
-        )}
-      </div>
+          </InspectorPanel.Section>
 
-      {/* Main Content Area */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <ScreenshotDisplay
-          key={getComparisonId(comparison)}
-          comparison={comparison}
-          viewMode={viewMode === VIEW_MODES.ONION ? 'onion-skin' : viewMode}
-          showDiffOverlay={showDiffOverlay}
-          onDiffToggle={() => setShowDiffOverlay(prev => !prev)}
-          onionSkinPosition={onionSkinPosition}
-          onOnionSkinChange={setOnionSkinPosition}
-          zoom={zoomLevel}
-          disableLoadingOverlay={true}
-          className="w-full h-full"
-        />
-      </div>
+          {/* Screenshot details */}
+          <InspectorPanel.Section title="Screenshot" icon={ComputerDesktopIcon}>
+            {metadata.browser && (
+              <InspectorPanel.Row
+                label="Browser"
+                value={metadata.browser}
+                icon={() => (
+                  <BrowserIcon
+                    browser={metadata.browser}
+                    className="w-3.5 h-3.5"
+                  />
+                )}
+              />
+            )}
+            <InspectorPanel.Row
+              label="Viewport"
+              value={
+                metadata.viewport_width && metadata.viewport_height
+                  ? `${metadata.viewport_width} × ${metadata.viewport_height}`
+                  : null
+              }
+              mono
+            />
+            <InspectorPanel.Row label="Device" value={metadata.device} />
+          </InspectorPanel.Section>
 
-      {/* Filmstrip Navigation */}
-      <div className="flex-shrink-0 bg-gray-900 border-t border-gray-800/50">
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-4">
-            {/* Screenshot count */}
-            <div className="text-sm text-gray-500 flex-shrink-0">
-              {currentIndex + 1} of {sortedComparisons.length}
-            </div>
-
-            {/* Filmstrip */}
-            <div
-              ref={filmstripRef}
-              className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide py-1"
+          {/* Diff analysis */}
+          {result === 'changed' && comparison.diffPercentage != null && (
+            <InspectorPanel.Section
+              title="Diff Analysis"
+              icon={DocumentMagnifyingGlassIcon}
             >
-              {sortedComparisons.map((comp, index) => (
-                <FilmstripThumbnail
-                  key={getComparisonId(comp, index)}
-                  comparison={comp}
-                  index={index}
-                  isActive={index === currentIndex}
-                  onClick={() => onNavigate(comp)}
+              <InspectorPanel.Row
+                label="Changed"
+                value={`${Number(comparison.diffPercentage).toFixed(3)}%`}
+                mono
+              />
+              {comparison.diffPixels != null && (
+                <InspectorPanel.Row
+                  label="Pixels"
+                  value={comparison.diffPixels.toLocaleString()}
+                  mono
                 />
-              ))}
-            </div>
+              )}
+              {comparison.threshold != null && (
+                <InspectorPanel.Row
+                  label="Threshold"
+                  value={Number(comparison.threshold).toFixed(2)}
+                  mono
+                />
+              )}
+            </InspectorPanel.Section>
+          )}
 
-            {/* Keyboard hints */}
-            <div className="hidden md:flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
-              <span>
-                Use{' '}
-                <kbd className="px-1 py-0.5 bg-gray-800 rounded text-gray-400">
-                  ←
-                </kbd>{' '}
-                <kbd className="px-1 py-0.5 bg-gray-800 rounded text-gray-400">
-                  →
-                </kbd>{' '}
-                to navigate
-              </span>
-              <ChevronDownIcon className="w-4 h-4 rotate-[-90deg]" />
-            </div>
+          {/* Actions */}
+          <InspectorPanel.Section title="Identifier" icon={CubeTransparentIcon}>
+            <InspectorPanel.Row
+              label="Signature"
+              value={comparison.signature || comparison.id}
+              mono
+              copyable
+            />
+          </InspectorPanel.Section>
+        </InspectorPanel>
+      </div>
+
+      {/* Mobile Bottom Bar */}
+      <div className="sm:hidden flex-shrink-0 bg-slate-900/98 backdrop-blur-sm border-t border-slate-700/50 safe-area-pb">
+        {/* Approval buttons */}
+        <MobileApprovalBar
+          status={approvalStatus}
+          onApprove={onAccept ? handleApprove : null}
+          onReject={onReject ? handleReject : null}
+        />
+
+        {/* Secondary tools row */}
+        <div className="px-3 py-2 flex items-center gap-1 border-t border-slate-800/40">
+          <button
+            type="button"
+            onClick={() => setShowQueue(!showQueue)}
+            className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showQueue ? 'bg-amber-500/15 text-amber-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60 active:bg-slate-700/60'}`}
+            aria-label="Queue"
+            data-testid="mobile-toggle-queue-btn"
+          >
+            <ListBulletIcon className="w-5 h-5 pointer-events-none" />
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleInspector}
+            className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showInspector ? 'bg-blue-500/15 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60 active:bg-slate-700/60'}`}
+            aria-label="Screenshot details"
+            data-testid="mobile-toggle-inspector-btn"
+          >
+            <InformationCircleIcon className="w-5 h-5 pointer-events-none" />
+          </button>
+
+          {canDelete && onDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="flex items-center justify-center p-2.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-600/20 active:bg-red-600/30 transition-colors"
+              aria-label="Delete"
+              data-testid="mobile-delete-btn"
+            >
+              <span className="text-xs font-medium">Delete</span>
+            </button>
+          )}
+
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 tabular-nums">
+              {currentFilteredIndex + 1} / {filteredQueueItems.length}
+            </span>
+            {resultBadge && (
+              <Badge variant={resultBadge.variant} size="sm">
+                {resultBadge.label}
+              </Badge>
+            )}
           </div>
         </div>
       </div>

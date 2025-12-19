@@ -13,6 +13,7 @@ import {
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
 import { createBuildObject as defaultCreateBuildObject } from '../services/build-manager.js';
+import { createConfigService as defaultCreateConfigService } from '../services/config-service.js';
 import {
   initializeDaemon as defaultInitializeDaemon,
   runTests as defaultRunTests,
@@ -46,6 +47,7 @@ export async function tddCommand(
     getBuild = defaultGetBuild,
     createServerManager = defaultCreateServerManager,
     createBuildObject = defaultCreateBuildObject,
+    createConfigService = defaultCreateConfigService,
     initializeDaemon = defaultInitializeDaemon,
     runTests = defaultRunTests,
     detectBranch = defaultDetectBranch,
@@ -115,8 +117,11 @@ export async function tddCommand(
     output.startSpinner('Initializing TDD server...');
     let configWithVerbose = { ...config, verbose: globalOptions.verbose };
 
+    // Create config service for dashboard settings page
+    let configService = createConfigService({ workingDir: process.cwd() });
+
     // Create server manager (functional object)
-    serverManager = createServerManager(configWithVerbose, {});
+    serverManager = createServerManager(configWithVerbose, { configService });
 
     // Create build manager (functional object that provides the interface runTests expects)
     let buildManager = {

@@ -390,6 +390,7 @@ export default function DashboardFilters({
               color="gray"
               active={filter === FILTER_TYPES.ALL}
               onClick={() => setFilter(FILTER_TYPES.ALL)}
+              testId="filter-status-all"
             />
             <FilterPill
               label="Failed"
@@ -397,6 +398,7 @@ export default function DashboardFilters({
               color="red"
               active={filter === FILTER_TYPES.FAILED}
               onClick={() => setFilter(FILTER_TYPES.FAILED)}
+              testId="filter-status-failed"
             />
             <FilterPill
               label="New"
@@ -404,6 +406,7 @@ export default function DashboardFilters({
               color="blue"
               active={filter === FILTER_TYPES.NEW}
               onClick={() => setFilter(FILTER_TYPES.NEW)}
+              testId="filter-status-new"
             />
             <FilterPill
               label="Passed"
@@ -411,6 +414,7 @@ export default function DashboardFilters({
               color="emerald"
               active={filter === FILTER_TYPES.PASSED}
               onClick={() => setFilter(FILTER_TYPES.PASSED)}
+              testId="filter-status-passed"
             />
           </div>
 
@@ -452,6 +456,7 @@ export default function DashboardFilters({
             color="gray"
             active={filter === FILTER_TYPES.ALL}
             onClick={() => setFilter(FILTER_TYPES.ALL)}
+            testId="mobile-filter-status-all"
           />
           <FilterPill
             label="Failed"
@@ -459,6 +464,7 @@ export default function DashboardFilters({
             color="red"
             active={filter === FILTER_TYPES.FAILED}
             onClick={() => setFilter(FILTER_TYPES.FAILED)}
+            testId="mobile-filter-status-failed"
           />
           <FilterPill
             label="New"
@@ -466,6 +472,7 @@ export default function DashboardFilters({
             color="blue"
             active={filter === FILTER_TYPES.NEW}
             onClick={() => setFilter(FILTER_TYPES.NEW)}
+            testId="mobile-filter-status-new"
           />
           <FilterPill
             label="Passed"
@@ -473,6 +480,7 @@ export default function DashboardFilters({
             color="emerald"
             active={filter === FILTER_TYPES.PASSED}
             onClick={() => setFilter(FILTER_TYPES.PASSED)}
+            testId="mobile-filter-status-passed"
           />
         </div>
 

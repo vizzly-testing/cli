@@ -236,6 +236,9 @@ function ScreenshotGroupRow({
   let needsAction = hasChanges || hasNew;
   let thumbnailSrc = primary.current || primary.baseline;
 
+  // Generate test ID from primary comparison
+  let testId = `screenshot-group-${(primary.id || primary.signature || group.name).replace(/[^a-zA-Z0-9-]/g, '-')}`;
+
   // Border color based on status
   let borderClass = hasChanges
     ? 'border-red-500/40 hover:border-red-500/60'
@@ -245,6 +248,7 @@ function ScreenshotGroupRow({
 
   return (
     <div
+      data-testid={testId}
       className={`
         group flex items-center gap-3 p-3
         bg-slate-800/30 hover:bg-slate-800/50

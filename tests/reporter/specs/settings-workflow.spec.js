@@ -36,54 +36,47 @@ test.describe('Settings Workflow', () => {
   });
 
   test('view current settings values', async ({ page }) => {
-    await page.goto(`http://localhost:${port}/settings`, {
-      waitUntil: 'networkidle',
-    });
+    await page.goto(`http://localhost:${port}/settings`);
 
     // Verify page loaded
     await expect(
       page.getByRole('heading', { name: 'Settings', level: 1 })
     ).toBeVisible();
 
-    // Verify General Settings card is visible
-    await expect(page.locator('text=General Settings')).toBeVisible();
+    // Verify settings cards are visible
+    await expect(
+      page.getByRole('heading', { name: 'Comparison', level: 3 })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Server', level: 3 })
+    ).toBeVisible();
 
-    // Verify threshold input shows default value
-    let thresholdInput = page.getByLabel('Visual Comparison Threshold');
+    // Verify threshold shows default value (spinbutton with value 2)
+    let thresholdInput = page.getByRole('spinbutton').first();
     await expect(thresholdInput).toHaveValue('2');
 
-    // Navigate to Server tab
-    await page.getByRole('button', { name: 'Server' }).click();
-
-    // Verify server settings
-    await expect(page.locator('text=Server Settings')).toBeVisible();
-    let portInput = page.getByLabel('Server Port');
-    await expect(portInput).toHaveValue('47392');
+    // Verify port shows default value
+    await expect(page.getByText('47392')).toBeVisible();
   });
 
   test('update threshold and save', async ({ page }) => {
-    // Skip on mobile - "Unsaved changes" text is hidden on small screens
-    let viewport = page.viewportSize();
-    test.skip(viewport.width < 768, 'Save bar text hidden on mobile');
+    await page.goto(`http://localhost:${port}/settings`);
 
-    await page.goto(`http://localhost:${port}/settings`, {
-      waitUntil: 'networkidle',
-    });
+    // Get the threshold input (first spinbutton on page)
+    let thresholdInput = page.getByRole('spinbutton').first();
 
     // Change threshold value
-    let thresholdInput = page.getByLabel('Visual Comparison Threshold');
     await thresholdInput.fill('0.5');
 
-    // Verify save bar appears
-    await expect(page.locator('text=Unsaved changes')).toBeVisible();
+    // Verify save button is now enabled
+    let saveButton = page.getByRole('button', { name: 'Save Changes' });
+    await expect(saveButton).toBeEnabled();
 
     // Click Save Changes
-    await page.getByRole('button', { name: 'Save Changes' }).click();
+    await saveButton.click();
 
-    // Verify success toast
-    await expect(
-      page.locator('text=Settings saved successfully')
-    ).toBeVisible();
+    // Verify success message (the toast)
+    await expect(page.getByText('Settings saved successfully!')).toBeVisible();
 
     // Verify mutation was tracked
     let response = await page.request.get(
@@ -96,25 +89,29 @@ test.describe('Settings Workflow', () => {
   });
 
   test('reset reverts unsaved changes', async ({ page }) => {
-    await page.goto(`http://localhost:${port}/settings`, {
-      waitUntil: 'networkidle',
-    });
+    await page.goto(`http://localhost:${port}/settings`);
+
+    // Get the threshold input (first spinbutton on page)
+    let thresholdInput = page.getByRole('spinbutton').first();
+    let originalValue = await thresholdInput.inputValue();
 
     // Change threshold value
-    let thresholdInput = page.getByLabel('Visual Comparison Threshold');
-    let originalValue = await thresholdInput.inputValue();
     await thresholdInput.fill('0.1');
 
     // Verify value changed
     await expect(thresholdInput).toHaveValue('0.1');
 
+    // Reset button should now be enabled
+    let resetButton = page.getByRole('button', { name: 'Reset' });
+    await expect(resetButton).toBeEnabled();
+
     // Click Reset
-    await page.getByRole('button', { name: 'Reset' }).click();
+    await resetButton.click();
 
     // Verify value reverted
     await expect(thresholdInput).toHaveValue(originalValue);
 
-    // Verify save bar is gone
-    await expect(page.locator('text=Unsaved changes')).not.toBeVisible();
+    // Verify reset button is disabled again
+    await expect(resetButton).toBeDisabled();
   });
 });

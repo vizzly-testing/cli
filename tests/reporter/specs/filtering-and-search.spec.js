@@ -36,153 +36,167 @@ test.describe('Filtering and Search', () => {
     }
   });
 
-  test('filter by status shows correct comparisons', async ({ page }) => {
-    await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
+  test('filter by status shows correct screenshots', async ({ page }) => {
+    await page.goto(`http://localhost:${port}/`);
 
-    // Verify initial state shows all comparisons
-    await expect(page.getByTestId('filter-status-all')).toBeVisible();
-
-    // Click "Failed" filter
-    await page.getByTestId('filter-status-failed').click();
-
-    // Verify only failed comparisons are visible
+    // User sees filter buttons with counts
+    await expect(page.getByRole('button', { name: /All.*5/i })).toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
+      page.getByRole('button', { name: /Failed.*2/i })
     ).toBeVisible();
+    await expect(page.getByRole('button', { name: /New.*1/i })).toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
+      page.getByRole('button', { name: /Passed.*2/i })
     ).toBeVisible();
 
-    // Passed and new should not be visible
+    // User clicks "Failed" filter
+    await page.getByRole('button', { name: /Failed.*2/i }).click();
+
+    // User sees only failed screenshots (check headings to be specific)
     await expect(
-      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
+      page.getByRole('heading', { name: /pricing-page/i })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /checkout-form/i })
+    ).toBeVisible();
+
+    // Passed and new screenshots are hidden
+    await expect(
+      page.getByRole('heading', { name: /homepage-desktop/i })
     ).not.toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-dashboard-widget-chrome-1920x1080')
+      page.getByRole('heading', { name: /dashboard-widget/i })
     ).not.toBeVisible();
 
-    // Click "Passed" filter
-    await page.getByTestId('filter-status-passed').click();
+    // User clicks "Passed" filter
+    await page.getByRole('button', { name: /Passed.*2/i }).click();
 
-    // Verify only passed comparisons are visible
+    // User sees only passed screenshots
     await expect(
-      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
+      page.getByRole('heading', { name: /homepage-desktop/i })
     ).toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-homepage-mobile-chrome-375x812')
+      page.getByRole('heading', { name: /homepage-mobile/i })
     ).toBeVisible();
 
-    // Failed should not be visible
+    // Failed screenshots are hidden
     await expect(
-      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
+      page.getByRole('heading', { name: /pricing-page/i })
     ).not.toBeVisible();
 
-    // Click "New" filter
-    await page.getByTestId('filter-status-new').click();
+    // User clicks "New" filter
+    await page.getByRole('button', { name: /New.*1/i }).click();
 
-    // Verify only new comparison is visible
+    // User sees only new screenshot
     await expect(
-      page.getByTestId('comparison-card-dashboard-widget-chrome-1920x1080')
+      page.getByRole('heading', { name: /dashboard-widget/i })
     ).toBeVisible();
 
-    // Others should not be visible
+    // Others are hidden
     await expect(
-      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
+      page.getByRole('heading', { name: /homepage-desktop/i })
     ).not.toBeVisible();
 
-    // Click "All" to reset
-    await page.getByTestId('filter-status-all').click();
+    // User clicks "All" to reset
+    await page.getByRole('button', { name: /All.*5/i }).click();
 
-    // All comparisons should be visible again
+    // All screenshots visible again
     await expect(
-      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
+      page.getByRole('heading', { name: /homepage-desktop/i })
     ).toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
+      page.getByRole('heading', { name: /pricing-page/i })
     ).toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-dashboard-widget-chrome-1920x1080')
+      page.getByRole('heading', { name: /dashboard-widget/i })
     ).toBeVisible();
   });
 
-  test('search filters comparisons by name', async ({ page }) => {
-    await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
+  test('search filters screenshots by name', async ({ page }) => {
+    await page.goto(`http://localhost:${port}/`);
 
-    // Type in search box
-    let searchBox = page.getByTestId('search-input');
+    // User types in search box
+    let searchBox = page.getByRole('textbox', {
+      name: /search screenshots/i,
+    });
     await searchBox.fill('homepage');
 
-    // Only homepage comparisons should be visible
+    // Only homepage screenshots are visible
     await expect(
-      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
+      page.getByRole('heading', { name: /homepage-desktop/i })
     ).toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-homepage-mobile-chrome-375x812')
+      page.getByRole('heading', { name: /homepage-mobile/i })
     ).toBeVisible();
 
-    // Others should not be visible
+    // Others are hidden
     await expect(
-      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
+      page.getByRole('heading', { name: /pricing-page/i })
     ).not.toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
+      page.getByRole('heading', { name: /checkout-form/i })
     ).not.toBeVisible();
 
-    // Search for something that doesn't exist
+    // User searches for something that doesn't exist
     await searchBox.fill('nonexistent');
 
-    // Should see "No matches" message
-    await expect(page.locator('text=No matches')).toBeVisible();
+    // User sees empty state heading
+    await expect(
+      page.getByRole('heading', { name: /no matches/i })
+    ).toBeVisible();
 
-    // Clear search
+    // User clears search
     await searchBox.fill('');
 
-    // All comparisons should be visible again
+    // All screenshots visible again
     await expect(
-      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
+      page.getByRole('heading', { name: /homepage-desktop/i })
     ).toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
+      page.getByRole('heading', { name: /pricing-page/i })
     ).toBeVisible();
   });
 
-  test('filter by browser shows correct comparisons', async ({ page }) => {
+  test('filter by browser shows correct screenshots', async ({ page }) => {
     // Skip on mobile - browser dropdown is hidden on small screens
     let viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'Browser filter hidden on mobile');
 
-    await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
+    await page.goto(`http://localhost:${port}/`);
 
-    // Select Chrome from browser dropdown
-    await page.getByTestId('filter-browser').selectOption('chrome');
+    // User opens browser dropdown and selects Chrome
+    await page.getByTestId('filter-browser').click();
+    // Select from dropdown menu - button name includes icon alt text
+    await page.getByRole('button', { name: 'chrome browser chrome' }).click();
 
-    // Only chrome comparisons should be visible
+    // Only chrome screenshots are visible
     await expect(
-      page.getByTestId('comparison-card-homepage-mobile-chrome-375x812')
+      page.getByRole('heading', { name: /homepage-mobile/i })
     ).toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-dashboard-widget-chrome-1920x1080')
+      page.getByRole('heading', { name: /dashboard-widget/i })
     ).toBeVisible();
 
-    // Firefox comparisons should not be visible
+    // Firefox screenshots are hidden
     await expect(
-      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
+      page.getByRole('heading', { name: /homepage-desktop/i })
     ).not.toBeVisible();
     await expect(
-      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
+      page.getByRole('heading', { name: /pricing-page/i })
     ).not.toBeVisible();
 
-    // Select Safari
-    await page.getByTestId('filter-browser').selectOption('safari');
+    // User selects Safari
+    await page.getByTestId('filter-browser').click();
+    await page.getByRole('button', { name: 'safari browser safari' }).click();
 
-    // Only safari comparison should be visible
+    // Only safari screenshot is visible
     await expect(
-      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
+      page.getByRole('heading', { name: /checkout-form/i })
     ).toBeVisible();
 
-    // Chrome comparisons should not be visible now
+    // Chrome screenshots are hidden now
     await expect(
-      page.getByTestId('comparison-card-homepage-mobile-chrome-375x812')
+      page.getByRole('heading', { name: /homepage-mobile/i })
     ).not.toBeVisible();
   });
 
@@ -191,58 +205,61 @@ test.describe('Filtering and Search', () => {
     let viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'Browser filter hidden on mobile');
 
-    await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
+    await page.goto(`http://localhost:${port}/`);
 
-    // Filter to failed only
-    await page.getByTestId('filter-status-failed').click();
+    // User filters to failed only
+    await page.getByRole('button', { name: /Failed.*2/i }).click();
 
-    // Select Firefox browser
-    await page.getByTestId('filter-browser').selectOption('firefox');
+    // User selects Firefox from browser dropdown
+    await page.getByTestId('filter-browser').click();
+    await page.getByRole('button', { name: 'firefox browser firefox' }).click();
 
-    // Only failed + firefox comparison should be visible
+    // Only failed + firefox screenshot is visible
     await expect(
-      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
+      page.getByRole('heading', { name: /pricing-page/i })
     ).toBeVisible();
 
-    // Failed safari should not be visible (wrong browser)
+    // Failed safari is hidden (wrong browser)
     await expect(
-      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
+      page.getByRole('heading', { name: /checkout-form/i })
     ).not.toBeVisible();
 
-    // Passed firefox should not be visible (wrong status)
+    // Passed firefox is hidden (wrong status)
     await expect(
-      page.getByTestId('comparison-card-homepage-desktop-firefox-1920x1080')
+      page.getByRole('heading', { name: /homepage-desktop/i })
     ).not.toBeVisible();
   });
 
   test('filter state persists in URL', async ({ page }) => {
-    await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
+    await page.goto(`http://localhost:${port}/`);
 
-    // Apply status filter
-    await page.getByTestId('filter-status-failed').click();
+    // User applies status filter
+    await page.getByRole('button', { name: /Failed.*2/i }).click();
 
-    // Apply search
-    let searchBox = page.getByTestId('search-input');
+    // User searches
+    let searchBox = page.getByRole('textbox', {
+      name: /search screenshots/i,
+    });
     await searchBox.fill('pricing');
 
-    // Verify URL contains filter params
+    // URL contains filter params
     await expect(page).toHaveURL(/filter=failed/);
     await expect(page).toHaveURL(/search=pricing/);
 
-    // Reload the page
-    await page.reload({ waitUntil: 'networkidle' });
+    // User reloads the page
+    await page.reload();
 
-    // Verify filters are still applied
+    // Filters are still applied - only pricing-page visible
     await expect(
-      page.getByTestId('comparison-card-pricing-page-firefox-1920x1080')
+      page.getByRole('heading', { name: /pricing-page/i })
     ).toBeVisible();
 
-    // Other comparisons should still be filtered out
+    // Other failed screenshot is filtered out by search
     await expect(
-      page.getByTestId('comparison-card-checkout-form-safari-1280x720')
+      page.getByRole('heading', { name: /checkout-form/i })
     ).not.toBeVisible();
 
-    // Verify search box still has the value
+    // Search box still has the value
     await expect(searchBox).toHaveValue('pricing');
   });
 });

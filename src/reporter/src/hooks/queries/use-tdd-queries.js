@@ -1,22 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
+import { SSE_STATE, useReportDataSSE } from '../use-sse.js';
 
 export function useReportData(options = {}) {
+  // Use SSE for real-time updates (handles static mode internally)
+  const { state: sseState } = useReportDataSSE({
+    enabled: options.polling !== false,
+  });
+
+  // SSE is connected - it updates the cache directly, no polling needed
+  // Fall back to polling only when SSE is not connected
+  const sseConnected = sseState === SSE_STATE.CONNECTED;
+
   return useQuery({
     queryKey: queryKeys.reportData(),
     queryFn: tdd.getReportData,
-    // Poll every 2 seconds by default
-    refetchInterval: options.polling !== false ? 2000 : false,
-    ...options,
-  });
-}
-
-export function useTddStatus(options = {}) {
-  return useQuery({
-    queryKey: queryKeys.status(),
-    queryFn: tdd.getStatus,
-    refetchInterval: options.polling !== false ? 1000 : false,
+    // Only poll as fallback when SSE is not connected
+    refetchInterval: options.polling !== false && !sseConnected ? 2000 : false,
     ...options,
   });
 }

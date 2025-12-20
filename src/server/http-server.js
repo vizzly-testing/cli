@@ -15,6 +15,7 @@ import { createBaselineRouter } from './routers/baseline.js';
 import { createCloudProxyRouter } from './routers/cloud-proxy.js';
 import { createConfigRouter } from './routers/config.js';
 import { createDashboardRouter } from './routers/dashboard.js';
+import { createEventsRouter } from './routers/events.js';
 // Routers
 import { createHealthRouter } from './routers/health.js';
 import { createProjectsRouter } from './routers/projects.js';
@@ -51,6 +52,7 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
     createAuthRouter(routerContext),
     createProjectsRouter(routerContext),
     createCloudProxyRouter(routerContext),
+    createEventsRouter(routerContext), // SSE for real-time updates
     createDashboardRouter(routerContext), // Catch-all for SPA routes - must be last
   ];
 

@@ -99,15 +99,22 @@ describe('server/http-server', () => {
       assert.ok(res.body.includes('<!DOCTYPE html>'));
     });
 
-    it('serves /api/status endpoint', async () => {
+    it('serves /api/events SSE endpoint', async () => {
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify({ comparisons: [], summary: { total: 0 } })
+      );
+
       server = createHttpServer(testPort, null);
       await server.start();
 
-      let res = await request(testPort, '/api/status');
+      let res = await fetch(`http://127.0.0.1:${testPort}/api/events`);
 
       assert.strictEqual(res.status, 200);
-      assert.ok(res.body.timestamp);
-      assert.ok(res.body.summary);
+      assert.strictEqual(res.headers.get('Content-Type'), 'text/event-stream');
+
+      // Close the connection
+      await res.body.cancel();
     });
 
     it('serves /api/report-data endpoint', async () => {

@@ -31,30 +31,39 @@ import {
  * Create a project service instance
  * @param {Object} [options]
  * @param {string} [options.apiUrl] - API base URL (defaults to VIZZLY_API_URL or https://app.vizzly.dev)
+ * @param {Object} [options.httpClient] - Injectable HTTP client (for testing)
+ * @param {Object} [options.mappingStore] - Injectable mapping store (for testing)
+ * @param {Function} [options.getAuthTokens] - Injectable token getter (for testing)
  * @returns {Object} Project service
  */
 export function createProjectService(options = {}) {
   let apiUrl = options.apiUrl || getApiUrl();
 
+  // Create HTTP client once at service creation (not per-request)
+  // Allow injection for testing
+  let httpClient = options.httpClient || createAuthClient({ baseUrl: apiUrl });
+
   // Create mapping store adapter for global config
-  let mappingStore = {
+  // Allow injection for testing
+  let mappingStore = options.mappingStore || {
     getMappings: getProjectMappings,
     getMapping: getProjectMapping,
     saveMapping: saveProjectMapping,
     deleteMapping: deleteProjectMapping,
   };
 
+  // Allow injection of getAuthTokens for testing
+  let tokenGetter = options.getAuthTokens || getAuthTokens;
+
   /**
    * Create an OAuth client with current access token
    * @returns {Promise<Object|null>} OAuth client or null if not authenticated
    */
   async function createOAuthClient() {
-    let auth = await getAuthTokens();
+    let auth = await tokenGetter();
     if (!auth?.accessToken) {
       return null;
     }
-
-    let httpClient = createAuthClient({ baseUrl: apiUrl });
 
     // Wrap authenticatedRequest to auto-inject the access token
     return {

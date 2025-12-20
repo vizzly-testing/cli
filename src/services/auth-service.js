@@ -31,16 +31,20 @@ import {
  * Create an auth service instance
  * @param {Object} [options]
  * @param {string} [options.apiUrl] - API base URL (defaults to VIZZLY_API_URL or https://app.vizzly.dev)
+ * @param {Object} [options.httpClient] - Injectable HTTP client (for testing)
+ * @param {Object} [options.tokenStore] - Injectable token store (for testing)
  * @returns {Object} Auth service
  */
 export function createAuthService(options = {}) {
   let apiUrl = options.apiUrl || getApiUrl();
 
   // Create HTTP client for API requests (uses auth client for proper auth handling)
-  let httpClient = createAuthClient({ baseUrl: apiUrl });
+  // Allow injection for testing
+  let httpClient = options.httpClient || createAuthClient({ baseUrl: apiUrl });
 
   // Create token store adapter for global config
-  let tokenStore = {
+  // Allow injection for testing
+  let tokenStore = options.tokenStore || {
     getTokens: getAuthTokens,
     saveTokens: saveAuthTokens,
     clearTokens: clearAuthTokens,

@@ -12,8 +12,10 @@ import {
 } from '../api/index.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
+import { createAuthService as defaultCreateAuthService } from '../services/auth-service.js';
 import { createBuildObject as defaultCreateBuildObject } from '../services/build-manager.js';
 import { createConfigService as defaultCreateConfigService } from '../services/config-service.js';
+import { createProjectService as defaultCreateProjectService } from '../services/project-service.js';
 import {
   initializeDaemon as defaultInitializeDaemon,
   runTests as defaultRunTests,
@@ -47,7 +49,9 @@ export async function tddCommand(
     getBuild = defaultGetBuild,
     createServerManager = defaultCreateServerManager,
     createBuildObject = defaultCreateBuildObject,
+    createAuthService = defaultCreateAuthService,
     createConfigService = defaultCreateConfigService,
+    createProjectService = defaultCreateProjectService,
     initializeDaemon = defaultInitializeDaemon,
     runTests = defaultRunTests,
     detectBranch = defaultDetectBranch,
@@ -117,11 +121,17 @@ export async function tddCommand(
     output.startSpinner('Initializing TDD server...');
     let configWithVerbose = { ...config, verbose: globalOptions.verbose };
 
-    // Create config service for dashboard settings page
+    // Create services for dashboard tabs
     let configService = createConfigService({ workingDir: process.cwd() });
+    let authService = createAuthService();
+    let projectService = createProjectService();
 
     // Create server manager (functional object)
-    serverManager = createServerManager(configWithVerbose, { configService });
+    serverManager = createServerManager(configWithVerbose, {
+      configService,
+      authService,
+      projectService,
+    });
 
     // Create build manager (functional object that provides the interface runTests expects)
     let buildManager = {

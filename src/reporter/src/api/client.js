@@ -10,6 +10,14 @@
  */
 
 /**
+ * Check if we're in static mode (data embedded in HTML)
+ * Static mode is used for self-contained HTML reports
+ */
+export function isStaticMode() {
+  return typeof window !== 'undefined' && window.VIZZLY_STATIC_MODE === true;
+}
+
+/**
  * Make a JSON API request
  * @param {string} url - Request URL
  * @param {Object} options - Fetch options
@@ -46,14 +54,6 @@ export const tdd = {
    */
   async getReportData() {
     return fetchJson('/api/report-data');
-  },
-
-  /**
-   * Get real-time status
-   * @returns {Promise<Object>}
-   */
-  async getStatus() {
-    return fetchJson('/api/status');
   },
 
   /**

@@ -20,6 +20,26 @@ const SPA_ROUTES = ['/', '/stats', '/settings', '/projects', '/builds'];
 export function createDashboardRouter(context) {
   const { workingDir = process.cwd() } = context || {};
 
+  /**
+   * Read baseline metadata from baselines/metadata.json
+   */
+  const readBaselineMetadata = () => {
+    const metadataPath = join(
+      workingDir,
+      '.vizzly',
+      'baselines',
+      'metadata.json'
+    );
+    if (!existsSync(metadataPath)) {
+      return null;
+    }
+    try {
+      return JSON.parse(readFileSync(metadataPath, 'utf8'));
+    } catch {
+      return null;
+    }
+  };
+
   return async function handleDashboardRoute(req, res, pathname) {
     if (req.method !== 'GET') {
       return false;
@@ -31,10 +51,12 @@ export function createDashboardRouter(context) {
 
       if (existsSync(reportDataPath)) {
         try {
-          const data = readFileSync(reportDataPath, 'utf8');
+          const data = JSON.parse(readFileSync(reportDataPath, 'utf8'));
+          // Include baseline metadata for stats view
+          data.baseline = readBaselineMetadata();
           res.setHeader('Content-Type', 'application/json');
           res.statusCode = 200;
-          res.end(data);
+          res.end(JSON.stringify(data));
           return true;
         } catch (error) {
           output.debug('Error reading report data:', { error: error.message });
@@ -48,49 +70,6 @@ export function createDashboardRouter(context) {
       }
     }
 
-    // API endpoint for real-time status
-    if (pathname === '/api/status') {
-      const reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
-      const baselineMetadataPath = join(
-        workingDir,
-        '.vizzly',
-        'baselines',
-        'metadata.json'
-      );
-
-      let reportData = null;
-      let baselineInfo = null;
-
-      if (existsSync(reportDataPath)) {
-        try {
-          reportData = JSON.parse(readFileSync(reportDataPath, 'utf8'));
-        } catch {
-          // Ignore
-        }
-      }
-
-      if (existsSync(baselineMetadataPath)) {
-        try {
-          baselineInfo = JSON.parse(readFileSync(baselineMetadataPath, 'utf8'));
-        } catch {
-          // Ignore
-        }
-      }
-
-      sendSuccess(res, {
-        timestamp: Date.now(),
-        baseline: baselineInfo,
-        comparisons: reportData?.comparisons || [],
-        summary: reportData?.summary || {
-          total: 0,
-          passed: 0,
-          failed: 0,
-          errors: 0,
-        },
-      });
-      return true;
-    }
-
     // Serve React SPA for dashboard routes
     if (SPA_ROUTES.includes(pathname) || pathname.startsWith('/comparison/')) {
       const reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
@@ -100,6 +79,8 @@ export function createDashboardRouter(context) {
         try {
           const data = readFileSync(reportDataPath, 'utf8');
           reportData = JSON.parse(data);
+          // Include baseline metadata for stats view
+          reportData.baseline = readBaselineMetadata();
         } catch (error) {
           output.debug('Could not read report data:', { error: error.message });
         }

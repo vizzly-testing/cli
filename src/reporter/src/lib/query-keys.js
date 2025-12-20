@@ -11,7 +11,6 @@ export const queryKeys = {
   // TDD (local)
   tdd: ['tdd'],
   reportData: () => [...queryKeys.tdd, 'report'],
-  status: () => [...queryKeys.tdd, 'status'],
 
   // Cloud
   cloud: ['cloud'],

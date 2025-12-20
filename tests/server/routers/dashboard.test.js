@@ -116,93 +116,40 @@ describe('server/routers/dashboard', () => {
         assert.strictEqual(res.statusCode, 200);
         assert.strictEqual(res.body, 'null');
       });
-    });
 
-    describe('GET /api/status', () => {
-      it('returns status with empty data when no files exist', async () => {
-        let handler = createDashboardRouter();
-        let req = createMockRequest('GET');
-        let res = createMockResponse();
-
-        await handler(req, res, '/api/status');
-
-        assert.strictEqual(res.statusCode, 200);
-        let body = res.getParsedBody();
-        assert.ok(body.timestamp);
-        assert.strictEqual(body.baseline, null);
-        assert.deepStrictEqual(body.comparisons, []);
-        assert.strictEqual(body.summary.total, 0);
-      });
-
-      it('returns status with report data', async () => {
+      it('includes baseline metadata when available', async () => {
         writeFileSync(
           join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({
-            comparisons: [{ id: '1' }],
-            summary: { total: 5, passed: 4, failed: 1, errors: 0 },
-          })
+          JSON.stringify({ comparisons: [], summary: { total: 0 } })
         );
-
-        let handler = createDashboardRouter();
-        let req = createMockRequest('GET');
-        let res = createMockResponse();
-
-        await handler(req, res, '/api/status');
-
-        assert.strictEqual(res.statusCode, 200);
-        let body = res.getParsedBody();
-        assert.strictEqual(body.summary.total, 5);
-        assert.strictEqual(body.comparisons.length, 1);
-      });
-
-      it('returns status with baseline info', async () => {
         writeFileSync(
           join(testDir, '.vizzly', 'baselines', 'metadata.json'),
-          JSON.stringify({
-            buildName: 'Test Build',
-            createdAt: '2025-01-01T00:00:00Z',
-          })
+          JSON.stringify({ buildName: 'Test Build', createdAt: '2025-01-01' })
         );
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
         let res = createMockResponse();
 
-        await handler(req, res, '/api/status');
+        await handler(req, res, '/api/report-data');
 
         assert.strictEqual(res.statusCode, 200);
         let body = res.getParsedBody();
         assert.strictEqual(body.baseline.buildName, 'Test Build');
+        assert.strictEqual(body.baseline.createdAt, '2025-01-01');
       });
 
-      it('handles invalid JSON in report-data.json gracefully', async () => {
+      it('returns null baseline when metadata does not exist', async () => {
         writeFileSync(
           join(testDir, '.vizzly', 'report-data.json'),
-          'invalid json'
+          JSON.stringify({ comparisons: [], summary: { total: 0 } })
         );
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
         let res = createMockResponse();
 
-        await handler(req, res, '/api/status');
-
-        assert.strictEqual(res.statusCode, 200);
-        let body = res.getParsedBody();
-        assert.deepStrictEqual(body.comparisons, []);
-      });
-
-      it('handles invalid JSON in metadata.json gracefully', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'baselines', 'metadata.json'),
-          'invalid json'
-        );
-
-        let handler = createDashboardRouter();
-        let req = createMockRequest('GET');
-        let res = createMockResponse();
-
-        await handler(req, res, '/api/status');
+        await handler(req, res, '/api/report-data');
 
         assert.strictEqual(res.statusCode, 200);
         let body = res.getParsedBody();

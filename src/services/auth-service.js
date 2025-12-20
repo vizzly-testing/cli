@@ -3,16 +3,24 @@
  * Wraps auth operations for use by the HTTP server
  *
  * Provides the interface expected by src/server/routers/auth.js:
- * - isAuthenticated()
- * - whoami()
- * - initiateDeviceFlow()
- * - pollDeviceAuthorization(deviceCode)
- * - completeDeviceFlow(tokens)
- * - logout()
+ * - isAuthenticated() - Returns boolean, false if no tokens or API call fails
+ * - whoami() - Throws if not authenticated or tokens invalid
+ * - initiateDeviceFlow() - Throws on API error
+ * - pollDeviceAuthorization(deviceCode) - Returns pending status or tokens, throws on error
+ * - completeDeviceFlow(tokens) - Saves tokens to global config
+ * - logout() - Clears local tokens, may warn if server revocation fails
+ * - authenticatedRequest(endpoint, options) - Throws 'Not authenticated' if no tokens
+ *
+ * Error handling:
+ * - isAuthenticated() never throws, returns false on any error
+ * - whoami() throws if tokens are missing/invalid (caller should check isAuthenticated first)
+ * - authenticatedRequest() throws 'Not authenticated' if no access token
+ * - Device flow methods throw on API errors (network, server errors)
  */
 
 import { createAuthClient } from '../auth/client.js';
 import * as authOps from '../auth/operations.js';
+import { getApiUrl } from '../utils/environment-config.js';
 import {
   clearAuthTokens,
   getAuthTokens,
@@ -26,8 +34,7 @@ import {
  * @returns {Object} Auth service
  */
 export function createAuthService(options = {}) {
-  let apiUrl =
-    options.apiUrl || process.env.VIZZLY_API_URL || 'https://app.vizzly.dev';
+  let apiUrl = options.apiUrl || getApiUrl();
 
   // Create HTTP client for API requests (uses auth client for proper auth handling)
   let httpClient = createAuthClient({ baseUrl: apiUrl });

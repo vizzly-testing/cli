@@ -3,16 +3,22 @@
  * Wraps project operations for use by the HTTP server
  *
  * Provides the interface expected by src/server/routers/projects.js:
- * - listProjects()
- * - listMappings()
- * - getMapping(directory)
- * - createMapping(directory, projectData)
- * - removeMapping(directory)
- * - getRecentBuilds(projectSlug, organizationSlug, options)
+ * - listProjects() - Returns [] if not authenticated
+ * - listMappings() - Returns [] if no mappings
+ * - getMapping(directory) - Returns null if not found
+ * - createMapping(directory, projectData) - Throws on invalid input
+ * - removeMapping(directory) - Throws on invalid directory
+ * - getRecentBuilds(projectSlug, organizationSlug, options) - Returns [] if not authenticated
+ *
+ * Error handling:
+ * - API methods (listProjects, getRecentBuilds) return empty arrays when not authenticated
+ * - Local methods (listMappings, getMapping) never require authentication
+ * - Validation errors (createMapping, removeMapping) throw with descriptive messages
  */
 
 import { createAuthClient } from '../auth/client.js';
 import * as projectOps from '../project/operations.js';
+import { getApiUrl } from '../utils/environment-config.js';
 import {
   deleteProjectMapping,
   getAuthTokens,
@@ -28,8 +34,7 @@ import {
  * @returns {Object} Project service
  */
 export function createProjectService(options = {}) {
-  let apiUrl =
-    options.apiUrl || process.env.VIZZLY_API_URL || 'https://app.vizzly.dev';
+  let apiUrl = options.apiUrl || getApiUrl();
 
   // Create mapping store adapter for global config
   let mappingStore = {
@@ -65,10 +70,12 @@ export function createProjectService(options = {}) {
   return {
     /**
      * List all projects from API
-     * @returns {Promise<Array>} Array of projects
+     * Returns empty array if not authenticated (projectOps handles null oauthClient)
+     * @returns {Promise<Array>} Array of projects, empty if not authenticated
      */
     async listProjects() {
       let oauthClient = await createOAuthClient();
+      // projectOps.listProjects handles null oauthClient by returning []
       return projectOps.listProjects({ oauthClient, apiClient: null });
     },
 
@@ -110,13 +117,15 @@ export function createProjectService(options = {}) {
 
     /**
      * Get recent builds for a project
+     * Returns empty array if not authenticated (projectOps handles null oauthClient)
      * @param {string} projectSlug - Project slug
      * @param {string} organizationSlug - Organization slug
      * @param {Object} options - Query options
-     * @returns {Promise<Array>} Array of builds
+     * @returns {Promise<Array>} Array of builds, empty if not authenticated
      */
     async getRecentBuilds(projectSlug, organizationSlug, options = {}) {
       let oauthClient = await createOAuthClient();
+      // projectOps.getRecentBuilds handles null oauthClient by returning []
       return projectOps.getRecentBuilds({
         oauthClient,
         apiClient: null,

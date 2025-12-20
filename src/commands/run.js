@@ -206,6 +206,8 @@ export async function runCommand(
     });
 
     // Create server manager (functional object)
+    // Note: Unlike TDD mode, run command doesn't need authService/projectService
+    // because it has no interactive dashboard - it's a one-shot CI command
     serverManager = createServerManager(configWithVerbose, {});
 
     // Create build manager (functional object)

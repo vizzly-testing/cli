@@ -1,3 +1,12 @@
+/**
+ * TUI Visual Tests
+ *
+ * These tests capture screenshots of CLI output for visual regression testing.
+ * They require the X11 driver which is only available in Linux environments.
+ *
+ * - Skipped locally on macOS (no X11)
+ * - Run in CI on Linux with X11 available
+ */
 import { after, before, describe, test } from 'node:test';
 import { DependencyError, Terminal } from 'tui-driver';
 import { vizzlyScreenshot } from '../../src/client/index.js';

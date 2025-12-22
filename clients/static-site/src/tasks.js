@@ -113,6 +113,22 @@ export async function mapWithConcurrency(items, fn, concurrency) {
 }
 
 /**
+ * Format milliseconds as human-readable duration
+ * @param {number} ms - Milliseconds
+ * @returns {string} Formatted duration (e.g., "2m 30s", "45s")
+ */
+function formatDuration(ms) {
+  let seconds = Math.floor(ms / 1000);
+  let minutes = Math.floor(seconds / 60);
+  seconds = seconds % 60;
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
+}
+
+/**
  * Process all tasks through the tab pool
  * @param {Array<Object>} tasks - Array of task objects
  * @param {Object} pool - Tab pool { acquire, release }
@@ -125,6 +141,8 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
   let errors = [];
   let completed = 0;
   let total = tasks.length;
+  let startTime = Date.now();
+  let taskTimes = [];
 
   // Merge deps for processTask
   let taskDeps = { ...defaultDeps, ...deps };
@@ -132,6 +150,7 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
   await mapWithConcurrency(
     tasks,
     async task => {
+      let taskStart = Date.now();
       let tab = await pool.acquire();
 
       // Handle case where pool was drained while waiting
@@ -147,8 +166,20 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
       try {
         await processTask(tab, task, taskDeps);
         completed++;
+
+        // Track task duration for ETA calculation
+        let taskDuration = Date.now() - taskStart;
+        taskTimes.push(taskDuration);
+
+        // Calculate ETA based on average task time
+        let avgTime = taskTimes.reduce((a, b) => a + b, 0) / taskTimes.length;
+        let remaining = total - completed;
+        // Divide by concurrency since tasks run in parallel
+        let etaMs = (remaining * avgTime) / config.concurrency;
+        let eta = remaining > 0 ? ` ~${formatDuration(etaMs)} remaining` : '';
+
         logger.info(
-          `   ✓ [${completed}/${total}] ${task.page.path}@${task.viewport.name}`
+          `   ✓ [${completed}/${total}] ${task.page.path}@${task.viewport.name}${eta}`
         );
       } catch (error) {
         completed++;
@@ -166,6 +197,10 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
     },
     config.concurrency
   );
+
+  // Log total time
+  let totalTime = Date.now() - startTime;
+  logger.info(`   Completed in ${formatDuration(totalTime)}`);
 
   return errors;
 }

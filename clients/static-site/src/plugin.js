@@ -3,6 +3,8 @@
  * Registers the `vizzly static-site` command
  */
 
+import { getDefaultConcurrency } from './config-schema.js';
+
 export default {
   name: 'static-site',
   version: '0.1.0',
@@ -25,7 +27,7 @@ export default {
         fullPage: false,
         omitBackground: false,
       },
-      concurrency: 3,
+      concurrency: getDefaultConcurrency(),
       include: null,
       exclude: null,
       pageDiscovery: {

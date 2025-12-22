@@ -196,8 +196,18 @@ export async function run(buildPath, options = {}, context = {}) {
     }
 
     if (!isTdd && !hasToken) {
-      logger.warn('⚠️  No TDD server or API token found');
-      logger.info('   Run `vizzly tdd start` or set VIZZLY_TOKEN');
+      logger.error('❌ No TDD server or API token found');
+      logger.info('');
+      logger.info('   To capture screenshots, you need either:');
+      logger.info('');
+      logger.info('   1. Start TDD server first (recommended for local dev):');
+      logger.info('      vizzly tdd start');
+      logger.info('      npx vizzly static-site ./dist');
+      logger.info('');
+      logger.info('   2. Or set VIZZLY_TOKEN for cloud uploads:');
+      logger.info('      VIZZLY_TOKEN=your-token npx vizzly static-site ./dist');
+      logger.info('');
+      return;
     }
 
     // Start HTTP server to serve static site files

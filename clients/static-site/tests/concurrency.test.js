@@ -4,28 +4,7 @@
 
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-
-// Simple concurrency control - process items with limited parallelism
-async function mapWithConcurrency(items, fn, concurrency) {
-  let results = [];
-  let executing = [];
-
-  for (let item of items) {
-    let promise = fn(item).then(result => {
-      executing.splice(executing.indexOf(promise), 1);
-      return result;
-    });
-
-    results.push(promise);
-    executing.push(promise);
-
-    if (executing.length >= concurrency) {
-      await Promise.race(executing);
-    }
-  }
-
-  await Promise.all(results);
-}
+import { mapWithConcurrency } from '../src/tasks.js';
 
 describe('mapWithConcurrency', () => {
   it('processes all items', async () => {

@@ -17,13 +17,25 @@ function createMockBrowser() {
     newPage: mock.fn(async () => {
       pageCount++;
       newPageCalls++;
-      return {
-        id: pageCount,
-        close: mock.fn(async () => {}),
-      };
+      return createMockTab(pageCount);
     }),
     getPageCount: () => pageCount,
     getNewPageCalls: () => newPageCalls,
+  };
+}
+
+/**
+ * Create a mock tab/page for testing
+ */
+function createMockTab(id) {
+  return {
+    id,
+    close: mock.fn(async () => {}),
+    goto: mock.fn(async () => {}),
+    createCDPSession: mock.fn(async () => ({
+      send: mock.fn(async () => {}),
+      detach: mock.fn(async () => {}),
+    })),
   };
 }
 
@@ -85,7 +97,7 @@ describe('createTabPool', () => {
       let pool = createTabPool(browser, 3);
 
       let tab1 = await pool.acquire();
-      pool.release(tab1);
+      await pool.release(tab1);
 
       let tab2 = await pool.acquire();
 
@@ -107,7 +119,7 @@ describe('createTabPool', () => {
       // Stats should show waiting
       assert.strictEqual(pool.stats().waiting, 1);
 
-      // Release a tab
+      // Release a tab (don't await - let the handoff happen)
       pool.release(tab1);
 
       // Now the waiting acquire should resolve
@@ -134,7 +146,7 @@ describe('createTabPool', () => {
 
       assert.strictEqual(pool.stats().waiting, 2);
 
-      // Release twice
+      // Release twice (don't await - let handoffs happen)
       pool.release(tab1);
       await promise1;
 
@@ -153,16 +165,16 @@ describe('createTabPool', () => {
       let tab = await pool.acquire();
       assert.strictEqual(pool.stats().available, 0);
 
-      pool.release(tab);
+      await pool.release(tab);
       assert.strictEqual(pool.stats().available, 1);
     });
 
-    it('handles null tab gracefully', () => {
+    it('handles null tab gracefully', async () => {
       let browser = createMockBrowser();
       let pool = createTabPool(browser, 3);
 
       // Should not throw
-      pool.release(null);
+      await pool.release(null);
       assert.strictEqual(pool.stats().available, 0);
     });
 
@@ -176,6 +188,7 @@ describe('createTabPool', () => {
       assert.strictEqual(pool.stats().waiting, 1);
       assert.strictEqual(pool.stats().available, 0);
 
+      // Release hands off directly to waiter
       pool.release(tab1);
 
       let tab2 = await acquirePromise;
@@ -193,8 +206,8 @@ describe('createTabPool', () => {
 
       let tab1 = await pool.acquire();
       let tab2 = await pool.acquire();
-      pool.release(tab1);
-      pool.release(tab2);
+      await pool.release(tab1);
+      await pool.release(tab2);
 
       assert.strictEqual(pool.stats().available, 2);
 
@@ -234,8 +247,8 @@ describe('createTabPool', () => {
         throw new Error('Close failed');
       });
 
-      pool.release(tab1);
-      pool.release(tab2);
+      await pool.release(tab1);
+      await pool.release(tab2);
 
       // Should not throw
       await pool.drain();
@@ -255,7 +268,7 @@ describe('createTabPool', () => {
         let tab = await pool.acquire();
         // Simulate some work with setImmediate (Node.js)
         await new Promise(resolve => setImmediate(resolve));
-        pool.release(tab);
+        await pool.release(tab);
         return i;
       });
 

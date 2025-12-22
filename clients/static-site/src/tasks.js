@@ -83,14 +83,16 @@ export async function processTask(tab, task, deps = {}) {
 }
 
 /**
- * Simple concurrency control - process items with limited parallelism
+ * Process items with limited parallelism using a Set-based approach
+ * Uses Set.delete() for O(1) cleanup vs Array.splice() O(n)
  * @param {Array} items - Items to process
  * @param {Function} fn - Async function to process each item
  * @param {number} concurrency - Max parallel operations
  * @returns {Promise<void>}
  */
-async function mapWithConcurrency(items, fn, concurrency) {
+export async function mapWithConcurrency(items, fn, concurrency) {
   let executing = new Set();
+  let results = [];
 
   for (let item of items) {
     let promise = fn(item).finally(() => {
@@ -98,13 +100,16 @@ async function mapWithConcurrency(items, fn, concurrency) {
     });
 
     executing.add(promise);
+    results.push(promise);
 
     if (executing.size >= concurrency) {
-      await Promise.race(executing);
+      // Wait for one to complete (but don't reject yet - let Promise.all handle it)
+      await Promise.race(executing).catch(() => {});
     }
   }
 
-  await Promise.all(executing);
+  // This will reject if any promise rejected
+  await Promise.all(results);
 }
 
 /**

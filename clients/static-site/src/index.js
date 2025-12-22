@@ -13,9 +13,10 @@ import { generateTasks, processAllTasks } from './tasks.js';
 
 /**
  * Check if TDD mode is available
+ * @param {Function} [debug] - Optional debug logger
  * @returns {Promise<boolean>} True if TDD server is running
  */
-async function isTddModeAvailable() {
+async function isTddModeAvailable(debug = () => {}) {
   let { existsSync, readFileSync } = await import('node:fs');
   let { join, parse, dirname } = await import('node:path');
 
@@ -24,27 +25,34 @@ async function isTddModeAvailable() {
     let currentDir = process.cwd();
     let root = parse(currentDir).root;
 
+    debug(`Searching for TDD server from ${currentDir}`);
+
     while (currentDir !== root) {
       let serverJsonPath = join(currentDir, '.vizzly', 'server.json');
 
       if (existsSync(serverJsonPath)) {
+        debug(`Found server.json at ${serverJsonPath}`);
         try {
           let serverInfo = JSON.parse(readFileSync(serverJsonPath, 'utf8'));
           if (serverInfo.port) {
+            debug(`Pinging TDD server at port ${serverInfo.port}`);
             // Try to ping the server
             let response = await fetch(
               `http://localhost:${serverInfo.port}/health`
             );
+            debug(`TDD server health check: ${response.ok ? 'OK' : 'FAILED'}`);
             return response.ok;
           }
-        } catch {
-          // Invalid JSON or server not responding
+          debug('server.json missing port field');
+        } catch (error) {
+          debug(`Failed to connect to TDD server: ${error.message}`);
         }
       }
       currentDir = dirname(currentDir);
     }
-  } catch {
-    // Error checking for TDD mode
+    debug('No .vizzly/server.json found in parent directories');
+  } catch (error) {
+    debug(`Error checking for TDD mode: ${error.message}`);
   }
 
   return false;
@@ -86,7 +94,8 @@ export async function run(buildPath, options = {}, context = {}) {
     let config = await loadConfig(buildPath, options, vizzlyConfig);
 
     // Determine mode: TDD or Run
-    let isTdd = await isTddModeAvailable();
+    let debug = logger.debug?.bind(logger) || (() => {});
+    let isTdd = await isTddModeAvailable(debug);
     let hasToken = hasApiToken(vizzlyConfig);
 
     if (isTdd) {

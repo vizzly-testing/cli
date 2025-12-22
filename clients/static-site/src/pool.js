@@ -141,8 +141,10 @@ export function createTabPool(browser, size, options = {}) {
       if (entry) entry.useCount++;
       let next = waiting.shift();
       next(tab);
+    } else if (entry) {
+      available.push(entry);
     } else {
-      available.push(entry || { tab, useCount: entry?.useCount || 0 });
+      available.push({ tab, useCount: 0 });
     }
   };
 

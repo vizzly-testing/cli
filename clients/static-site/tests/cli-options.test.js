@@ -3,32 +3,33 @@
  * Ensures CLI options don't override config file values when not explicitly set
  */
 
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert';
+import { describe, it } from 'node:test';
 import { mergeConfigs, parseCliOptions } from '../src/config.js';
 
 describe('CLI Options', () => {
-  it('should not include fullPage in parsed options when not set', () => {
+  it('does not include fullPage in parsed options when not set', () => {
     let options = {};
     let result = parseCliOptions(options);
 
-    expect(result.screenshot).toBeUndefined();
+    assert.strictEqual(result.screenshot, undefined);
   });
 
-  it('should include fullPage when explicitly set to true', () => {
+  it('includes fullPage when explicitly set to true', () => {
     let options = { fullPage: true };
     let result = parseCliOptions(options);
 
-    expect(result.screenshot).toEqual({ fullPage: true });
+    assert.deepStrictEqual(result.screenshot, { fullPage: true });
   });
 
-  it('should include fullPage when explicitly set to false', () => {
+  it('includes fullPage when explicitly set to false', () => {
     let options = { fullPage: false };
     let result = parseCliOptions(options);
 
-    expect(result.screenshot).toEqual({ fullPage: false });
+    assert.deepStrictEqual(result.screenshot, { fullPage: false });
   });
 
-  it('should preserve config fullPage: true when CLI option not set', () => {
+  it('preserves config fullPage: true when CLI option not set', () => {
     let defaultConfig = {
       screenshot: { fullPage: false, omitBackground: false },
     };
@@ -42,10 +43,10 @@ describe('CLI Options', () => {
 
     let result = mergeConfigs(defaultConfig, userConfig, parsedCli);
 
-    expect(result.screenshot.fullPage).toBe(true);
+    assert.strictEqual(result.screenshot.fullPage, true);
   });
 
-  it('should allow CLI option to override config fullPage', () => {
+  it('allows CLI option to override config fullPage', () => {
     let defaultConfig = {
       screenshot: { fullPage: false, omitBackground: false },
     };
@@ -59,6 +60,6 @@ describe('CLI Options', () => {
 
     let result = mergeConfigs(defaultConfig, userConfig, parsedCli);
 
-    expect(result.screenshot.fullPage).toBe(false);
+    assert.strictEqual(result.screenshot.fullPage, false);
   });
 });

@@ -1,127 +1,15 @@
 /**
  * Main entry point for @vizzly-testing/static-site
  * Functional orchestration of page discovery and screenshot capture
+ * Uses a tab pool for efficient browser tab management
  */
 
-import {
-  closeBrowser,
-  closePage,
-  launchBrowser,
-  preparePageForScreenshot,
-} from './browser.js';
-import { getPageConfig, loadConfig } from './config.js';
-import { discoverPages, generatePageUrl } from './crawler.js';
-import { getBeforeScreenshotHook } from './hooks.js';
-import { captureAndSendScreenshot } from './screenshot.js';
+import { closeBrowser, launchBrowser } from './browser.js';
+import { loadConfig } from './config.js';
+import { discoverPages } from './crawler.js';
+import { createTabPool } from './pool.js';
 import { startStaticServer, stopStaticServer } from './server.js';
-
-/**
- * Process a single page across all configured viewports
- * @param {Object} page - Page object
- * @param {Object} browser - Browser instance
- * @param {string} baseUrl - Base URL for static site (HTTP server)
- * @param {Object} config - Configuration
- * @param {Object} context - Plugin context
- * @returns {Promise<Object>} Result object with success count and errors
- */
-async function processPage(page, browser, baseUrl, config, context) {
-  let { logger } = context;
-  let pageConfig = getPageConfig(config, page);
-  let pageUrl = generatePageUrl(baseUrl, page);
-  let hook = getBeforeScreenshotHook(page, config);
-  let errors = [];
-
-  // Process each viewport for this page
-  for (let viewport of pageConfig.viewports) {
-    let puppeteerPage = null;
-
-    try {
-      puppeteerPage = await preparePageForScreenshot(
-        browser,
-        pageUrl,
-        viewport,
-        hook
-      );
-      await captureAndSendScreenshot(
-        puppeteerPage,
-        page,
-        viewport,
-        pageConfig.screenshot
-      );
-
-      logger.info(`   ✓ ${page.path}@${viewport.name}`);
-    } catch (error) {
-      logger.error(`   ✗ ${page.path}@${viewport.name}: ${error.message}`);
-      errors.push({
-        page: page.path,
-        viewport: viewport.name,
-        error: error.message,
-      });
-    } finally {
-      await closePage(puppeteerPage);
-    }
-  }
-
-  return { errors };
-}
-
-/**
- * Simple concurrency control - process items with limited parallelism
- * @param {Array} items - Items to process
- * @param {Function} fn - Async function to process each item
- * @param {number} concurrency - Max parallel operations
- * @returns {Promise<void>}
- */
-async function mapWithConcurrency(items, fn, concurrency) {
-  let results = [];
-  let executing = new Set();
-
-  for (let item of items) {
-    let promise = fn(item).then(result => {
-      executing.delete(promise);
-      return result;
-    });
-
-    results.push(promise);
-    executing.add(promise);
-
-    if (executing.size >= concurrency) {
-      await Promise.race(executing);
-    }
-  }
-
-  await Promise.all(results);
-}
-
-/**
- * Process all pages with concurrency control
- * @param {Array<Object>} pages - Array of page objects
- * @param {Object} browser - Browser instance
- * @param {string} baseUrl - Base URL for static site (HTTP server)
- * @param {Object} config - Configuration
- * @param {Object} context - Plugin context
- * @returns {Promise<Array>} Array of all errors encountered
- */
-async function processPages(pages, browser, baseUrl, config, context) {
-  let allErrors = [];
-
-  await mapWithConcurrency(
-    pages,
-    async page => {
-      let { errors } = await processPage(
-        page,
-        browser,
-        baseUrl,
-        config,
-        context
-      );
-      allErrors.push(...errors);
-    },
-    config.concurrency
-  );
-
-  return allErrors;
-}
+import { generateTasks, processAllTasks } from './tasks.js';
 
 /**
  * Check if TDD mode is available
@@ -173,6 +61,7 @@ function hasApiToken(config) {
 
 /**
  * Main run function - orchestrates the entire screenshot capture process
+ * Uses a tab pool for efficient parallel screenshot capture
  * @param {string} buildPath - Path to static site build
  * @param {Object} options - CLI options
  * @param {Object} context - Plugin context (logger, config, services)
@@ -181,6 +70,7 @@ function hasApiToken(config) {
 export async function run(buildPath, options = {}, context = {}) {
   let { logger, config: vizzlyConfig, services } = context;
   let browser = null;
+  let pool = null;
   let serverInfo = null;
   let testRunner = null;
   let serverManager = null;
@@ -313,17 +203,18 @@ export async function run(buildPath, options = {}, context = {}) {
       return;
     }
 
-    // Launch browser
+    // Launch browser and create tab pool
     browser = await launchBrowser(config.browser);
+    pool = createTabPool(browser, config.concurrency);
 
-    // Process all pages
-    let errors = await processPages(
-      pages,
-      browser,
-      serverInfo.url,
-      config,
-      context
+    // Generate all tasks upfront (pages × viewports)
+    let tasks = generateTasks(pages, serverInfo.url, config);
+    logger.info(
+      `📸 Processing ${tasks.length} screenshots (${config.concurrency} concurrent tabs)`
     );
+
+    // Process all tasks through the tab pool
+    let errors = await processAllTasks(tasks, pool, config, logger);
 
     // Report summary
     if (errors.length > 0) {
@@ -332,9 +223,7 @@ export async function run(buildPath, options = {}, context = {}) {
         logger.error(`   ${page}@${viewport}: ${error}`);
       });
     } else {
-      logger.info(
-        `\n✅ Captured ${pages.length * config.viewports.length} screenshots successfully`
-      );
+      logger.info(`\n✅ Captured ${tasks.length} screenshots successfully`);
     }
 
     // Finalize build in run mode
@@ -361,7 +250,10 @@ export async function run(buildPath, options = {}, context = {}) {
 
     throw error;
   } finally {
-    // Cleanup
+    // Cleanup: drain pool first, then close browser
+    if (pool) {
+      await pool.drain();
+    }
     if (browser) {
       await closeBrowser(browser);
     }

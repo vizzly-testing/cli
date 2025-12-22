@@ -2,22 +2,23 @@
  * Tests for interaction hook system
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import assert from 'node:assert';
+import { describe, it, mock } from 'node:test';
 import { applyHook, getBeforeScreenshotHook } from '../src/hooks.js';
 
 describe('hooks', () => {
   describe('getBeforeScreenshotHook', () => {
-    it('should return null when no hooks match', () => {
+    it('returns null when no hooks match', () => {
       let page = { path: '/about' };
       let config = { interactions: {} };
 
       let hook = getBeforeScreenshotHook(page, config);
 
-      expect(hook).toBeNull();
+      assert.strictEqual(hook, null);
     });
 
-    it('should return pattern-matched hook', () => {
-      let mockHook = vi.fn();
+    it('returns pattern-matched hook', () => {
+      let mockHook = mock.fn();
       let page = { path: '/blog/post-1' };
       let config = {
         interactions: {
@@ -27,11 +28,11 @@ describe('hooks', () => {
 
       let hook = getBeforeScreenshotHook(page, config);
 
-      expect(hook).toBe(mockHook);
+      assert.strictEqual(hook, mockHook);
     });
 
-    it('should return exact path match', () => {
-      let mockHook = vi.fn();
+    it('returns exact path match', () => {
+      let mockHook = mock.fn();
       let page = { path: '/' };
       let config = {
         interactions: {
@@ -41,12 +42,12 @@ describe('hooks', () => {
 
       let hook = getBeforeScreenshotHook(page, config);
 
-      expect(hook).toBe(mockHook);
+      assert.strictEqual(hook, mockHook);
     });
 
-    it('should return named interaction from page config', () => {
-      let namedHook = vi.fn();
-      let patternHook = vi.fn();
+    it('returns named interaction from page config', () => {
+      let namedHook = mock.fn();
+      let patternHook = mock.fn();
       let page = { path: '/product/item-1' };
       let config = {
         interactions: {
@@ -62,12 +63,12 @@ describe('hooks', () => {
 
       let hook = getBeforeScreenshotHook(page, config);
 
-      expect(hook).toBe(namedHook);
+      assert.strictEqual(hook, namedHook);
     });
 
-    it('should prioritize page config over pattern', () => {
-      let namedHook = vi.fn();
-      let patternHook = vi.fn();
+    it('prioritizes page config over pattern', () => {
+      let namedHook = mock.fn();
+      let patternHook = mock.fn();
       let page = { path: '/pricing' };
       let config = {
         interactions: {
@@ -83,50 +84,56 @@ describe('hooks', () => {
 
       let hook = getBeforeScreenshotHook(page, config);
 
-      expect(hook).toBe(namedHook);
+      assert.strictEqual(hook, namedHook);
     });
   });
 
   describe('applyHook', () => {
-    it('should call hook function with page', async () => {
-      let mockPage = { evaluate: vi.fn() };
-      let mockHook = vi.fn();
+    it('calls hook function with page', async () => {
+      let mockPage = { evaluate: mock.fn() };
+      let mockHook = mock.fn();
 
       await applyHook(mockPage, mockHook);
 
-      expect(mockHook).toHaveBeenCalledWith(mockPage, {});
+      assert.strictEqual(mockHook.mock.callCount(), 1);
+      assert.deepStrictEqual(mockHook.mock.calls[0].arguments, [mockPage, {}]);
     });
 
-    it('should pass context to hook', async () => {
+    it('passes context to hook', async () => {
       let mockPage = {};
-      let mockHook = vi.fn();
+      let mockHook = mock.fn();
       let context = { viewport: { name: 'mobile' } };
 
       await applyHook(mockPage, mockHook, context);
 
-      expect(mockHook).toHaveBeenCalledWith(mockPage, context);
+      assert.deepStrictEqual(mockHook.mock.calls[0].arguments, [mockPage, context]);
     });
 
-    it('should handle null hook gracefully', async () => {
+    it('handles null hook gracefully', async () => {
       let mockPage = {};
 
-      await expect(applyHook(mockPage, null)).resolves.toBeUndefined();
+      let result = await applyHook(mockPage, null);
+
+      assert.strictEqual(result, undefined);
     });
 
-    it('should handle non-function hook gracefully', async () => {
+    it('handles non-function hook gracefully', async () => {
       let mockPage = {};
 
-      await expect(
-        applyHook(mockPage, 'not-a-function')
-      ).resolves.toBeUndefined();
+      let result = await applyHook(mockPage, 'not-a-function');
+
+      assert.strictEqual(result, undefined);
     });
 
-    it('should throw on hook execution error', async () => {
+    it('throws on hook execution error', async () => {
       let mockPage = {};
-      let mockHook = vi.fn().mockRejectedValue(new Error('Hook failed'));
+      let mockHook = mock.fn(async () => {
+        throw new Error('Hook failed');
+      });
 
-      await expect(applyHook(mockPage, mockHook)).rejects.toThrow(
-        'Hook execution failed: Hook failed'
+      await assert.rejects(
+        applyHook(mockPage, mockHook),
+        /Hook execution failed: Hook failed/
       );
     });
   });

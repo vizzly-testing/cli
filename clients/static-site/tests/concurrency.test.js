@@ -2,7 +2,8 @@
  * Tests for concurrency control
  */
 
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert';
+import { describe, it } from 'node:test';
 
 // Simple concurrency control - process items with limited parallelism
 async function mapWithConcurrency(items, fn, concurrency) {
@@ -27,7 +28,7 @@ async function mapWithConcurrency(items, fn, concurrency) {
 }
 
 describe('mapWithConcurrency', () => {
-  it('should process all items', async () => {
+  it('processes all items', async () => {
     let items = [1, 2, 3, 4, 5];
     let processed = [];
 
@@ -39,11 +40,11 @@ describe('mapWithConcurrency', () => {
       2
     );
 
-    expect(processed).toHaveLength(5);
-    expect(processed.sort()).toEqual([1, 2, 3, 4, 5]);
+    assert.strictEqual(processed.length, 5);
+    assert.deepStrictEqual(processed.sort(), [1, 2, 3, 4, 5]);
   });
 
-  it('should respect concurrency limit', async () => {
+  it('respects concurrency limit', async () => {
     let items = [1, 2, 3, 4, 5];
     let activeCount = 0;
     let maxConcurrent = 0;
@@ -53,33 +54,28 @@ describe('mapWithConcurrency', () => {
       async () => {
         activeCount++;
         maxConcurrent = Math.max(maxConcurrent, activeCount);
-        await new Promise(resolve => {
-          let timeout = setTimeout(() => {
-            clearTimeout(timeout);
-            resolve();
-          }, 10);
-        });
+        await new Promise(resolve => setImmediate(resolve));
         activeCount--;
       },
       2
     );
 
-    expect(maxConcurrent).toBeLessThanOrEqual(2);
+    assert.ok(maxConcurrent <= 2);
   });
 
-  it('should handle async function results', async () => {
+  it('handles async function results', async () => {
     let items = [1, 2, 3];
 
     await mapWithConcurrency(items, async item => item * 2, 2);
 
     // Should complete without error
-    expect(true).toBe(true);
+    assert.ok(true);
   });
 
-  it('should handle errors in processing', async () => {
+  it('handles errors in processing', async () => {
     let items = [1, 2, 3];
 
-    await expect(
+    await assert.rejects(
       mapWithConcurrency(
         items,
         async item => {
@@ -87,7 +83,8 @@ describe('mapWithConcurrency', () => {
           return item;
         },
         2
-      )
-    ).rejects.toThrow('Test error');
+      ),
+      /Test error/
+    );
   });
 });

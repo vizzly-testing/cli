@@ -2,118 +2,119 @@
  * Tests for configuration loading and merging
  */
 
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert';
+import { describe, it } from 'node:test';
 import { getPageConfig, mergeConfigs, parseCliOptions } from '../src/config.js';
 
 describe('config', () => {
   describe('parseCliOptions', () => {
-    it('should parse viewport option', () => {
+    it('parses viewport option', () => {
       let options = { viewports: 'mobile:375x667,desktop:1920x1080' };
       let config = parseCliOptions(options);
 
-      expect(config.viewports).toHaveLength(2);
-      expect(config.viewports[0]).toEqual({
+      assert.strictEqual(config.viewports.length, 2);
+      assert.deepStrictEqual(config.viewports[0], {
         name: 'mobile',
         width: 375,
         height: 667,
       });
-      expect(config.viewports[1]).toEqual({
+      assert.deepStrictEqual(config.viewports[1], {
         name: 'desktop',
         width: 1920,
         height: 1080,
       });
     });
 
-    it('should parse concurrency option', () => {
+    it('parses concurrency option', () => {
       let options = { concurrency: 5 };
       let config = parseCliOptions(options);
 
-      expect(config.concurrency).toBe(5);
+      assert.strictEqual(config.concurrency, 5);
     });
 
-    it('should parse include/exclude patterns', () => {
+    it('parses include/exclude patterns', () => {
       let options = { include: 'blog/*', exclude: '*/draft' };
       let config = parseCliOptions(options);
 
-      expect(config.include).toBe('blog/*');
-      expect(config.exclude).toBe('*/draft');
+      assert.strictEqual(config.include, 'blog/*');
+      assert.strictEqual(config.exclude, '*/draft');
     });
 
-    it('should parse browser options', () => {
+    it('parses browser options', () => {
       let options = {
         headless: false,
         browserArgs: '--no-sandbox,--disable-dev-shm-usage',
       };
       let config = parseCliOptions(options);
 
-      expect(config.browser.headless).toBe(false);
-      expect(config.browser.args).toEqual([
+      assert.strictEqual(config.browser.headless, false);
+      assert.deepStrictEqual(config.browser.args, [
         '--no-sandbox',
         '--disable-dev-shm-usage',
       ]);
     });
 
-    it('should parse screenshot options', () => {
+    it('parses screenshot options', () => {
       let options = { fullPage: true };
       let config = parseCliOptions(options);
 
-      expect(config.screenshot.fullPage).toBe(true);
+      assert.strictEqual(config.screenshot.fullPage, true);
     });
 
-    it('should parse page discovery options', () => {
+    it('parses page discovery options', () => {
       let options = { useSitemap: false, sitemapPath: 'custom-sitemap.xml' };
       let config = parseCliOptions(options);
 
-      expect(config.pageDiscovery.useSitemap).toBe(false);
-      expect(config.pageDiscovery.sitemapPath).toBe('custom-sitemap.xml');
+      assert.strictEqual(config.pageDiscovery.useSitemap, false);
+      assert.strictEqual(config.pageDiscovery.sitemapPath, 'custom-sitemap.xml');
     });
   });
 
   describe('mergeConfigs', () => {
-    it('should merge multiple configs with priority', () => {
+    it('merges multiple configs with priority', () => {
       let config1 = { concurrency: 3, browser: { headless: true } };
       let config2 = { concurrency: 5, screenshot: { fullPage: true } };
       let config3 = { concurrency: 10 };
 
       let merged = mergeConfigs(config1, config2, config3);
 
-      expect(merged.concurrency).toBe(10); // Later overrides
-      expect(merged.browser.headless).toBe(true);
-      expect(merged.screenshot.fullPage).toBe(true);
+      assert.strictEqual(merged.concurrency, 10); // Later overrides
+      assert.strictEqual(merged.browser.headless, true);
+      assert.strictEqual(merged.screenshot.fullPage, true);
     });
 
-    it('should deep merge nested objects', () => {
+    it('deep merges nested objects', () => {
       let config1 = { browser: { headless: true, args: [] } };
       let config2 = { browser: { args: ['--no-sandbox'] } };
 
       let merged = mergeConfigs(config1, config2);
 
-      expect(merged.browser.headless).toBe(true);
-      expect(merged.browser.args).toEqual(['--no-sandbox']);
+      assert.strictEqual(merged.browser.headless, true);
+      assert.deepStrictEqual(merged.browser.args, ['--no-sandbox']);
     });
 
-    it('should handle null configs', () => {
+    it('handles null configs', () => {
       let config1 = { concurrency: 3 };
 
       let merged = mergeConfigs(config1, null, undefined);
 
-      expect(merged.concurrency).toBe(3);
+      assert.strictEqual(merged.concurrency, 3);
     });
 
-    it('should merge interactions', () => {
+    it('merges interactions', () => {
       let config1 = { interactions: { 'blog/*': () => {} } };
       let config2 = { interactions: { 'products/*': () => {} } };
 
       let merged = mergeConfigs(config1, config2);
 
-      expect(Object.keys(merged.interactions)).toHaveLength(2);
-      expect(merged.interactions['blog/*']).toBeDefined();
-      expect(merged.interactions['products/*']).toBeDefined();
+      assert.strictEqual(Object.keys(merged.interactions).length, 2);
+      assert.ok(merged.interactions['blog/*']);
+      assert.ok(merged.interactions['products/*']);
     });
   });
 
   describe('getPageConfig', () => {
-    it('should return global config when no page overrides', () => {
+    it('returns global config when no page overrides', () => {
       let globalConfig = {
         viewports: [{ name: 'mobile', width: 375, height: 667 }],
         screenshot: { fullPage: false },
@@ -122,10 +123,10 @@ describe('config', () => {
 
       let config = getPageConfig(globalConfig, page);
 
-      expect(config).toEqual(globalConfig);
+      assert.deepStrictEqual(config, globalConfig);
     });
 
-    it('should apply exact path match', () => {
+    it('applies exact path match', () => {
       let globalConfig = {
         viewports: [
           { name: 'mobile', width: 375, height: 667 },
@@ -141,10 +142,10 @@ describe('config', () => {
 
       let config = getPageConfig(globalConfig, page);
 
-      expect(config.screenshot.fullPage).toBe(true);
+      assert.strictEqual(config.screenshot.fullPage, true);
     });
 
-    it('should apply pattern match', () => {
+    it('applies pattern match', () => {
       let globalConfig = {
         viewports: [
           { name: 'mobile', width: 375, height: 667 },
@@ -160,11 +161,11 @@ describe('config', () => {
 
       let config = getPageConfig(globalConfig, page);
 
-      expect(config.viewports).toHaveLength(1);
-      expect(config.viewports[0].name).toBe('mobile');
+      assert.strictEqual(config.viewports.length, 1);
+      assert.strictEqual(config.viewports[0].name, 'mobile');
     });
 
-    it('should filter viewports by name', () => {
+    it('filters viewports by name', () => {
       let globalConfig = {
         viewports: [
           { name: 'mobile', width: 375, height: 667 },
@@ -181,12 +182,12 @@ describe('config', () => {
 
       let config = getPageConfig(globalConfig, page);
 
-      expect(config.viewports).toHaveLength(2);
-      expect(config.viewports[0].name).toBe('mobile');
-      expect(config.viewports[1].name).toBe('desktop');
+      assert.strictEqual(config.viewports.length, 2);
+      assert.strictEqual(config.viewports[0].name, 'mobile');
+      assert.strictEqual(config.viewports[1].name, 'desktop');
     });
 
-    it('should use viewport objects directly', () => {
+    it('uses viewport objects directly', () => {
       let globalConfig = {
         viewports: [{ name: 'mobile', width: 375, height: 667 }],
         pages: {
@@ -199,11 +200,11 @@ describe('config', () => {
 
       let config = getPageConfig(globalConfig, page);
 
-      expect(config.viewports).toHaveLength(1);
-      expect(config.viewports[0].name).toBe('custom');
+      assert.strictEqual(config.viewports.length, 1);
+      assert.strictEqual(config.viewports[0].name, 'custom');
     });
 
-    it('should merge screenshot options', () => {
+    it('merges screenshot options', () => {
       let globalConfig = {
         screenshot: { fullPage: false, omitBackground: false },
         pages: {
@@ -216,8 +217,8 @@ describe('config', () => {
 
       let config = getPageConfig(globalConfig, page);
 
-      expect(config.screenshot.fullPage).toBe(true);
-      expect(config.screenshot.omitBackground).toBe(false);
+      assert.strictEqual(config.screenshot.fullPage, true);
+      assert.strictEqual(config.screenshot.omitBackground, false);
     });
   });
 });

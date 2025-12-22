@@ -1,10 +1,9 @@
 /**
  * Browser management with Puppeteer
- * Functions for launching, managing, and closing browsers
+ * Core functions for launching and managing browsers
  */
 
 import puppeteer from 'puppeteer';
-import { setViewport } from './utils/viewport.js';
 
 /**
  * Launch a Puppeteer browser instance
@@ -36,15 +35,6 @@ export async function closeBrowser(browser) {
 }
 
 /**
- * Create a new page in the browser
- * @param {Object} browser - Browser instance
- * @returns {Promise<Object>} Page instance
- */
-export async function createPage(browser) {
-  return await browser.newPage();
-}
-
-/**
  * Navigate to a URL and wait for the page to load
  * @param {Object} page - Puppeteer page instance
  * @param {string} url - URL to navigate to
@@ -55,7 +45,7 @@ export async function navigateToUrl(page, url, options = {}) {
   try {
     await page.goto(url, {
       waitUntil: 'networkidle2',
-      timeout: 30000, // 30 second timeout
+      timeout: 30000,
       ...options,
     });
   } catch (error) {
@@ -72,46 +62,5 @@ export async function navigateToUrl(page, url, options = {}) {
     } else {
       throw error;
     }
-  }
-}
-
-/**
- * Process a single page - navigate, wait, and prepare for screenshot
- * @param {Object} browser - Browser instance
- * @param {string} url - Page URL
- * @param {Object} viewport - Viewport configuration
- * @param {Function|null} beforeScreenshot - Optional hook to run before screenshot
- * @returns {Promise<Object>} Page instance ready for screenshot
- */
-export async function preparePageForScreenshot(
-  browser,
-  url,
-  viewport,
-  beforeScreenshot = null
-) {
-  let page = await createPage(browser);
-
-  // Set viewport
-  await setViewport(page, viewport);
-
-  // Navigate to page (waits for networkidle2)
-  await navigateToUrl(page, url);
-
-  // Run custom interaction hook if provided
-  if (beforeScreenshot && typeof beforeScreenshot === 'function') {
-    await beforeScreenshot(page);
-  }
-
-  return page;
-}
-
-/**
- * Close a page
- * @param {Object} page - Page instance to close
- * @returns {Promise<void>}
- */
-export async function closePage(page) {
-  if (page) {
-    await page.close();
   }
 }

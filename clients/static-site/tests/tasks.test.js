@@ -215,6 +215,7 @@ describe('processAllTasks', () => {
     let logger = {
       info: mock.fn(),
       error: mock.fn(),
+      warn: mock.fn(),
     };
 
     let deps = {
@@ -258,6 +259,7 @@ describe('processAllTasks', () => {
     let logger = {
       info: mock.fn(),
       error: mock.fn(),
+      warn: mock.fn(),
     };
 
     let deps = {

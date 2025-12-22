@@ -3,6 +3,8 @@
  * Registers the `vizzly static-site` command
  */
 
+import { getDefaultConcurrency } from './config-schema.js';
+
 export default {
   name: 'static-site',
   version: '0.1.0',
@@ -25,7 +27,7 @@ export default {
         fullPage: false,
         omitBackground: false,
       },
-      concurrency: 3,
+      concurrency: getDefaultConcurrency(),
       include: null,
       exclude: null,
       pageDiscovery: {
@@ -64,6 +66,10 @@ export default {
       .option('--browser-args <args>', 'Additional Puppeteer browser arguments')
       .option('--headless', 'Run browser in headless mode')
       .option('--full-page', 'Capture full page screenshots')
+      .option(
+        '--dry-run',
+        'Print discovered pages without capturing screenshots'
+      )
       .option('--use-sitemap', 'Use sitemap.xml for page discovery')
       .option(
         '--sitemap-path <path>',

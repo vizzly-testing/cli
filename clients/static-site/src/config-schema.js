@@ -3,7 +3,23 @@
  * Uses Zod for runtime validation
  */
 
+import { cpus } from 'node:os';
 import { z } from 'zod';
+
+/**
+ * Cache CPU count at module load time
+ * Avoids repeated system calls
+ */
+let cachedCpuCount = cpus().length;
+
+/**
+ * Calculate smart default concurrency based on CPU cores
+ * Uses half the cores (min 2, max 8) to balance speed vs resource usage
+ * @returns {number} Default concurrency value
+ */
+export function getDefaultConcurrency() {
+  return Math.max(2, Math.min(8, Math.floor(cachedCpuCount / 2)));
+}
 
 /**
  * Viewport schema
@@ -80,7 +96,7 @@ export let staticSiteConfigSchema = z
       fullPage: false,
       omitBackground: false,
     }),
-    concurrency: z.number().int().positive().default(3),
+    concurrency: z.number().int().positive().default(getDefaultConcurrency()),
     include: z.string().nullable().optional(),
     exclude: z.string().nullable().optional(),
     pageDiscovery: pageDiscoverySchema.default({
@@ -95,7 +111,7 @@ export let staticSiteConfigSchema = z
     viewports: [{ name: 'default', width: 1920, height: 1080 }],
     browser: { headless: true, args: [] },
     screenshot: { fullPage: false, omitBackground: false },
-    concurrency: 3,
+    concurrency: getDefaultConcurrency(),
     pageDiscovery: {
       useSitemap: true,
       sitemapPath: 'sitemap.xml',

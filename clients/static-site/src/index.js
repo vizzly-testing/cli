@@ -93,6 +93,51 @@ export async function run(buildPath, options = {}, context = {}) {
     // Load and merge configuration
     let config = await loadConfig(buildPath, options, vizzlyConfig);
 
+    // Handle dry-run mode early - just discover and print pages
+    if (options.dryRun) {
+      let pages = await discoverPages(config.buildPath, config);
+      logger.info(
+        `🔍 Dry run: Found ${pages.length} pages in ${config.buildPath}\n`
+      );
+
+      if (pages.length === 0) {
+        logger.warn('   No pages found matching your configuration.');
+        return;
+      }
+
+      // Group by source for clarity
+      let sitemapPages = pages.filter(p => p.source === 'sitemap');
+      let htmlPages = pages.filter(p => p.source === 'html');
+
+      if (sitemapPages.length > 0) {
+        logger.info(`   From sitemap (${sitemapPages.length}):`);
+        for (let page of sitemapPages) {
+          logger.info(`     ${page.path}`);
+        }
+      }
+
+      if (htmlPages.length > 0) {
+        logger.info(`   From HTML scan (${htmlPages.length}):`);
+        for (let page of htmlPages) {
+          logger.info(`     ${page.path}`);
+        }
+      }
+
+      // Show task count that would be generated
+      let taskCount = pages.length * config.viewports.length;
+      logger.info('');
+      logger.info(`📸 Would capture ${taskCount} screenshots:`);
+      logger.info(
+        `   ${pages.length} pages × ${config.viewports.length} viewports`
+      );
+      logger.info(
+        `   Viewports: ${config.viewports.map(v => `${v.name} (${v.width}×${v.height})`).join(', ')}`
+      );
+      logger.info(`   Concurrency: ${config.concurrency} tabs`);
+
+      return;
+    }
+
     // Determine mode: TDD or Run
     let debug = logger.debug?.bind(logger) || (() => {});
     let isTdd = await isTddModeAvailable(debug);
@@ -196,8 +241,20 @@ export async function run(buildPath, options = {}, context = {}) {
     }
 
     if (!isTdd && !hasToken) {
-      logger.warn('⚠️  No TDD server or API token found');
-      logger.info('   Run `vizzly tdd start` or set VIZZLY_TOKEN');
+      logger.error('❌ No TDD server or API token found');
+      logger.info('');
+      logger.info('   To capture screenshots, you need either:');
+      logger.info('');
+      logger.info('   1. Start TDD server first (recommended for local dev):');
+      logger.info('      vizzly tdd start');
+      logger.info('      npx vizzly static-site ./dist');
+      logger.info('');
+      logger.info('   2. Or set VIZZLY_TOKEN for cloud uploads:');
+      logger.info(
+        '      VIZZLY_TOKEN=your-token npx vizzly static-site ./dist'
+      );
+      logger.info('');
+      return;
     }
 
     // Start HTTP server to serve static site files

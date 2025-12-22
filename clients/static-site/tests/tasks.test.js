@@ -201,7 +201,8 @@ describe('processAllTasks', () => {
     assert.strictEqual(errors.length, 0);
     assert.strictEqual(acquireCount, 2);
     assert.strictEqual(releaseCalls, 2);
-    assert.strictEqual(logger.info.mock.callCount(), 2);
+    // 2 task logs + 1 completion time log
+    assert.strictEqual(logger.info.mock.callCount(), 3);
   });
 
   it('collects errors when tasks fail', async () => {
@@ -214,6 +215,7 @@ describe('processAllTasks', () => {
     let logger = {
       info: mock.fn(),
       error: mock.fn(),
+      warn: mock.fn(),
     };
 
     let deps = {
@@ -257,6 +259,7 @@ describe('processAllTasks', () => {
     let logger = {
       info: mock.fn(),
       error: mock.fn(),
+      warn: mock.fn(),
     };
 
     let deps = {

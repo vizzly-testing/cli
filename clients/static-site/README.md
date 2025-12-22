@@ -77,7 +77,8 @@ export default {
       omitBackground: false,
     },
 
-    concurrency: 3,
+    // Concurrency auto-detected from CPU cores (min 2, max 8)
+    // concurrency: 4,
 
     // Page filtering
     include: 'blog/**',
@@ -134,12 +135,13 @@ Configuration is merged in this order (later overrides earlier):
 ## CLI Options
 
 - `--viewports <list>` - Comma-separated viewport definitions (format: `name:WxH`)
-- `--concurrency <n>` - Number of parallel pages to process (default: 3)
+- `--concurrency <n>` - Number of parallel browser tabs (default: auto-detected based on CPU cores, min 2, max 8)
 - `--include <pattern>` - Include page pattern (glob)
 - `--exclude <pattern>` - Exclude page pattern (glob)
 - `--browser-args <args>` - Additional Puppeteer browser arguments
 - `--headless` - Run browser in headless mode (default: true)
 - `--full-page` - Capture full page screenshots (default: false)
+- `--dry-run` - Print discovered pages and task count without capturing screenshots
 - `--use-sitemap` - Use sitemap.xml for page discovery (default: true)
 - `--sitemap-path <path>` - Path to sitemap.xml relative to build directory
 
@@ -381,6 +383,13 @@ jobs:
 ## Troubleshooting
 
 ### Pages not found
+
+Use `--dry-run` to see which pages are discovered without capturing screenshots:
+```bash
+vizzly static-site ./dist --dry-run
+```
+
+This shows pages grouped by source (sitemap vs HTML scan), the total screenshot count, and your current configuration.
 
 Ensure your build has completed and check for sitemap.xml or HTML files:
 ```bash

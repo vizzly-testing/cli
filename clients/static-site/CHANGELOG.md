@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.10] - 2025-12-22
+
+## What's Changed
+
+### Added
+- Screenshot timeout configuration: New `--timeout` option (default: 45 seconds) prevents hanging on slow-loading pages
+- Automatic retry logic: Failed screenshots now retry once with a fresh browser tab to recover from timeouts and protocol errors
+- Tab recycling: Browser tabs are automatically recycled after 10 uses to prevent memory leaks in long-running screenshot jobs
+
+### Changed
+- **CI Performance**: Optimized browser arguments for resource-constrained CI environments (disabled GPU, reduced memory usage, limited V8 heap to 512MB)
+- Protocol timeout reduced from 180s to 60s for faster failure detection
+- CLI output now uses proper formatting methods for better readability
+
+### Fixed
+- Improved reliability in CI environments where resource constraints previously caused timeout spikes and hanging jobs
+- Better handling of crashed tabs and protocol errors through automatic retry mechanism
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/static-site/v0.0.9...static-site/v0.0.10
+
 ## [0.0.9] - 2025-12-22
 
 ## What's Changed

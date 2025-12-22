@@ -3,9 +3,58 @@
  * Functions for extracting URLs from sitemap.xml files
  */
 
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { XMLParser } from 'fast-xml-parser';
+
+/**
+ * Check if a path is within the base directory
+ * Prevents path traversal attacks
+ * @param {string} targetPath - Path to validate
+ * @param {string} baseDir - Base directory that should contain the target
+ * @returns {boolean} True if targetPath is within baseDir
+ */
+function isWithinDirectory(targetPath, baseDir) {
+  let resolvedBase = resolve(baseDir);
+  let resolvedTarget = resolve(targetPath);
+
+  return (
+    resolvedTarget.startsWith(resolvedBase + sep) ||
+    resolvedTarget === resolvedBase
+  );
+}
+
+/**
+ * Safely extract filename from URL
+ * Validates the filename doesn't contain path traversal sequences
+ * @param {string} url - URL to extract filename from
+ * @returns {string|null} Safe filename or null if invalid
+ */
+function safeFilenameFromUrl(url) {
+  // Extract the last path segment
+  let filename = url.split('/').pop() || '';
+
+  // Reject if it contains path traversal or suspicious characters
+  if (
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\') ||
+    filename.includes('\0')
+  ) {
+    return null;
+  }
+
+  // Use basename as extra safety
+  filename = basename(filename);
+
+  // Must be a valid sitemap filename
+  if (!filename.endsWith('.xml')) {
+    return null;
+  }
+
+  return filename;
+}
 
 /**
  * Parse sitemap XML file and extract URLs
@@ -14,9 +63,6 @@ import { XMLParser } from 'fast-xml-parser';
  * @returns {Promise<Array<string>>} Array of page URLs from sitemap
  */
 export async function parseSitemapFile(sitemapPath) {
-  let { dirname } = await import('node:path');
-  let { existsSync } = await import('node:fs');
-
   try {
     let content = await readFile(sitemapPath, 'utf-8');
     let { urls, childSitemaps } = parseSitemapXML(content);
@@ -26,9 +72,19 @@ export async function parseSitemapFile(sitemapPath) {
       let baseDir = dirname(sitemapPath);
 
       for (let childUrl of childSitemaps) {
-        // Extract filename from URL (e.g., "sitemap-0.xml" from "https://example.com/sitemap-0.xml")
-        let filename = childUrl.split('/').pop();
+        // Safely extract filename from URL
+        let filename = safeFilenameFromUrl(childUrl);
+        if (!filename) {
+          // Skip invalid filenames (potential path traversal)
+          continue;
+        }
+
         let childPath = join(baseDir, filename);
+
+        // Verify the resolved path is still within baseDir
+        if (!isWithinDirectory(childPath, baseDir)) {
+          continue;
+        }
 
         if (existsSync(childPath)) {
           try {
@@ -124,11 +180,9 @@ export function urlsToRelativePaths(urls, baseUrl) {
  * Discover sitemap in build directory
  * Looks for common sitemap filenames
  * @param {string} buildDir - Build directory path
- * @returns {Promise<string|null>} Path to sitemap if found, null otherwise
+ * @returns {string|null} Path to sitemap if found, null otherwise
  */
-export async function discoverSitemap(buildDir) {
-  let { existsSync } = await import('node:fs');
-
+export function discoverSitemap(buildDir) {
   let commonNames = ['sitemap.xml', 'sitemap_index.xml', 'sitemap-index.xml'];
 
   for (let filename of commonNames) {

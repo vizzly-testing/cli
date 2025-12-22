@@ -3,8 +3,12 @@
  */
 
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { after, before, describe, it } from 'node:test';
 import {
+  parseSitemapFile,
   parseSitemapXML,
   urlsToRelativePaths,
 } from '../../src/utils/sitemap.js';
@@ -164,6 +168,99 @@ describe('sitemap', () => {
       let paths = urlsToRelativePaths(urls, '');
 
       assert.deepStrictEqual(paths, ['/about', '/blog/post']);
+    });
+  });
+
+  describe('parseSitemapFile security', () => {
+    let testDir;
+    let secretDir;
+
+    before(async () => {
+      // Create temp directories
+      testDir = join(tmpdir(), `vizzly-sitemap-security-${Date.now()}`);
+      secretDir = join(tmpdir(), `vizzly-secret-${Date.now()}`);
+      await mkdir(testDir, { recursive: true });
+      await mkdir(secretDir, { recursive: true });
+
+      // Create a "secret" file outside the test directory
+      await writeFile(
+        join(secretDir, 'secret.xml'),
+        `<?xml version="1.0"?>
+        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url><loc>https://example.com/secret-page</loc></url>
+        </urlset>`
+      );
+
+      // Create a valid child sitemap in the test directory
+      await writeFile(
+        join(testDir, 'sitemap-0.xml'),
+        `<?xml version="1.0"?>
+        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url><loc>https://example.com/valid-page</loc></url>
+        </urlset>`
+      );
+    });
+
+    after(async () => {
+      await rm(testDir, { recursive: true, force: true });
+      await rm(secretDir, { recursive: true, force: true });
+    });
+
+    it('rejects path traversal in sitemap index URLs', async () => {
+      // Malicious sitemap index trying to read files outside the directory
+      let maliciousSitemap = `<?xml version="1.0"?>
+        <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <sitemap><loc>https://evil.com/../../../${secretDir}/secret.xml</loc></sitemap>
+          <sitemap><loc>https://example.com/sitemap-0.xml</loc></sitemap>
+        </sitemapindex>`;
+
+      await writeFile(join(testDir, 'sitemap.xml'), maliciousSitemap);
+
+      let urls = await parseSitemapFile(join(testDir, 'sitemap.xml'));
+
+      // Should only get the valid page, not the secret one
+      assert.ok(
+        urls.some(u => u.includes('valid-page')),
+        'Should include valid page'
+      );
+      assert.ok(
+        !urls.some(u => u.includes('secret-page')),
+        'Should NOT include secret page from path traversal'
+      );
+    });
+
+    it('rejects filenames with path traversal sequences', async () => {
+      let maliciousSitemap = `<?xml version="1.0"?>
+        <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <sitemap><loc>https://evil.com/../secret.xml</loc></sitemap>
+          <sitemap><loc>https://evil.com/..%2Fsecret.xml</loc></sitemap>
+          <sitemap><loc>https://example.com/sitemap-0.xml</loc></sitemap>
+        </sitemapindex>`;
+
+      await writeFile(join(testDir, 'sitemap.xml'), maliciousSitemap);
+
+      let urls = await parseSitemapFile(join(testDir, 'sitemap.xml'));
+
+      // Should only get the valid page
+      assert.strictEqual(urls.length, 1);
+      assert.ok(urls[0].includes('valid-page'));
+    });
+
+    it('rejects non-xml filenames', async () => {
+      let maliciousSitemap = `<?xml version="1.0"?>
+        <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <sitemap><loc>https://evil.com/etc/passwd</loc></sitemap>
+          <sitemap><loc>https://evil.com/.env</loc></sitemap>
+          <sitemap><loc>https://example.com/sitemap-0.xml</loc></sitemap>
+        </sitemapindex>`;
+
+      await writeFile(join(testDir, 'sitemap.xml'), maliciousSitemap);
+
+      let urls = await parseSitemapFile(join(testDir, 'sitemap.xml'));
+
+      // Should only get the valid page
+      assert.strictEqual(urls.length, 1);
+      assert.ok(urls[0].includes('valid-page'));
     });
   });
 });

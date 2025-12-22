@@ -137,15 +137,66 @@ function isInteractiveTTY() {
 }
 
 /**
- * Clear current line and write new content (for TTY)
- * @param {string} text - Text to write
+ * Create a simple output coordinator for TTY progress
+ * Prevents race conditions when multiple concurrent tasks update progress
+ * @returns {Object} Coordinator with writeProgress and logError methods
  */
-function writeProgress(text) {
-  if (isInteractiveTTY()) {
-    process.stdout.clearLine(0);
-    process.stdout.cursorTo(0);
-    process.stdout.write(text);
-  }
+function createOutputCoordinator() {
+  let pendingErrors = [];
+  let isWriting = false;
+
+  return {
+    /**
+     * Update progress line (only in TTY mode)
+     * @param {string} text - Progress text
+     */
+    writeProgress(text) {
+      if (!isInteractiveTTY()) return;
+
+      // Flush any pending errors first
+      if (pendingErrors.length > 0 && !isWriting) {
+        isWriting = true;
+        process.stdout.clearLine(0);
+        process.stdout.cursorTo(0);
+        for (let err of pendingErrors) {
+          process.stdout.write(`${err}\n`);
+        }
+        pendingErrors = [];
+        isWriting = false;
+      }
+
+      process.stdout.clearLine(0);
+      process.stdout.cursorTo(0);
+      process.stdout.write(text);
+    },
+
+    /**
+     * Queue an error message to be printed
+     * @param {string} message - Error message
+     * @param {Object} logger - Logger instance
+     */
+    logError(message, logger) {
+      if (isInteractiveTTY()) {
+        // Queue error to be printed before next progress update
+        pendingErrors.push(message);
+      }
+      logger.error(message);
+    },
+
+    /**
+     * Clear progress and flush any remaining errors
+     */
+    flush() {
+      if (!isInteractiveTTY()) return;
+
+      process.stdout.clearLine(0);
+      process.stdout.cursorTo(0);
+      for (let err of pendingErrors) {
+        process.stdout.write(`${err}\n`);
+      }
+      pendingErrors = [];
+    },
+  };
 }
 
 /**
@@ -164,6 +215,10 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
   let startTime = Date.now();
   let taskTimes = [];
   let interactive = isInteractiveTTY();
+  let output = createOutputCoordinator();
+
+  // Minimum samples before showing ETA (avoids wild estimates from cold start)
+  let minSamplesForEta = Math.min(5, Math.ceil(total * 0.1));
 
   // Merge deps for processTask
   let taskDeps = { ...defaultDeps, ...deps };
@@ -192,17 +247,23 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
         let taskDuration = Date.now() - taskStart;
         taskTimes.push(taskDuration);
 
-        // Calculate ETA based on average task time
-        let avgTime = taskTimes.reduce((a, b) => a + b, 0) / taskTimes.length;
-        let remaining = total - completed;
-        // Divide by concurrency since tasks run in parallel
-        let etaMs = (remaining * avgTime) / config.concurrency;
-        let eta = remaining > 0 ? `~${formatDuration(etaMs)} remaining` : '';
+        // Calculate ETA - only show after enough samples for accuracy
+        let eta = '';
+        if (taskTimes.length >= minSamplesForEta) {
+          // Use recent samples for better accuracy (exponential-ish weighting)
+          let recentTimes = taskTimes.slice(-20);
+          let avgTime =
+            recentTimes.reduce((a, b) => a + b, 0) / recentTimes.length;
+          let remaining = total - completed;
+          // Divide by concurrency since tasks run in parallel
+          let etaMs = (remaining * avgTime) / config.concurrency;
+          eta = remaining > 0 ? `~${formatDuration(etaMs)} remaining` : '';
+        }
         let percent = Math.round((completed / total) * 100);
 
         if (interactive) {
           // Update single progress line
-          writeProgress(
+          output.writeProgress(
             `   📸 [${completed}/${total}] ${percent}% ${eta} - ${task.page.path}@${task.viewport.name}`
           );
         } else {
@@ -219,13 +280,9 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
           error: error.message,
         });
 
-        if (interactive) {
-          // Clear progress line and log error
-          writeProgress('');
-          process.stdout.write('\n');
-        }
-        logger.error(
-          `   ✗ ${task.page.path}@${task.viewport.name}: ${error.message}`
+        output.logError(
+          `   ✗ ${task.page.path}@${task.viewport.name}: ${error.message}`,
+          logger
         );
       } finally {
         pool.release(tab);
@@ -234,11 +291,8 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
     config.concurrency
   );
 
-  // Clear progress line and show completion
-  if (interactive) {
-    writeProgress('');
-    process.stdout.write('\n');
-  }
+  // Flush any remaining output
+  output.flush();
 
   // Log total time
   let totalTime = Date.now() - startTime;

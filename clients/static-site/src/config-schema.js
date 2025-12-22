@@ -7,13 +7,18 @@ import { cpus } from 'node:os';
 import { z } from 'zod';
 
 /**
+ * Cache CPU count at module load time
+ * Avoids repeated system calls
+ */
+let cachedCpuCount = cpus().length;
+
+/**
  * Calculate smart default concurrency based on CPU cores
  * Uses half the cores (min 2, max 8) to balance speed vs resource usage
  * @returns {number} Default concurrency value
  */
 export function getDefaultConcurrency() {
-  let cores = cpus().length;
-  return Math.max(2, Math.min(8, Math.floor(cores / 2)));
+  return Math.max(2, Math.min(8, Math.floor(cachedCpuCount / 2)));
 }
 
 /**

@@ -279,4 +279,190 @@ describe('createTabPool', () => {
       assert.ok(browser.getPageCount() <= 3);
     });
   });
+
+  describe('tab recycling', () => {
+    it('recycles tab after N uses', async () => {
+      let browser = createMockBrowser();
+      let pool = createTabPool(browser, 1, { recycleAfter: 3 });
+
+      // First tab created
+      let tab1 = await pool.acquire();
+      let originalId = tab1.id;
+      assert.strictEqual(browser.getNewPageCalls(), 1);
+
+      // Use 1
+      await pool.release(tab1);
+
+      // Use 2
+      let tab2 = await pool.acquire();
+      assert.strictEqual(tab2.id, originalId);
+      await pool.release(tab2);
+
+      // Use 3 - triggers recycling
+      let tab3 = await pool.acquire();
+      assert.strictEqual(tab3.id, originalId);
+      await pool.release(tab3);
+
+      // Now acquire should get a fresh tab (recycled)
+      let tab4 = await pool.acquire();
+      assert.notStrictEqual(tab4.id, originalId);
+      assert.strictEqual(browser.getNewPageCalls(), 2);
+    });
+
+    it('tracks recycled count in stats', async () => {
+      let browser = createMockBrowser();
+      let pool = createTabPool(browser, 1, { recycleAfter: 2 });
+
+      assert.strictEqual(pool.stats().recycled, 0);
+
+      let tab = await pool.acquire();
+      await pool.release(tab); // use 1
+
+      tab = await pool.acquire();
+      await pool.release(tab); // use 2 - triggers recycle
+
+      assert.strictEqual(pool.stats().recycled, 1);
+
+      // Do it again
+      tab = await pool.acquire();
+      await pool.release(tab); // use 1
+
+      tab = await pool.acquire();
+      await pool.release(tab); // use 2 - triggers recycle
+
+      assert.strictEqual(pool.stats().recycled, 2);
+    });
+
+    it('closes old tab during recycling', async () => {
+      let browser = createMockBrowser();
+      let pool = createTabPool(browser, 1, { recycleAfter: 2 });
+
+      let tab = await pool.acquire();
+      await pool.release(tab); // use 1
+
+      tab = await pool.acquire();
+      assert.strictEqual(tab.close.mock.callCount(), 0);
+
+      await pool.release(tab); // use 2 - triggers recycle
+
+      assert.strictEqual(tab.close.mock.callCount(), 1);
+    });
+
+    it('hands off fresh tab to waiting acquirer during recycling', async () => {
+      let browser = createMockBrowser();
+      let pool = createTabPool(browser, 1, { recycleAfter: 2 });
+
+      let tab = await pool.acquire();
+      await pool.release(tab); // use 1
+
+      tab = await pool.acquire();
+      let originalId = tab.id;
+
+      // Someone is waiting
+      let acquirePromise = pool.acquire();
+
+      // Release triggers recycle
+      await pool.release(tab); // use 2
+
+      let newTab = await acquirePromise;
+      assert.notStrictEqual(newTab.id, originalId);
+    });
+
+    it('reduces total count when new tab creation fails during recycling', async () => {
+      let callCount = 0;
+      let browser = {
+        newPage: mock.fn(async () => {
+          callCount++;
+          if (callCount === 2) {
+            throw new Error('Failed to create tab');
+          }
+          return createMockTab(callCount);
+        }),
+      };
+
+      let pool = createTabPool(browser, 1, { recycleAfter: 2 });
+
+      let tab = await pool.acquire();
+      assert.strictEqual(pool.stats().total, 1);
+
+      await pool.release(tab); // use 1
+
+      tab = await pool.acquire();
+      await pool.release(tab); // use 2 - triggers recycle, new tab fails
+
+      // Total should be reduced since we couldn't create replacement
+      assert.strictEqual(pool.stats().total, 0);
+    });
+
+    it('ignores close errors during recycling', async () => {
+      let browser = createMockBrowser();
+      let pool = createTabPool(browser, 1, { recycleAfter: 2 });
+
+      let tab = await pool.acquire();
+      tab.close = mock.fn(async () => {
+        throw new Error('Close failed');
+      });
+
+      await pool.release(tab); // use 1
+
+      tab = await pool.acquire();
+      tab.close = mock.fn(async () => {
+        throw new Error('Close failed');
+      });
+
+      // Should not throw despite close error
+      await pool.release(tab); // use 2 - triggers recycle
+
+      assert.strictEqual(pool.stats().recycled, 1);
+    });
+  });
+
+  describe('_poolEntry metadata', () => {
+    it('preserves _poolEntry reference on tab', async () => {
+      let browser = createMockBrowser();
+      let pool = createTabPool(browser, 2);
+
+      let tab = await pool.acquire();
+
+      assert.ok(tab._poolEntry);
+      assert.strictEqual(tab._poolEntry.tab, tab);
+      assert.strictEqual(tab._poolEntry.useCount, 1);
+    });
+
+    it('increments useCount on each acquire', async () => {
+      let browser = createMockBrowser();
+      let pool = createTabPool(browser, 1);
+
+      let tab = await pool.acquire();
+      assert.strictEqual(tab._poolEntry.useCount, 1);
+
+      await pool.release(tab);
+
+      tab = await pool.acquire();
+      assert.strictEqual(tab._poolEntry.useCount, 2);
+
+      await pool.release(tab);
+
+      tab = await pool.acquire();
+      assert.strictEqual(tab._poolEntry.useCount, 3);
+    });
+
+    it('increments useCount when handing off to waiter', async () => {
+      let browser = createMockBrowser();
+      let pool = createTabPool(browser, 1);
+
+      let tab = await pool.acquire();
+      assert.strictEqual(tab._poolEntry.useCount, 1);
+
+      // Someone is waiting
+      let acquirePromise = pool.acquire();
+
+      // Release hands off directly to waiter
+      pool.release(tab);
+
+      let sameTab = await acquirePromise;
+      assert.strictEqual(sameTab, tab);
+      assert.strictEqual(tab._poolEntry.useCount, 2);
+    });
+  });
 });

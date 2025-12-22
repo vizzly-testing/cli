@@ -67,6 +67,11 @@ export default {
       .option('--headless', 'Run browser in headless mode')
       .option('--full-page', 'Capture full page screenshots')
       .option(
+        '--timeout <ms>',
+        'Screenshot timeout in milliseconds (default: 45000)',
+        parseInt
+      )
+      .option(
         '--dry-run',
         'Print discovered pages without capturing screenshots'
       )

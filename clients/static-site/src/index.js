@@ -241,19 +241,26 @@ export async function run(buildPath, options = {}, context = {}) {
     }
 
     if (!isTdd && !hasToken) {
-      logger.error('❌ No TDD server or API token found');
-      logger.info('');
-      logger.info('   To capture screenshots, you need either:');
-      logger.info('');
-      logger.info('   1. Start TDD server first (recommended for local dev):');
-      logger.info('      vizzly tdd start');
-      logger.info('      npx vizzly static-site ./dist');
-      logger.info('');
-      logger.info('   2. Or set VIZZLY_TOKEN for cloud uploads:');
-      logger.info(
-        '      VIZZLY_TOKEN=your-token npx vizzly static-site ./dist'
-      );
-      logger.info('');
+      // Use output module methods for clean formatting
+      let out = logger.print ? logger : null;
+      if (out) {
+        out.blank();
+        out.warn('No TDD server or API token found');
+        out.blank();
+        out.print('  To capture screenshots, you need either:');
+        out.blank();
+        out.print('  1. Start TDD server first (recommended for local dev):');
+        out.hint('     vizzly tdd start');
+        out.hint('     npx vizzly static-site ./dist');
+        out.blank();
+        out.print('  2. Or set VIZZLY_TOKEN for cloud uploads:');
+        out.hint('     VIZZLY_TOKEN=your-token npx vizzly static-site ./dist');
+        out.blank();
+      } else {
+        // Fallback for testing or when output module not available
+        logger.warn('No TDD server or API token found');
+        logger.info('Run "vizzly tdd start" first, or set VIZZLY_TOKEN');
+      }
       return;
     }
 

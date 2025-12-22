@@ -44,6 +44,7 @@ let browserSchema = z.object({
 let screenshotSchema = z.object({
   fullPage: z.boolean().default(false),
   omitBackground: z.boolean().default(false),
+  timeout: z.number().int().positive().default(45_000), // 45 seconds
 });
 
 /**
@@ -95,6 +96,7 @@ export let staticSiteConfigSchema = z
     screenshot: screenshotSchema.default({
       fullPage: false,
       omitBackground: false,
+      timeout: 45_000,
     }),
     concurrency: z.number().int().positive().default(getDefaultConcurrency()),
     include: z.string().nullable().optional(),
@@ -110,7 +112,7 @@ export let staticSiteConfigSchema = z
   .default({
     viewports: [{ name: 'default', width: 1920, height: 1080 }],
     browser: { headless: true, args: [] },
-    screenshot: { fullPage: false, omitBackground: false },
+    screenshot: { fullPage: false, omitBackground: false, timeout: 45_000 },
     concurrency: getDefaultConcurrency(),
     pageDiscovery: {
       useSitemap: true,

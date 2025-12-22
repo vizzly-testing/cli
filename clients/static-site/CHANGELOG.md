@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - 2025-12-22
+
+## What's Changed
+
+### Added
+- **`--dry-run` option** - Preview discovered pages and screenshot count without actually capturing screenshots. Perfect for debugging page discovery and understanding what will be tested.
+- **Interactive progress display** - Real-time progress updates with ETA in terminal mode, showing completion percentage and time remaining
+
+### Changed
+- **Smart concurrency defaults** - Automatically detects optimal concurrency based on CPU cores (uses half of available cores, minimum 2, maximum 8). No more manual tuning needed!
+- **Improved error messages** - Clear, actionable guidance when no TDD server or API token is found, showing both local and cloud workflow options
+
+### Fixed
+- **Sitemap index handling** - Properly follows child sitemap references instead of treating sitemap files as pages to screenshot
+- **Progress output** - Better handling of errors and completion messages in both interactive (TTY) and CI environments
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/static-site/v0.0.8...static-site/v0.0.9
+
 ## [0.0.8] - 2025-12-22
 
 ## What's Changed

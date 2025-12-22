@@ -223,6 +223,42 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
   // Merge deps for processTask
   let taskDeps = { ...defaultDeps, ...deps };
 
+  /**
+   * Attempt a task with optional retry on failure
+   * On timeout/crash, closes the tab and retries with a fresh one
+   */
+  let attemptTask = async (task, tab, isRetry = false) => {
+    try {
+      await processTask(tab, task, taskDeps);
+      return { success: true, tab };
+    } catch (error) {
+      let isTimeout =
+        error.message.includes('timeout') ||
+        error.message.includes('Timeout') ||
+        error.message.includes('Target closed') ||
+        error.message.includes('Protocol error');
+
+      // If timeout on first attempt, close bad tab and retry with fresh one
+      if (isTimeout && !isRetry) {
+        try {
+          await tab.close();
+        } catch {
+          // Ignore close errors
+        }
+
+        // Get a fresh tab for retry
+        let freshTab = await pool.acquire();
+        if (!freshTab) {
+          return { success: false, error, tab: null };
+        }
+
+        return attemptTask(task, freshTab, true);
+      }
+
+      return { success: false, error, tab, isRetry };
+    }
+  };
+
   await mapWithConcurrency(
     tasks,
     async task => {
@@ -239,11 +275,12 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
         return;
       }
 
-      try {
-        await processTask(tab, task, taskDeps);
+      let result = await attemptTask(task, tab);
+
+      if (result.success) {
         completed++;
 
-        // Track task duration for ETA calculation
+        // Track task duration for ETA calculation (only successful tasks)
         let taskDuration = Date.now() - taskStart;
         taskTimes.push(taskDuration);
 
@@ -272,20 +309,27 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
             `   ✓ [${completed}/${total}] ${task.page.path}@${task.viewport.name} ${eta}`
           );
         }
-      } catch (error) {
+
+        if (result.tab) {
+          pool.release(result.tab);
+        }
+      } else {
         completed++;
+        let retryNote = result.isRetry ? ' (after retry)' : '';
         errors.push({
           page: task.page.path,
           viewport: task.viewport.name,
-          error: error.message,
+          error: result.error.message + retryNote,
         });
 
         output.logError(
-          `   ✗ ${task.page.path}@${task.viewport.name}: ${error.message}`,
+          `   ✗ ${task.page.path}@${task.viewport.name}: ${result.error.message}${retryNote}`,
           logger
         );
-      } finally {
-        pool.release(tab);
+
+        if (result.tab) {
+          pool.release(result.tab);
+        }
       }
     },
     config.concurrency

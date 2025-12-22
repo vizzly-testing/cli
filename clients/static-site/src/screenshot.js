@@ -56,19 +56,31 @@ export function generateScreenshotProperties(viewport) {
 }
 
 /**
+ * Default screenshot timeout in milliseconds (45 seconds)
+ * If a page can't render within this time, something is likely wrong
+ */
+let DEFAULT_SCREENSHOT_TIMEOUT = 45_000;
+
+/**
  * Capture a screenshot from a page
  * @param {Object} page - Puppeteer page instance
  * @param {Object} options - Screenshot options
  * @param {boolean} [options.fullPage=false] - Capture full page
  * @param {boolean} [options.omitBackground=false] - Omit background
+ * @param {number} [options.timeout=45000] - Screenshot timeout in ms
  * @returns {Promise<Buffer>} Screenshot buffer
  */
 export async function captureScreenshot(page, options = {}) {
-  let { fullPage = false, omitBackground = false } = options;
+  let {
+    fullPage = false,
+    omitBackground = false,
+    timeout = DEFAULT_SCREENSHOT_TIMEOUT,
+  } = options;
 
   let screenshot = await page.screenshot({
     fullPage,
     omitBackground,
+    timeout,
   });
 
   return screenshot;

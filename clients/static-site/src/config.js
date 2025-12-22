@@ -73,6 +73,10 @@ export function parseCliOptions(options) {
     config.screenshot = { ...config.screenshot, fullPage: options.fullPage };
   }
 
+  if (options.timeout !== undefined) {
+    config.screenshot = { ...config.screenshot, timeout: options.timeout };
+  }
+
   if (options.useSitemap !== undefined) {
     config.pageDiscovery = {
       ...config.pageDiscovery,

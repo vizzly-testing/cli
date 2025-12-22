@@ -129,7 +129,13 @@ describe('generateScreenshotProperties', () => {
     let viewport1 = { name: 'mobile', width: 375, height: 667 };
     let viewport2 = { name: 'desktop', width: 1920, height: 1080 };
 
-    assert.strictEqual(generateScreenshotProperties(viewport1).viewport, 'mobile');
-    assert.strictEqual(generateScreenshotProperties(viewport2).viewport, 'desktop');
+    assert.strictEqual(
+      generateScreenshotProperties(viewport1).viewport,
+      'mobile'
+    );
+    assert.strictEqual(
+      generateScreenshotProperties(viewport2).viewport,
+      'desktop'
+    );
   });
 });

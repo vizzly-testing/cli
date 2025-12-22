@@ -242,7 +242,9 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
 
   // Log total time
   let totalTime = Date.now() - startTime;
-  logger.info(`   ✅ Completed ${total} screenshots in ${formatDuration(totalTime)}`);
+  logger.info(
+    `   ✅ Completed ${total} screenshots in ${formatDuration(totalTime)}`
+  );
 
   if (errors.length > 0) {
     logger.warn(`   ⚠️  ${errors.length} failed`);

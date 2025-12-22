@@ -106,7 +106,10 @@ describe('hooks', () => {
 
       await applyHook(mockPage, mockHook, context);
 
-      assert.deepStrictEqual(mockHook.mock.calls[0].arguments, [mockPage, context]);
+      assert.deepStrictEqual(mockHook.mock.calls[0].arguments, [
+        mockPage,
+        context,
+      ]);
     });
 
     it('handles null hook gracefully', async () => {

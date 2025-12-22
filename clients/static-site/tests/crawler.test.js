@@ -31,7 +31,10 @@ describe('crawler', () => {
     });
 
     it('normalizes separators', () => {
-      assert.strictEqual(filePathToUrlPath('blog\\post-1.html'), '/blog/post-1');
+      assert.strictEqual(
+        filePathToUrlPath('blog\\post-1.html'),
+        '/blog/post-1'
+      );
     });
 
     it('ensures leading slash', () => {

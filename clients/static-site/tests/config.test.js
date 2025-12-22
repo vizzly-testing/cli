@@ -66,7 +66,10 @@ describe('config', () => {
       let config = parseCliOptions(options);
 
       assert.strictEqual(config.pageDiscovery.useSitemap, false);
-      assert.strictEqual(config.pageDiscovery.sitemapPath, 'custom-sitemap.xml');
+      assert.strictEqual(
+        config.pageDiscovery.sitemapPath,
+        'custom-sitemap.xml'
+      );
     });
   });
 

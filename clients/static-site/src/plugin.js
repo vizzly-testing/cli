@@ -66,6 +66,10 @@ export default {
       .option('--browser-args <args>', 'Additional Puppeteer browser arguments')
       .option('--headless', 'Run browser in headless mode')
       .option('--full-page', 'Capture full page screenshots')
+      .option(
+        '--dry-run',
+        'Print discovered pages without capturing screenshots'
+      )
       .option('--use-sitemap', 'Use sitemap.xml for page discovery')
       .option(
         '--sitemap-path <path>',

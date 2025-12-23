@@ -83,17 +83,12 @@ test.describe('Settings Workflow', () => {
     // Click Save Changes
     await saveButton.click();
 
-    // Verify success message (the toast)
+    // Verify success message (the toast) - this confirms the save completed
     await expect(page.getByText('Settings saved successfully!')).toBeVisible();
 
-    // Verify mutation was tracked
-    let response = await page.request.get(
-      `http://localhost:${port}/__test__/mutations`
-    );
-    let { mutations } = await response.json();
-    let configMutation = mutations.find(m => m.type === 'config-update');
-    expect(configMutation).toBeDefined();
-    expect(configMutation.data.comparison.threshold).toBe(0.5);
+    // Verify the value persists by reloading and checking the input still has new value
+    await page.reload();
+    await expect(thresholdInput).toHaveValue('0.5');
   });
 
   test('reset reverts unsaved changes', async ({ page }) => {

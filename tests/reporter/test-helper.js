@@ -7,6 +7,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '..', '..');
 
+// Helper to collect request body with proper error handling
+function collectRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+    });
+    req.on('end', () => {
+      resolve(body);
+    });
+    req.on('error', reject);
+  });
+}
+
 export function createReporterTestServer(
   fixtureData,
   port = 3456,
@@ -127,26 +141,27 @@ export function createReporterTestServer(
       req.method === 'POST' &&
       parsedUrl.pathname === '/api/baseline/accept'
     ) {
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk;
-      });
-      req.on('end', () => {
-        let { id } = JSON.parse(body);
-        mutations.push({ type: 'accept', id, timestamp: Date.now() });
+      collectRequestBody(req)
+        .then(body => {
+          let { id } = JSON.parse(body);
+          mutations.push({ type: 'accept', id, timestamp: Date.now() });
 
-        // Update comparison status in current data
-        let comparison = currentData.comparisons.find(
-          c => c.id === id || c.name === id
-        );
-        if (comparison) {
-          comparison.userAction = 'accepted';
-        }
+          // Update comparison status in current data
+          let comparison = currentData.comparisons.find(
+            c => c.id === id || c.name === id
+          );
+          if (comparison) {
+            comparison.userAction = 'accepted';
+          }
 
-        res.setHeader('Content-Type', 'application/json');
-        res.statusCode = 200;
-        res.end(JSON.stringify({ success: true, id }));
-      });
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({ success: true, id }));
+        })
+        .catch(error => {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: error.message }));
+        });
       return;
     }
 
@@ -175,25 +190,26 @@ export function createReporterTestServer(
       req.method === 'POST' &&
       parsedUrl.pathname === '/api/baseline/reject'
     ) {
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk;
-      });
-      req.on('end', () => {
-        let { id } = JSON.parse(body);
-        mutations.push({ type: 'reject', id, timestamp: Date.now() });
+      collectRequestBody(req)
+        .then(body => {
+          let { id } = JSON.parse(body);
+          mutations.push({ type: 'reject', id, timestamp: Date.now() });
 
-        let comparison = currentData.comparisons.find(
-          c => c.id === id || c.name === id
-        );
-        if (comparison) {
-          comparison.userAction = 'rejected';
-        }
+          let comparison = currentData.comparisons.find(
+            c => c.id === id || c.name === id
+          );
+          if (comparison) {
+            comparison.userAction = 'rejected';
+          }
 
-        res.setHeader('Content-Type', 'application/json');
-        res.statusCode = 200;
-        res.end(JSON.stringify({ success: true, id }));
-      });
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({ success: true, id }));
+        })
+        .catch(error => {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: error.message }));
+        });
       return;
     }
 
@@ -234,31 +250,32 @@ export function createReporterTestServer(
 
     // Update project config
     if (req.method === 'POST' && parsedUrl.pathname === '/api/config/project') {
-      let body = '';
-      req.on('data', chunk => {
-        body += chunk;
-      });
-      req.on('end', () => {
-        let updates = JSON.parse(body);
-        // Merge updates into current config
-        currentConfig = {
-          ...currentConfig,
-          ...updates,
-          comparison: { ...currentConfig.comparison, ...updates.comparison },
-          server: { ...currentConfig.server, ...updates.server },
-          build: { ...currentConfig.build, ...updates.build },
-          tdd: { ...currentConfig.tdd, ...updates.tdd },
-        };
-        mutations.push({
-          type: 'config-update',
-          data: updates,
-          timestamp: Date.now(),
-        });
+      collectRequestBody(req)
+        .then(body => {
+          let updates = JSON.parse(body);
+          // Merge updates into current config
+          currentConfig = {
+            ...currentConfig,
+            ...updates,
+            comparison: { ...currentConfig.comparison, ...updates.comparison },
+            server: { ...currentConfig.server, ...updates.server },
+            build: { ...currentConfig.build, ...updates.build },
+            tdd: { ...currentConfig.tdd, ...updates.tdd },
+          };
+          mutations.push({
+            type: 'config-update',
+            data: updates,
+            timestamp: Date.now(),
+          });
 
-        res.setHeader('Content-Type', 'application/json');
-        res.statusCode = 200;
-        res.end(JSON.stringify({ success: true, config: currentConfig }));
-      });
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({ success: true, config: currentConfig }));
+        })
+        .catch(error => {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: error.message }));
+        });
       return;
     }
 
@@ -339,6 +356,17 @@ export function createReporterTestServer(
     return new Promise((resolve, reject) => {
       server = createServer(handleRequest);
 
+      // Track active connections for clean shutdown
+      let connections = new Set();
+
+      server.on('connection', conn => {
+        connections.add(conn);
+        conn.on('close', () => connections.delete(conn));
+      });
+
+      // Store connections ref for stop()
+      server._testConnections = connections;
+
       server.listen(port, '127.0.0.1', error => {
         if (error) {
           reject(error);
@@ -357,16 +385,23 @@ export function createReporterTestServer(
     });
   };
 
-  const stop = () => {
+  const stop = async () => {
     if (server) {
-      return new Promise(resolve => {
+      // Destroy all active connections to ensure clean shutdown
+      let connections = server._testConnections;
+      if (connections) {
+        for (let conn of connections) {
+          conn.destroy();
+        }
+      }
+
+      await new Promise(resolve => {
         server.close(() => {
           server = null;
           resolve();
         });
       });
     }
-    return Promise.resolve();
   };
 
   return { start, stop };

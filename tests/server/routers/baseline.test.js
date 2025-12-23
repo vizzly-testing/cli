@@ -96,6 +96,28 @@ function createMockTddService(options = {}) {
       if (options.downloadError) throw options.downloadError;
       return { downloaded: options.downloadCount || 10 };
     },
+    processDownloadedBaselines: async (_apiResponse, _buildId) => {
+      if (options.processError) throw options.processError;
+      return { downloaded: options.downloadCount || 10 };
+    },
+  };
+}
+
+/**
+ * Creates a mock auth service
+ */
+function _createMockAuthService(options = {}) {
+  return {
+    authenticatedRequest: async (_path, _options) => {
+      if (options.authError) throw options.authError;
+      return (
+        options.response || {
+          build: { id: 'build-123', status: 'completed' },
+          screenshots: [],
+          signatureProperties: [],
+        }
+      );
+    },
   };
 }
 
@@ -445,6 +467,153 @@ describe('server/routers/baseline', () => {
         assert.strictEqual(res.statusCode, 500);
         let body = res.getParsedBody();
         assert.ok(body.error.includes('Download failed'));
+      });
+
+      it('uses OAuth when organizationSlug and projectSlug provided', async () => {
+        let authRequestPath = null;
+        let authRequestHeaders = null;
+        let mockAuthService = {
+          authenticatedRequest: async (path, options) => {
+            authRequestPath = path;
+            authRequestHeaders = options.headers;
+            return {
+              build: { id: 'build-456', status: 'completed' },
+              screenshots: [],
+              signatureProperties: [],
+            };
+          },
+        };
+
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler(),
+          tddService: createMockTddService(),
+          authService: mockAuthService,
+        });
+        let req = createMockRequest('POST', {
+          buildId: 'build-456',
+          organizationSlug: 'my-org',
+          projectSlug: 'my-project',
+        });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baselines/download');
+
+        assert.strictEqual(res.statusCode, 200);
+        assert.ok(
+          authRequestPath.includes('/api/cli/my-project/builds/build-456'),
+          `Expected OAuth path, got: ${authRequestPath}`
+        );
+        assert.strictEqual(authRequestHeaders['X-Organization'], 'my-org');
+      });
+
+      it('falls back to tddService when OAuth fails with auth error', async () => {
+        let tddServiceCalled = false;
+        let mockAuthService = {
+          authenticatedRequest: async () => {
+            throw new Error('Not authenticated');
+          },
+        };
+        let mockTddService = {
+          downloadBaselines: async () => {
+            tddServiceCalled = true;
+            return { downloaded: 5 };
+          },
+          processDownloadedBaselines: async () => {
+            return { downloaded: 5 };
+          },
+        };
+
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler(),
+          tddService: mockTddService,
+          authService: mockAuthService,
+        });
+        let req = createMockRequest('POST', {
+          buildId: 'build-789',
+          organizationSlug: 'my-org',
+          projectSlug: 'my-project',
+        });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baselines/download');
+
+        assert.strictEqual(res.statusCode, 200);
+        assert.ok(tddServiceCalled, 'Should fall back to tddService');
+      });
+
+      it('throws non-auth OAuth errors without fallback', async () => {
+        let mockAuthService = {
+          authenticatedRequest: async () => {
+            throw new Error('Build not found');
+          },
+        };
+        let tddServiceCalled = false;
+        let mockTddService = {
+          downloadBaselines: async () => {
+            tddServiceCalled = true;
+            return { downloaded: 5 };
+          },
+          processDownloadedBaselines: async () => {
+            return { downloaded: 5 };
+          },
+        };
+
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler(),
+          tddService: mockTddService,
+          authService: mockAuthService,
+        });
+        let req = createMockRequest('POST', {
+          buildId: 'build-999',
+          organizationSlug: 'my-org',
+          projectSlug: 'my-project',
+        });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baselines/download');
+
+        assert.strictEqual(res.statusCode, 500);
+        assert.ok(
+          !tddServiceCalled,
+          'Should NOT fall back for non-auth errors'
+        );
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('Build not found'));
+      });
+
+      it('skips OAuth when organizationSlug or projectSlug missing', async () => {
+        let authServiceCalled = false;
+        let tddServiceCalled = false;
+        let mockAuthService = {
+          authenticatedRequest: async () => {
+            authServiceCalled = true;
+            return { build: {}, screenshots: [] };
+          },
+        };
+        let mockTddService = {
+          downloadBaselines: async () => {
+            tddServiceCalled = true;
+            return { downloaded: 5 };
+          },
+          processDownloadedBaselines: async () => {
+            return { downloaded: 5 };
+          },
+        };
+
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler(),
+          tddService: mockTddService,
+          authService: mockAuthService,
+        });
+        // Missing organizationSlug and projectSlug
+        let req = createMockRequest('POST', { buildId: 'build-123' });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baselines/download');
+
+        assert.strictEqual(res.statusCode, 200);
+        assert.ok(!authServiceCalled, 'Should NOT use OAuth without slugs');
+        assert.ok(tddServiceCalled, 'Should use tddService directly');
       });
     });
   });

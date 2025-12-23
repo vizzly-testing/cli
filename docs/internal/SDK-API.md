@@ -4,10 +4,6 @@ This document describes the public API endpoints available for Vizzly SDKs and C
 
 ## Base URL
 
-```
-https://vizzly.dev/api/sdk/
-```
-
 All SDK endpoints are prefixed with `/api/sdk/`
 
 ## Authentication
@@ -78,7 +74,7 @@ Retrieves build information with optional related data.
 
 **Query Parameters:**
 
-- `include` (optional): `"screenshots"` or `"comparisons"` to include related data
+- `include` (optional): `"screenshots"`, `"comparisons"`, or `"review-summary"` to include related data
 
 **Response (200):**
 
@@ -111,7 +107,26 @@ Retrieves build information with optional related data.
         "created_at": "2024-01-15T10:30:00Z"
       }
     ],
-    "comparisons": [] // Only included if include=comparisons
+    "comparisons": [], // Only included if include=comparisons
+    "review_summary": {
+      // Only included if include=review-summary
+      "build_id": "build-uuid",
+      "review_status": "in_progress",
+      "assignments": [
+        {
+          "id": "assignment-uuid",
+          "user_id": "user-uuid",
+          "user_name": "Jane Smith",
+          "status": "pending",
+          "assigned_at": "2024-01-15T10:00:00Z"
+        }
+      ],
+      "statistics": {
+        "total_assignments": 1,
+        "pending": 1,
+        "completed": 0
+      }
+    }
   }
 }
 ```
@@ -409,7 +424,7 @@ Uploads multiple screenshot files and/or references existing screenshots by SHA2
 
 ### Get Comparison Details
 
-Retrieves detailed information about a specific comparison, including diff images and screenshot properties.
+Retrieves detailed information about a specific comparison, including diff images and commit context for debugging.
 
 **Endpoint:** `GET /api/sdk/comparisons/:comparisonId`
 
@@ -421,19 +436,16 @@ Retrieves detailed information about a specific comparison, including diff image
     "id": "comparison-uuid",
     "build_id": "build-uuid",
     "build_name": "CLI Build",
+    "build_branch": "feature/new-ui",
+    "build_commit_sha": "abc123def456",
+    "build_commit_message": "✨ Add new dashboard",
+    "build_common_ancestor_sha": "def456ghi789",
     "name": "homepage-desktop-chrome",
     "status": "completed",
     "diff_percentage": 2.5,
-    "threshold": 2.0,
+    "threshold": 0.1,
     "has_diff": true,
-    "current_name": "homepage-desktop-chrome",
-    "current_browser": "chrome",
-    "current_viewport_width": 1920,
-    "current_viewport_height": 1080,
-    "baseline_name": "homepage-desktop-chrome",
-    "baseline_browser": "chrome",
-    "baseline_viewport_width": 1920,
-    "baseline_viewport_height": 1080,
+    "approval_status": "pending",
     "current_screenshot_url": "https://storage.example.com/current.png",
     "baseline_screenshot_url": "https://storage.example.com/baseline.png",
     "diff_url": "https://storage.example.com/diff.png",
@@ -442,75 +454,221 @@ Retrieves detailed information about a specific comparison, including diff image
 }
 ```
 
-**Note:** The `current_browser`, `current_viewport_width`, `current_viewport_height`, `baseline_browser`, `baseline_viewport_width`, and `baseline_viewport_height` fields are essential for matching screenshots with the same name but different dimensions or browsers. These fields are used to generate unique screenshot signatures (name|viewport_width|browser) for proper baseline matching.
+## Build Collaboration
 
-### Search Comparisons
+### Create Build Comment
 
-Search for comparisons by screenshot name across builds. Useful for debugging visual regressions by tracking a specific screenshot across multiple builds.
+Creates a comment on a build for team collaboration and feedback.
 
-**Endpoint:** `GET /api/sdk/comparisons/search`
+**Endpoint:** `POST /api/sdk/builds/:buildId/comments`
 
-**Query Parameters:**
+**Request Body:**
 
-- `name` (required): Screenshot name to search for (supports partial matching with LIKE)
-- `branch` (optional): Filter results by branch name
-- `limit` (optional, default: 50): Maximum number of results to return
-- `offset` (optional, default: 0): Number of results to skip for pagination
+```json
+{
+  "content": "All visual diffs look good, approving this build for deployment.",
+  "type": "general"
+}
+```
+
+**Comment Types:**
+
+- `"general"`: General comment or discussion
+- `"approval"`: Comment indicating approval
+- `"rejection"`: Comment indicating rejection with concerns
+
+**Response (201):**
+
+```json
+{
+  "comment": {
+    "id": "comment-uuid",
+    "build_id": "build-uuid",
+    "user_id": "user-uuid",
+    "author_name": "John Doe",
+    "content": "All visual diffs look good, approving this build for deployment.",
+    "type": "general",
+    "created_at": "2024-01-15T10:30:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+### List Build Comments
+
+Retrieves all comments for a build, including nested replies.
+
+**Endpoint:** `GET /api/sdk/builds/:buildId/comments`
 
 **Response (200):**
 
 ```json
 {
-  "comparisons": [
+  "comments": [
     {
-      "id": "comparison-uuid",
-      "name": "homepage-desktop-chrome",
-      "status": "completed",
-      "diff_percentage": 2.5,
-      "threshold": 2.0,
-      "has_diff": true,
+      "id": "comment-uuid",
       "build_id": "build-uuid",
-      "build_name": "CLI Build",
-      "build_branch": "feature/new-ui",
-      "build_status": "completed",
-      "build_created_at": "2024-01-15T10:30:00Z",
-      "current_screenshot": {
-        "id": "current-screenshot-uuid",
-        "original_url": "https://storage.example.com/current.png"
-      },
-      "baseline_screenshot": {
-        "id": "baseline-screenshot-uuid",
-        "original_url": "https://storage.example.com/baseline.png"
-      },
-      "diff_image": {
-        "id": "diff-image-uuid",
-        "url": "https://storage.example.com/diff.png"
-      },
-      "created_at": "2024-01-15T10:30:00Z"
+      "user_id": "user-uuid",
+      "author_name": "John Doe",
+      "content": "All visual diffs look good, approving this build for deployment.",
+      "type": "general",
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-01-15T10:30:00Z",
+      "replies": []
     }
-  ],
-  "pagination": {
-    "total": 25,
-    "limit": 50,
-    "offset": 0,
-    "hasMore": false
+  ]
+}
+```
+
+**Note:** For MCP/Claude Code integration, the `profile_photo_url` and `email` fields are filtered out to reduce token usage.
+
+## Comparison Approvals
+
+### Update Comparison Approval Status
+
+Updates the approval status of a comparison.
+
+**Endpoint:** `PUT /api/sdk/comparisons/:comparisonId/approval`
+
+**Request Body:**
+
+```json
+{
+  "approval_status": "approved",
+  "comment": "Visual changes look intentional, layout improvements are good."
+}
+```
+
+**Valid Approval Status Values:**
+
+- `"pending"`: No decision made yet (default)
+- `"approved"`: Comparison approved, changes are intentional
+- `"rejected"`: Comparison rejected, changes need investigation
+- `"auto_approved"`: Automatically approved (identical screenshots)
+
+**Response (200):**
+
+```json
+{
+  "message": "Comparison approval status updated successfully",
+  "comparison": {
+    "id": "comparison-uuid",
+    "approval_status": "approved",
+    "approval_comment": "Visual changes look intentional, layout improvements are good.",
+    "approved_by": "user-uuid",
+    "approved_at": "2024-01-15T10:30:00Z"
   }
 }
 ```
 
-**Usage Example:**
+### Approve Comparison
 
-```bash
-# Search for all comparisons of "homepage" screenshot
-curl -X GET "/api/sdk/comparisons/search?name=homepage" \
-  -H "Authorization: Bearer your-api-token" \
-  -H "User-Agent: Vizzly-CLI/1.0.0"
+Convenient endpoint to approve a comparison with optional comment.
 
-# Search with branch filter and pagination
-curl -X GET "/api/sdk/comparisons/search?name=dashboard&branch=main&limit=20&offset=0" \
-  -H "Authorization: Bearer your-api-token" \
-  -H "User-Agent: Vizzly-CLI/1.0.0"
+**Endpoint:** `POST /api/sdk/comparisons/:comparisonId/approve`
+
+**Request Body:**
+
+```json
+{
+  "comment": "Homepage redesign looks excellent, ready for production."
+}
 ```
+
+**Response (200):**
+
+```json
+{
+  "message": "Comparison approved successfully",
+  "comparison": {
+    "id": "comparison-uuid",
+    "approval_status": "approved",
+    "approval_comment": "Homepage redesign looks excellent, ready for production.",
+    "approved_by": "user-uuid",
+    "approved_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+### Reject Comparison
+
+Convenient endpoint to reject a comparison with required reason.
+
+**Endpoint:** `POST /api/sdk/comparisons/:comparisonId/reject`
+
+**Request Body:**
+
+```json
+{
+  "reason": "Button alignment is off by 2px, needs to be fixed before deployment."
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "message": "Comparison rejected successfully",
+  "comparison": {
+    "id": "comparison-uuid",
+    "approval_status": "rejected",
+    "approval_comment": "Button alignment is off by 2px, needs to be fixed before deployment.",
+    "approved_by": "user-uuid",
+    "approved_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+## Review Management
+
+### Get Build Review Summary
+
+Retrieves review status, assignments, and statistics for a build.
+
+**Endpoint:** `GET /api/sdk/builds/:buildId/review-summary`
+
+**Response (200):**
+
+```json
+{
+  "build_id": "build-uuid",
+  "review_status": "in_progress",
+  "assignments": [
+    {
+      "id": "assignment-uuid",
+      "user_id": "user-uuid",
+      "user_name": "Jane Smith",
+      "status": "pending",
+      "assigned_at": "2024-01-15T10:00:00Z",
+      "due_date": null
+    },
+    {
+      "id": "assignment-uuid-2",
+      "user_id": "user-uuid-2",
+      "user_name": "John Doe",
+      "status": "completed",
+      "assigned_at": "2024-01-15T10:00:00Z",
+      "completed_at": "2024-01-15T10:30:00Z",
+      "due_date": null
+    }
+  ],
+  "statistics": {
+    "total_assignments": 2,
+    "pending": 1,
+    "completed": 1,
+    "approved": 0,
+    "rejected": 0
+  }
+}
+```
+
+**Review Status Values:**
+
+- `"pending"`: No reviewers assigned yet
+- `"in_progress"`: Reviewers assigned, waiting for completion
+- `"completed"`: All reviewers have completed their review
+- `"approved"`: Build approved by all reviewers
+- `"rejected"`: Build rejected by one or more reviewers
 
 ## Token Management
 
@@ -708,6 +866,144 @@ jobs:
 - Use GitHub workflow run ID + attempt number for `parallel_id` to ensure uniqueness
 - Always call the finalize endpoint after all shards complete
 - The finalize job should depend on all shard jobs completing successfully
+
+## Hotspot Analysis (TDD Mode)
+
+Hotspot endpoints provide historical data about regions that frequently change across builds (timestamps, dynamic IDs, ads, etc.). This data helps the CLI's TDD mode intelligently filter out known dynamic content.
+
+### Get Screenshot Hotspots
+
+Retrieves hotspot analysis for a specific screenshot name.
+
+**Endpoint:** `GET /api/sdk/screenshots/:screenshotName/hotspots`
+
+**Query Parameters:**
+
+- `windowSize` (optional, default: 20, max: 50): Number of historical builds to analyze
+
+**Response (200):**
+
+```json
+{
+  "screenshot_name": "homepage-desktop-chrome",
+  "hotspot_analysis": {
+    "regions": [
+      {
+        "y1": 100,
+        "y2": 150,
+        "height": 50,
+        "frequency": 0.85,
+        "lineCount": 50
+      }
+    ],
+    "total_builds_analyzed": 15,
+    "confidence": "high",
+    "confidence_score": 85,
+    "confidence_factors": {
+      "build_count": 15,
+      "data_source": "approved",
+      "frequency_consistency": 0.9
+    },
+    "data_source": "approved",
+    "frequency_threshold": 0.7
+  }
+}
+```
+
+**Confidence Values:**
+
+- `"high"`: Strong historical data, reliable hotspot detection
+- `"medium"`: Moderate data, reasonably reliable
+- `"low"`: Limited data, use with caution
+- `"insufficient_data"`: Not enough historical builds to determine hotspots
+
+**Data Source Values:**
+
+- `"approved"`: Hotspots derived from approved builds only (highest quality)
+- `"mixed"`: Includes both approved and unapproved builds
+- `"none"`: No historical data available
+
+### Batch Get Screenshot Hotspots
+
+Retrieves hotspot analysis for multiple screenshots in a single request. More efficient for TDD baseline downloads.
+
+**Endpoint:** `POST /api/sdk/screenshots/hotspots`
+
+**Request Body:**
+
+```json
+{
+  "screenshot_names": [
+    "homepage-desktop-chrome",
+    "dashboard-mobile-safari",
+    "settings-tablet-firefox"
+  ],
+  "windowSize": 20
+}
+```
+
+**Constraints:**
+
+- Maximum 100 screenshot names per request
+- Screenshot names must be valid (no path traversal, max 255 characters)
+
+**Response (200):**
+
+```json
+{
+  "hotspots": {
+    "homepage-desktop-chrome": {
+      "regions": [
+        {
+          "y1": 100,
+          "y2": 150,
+          "height": 50,
+          "frequency": 0.85,
+          "lineCount": 50
+        }
+      ],
+      "total_builds_analyzed": 15,
+      "confidence": "high",
+      "confidence_score": 85,
+      "data_source": "approved"
+    },
+    "dashboard-mobile-safari": {
+      "regions": [],
+      "total_builds_analyzed": 8,
+      "confidence": "medium",
+      "confidence_score": 60,
+      "data_source": "mixed"
+    }
+  },
+  "summary": {
+    "requested": 3,
+    "returned": 2
+  }
+}
+```
+
+**Notes:**
+
+- Only screenshots with `total_builds_analyzed > 0` are included in the response
+- Screenshots without historical data are omitted from the `hotspots` object
+- The `summary` shows how many screenshots were requested vs returned
+
+### Usage Example (CLI TDD Mode)
+
+```bash
+# Fetch hotspots for baseline download
+curl -X POST /api/sdk/screenshots/hotspots \
+  -H "Authorization: Bearer your-api-token" \
+  -H "User-Agent: Vizzly-CLI/1.0.0" \
+  -H "Content-Type: application/json" \
+  -d '{"screenshot_names": ["homepage", "dashboard", "settings"]}'
+```
+
+The CLI uses this data to:
+
+1. Identify regions that historically change frequently
+2. Apply intelligent filtering during local comparisons
+3. Reduce false positives from dynamic content like timestamps or ads
 
 ## Implementation Notes
 

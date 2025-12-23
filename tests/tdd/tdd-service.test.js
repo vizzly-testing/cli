@@ -1038,6 +1038,61 @@ describe('tdd/tdd-service', () => {
     });
   });
 
+  describe('downloadBaselines', () => {
+    it('uses injected getDefaultBranch when branch is not specified', async () => {
+      let getDefaultBranchCalled = false;
+      let mockDeps = createMockDeps({
+        api: {
+          getDefaultBranch: async () => {
+            getDefaultBranchCalled = true;
+            return 'main';
+          },
+          getBuilds: async () => ({ data: [] }),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      // Should not throw "getDefaultBranch is not defined"
+      await service.downloadBaselines('test', null, null, null);
+
+      assert.ok(
+        getDefaultBranchCalled,
+        'Should call injected getDefaultBranch'
+      );
+    });
+
+    it('uses injected dependencies when downloading by buildId', async () => {
+      let apiCalls = [];
+      let mockDeps = createMockDeps({
+        api: {
+          getDefaultBranch: async () => 'main',
+          getTddBaselines: async (_client, buildId) => {
+            apiCalls.push({ method: 'getTddBaselines', buildId });
+            return {
+              build: {
+                id: buildId,
+                name: 'Test Build',
+                status: 'completed',
+              },
+              screenshots: [],
+              signatureProperties: [],
+            };
+          },
+        },
+        baseline: {
+          clearBaselineData: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      await service.downloadBaselines('test', null, 'build-123', null);
+
+      let tddCall = apiCalls.find(c => c.method === 'getTddBaselines');
+      assert.ok(tddCall, 'Should call injected getTddBaselines');
+      assert.strictEqual(tddCall.buildId, 'build-123');
+    });
+  });
+
   describe('createNewBaseline', () => {
     it('creates a new baseline and updates metadata', () => {
       let writeFileSync = (path, buffer) => {
@@ -1177,6 +1232,801 @@ describe('tdd/tdd-service', () => {
         c => c.method === 'info' && c.args[0].includes('Baseline created')
       );
       assert.ok(successCall);
+    });
+  });
+
+  describe('processDownloadedBaselines', () => {
+    it('clears local baseline data before processing', async () => {
+      let clearCalled = false;
+      let mockDeps = createMockDeps({
+        baseline: {
+          clearBaselineData: () => {
+            clearCalled = true;
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [],
+        signatureProperties: [],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      assert.ok(clearCalled, 'Should clear baseline data');
+    });
+
+    it('extracts and stores signature properties from API response', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [],
+        signatureProperties: ['browser', 'viewport_width'],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      assert.deepStrictEqual(service.signatureProperties, [
+        'browser',
+        'viewport_width',
+      ]);
+    });
+
+    it('returns null and falls back to local baselines when build status is failed', async () => {
+      let handleLocalBaselinesCalled = false;
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        metadata: {
+          loadBaselineMetadata: () => {
+            handleLocalBaselinesCalled = true;
+            return null;
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'failed' },
+        screenshots: [],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      // handleLocalBaselines loads baseline metadata
+      assert.ok(handleLocalBaselinesCalled);
+    });
+
+    it('warns when build status is not completed', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'pending' },
+        screenshots: [],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      let warnCall = mockDeps.output.calls.find(
+        c => c.method === 'warn' && c.args[0].includes('pending')
+      );
+      assert.ok(warnCall, 'Should warn about non-completed status');
+    });
+
+    it('returns null when no screenshots in build', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [],
+      };
+
+      let result = await service.processDownloadedBaselines(
+        apiResponse,
+        'build-1'
+      );
+
+      assert.strictEqual(result, null);
+    });
+
+    it('skips screenshots without filename', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          { name: 'test', original_url: 'http://example.com/1.png' },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      let warnCall = mockDeps.output.calls.find(
+        c => c.method === 'warn' && c.args[0].includes('no filename')
+      );
+      assert.ok(warnCall, 'Should warn about missing filename');
+    });
+
+    it('skips download when SHA matches existing file', async () => {
+      let fetchCalled = false;
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => true,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => ({
+            screenshots: [{ filename: 'test_abc.png', sha256: 'matching-sha' }],
+          }),
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => {
+            fetchCalled = true;
+            return { ok: true, arrayBuffer: async () => new ArrayBuffer(0) };
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test_abc.png',
+            sha256: 'matching-sha',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      assert.ok(!fetchCalled, 'Should not fetch when SHA matches');
+    });
+
+    it('downloads screenshots when SHA differs', async () => {
+      let fetchCalled = false;
+      let writtenFiles = [];
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => true,
+          writeFileSync: (path, buffer) => writtenFiles.push({ path, buffer }),
+        },
+        metadata: {
+          loadBaselineMetadata: () => ({
+            screenshots: [{ filename: 'test_abc.png', sha256: 'old-sha' }],
+          }),
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => {
+            fetchCalled = true;
+            return {
+              ok: true,
+              arrayBuffer: async () => new ArrayBuffer(10),
+            };
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test_abc.png',
+            sha256: 'new-sha',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      assert.ok(fetchCalled, 'Should fetch when SHA differs');
+      assert.strictEqual(writtenFiles.length, 2); // screenshot + metadata
+    });
+
+    it('skips screenshots without download URL', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: { existsSync: () => false },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [{ name: 'test', filename: 'test.png' }],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      let warnCall = mockDeps.output.calls.find(
+        c => c.method === 'warn' && c.args[0].includes('no download URL')
+      );
+      assert.ok(warnCall, 'Should warn about missing download URL');
+    });
+
+    it('handles download failures gracefully', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => {
+            throw new Error('Network error');
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test.png',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      // Should not throw
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      let warnCall = mockDeps.output.calls.find(
+        c => c.method === 'warn' && c.args[0].includes('Failed to download')
+      );
+      assert.ok(warnCall, 'Should warn about download failure');
+    });
+
+    it('handles non-ok HTTP responses', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => ({
+            ok: false,
+            statusText: 'Not Found',
+          }),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test.png',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      let warnCall = mockDeps.output.calls.find(
+        c => c.method === 'warn' && c.args[0].includes('Failed to download')
+      );
+      assert.ok(warnCall, 'Should warn about HTTP error');
+    });
+
+    it('saves baseline metadata after successful downloads', async () => {
+      let savedMetadata = null;
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: (_path, data) => {
+            savedMetadata = data;
+          },
+        },
+        api: {
+          fetchWithTimeout: async () => ({
+            ok: true,
+            arrayBuffer: async () => new ArrayBuffer(10),
+          }),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: {
+          id: 'build-1',
+          name: 'Test Build',
+          status: 'completed',
+          commit_sha: 'abc123',
+        },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test.png',
+            original_url: 'http://example.com/1.png',
+            sha256: 'sha-value',
+          },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      assert.ok(savedMetadata, 'Should save baseline metadata');
+      assert.strictEqual(savedMetadata.buildId, 'build-1');
+      assert.strictEqual(savedMetadata.buildName, 'Test Build');
+      assert.ok(savedMetadata.screenshots.length > 0);
+    });
+
+    it('downloads hotspots when apiKey is configured', async () => {
+      let hotspotsCalled = false;
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+          saveHotspotMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => ({
+            ok: true,
+            arrayBuffer: async () => new ArrayBuffer(10),
+          }),
+          getBatchHotspots: async () => {
+            hotspotsCalled = true;
+            return { hotspots: {} };
+          },
+        },
+      });
+      let service = new TddService(
+        { apiKey: 'test-key' },
+        '/test',
+        false,
+        null,
+        mockDeps
+      );
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test.png',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      assert.ok(hotspotsCalled, 'Should call hotspots API when apiKey present');
+    });
+
+    it('skips hotspot download when no apiKey configured', async () => {
+      let hotspotsCalled = false;
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => ({
+            ok: true,
+            arrayBuffer: async () => new ArrayBuffer(10),
+          }),
+          getBatchHotspots: async () => {
+            hotspotsCalled = true;
+            return { hotspots: {} };
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test.png',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      assert.ok(!hotspotsCalled, 'Should NOT call hotspots API without apiKey');
+    });
+
+    it('returns null when all downloads fail', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => {
+            throw new Error('Network failure');
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test.png',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      let result = await service.processDownloadedBaselines(
+        apiResponse,
+        'build-1'
+      );
+
+      assert.strictEqual(result, null);
+    });
+
+    it('returns baseline data on successful download', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => ({
+            ok: true,
+            arrayBuffer: async () => new ArrayBuffer(10),
+          }),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test.png',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      let result = await service.processDownloadedBaselines(
+        apiResponse,
+        'build-1'
+      );
+
+      assert.ok(result, 'Should return baseline data');
+      assert.strictEqual(result.buildId, 'build-1');
+      assert.strictEqual(result.buildName, 'Test Build');
+    });
+
+    it('processes multiple screenshots in batches', async () => {
+      let fetchCalls = 0;
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => {
+            fetchCalls++;
+            return {
+              ok: true,
+              arrayBuffer: async () => new ArrayBuffer(10),
+            };
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      // Create 7 screenshots to test batching (batch size is 5)
+      let screenshots = Array.from({ length: 7 }, (_, i) => ({
+        name: `test-${i}`,
+        filename: `test-${i}.png`,
+        original_url: `http://example.com/${i}.png`,
+      }));
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots,
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      assert.strictEqual(fetchCalls, 7, 'Should fetch all 7 screenshots');
+
+      // Check batch processing message
+      let batchCalls = mockDeps.output.calls.filter(
+        c => c.method === 'info' && c.args[0].includes('batch')
+      );
+      assert.ok(batchCalls.length >= 2, 'Should process in at least 2 batches');
+    });
+
+    it('saves baseline-metadata.json for MCP plugin', async () => {
+      let writtenFiles = [];
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: (path, data) => writtenFiles.push({ path, data }),
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => ({
+            ok: true,
+            arrayBuffer: async () => new ArrayBuffer(10),
+          }),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: {
+          id: 'build-1',
+          name: 'Test Build',
+          status: 'completed',
+          commit_sha: 'abc123',
+          approval_status: 'approved',
+        },
+        screenshots: [
+          {
+            name: 'test',
+            filename: 'test.png',
+            original_url: 'http://example.com/1.png',
+          },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      let metadataFile = writtenFiles.find(f =>
+        f.path.includes('baseline-metadata.json')
+      );
+      assert.ok(metadataFile, 'Should write baseline-metadata.json');
+
+      let metadata = JSON.parse(metadataFile.data);
+      assert.strictEqual(metadata.buildId, 'build-1');
+      assert.strictEqual(metadata.commitSha, 'abc123');
+    });
+
+    it('logs summary with download counts', async () => {
+      let mockDeps = createMockDeps({
+        baseline: { clearBaselineData: () => {} },
+        fs: {
+          existsSync: () => false,
+          writeFileSync: () => {},
+        },
+        metadata: {
+          loadBaselineMetadata: () => null,
+          saveBaselineMetadata: () => {},
+        },
+        api: {
+          fetchWithTimeout: async () => ({
+            ok: true,
+            arrayBuffer: async () => new ArrayBuffer(10),
+          }),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      let apiResponse = {
+        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
+        screenshots: [
+          {
+            name: 'test1',
+            filename: 'test1.png',
+            original_url: 'http://example.com/1.png',
+          },
+          {
+            name: 'test2',
+            filename: 'test2.png',
+            original_url: 'http://example.com/2.png',
+          },
+        ],
+      };
+
+      await service.processDownloadedBaselines(apiResponse, 'build-1');
+
+      let summaryCall = mockDeps.output.calls.find(
+        c => c.method === 'info' && c.args[0].includes('Downloaded')
+      );
+      assert.ok(summaryCall, 'Should log download summary');
+    });
+  });
+
+  describe('downloadHotspots', () => {
+    it('skips download when no API key configured', async () => {
+      let apiCalled = false;
+      let mockDeps = createMockDeps({
+        api: {
+          getBatchHotspots: async () => {
+            apiCalled = true;
+            return { hotspots: {} };
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      await service.downloadHotspots([{ name: 'test' }]);
+
+      assert.ok(!apiCalled, 'Should not call API without apiKey');
+    });
+
+    it('fetches hotspots for unique screenshot names', async () => {
+      let requestedNames = null;
+      let mockDeps = createMockDeps({
+        api: {
+          getBatchHotspots: async (_client, names) => {
+            requestedNames = names;
+            return { hotspots: {} };
+          },
+        },
+        metadata: { saveHotspotMetadata: () => {} },
+      });
+      let service = new TddService(
+        { apiKey: 'test-key' },
+        '/test',
+        false,
+        null,
+        mockDeps
+      );
+
+      await service.downloadHotspots([
+        { name: 'test1' },
+        { name: 'test1' }, // duplicate
+        { name: 'test2' },
+      ]);
+
+      assert.deepStrictEqual(requestedNames, ['test1', 'test2']);
+    });
+
+    it('saves hotspot data to disk and memory', async () => {
+      let savedData = null;
+      let mockDeps = createMockDeps({
+        api: {
+          getBatchHotspots: async () => ({
+            hotspots: { test: { regions: [{ y1: 0, y2: 100 }] } },
+            summary: { total: 1 },
+          }),
+        },
+        metadata: {
+          saveHotspotMetadata: (_workingDir, hotspots, summary) => {
+            savedData = { hotspots, summary };
+          },
+        },
+      });
+      let service = new TddService(
+        { apiKey: 'test-key' },
+        '/test',
+        false,
+        null,
+        mockDeps
+      );
+
+      await service.downloadHotspots([{ name: 'test' }]);
+
+      assert.ok(savedData, 'Should save hotspot data');
+      assert.ok(service.hotspotData, 'Should store in memory');
+      assert.deepStrictEqual(service.hotspotData.test.regions, [
+        { y1: 0, y2: 100 },
+      ]);
+    });
+
+    it('handles API errors gracefully', async () => {
+      let mockDeps = createMockDeps({
+        api: {
+          getBatchHotspots: async () => {
+            throw new Error('API unavailable');
+          },
+        },
+      });
+      let service = new TddService(
+        { apiKey: 'test-key' },
+        '/test',
+        false,
+        null,
+        mockDeps
+      );
+
+      // Should not throw
+      await service.downloadHotspots([{ name: 'test' }]);
+
+      let warnCall = mockDeps.output.calls.find(
+        c =>
+          c.method === 'warn' && c.args[0].includes('Could not fetch hotspot')
+      );
+      assert.ok(warnCall, 'Should warn about API failure');
+    });
+
+    it('skips when no screenshots provided', async () => {
+      let apiCalled = false;
+      let mockDeps = createMockDeps({
+        api: {
+          getBatchHotspots: async () => {
+            apiCalled = true;
+            return { hotspots: {} };
+          },
+        },
+      });
+      let service = new TddService(
+        { apiKey: 'test-key' },
+        '/test',
+        false,
+        null,
+        mockDeps
+      );
+
+      await service.downloadHotspots([]);
+
+      assert.ok(!apiCalled, 'Should not call API with empty screenshots');
     });
   });
 });

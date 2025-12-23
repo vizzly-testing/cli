@@ -921,9 +921,11 @@ export class TddService {
 
     saveBaselineMetadata(this.baselinePath, this.baselineData);
 
-    // Download hotspots (skip if no API key - hotspots require separate auth)
-    // Note: When using project token, hotspots won't be downloaded
-    // This is acceptable as hotspots are optional noise filtering
+    // Download hotspots if API key is available (requires SDK auth)
+    // OAuth-only users won't get hotspots since the hotspot endpoint requires project token
+    if (this.config.apiKey && buildDetails.screenshots?.length > 0) {
+      await this.downloadHotspots(buildDetails.screenshots);
+    }
 
     // Save baseline build metadata for MCP plugin
     let baselineMetadataPath = safePath(

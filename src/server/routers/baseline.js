@@ -16,9 +16,14 @@ import {
  * @param {Object} context - Router context
  * @param {Object} context.screenshotHandler - Screenshot handler
  * @param {Object} context.tddService - TDD service for baseline downloads
+ * @param {Object} context.authService - Auth service for OAuth requests
  * @returns {Function} Route handler
  */
-export function createBaselineRouter({ screenshotHandler, tddService }) {
+export function createBaselineRouter({
+  screenshotHandler,
+  tddService,
+  authService,
+}) {
   return async function handleBaselineRoute(req, res, pathname) {
     // Accept a single screenshot as baseline
     if (req.method === 'POST' && pathname === '/api/baseline/accept') {
@@ -165,13 +170,66 @@ export function createBaselineRouter({ screenshotHandler, tddService }) {
 
       try {
         let body = await parseJsonBody(req);
-        let { buildId } = body;
+        let { buildId, organizationSlug, projectSlug } = body;
 
         if (!buildId) {
           sendError(res, 400, 'buildId is required');
           return true;
         }
 
+        // Try OAuth authentication first (allows access to any project user has membership to)
+        // This is the preferred method when user is logged in via the dashboard
+        if (authService && organizationSlug && projectSlug) {
+          try {
+            output.info(`Downloading baselines from build ${buildId}...`);
+            output.debug(
+              'baseline',
+              `Using OAuth for ${organizationSlug}/${projectSlug}`
+            );
+
+            // Use the CLI endpoint which accepts OAuth and checks project membership
+            let apiResponse = await authService.authenticatedRequest(
+              `/api/cli/${projectSlug}/builds/${buildId}/tdd-baselines`,
+              {
+                method: 'GET',
+                headers: { 'X-Organization': organizationSlug },
+              }
+            );
+
+            if (!apiResponse) {
+              throw new Error(
+                `Build ${buildId} not found or API returned null`
+              );
+            }
+
+            // Process the baselines through tddService
+            let result = await tddService.processDownloadedBaselines(
+              apiResponse,
+              buildId
+            );
+
+            sendSuccess(res, {
+              success: true,
+              message: `Baselines downloaded from build ${buildId}`,
+              ...result,
+            });
+            return true;
+          } catch (oauthError) {
+            // If OAuth fails with auth error, fall through to other methods
+            if (
+              !oauthError.message?.includes('Not authenticated') &&
+              !oauthError.message?.includes('401')
+            ) {
+              throw oauthError;
+            }
+            output.debug(
+              'baseline',
+              `OAuth failed, trying other auth methods: ${oauthError.message}`
+            );
+          }
+        }
+
+        // Fall back to using tddService directly (requires VIZZLY_TOKEN env var)
         output.info(`Downloading baselines from build ${buildId}...`);
 
         let result = await tddService.downloadBaselines(

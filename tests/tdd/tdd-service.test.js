@@ -1038,6 +1038,61 @@ describe('tdd/tdd-service', () => {
     });
   });
 
+  describe('downloadBaselines', () => {
+    it('uses injected getDefaultBranch when branch is not specified', async () => {
+      let getDefaultBranchCalled = false;
+      let mockDeps = createMockDeps({
+        api: {
+          getDefaultBranch: async () => {
+            getDefaultBranchCalled = true;
+            return 'main';
+          },
+          getBuilds: async () => ({ data: [] }),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      // Should not throw "getDefaultBranch is not defined"
+      await service.downloadBaselines('test', null, null, null);
+
+      assert.ok(
+        getDefaultBranchCalled,
+        'Should call injected getDefaultBranch'
+      );
+    });
+
+    it('uses injected dependencies when downloading by buildId', async () => {
+      let apiCalls = [];
+      let mockDeps = createMockDeps({
+        api: {
+          getDefaultBranch: async () => 'main',
+          getTddBaselines: async (_client, buildId) => {
+            apiCalls.push({ method: 'getTddBaselines', buildId });
+            return {
+              build: {
+                id: buildId,
+                name: 'Test Build',
+                status: 'completed',
+              },
+              screenshots: [],
+              signatureProperties: [],
+            };
+          },
+        },
+        baseline: {
+          clearBaselineData: () => {},
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      await service.downloadBaselines('test', null, 'build-123', null);
+
+      let tddCall = apiCalls.find(c => c.method === 'getTddBaselines');
+      assert.ok(tddCall, 'Should call injected getTddBaselines');
+      assert.strictEqual(tddCall.buildId, 'build-123');
+    });
+  });
+
   describe('createNewBaseline', () => {
     it('creates a new baseline and updates metadata', () => {
       let writeFileSync = (path, buffer) => {

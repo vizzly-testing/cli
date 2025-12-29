@@ -4,11 +4,16 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { writeFile, mkdir, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import {
   extractStoryConfig,
   filterStories,
   generateStoryUrl,
   parseStories,
+  readIndexJson,
+  discoverStories,
 } from '../src/crawler.js';
 
 describe('parseStories', () => {
@@ -178,5 +183,117 @@ describe('generateStoryUrl', () => {
     let url = generateStoryUrl('http://localhost:6006', 'my story/with spaces');
 
     assert.ok(url.includes('id=my%20story%2Fwith%20spaces'));
+  });
+
+  it('should throw error for empty baseUrl', () => {
+    assert.throws(() => generateStoryUrl('', 'button--primary'), {
+      message: 'baseUrl must be a non-empty string',
+    });
+  });
+
+  it('should throw error for null baseUrl', () => {
+    assert.throws(() => generateStoryUrl(null, 'button--primary'), {
+      message: 'baseUrl must be a non-empty string',
+    });
+  });
+
+  it('should throw error for empty storyId', () => {
+    assert.throws(() => generateStoryUrl('http://localhost:6006', ''), {
+      message: 'storyId must be a non-empty string',
+    });
+  });
+
+  it('should throw error for null storyId', () => {
+    assert.throws(() => generateStoryUrl('http://localhost:6006', null), {
+      message: 'storyId must be a non-empty string',
+    });
+  });
+});
+
+describe('readIndexJson', () => {
+  let testDir;
+
+  it('should read and parse valid index.json', async () => {
+    testDir = join(tmpdir(), `storybook-test-${Date.now()}`);
+    await mkdir(testDir, { recursive: true });
+
+    let indexData = {
+      v: 7,
+      entries: {
+        'test--story': { id: 'test--story', title: 'Test', name: 'Story', type: 'story' },
+      },
+    };
+    await writeFile(join(testDir, 'index.json'), JSON.stringify(indexData));
+
+    let result = await readIndexJson(testDir);
+
+    assert.deepEqual(result, indexData);
+
+    await rm(testDir, { recursive: true });
+  });
+
+  it('should throw error for missing index.json', async () => {
+    testDir = join(tmpdir(), `storybook-test-missing-${Date.now()}`);
+    await mkdir(testDir, { recursive: true });
+
+    await assert.rejects(readIndexJson(testDir), /Failed to read Storybook index\.json/);
+
+    await rm(testDir, { recursive: true });
+  });
+
+  it('should throw error for invalid JSON', async () => {
+    testDir = join(tmpdir(), `storybook-test-invalid-${Date.now()}`);
+    await mkdir(testDir, { recursive: true });
+    await writeFile(join(testDir, 'index.json'), 'not valid json');
+
+    await assert.rejects(readIndexJson(testDir), /Failed to read Storybook index\.json/);
+
+    await rm(testDir, { recursive: true });
+  });
+});
+
+describe('discoverStories', () => {
+  let testDir;
+
+  it('should discover and filter stories from storybook path', async () => {
+    testDir = join(tmpdir(), `storybook-test-discover-${Date.now()}`);
+    await mkdir(testDir, { recursive: true });
+
+    let indexData = {
+      v: 7,
+      entries: {
+        'button--primary': { id: 'button--primary', title: 'Button', name: 'Primary', type: 'story' },
+        'button--secondary': { id: 'button--secondary', title: 'Button', name: 'Secondary', type: 'story' },
+        'card--default': { id: 'card--default', title: 'Card', name: 'Default', type: 'story' },
+      },
+    };
+    await writeFile(join(testDir, 'index.json'), JSON.stringify(indexData));
+
+    let stories = await discoverStories(testDir, { include: 'button*' });
+
+    assert.equal(stories.length, 2);
+    assert.ok(stories.every(s => s.id.startsWith('button')));
+
+    await rm(testDir, { recursive: true });
+  });
+
+  it('should return all stories when no filter', async () => {
+    testDir = join(tmpdir(), `storybook-test-discover-all-${Date.now()}`);
+    await mkdir(testDir, { recursive: true });
+
+    let indexData = {
+      v: 7,
+      entries: {
+        'button--primary': { id: 'button--primary', title: 'Button', name: 'Primary', type: 'story' },
+        'card--default': { id: 'card--default', title: 'Card', name: 'Default', type: 'story' },
+      },
+    };
+    await writeFile(join(testDir, 'index.json'), JSON.stringify(indexData));
+
+    let stories = await discoverStories(testDir, {});
+
+    assert.equal(stories.length, 2);
+
+    await rm(testDir, { recursive: true });
   });
 });

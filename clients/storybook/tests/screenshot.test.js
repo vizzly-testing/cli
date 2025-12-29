@@ -2,9 +2,13 @@
  * Tests for screenshot functions
  */
 
-import { describe, it } from 'node:test';
+import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateScreenshotName } from '../src/screenshot.js';
+import {
+  generateScreenshotName,
+  captureScreenshot,
+  captureAndSendScreenshot,
+} from '../src/screenshot.js';
 
 describe('generateScreenshotName', () => {
   it('should generate correct screenshot name', () => {
@@ -32,5 +36,78 @@ describe('generateScreenshotName', () => {
     let name = generateScreenshotName(story, viewport);
 
     assert.equal(name, 'Form-Input Field-With Label & Error@tablet');
+  });
+});
+
+describe('captureScreenshot', () => {
+  it('should capture screenshot with default options', async () => {
+    let mockBuffer = Buffer.from('fake-screenshot');
+    let mockScreenshot = mock.fn(() => mockBuffer);
+    let mockPage = { screenshot: mockScreenshot };
+
+    let result = await captureScreenshot(mockPage);
+
+    assert.equal(result, mockBuffer);
+    assert.equal(mockScreenshot.mock.calls.length, 1);
+    assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
+      fullPage: false,
+      omitBackground: false,
+    });
+  });
+
+  it('should capture full page screenshot', async () => {
+    let mockBuffer = Buffer.from('fake-screenshot');
+    let mockScreenshot = mock.fn(() => mockBuffer);
+    let mockPage = { screenshot: mockScreenshot };
+
+    await captureScreenshot(mockPage, { fullPage: true });
+
+    assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
+      fullPage: true,
+      omitBackground: false,
+    });
+  });
+
+  it('should capture screenshot with transparent background', async () => {
+    let mockBuffer = Buffer.from('fake-screenshot');
+    let mockScreenshot = mock.fn(() => mockBuffer);
+    let mockPage = { screenshot: mockScreenshot };
+
+    await captureScreenshot(mockPage, { omitBackground: true });
+
+    assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
+      fullPage: false,
+      omitBackground: true,
+    });
+  });
+});
+
+describe('captureAndSendScreenshot', () => {
+  it('should capture and send screenshot to vizzly', async () => {
+    let mockBuffer = Buffer.from('fake-screenshot');
+    let mockScreenshot = mock.fn(() => mockBuffer);
+    let mockPage = { screenshot: mockScreenshot };
+    let story = { title: 'Button', name: 'Primary' };
+    let viewport = { name: 'desktop' };
+
+    // This will use the mock vizzlyScreenshot from the module
+    await captureAndSendScreenshot(mockPage, story, viewport);
+
+    assert.equal(mockScreenshot.mock.calls.length, 1);
+  });
+
+  it('should pass screenshot options through', async () => {
+    let mockBuffer = Buffer.from('fake-screenshot');
+    let mockScreenshot = mock.fn(() => mockBuffer);
+    let mockPage = { screenshot: mockScreenshot };
+    let story = { title: 'Card', name: 'Default' };
+    let viewport = { name: 'mobile' };
+
+    await captureAndSendScreenshot(mockPage, story, viewport, { fullPage: true });
+
+    assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
+      fullPage: true,
+      omitBackground: false,
+    });
   });
 });

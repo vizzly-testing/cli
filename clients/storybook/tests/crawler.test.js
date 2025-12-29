@@ -2,7 +2,8 @@
  * Tests for story crawler functions
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import {
   extractStoryConfig,
   filterStories,
@@ -32,12 +33,10 @@ describe('parseStories', () => {
 
     let stories = parseStories(indexData);
 
-    expect(stories).toHaveLength(2);
-    expect(stories[0]).toMatchObject({
-      id: 'button--primary',
-      title: 'Button',
-      name: 'Primary',
-    });
+    assert.equal(stories.length, 2);
+    assert.equal(stories[0].id, 'button--primary');
+    assert.equal(stories[0].title, 'Button');
+    assert.equal(stories[0].name, 'Primary');
   });
 
   it('should parse Storybook v6 format', () => {
@@ -53,8 +52,8 @@ describe('parseStories', () => {
 
     let stories = parseStories(indexData);
 
-    expect(stories).toHaveLength(1);
-    expect(stories[0].id).toBe('button--primary');
+    assert.equal(stories.length, 1);
+    assert.equal(stories[0].id, 'button--primary');
   });
 
   it('should filter out non-story entries in v7', () => {
@@ -77,16 +76,16 @@ describe('parseStories', () => {
 
     let stories = parseStories(indexData);
 
-    expect(stories).toHaveLength(1);
-    expect(stories[0].id).toBe('button--primary');
+    assert.equal(stories.length, 1);
+    assert.equal(stories[0].id, 'button--primary');
   });
 
   it('should throw error for invalid data', () => {
-    expect(() => parseStories(null)).toThrow('Invalid index.json');
+    assert.throws(() => parseStories(null), /Invalid index\.json/);
   });
 
   it('should throw error for unrecognized format', () => {
-    expect(() => parseStories({})).toThrow('Unrecognized Storybook');
+    assert.throws(() => parseStories({}), /Unrecognized Storybook/);
   });
 });
 
@@ -102,7 +101,7 @@ describe('extractStoryConfig', () => {
 
     let config = extractStoryConfig(story);
 
-    expect(config).toEqual({
+    assert.deepEqual(config, {
       viewports: [{ name: 'mobile', width: 375, height: 667 }],
     });
   });
@@ -110,13 +109,13 @@ describe('extractStoryConfig', () => {
   it('should return null if no vizzly config', () => {
     let story = { parameters: {} };
 
-    expect(extractStoryConfig(story)).toBeNull();
+    assert.equal(extractStoryConfig(story), null);
   });
 
   it('should return null if no parameters', () => {
     let story = {};
 
-    expect(extractStoryConfig(story)).toBeNull();
+    assert.equal(extractStoryConfig(story), null);
   });
 });
 
@@ -136,32 +135,32 @@ describe('filterStories', () => {
     let config = { include: 'button*' };
     let filtered = filterStories(stories, config);
 
-    expect(filtered).toHaveLength(2);
-    expect(filtered.every(s => s.id.startsWith('button'))).toBe(true);
+    assert.equal(filtered.length, 2);
+    assert.ok(filtered.every(s => s.id.startsWith('button')));
   });
 
   it('should filter by exclude pattern', () => {
     let config = { exclude: 'button*' };
     let filtered = filterStories(stories, config);
 
-    expect(filtered).toHaveLength(1);
-    expect(filtered[0].id).toBe('card--default');
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].id, 'card--default');
   });
 
   it('should skip stories marked with skip: true', () => {
     let config = {};
     let filtered = filterStories(stories, config);
 
-    expect(filtered).toHaveLength(3);
-    expect(filtered.find(s => s.id === 'card--skipped')).toBeUndefined();
+    assert.equal(filtered.length, 3);
+    assert.equal(filtered.find(s => s.id === 'card--skipped'), undefined);
   });
 
   it('should apply both include and skip filters', () => {
     let config = { include: 'card*' };
     let filtered = filterStories(stories, config);
 
-    expect(filtered).toHaveLength(1);
-    expect(filtered[0].id).toBe('card--default');
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].id, 'card--default');
   });
 });
 
@@ -169,7 +168,8 @@ describe('generateStoryUrl', () => {
   it('should generate correct iframe URL', () => {
     let url = generateStoryUrl('file:///path/to/storybook', 'button--primary');
 
-    expect(url).toBe(
+    assert.equal(
+      url,
       'file:///path/to/storybook/iframe.html?id=button--primary&viewMode=story'
     );
   });
@@ -177,6 +177,6 @@ describe('generateStoryUrl', () => {
   it('should encode story ID', () => {
     let url = generateStoryUrl('http://localhost:6006', 'my story/with spaces');
 
-    expect(url).toContain('id=my%20story%2Fwith%20spaces');
+    assert.ok(url.includes('id=my%20story%2Fwith%20spaces'));
   });
 });

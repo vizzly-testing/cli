@@ -2,7 +2,8 @@
  * Tests for screenshot functions
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import { generateScreenshotName } from '../src/screenshot.js';
 
 describe('generateScreenshotName', () => {
@@ -12,7 +13,7 @@ describe('generateScreenshotName', () => {
 
     let name = generateScreenshotName(story, viewport);
 
-    expect(name).toBe('Button-Primary@mobile');
+    assert.equal(name, 'Button-Primary@mobile');
   });
 
   it('should handle complex component names', () => {
@@ -21,7 +22,7 @@ describe('generateScreenshotName', () => {
 
     let name = generateScreenshotName(story, viewport);
 
-    expect(name).toBe('Components-Atoms-Button-WithIcon@desktop');
+    assert.equal(name, 'Components-Atoms-Button-WithIcon@desktop');
   });
 
   it('should handle special characters', () => {
@@ -30,6 +31,6 @@ describe('generateScreenshotName', () => {
 
     let name = generateScreenshotName(story, viewport);
 
-    expect(name).toBe('Form-Input Field-With Label & Error@tablet');
+    assert.equal(name, 'Form-Input Field-With Label & Error@tablet');
   });
 });

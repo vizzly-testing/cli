@@ -2,7 +2,8 @@
  * Tests for configuration functions
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import {
   defaultConfig,
   loadConfig,
@@ -16,8 +17,8 @@ describe('parseCliOptions', () => {
     let options = { viewports: 'mobile:375x667,desktop:1920x1080' };
     let config = parseCliOptions(options);
 
-    expect(config.viewports).toHaveLength(2);
-    expect(config.viewports[0]).toEqual({
+    assert.equal(config.viewports.length, 2);
+    assert.deepEqual(config.viewports[0], {
       name: 'mobile',
       width: 375,
       height: 667,
@@ -28,22 +29,22 @@ describe('parseCliOptions', () => {
     let options = { viewports: 'mobile:375x667,invalid,desktop:1920x1080' };
     let config = parseCliOptions(options);
 
-    expect(config.viewports).toHaveLength(2);
+    assert.equal(config.viewports.length, 2);
   });
 
   it('should parse concurrency', () => {
     let options = { concurrency: 5 };
     let config = parseCliOptions(options);
 
-    expect(config.concurrency).toBe(5);
+    assert.equal(config.concurrency, 5);
   });
 
   it('should parse include and exclude', () => {
     let options = { include: 'button*', exclude: '*test*' };
     let config = parseCliOptions(options);
 
-    expect(config.include).toBe('button*');
-    expect(config.exclude).toBe('*test*');
+    assert.equal(config.include, 'button*');
+    assert.equal(config.exclude, '*test*');
   });
 
   it('should parse browser options', () => {
@@ -53,15 +54,15 @@ describe('parseCliOptions', () => {
     };
     let config = parseCliOptions(options);
 
-    expect(config.browser.headless).toBe(false);
-    expect(config.browser.args).toEqual(['--arg1', '--arg2']);
+    assert.equal(config.browser.headless, false);
+    assert.deepEqual(config.browser.args, ['--arg1', '--arg2']);
   });
 
   it('should parse screenshot options', () => {
     let options = { fullPage: true };
     let config = parseCliOptions(options);
 
-    expect(config.screenshot.fullPage).toBe(true);
+    assert.equal(config.screenshot.fullPage, true);
   });
 });
 
@@ -72,8 +73,8 @@ describe('mergeConfigs', () => {
 
     let merged = mergeConfigs(config1, config2);
 
-    expect(merged.concurrency).toBe(5);
-    expect(merged.include).toBe('button*');
+    assert.equal(merged.concurrency, 5);
+    assert.equal(merged.include, 'button*');
   });
 
   it('should deep merge browser config', () => {
@@ -82,8 +83,8 @@ describe('mergeConfigs', () => {
 
     let merged = mergeConfigs(config1, config2);
 
-    expect(merged.browser.headless).toBe(false);
-    expect(merged.browser.args).toEqual(['--arg1']);
+    assert.equal(merged.browser.headless, false);
+    assert.deepEqual(merged.browser.args, ['--arg1']);
   });
 
   it('should override arrays instead of concatenating', () => {
@@ -96,8 +97,8 @@ describe('mergeConfigs', () => {
 
     let merged = mergeConfigs(config1, config2);
 
-    expect(merged.viewports).toHaveLength(1);
-    expect(merged.viewports[0].name).toBe('desktop');
+    assert.equal(merged.viewports.length, 1);
+    assert.equal(merged.viewports[0].name, 'desktop');
   });
 
   it('should handle null/undefined configs', () => {
@@ -108,7 +109,7 @@ describe('mergeConfigs', () => {
       undefined
     );
 
-    expect(merged.concurrency).toBe(5);
+    assert.equal(merged.concurrency, 5);
   });
 });
 
@@ -125,15 +126,15 @@ describe('mergeStoryConfig', () => {
 
     let merged = mergeStoryConfig(globalConfig, storyConfig);
 
-    expect(merged.viewports[0].name).toBe('mobile');
-    expect(merged.screenshot.fullPage).toBe(false);
+    assert.equal(merged.viewports[0].name, 'mobile');
+    assert.equal(merged.screenshot.fullPage, false);
   });
 
   it('should return global config if no story config', () => {
     let globalConfig = { concurrency: 3 };
     let merged = mergeStoryConfig(globalConfig, null);
 
-    expect(merged).toEqual(globalConfig);
+    assert.deepEqual(merged, globalConfig);
   });
 
   it('should merge beforeScreenshot hook', () => {
@@ -143,7 +144,7 @@ describe('mergeStoryConfig', () => {
 
     let merged = mergeStoryConfig(globalConfig, storyConfig);
 
-    expect(merged.beforeScreenshot).toBe(hook);
+    assert.equal(merged.beforeScreenshot, hook);
   });
 });
 
@@ -158,9 +159,9 @@ describe('loadConfig', () => {
 
     let config = await loadConfig('./storybook-static', {}, vizzlyConfig);
 
-    expect(config.concurrency).toBe(10);
-    expect(config.viewports).toHaveLength(1);
-    expect(config.viewports[0].name).toBe('custom');
+    assert.equal(config.concurrency, 10);
+    assert.equal(config.viewports.length, 1);
+    assert.equal(config.viewports[0].name, 'custom');
   });
 
   it('should prefer CLI options over vizzlyConfig.storybook', async () => {
@@ -178,16 +179,16 @@ describe('loadConfig', () => {
       vizzlyConfig
     );
 
-    expect(config.concurrency).toBe(5);
-    expect(config.include).toBe('from-cli');
+    assert.equal(config.concurrency, 5);
+    assert.equal(config.include, 'from-cli');
   });
 
   it('should use defaults when no vizzlyConfig provided', async () => {
     let config = await loadConfig('./storybook-static', {}, {});
 
-    expect(config.concurrency).toBe(defaultConfig.concurrency);
-    expect(config.viewports).toHaveLength(2);
-    expect(config.viewports).toEqual(defaultConfig.viewports);
+    assert.equal(config.concurrency, defaultConfig.concurrency);
+    assert.equal(config.viewports.length, 2);
+    assert.deepEqual(config.viewports, defaultConfig.viewports);
   });
 
   it('should handle missing storybook key in vizzlyConfig', async () => {
@@ -197,7 +198,7 @@ describe('loadConfig', () => {
 
     let config = await loadConfig('./storybook-static', {}, vizzlyConfig);
 
-    expect(config.concurrency).toBe(defaultConfig.concurrency);
+    assert.equal(config.concurrency, defaultConfig.concurrency);
   });
 
   it('should deep merge browser config from vizzlyConfig', async () => {
@@ -212,13 +213,13 @@ describe('loadConfig', () => {
 
     let config = await loadConfig('./storybook-static', {}, vizzlyConfig);
 
-    expect(config.browser.headless).toBe(false);
-    expect(config.browser.args).toEqual(['--disable-gpu']);
+    assert.equal(config.browser.headless, false);
+    assert.deepEqual(config.browser.args, ['--disable-gpu']);
   });
 
   it('should set storybookPath from argument', async () => {
     let config = await loadConfig('/path/to/storybook', {}, {});
 
-    expect(config.storybookPath).toBe('/path/to/storybook');
+    assert.equal(config.storybookPath, '/path/to/storybook');
   });
 });

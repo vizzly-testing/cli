@@ -2,7 +2,8 @@
  * Tests for concurrency control
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
 // Simple concurrency control - process items with limited parallelism
 async function mapWithConcurrency(items, fn, concurrency) {
@@ -39,8 +40,8 @@ describe('mapWithConcurrency', () => {
       2
     );
 
-    expect(processed).toHaveLength(5);
-    expect(processed.sort()).toEqual([1, 2, 3, 4, 5]);
+    assert.equal(processed.length, 5);
+    assert.deepEqual(processed.sort(), [1, 2, 3, 4, 5]);
   });
 
   it('should respect concurrency limit', async () => {
@@ -59,7 +60,7 @@ describe('mapWithConcurrency', () => {
       2
     );
 
-    expect(maxConcurrent).toBeLessThanOrEqual(2);
+    assert.ok(maxConcurrent <= 2, `Expected max concurrency <= 2, got ${maxConcurrent}`);
   });
 
   it('should handle async function results', async () => {
@@ -68,13 +69,13 @@ describe('mapWithConcurrency', () => {
     await mapWithConcurrency(items, async item => item * 2, 2);
 
     // Should complete without error
-    expect(true).toBe(true);
+    assert.ok(true);
   });
 
   it('should handle errors in processing', async () => {
     let items = [1, 2, 3];
 
-    await expect(
+    await assert.rejects(
       mapWithConcurrency(
         items,
         async item => {
@@ -82,7 +83,8 @@ describe('mapWithConcurrency', () => {
           return item;
         },
         2
-      )
-    ).rejects.toThrow('Test error');
+      ),
+      { message: 'Test error' }
+    );
   });
 });

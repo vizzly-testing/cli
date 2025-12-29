@@ -7,14 +7,30 @@ import puppeteer from 'puppeteer';
 import { setViewport } from './utils/viewport.js';
 
 /**
- * Default browser args optimized for CI environments
+ * Check if running in a CI environment
+ * @returns {boolean}
+ */
+function isCI() {
+  return !!(
+    process.env.CI ||
+    process.env.GITHUB_ACTIONS ||
+    process.env.JENKINS_HOME ||
+    process.env.CIRCLECI ||
+    process.env.GITLAB_CI ||
+    process.env.BUILDKITE
+  );
+}
+
+/**
+ * Base browser args required for headless operation
+ */
+let BASE_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
+
+/**
+ * Additional browser args optimized for CI environments
  * These reduce memory usage and improve stability in resource-constrained environments
  */
 let CI_OPTIMIZED_ARGS = [
-  // Required for running in containers/CI
-  '--no-sandbox',
-  '--disable-setuid-sandbox',
-
   // Reduce memory usage
   '--disable-dev-shm-usage', // Use /tmp instead of /dev/shm (often too small in Docker)
   '--disable-gpu', // No GPU in CI
@@ -42,7 +58,7 @@ let CI_OPTIMIZED_ARGS = [
   '--safebrowsing-disable-auto-update',
 
   // Memory optimizations
-  '--js-flags=--max-old-space-size=512', // Limit V8 heap
+  '--js-flags=--max-old-space-size=1024', // Limit V8 heap (1GB for larger Storybooks)
 ];
 
 /**
@@ -55,9 +71,13 @@ let CI_OPTIMIZED_ARGS = [
 export async function launchBrowser(options = {}) {
   let { headless = true, args = [] } = options;
 
+  let browserArgs = isCI()
+    ? [...BASE_ARGS, ...CI_OPTIMIZED_ARGS, ...args]
+    : [...BASE_ARGS, ...args];
+
   let browser = await puppeteer.launch({
     headless,
-    args: [...CI_OPTIMIZED_ARGS, ...args],
+    args: browserArgs,
     // Reduce protocol timeout for faster failure detection
     protocolTimeout: 60_000, // 60s instead of default 180s
   });
@@ -101,10 +121,15 @@ export async function navigateToUrl(page, url, options = {}) {
     });
   } catch (error) {
     // Fallback to domcontentloaded if networkidle2 times out
-    if (
+    let isTimeout =
+      error.name === 'TimeoutError' ||
       error.message.includes('timeout') ||
-      error.message.includes('Navigation timeout')
-    ) {
+      error.message.includes('Navigation timeout');
+
+    if (isTimeout) {
+      console.warn(
+        `Navigation timeout for ${url}, falling back to domcontentloaded`
+      );
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: 30000,

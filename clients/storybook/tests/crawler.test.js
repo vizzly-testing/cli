@@ -2,7 +2,7 @@
  * Tests for story crawler functions
  */
 
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -211,10 +211,17 @@ describe('generateStoryUrl', () => {
 });
 
 describe('readIndexJson', () => {
-  let testDir;
+  let testDirs = [];
+
+  after(async () => {
+    await Promise.all(
+      testDirs.map(dir => rm(dir, { recursive: true, force: true }))
+    );
+  });
 
   it('should read and parse valid index.json', async () => {
-    testDir = join(tmpdir(), `storybook-test-${Date.now()}`);
+    let testDir = join(tmpdir(), `storybook-test-${Date.now()}-${Math.random()}`);
+    testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
 
     let indexData = {
@@ -228,35 +235,38 @@ describe('readIndexJson', () => {
     let result = await readIndexJson(testDir);
 
     assert.deepEqual(result, indexData);
-
-    await rm(testDir, { recursive: true });
   });
 
   it('should throw error for missing index.json', async () => {
-    testDir = join(tmpdir(), `storybook-test-missing-${Date.now()}`);
+    let testDir = join(tmpdir(), `storybook-test-missing-${Date.now()}-${Math.random()}`);
+    testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
 
     await assert.rejects(readIndexJson(testDir), /Failed to read Storybook index\.json/);
-
-    await rm(testDir, { recursive: true });
   });
 
   it('should throw error for invalid JSON', async () => {
-    testDir = join(tmpdir(), `storybook-test-invalid-${Date.now()}`);
+    let testDir = join(tmpdir(), `storybook-test-invalid-${Date.now()}-${Math.random()}`);
+    testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
     await writeFile(join(testDir, 'index.json'), 'not valid json');
 
     await assert.rejects(readIndexJson(testDir), /Failed to read Storybook index\.json/);
-
-    await rm(testDir, { recursive: true });
   });
 });
 
 describe('discoverStories', () => {
-  let testDir;
+  let testDirs = [];
+
+  after(async () => {
+    await Promise.all(
+      testDirs.map(dir => rm(dir, { recursive: true, force: true }))
+    );
+  });
 
   it('should discover and filter stories from storybook path', async () => {
-    testDir = join(tmpdir(), `storybook-test-discover-${Date.now()}`);
+    let testDir = join(tmpdir(), `storybook-test-discover-${Date.now()}-${Math.random()}`);
+    testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
 
     let indexData = {
@@ -273,12 +283,11 @@ describe('discoverStories', () => {
 
     assert.equal(stories.length, 2);
     assert.ok(stories.every(s => s.id.startsWith('button')));
-
-    await rm(testDir, { recursive: true });
   });
 
   it('should return all stories when no filter', async () => {
-    testDir = join(tmpdir(), `storybook-test-discover-all-${Date.now()}`);
+    let testDir = join(tmpdir(), `storybook-test-discover-all-${Date.now()}-${Math.random()}`);
+    testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
 
     let indexData = {
@@ -293,7 +302,5 @@ describe('discoverStories', () => {
     let stories = await discoverStories(testDir, {});
 
     assert.equal(stories.length, 2);
-
-    await rm(testDir, { recursive: true });
   });
 });

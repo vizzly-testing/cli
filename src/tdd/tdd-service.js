@@ -259,6 +259,9 @@ export class TddService {
     // Track whether results have been printed (to avoid duplicate output)
     this._resultsPrinted = false;
 
+    // Bind the helper method
+    this._upsertComparison = this._upsertComparison.bind(this);
+
     if (this.setBaseline) {
       output.info(
         '[vizzly] Baseline update mode - will overwrite existing baselines with new ones'

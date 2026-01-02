@@ -346,6 +346,98 @@ describe('tdd/tdd-service', () => {
     });
   });
 
+  describe('_upsertComparison', () => {
+    it('replaces existing comparison when ID matches', () => {
+      let mockDeps = createMockDeps();
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      // Add initial comparison
+      service.comparisons = [
+        {
+          id: 'comp-1',
+          name: 'homepage',
+          status: 'failed',
+          diffPercentage: 5.0,
+        },
+        { id: 'comp-2', name: 'button', status: 'passed' },
+      ];
+
+      // Upsert with same ID but different status
+      service._upsertComparison({
+        id: 'comp-1',
+        name: 'homepage',
+        status: 'passed',
+        diffPercentage: 0,
+      });
+
+      assert.strictEqual(service.comparisons.length, 2);
+      assert.strictEqual(service.comparisons[0].status, 'passed');
+      assert.strictEqual(service.comparisons[0].diffPercentage, 0);
+    });
+
+    it('appends new comparison when ID does not exist', () => {
+      let mockDeps = createMockDeps();
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      service.comparisons = [
+        { id: 'comp-1', name: 'homepage', status: 'passed' },
+      ];
+
+      service._upsertComparison({
+        id: 'comp-2',
+        name: 'button',
+        status: 'new',
+      });
+
+      assert.strictEqual(service.comparisons.length, 2);
+      assert.strictEqual(service.comparisons[1].id, 'comp-2');
+    });
+
+    it('prevents stale results from accumulating in daemon mode', async () => {
+      // This test verifies the fix for issue #158
+      // In daemon mode, re-running tests should replace old results, not accumulate them
+      let mockDeps = createMockDeps({
+        baseline: { baselineExists: () => true },
+        comparison: {
+          compareImages: async () => ({
+            isDifferent: true,
+            diffPercentage: 5.5,
+            diffPixels: 1000,
+            diffClusters: [],
+          }),
+          buildFailedComparison: params => ({
+            id: params.signature ? `comp-${params.signature}` : 'test-id',
+            status: 'failed',
+            ...params,
+          }),
+        },
+        signature: {
+          generateScreenshotSignature: () => 'homepage|1920|chrome',
+          generateBaselineFilename: () => 'homepage_hash.png',
+          generateComparisonId: sig => `comp-${sig}`,
+          sanitizeScreenshotName: name => name,
+          validateScreenshotProperties: props => props,
+          safePath: (...parts) => parts.join('/'),
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      // First run - screenshot fails
+      await service.compareScreenshot('homepage', Buffer.from('test1'), {});
+      assert.strictEqual(service.comparisons.length, 1);
+      assert.strictEqual(service.comparisons[0].status, 'failed');
+
+      // Second run - same screenshot, still fails (simulating daemon mode re-run)
+      // Without the fix, this would add a second comparison
+      await service.compareScreenshot('homepage', Buffer.from('test2'), {});
+      assert.strictEqual(
+        service.comparisons.length,
+        1,
+        'Should still have only 1 comparison, not 2'
+      );
+    });
+  });
+
   describe('compareScreenshot', () => {
     it('creates new baseline when none exists', async () => {
       let savedBaseline = null;

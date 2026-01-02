@@ -435,6 +435,49 @@ describe('commands/run', () => {
       assert.strictEqual(exitCode, 1);
     });
 
+    it('passes minClusterSize from config to runOptions', async () => {
+      // This test verifies the fix for issue #160
+      let output = createMockOutput();
+      let capturedRunOptions = null;
+
+      await runCommand(
+        'npm test',
+        {},
+        {},
+        {
+          loadConfig: async () =>
+            createMockConfig({
+              comparison: { threshold: 2.0, minClusterSize: 5 },
+            }),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          createUploader: () => ({}),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { buildId: null, screenshotsCaptured: 0 };
+          },
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          detectCommitMessage: async () => 'test',
+          detectPullRequestNumber: () => null,
+          generateBuildNameWithGit: async () => 'test-build',
+          output,
+          exit: () => {},
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.strictEqual(
+        capturedRunOptions.minClusterSize,
+        5,
+        'minClusterSize should be passed from config to runOptions'
+      );
+      assert.strictEqual(capturedRunOptions.threshold, 2.0);
+    });
+
     it('uses provided git metadata options', async () => {
       let output = createMockOutput();
       let capturedRunOptions = null;

@@ -236,6 +236,7 @@ export async function runCommand(
       message,
       environment: config.build.environment,
       threshold: config.comparison.threshold,
+      minClusterSize: config.comparison.minClusterSize,
       eager: config.eager || false,
       allowNoToken: config.allowNoToken || false,
       wait: config.wait || options.wait || false,

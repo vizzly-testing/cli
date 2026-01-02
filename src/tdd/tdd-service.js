@@ -259,6 +259,9 @@ export class TddService {
     // Track whether results have been printed (to avoid duplicate output)
     this._resultsPrinted = false;
 
+    // Bind the helper method
+    this._upsertComparison = this._upsertComparison.bind(this);
+
     if (this.setBaseline) {
       output.info(
         '[vizzly] Baseline update mode - will overwrite existing baselines with new ones'
@@ -1132,6 +1135,20 @@ export class TddService {
   }
 
   /**
+   * Upsert a comparison result - replaces existing if same ID, otherwise appends.
+   * This prevents stale results from accumulating in daemon mode.
+   * @private
+   */
+  _upsertComparison(result) {
+    let existingIndex = this.comparisons.findIndex(c => c.id === result.id);
+    if (existingIndex >= 0) {
+      this.comparisons[existingIndex] = result;
+    } else {
+      this.comparisons.push(result);
+    }
+  }
+
+  /**
    * Compare a screenshot against baseline
    */
   async compareScreenshot(name, imageBuffer, properties = {}) {
@@ -1248,7 +1265,7 @@ export class TddService {
         properties: validatedProperties,
       });
 
-      this.comparisons.push(result);
+      this._upsertComparison(result);
       return result;
     }
 
@@ -1288,7 +1305,7 @@ export class TddService {
           honeydiffResult,
         });
 
-        this.comparisons.push(result);
+        this._upsertComparison(result);
         return result;
       } else {
         let hotspotAnalysis = this.getHotspotForScreenshot(name);
@@ -1315,7 +1332,7 @@ export class TddService {
           diff: diffInfo,
         });
 
-        this.comparisons.push(result);
+        this._upsertComparison(result);
         return result;
       }
     } catch (error) {
@@ -1356,7 +1373,7 @@ export class TddService {
           properties: validatedProperties,
         });
 
-        this.comparisons.push(result);
+        this._upsertComparison(result);
         return result;
       }
 
@@ -1371,7 +1388,7 @@ export class TddService {
         errorMessage: error.message,
       });
 
-      this.comparisons.push(result);
+      this._upsertComparison(result);
       return result;
     }
   }
@@ -1792,7 +1809,7 @@ export class TddService {
       signature,
     };
 
-    this.comparisons.push(result);
+    this._upsertComparison(result);
     output.info(`Baseline created for ${name}`);
     return result;
   }

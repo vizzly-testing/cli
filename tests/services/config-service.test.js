@@ -43,6 +43,7 @@ describe('services/config-service', () => {
     tempDir = createTempDir();
     // Clear any environment variables that might affect tests
     delete process.env.VIZZLY_THRESHOLD;
+    delete process.env.VIZZLY_MIN_CLUSTER_SIZE;
     delete process.env.VIZZLY_PORT;
   });
 
@@ -50,6 +51,7 @@ describe('services/config-service', () => {
     cleanupTempDir(tempDir);
     // Clean up environment variables after each test
     delete process.env.VIZZLY_THRESHOLD;
+    delete process.env.VIZZLY_MIN_CLUSTER_SIZE;
     delete process.env.VIZZLY_PORT;
     delete process.env.VIZZLY_HOME;
   });
@@ -87,6 +89,32 @@ describe('services/config-service', () => {
 
       assert.strictEqual(config.comparison.threshold, 5.0);
       assert.strictEqual(sources.threshold, 'project');
+    });
+
+    it('applies VIZZLY_MIN_CLUSTER_SIZE env var override', async () => {
+      process.env.VIZZLY_MIN_CLUSTER_SIZE = '10';
+
+      let service = createConfigService({ workingDir: tempDir });
+      let { config, sources } = await service.getConfig('merged');
+
+      assert.strictEqual(config.comparison.minClusterSize, 10);
+      assert.strictEqual(sources.comparison, 'env');
+    });
+
+    it('env var overrides project config for minClusterSize', async () => {
+      // Create project config with minClusterSize
+      writeFileSync(
+        join(tempDir, 'vizzly.config.js'),
+        `export default { comparison: { minClusterSize: 3 } };`
+      );
+
+      // Env var should win
+      process.env.VIZZLY_MIN_CLUSTER_SIZE = '8';
+
+      let service = createConfigService({ workingDir: tempDir });
+      let { config } = await service.getConfig('merged');
+
+      assert.strictEqual(config.comparison.minClusterSize, 8);
     });
   });
 
@@ -332,6 +360,50 @@ describe('services/config-service', () => {
 
       assert.strictEqual(result.valid, false);
       assert.ok(result.errors.some(e => e.includes('timeout')));
+    });
+
+    it('returns error for non-integer minClusterSize', async () => {
+      let service = createConfigService({ workingDir: tempDir });
+
+      let result = await service.validateConfig({
+        comparison: { minClusterSize: 3.5 },
+      });
+
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('minClusterSize')));
+    });
+
+    it('returns error for zero or negative minClusterSize', async () => {
+      let service = createConfigService({ workingDir: tempDir });
+
+      let result = await service.validateConfig({
+        comparison: { minClusterSize: 0 },
+      });
+
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('minClusterSize')));
+    });
+
+    it('returns warning for very high minClusterSize', async () => {
+      let service = createConfigService({ workingDir: tempDir });
+
+      let result = await service.validateConfig({
+        comparison: { minClusterSize: 150 },
+      });
+
+      assert.strictEqual(result.valid, true);
+      assert.ok(result.warnings.some(w => w.includes('100')));
+    });
+
+    it('validates valid minClusterSize', async () => {
+      let service = createConfigService({ workingDir: tempDir });
+
+      let result = await service.validateConfig({
+        comparison: { minClusterSize: 5 },
+      });
+
+      assert.strictEqual(result.valid, true);
+      assert.strictEqual(result.errors.length, 0);
     });
 
     it('validates empty config as valid', async () => {

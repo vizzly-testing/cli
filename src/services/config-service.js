@@ -21,6 +21,7 @@ import * as output from '../utils/output.js';
 let DEFAULT_CONFIG = {
   comparison: {
     threshold: 2.0,
+    minClusterSize: 2,
   },
   server: {
     port: 47392,
@@ -102,6 +103,13 @@ export function createConfigService({ workingDir }) {
     // Layer 3: Environment variables
     if (process.env.VIZZLY_THRESHOLD) {
       config.comparison.threshold = parseFloat(process.env.VIZZLY_THRESHOLD);
+      sources.comparison = 'env';
+    }
+    if (process.env.VIZZLY_MIN_CLUSTER_SIZE) {
+      config.comparison.minClusterSize = parseInt(
+        process.env.VIZZLY_MIN_CLUSTER_SIZE,
+        10
+      );
       sources.comparison = 'env';
     }
     if (process.env.VIZZLY_PORT) {
@@ -237,6 +245,20 @@ export default defineConfig(${JSON.stringify(newConfig, null, 2)});
       } else if (threshold > 100) {
         warnings.push(
           'comparison.threshold above 100 may cause all comparisons to pass'
+        );
+      }
+    }
+
+    // Validate minClusterSize
+    if (config.comparison?.minClusterSize !== undefined) {
+      let minClusterSize = config.comparison.minClusterSize;
+      if (!Number.isInteger(minClusterSize) || minClusterSize < 1) {
+        errors.push(
+          'comparison.minClusterSize must be a positive integer (1 or greater)'
+        );
+      } else if (minClusterSize > 100) {
+        warnings.push(
+          'comparison.minClusterSize above 100 may filter out most differences'
         );
       }
     }

@@ -430,25 +430,50 @@ tddCmd
       globalOptions
     );
 
-    // Set up cleanup on process signals
+    // Track cleanup state to prevent double cleanup
+    let isCleaningUp = false;
     const handleCleanup = async () => {
+      if (isCleaningUp) return;
+      isCleaningUp = true;
       await cleanup();
     };
 
-    process.once('SIGINT', () => {
-      handleCleanup().then(() => process.exit(1));
-    });
+    // Set up cleanup on process signals
+    const sigintHandler = () => {
+      handleCleanup().then(() => process.exit(result?.exitCode || 0));
+    };
+    const sigtermHandler = () => {
+      handleCleanup().then(() => process.exit(result?.exitCode || 0));
+    };
 
-    process.once('SIGTERM', () => {
-      handleCleanup().then(() => process.exit(1));
-    });
+    process.once('SIGINT', sigintHandler);
+    process.once('SIGTERM', sigtermHandler);
 
-    if (result && !result.success && result.exitCode > 0) {
-      await cleanup();
-      process.exit(result.exitCode);
+    // If there are comparisons, keep server running for review
+    const hasComparisons = result?.comparisons?.length > 0;
+    if (hasComparisons) {
+      output.print(
+        `  ${colors.brand.textTertiary('→')} Press ${colors.white('Enter')} to stop server`
+      );
+      output.blank();
+
+      // Wait for user to press Enter
+      await new Promise(resolve => {
+        process.stdin.setRawMode?.(false);
+        process.stdin.resume();
+        process.stdin.once('data', () => {
+          process.stdin.pause();
+          resolve();
+        });
+      });
     }
 
-    await cleanup();
+    // Remove signal handlers before normal cleanup to prevent double cleanup
+    process.off('SIGINT', sigintHandler);
+    process.off('SIGTERM', sigtermHandler);
+
+    await handleCleanup();
+    process.exit(result?.exitCode || 0);
   });
 
 program

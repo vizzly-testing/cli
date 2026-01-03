@@ -436,19 +436,31 @@ tddCmd
     };
 
     process.once('SIGINT', () => {
-      handleCleanup().then(() => process.exit(1));
+      handleCleanup().then(() => process.exit(result?.exitCode || 0));
     });
 
     process.once('SIGTERM', () => {
-      handleCleanup().then(() => process.exit(1));
+      handleCleanup().then(() => process.exit(result?.exitCode || 0));
     });
 
-    if (result && !result.success && result.exitCode > 0) {
-      await cleanup();
-      process.exit(result.exitCode);
+    // If there are comparisons, keep server running for review
+    const hasComparisons = result?.comparisons?.length > 0;
+    if (hasComparisons) {
+      output.print(
+        `  ${colors.brand.textTertiary('→')} Press ${colors.white('Enter')} to stop server`
+      );
+      output.blank();
+
+      // Wait for user to press Enter
+      await new Promise(resolve => {
+        process.stdin.setRawMode?.(false);
+        process.stdin.resume();
+        process.stdin.once('data', resolve);
+      });
     }
 
     await cleanup();
+    process.exit(result?.exitCode || 0);
   });
 
 program

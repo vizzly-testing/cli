@@ -53,6 +53,10 @@ export const tdd = {
    * @returns {Promise<Object|null>}
    */
   async getReportData() {
+    // In static mode, return embedded data directly without fetching
+    if (isStaticMode() && window.VIZZLY_REPORTER_DATA) {
+      return window.VIZZLY_REPORTER_DATA;
+    }
     return fetchJson('/api/report-data');
   },
 

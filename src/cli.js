@@ -430,18 +430,24 @@ tddCmd
       globalOptions
     );
 
-    // Set up cleanup on process signals
+    // Track cleanup state to prevent double cleanup
+    let isCleaningUp = false;
     const handleCleanup = async () => {
+      if (isCleaningUp) return;
+      isCleaningUp = true;
       await cleanup();
     };
 
-    process.once('SIGINT', () => {
+    // Set up cleanup on process signals
+    const sigintHandler = () => {
       handleCleanup().then(() => process.exit(result?.exitCode || 0));
-    });
+    };
+    const sigtermHandler = () => {
+      handleCleanup().then(() => process.exit(result?.exitCode || 0));
+    };
 
-    process.once('SIGTERM', () => {
-      handleCleanup().then(() => process.exit(result?.exitCode || 0));
-    });
+    process.once('SIGINT', sigintHandler);
+    process.once('SIGTERM', sigtermHandler);
 
     // If there are comparisons, keep server running for review
     const hasComparisons = result?.comparisons?.length > 0;
@@ -455,11 +461,18 @@ tddCmd
       await new Promise(resolve => {
         process.stdin.setRawMode?.(false);
         process.stdin.resume();
-        process.stdin.once('data', resolve);
+        process.stdin.once('data', () => {
+          process.stdin.pause();
+          resolve();
+        });
       });
     }
 
-    await cleanup();
+    // Remove signal handlers before normal cleanup to prevent double cleanup
+    process.off('SIGINT', sigintHandler);
+    process.off('SIGTERM', sigtermHandler);
+
+    await handleCleanup();
     process.exit(result?.exitCode || 0);
   });
 

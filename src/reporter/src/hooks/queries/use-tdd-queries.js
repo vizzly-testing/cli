@@ -1,12 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { isStaticMode, tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 import { SSE_STATE, useReportDataSSE } from '../use-sse.js';
 
 export function useReportData(options = {}) {
   // Check if we're in static mode with embedded data
-  const staticMode = isStaticMode();
-  const staticData = staticMode ? window.VIZZLY_REPORTER_DATA : undefined;
+  // Memoize to ensure consistency within the hook's lifecycle
+  const staticMode = useMemo(() => isStaticMode(), []);
+  const staticData = useMemo(
+    () => (staticMode ? window.VIZZLY_REPORTER_DATA : undefined),
+    [staticMode]
+  );
 
   // Use SSE for real-time updates (handles static mode internally)
   const { state: sseState } = useReportDataSSE({

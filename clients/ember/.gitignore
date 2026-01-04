@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+
+# Test app build artifacts (keep source, ignore build output)
+test-app/node_modules/
+test-app/dist/
+test-app/.vizzly/
+test-app/tmp/

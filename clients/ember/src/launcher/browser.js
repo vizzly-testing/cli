@@ -105,9 +105,9 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
     onPageCreated(page);
   }
 
-  // Navigate to test URL and wait for network to be idle
+  // Navigate to test URL and wait for load (not networkidle - Socket.IO keeps network active)
   await page.goto(testUrl, {
-    waitUntil: 'networkidle',
+    waitUntil: 'load',
     timeout: 60000,
   });
 

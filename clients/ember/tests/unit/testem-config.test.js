@@ -92,11 +92,8 @@ describe('testem-config', () => {
       let launcher = result.launchers.VizzlyChrome;
 
       assert.strictEqual(launcher.exe, 'npx');
-      assert.deepStrictEqual(launcher.args, [
-        'vizzly-browser',
-        'chromium',
-        '<url>',
-      ]);
+      // Note: Testem automatically appends the test URL to args
+      assert.deepStrictEqual(launcher.args, ['vizzly-browser', 'chromium']);
       assert.strictEqual(launcher.protocol, 'browser');
     });
 
@@ -105,11 +102,8 @@ describe('testem-config', () => {
       let launcher = result.launchers.VizzlyFirefox;
 
       assert.strictEqual(launcher.exe, 'npx');
-      assert.deepStrictEqual(launcher.args, [
-        'vizzly-browser',
-        'firefox',
-        '<url>',
-      ]);
+      // Note: Testem automatically appends the test URL to args
+      assert.deepStrictEqual(launcher.args, ['vizzly-browser', 'firefox']);
       assert.strictEqual(launcher.protocol, 'browser');
     });
 
@@ -118,11 +112,8 @@ describe('testem-config', () => {
       let launcher = result.launchers.VizzlyWebKit;
 
       assert.strictEqual(launcher.exe, 'npx');
-      assert.deepStrictEqual(launcher.args, [
-        'vizzly-browser',
-        'webkit',
-        '<url>',
-      ]);
+      // Note: Testem automatically appends the test URL to args
+      assert.deepStrictEqual(launcher.args, ['vizzly-browser', 'webkit']);
       assert.strictEqual(launcher.protocol, 'browser');
     });
 

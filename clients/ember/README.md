@@ -7,7 +7,7 @@ Visual testing SDK for Ember.js projects using Testem. Capture screenshots from 
 ```bash
 npm install -D @vizzly-testing/ember
 
-# Install browser (Chromium is recommended)
+# Install a Playwright browser
 npx playwright install chromium
 ```
 

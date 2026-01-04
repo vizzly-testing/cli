@@ -8,7 +8,8 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { dirname, join, parse } from 'node:path';
 
 /**
@@ -93,18 +94,64 @@ async function forwardToVizzly(name, imageBuffer, properties = {}) {
     },
   };
 
-  let response = await fetch(`${tddServerUrl}/screenshot`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+  // Use node:http directly with Connection: close to prevent keep-alive hangs
+  let result = await httpPost(`${tddServerUrl}/screenshot`, payload);
+  return result;
+}
+
+/**
+ * Make HTTP POST request without keep-alive (prevents process hang on shutdown)
+ * @param {string} url - Target URL
+ * @param {Object} data - JSON payload
+ * @returns {Promise<Object>} Parsed JSON response
+ */
+function httpPost(url, data) {
+  return new Promise((resolve, reject) => {
+    let parsedUrl = new URL(url);
+    let isHttps = parsedUrl.protocol === 'https:';
+    let requestFn = isHttps ? httpsRequest : httpRequest;
+
+    let body = JSON.stringify(data);
+
+    let options = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (isHttps ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        Connection: 'close', // Disable keep-alive
+      },
+      agent: false, // Don't use connection pooling
+    };
+
+    let req = requestFn(options, res => {
+      let chunks = [];
+
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => {
+        let responseBody = Buffer.concat(chunks).toString();
+
+        if (res.statusCode >= 400) {
+          reject(
+            new Error(`Vizzly server error: ${res.statusCode} - ${responseBody}`)
+          );
+          return;
+        }
+
+        try {
+          resolve(JSON.parse(responseBody));
+        } catch {
+          resolve({ raw: responseBody });
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(body);
+    req.end();
   });
-
-  if (!response.ok) {
-    let errorBody = await response.text();
-    throw new Error(`Vizzly server error: ${response.status} - ${errorBody}`);
-  }
-
-  return await response.json();
 }
 
 /**
@@ -185,6 +232,7 @@ export async function startSnapshotServer() {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Connection', 'close'); // Prevent keep-alive hangs
 
       // Handle preflight
       if (req.method === 'OPTIONS') {
@@ -226,6 +274,10 @@ export async function startSnapshotServer() {
 export async function stopSnapshotServer(serverInfo) {
   return new Promise(resolve => {
     if (serverInfo?.server) {
+      // Force close all keep-alive connections (Node 18.2+)
+      if (serverInfo.server.closeAllConnections) {
+        serverInfo.server.closeAllConnections();
+      }
       serverInfo.server.close(() => resolve());
     } else {
       resolve();

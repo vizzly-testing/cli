@@ -12,7 +12,7 @@
 
 import assert from 'node:assert';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -64,7 +64,7 @@ describe('e2e with TDD server', { skip: !process.env.RUN_E2E }, () => {
     });
 
     // Start test page server
-    testServer = createServer((req, res) => {
+    testServer = createServer((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(`
         <!DOCTYPE html>
@@ -146,7 +146,7 @@ describe('e2e without TDD server', () => {
 
   before(async () => {
     // Start test page server
-    testServer = createServer((req, res) => {
+    testServer = createServer((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(`
         <!DOCTYPE html>

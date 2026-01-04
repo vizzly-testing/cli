@@ -26,7 +26,7 @@ describe('launcher integration', () => {
 
   before(async () => {
     // Start a simple test page server
-    testServer = createServer((req, res) => {
+    testServer = createServer((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(`
         <!DOCTYPE html>

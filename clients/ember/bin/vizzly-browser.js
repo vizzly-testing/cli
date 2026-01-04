@@ -46,16 +46,16 @@ async function cleanup() {
     if (browserInstance) {
       await closeBrowser(browserInstance);
     }
-  } catch (error) {
-    console.error('[vizzly-browser] Error closing browser:', error.message);
+  } catch {
+    // Ignore cleanup errors
   }
 
   try {
     if (snapshotServer) {
       await stopSnapshotServer(snapshotServer);
     }
-  } catch (error) {
-    console.error('[vizzly-browser] Error stopping server:', error.message);
+  } catch {
+    // Ignore cleanup errors
   }
 
   process.exit(0);
@@ -79,11 +79,58 @@ async function main() {
         // Set page reference immediately when page is created
         // This happens BEFORE navigation so tests can capture screenshots
         setPage(page);
+
+        // Listen for page close - this means browser was closed
+        page.on('close', cleanup);
       },
     });
 
-    // 3. Keep process alive - Testem will send SIGTERM when done
-    // The browser will run tests and the snapshot server will handle requests
+    // 3. Monitor for test completion
+    // Hook into the test framework (QUnit or Mocha) to detect when tests finish
+    let { page } = browserInstance;
+
+    // Wait for a test framework to be available, then hook into its completion
+    await page.evaluate(() => {
+      return new Promise(resolve => {
+        let checkFramework = () => {
+          // Check for QUnit
+          if (typeof QUnit !== 'undefined') {
+            QUnit.done(() => {
+              console.log('[testem-vizzly] all-tests-complete');
+            });
+            resolve();
+            return;
+          }
+
+          // Check for Mocha
+          if (typeof Mocha !== 'undefined' || typeof mocha !== 'undefined') {
+            let Runner = (typeof Mocha !== 'undefined' ? Mocha : mocha).Runner;
+            let originalEmit = Runner.prototype.emit;
+            Runner.prototype.emit = function (evt) {
+              if (evt === 'end') {
+                console.log('[testem-vizzly] all-tests-complete');
+              }
+              return originalEmit.apply(this, arguments);
+            };
+            resolve();
+            return;
+          }
+
+          // Keep checking until a framework is found
+          requestAnimationFrame(checkFramework);
+        };
+        checkFramework();
+      });
+    });
+
+    // Listen for the completion signal
+    page.on('console', msg => {
+      if (msg.text() === '[testem-vizzly] all-tests-complete') {
+        cleanup();
+      }
+    });
+
+    // 4. Keep process alive until cleanup is called
     await new Promise(() => {});
   } catch (error) {
     console.error('[vizzly-browser] Failed to start:', error.message);

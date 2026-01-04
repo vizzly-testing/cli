@@ -1,0 +1,77 @@
+{
+  "name": "@vizzly-testing/ember",
+  "version": "0.1.0",
+  "description": "Visual testing SDK for Ember.js projects using Testem",
+  "keywords": [
+    "vizzly",
+    "ember",
+    "ember.js",
+    "testem",
+    "visual-testing",
+    "screenshot-testing",
+    "visual-regression"
+  ],
+  "homepage": "https://vizzly.dev",
+  "bugs": "https://github.com/vizzly-testing/cli/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vizzly-testing/cli.git",
+    "directory": "clients/ember"
+  },
+  "license": "MIT",
+  "author": "Stubborn Mule Software <support@vizzly.dev>",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./src/index.js"
+    },
+    "./testem": {
+      "import": "./src/testem-config.js",
+      "require": "./src/testem-config.js"
+    },
+    "./test-support": {
+      "import": "./src/test-support/index.js",
+      "require": "./src/test-support/index.js"
+    }
+  },
+  "main": "./src/index.js",
+  "bin": {
+    "vizzly-browser": "./bin/vizzly-browser.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node --test --test-reporter=spec 'tests/unit/**/*.test.js'",
+    "test:integration": "node --test --test-reporter=spec 'tests/integration/**/*.test.js'",
+    "test:all": "node --test --test-reporter=spec 'tests/**/*.test.js'",
+    "test:watch": "node --test --test-reporter=spec --watch 'tests/**/*.test.js'",
+    "lint": "biome lint src tests bin",
+    "lint:fix": "biome lint --write src tests bin",
+    "format": "biome format --write src tests bin",
+    "format:check": "biome format src tests bin",
+    "check": "biome check src tests bin",
+    "check:fix": "biome check --write src tests bin"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "@vizzly-testing/cli": ">=0.12.0"
+  },
+  "dependencies": {
+    "playwright-core": "^1.49.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.8"
+  }
+}

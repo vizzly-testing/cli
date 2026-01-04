@@ -71,9 +71,10 @@ function getSettled() {
  *
  * @param {number} [width=1280] - Desired viewport width
  * @param {number} [height=720] - Desired viewport height
+ * @param {boolean} [fullPage=false] - Whether to capture full scrollable content
  * @returns {Function} Cleanup function to restore original styles
  */
-function prepareTestingContainer(width = 1280, height = 720) {
+function prepareTestingContainer(width = 1280, height = 720, fullPage = false) {
   let container = document.getElementById('ember-testing-container');
   let testing = document.getElementById('ember-testing');
 
@@ -85,6 +86,20 @@ function prepareTestingContainer(width = 1280, height = 720) {
   let originalContainerStyle = container.style.cssText;
   let originalTestingStyle = testing.style.cssText;
 
+  // For fullPage, we need to measure the actual content height
+  let containerHeight = height;
+  if (fullPage) {
+    // Temporarily reset styles to measure true content height
+    testing.style.transform = 'none';
+    testing.style.width = `${width}px`;
+    testing.style.height = 'auto';
+    testing.style.overflow = 'visible';
+
+    // Force layout recalc and get scroll height
+    let scrollHeight = testing.scrollHeight;
+    containerHeight = Math.max(height, scrollHeight);
+  }
+
   // Expand container to full screen with specified dimensions
   container.style.cssText = `
     position: fixed !important;
@@ -93,11 +108,11 @@ function prepareTestingContainer(width = 1280, height = 720) {
     right: auto !important;
     bottom: auto !important;
     width: ${width}px !important;
-    height: ${height}px !important;
+    height: ${containerHeight}px !important;
     z-index: 99999 !important;
     background: #fff !important;
     border: none !important;
-    overflow: hidden !important;
+    overflow: ${fullPage ? 'visible' : 'hidden'} !important;
   `;
 
   // Reset testing element to full size (no scaling)
@@ -106,8 +121,10 @@ function prepareTestingContainer(width = 1280, height = 720) {
     top: 0 !important;
     left: 0 !important;
     width: 100% !important;
-    height: 100% !important;
+    height: ${fullPage ? 'auto' : '100%'} !important;
+    min-height: ${fullPage ? `${containerHeight}px` : 'auto'} !important;
     transform: none !important;
+    overflow: ${fullPage ? 'visible' : 'hidden'} !important;
   `;
 
   // Return cleanup function
@@ -183,7 +200,7 @@ export async function vizzlySnapshot(name, options = {}) {
   }
 
   // Prepare testing container for screenshot (expand to full size)
-  let cleanup = prepareTestingContainer(width, height);
+  let cleanup = prepareTestingContainer(width, height, fullPage);
 
   // Force a repaint to ensure styles are applied
   // eslint-disable-next-line no-unused-expressions

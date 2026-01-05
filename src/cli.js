@@ -477,6 +477,8 @@ tddCmd
         });
       } else {
         // Default: generate static report
+        // Note: Tests have completed at this point, so report-data.json is stable.
+        // The report reflects the final state of all comparisons.
         const reportResult = await generateStaticReport(process.cwd());
 
         if (reportResult.success) {

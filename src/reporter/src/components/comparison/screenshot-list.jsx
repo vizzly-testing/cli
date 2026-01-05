@@ -382,12 +382,14 @@ export default function ScreenshotList({
   }
 
   let handleAcceptGroup = group => {
+    if (!onAcceptComparison) return;
     for (let comp of group.comparisons) {
       onAcceptComparison(comp.id || comp.signature || comp.name);
     }
   };
 
   let handleRejectGroup = group => {
+    if (!onRejectComparison) return;
     for (let comp of group.comparisons) {
       onRejectComparison(comp.id || comp.signature || comp.name);
     }

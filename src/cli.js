@@ -417,7 +417,6 @@ tddCmd
     'Accept current screenshots as new baseline (overwrites existing)'
   )
   .option('--no-open', 'Skip opening report in browser')
-  .option('--keep-server', 'Keep server running after tests (interactive mode)')
   .action(async (command, options) => {
     const globalOptions = program.opts();
 
@@ -456,47 +455,26 @@ tddCmd
     process.once('SIGINT', sigintHandler);
     process.once('SIGTERM', sigtermHandler);
 
-    // If there are comparisons, generate static report or keep server running
+    // If there are comparisons, generate static report
     const hasComparisons = result?.comparisons?.length > 0;
     if (hasComparisons) {
-      if (options.keepServer) {
-        // Interactive mode: keep server running for live review
+      // Note: Tests have completed at this point, so report-data.json is stable.
+      // The report reflects the final state of all comparisons.
+      const reportResult = await generateStaticReport(process.cwd());
+
+      if (reportResult.success) {
+        const reportUrl = getReportFileUrl(reportResult.reportPath);
         output.print(
-          `  ${colors.brand.textTertiary('→')} Press ${colors.white('Enter')} to stop server`
+          `  ${colors.brand.textTertiary('→')} Report: ${colors.blue(reportUrl)}`
         );
         output.blank();
 
-        // Wait for user to press Enter
-        await new Promise(resolve => {
-          process.stdin.setRawMode?.(false);
-          process.stdin.resume();
-          process.stdin.once('data', () => {
-            process.stdin.pause();
-            resolve();
-          });
-        });
-      } else {
-        // Default: generate static report
-        // Note: Tests have completed at this point, so report-data.json is stable.
-        // The report reflects the final state of all comparisons.
-        const reportResult = await generateStaticReport(process.cwd());
-
-        if (reportResult.success) {
-          const reportUrl = getReportFileUrl(reportResult.reportPath);
-          output.print(
-            `  ${colors.brand.textTertiary('→')} Report: ${colors.blue(reportUrl)}`
-          );
-          output.blank();
-
-          // Open report in browser unless --no-open
-          if (options.open !== false) {
-            await openBrowser(reportUrl);
-          }
-        } else {
-          output.warn(
-            `Failed to generate static report: ${reportResult.error}`
-          );
+        // Open report in browser unless --no-open
+        if (options.open !== false) {
+          await openBrowser(reportUrl);
         }
+      } else {
+        output.warn(`Failed to generate static report: ${reportResult.error}`);
       }
     }
 

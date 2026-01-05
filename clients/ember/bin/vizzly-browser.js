@@ -16,6 +16,7 @@
 
 import { closeBrowser, launchBrowser } from '../src/launcher/browser.js';
 import {
+  getServerInfo,
   setPage,
   startSnapshotServer,
   stopSnapshotServer,
@@ -66,15 +67,28 @@ async function cleanup() {
  */
 async function main() {
   try {
-    // 1. Start snapshot server first
+    // 1. Start snapshot server first (this also discovers the TDD server and caches its config)
     snapshotServer = await startSnapshotServer();
     let snapshotUrl = `http://127.0.0.1:${snapshotServer.port}`;
 
-    // 2. Launch browser with Playwright
+    // 2. Determine failOnDiff: env var > server.json > default (false)
+    // getServerInfo() returns cached info from the TDD server discovery that happened above
+    let failOnDiff = false;
+    if (process.env.VIZZLY_FAIL_ON_DIFF === 'true' || process.env.VIZZLY_FAIL_ON_DIFF === '1') {
+      failOnDiff = true;
+    } else {
+      let serverInfo = getServerInfo();
+      if (serverInfo?.failOnDiff) {
+        failOnDiff = true;
+      }
+    }
+
+    // 3. Launch browser with Playwright
     // Note: We set the page reference in launchBrowser before navigation
     // to avoid a race condition where tests run before page is set
     browserInstance = await launchBrowser(browserType, testUrl, {
       snapshotUrl,
+      failOnDiff,
       onPageCreated: page => {
         // Set page reference immediately when page is created
         // This happens BEFORE navigation so tests can capture screenshots

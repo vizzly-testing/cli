@@ -135,6 +135,16 @@ function prepareTestingContainer(width = 1280, height = 720, fullPage = false) {
 }
 
 /**
+ * Check if tests should fail on visual diffs
+ * Reads from VIZZLY_FAIL_ON_DIFF environment variable (injected by launcher)
+ * @returns {boolean}
+ */
+function shouldFailOnDiff() {
+  return window.__VIZZLY_FAIL_ON_DIFF__ === true ||
+         window.__VIZZLY_FAIL_ON_DIFF__ === 'true';
+}
+
+/**
  * Capture a visual snapshot
  *
  * Takes a screenshot of the Ember app and sends it to Vizzly for visual
@@ -154,6 +164,7 @@ function prepareTestingContainer(width = 1280, height = 720, fullPage = false) {
  * @param {number} [options.height=720] - Viewport height for the snapshot
  * @param {string} [options.scope='app'] - What to capture: 'app' (default), 'container', or 'page'
  * @param {Object} [options.properties] - Additional metadata for the snapshot
+ * @param {boolean} [options.failOnDiff] - Fail the test if visual diff is detected (overrides env var)
  * @returns {Promise<Object>} Snapshot result from Vizzly server
  *
  * @example
@@ -169,8 +180,8 @@ function prepareTestingContainer(width = 1280, height = 720, fullPage = false) {
  * await vizzlySnapshot('login-form', { selector: '[data-test-login-form]' });
  *
  * @example
- * // Capture the entire page including QUnit UI (rare use case)
- * await vizzlySnapshot('test-runner', { scope: 'page' });
+ * // Fail test if this specific snapshot has a diff
+ * await vizzlySnapshot('critical-ui', { failOnDiff: true });
  */
 export async function vizzlySnapshot(name, options = {}) {
   let {
@@ -180,6 +191,7 @@ export async function vizzlySnapshot(name, options = {}) {
     height = 720,
     scope = 'app',
     properties = {},
+    failOnDiff = null, // null means use env var, true/false overrides
   } = options;
 
   // Get snapshot URL injected by the launcher
@@ -252,13 +264,31 @@ export async function vizzlySnapshot(name, options = {}) {
       // This allows tests to pass when Vizzly isn't running (like Percy behavior)
       if (errorText.includes('No Vizzly server found')) {
         console.warn('[vizzly] Vizzly server not running. Skipping visual snapshot.');
-        return { skipped: true, reason: 'no-server' };
+        return { status: 'skipped', reason: 'no-server' };
       }
 
       throw new Error(`Vizzly snapshot failed: ${errorText}`);
     }
 
-    return await response.json();
+    let result = await response.json();
+
+    // Handle visual diff - server returns 200 with status: 'diff'
+    if (result.status === 'diff') {
+      // Determine if we should fail based on option or env var
+      let shouldFail = failOnDiff !== null ? failOnDiff : shouldFailOnDiff();
+
+      if (shouldFail) {
+        throw new Error(
+          `Visual difference detected for '${name}' (${result.diffPercentage?.toFixed(2)}% diff). ` +
+          `View diff in Vizzly dashboard.`
+        );
+      }
+
+      // Log warning but don't fail
+      console.warn(`[vizzly] Visual difference detected for '${name}'. View diff in Vizzly dashboard.`);
+    }
+
+    return result;
   } finally {
     // Always restore original styles
     cleanup();

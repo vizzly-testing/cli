@@ -417,10 +417,7 @@ tddCmd
     'Accept current screenshots as new baseline (overwrites existing)'
   )
   .option('--no-open', 'Skip opening report in browser')
-  .option(
-    '--keep-server',
-    'Keep server running after tests (interactive mode)'
-  )
+  .option('--keep-server', 'Keep server running after tests (interactive mode)')
   .action(async (command, options) => {
     const globalOptions = program.opts();
 
@@ -494,7 +491,9 @@ tddCmd
             await openBrowser(reportUrl);
           }
         } else {
-          output.warn(`Failed to generate static report: ${reportResult.error}`);
+          output.warn(
+            `Failed to generate static report: ${reportResult.error}`
+          );
         }
       }
     }

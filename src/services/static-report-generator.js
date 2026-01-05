@@ -93,7 +93,7 @@ function transformImageUrls(reportData) {
   function transformUrl(url) {
     if (!url || typeof url !== 'string') return url;
     if (url.startsWith('/images/')) {
-      return '.' + url;
+      return `.${url}`;
     }
     return url;
   }

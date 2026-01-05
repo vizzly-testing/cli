@@ -144,6 +144,7 @@ function FailedComparison({ comparison, isEven }) {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -282,6 +283,7 @@ function NewComparison({ comparison, isEven }) {
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -338,6 +340,7 @@ function PassedComparison({ comparison }) {
           className="w-3 h-3 text-emerald-400"
           fill="currentColor"
           viewBox="0 0 20 20"
+          aria-hidden="true"
         >
           <path
             fillRule="evenodd"
@@ -407,6 +410,7 @@ function SummaryBar({ stats }) {
                 className="w-5 h-5 text-emerald-400"
                 fill="currentColor"
                 viewBox="0 0 20 20"
+                aria-hidden="true"
               >
                 <path
                   fillRule="evenodd"
@@ -491,6 +495,7 @@ function Header({ timestamp }) {
               className="w-5 h-5 text-slate-900"
               viewBox="0 0 24 24"
               fill="currentColor"
+              aria-hidden="true"
             >
               <circle cx="12" cy="12" r="3" />
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
@@ -566,7 +571,9 @@ export default function StaticReportView({ reportData }) {
             <div className="space-y-2">
               {failed.map((comparison, index) => (
                 <FailedComparison
-                  key={comparison.id || comparison.signature || `failed-${index}`}
+                  key={
+                    comparison.id || comparison.signature || `failed-${index}`
+                  }
                   comparison={comparison}
                   isEven={index % 2 === 0}
                 />
@@ -608,7 +615,9 @@ export default function StaticReportView({ reportData }) {
             <div className="space-y-2">
               {errors.map((comparison, index) => (
                 <FailedComparison
-                  key={comparison.id || comparison.signature || `error-${index}`}
+                  key={
+                    comparison.id || comparison.signature || `error-${index}`
+                  }
                   comparison={comparison}
                   isEven={index % 2 === 0}
                 />
@@ -635,6 +644,7 @@ export default function StaticReportView({ reportData }) {
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"

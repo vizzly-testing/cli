@@ -6,7 +6,7 @@ import { ToastProvider } from './components/ui/toast.jsx';
 import { queryClient } from './lib/query-client.js';
 import './reporter.css';
 
-const initializeReporter = () => {
+let initializeReporter = () => {
   let root = document.getElementById('vizzly-reporter-root');
 
   if (!root) {
@@ -15,14 +15,11 @@ const initializeReporter = () => {
     document.body.appendChild(root);
   }
 
-  // Get initial data from window or fetch from API
-  const initialData = window.VIZZLY_REPORTER_DATA || null;
-
   ReactDOM.createRoot(root).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <AppRouter initialData={initialData} />
+          <AppRouter />
         </ToastProvider>
       </QueryClientProvider>
     </StrictMode>

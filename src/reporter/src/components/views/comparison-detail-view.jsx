@@ -13,13 +13,13 @@ import FullscreenViewer from '../comparison/fullscreen-viewer.jsx';
  * The route parameter :id determines which comparison to show
  */
 export default function ComparisonDetailView() {
-  const [, setLocation] = useLocation();
-  const [, params] = useRoute('/comparison/:id');
+  let [, setLocation] = useLocation();
+  let [, params] = useRoute('/comparison/:id');
 
-  const { data: reportData } = useReportData();
-  const acceptMutation = useAcceptBaseline();
-  const rejectMutation = useRejectBaseline();
-  const deleteMutation = useDeleteComparison();
+  let { data: reportData } = useReportData();
+  let acceptMutation = useAcceptBaseline();
+  let rejectMutation = useRejectBaseline();
+  let deleteMutation = useDeleteComparison();
 
   // Memoize comparisons array to prevent dependency warnings
   const comparisons = useMemo(

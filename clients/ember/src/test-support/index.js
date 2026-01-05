@@ -247,6 +247,14 @@ export async function vizzlySnapshot(name, options = {}) {
 
     if (!response.ok) {
       let errorText = await response.text();
+
+      // Check if this is a "no server" error - gracefully skip instead of failing
+      // This allows tests to pass when Vizzly isn't running (like Percy behavior)
+      if (errorText.includes('No Vizzly server found')) {
+        console.warn('[vizzly] Vizzly server not running. Skipping visual snapshot.');
+        return { skipped: true, reason: 'no-server' };
+      }
+
       throw new Error(`Vizzly snapshot failed: ${errorText}`);
     }
 

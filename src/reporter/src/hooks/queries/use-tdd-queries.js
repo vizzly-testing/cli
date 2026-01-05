@@ -1,38 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { isStaticMode, tdd } from '../../api/client.js';
+import { tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 import { SSE_STATE, useReportDataSSE } from '../use-sse.js';
 
 export function useReportData(options = {}) {
-  // Check if we're in static mode with embedded data
-  // Memoize to ensure consistency within the hook's lifecycle
-  const staticMode = useMemo(() => isStaticMode(), []);
-  const staticData = useMemo(
-    () => (staticMode ? window.VIZZLY_REPORTER_DATA : undefined),
-    [staticMode]
-  );
-
-  // Use SSE for real-time updates (handles static mode internally)
-  const { state: sseState } = useReportDataSSE({
-    enabled: options.polling !== false && !staticMode,
+  // Use SSE for real-time updates
+  let { state: sseState } = useReportDataSSE({
+    enabled: options.polling !== false,
   });
 
   // SSE is connected - it updates the cache directly, no polling needed
   // Fall back to polling only when SSE is not connected
-  const sseConnected = sseState === SSE_STATE.CONNECTED;
+  let sseConnected = sseState === SSE_STATE.CONNECTED;
 
   return useQuery({
     queryKey: queryKeys.reportData(),
     queryFn: tdd.getReportData,
-    // In static mode, provide initial data and disable refetching
-    initialData: staticData,
-    // Only poll as fallback when SSE is not connected and not in static mode
-    refetchInterval:
-      !staticMode && options.polling !== false && !sseConnected ? 2000 : false,
-    // Don't refetch in static mode
-    refetchOnMount: !staticMode,
-    refetchOnWindowFocus: !staticMode,
+    // Only poll as fallback when SSE is not connected
+    refetchInterval: options.polling !== false && !sseConnected ? 2000 : false,
     ...options,
   });
 }

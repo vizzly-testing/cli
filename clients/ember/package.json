@@ -15,7 +15,7 @@
   "bugs": "https://github.com/vizzly-testing/cli/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vizzly-testing/cli.git",
+    "url": "git+https://github.com/vizzly-testing/cli.git",
     "directory": "clients/ember"
   },
   "license": "MIT",
@@ -37,7 +37,7 @@
   },
   "main": "./src/index.js",
   "bin": {
-    "vizzly-browser": "./bin/vizzly-browser.js"
+    "vizzly-browser": "bin/vizzly-browser.js"
   },
   "files": [
     "bin",

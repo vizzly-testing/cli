@@ -7,8 +7,26 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+let __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Check if the SSR build artifacts exist (required for full tests)
+ */
+function ssrBuildExists() {
+  let ssrPath = join(
+    __dirname,
+    '..',
+    '..',
+    'dist',
+    'reporter-ssr',
+    'ssr-entry.js'
+  );
+  return existsSync(ssrPath);
+}
 
 /**
  * Create a unique temporary directory for each test
@@ -91,7 +109,6 @@ describe('services/static-report-generator', () => {
 
   describe('generateStaticReport', () => {
     it('should return error when report data is missing', async () => {
-      // Import dynamically to avoid module caching issues
       let { generateStaticReport } = await import(
         '../../src/services/static-report-generator.js'
       );
@@ -103,7 +120,13 @@ describe('services/static-report-generator', () => {
       assert.ok(result.error.includes('No report data found'));
     });
 
-    it('should generate HTML report with correct structure', async () => {
+    it('should generate HTML report with correct structure', async t => {
+      // Skip if SSR build artifacts don't exist (CI runs tests before build)
+      if (!ssrBuildExists()) {
+        t.skip('SSR build not available - run npm run build first');
+        return;
+      }
+
       setupMockVizzlyDir(tempDir);
 
       let { generateStaticReport } = await import(
@@ -122,7 +145,12 @@ describe('services/static-report-generator', () => {
       assert.ok(html.includes('<style>'));
     });
 
-    it('should transform image URLs from absolute to relative paths', async () => {
+    it('should transform image URLs from absolute to relative paths', async t => {
+      if (!ssrBuildExists()) {
+        t.skip('SSR build not available - run npm run build first');
+        return;
+      }
+
       setupMockVizzlyDir(tempDir);
 
       let { generateStaticReport } = await import(
@@ -140,7 +168,12 @@ describe('services/static-report-generator', () => {
       );
     });
 
-    it('should copy image directories to report folder', async () => {
+    it('should copy image directories to report folder', async t => {
+      if (!ssrBuildExists()) {
+        t.skip('SSR build not available - run npm run build first');
+        return;
+      }
+
       setupMockVizzlyDir(tempDir);
 
       let { generateStaticReport } = await import(
@@ -157,7 +190,12 @@ describe('services/static-report-generator', () => {
       assert.ok(existsSync(join(reportDir, 'images', 'diffs', 'test.png')));
     });
 
-    it('should use custom output directory when provided', async () => {
+    it('should use custom output directory when provided', async t => {
+      if (!ssrBuildExists()) {
+        t.skip('SSR build not available - run npm run build first');
+        return;
+      }
+
       setupMockVizzlyDir(tempDir);
       let customOutputDir = join(tempDir, 'custom-report');
 
@@ -174,7 +212,12 @@ describe('services/static-report-generator', () => {
       assert.ok(existsSync(join(customOutputDir, 'index.html')));
     });
 
-    it('should handle empty comparisons array', async () => {
+    it('should handle empty comparisons array', async t => {
+      if (!ssrBuildExists()) {
+        t.skip('SSR build not available - run npm run build first');
+        return;
+      }
+
       setupMockVizzlyDir(tempDir, {
         reportData: { comparisons: [], timestamp: Date.now() },
       });
@@ -189,7 +232,12 @@ describe('services/static-report-generator', () => {
       assert.ok(existsSync(result.reportPath));
     });
 
-    it('should include baseline metadata when available', async () => {
+    it('should include baseline metadata when available', async t => {
+      if (!ssrBuildExists()) {
+        t.skip('SSR build not available - run npm run build first');
+        return;
+      }
+
       let vizzlyDir = setupMockVizzlyDir(tempDir);
 
       // Add baseline metadata
@@ -206,6 +254,26 @@ describe('services/static-report-generator', () => {
       let result = await generateStaticReport(tempDir);
 
       assert.strictEqual(result.success, true);
+    });
+
+    it('should return error when SSR module is missing', async t => {
+      if (ssrBuildExists()) {
+        t.skip('SSR build exists - cannot test missing module error');
+        return;
+      }
+
+      setupMockVizzlyDir(tempDir);
+
+      let { generateStaticReport } = await import(
+        '../../src/services/static-report-generator.js'
+      );
+
+      let result = await generateStaticReport(tempDir);
+
+      assert.strictEqual(result.success, false);
+      assert.ok(
+        result.error.includes('not found') || result.error.includes('build')
+      );
     });
   });
 

@@ -35,8 +35,13 @@ export function getPage() {
 }
 
 /**
+ * Cached server info from auto-discovery
+ */
+let cachedServerInfo = null;
+
+/**
  * Auto-discover the Vizzly TDD server by searching for .vizzly/server.json
- * @returns {string|null} Server URL or null if not found
+ * @returns {{url: string, failOnDiff: boolean}|null} Server info or null if not found
  */
 function autoDiscoverTddServer() {
   let currentDir = process.cwd();
@@ -49,7 +54,11 @@ function autoDiscoverTddServer() {
       try {
         let serverInfo = JSON.parse(readFileSync(serverJsonPath, 'utf8'));
         if (serverInfo.port) {
-          return `http://localhost:${serverInfo.port}`;
+          cachedServerInfo = {
+            url: `http://localhost:${serverInfo.port}`,
+            failOnDiff: serverInfo.failOnDiff || false,
+          };
+          return cachedServerInfo;
         }
       } catch {
         // Invalid JSON, continue searching
@@ -63,6 +72,26 @@ function autoDiscoverTddServer() {
 }
 
 /**
+ * Get the cached server info (for reading failOnDiff setting)
+ * @returns {{url: string, failOnDiff: boolean}|null}
+ */
+export function getServerInfo() {
+  // If not cached yet, discover it now
+  if (!cachedServerInfo) {
+    autoDiscoverTddServer();
+  }
+  return cachedServerInfo;
+}
+
+/**
+ * Clear the cached server info (for testing purposes)
+ * @private
+ */
+export function clearServerInfoCache() {
+  cachedServerInfo = null;
+}
+
+/**
  * Forward screenshot to Vizzly TDD server
  * @param {string} name - Screenshot name
  * @param {Buffer} imageBuffer - PNG image data
@@ -70,9 +99,9 @@ function autoDiscoverTddServer() {
  * @returns {Promise<Object>} Response from TDD server
  */
 async function forwardToVizzly(name, imageBuffer, properties = {}) {
-  let tddServerUrl = autoDiscoverTddServer();
+  let serverInfo = autoDiscoverTddServer();
 
-  if (!tddServerUrl) {
+  if (!serverInfo) {
     // Check for cloud mode via environment
     if (process.env.VIZZLY_TOKEN) {
       // In cloud mode, we'd queue for upload
@@ -84,6 +113,8 @@ async function forwardToVizzly(name, imageBuffer, properties = {}) {
       'No Vizzly server found. Run `vizzly tdd start` first, or set VIZZLY_TOKEN for cloud mode.'
     );
   }
+
+  let tddServerUrl = serverInfo.url;
 
   let payload = {
     name,

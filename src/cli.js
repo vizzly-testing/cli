@@ -368,6 +368,7 @@ tddCmd
   .option('--environment <env>', 'Environment name', 'test')
   .option('--threshold <number>', 'Comparison threshold', parseFloat)
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
+  .option('--fail-on-diff', 'Fail tests when visual differences are detected')
   .option('--token <token>', 'API token override')
   .option('--daemon-child', 'Internal: run as daemon child process')
   .action(async options => {
@@ -416,6 +417,7 @@ tddCmd
     '--set-baseline',
     'Accept current screenshots as new baseline (overwrites existing)'
   )
+  .option('--fail-on-diff', 'Fail tests when visual differences are detected')
   .option('--no-open', 'Skip opening report in browser')
   .action(async (command, options) => {
     const globalOptions = program.opts();

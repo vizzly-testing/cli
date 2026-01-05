@@ -470,21 +470,20 @@ export const createTddHandler = (
     // Update comparison in report data file
     updateComparison(newComparison);
 
+    // Visual diffs return 200 with status: 'diff' - they're not errors
+    // The SDK/user can decide whether to fail tests based on this
     if (comparison.status === 'failed') {
       return {
-        statusCode: 422,
+        statusCode: 200,
         body: {
-          error: 'Visual difference detected',
-          details: `Screenshot '${name}' differs from baseline`,
-          comparison: {
-            name: comparison.name,
-            status: comparison.status,
-            baseline: comparison.baseline,
-            current: comparison.current,
-            diff: comparison.diff,
-            diffPercentage: comparison.diffPercentage,
-            threshold: comparison.threshold,
-          },
+          status: 'diff',
+          name: comparison.name,
+          message: `Visual difference detected for '${name}'`,
+          baseline: comparison.baseline,
+          current: comparison.current,
+          diff: comparison.diff,
+          diffPercentage: comparison.diffPercentage,
+          threshold: comparison.threshold,
           tddMode: true,
         },
       };
@@ -494,14 +493,11 @@ export const createTddHandler = (
       return {
         statusCode: 200,
         body: {
-          status: 'success',
-          message: `Baseline updated for ${name}`,
-          comparison: {
-            name: comparison.name,
-            status: comparison.status,
-            baseline: comparison.baseline,
-            current: comparison.current,
-          },
+          status: 'baseline-updated',
+          name: comparison.name,
+          message: `Baseline updated for '${name}'`,
+          baseline: comparison.baseline,
+          current: comparison.current,
           tddMode: true,
         },
       };
@@ -517,15 +513,14 @@ export const createTddHandler = (
       };
     }
 
-    // Debug output handled by tdd.js event handler
+    // Match or new baseline
     return {
       statusCode: 200,
       body: {
-        success: true,
-        comparison: {
-          name: comparison.name,
-          status: comparison.status,
-        },
+        status: comparison.status === 'new' ? 'new' : 'match',
+        name: comparison.name,
+        baseline: comparison.baseline,
+        current: comparison.current,
         tddMode: true,
       },
     };

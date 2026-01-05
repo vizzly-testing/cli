@@ -86,6 +86,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
           ? ['--threshold', options.threshold.toString()]
           : []),
         ...(options.timeout ? ['--timeout', options.timeout] : []),
+        ...(options.failOnDiff ? ['--fail-on-diff'] : []),
         ...(options.token ? ['--token', options.token] : []),
         ...(globalOptions.json ? ['--json'] : []),
         ...(globalOptions.verbose ? ['--verbose'] : []),
@@ -250,6 +251,7 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
       pid: process.pid,
       port: port,
       startTime: Date.now(),
+      failOnDiff: options.failOnDiff || false,
     };
     writeFileSync(
       join(vizzlyDir, 'server.json'),

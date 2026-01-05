@@ -61,11 +61,12 @@ function getChromiumArgs() {
  * @param {Object} options - Launch options
  * @param {string} options.snapshotUrl - URL of the snapshot HTTP server
  * @param {boolean} [options.headless] - Run in headless mode (default: true in CI)
+ * @param {boolean} [options.failOnDiff] - Whether tests should fail on visual diffs
  * @param {Function} [options.onPageCreated] - Callback when page is created (before navigation)
  * @returns {Promise<Object>} Browser instance with page reference
  */
 export async function launchBrowser(browserType, testUrl, options = {}) {
-  let { snapshotUrl, headless, onPageCreated } = options;
+  let { snapshotUrl, headless, failOnDiff, onPageCreated } = options;
 
   // Default headless based on CI environment
   if (headless === undefined) {
@@ -93,11 +94,15 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
   let context = await browser.newContext();
   let page = await context.newPage();
 
-  // Inject snapshot URL into page context BEFORE navigation
-  // This ensures window.__VIZZLY_SNAPSHOT_URL__ is available when tests run
-  await page.addInitScript(url => {
-    window.__VIZZLY_SNAPSHOT_URL__ = url;
-  }, snapshotUrl);
+  // Inject Vizzly config into page context BEFORE navigation
+  // This ensures window.__VIZZLY_* is available when tests run
+  await page.addInitScript(
+    ({ snapshotUrl, failOnDiff }) => {
+      window.__VIZZLY_SNAPSHOT_URL__ = snapshotUrl;
+      window.__VIZZLY_FAIL_ON_DIFF__ = failOnDiff;
+    },
+    { snapshotUrl, failOnDiff }
+  );
 
   // Call onPageCreated callback BEFORE navigation
   // This allows setting up the page reference before tests can run

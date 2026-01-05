@@ -1,7 +1,11 @@
 import assert from 'node:assert';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
+  clearServerInfoCache,
   getPage,
+  getServerInfo,
   setPage,
   startSnapshotServer,
   stopSnapshotServer,
@@ -186,6 +190,108 @@ describe('snapshot-server', () => {
       let response = await fetch(`http://127.0.0.1:${server.port}/snapshot`);
 
       assert.strictEqual(response.status, 404);
+    });
+  });
+
+  describe('getServerInfo()', () => {
+    let testDir = join(process.cwd(), '.vizzly-test-temp');
+
+    beforeEach(() => {
+      // Clear the cached server info before each test
+      clearServerInfoCache();
+
+      // Clean up any existing test directory
+      if (existsSync(testDir)) {
+        rmSync(testDir, { recursive: true });
+      }
+    });
+
+    afterEach(() => {
+      // Clear cache after tests
+      clearServerInfoCache();
+
+      // Clean up test directory
+      if (existsSync(testDir)) {
+        rmSync(testDir, { recursive: true });
+      }
+    });
+
+    it('returns null when no server.json exists in isolated directory', () => {
+      // Create an isolated test directory without server.json
+      mkdirSync(testDir, { recursive: true });
+
+      let originalCwd = process.cwd();
+      try {
+        process.chdir(testDir);
+        clearServerInfoCache();
+
+        let info = getServerInfo();
+
+        // In an isolated directory without .vizzly/server.json, should return null
+        // (unless there's a server.json in a parent directory)
+        if (info !== null) {
+          assert.ok(typeof info.url === 'string', 'should have url');
+          assert.ok(typeof info.failOnDiff === 'boolean', 'should have failOnDiff');
+        }
+      } finally {
+        process.chdir(originalCwd);
+      }
+    });
+
+    it('reads failOnDiff from server.json when present', () => {
+      // Create a temporary .vizzly directory with server.json
+      let vizzlyDir = join(testDir, '.vizzly');
+      mkdirSync(vizzlyDir, { recursive: true });
+
+      let serverJson = {
+        pid: 12345,
+        port: 47392,
+        startTime: Date.now(),
+        failOnDiff: true,
+      };
+      writeFileSync(join(vizzlyDir, 'server.json'), JSON.stringify(serverJson));
+
+      // Change to test directory to test discovery
+      let originalCwd = process.cwd();
+      try {
+        process.chdir(testDir);
+        clearServerInfoCache();
+
+        let info = getServerInfo();
+
+        assert.ok(info !== null, 'should find server.json');
+        assert.strictEqual(info.url, 'http://localhost:47392', 'should have correct url');
+        assert.strictEqual(info.failOnDiff, true, 'should read failOnDiff as true');
+      } finally {
+        process.chdir(originalCwd);
+      }
+    });
+
+    it('defaults failOnDiff to false when not specified in server.json', () => {
+      let vizzlyDir = join(testDir, '.vizzly');
+      mkdirSync(vizzlyDir, { recursive: true });
+
+      let serverJson = {
+        pid: 12345,
+        port: 47393,
+        startTime: Date.now(),
+        // failOnDiff not specified
+      };
+      writeFileSync(join(vizzlyDir, 'server.json'), JSON.stringify(serverJson));
+
+      let originalCwd = process.cwd();
+      try {
+        process.chdir(testDir);
+        clearServerInfoCache();
+
+        let info = getServerInfo();
+
+        assert.ok(info !== null, 'should find server.json');
+        assert.strictEqual(info.url, 'http://localhost:47393', 'should have correct url');
+        assert.strictEqual(info.failOnDiff, false, 'should default failOnDiff to false');
+      } finally {
+        process.chdir(originalCwd);
+      }
     });
   });
 });

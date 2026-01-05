@@ -525,7 +525,7 @@ describe('server/handlers/tdd-handler', () => {
     });
 
     describe('handleScreenshot', () => {
-      it('returns passed comparison result', async () => {
+      it('returns 200 with status match for passed comparison', async () => {
         let deps = createMockDeps({
           tddServiceOverrides: {
             compareScreenshot: name => ({
@@ -548,11 +548,39 @@ describe('server/handlers/tdd-handler', () => {
         );
 
         assert.strictEqual(result.statusCode, 200);
-        assert.strictEqual(result.body.success, true);
-        assert.strictEqual(result.body.comparison.status, 'passed');
+        assert.strictEqual(result.body.status, 'match');
+        assert.strictEqual(result.body.name, 'homepage');
+        assert.strictEqual(result.body.tddMode, true);
       });
 
-      it('returns 422 for failed comparison', async () => {
+      it('returns 200 with status new for new baseline', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'new',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'new-screenshot',
+          'base64imagedata',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+        assert.strictEqual(result.body.status, 'new');
+        assert.strictEqual(result.body.name, 'new-screenshot');
+      });
+
+      it('returns 200 with status diff for failed comparison', async () => {
         let deps = createMockDeps({
           tddServiceOverrides: {
             compareScreenshot: name => ({
@@ -576,8 +604,51 @@ describe('server/handlers/tdd-handler', () => {
           {}
         );
 
-        assert.strictEqual(result.statusCode, 422);
-        assert.ok(result.body.error.includes('Visual difference detected'));
+        // Visual diffs return 200 with status: 'diff' (not 422)
+        // This allows SDKs to decide whether to fail tests
+        assert.strictEqual(result.statusCode, 200);
+        assert.strictEqual(result.body.status, 'diff');
+        assert.strictEqual(result.body.name, 'homepage');
+        assert.ok(result.body.message.includes('Visual difference detected'));
+        assert.strictEqual(result.body.diffPercentage, 5.5);
+        assert.strictEqual(result.body.threshold, 2.0);
+        assert.ok(result.body.baseline);
+        assert.ok(result.body.current);
+        assert.ok(result.body.diff);
+      });
+
+      it('returns diff response with all required fields for SDK consumption', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'failed',
+              baseline: '/test/.vizzly/baselines/homepage.png',
+              current: '/test/.vizzly/current/homepage.png',
+              diff: '/test/.vizzly/diffs/homepage.png',
+              diffPercentage: 12.34,
+              threshold: 5.0,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'homepage',
+          'base64imagedata',
+          {}
+        );
+
+        // Verify the response has all fields SDKs need
+        assert.strictEqual(result.statusCode, 200);
+        assert.strictEqual(typeof result.body.status, 'string');
+        assert.strictEqual(typeof result.body.name, 'string');
+        assert.strictEqual(typeof result.body.message, 'string');
+        assert.strictEqual(typeof result.body.diffPercentage, 'number');
+        assert.strictEqual(typeof result.body.threshold, 'number');
+        assert.strictEqual(result.body.tddMode, true);
       });
 
       it('returns 400 for invalid screenshot name', async () => {

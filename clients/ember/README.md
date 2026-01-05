@@ -27,11 +27,11 @@ module.exports = configure({
   test_page: 'tests/index.html?hidepassed',
   disable_watching: true,
   launch_in_ci: ['Chrome'],
-  launch_in_dev: ['Chrome']
+  launch_in_dev: ['Chrome'],
 });
 ```
 
-The `configure()` function replaces standard browser launchers (Chrome, Firefox, Safari) with Playwright-powered launchers that can capture screenshots.
+The `configure()` function replaces standard browser launchers (Chrome, Firefox, Safari) with Playwright-powered launchers that can capture screenshots. Browsers run in **headless mode by default**.
 
 > **Note for Ember + Vite projects**: The `cwd: 'dist'` option is required because Vite builds test files into the `dist/` directory. Without this, Testem won't find your test assets.
 
@@ -92,19 +92,50 @@ Screenshots are captured and compared locally. View results in the Vizzly dashbo
 
 ## API
 
-### `configure(testemConfig)`
+### `configure(testemConfig, playwrightOptions?)`
 
 Wraps your Testem configuration to use Vizzly-powered browser launchers.
 
 ```javascript
 const { configure } = require('@vizzly-testing/ember');
 
+// Basic - runs headless by default
 module.exports = configure({
-  // Your existing testem.js options
   launch_in_ci: ['Chrome'],
   launch_in_dev: ['Chrome'],
 });
+
+// Headed mode for local debugging
+const isCI = process.env.CI;
+
+module.exports = configure({
+  launch_in_ci: ['Chrome'],
+  launch_in_dev: ['Chrome'],
+}, {
+  headless: isCI,  // Headed locally, headless in CI
+});
+
+// With debugging options
+module.exports = configure({
+  launch_in_ci: ['Chrome'],
+}, {
+  headless: false,
+  slowMo: 100,     // Slow down for debugging
+  timeout: 60000,  // Longer launch timeout
+});
 ```
+
+**Playwright Options:**
+
+The second argument accepts [Playwright browserType.launch() options](https://playwright.dev/docs/api/class-browsertype#browser-type-launch) directly:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `headless` | boolean | `true` | Run browser in headless mode |
+| `slowMo` | number | - | Slow down operations by specified milliseconds |
+| `timeout` | number | - | Maximum time to wait for browser to start |
+| `proxy` | object | - | Proxy settings for the browser |
+| `args` | string[] | - | Additional browser arguments |
 
 **Browser Mapping:**
 - `Chrome` → Uses Playwright Chromium
@@ -151,7 +182,10 @@ await vizzlySnapshot('screenshot-name', {
   properties: {
     theme: 'dark',
     user: 'admin'
-  }
+  },
+
+  // Fail test if visual diff detected (overrides --fail-on-diff flag)
+  failOnDiff: true
 });
 ```
 
@@ -165,6 +199,7 @@ await vizzlySnapshot('screenshot-name', {
 | `scope` | string | 'app' | What to capture: `'app'` (just #ember-testing), `'container'`, or `'page'` (full page including QUnit) |
 | `fullPage` | boolean | false | Capture full scrollable content |
 | `properties` | object | {} | Custom metadata attached to the snapshot |
+| `failOnDiff` | boolean | null | Fail the test when visual diff is detected. `null` uses the `--fail-on-diff` CLI flag. |
 
 The function automatically:
 - Waits for Ember's `settled()` before capturing
@@ -202,7 +237,7 @@ npx playwright install webkit
 ## How It Works
 
 1. **Testem Configuration**: The `configure()` wrapper replaces standard browser launchers with custom Vizzly launchers
-2. **Custom Launcher**: When Testem starts, it spawns `vizzly-browser` instead of the regular browser
+2. **Custom Launcher**: When Testem starts, it spawns `vizzly-testem-launcher` which uses Playwright
 3. **Playwright Integration**: The launcher uses Playwright to control the browser and capture screenshots
 4. **Snapshot Server**: A local HTTP server receives screenshot requests from test code
 5. **Vizzly Integration**: Screenshots are forwarded to the Vizzly TDD server for comparison
@@ -224,6 +259,20 @@ For CI environments, ensure:
     VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
   run: ember test
 ```
+
+### Failing on Visual Diffs
+
+By default, visual differences don't fail tests (similar to Percy). To fail tests when diffs are detected:
+
+```bash
+# Via CLI flag
+vizzly tdd start --fail-on-diff
+
+# Or per-snapshot in your test
+await vizzlySnapshot('critical-ui', { failOnDiff: true });
+```
+
+The priority order is: per-snapshot option > `--fail-on-diff` CLI flag > default (no failure).
 
 ## Troubleshooting
 

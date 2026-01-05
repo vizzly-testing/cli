@@ -35,10 +35,10 @@ function isCI() {
 }
 
 /**
- * Get browser launch arguments for Chromium
+ * Get default Chromium args for stability
  * @returns {string[]}
  */
-function getChromiumArgs() {
+function getDefaultChromiumArgs() {
   let args = ['--no-sandbox', '--disable-setuid-sandbox'];
 
   if (isCI()) {
@@ -60,18 +60,18 @@ function getChromiumArgs() {
  * @param {string} testUrl - URL to navigate to (provided by Testem)
  * @param {Object} options - Launch options
  * @param {string} options.snapshotUrl - URL of the snapshot HTTP server
- * @param {boolean} [options.headless] - Run in headless mode (default: true in CI)
  * @param {boolean} [options.failOnDiff] - Whether tests should fail on visual diffs
+ * @param {Object} [options.playwrightOptions] - Playwright launch options (headless, slowMo, timeout, etc.)
  * @param {Function} [options.onPageCreated] - Callback when page is created (before navigation)
  * @returns {Promise<Object>} Browser instance with page reference
  */
 export async function launchBrowser(browserType, testUrl, options = {}) {
-  let { snapshotUrl, headless, failOnDiff, onPageCreated } = options;
-
-  // Default headless based on CI environment
-  if (headless === undefined) {
-    headless = isCI();
-  }
+  let {
+    snapshotUrl,
+    failOnDiff,
+    playwrightOptions = {},
+    onPageCreated,
+  } = options;
 
   let factory = browserFactories[browserType];
   if (!factory) {
@@ -81,21 +81,30 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
     );
   }
 
-  // Launch browser with appropriate args
-  let launchOptions = {
-    headless,
-  };
-
+  // Build args: our defaults + user's args (user can override)
+  let args = [];
   if (browserType === 'chromium') {
-    launchOptions.args = getChromiumArgs();
+    args = [...getDefaultChromiumArgs()];
   }
+
+  // Merge user's args if provided
+  if (playwrightOptions.args) {
+    args.push(...playwrightOptions.args);
+  }
+
+  // Build Playwright launch options
+  // User's playwrightOptions take precedence, but we ensure args are merged
+  let launchOptions = {
+    headless: true, // Default to headless
+    ...playwrightOptions,
+    args,
+  };
 
   let browser = await factory.launch(launchOptions);
   let context = await browser.newContext();
   let page = await context.newPage();
 
   // Inject Vizzly config into page context BEFORE navigation
-  // This ensures window.__VIZZLY_* is available when tests run
   await page.addInitScript(
     ({ snapshotUrl, failOnDiff }) => {
       window.__VIZZLY_SNAPSHOT_URL__ = snapshotUrl;
@@ -105,12 +114,11 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
   );
 
   // Call onPageCreated callback BEFORE navigation
-  // This allows setting up the page reference before tests can run
   if (onPageCreated) {
     onPageCreated(page);
   }
 
-  // Navigate to test URL and wait for load (not networkidle - Socket.IO keeps network active)
+  // Navigate to test URL and wait for load
   await page.goto(testUrl, {
     waitUntil: 'load',
     timeout: 60000,

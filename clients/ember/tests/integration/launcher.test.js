@@ -116,7 +116,7 @@ describe('launcher integration', () => {
     let testUrl = `http://127.0.0.1:${testServerPort}/`;
     browserInstance = await launchBrowser('chromium', testUrl, {
       snapshotUrl,
-      headless: true,
+      playwrightOptions: { headless: true },
     });
 
     // Set page reference for screenshot capture
@@ -171,7 +171,7 @@ describe('launcher integration', () => {
     let testUrl = `http://127.0.0.1:${testServerPort}/`;
     browserInstance = await launchBrowser('chromium', testUrl, {
       snapshotUrl,
-      headless: true,
+      playwrightOptions: { headless: true },
     });
 
     // Verify the URL was injected
@@ -190,7 +190,7 @@ describe('launcher integration', () => {
       let testUrl = `http://127.0.0.1:${testServerPort}/`;
       browserInstance = await launchBrowser('chromium', testUrl, {
         snapshotUrl,
-        headless: true,
+        playwrightOptions: { headless: true },
       });
     }
 

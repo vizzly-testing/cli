@@ -37,7 +37,7 @@
   },
   "main": "./src/index.js",
   "bin": {
-    "vizzly-browser": "bin/vizzly-browser.js"
+    "vizzly-testem-launcher": "bin/vizzly-testem-launcher.js"
   },
   "files": [
     "bin",

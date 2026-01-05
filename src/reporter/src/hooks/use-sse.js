@@ -1,12 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { isStaticMode } from '../api/client.js';
 import { queryKeys } from '../lib/query-keys.js';
 
 /**
  * SSE connection states
  */
-export const SSE_STATE = {
+export let SSE_STATE = {
   CONNECTING: 'connecting',
   CONNECTED: 'connected',
   DISCONNECTED: 'disconnected',
@@ -20,8 +19,7 @@ export const SSE_STATE = {
  * @returns {{ state: string, error: Error|null }}
  */
 export function useReportDataSSE(options = {}) {
-  // Compute enabled state once, accounting for static mode
-  const shouldEnable = !isStaticMode() && (options.enabled ?? true);
+  let shouldEnable = options.enabled ?? true;
 
   const queryClient = useQueryClient();
   const eventSourceRef = useRef(null);

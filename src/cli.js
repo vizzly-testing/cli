@@ -30,6 +30,11 @@ import { validateWhoamiOptions, whoamiCommand } from './commands/whoami.js';
 import { createPluginServices } from './plugin-api.js';
 import { loadPlugins } from './plugin-loader.js';
 import { createServices } from './services/index.js';
+import {
+  generateStaticReport,
+  getReportFileUrl,
+} from './services/static-report-generator.js';
+import { openBrowser } from './utils/browser.js';
 import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
 import { getContext } from './utils/context.js';
@@ -411,6 +416,11 @@ tddCmd
     '--set-baseline',
     'Accept current screenshots as new baseline (overwrites existing)'
   )
+  .option('--no-open', 'Skip opening report in browser')
+  .option(
+    '--keep-server',
+    'Keep server running after tests (interactive mode)'
+  )
   .action(async (command, options) => {
     const globalOptions = program.opts();
 
@@ -449,23 +459,44 @@ tddCmd
     process.once('SIGINT', sigintHandler);
     process.once('SIGTERM', sigtermHandler);
 
-    // If there are comparisons, keep server running for review
+    // If there are comparisons, generate static report or keep server running
     const hasComparisons = result?.comparisons?.length > 0;
     if (hasComparisons) {
-      output.print(
-        `  ${colors.brand.textTertiary('→')} Press ${colors.white('Enter')} to stop server`
-      );
-      output.blank();
+      if (options.keepServer) {
+        // Interactive mode: keep server running for live review
+        output.print(
+          `  ${colors.brand.textTertiary('→')} Press ${colors.white('Enter')} to stop server`
+        );
+        output.blank();
 
-      // Wait for user to press Enter
-      await new Promise(resolve => {
-        process.stdin.setRawMode?.(false);
-        process.stdin.resume();
-        process.stdin.once('data', () => {
-          process.stdin.pause();
-          resolve();
+        // Wait for user to press Enter
+        await new Promise(resolve => {
+          process.stdin.setRawMode?.(false);
+          process.stdin.resume();
+          process.stdin.once('data', () => {
+            process.stdin.pause();
+            resolve();
+          });
         });
-      });
+      } else {
+        // Default: generate static report
+        const reportResult = await generateStaticReport(process.cwd());
+
+        if (reportResult.success) {
+          const reportUrl = getReportFileUrl(reportResult.reportPath);
+          output.print(
+            `  ${colors.brand.textTertiary('→')} Report: ${colors.blue(reportUrl)}`
+          );
+          output.blank();
+
+          // Open report in browser unless --no-open
+          if (options.open !== false) {
+            await openBrowser(reportUrl);
+          }
+        } else {
+          output.warn(`Failed to generate static report: ${reportResult.error}`);
+        }
+      }
     }
 
     // Remove signal handlers before normal cleanup to prevent double cleanup

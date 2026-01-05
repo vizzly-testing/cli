@@ -58,11 +58,12 @@
   ],
   "scripts": {
     "start": "node src/index.js",
-    "build": "npm run clean && npm run compile && npm run build:reporter && npm run copy-types",
+    "build": "npm run clean && npm run compile && npm run build:reporter && npm run build:reporter-ssr && npm run copy-types",
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",
     "copy-types": "mkdir -p dist/types && cp src/types/*.d.ts dist/types/",
     "build:reporter": "cd src/reporter && vite build",
+    "build:reporter-ssr": "cd src/reporter && vite build --config vite.ssr.config.js",
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",
     "test:types": "tsd",
     "prepublishOnly": "npm run build",

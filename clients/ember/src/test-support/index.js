@@ -1,7 +1,7 @@
 /**
- * Vizzly snapshot helper for Ember tests
+ * Vizzly screenshot helper for Ember tests
  *
- * This module provides the vizzlySnapshot function for use in Ember
+ * This module provides the vizzlyScreenshot function for use in Ember
  * acceptance and integration tests. It captures screenshots and sends
  * them to Vizzly for visual comparison.
  *
@@ -11,14 +11,14 @@
  * import { module, test } from 'qunit';
  * import { visit } from '@ember/test-helpers';
  * import { setupApplicationTest } from 'ember-qunit';
- * import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+ * import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
  *
  * module('Acceptance | Dashboard', function(hooks) {
  *   setupApplicationTest(hooks);
  *
  *   test('renders empty state', async function(assert) {
  *     await visit('/dashboard');
- *     await vizzlySnapshot('dashboard-empty');
+ *     await vizzlyScreenshot('dashboard-empty');
  *     assert.dom('[data-test-empty-state]').exists();
  *   });
  * });
@@ -145,7 +145,7 @@ function shouldFailOnDiff() {
 }
 
 /**
- * Capture a visual snapshot
+ * Capture a visual screenshot
  *
  * Takes a screenshot of the Ember app and sends it to Vizzly for visual
  * comparison. By default, captures just the #ember-testing element (the app),
@@ -156,34 +156,34 @@ function shouldFailOnDiff() {
  * - Expands the testing container to full viewport size
  * - Captures the app at the specified viewport dimensions
  *
- * @param {string} name - Unique name for this snapshot
- * @param {Object} [options] - Snapshot options
+ * @param {string} name - Unique name for this screenshot
+ * @param {Object} [options] - Screenshot options
  * @param {string} [options.selector] - CSS selector to capture specific element within the app
  * @param {boolean} [options.fullPage=false] - Capture full scrollable content
- * @param {number} [options.width=1280] - Viewport width for the snapshot
- * @param {number} [options.height=720] - Viewport height for the snapshot
+ * @param {number} [options.width=1280] - Viewport width for the screenshot
+ * @param {number} [options.height=720] - Viewport height for the screenshot
  * @param {string} [options.scope='app'] - What to capture: 'app' (default), 'container', or 'page'
- * @param {Object} [options.properties] - Additional metadata for the snapshot
+ * @param {Object} [options.properties] - Additional metadata for the screenshot
  * @param {boolean} [options.failOnDiff] - Fail the test if visual diff is detected (overrides env var)
- * @returns {Promise<Object>} Snapshot result from Vizzly server
+ * @returns {Promise<Object>} Screenshot result from Vizzly server
  *
  * @example
  * // Capture the app at default viewport (1280x720)
- * await vizzlySnapshot('homepage');
+ * await vizzlyScreenshot('homepage');
  *
  * @example
  * // Capture at mobile viewport
- * await vizzlySnapshot('homepage-mobile', { width: 375, height: 667 });
+ * await vizzlyScreenshot('homepage-mobile', { width: 375, height: 667 });
  *
  * @example
  * // Capture specific element within the app
- * await vizzlySnapshot('login-form', { selector: '[data-test-login-form]' });
+ * await vizzlyScreenshot('login-form', { selector: '[data-test-login-form]' });
  *
  * @example
- * // Fail test if this specific snapshot has a diff
- * await vizzlySnapshot('critical-ui', { failOnDiff: true });
+ * // Fail test if this specific screenshot has a diff
+ * await vizzlyScreenshot('critical-ui', { failOnDiff: true });
  */
-export async function vizzlySnapshot(name, options = {}) {
+export async function vizzlyScreenshot(name, options = {}) {
   let {
     selector = null,
     fullPage = false,
@@ -194,12 +194,12 @@ export async function vizzlySnapshot(name, options = {}) {
     failOnDiff = null, // null means use env var, true/false overrides
   } = options;
 
-  // Get snapshot URL injected by the launcher
-  let snapshotUrl = window.__VIZZLY_SNAPSHOT_URL__;
+  // Get screenshot URL injected by the launcher
+  let screenshotUrl = window.__VIZZLY_SCREENSHOT_URL__;
 
-  if (!snapshotUrl) {
+  if (!screenshotUrl) {
     console.warn(
-      '[vizzly] No snapshot server available. Tests must be run via Vizzly launcher. ' +
+      '[vizzly] No screenshot server available. Tests must be run via Vizzly launcher. ' +
         'Ensure testem.js is configured with @vizzly-testing/ember.'
     );
     return { skipped: true, reason: 'no-server' };
@@ -250,8 +250,8 @@ export async function vizzlySnapshot(name, options = {}) {
   };
 
   try {
-    // Send snapshot request to server
-    let response = await fetch(`${snapshotUrl}/snapshot`, {
+    // Send screenshot request to server
+    let response = await fetch(`${screenshotUrl}/screenshot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -263,11 +263,11 @@ export async function vizzlySnapshot(name, options = {}) {
       // Check if this is a "no server" error - gracefully skip instead of failing
       // This allows tests to pass when Vizzly isn't running (like Percy behavior)
       if (errorText.includes('No Vizzly server found')) {
-        console.warn('[vizzly] Vizzly server not running. Skipping visual snapshot.');
+        console.warn('[vizzly] Vizzly server not running. Skipping visual screenshot.');
         return { status: 'skipped', reason: 'no-server' };
       }
 
-      throw new Error(`Vizzly snapshot failed: ${errorText}`);
+      throw new Error(`Vizzly screenshot failed: ${errorText}`);
     }
 
     let result = await response.json();
@@ -297,8 +297,8 @@ export async function vizzlySnapshot(name, options = {}) {
 
 /**
  * Check if Vizzly is available in the current test environment
- * @returns {boolean} True if Vizzly snapshot server is available
+ * @returns {boolean} True if Vizzly screenshot server is available
  */
 export function isVizzlyAvailable() {
-  return !!window.__VIZZLY_SNAPSHOT_URL__;
+  return !!window.__VIZZLY_SCREENSHOT_URL__;
 }

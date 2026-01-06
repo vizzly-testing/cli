@@ -35,16 +35,16 @@ The `configure()` function replaces standard browser launchers (Chrome, Firefox,
 
 > **Note for Ember + Vite projects**: The `cwd: 'dist'` option is required because Vite builds test files into the `dist/` directory. Without this, Testem won't find your test assets.
 
-### 2. Write Tests with Snapshots
+### 2. Write Tests with Screenshots
 
-Import `vizzlySnapshot` in your test files:
+Import `vizzlyScreenshot` in your test files:
 
 ```javascript
 // tests/acceptance/dashboard-test.js
 import { module, test } from 'qunit';
 import { visit } from '@ember/test-helpers';
 import { setupApplicationTest } from 'ember-qunit';
-import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
 
 module('Acceptance | Dashboard', function(hooks) {
   setupApplicationTest(hooks);
@@ -53,7 +53,7 @@ module('Acceptance | Dashboard', function(hooks) {
     await visit('/dashboard');
 
     // Capture screenshot
-    await vizzlySnapshot('dashboard-empty');
+    await vizzlyScreenshot('dashboard-empty');
 
     assert.dom('[data-test-empty-state]').exists();
   });
@@ -63,7 +63,7 @@ module('Acceptance | Dashboard', function(hooks) {
     await visit('/dashboard');
 
     // Capture specific element
-    await vizzlySnapshot('dashboard-table', {
+    await vizzlyScreenshot('dashboard-table', {
       selector: '[data-test-data-table]'
     });
 
@@ -142,29 +142,29 @@ The second argument accepts [Playwright browserType.launch() options](https://pl
 - `Firefox` → Uses Playwright Firefox
 - `Safari` / `WebKit` → Uses Playwright WebKit
 
-### `vizzlySnapshot(name, options?)`
+### `vizzlyScreenshot(name, options?)`
 
 Captures a screenshot and sends it to Vizzly for comparison. By default, captures just the `#ember-testing` container (your app), not the QUnit test runner UI.
 
 ```javascript
-import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
 
 // Basic usage - captures app at 1280x720
-await vizzlySnapshot('homepage');
+await vizzlyScreenshot('homepage');
 
 // Mobile viewport
-await vizzlySnapshot('homepage-mobile', {
+await vizzlyScreenshot('homepage-mobile', {
   width: 375,
   height: 667
 });
 
 // Capture specific element within the app
-await vizzlySnapshot('login-form', {
+await vizzlyScreenshot('login-form', {
   selector: '[data-test-login-form]'
 });
 
 // Full options
-await vizzlySnapshot('screenshot-name', {
+await vizzlyScreenshot('screenshot-name', {
   // Viewport dimensions (default: 1280x720)
   width: 1280,
   height: 720,
@@ -198,7 +198,7 @@ await vizzlySnapshot('screenshot-name', {
 | `selector` | string | null | CSS selector to capture specific element |
 | `scope` | string | 'app' | What to capture: `'app'` (just #ember-testing), `'container'`, or `'page'` (full page including QUnit) |
 | `fullPage` | boolean | false | Capture full scrollable content |
-| `properties` | object | {} | Custom metadata attached to the snapshot |
+| `properties` | object | {} | Custom metadata attached to the screenshot |
 | `failOnDiff` | boolean | null | Fail the test when visual diff is detected. `null` uses the `--fail-on-diff` CLI flag. |
 
 The function automatically:
@@ -214,7 +214,7 @@ Check if Vizzly is available in the current test environment.
 import { isVizzlyAvailable } from '@vizzly-testing/ember/test-support';
 
 if (isVizzlyAvailable()) {
-  await vizzlySnapshot('conditional-snapshot');
+  await vizzlyScreenshot('conditional-screenshot');
 }
 ```
 
@@ -239,7 +239,7 @@ npx playwright install webkit
 1. **Testem Configuration**: The `configure()` wrapper replaces standard browser launchers with custom Vizzly launchers
 2. **Custom Launcher**: When Testem starts, it spawns `vizzly-testem-launcher` which uses Playwright
 3. **Playwright Integration**: The launcher uses Playwright to control the browser and capture screenshots
-4. **Snapshot Server**: A local HTTP server receives screenshot requests from test code
+4. **Screenshot Server**: A local HTTP server receives screenshot requests from test code
 5. **Vizzly Integration**: Screenshots are forwarded to the Vizzly TDD server for comparison
 
 ## CI/CD
@@ -268,15 +268,15 @@ By default, visual differences don't fail tests (similar to Percy). To fail test
 # Via CLI flag
 vizzly tdd start --fail-on-diff
 
-# Or per-snapshot in your test
-await vizzlySnapshot('critical-ui', { failOnDiff: true });
+# Or per-screenshot in your test
+await vizzlyScreenshot('critical-ui', { failOnDiff: true });
 ```
 
-The priority order is: per-snapshot option > `--fail-on-diff` CLI flag > default (no failure).
+The priority order is: per-screenshot option > `--fail-on-diff` CLI flag > default (no failure).
 
 ## Troubleshooting
 
-### "No snapshot server available"
+### "No screenshot server available"
 
 Tests must be run through Testem with the Vizzly-configured launchers. Ensure:
 - `testem.js` uses `configure()` wrapper

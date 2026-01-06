@@ -8,6 +8,6 @@ export { closeBrowser, launchBrowser } from './browser.js';
 export {
   getPage,
   setPage,
-  startSnapshotServer,
-  stopSnapshotServer,
-} from './snapshot-server.js';
+  startScreenshotServer,
+  stopScreenshotServer,
+} from './screenshot-server.js';

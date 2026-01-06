@@ -18,11 +18,11 @@
  *
  * @example
  * // tests/acceptance/my-test.js
- * import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+ * import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
  *
  * test('renders correctly', async function(assert) {
  *   await visit('/');
- *   await vizzlySnapshot('homepage');
+ *   await vizzlyScreenshot('homepage');
  *   assert.ok(true);
  * });
  */

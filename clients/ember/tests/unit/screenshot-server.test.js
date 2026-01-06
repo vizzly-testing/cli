@@ -7,24 +7,24 @@ import {
   getPage,
   getServerInfo,
   setPage,
-  startSnapshotServer,
-  stopSnapshotServer,
-} from '../../src/launcher/snapshot-server.js';
+  startScreenshotServer,
+  stopScreenshotServer,
+} from '../../src/launcher/screenshot-server.js';
 
-describe('snapshot-server', () => {
+describe('screenshot-server', () => {
   let server = null;
 
   afterEach(async () => {
     if (server) {
-      await stopSnapshotServer(server);
+      await stopScreenshotServer(server);
       server = null;
     }
     setPage(null);
   });
 
-  describe('startSnapshotServer()', () => {
+  describe('startScreenshotServer()', () => {
     it('starts server on random port', async () => {
-      server = await startSnapshotServer();
+      server = await startScreenshotServer();
 
       assert.ok(server.port, 'should have a port');
       assert.ok(server.port > 0, 'port should be positive');
@@ -32,8 +32,8 @@ describe('snapshot-server', () => {
     });
 
     it('returns different ports on multiple starts', async () => {
-      let server1 = await startSnapshotServer();
-      let server2 = await startSnapshotServer();
+      let server1 = await startScreenshotServer();
+      let server2 = await startScreenshotServer();
 
       try {
         assert.notStrictEqual(
@@ -42,18 +42,18 @@ describe('snapshot-server', () => {
           'ports should be different'
         );
       } finally {
-        await stopSnapshotServer(server1);
-        await stopSnapshotServer(server2);
+        await stopScreenshotServer(server1);
+        await stopScreenshotServer(server2);
       }
     });
   });
 
-  describe('stopSnapshotServer()', () => {
+  describe('stopScreenshotServer()', () => {
     it('stops the server gracefully', async () => {
-      server = await startSnapshotServer();
+      server = await startScreenshotServer();
       let port = server.port;
 
-      await stopSnapshotServer(server);
+      await stopScreenshotServer(server);
       server = null;
 
       // Server should no longer accept connections
@@ -70,19 +70,19 @@ describe('snapshot-server', () => {
     });
 
     it('handles null server info', async () => {
-      await stopSnapshotServer(null);
+      await stopScreenshotServer(null);
       // Should not throw
     });
 
     it('handles undefined server info', async () => {
-      await stopSnapshotServer(undefined);
+      await stopScreenshotServer(undefined);
       // Should not throw
     });
   });
 
   describe('GET /health', () => {
     beforeEach(async () => {
-      server = await startSnapshotServer();
+      server = await startScreenshotServer();
     });
 
     it('returns ok status', async () => {
@@ -109,13 +109,13 @@ describe('snapshot-server', () => {
     });
   });
 
-  describe('POST /snapshot', () => {
+  describe('POST /screenshot', () => {
     beforeEach(async () => {
-      server = await startSnapshotServer();
+      server = await startScreenshotServer();
     });
 
     it('returns 400 when name is missing', async () => {
-      let response = await fetch(`http://127.0.0.1:${server.port}/snapshot`, {
+      let response = await fetch(`http://127.0.0.1:${server.port}/screenshot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -128,7 +128,7 @@ describe('snapshot-server', () => {
     });
 
     it('returns 500 when page is not set', async () => {
-      let response = await fetch(`http://127.0.0.1:${server.port}/snapshot`, {
+      let response = await fetch(`http://127.0.0.1:${server.port}/screenshot`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'test-screenshot' }),
@@ -144,7 +144,7 @@ describe('snapshot-server', () => {
     });
 
     it('handles CORS preflight', async () => {
-      let response = await fetch(`http://127.0.0.1:${server.port}/snapshot`, {
+      let response = await fetch(`http://127.0.0.1:${server.port}/screenshot`, {
         method: 'OPTIONS',
       });
 
@@ -177,7 +177,7 @@ describe('snapshot-server', () => {
 
   describe('unknown routes', () => {
     beforeEach(async () => {
-      server = await startSnapshotServer();
+      server = await startScreenshotServer();
     });
 
     it('returns 404 for unknown paths', async () => {
@@ -186,8 +186,8 @@ describe('snapshot-server', () => {
       assert.strictEqual(response.status, 404);
     });
 
-    it('returns 404 for wrong method on /snapshot', async () => {
-      let response = await fetch(`http://127.0.0.1:${server.port}/snapshot`);
+    it('returns 404 for wrong method on /screenshot', async () => {
+      let response = await fetch(`http://127.0.0.1:${server.port}/screenshot`);
 
       assert.strictEqual(response.status, 404);
     });

@@ -2,7 +2,7 @@
  * Playwright browser lifecycle management
  *
  * Handles launching, configuring, and closing browsers via Playwright-core.
- * Injects the snapshot server URL into page context for test code access.
+ * Injects the screenshot server URL into page context for test code access.
  *
  * @module @vizzly-testing/ember/launcher/browser
  */
@@ -59,7 +59,7 @@ function getDefaultChromiumArgs() {
  * @param {string} browserType - Browser type: chromium, firefox, webkit
  * @param {string} testUrl - URL to navigate to (provided by Testem)
  * @param {Object} options - Launch options
- * @param {string} options.snapshotUrl - URL of the snapshot HTTP server
+ * @param {string} options.screenshotUrl - URL of the screenshot HTTP server
  * @param {boolean} [options.failOnDiff] - Whether tests should fail on visual diffs
  * @param {Object} [options.playwrightOptions] - Playwright launch options (headless, slowMo, timeout, etc.)
  * @param {Function} [options.onPageCreated] - Callback when page is created (before navigation)
@@ -67,7 +67,7 @@ function getDefaultChromiumArgs() {
  */
 export async function launchBrowser(browserType, testUrl, options = {}) {
   let {
-    snapshotUrl,
+    screenshotUrl,
     failOnDiff,
     playwrightOptions = {},
     onPageCreated,
@@ -106,11 +106,11 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
 
   // Inject Vizzly config into page context BEFORE navigation
   await page.addInitScript(
-    ({ snapshotUrl, failOnDiff }) => {
-      window.__VIZZLY_SNAPSHOT_URL__ = snapshotUrl;
+    ({ screenshotUrl, failOnDiff }) => {
+      window.__VIZZLY_SCREENSHOT_URL__ = screenshotUrl;
       window.__VIZZLY_FAIL_ON_DIFF__ = failOnDiff;
     },
-    { snapshotUrl, failOnDiff }
+    { screenshotUrl, failOnDiff }
   );
 
   // Call onPageCreated callback BEFORE navigation

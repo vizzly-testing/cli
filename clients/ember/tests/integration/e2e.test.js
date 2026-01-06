@@ -20,16 +20,16 @@ import { after, before, describe, it } from 'node:test';
 import { closeBrowser, launchBrowser } from '../../src/launcher/browser.js';
 import {
   setPage,
-  startSnapshotServer,
-  stopSnapshotServer,
-} from '../../src/launcher/snapshot-server.js';
+  startScreenshotServer,
+  stopScreenshotServer,
+} from '../../src/launcher/screenshot-server.js';
 
 // Create a temporary directory for this test
 let testDir = join(tmpdir(), `vizzly-ember-test-${Date.now()}`);
 
 describe('e2e with TDD server', { skip: !process.env.RUN_E2E }, () => {
   let tddServer = null;
-  let snapshotServer = null;
+  let screenshotServer = null;
   let testServer = null;
   let testServerPort = null;
   let browserInstance = null;
@@ -88,7 +88,7 @@ describe('e2e with TDD server', { skip: !process.env.RUN_E2E }, () => {
 
   after(async () => {
     if (browserInstance) await closeBrowser(browserInstance);
-    if (snapshotServer) await stopSnapshotServer(snapshotServer);
+    if (screenshotServer) await stopScreenshotServer(screenshotServer);
     if (testServer) testServer.close();
     if (tddServer) {
       tddServer.kill('SIGTERM');
@@ -107,21 +107,21 @@ describe('e2e with TDD server', { skip: !process.env.RUN_E2E }, () => {
   });
 
   it('captures screenshot and sends to TDD server', async () => {
-    // Start snapshot server
-    snapshotServer = await startSnapshotServer();
-    let snapshotUrl = `http://127.0.0.1:${snapshotServer.port}`;
+    // Start screenshot server
+    screenshotServer = await startScreenshotServer();
+    let screenshotUrl = `http://127.0.0.1:${screenshotServer.port}`;
 
     // Launch browser
     let testUrl = `http://127.0.0.1:${testServerPort}/`;
     browserInstance = await launchBrowser('chromium', testUrl, {
-      snapshotUrl,
+      screenshotUrl,
       playwrightOptions: { headless: true },
     });
 
     setPage(browserInstance.page);
 
-    // Make snapshot request directly from test
-    let response = await fetch(`${snapshotUrl}/snapshot`, {
+    // Make screenshot request directly from test
+    let response = await fetch(`${screenshotUrl}/screenshot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -139,7 +139,7 @@ describe('e2e with TDD server', { skip: !process.env.RUN_E2E }, () => {
 
 // Run a simpler version without TDD server
 describe('e2e without TDD server', () => {
-  let snapshotServer = null;
+  let screenshotServer = null;
   let testServer = null;
   let testServerPort = null;
   let browserInstance = null;
@@ -170,24 +170,24 @@ describe('e2e without TDD server', () => {
 
   after(async () => {
     if (browserInstance) await closeBrowser(browserInstance);
-    if (snapshotServer) await stopSnapshotServer(snapshotServer);
+    if (screenshotServer) await stopScreenshotServer(screenshotServer);
     if (testServer) testServer.close();
   });
 
-  it('snapshot server receives request and captures screenshot', async () => {
-    snapshotServer = await startSnapshotServer();
-    let snapshotUrl = `http://127.0.0.1:${snapshotServer.port}`;
+  it('screenshot server receives request and captures screenshot', async () => {
+    screenshotServer = await startScreenshotServer();
+    let screenshotUrl = `http://127.0.0.1:${screenshotServer.port}`;
 
     let testUrl = `http://127.0.0.1:${testServerPort}/`;
     browserInstance = await launchBrowser('chromium', testUrl, {
-      snapshotUrl,
+      screenshotUrl,
       playwrightOptions: { headless: true },
     });
 
     setPage(browserInstance.page);
 
-    // Request snapshot - will fail at forward step since no TDD server
-    let response = await fetch(`${snapshotUrl}/snapshot`, {
+    // Request screenshot - will fail at forward step since no TDD server
+    let response = await fetch(`${screenshotUrl}/screenshot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -208,7 +208,7 @@ describe('e2e without TDD server', () => {
 
   it('health endpoint works while page is set', async () => {
     let response = await fetch(
-      `http://127.0.0.1:${snapshotServer.port}/health`
+      `http://127.0.0.1:${screenshotServer.port}/health`
     );
     let result = await response.json();
 

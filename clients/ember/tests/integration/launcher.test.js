@@ -2,9 +2,9 @@
  * Integration test for the vizzly-browser launcher
  *
  * This test verifies the full flow:
- * 1. Launcher starts snapshot server
+ * 1. Launcher starts screenshot server
  * 2. Launcher opens browser with Playwright
- * 3. Page can call vizzlySnapshot via the injected URL
+ * 3. Page can call vizzlyScreenshot via the injected URL
  * 4. Screenshot is captured and forwarded
  */
 
@@ -14,12 +14,12 @@ import { after, before, describe, it } from 'node:test';
 import { closeBrowser, launchBrowser } from '../../src/launcher/browser.js';
 import {
   setPage,
-  startSnapshotServer,
-  stopSnapshotServer,
-} from '../../src/launcher/snapshot-server.js';
+  startScreenshotServer,
+  stopScreenshotServer,
+} from '../../src/launcher/screenshot-server.js';
 
 describe('launcher integration', () => {
-  let snapshotServer = null;
+  let screenshotServer = null;
   let testServer = null;
   let testServerPort = null;
   let browserInstance = null;
@@ -41,15 +41,15 @@ describe('launcher integration', () => {
             window.testResults = [];
 
             async function runTest() {
-              let snapshotUrl = window.__VIZZLY_SNAPSHOT_URL__;
-              if (!snapshotUrl) {
-                window.testResults.push({ error: 'No snapshot URL' });
+              let screenshotUrl = window.__VIZZLY_SCREENSHOT_URL__;
+              if (!screenshotUrl) {
+                window.testResults.push({ error: 'No screenshot URL' });
                 return;
               }
 
               try {
-                // Test 1: Full page snapshot
-                let response = await fetch(snapshotUrl + '/snapshot', {
+                // Test 1: Full page screenshot
+                let response = await fetch(screenshotUrl + '/screenshot', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -60,8 +60,8 @@ describe('launcher integration', () => {
                 let result = await response.json();
                 window.testResults.push({ name: 'full-page', result, status: response.status });
 
-                // Test 2: Element snapshot
-                response = await fetch(snapshotUrl + '/snapshot', {
+                // Test 2: Element screenshot
+                response = await fetch(screenshotUrl + '/screenshot', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -99,8 +99,8 @@ describe('launcher integration', () => {
     if (browserInstance) {
       await closeBrowser(browserInstance);
     }
-    if (snapshotServer) {
-      await stopSnapshotServer(snapshotServer);
+    if (screenshotServer) {
+      await stopScreenshotServer(screenshotServer);
     }
     if (testServer) {
       testServer.close();
@@ -108,14 +108,14 @@ describe('launcher integration', () => {
   });
 
   it('launches browser and captures screenshots', async () => {
-    // Start snapshot server
-    snapshotServer = await startSnapshotServer();
-    let snapshotUrl = `http://127.0.0.1:${snapshotServer.port}`;
+    // Start screenshot server
+    screenshotServer = await startScreenshotServer();
+    let screenshotUrl = `http://127.0.0.1:${screenshotServer.port}`;
 
     // Launch browser
     let testUrl = `http://127.0.0.1:${testServerPort}/`;
     browserInstance = await launchBrowser('chromium', testUrl, {
-      snapshotUrl,
+      screenshotUrl,
       playwrightOptions: { headless: true },
     });
 
@@ -139,7 +139,7 @@ describe('launcher integration', () => {
 
     assert.ok(results.length >= 2, 'Should have at least 2 test results');
 
-    // Verify full page snapshot
+    // Verify full page screenshot
     let fullPageResult = results.find(r => r.name === 'full-page');
     assert.ok(fullPageResult, 'Should have full-page result');
     // Note: Without a real Vizzly TDD server, we expect an error about no server
@@ -149,18 +149,18 @@ describe('launcher integration', () => {
       'Should get a response (200 if TDD server running, 500 if not)'
     );
 
-    // Verify element snapshot
+    // Verify element screenshot
     let elementResult = results.find(r => r.name === 'element');
     assert.ok(elementResult, 'Should have element result');
   });
 
-  it('injects snapshot URL into page context', async () => {
-    // Start fresh snapshot server
-    if (snapshotServer) {
-      await stopSnapshotServer(snapshotServer);
+  it('injects screenshot URL into page context', async () => {
+    // Start fresh screenshot server
+    if (screenshotServer) {
+      await stopScreenshotServer(screenshotServer);
     }
-    snapshotServer = await startSnapshotServer();
-    let snapshotUrl = `http://127.0.0.1:${snapshotServer.port}`;
+    screenshotServer = await startScreenshotServer();
+    let screenshotUrl = `http://127.0.0.1:${screenshotServer.port}`;
 
     // Close previous browser
     if (browserInstance) {
@@ -170,26 +170,26 @@ describe('launcher integration', () => {
     // Launch new browser
     let testUrl = `http://127.0.0.1:${testServerPort}/`;
     browserInstance = await launchBrowser('chromium', testUrl, {
-      snapshotUrl,
+      screenshotUrl,
       playwrightOptions: { headless: true },
     });
 
     // Verify the URL was injected
     let injectedUrl = await browserInstance.page.evaluate(
-      () => window.__VIZZLY_SNAPSHOT_URL__
+      () => window.__VIZZLY_SCREENSHOT_URL__
     );
 
-    assert.strictEqual(injectedUrl, snapshotUrl, 'Snapshot URL should be injected');
+    assert.strictEqual(injectedUrl, screenshotUrl, 'Screenshot URL should be injected');
   });
 
   it('captures element screenshots with selector', async () => {
     // Reuse existing browser or launch new one
     if (!browserInstance) {
-      snapshotServer = await startSnapshotServer();
-      let snapshotUrl = `http://127.0.0.1:${snapshotServer.port}`;
+      screenshotServer = await startScreenshotServer();
+      let screenshotUrl = `http://127.0.0.1:${screenshotServer.port}`;
       let testUrl = `http://127.0.0.1:${testServerPort}/`;
       browserInstance = await launchBrowser('chromium', testUrl, {
-        snapshotUrl,
+        screenshotUrl,
         playwrightOptions: { headless: true },
       });
     }

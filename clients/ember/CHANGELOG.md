@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial beta release of Vizzly Ember SDK for visual testing with Testem
 - Custom Testem launcher using Playwright for browser control (Chromium, Firefox, WebKit)
-- `vizzlySnapshot()` helper for capturing screenshots in acceptance tests
+- `vizzlyScreenshot()` helper for capturing screenshots in acceptance tests
 - Automatic viewport sizing and `#ember-testing` container expansion
 - TDD server auto-discovery via `.vizzly/server.json`
 - Mobile viewport testing with customizable dimensions
@@ -21,9 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Architecture
 
-The SDK uses a snapshot server pattern:
-- Browser tests call `vizzlySnapshot()` which sends requests to a local snapshot server
-- Snapshot server uses Playwright to capture screenshots
+The SDK uses a screenshot server pattern:
+- Browser tests call `vizzlyScreenshot()` which sends requests to a local screenshot server
+- Screenshot server uses Playwright to capture screenshots
 - Screenshots are forwarded to the Vizzly TDD server for comparison
 
 **Full Changelog**: https://github.com/vizzly-testing/cli/commits/ember/v0.0.1-beta.0

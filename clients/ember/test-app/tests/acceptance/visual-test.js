@@ -1,7 +1,7 @@
 import { module, test } from 'qunit';
 import { visit, currentURL, click } from '@ember/test-helpers';
 import { setupApplicationTest } from 'ember-qunit';
-import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
 
 module('Acceptance | Visual Testing - Pages', function (hooks) {
   setupApplicationTest(hooks);
@@ -14,21 +14,21 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     await visit('/');
     assert.strictEqual(currentURL(), '/');
 
-    await vizzlySnapshot('dashboard-desktop');
+    await vizzlyScreenshot('dashboard-desktop');
     assert.dom('[data-test-page="index"]').exists();
   });
 
   test('dashboard - tablet viewport', async function (assert) {
     await visit('/');
 
-    await vizzlySnapshot('dashboard-tablet', { width: 768, height: 1024 });
+    await vizzlyScreenshot('dashboard-tablet', { width: 768, height: 1024 });
     assert.dom('[data-test-page="index"]').exists();
   });
 
   test('dashboard - mobile viewport', async function (assert) {
     await visit('/');
 
-    await vizzlySnapshot('dashboard-mobile', { width: 375, height: 667 });
+    await vizzlyScreenshot('dashboard-mobile', { width: 375, height: 667 });
     assert.dom('[data-test-page="index"]').exists();
   });
 
@@ -40,7 +40,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     await visit('/forms');
     assert.strictEqual(currentURL(), '/forms');
 
-    await vizzlySnapshot('forms-desktop');
+    await vizzlyScreenshot('forms-desktop');
     assert.dom('[data-test-page="forms"]').exists();
   });
 
@@ -51,7 +51,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     assert.dom('[data-test-card="error-form"]').exists();
     assert.dom('[data-test-alert="form-error"]').exists();
 
-    await vizzlySnapshot('forms-validation-errors');
+    await vizzlyScreenshot('forms-validation-errors');
   });
 
   test('forms page - disabled form state', async function (assert) {
@@ -60,7 +60,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     assert.dom('[data-test-card="disabled-form"]').exists();
     assert.dom('[data-test-alert="disabled-notice"]').exists();
 
-    await vizzlySnapshot('forms-disabled-state');
+    await vizzlyScreenshot('forms-disabled-state');
   });
 
   // =====================================================
@@ -71,7 +71,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     await visit('/components');
     assert.strictEqual(currentURL(), '/components');
 
-    await vizzlySnapshot('components-desktop');
+    await vizzlyScreenshot('components-desktop');
     assert.dom('[data-test-page="components"]').exists();
   });
 
@@ -84,7 +84,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     assert.dom('[data-test-button="btn-danger"]').exists();
     assert.dom('[data-test-button="btn-ghost"]').exists();
 
-    await vizzlySnapshot('components-buttons');
+    await vizzlyScreenshot('components-buttons');
   });
 
   test('components page - alerts showcase', async function (assert) {
@@ -96,7 +96,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     assert.dom('[data-test-alert="alert-warning"]').exists();
     assert.dom('[data-test-alert="alert-error"]').exists();
 
-    await vizzlySnapshot('components-alerts');
+    await vizzlyScreenshot('components-alerts');
   });
 
   test('components page - modal open state', async function (assert) {
@@ -106,10 +106,10 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     await click('[data-test-button="open-modal-medium"]');
     assert.dom('[data-test-modal="demo-modal"]').exists();
 
-    await vizzlySnapshot('components-modal-open');
+    await vizzlyScreenshot('components-modal-open');
 
     // Note: We're using scope: 'page' to capture the modal backdrop too
-    await vizzlySnapshot('components-modal-full', { scope: 'page' });
+    await vizzlyScreenshot('components-modal-full', { scope: 'page' });
   });
 
   // =====================================================
@@ -121,7 +121,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     assert.strictEqual(currentURL(), '/long-page');
 
     // Default capture - just what's visible in viewport
-    await vizzlySnapshot('long-page-viewport');
+    await vizzlyScreenshot('long-page-viewport');
     assert.dom('[data-test-page="long-page"]').exists();
   });
 
@@ -129,7 +129,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     await visit('/long-page');
 
     // Capture entire scrollable content
-    await vizzlySnapshot('long-page-full', { fullPage: true });
+    await vizzlyScreenshot('long-page-full', { fullPage: true });
 
     // The footer should exist (proves page loaded fully)
     assert.dom('[data-test-footer]').exists();
@@ -143,7 +143,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
     await visit('/');
 
     // Capture just the stats cards
-    await vizzlySnapshot('element-stats-grid', {
+    await vizzlyScreenshot('element-stats-grid', {
       selector: '.stats-grid',
     });
 
@@ -153,7 +153,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
   test('element capture - data table only', async function (assert) {
     await visit('/');
 
-    await vizzlySnapshot('element-data-table', {
+    await vizzlyScreenshot('element-data-table', {
       selector: '[data-test-data-table="users"]',
     });
 
@@ -163,7 +163,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
   test('element capture - single card', async function (assert) {
     await visit('/');
 
-    await vizzlySnapshot('element-single-card', {
+    await vizzlyScreenshot('element-single-card', {
       selector: '[data-test-card="users-table"]',
     });
 
@@ -173,7 +173,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
   test('element capture - navigation bar', async function (assert) {
     await visit('/');
 
-    await vizzlySnapshot('element-nav-bar', {
+    await vizzlyScreenshot('element-nav-bar', {
       selector: '[data-test-nav-bar]',
     });
 
@@ -187,7 +187,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
   test('responsive - forms at mobile width', async function (assert) {
     await visit('/forms');
 
-    await vizzlySnapshot('responsive-forms-mobile', {
+    await vizzlyScreenshot('responsive-forms-mobile', {
       width: 375,
       height: 812,
     });
@@ -198,7 +198,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
   test('responsive - components at tablet width', async function (assert) {
     await visit('/components');
 
-    await vizzlySnapshot('responsive-components-tablet', {
+    await vizzlyScreenshot('responsive-components-tablet', {
       width: 768,
       height: 1024,
     });
@@ -209,7 +209,7 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
   test('responsive - dashboard at wide desktop', async function (assert) {
     await visit('/');
 
-    await vizzlySnapshot('responsive-dashboard-wide', {
+    await vizzlyScreenshot('responsive-dashboard-wide', {
       width: 1920,
       height: 1080,
     });

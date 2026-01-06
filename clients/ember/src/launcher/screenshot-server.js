@@ -1,10 +1,10 @@
 /**
- * HTTP server for receiving snapshot requests from browser context
+ * HTTP server for receiving screenshot requests from browser context
  *
  * This server receives POST requests from test code running in the browser,
  * captures screenshots via Playwright, and forwards them to the Vizzly TDD server.
  *
- * @module @vizzly-testing/ember/launcher/snapshot-server
+ * @module @vizzly-testing/ember/launcher/screenshot-server
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -186,11 +186,11 @@ function httpPost(url, data) {
 }
 
 /**
- * Handle incoming snapshot request
+ * Handle incoming screenshot request
  * @param {Object} req - HTTP request
  * @param {Object} res - HTTP response
  */
-async function handleSnapshot(req, res) {
+async function handleScreenshot(req, res) {
   let body = '';
 
   req.on('data', chunk => {
@@ -253,10 +253,10 @@ async function handleSnapshot(req, res) {
 }
 
 /**
- * Start the snapshot HTTP server
+ * Start the screenshot HTTP server
  * @returns {Promise<Object>} Server info with port
  */
-export async function startSnapshotServer() {
+export async function startScreenshotServer() {
   return new Promise((resolve, reject) => {
     let server = createServer(async (req, res) => {
       // CORS headers for browser requests
@@ -272,8 +272,8 @@ export async function startSnapshotServer() {
         return;
       }
 
-      if (req.method === 'POST' && req.url === '/snapshot') {
-        await handleSnapshot(req, res);
+      if (req.method === 'POST' && req.url === '/screenshot') {
+        await handleScreenshot(req, res);
         return;
       }
 
@@ -298,11 +298,11 @@ export async function startSnapshotServer() {
 }
 
 /**
- * Stop the snapshot server
- * @param {Object} serverInfo - Server info returned by startSnapshotServer
+ * Stop the screenshot server
+ * @param {Object} serverInfo - Server info returned by startScreenshotServer
  * @returns {Promise<void>}
  */
-export async function stopSnapshotServer(serverInfo) {
+export async function stopScreenshotServer(serverInfo) {
   return new Promise(resolve => {
     if (serverInfo?.server) {
       // Force close all keep-alive connections (Node 18.2+)

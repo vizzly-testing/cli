@@ -23,9 +23,9 @@ import { closeBrowser, launchBrowser } from '../src/launcher/browser.js';
 import {
   getServerInfo,
   setPage,
-  startSnapshotServer,
-  stopSnapshotServer,
-} from '../src/launcher/snapshot-server.js';
+  startScreenshotServer,
+  stopScreenshotServer,
+} from '../src/launcher/screenshot-server.js';
 
 // Parse arguments - format: vizzly-testem-launcher <browser> <url>
 // Testem appends the URL as the last argument
@@ -56,7 +56,7 @@ if (existsSync(configPath)) {
 }
 
 let browserInstance = null;
-let snapshotServer = null;
+let screenshotServer = null;
 let isShuttingDown = false;
 
 /**
@@ -75,8 +75,8 @@ async function cleanup() {
   }
 
   try {
-    if (snapshotServer) {
-      await stopSnapshotServer(snapshotServer);
+    if (screenshotServer) {
+      await stopScreenshotServer(screenshotServer);
     }
   } catch {
     // Ignore cleanup errors
@@ -90,9 +90,9 @@ async function cleanup() {
  */
 async function main() {
   try {
-    // 1. Start snapshot server first (this also discovers the TDD server and caches its config)
-    snapshotServer = await startSnapshotServer();
-    let snapshotUrl = `http://127.0.0.1:${snapshotServer.port}`;
+    // 1. Start screenshot server first (this also discovers the TDD server and caches its config)
+    screenshotServer = await startScreenshotServer();
+    let screenshotUrl = `http://127.0.0.1:${screenshotServer.port}`;
 
     // 2. Determine failOnDiff: env var > server.json > default (false)
     let failOnDiff = false;
@@ -107,7 +107,7 @@ async function main() {
 
     // 3. Launch browser with Playwright
     browserInstance = await launchBrowser(browserType, testUrl, {
-      snapshotUrl,
+      screenshotUrl,
       failOnDiff,
       playwrightOptions,
       onPageCreated: page => {
@@ -165,8 +165,8 @@ async function main() {
   } catch (error) {
     console.error('[vizzly-testem-launcher] Failed to start:', error.message);
 
-    if (snapshotServer) {
-      await stopSnapshotServer(snapshotServer).catch(() => {});
+    if (screenshotServer) {
+      await stopScreenshotServer(screenshotServer).catch(() => {});
     }
 
     process.exit(1);

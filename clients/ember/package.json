@@ -1,6 +1,6 @@
 {
   "name": "@vizzly-testing/ember",
-  "version": "0.0.1-beta.4",
+  "version": "0.0.1",
   "description": "Visual testing SDK for Ember.js projects using Testem",
   "keywords": [
     "vizzly",

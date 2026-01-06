@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11] - 2026-01-06
+
+## What's Changed
+
+### Added
+- Support for array patterns in `include` and `exclude` configuration options, allowing multiple page sections to be filtered without complex regex patterns
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/static-site/v0.0.10...static-site/v0.0.11
+
 ## [0.0.10] - 2025-12-22
 
 ## What's Changed

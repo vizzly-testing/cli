@@ -3,7 +3,7 @@ import { setupRenderingTest } from 'ember-qunit';
 import { render } from '@ember/test-helpers';
 import Card from 'test-ember-app/components/card';
 import Button from 'test-ember-app/components/button';
-import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
 
 module('Integration | Component | Card', function (hooks) {
   setupRenderingTest(hooks);
@@ -20,7 +20,7 @@ module('Integration | Component | Card', function (hooks) {
     assert.dom('[data-test-card="basic"]').exists();
     assert.dom('[data-test-card="basic"] .card-title').hasText('Basic Card');
 
-    await vizzlySnapshot('card-basic');
+    await vizzlyScreenshot('card-basic');
   });
 
   test('it renders elevated card', async function (assert) {
@@ -34,7 +34,7 @@ module('Integration | Component | Card', function (hooks) {
 
     assert.dom('[data-test-card="elevated"]').hasClass('elevated');
 
-    await vizzlySnapshot('card-elevated');
+    await vizzlyScreenshot('card-elevated');
   });
 
   test('it renders card with actions and footer', async function (assert) {
@@ -60,7 +60,7 @@ module('Integration | Component | Card', function (hooks) {
     assert.dom('[data-test-card="full"] .card-actions').exists();
     assert.dom('[data-test-card="full"] .card-footer').exists();
 
-    await vizzlySnapshot('card-with-actions-footer');
+    await vizzlyScreenshot('card-with-actions-footer');
   });
 
   test('it renders card without title', async function (assert) {
@@ -74,6 +74,6 @@ module('Integration | Component | Card', function (hooks) {
 
     assert.dom('[data-test-card="no-title"] .card-header').doesNotExist();
 
-    await vizzlySnapshot('card-no-title');
+    await vizzlyScreenshot('card-no-title');
   });
 });

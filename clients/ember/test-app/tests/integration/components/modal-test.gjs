@@ -3,7 +3,7 @@ import { setupRenderingTest } from 'ember-qunit';
 import { render, click } from '@ember/test-helpers';
 import Modal from 'test-ember-app/components/modal';
 import Button from 'test-ember-app/components/button';
-import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
 
 module('Integration | Component | Modal', function (hooks) {
   setupRenderingTest(hooks);
@@ -18,7 +18,7 @@ module('Integration | Component | Modal', function (hooks) {
     assert.dom('[data-test-modal="test-modal"]').exists();
     assert.dom('.modal-title').hasText('Test Modal');
 
-    await vizzlySnapshot('modal-open');
+    await vizzlyScreenshot('modal-open');
   });
 
   test('it does not render when closed', async function (assert) {
@@ -39,7 +39,7 @@ module('Integration | Component | Modal', function (hooks) {
     </template>);
 
     assert.dom('.modal').hasClass('small');
-    await vizzlySnapshot('modal-small');
+    await vizzlyScreenshot('modal-small');
   });
 
   test('it renders large modal', async function (assert) {
@@ -51,7 +51,7 @@ module('Integration | Component | Modal', function (hooks) {
     </template>);
 
     assert.dom('.modal').hasClass('large');
-    await vizzlySnapshot('modal-large');
+    await vizzlyScreenshot('modal-large');
   });
 
   test('it renders with footer', async function (assert) {
@@ -69,7 +69,7 @@ module('Integration | Component | Modal', function (hooks) {
     </template>);
 
     assert.dom('.modal-footer').exists();
-    await vizzlySnapshot('modal-with-footer');
+    await vizzlyScreenshot('modal-with-footer');
   });
 
   test('it calls onClose when close button clicked', async function (assert) {

@@ -58,7 +58,6 @@ if (existsSync(configPath)) {
 let browserInstance = null;
 let screenshotServer = null;
 let isShuttingDown = false;
-let cleanupReason = 'unknown';
 
 /**
  * Clean up resources and exit
@@ -68,7 +67,6 @@ let cleanupReason = 'unknown';
 async function cleanup(reason = 'unknown', exitCode = 0) {
   if (isShuttingDown) return;
   isShuttingDown = true;
-  cleanupReason = reason;
 
   if (process.env.VIZZLY_LOG_LEVEL === 'debug') {
     console.error(`[vizzly-testem-launcher] Cleanup triggered: ${reason}`);
@@ -120,22 +118,23 @@ async function main() {
       playwrightOptions,
       onPageCreated: page => {
         setPage(page);
-        page.on('close', () => cleanup('page-close'));
+        page.on('close', async () => await cleanup('page-close'));
       },
-      onBrowserDisconnected: () => cleanup('browser-disconnected'),
+      onBrowserDisconnected: async () => await cleanup('browser-disconnected'),
     });
 
     // 4. Listen for browser crashes
     let { page } = browserInstance;
-    page.on('crash', () => {
+    page.on('crash', async () => {
       console.error('[vizzly-testem-launcher] Page crashed!');
-      cleanup('page-crash', 1);
+      await cleanup('page-crash', 1);
     });
 
     // 5. Keep process alive until cleanup is called
     await new Promise(() => {});
   } catch (error) {
     console.error('[vizzly-testem-launcher] Failed to start:', error.message);
+    console.error(error.stack);
 
     if (screenshotServer) {
       await stopScreenshotServer(screenshotServer).catch(() => {});
@@ -146,24 +145,24 @@ async function main() {
 }
 
 // Handle graceful shutdown signals from Testem
-process.on('SIGTERM', () => cleanup('SIGTERM'));
-process.on('SIGINT', () => cleanup('SIGINT'));
-process.on('SIGHUP', () => cleanup('SIGHUP'));
+process.on('SIGTERM', async () => await cleanup('SIGTERM'));
+process.on('SIGINT', async () => await cleanup('SIGINT'));
+process.on('SIGHUP', async () => await cleanup('SIGHUP'));
 
 // Handle unexpected errors
-process.on('uncaughtException', error => {
+process.on('uncaughtException', async error => {
   console.error('[vizzly-testem-launcher] Uncaught exception:', error.message);
   console.error(error.stack);
-  cleanup('uncaughtException', 1);
+  await cleanup('uncaughtException', 1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', async (reason, promise) => {
   console.error('[vizzly-testem-launcher] Unhandled rejection at:', promise);
   console.error('[vizzly-testem-launcher] Reason:', reason);
   if (reason instanceof Error) {
     console.error(reason.stack);
   }
-  cleanup('unhandledRejection', 1);
+  await cleanup('unhandledRejection', 1);
 });
 
 main();

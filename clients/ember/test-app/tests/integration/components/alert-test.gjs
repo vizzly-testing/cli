@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render } from '@ember/test-helpers';
 import Alert from 'test-ember-app/components/alert';
-import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
 
 module('Integration | Component | Alert', function (hooks) {
   setupRenderingTest(hooks);
@@ -33,7 +33,7 @@ module('Integration | Component | Alert', function (hooks) {
     assert.dom('[data-test-alert="warning"]').exists();
     assert.dom('[data-test-alert="error"]').exists();
 
-    await vizzlySnapshot('alert-variants');
+    await vizzlyScreenshot('alert-variants');
   });
 
   test('it renders without title', async function (assert) {
@@ -48,6 +48,6 @@ module('Integration | Component | Alert', function (hooks) {
     assert.dom('[data-test-alert="no-title"]').exists();
     assert.dom('[data-test-alert="no-title"] .alert-title').doesNotExist();
 
-    await vizzlySnapshot('alert-no-title');
+    await vizzlyScreenshot('alert-no-title');
   });
 });

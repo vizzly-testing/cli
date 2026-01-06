@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render } from '@ember/test-helpers';
 import DataTable from 'test-ember-app/components/data-table';
-import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
 
 module('Integration | Component | DataTable', function (hooks) {
   setupRenderingTest(hooks);
@@ -31,7 +31,7 @@ module('Integration | Component | DataTable', function (hooks) {
     assert.dom('.table-header').exists({ count: 4 });
     assert.dom('.table-row').exists({ count: 3 });
 
-    await vizzlySnapshot('data-table-with-data');
+    await vizzlyScreenshot('data-table-with-data');
   });
 
   test('it renders empty state', async function (assert) {
@@ -50,7 +50,7 @@ module('Integration | Component | DataTable', function (hooks) {
 
     assert.dom('.table-empty').hasText('No users found');
 
-    await vizzlySnapshot('data-table-empty');
+    await vizzlyScreenshot('data-table-empty');
   });
 
   test('it renders with many rows', async function (assert) {
@@ -72,7 +72,7 @@ module('Integration | Component | DataTable', function (hooks) {
 
     assert.dom('.table-row').exists({ count: 10 });
 
-    await vizzlySnapshot('data-table-many-rows');
+    await vizzlyScreenshot('data-table-many-rows');
   });
 
   test('it applies column alignment', async function (assert) {
@@ -86,6 +86,6 @@ module('Integration | Component | DataTable', function (hooks) {
     assert.dom('.table-header.center').exists({ count: 2 });
     assert.dom('.table-cell.center').exists({ count: 6 }); // 2 columns * 3 rows
 
-    await vizzlySnapshot('data-table-alignment');
+    await vizzlyScreenshot('data-table-alignment');
   });
 });

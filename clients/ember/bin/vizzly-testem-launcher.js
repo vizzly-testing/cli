@@ -58,13 +58,21 @@ if (existsSync(configPath)) {
 let browserInstance = null;
 let screenshotServer = null;
 let isShuttingDown = false;
+let cleanupReason = 'unknown';
 
 /**
  * Clean up resources and exit
+ * @param {string} reason - Why cleanup was triggered
+ * @param {number} exitCode - Process exit code (default 0)
  */
-async function cleanup() {
+async function cleanup(reason = 'unknown', exitCode = 0) {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  cleanupReason = reason;
+
+  if (process.env.VIZZLY_LOG_LEVEL === 'debug') {
+    console.error(`[vizzly-testem-launcher] Cleanup triggered: ${reason}`);
+  }
 
   try {
     if (browserInstance) {
@@ -82,7 +90,7 @@ async function cleanup() {
     // Ignore cleanup errors
   }
 
-  process.exit(0);
+  process.exit(exitCode);
 }
 
 /**
@@ -112,52 +120,16 @@ async function main() {
       playwrightOptions,
       onPageCreated: page => {
         setPage(page);
-        page.on('close', cleanup);
+        page.on('close', () => cleanup('page-close'));
       },
+      onBrowserDisconnected: () => cleanup('browser-disconnected'),
     });
 
-    // 4. Monitor for test completion
+    // 4. Listen for browser crashes
     let { page } = browserInstance;
-
-    // Wait for a test framework to be available, then hook into its completion
-    await page.evaluate(() => {
-      return new Promise(resolve => {
-        let checkFramework = () => {
-          // Check for QUnit
-          if (typeof QUnit !== 'undefined') {
-            QUnit.done(() => {
-              console.log('[vizzly-testem] tests-complete');
-            });
-            resolve();
-            return;
-          }
-
-          // Check for Mocha
-          if (typeof Mocha !== 'undefined' || typeof mocha !== 'undefined') {
-            let Runner = (typeof Mocha !== 'undefined' ? Mocha : mocha).Runner;
-            let originalEmit = Runner.prototype.emit;
-            Runner.prototype.emit = function (...args) {
-              if (args[0] === 'end') {
-                console.log('[vizzly-testem] tests-complete');
-              }
-              return originalEmit.apply(this, args);
-            };
-            resolve();
-            return;
-          }
-
-          // Keep checking until a framework is found
-          requestAnimationFrame(checkFramework);
-        };
-        checkFramework();
-      });
-    });
-
-    // Listen for the completion signal
-    page.on('console', msg => {
-      if (msg.text() === '[vizzly-testem] tests-complete') {
-        cleanup();
-      }
+    page.on('crash', () => {
+      console.error('[vizzly-testem-launcher] Page crashed!');
+      cleanup('page-crash', 1);
     });
 
     // 5. Keep process alive until cleanup is called
@@ -174,19 +146,24 @@ async function main() {
 }
 
 // Handle graceful shutdown signals from Testem
-process.on('SIGTERM', cleanup);
-process.on('SIGINT', cleanup);
-process.on('SIGHUP', cleanup);
+process.on('SIGTERM', () => cleanup('SIGTERM'));
+process.on('SIGINT', () => cleanup('SIGINT'));
+process.on('SIGHUP', () => cleanup('SIGHUP'));
 
 // Handle unexpected errors
 process.on('uncaughtException', error => {
   console.error('[vizzly-testem-launcher] Uncaught exception:', error.message);
-  cleanup();
+  console.error(error.stack);
+  cleanup('uncaughtException', 1);
 });
 
-process.on('unhandledRejection', reason => {
-  console.error('[vizzly-testem-launcher] Unhandled rejection:', reason);
-  cleanup();
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[vizzly-testem-launcher] Unhandled rejection at:', promise);
+  console.error('[vizzly-testem-launcher] Reason:', reason);
+  if (reason instanceof Error) {
+    console.error(reason.stack);
+  }
+  cleanup('unhandledRejection', 1);
 });
 
 main();

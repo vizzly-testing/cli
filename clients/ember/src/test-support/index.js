@@ -42,6 +42,9 @@ class VizzlyDiffError extends Error {
   }
 }
 
+// Track if we've already logged a connection error to avoid spam
+let hasLoggedConnectionError = false;
+
 /**
  * Detect browser type from user agent
  * @returns {string} Browser type: chromium, firefox, or webkit
@@ -313,8 +316,11 @@ export async function vizzlyScreenshot(name, options = {}) {
     if (error instanceof VizzlyDiffError) {
       throw error;
     }
-    // Log the error for debugging but don't fail the test
-    console.warn(`[vizzly] Screenshot skipped due to error: ${error.message}`);
+    // Log connection errors only once to avoid spam
+    if (!hasLoggedConnectionError) {
+      hasLoggedConnectionError = true;
+      console.warn(`[vizzly] Screenshots skipped - server not available. Run 'vizzly tdd start' to enable.`);
+    }
     return { status: 'skipped', reason: 'error', error: error.message };
   } finally {
     // Always restore original styles

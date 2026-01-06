@@ -115,7 +115,7 @@ describe('e2e with TDD server', { skip: !process.env.RUN_E2E }, () => {
     let testUrl = `http://127.0.0.1:${testServerPort}/`;
     browserInstance = await launchBrowser('chromium', testUrl, {
       snapshotUrl,
-      headless: true,
+      playwrightOptions: { headless: true },
     });
 
     setPage(browserInstance.page);
@@ -181,7 +181,7 @@ describe('e2e without TDD server', () => {
     let testUrl = `http://127.0.0.1:${testServerPort}/`;
     browserInstance = await launchBrowser('chromium', testUrl, {
       snapshotUrl,
-      headless: true,
+      playwrightOptions: { headless: true },
     });
 
     setPage(browserInstance.page);

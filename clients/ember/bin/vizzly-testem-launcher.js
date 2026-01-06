@@ -1,19 +1,24 @@
 #!/usr/bin/env node
 /**
- * Vizzly Browser Launcher
+ * Vizzly Testem Launcher
  *
- * Custom browser launcher spawned by Testem. Uses Playwright to launch
- * a browser with screenshot capture capabilities.
+ * Custom Testem launcher that uses Playwright to control browsers,
+ * enabling screenshot capture for visual testing.
  *
- * Usage: vizzly-browser <browser> <url>
+ * Usage: vizzly-testem-launcher <browser> <url>
  *   browser: chromium | firefox | webkit
  *   url: The test page URL (provided by Testem)
  *
+ * Playwright launch options are read from .vizzly/playwright.json
+ * (written by configure() in testem-config.js)
+ *
  * @example
  * # Testem spawns this command:
- * npx vizzly-browser chromium http://localhost:7357/tests/index.html
+ * node vizzly-testem-launcher.js chromium http://localhost:7357/tests
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { closeBrowser, launchBrowser } from '../src/launcher/browser.js';
 import {
   getServerInfo,
@@ -22,14 +27,32 @@ import {
   stopSnapshotServer,
 } from '../src/launcher/snapshot-server.js';
 
-let [, , browserType, testUrl] = process.argv;
+// Parse arguments - format: vizzly-testem-launcher <browser> <url>
+// Testem appends the URL as the last argument
+let args = process.argv.slice(2);
+let browserType = args[0];
+let testUrl = args[args.length - 1];
 
 // Validate arguments
-if (!browserType || !testUrl) {
-  console.error('Usage: vizzly-browser <browser> <url>');
+if (!browserType || !testUrl || !testUrl.startsWith('http')) {
+  console.error('Usage: vizzly-testem-launcher <browser> <url>');
   console.error('  browser: chromium | firefox | webkit');
   console.error('  url: Test page URL (provided by Testem)');
   process.exit(1);
+}
+
+// Read Playwright launch options from config file (written by configure())
+let playwrightOptions = { headless: true }; // Default to headless
+let configPath = join(process.cwd(), '.vizzly', 'playwright.json');
+if (existsSync(configPath)) {
+  try {
+    playwrightOptions = {
+      headless: true, // Default
+      ...JSON.parse(readFileSync(configPath, 'utf8')),
+    };
+  } catch (err) {
+    console.warn('[vizzly] Failed to read playwright.json:', err.message);
+  }
 }
 
 let browserInstance = null;
@@ -72,7 +95,6 @@ async function main() {
     let snapshotUrl = `http://127.0.0.1:${snapshotServer.port}`;
 
     // 2. Determine failOnDiff: env var > server.json > default (false)
-    // getServerInfo() returns cached info from the TDD server discovery that happened above
     let failOnDiff = false;
     if (process.env.VIZZLY_FAIL_ON_DIFF === 'true' || process.env.VIZZLY_FAIL_ON_DIFF === '1') {
       failOnDiff = true;
@@ -84,23 +106,17 @@ async function main() {
     }
 
     // 3. Launch browser with Playwright
-    // Note: We set the page reference in launchBrowser before navigation
-    // to avoid a race condition where tests run before page is set
     browserInstance = await launchBrowser(browserType, testUrl, {
       snapshotUrl,
       failOnDiff,
+      playwrightOptions,
       onPageCreated: page => {
-        // Set page reference immediately when page is created
-        // This happens BEFORE navigation so tests can capture screenshots
         setPage(page);
-
-        // Listen for page close - this means browser was closed
         page.on('close', cleanup);
       },
     });
 
-    // 3. Monitor for test completion
-    // Hook into the test framework (QUnit or Mocha) to detect when tests finish
+    // 4. Monitor for test completion
     let { page } = browserInstance;
 
     // Wait for a test framework to be available, then hook into its completion
@@ -110,7 +126,7 @@ async function main() {
           // Check for QUnit
           if (typeof QUnit !== 'undefined') {
             QUnit.done(() => {
-              console.log('[testem-vizzly] all-tests-complete');
+              console.log('[vizzly-testem] tests-complete');
             });
             resolve();
             return;
@@ -120,11 +136,11 @@ async function main() {
           if (typeof Mocha !== 'undefined' || typeof mocha !== 'undefined') {
             let Runner = (typeof Mocha !== 'undefined' ? Mocha : mocha).Runner;
             let originalEmit = Runner.prototype.emit;
-            Runner.prototype.emit = function (evt) {
-              if (evt === 'end') {
-                console.log('[testem-vizzly] all-tests-complete');
+            Runner.prototype.emit = function (...args) {
+              if (args[0] === 'end') {
+                console.log('[vizzly-testem] tests-complete');
               }
-              return originalEmit.apply(this, arguments);
+              return originalEmit.apply(this, args);
             };
             resolve();
             return;
@@ -139,17 +155,16 @@ async function main() {
 
     // Listen for the completion signal
     page.on('console', msg => {
-      if (msg.text() === '[testem-vizzly] all-tests-complete') {
+      if (msg.text() === '[vizzly-testem] tests-complete') {
         cleanup();
       }
     });
 
-    // 4. Keep process alive until cleanup is called
+    // 5. Keep process alive until cleanup is called
     await new Promise(() => {});
   } catch (error) {
-    console.error('[vizzly-browser] Failed to start:', error.message);
+    console.error('[vizzly-testem-launcher] Failed to start:', error.message);
 
-    // Attempt cleanup before exiting
     if (snapshotServer) {
       await stopSnapshotServer(snapshotServer).catch(() => {});
     }
@@ -165,12 +180,12 @@ process.on('SIGHUP', cleanup);
 
 // Handle unexpected errors
 process.on('uncaughtException', error => {
-  console.error('[vizzly-browser] Uncaught exception:', error.message);
+  console.error('[vizzly-testem-launcher] Uncaught exception:', error.message);
   cleanup();
 });
 
 process.on('unhandledRejection', reason => {
-  console.error('[vizzly-browser] Unhandled rejection:', reason);
+  console.error('[vizzly-testem-launcher] Unhandled rejection:', reason);
   cleanup();
 });
 

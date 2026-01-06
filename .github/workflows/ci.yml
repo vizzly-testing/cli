@@ -503,17 +503,13 @@ jobs:
     needs: [lint, changes-ember]
     if: needs.changes-ember.outputs.ember == 'true'
 
-    strategy:
-      matrix:
-        node-version: [22, 24]
-
     steps:
     - uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js 22
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 22
 
     - name: Install CLI dependencies
       run: npm ci
@@ -559,7 +555,6 @@ jobs:
         CI: true
 
     - name: Run Ember E2E visual tests
-      if: matrix.node-version == 22
       working-directory: ./clients/ember
       run: |
         cd test-app

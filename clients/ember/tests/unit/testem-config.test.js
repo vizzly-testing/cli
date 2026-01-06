@@ -1,10 +1,24 @@
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import { browserMappings, configure } from '../../src/testem-config.js';
 
 describe('testem-config', () => {
+  beforeEach(() => {
+    // Clean up before each test
+  });
+
+  afterEach(() => {
+    // Clean up any playwright.json that was written
+    let playwrightConfig = join(process.cwd(), '.vizzly', 'playwright.json');
+    if (existsSync(playwrightConfig)) {
+      rmSync(playwrightConfig);
+    }
+  });
+
   describe('configure()', () => {
-    it('returns empty config when given empty object', () => {
+    it('returns config with Vizzly launchers when given empty object', () => {
       let result = configure({});
       assert.ok(result.launchers, 'should have launchers');
       assert.ok(result.launchers.VizzlyChrome, 'should have VizzlyChrome');
@@ -65,15 +79,11 @@ describe('testem-config', () => {
       let result = configure({
         test_page: 'tests/index.html?hidepassed',
         launch_in_ci: ['Chrome'],
-        browser_args: {
-          Chrome: { ci: ['--headless'] },
-        },
+        disable_watching: true,
       });
 
       assert.strictEqual(result.test_page, 'tests/index.html?hidepassed');
-      assert.deepStrictEqual(result.browser_args, {
-        Chrome: { ci: ['--headless'] },
-      });
+      assert.strictEqual(result.disable_watching, true);
     });
 
     it('merges with existing launchers', () => {
@@ -91,30 +101,61 @@ describe('testem-config', () => {
       let result = configure({});
       let launcher = result.launchers.VizzlyChrome;
 
-      assert.strictEqual(launcher.exe, 'npx');
-      // Note: Testem automatically appends the test URL to args
-      assert.deepStrictEqual(launcher.args, ['vizzly-browser', 'chromium']);
+      assert.strictEqual(launcher.exe, 'node');
+      assert.ok(Array.isArray(launcher.args));
       assert.strictEqual(launcher.protocol, 'browser');
+
+      // Check args format: [launcherPath, browserType]
+      assert.ok(launcher.args[0].endsWith('vizzly-testem-launcher.js'));
+      assert.strictEqual(launcher.args[1], 'chromium');
     });
 
     it('creates correct VizzlyFirefox launcher config', () => {
       let result = configure({});
       let launcher = result.launchers.VizzlyFirefox;
 
-      assert.strictEqual(launcher.exe, 'npx');
-      // Note: Testem automatically appends the test URL to args
-      assert.deepStrictEqual(launcher.args, ['vizzly-browser', 'firefox']);
+      assert.strictEqual(launcher.exe, 'node');
+      assert.ok(Array.isArray(launcher.args));
       assert.strictEqual(launcher.protocol, 'browser');
+      assert.ok(launcher.args[0].endsWith('vizzly-testem-launcher.js'));
+      assert.strictEqual(launcher.args[1], 'firefox');
     });
 
     it('creates correct VizzlyWebKit launcher config', () => {
       let result = configure({});
       let launcher = result.launchers.VizzlyWebKit;
 
-      assert.strictEqual(launcher.exe, 'npx');
-      // Note: Testem automatically appends the test URL to args
-      assert.deepStrictEqual(launcher.args, ['vizzly-browser', 'webkit']);
+      assert.strictEqual(launcher.exe, 'node');
+      assert.ok(Array.isArray(launcher.args));
       assert.strictEqual(launcher.protocol, 'browser');
+      assert.ok(launcher.args[0].endsWith('vizzly-testem-launcher.js'));
+      assert.strictEqual(launcher.args[1], 'webkit');
+    });
+
+    it('writes playwright.json when playwrightOptions provided', () => {
+      configure({}, { headless: false, slowMo: 100, timeout: 30000 });
+
+      let configPath = join(process.cwd(), '.vizzly', 'playwright.json');
+      assert.ok(existsSync(configPath), 'should write playwright.json');
+
+      let content = JSON.parse(readFileSync(configPath, 'utf8'));
+      assert.deepStrictEqual(content, {
+        headless: false,
+        slowMo: 100,
+        timeout: 30000,
+      });
+    });
+
+    it('does not write playwright.json when playwrightOptions is empty', () => {
+      // Clean up any existing file first
+      let configPath = join(process.cwd(), '.vizzly', 'playwright.json');
+      if (existsSync(configPath)) {
+        rmSync(configPath);
+      }
+
+      configure({}, {});
+
+      assert.ok(!existsSync(configPath), 'should not write empty playwright.json');
     });
 
     it('handles lowercase browser names', () => {

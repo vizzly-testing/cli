@@ -387,8 +387,10 @@ export function isVizzlyReady() {
  * @param {boolean} [config.enabled] - Enable/disable screenshots
  */
 export function configure(config = {}) {
-  if (config.serverUrl) {
-    currentClient = createSimpleClient(config.serverUrl);
+  if ('serverUrl' in config) {
+    currentClient = config.serverUrl
+      ? createSimpleClient(config.serverUrl)
+      : null;
   }
 
   if (typeof config.enabled === 'boolean') {

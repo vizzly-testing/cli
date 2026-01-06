@@ -63,6 +63,7 @@ function getDefaultChromiumArgs() {
  * @param {boolean} [options.failOnDiff] - Whether tests should fail on visual diffs
  * @param {Object} [options.playwrightOptions] - Playwright launch options (headless, slowMo, timeout, etc.)
  * @param {Function} [options.onPageCreated] - Callback when page is created (before navigation)
+ * @param {Function} [options.onBrowserDisconnected] - Callback when browser disconnects unexpectedly
  * @returns {Promise<Object>} Browser instance with page reference
  */
 export async function launchBrowser(browserType, testUrl, options = {}) {
@@ -71,6 +72,7 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
     failOnDiff,
     playwrightOptions = {},
     onPageCreated,
+    onBrowserDisconnected,
   } = options;
 
   let factory = browserFactories[browserType];
@@ -101,6 +103,12 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
   };
 
   let browser = await factory.launch(launchOptions);
+
+  // Listen for unexpected browser disconnection (crash, killed, etc.)
+  if (onBrowserDisconnected) {
+    browser.on('disconnected', onBrowserDisconnected);
+  }
+
   let context = await browser.newContext();
   let page = await context.newPage();
 

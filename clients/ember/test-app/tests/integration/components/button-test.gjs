@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render, click } from '@ember/test-helpers';
 import Button from 'test-ember-app/components/button';
-import { vizzlySnapshot } from '@vizzly-testing/ember/test-support';
+import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
 
 module('Integration | Component | Button', function (hooks) {
   setupRenderingTest(hooks);
@@ -22,7 +22,7 @@ module('Integration | Component | Button', function (hooks) {
     assert.dom('[data-test-button="danger"]').hasText('Danger');
     assert.dom('[data-test-button="ghost"]').hasText('Ghost');
 
-    await vizzlySnapshot('button-variants');
+    await vizzlyScreenshot('button-variants');
   });
 
   test('it renders all sizes', async function (assert) {
@@ -38,7 +38,7 @@ module('Integration | Component | Button', function (hooks) {
     assert.dom('[data-test-button="medium"]').exists();
     assert.dom('[data-test-button="large"]').exists();
 
-    await vizzlySnapshot('button-sizes');
+    await vizzlyScreenshot('button-sizes');
   });
 
   test('it renders disabled state', async function (assert) {
@@ -52,7 +52,7 @@ module('Integration | Component | Button', function (hooks) {
     assert.dom('[data-test-button="enabled"]').isNotDisabled();
     assert.dom('[data-test-button="disabled"]').isDisabled();
 
-    await vizzlySnapshot('button-disabled-state');
+    await vizzlyScreenshot('button-disabled-state');
   });
 
   test('it handles click events', async function (assert) {

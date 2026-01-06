@@ -25,6 +25,24 @@
  */
 
 /**
+ * Custom error class for intentional visual diff failures.
+ * Only this error type will be re-thrown to fail tests.
+ *
+ * Note: Unlike the core SDK which auto-disables on errors, the Ember client
+ * returns a skipped result instead. This is intentional - Ember tests often
+ * run in partitions/parallel where auto-disabling would affect other tests.
+ */
+class VizzlyDiffError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'VizzlyDiffError';
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, VizzlyDiffError);
+    }
+  }
+}
+
+/**
  * Detect browser type from user agent
  * @returns {string} Browser type: chromium, firefox, or webkit
  */
@@ -278,7 +296,7 @@ export async function vizzlyScreenshot(name, options = {}) {
       let shouldFail = failOnDiff !== null ? failOnDiff : shouldFailOnDiff();
 
       if (shouldFail) {
-        throw new Error(
+        throw new VizzlyDiffError(
           `Visual difference detected for '${name}' (${result.diffPercentage?.toFixed(2)}% diff). ` +
           `View diff in Vizzly dashboard.`
         );
@@ -289,6 +307,15 @@ export async function vizzlyScreenshot(name, options = {}) {
     }
 
     return result;
+  } catch (error) {
+    // Only re-throw intentional diff failures - everything else should skip gracefully
+    // We never want to break the user's test suite due to Vizzly issues
+    if (error instanceof VizzlyDiffError) {
+      throw error;
+    }
+    // Log the error for debugging but don't fail the test
+    console.warn(`[vizzly] Screenshot skipped due to error: ${error.message}`);
+    return { status: 'skipped', reason: 'error', error: error.message };
   } finally {
     // Always restore original styles
     cleanup();

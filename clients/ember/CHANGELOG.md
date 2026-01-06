@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2] - 2026-01-06
+
+## What's Changed
+
+### Fixed
+- Screenshot capture now gracefully handles connectivity errors instead of failing tests. When the Vizzly TDD server is not running or unreachable, screenshots are skipped with a console warning rather than breaking your test suite. Only intentional visual diff failures (when `failOnDiff` is enabled) will still throw errors as expected.
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/ember/v0.0.1...ember/v0.0.2
+
 ## [0.0.1] - 2026-01-06
 
 ## What's Changed

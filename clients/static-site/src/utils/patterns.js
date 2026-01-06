@@ -29,23 +29,34 @@ export function matchPattern(str, pattern) {
 }
 
 /**
+ * Check if path matches any pattern in a list
+ * @param {string} path - Path to test
+ * @param {string|string[]} patterns - Single pattern or array of patterns
+ * @returns {boolean} True if path matches any pattern
+ */
+function matchAnyPattern(path, patterns) {
+  let patternList = Array.isArray(patterns) ? patterns : [patterns];
+  return patternList.some(pattern => matchPattern(path, pattern));
+}
+
+/**
  * Filter pages by include and exclude patterns
  * @param {Array<Object>} pages - Array of page objects with path property
- * @param {string|null} includePattern - Include pattern
- * @param {string|null} excludePattern - Exclude pattern
+ * @param {string|string[]|null} includePattern - Include pattern(s)
+ * @param {string|string[]|null} excludePattern - Exclude pattern(s)
  * @returns {Array<Object>} Filtered pages
  */
 export function filterByPattern(pages, includePattern, excludePattern) {
   return pages.filter(page => {
     let path = page.path || page.url;
 
-    // Check include pattern
-    if (includePattern && !matchPattern(path, includePattern)) {
+    // Check include pattern - page must match at least one
+    if (includePattern && !matchAnyPattern(path, includePattern)) {
       return false;
     }
 
-    // Check exclude pattern
-    if (excludePattern && matchPattern(path, excludePattern)) {
+    // Check exclude pattern - page must not match any
+    if (excludePattern && matchAnyPattern(path, excludePattern)) {
       return false;
     }
 

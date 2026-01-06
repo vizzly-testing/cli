@@ -99,8 +99,8 @@ export let staticSiteConfigSchema = z
       timeout: 45_000,
     }),
     concurrency: z.number().int().positive().default(getDefaultConcurrency()),
-    include: z.string().nullable().optional(),
-    exclude: z.string().nullable().optional(),
+    include: z.union([z.string(), z.array(z.string())]).nullable().optional(),
+    exclude: z.union([z.string(), z.array(z.string())]).nullable().optional(),
     pageDiscovery: pageDiscoverySchema.default({
       useSitemap: true,
       sitemapPath: 'sitemap.xml',

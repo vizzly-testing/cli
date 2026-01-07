@@ -56,30 +56,80 @@ jobs:
           git tag "v$NEW_VERSION"
           git push origin "v$NEW_VERSION"
 
-      - name: Generate release notes
+      - name: Get previous version
+        id: prev_version
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes with Claude
+        id: changelog
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Generate release notes for Vizzly CLI ${{ steps.version.outputs.new_version }}.
+
+            Context:
+            - Previous tag: `${{ steps.prev_version.outputs.tag }}`
+            - New version: `${{ steps.version.outputs.new_version }}`
+            - This is the main CLI package for Vizzly visual testing
+
+            Instructions:
+            1. Use git commands to get commits since the previous tag
+            2. Analyze the commits and understand what changed
+            3. Read relevant code changes if needed to understand the impact
+            4. Generate user-friendly release notes with categories: Added, Changed, Fixed, Removed
+            5. Focus on user-facing changes - skip internal refactors unless significant
+            6. Write clear, concise descriptions (not just commit messages)
+            7. Group related changes together
+
+            Save the release notes to `RELEASE-NOTES.md` with this format:
+
+            ## What's Changed
+
+            ### Added
+            - New features and capabilities
+
+            ### Changed
+            - Breaking or notable behavioral changes
+
+            ### Fixed
+            - Bug fixes
+
+            ### Removed
+            - Deprecated features removed (if any)
+
+            **Full Changelog**: https://github.com/vizzly-testing/cli/compare/${{ steps.prev_version.outputs.tag }}...${{ steps.version.outputs.new_version }}
+
+            Notes:
+            - Omit empty sections
+            - If there are no meaningful user-facing changes, just write a brief summary
+          claude_args: '--allowed-tools "Bash(git:*),Read,Write" --model haiku'
+
+      - name: Read release notes
         id: release_notes
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          if [ -n "$LAST_TAG" ]; then
-            COMMITS=$(git log $LAST_TAG..HEAD --oneline --pretty=format:"- %s")
+          if [ -f RELEASE-NOTES.md ]; then
+            {
+              echo 'notes<<RELEASE_EOF'
+              cat RELEASE-NOTES.md
+              echo 'RELEASE_EOF'
+            } >> $GITHUB_OUTPUT
           else
-            COMMITS=$(git log --oneline --pretty=format:"- %s" | head -10)
+            echo "notes=Release ${{ steps.version.outputs.new_version }}" >> $GITHUB_OUTPUT
           fi
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "## What's Changed" >> $GITHUB_OUTPUT
-          echo "$COMMITS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.new_version }}
-          release_name: ✨ ${{ steps.version.outputs.new_version }}
+          name: ✨ ${{ steps.version.outputs.new_version }}
           body: ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to NPM
         run: npm publish

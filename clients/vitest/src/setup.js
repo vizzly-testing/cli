@@ -60,6 +60,7 @@ async function toMatchScreenshot(element, name, options = {}) {
       body: JSON.stringify({
         name: screenshotName,
         image: screenshotPath, // Send file path directly
+        type: 'file-path',
         buildId: buildId || null,
         threshold,
         fullPage,

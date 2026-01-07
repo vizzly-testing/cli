@@ -55,6 +55,7 @@ module Vizzly
       payload = {
         name: name,
         image: image_base64,
+        type: 'base64',
         buildId: ENV.fetch('VIZZLY_BUILD_ID', nil),
         threshold: options[:threshold] || 0,
         fullPage: options[:full_page] || false,

@@ -27,19 +27,33 @@ export function isBase64(str) {
   // Strip data URI prefix if present (e.g., data:image/png;base64,...)
   let base64Content = str;
   if (str.startsWith('data:')) {
-    const match = str.match(/^data:[a-zA-Z0-9+/.-]+;base64,(.+)$/);
+    let match = str.match(/^data:[a-zA-Z0-9+/.-]+;base64,(.+)$/);
     if (!match) {
       return false; // Has data: prefix but invalid format
     }
     base64Content = match[1];
   }
 
-  // Base64 regex: groups of 4 chars [A-Za-z0-9+/], with optional padding
-  // Valid endings: no padding, or 2/3 chars + padding (= or ==)
-  const base64Pattern =
-    /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+  // Quick check: base64 only contains these characters
+  // Use a simple character class check instead of a complex regex to avoid
+  // catastrophic backtracking on large strings
+  if (!/^[A-Za-z0-9+/=]+$/.test(base64Content)) {
+    return false;
+  }
 
-  return base64Pattern.test(base64Content);
+  // Check length is valid (must be multiple of 4, accounting for padding)
+  let len = base64Content.length;
+  if (len % 4 !== 0) {
+    return false;
+  }
+
+  // Check padding is valid (only at end, max 2 = chars)
+  let paddingMatch = base64Content.match(/=+$/);
+  if (paddingMatch && paddingMatch[0].length > 2) {
+    return false;
+  }
+
+  return true;
 }
 
 /**

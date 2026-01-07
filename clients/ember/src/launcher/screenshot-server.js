@@ -40,10 +40,25 @@ export function getPage() {
 let cachedServerInfo = null;
 
 /**
- * Auto-discover the Vizzly TDD server by searching for .vizzly/server.json
+ * Auto-discover the Vizzly TDD server
+ *
+ * Checks in order:
+ * 1. VIZZLY_SERVER_URL env var (for Docker/remote setups)
+ * 2. .vizzly/server.json file (for local TDD server)
+ *
  * @returns {{url: string, failOnDiff: boolean}|null} Server info or null if not found
  */
 function autoDiscoverTddServer() {
+  // Check env var first (useful for Docker where host is different)
+  if (process.env.VIZZLY_SERVER_URL) {
+    cachedServerInfo = {
+      url: process.env.VIZZLY_SERVER_URL,
+      failOnDiff: process.env.VIZZLY_FAIL_ON_DIFF === 'true',
+    };
+    return cachedServerInfo;
+  }
+
+  // Fall back to auto-discovery via server.json
   let currentDir = process.cwd();
   let root = parse(currentDir).root;
 

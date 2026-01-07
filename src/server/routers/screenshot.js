@@ -44,8 +44,8 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
         sendJson(res, result.statusCode, result.body);
         return true;
       } catch (error) {
-        output.debug('Screenshot processing error:', { error: error.message });
-        sendError(res, 500, 'Failed to process screenshot');
+        output.debug('Screenshot processing error:', { error: error.message, stack: error.stack });
+        sendError(res, 500, `Failed to process screenshot: ${error.message}`);
         return true;
       }
     }

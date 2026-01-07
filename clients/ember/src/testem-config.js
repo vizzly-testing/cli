@@ -105,6 +105,7 @@ function writePlaywrightConfig(options) {
  * @param {number} [playwrightOptions.slowMo] - Slow down operations by this many milliseconds
  * @param {number} [playwrightOptions.timeout] - Browser launch timeout in milliseconds
  * @param {Object} [playwrightOptions.proxy] - Proxy settings
+ * @param {string} [playwrightOptions.browserWSEndpoint] - WebSocket endpoint to connect to remote browser (e.g., Docker)
  * @returns {Object} Modified configuration with Vizzly launchers
  *
  * @example

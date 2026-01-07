@@ -61,6 +61,7 @@ function getDefaultChromiumArgs() {
  * @param {Object} options - Launch options
  * @param {string} options.screenshotUrl - URL of the screenshot HTTP server
  * @param {boolean} [options.failOnDiff] - Whether tests should fail on visual diffs
+ * @param {string} [options.browserWSEndpoint] - WebSocket endpoint to connect to remote browser
  * @param {Object} [options.playwrightOptions] - Playwright launch options (headless, slowMo, timeout, etc.)
  * @param {Function} [options.onPageCreated] - Callback when page is created (before navigation)
  * @param {Function} [options.onBrowserDisconnected] - Callback when browser disconnects unexpectedly
@@ -70,6 +71,7 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
   let {
     screenshotUrl,
     failOnDiff,
+    browserWSEndpoint,
     playwrightOptions = {},
     onPageCreated,
     onBrowserDisconnected,
@@ -83,26 +85,37 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
     );
   }
 
-  // Build args: our defaults + user's args (user can override)
-  let args = [];
-  if (browserType === 'chromium') {
-    args = [...getDefaultChromiumArgs()];
+  let browser;
+
+  // Connect to remote browser if endpoint provided
+  if (browserWSEndpoint) {
+    // Use connectOverCDP for remote browsers (e.g., browserless, Docker)
+    // This connects via Chrome DevTools Protocol, which is what most
+    // remote browser services expose (vs Playwright's own server protocol)
+    let cdpEndpoint = browserWSEndpoint.replace(/^ws:/, 'http:').replace(/^wss:/, 'https:');
+    browser = await factory.connectOverCDP(cdpEndpoint);
+  } else {
+    // Build args: our defaults + user's args (user can override)
+    let args = [];
+    if (browserType === 'chromium') {
+      args = [...getDefaultChromiumArgs()];
+    }
+
+    // Merge user's args if provided
+    if (playwrightOptions.args) {
+      args.push(...playwrightOptions.args);
+    }
+
+    // Build Playwright launch options
+    // User's playwrightOptions take precedence, but we ensure args are merged
+    let launchOptions = {
+      headless: true, // Default to headless
+      ...playwrightOptions,
+      args,
+    };
+
+    browser = await factory.launch(launchOptions);
   }
-
-  // Merge user's args if provided
-  if (playwrightOptions.args) {
-    args.push(...playwrightOptions.args);
-  }
-
-  // Build Playwright launch options
-  // User's playwrightOptions take precedence, but we ensure args are merged
-  let launchOptions = {
-    headless: true, // Default to headless
-    ...playwrightOptions,
-    args,
-  };
-
-  let browser = await factory.launch(launchOptions);
 
   // Listen for unexpected browser disconnection (crash, killed, etc.)
   if (onBrowserDisconnected) {

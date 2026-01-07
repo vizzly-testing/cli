@@ -141,6 +141,12 @@ jobs:
           mv CHANGELOG-NEW.md CHANGELOG.md
           rm CHANGELOG-RELEASE.md
 
+      - name: Reconfigure git auth
+        run: |
+          git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
+          git config --local user.name "${{ secrets.GIT_USER_NAME }}"
+          git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n x-access-token:${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }} | base64)"
+
       - name: Commit and push changes
         run: |
           git add clients/ruby/vizzly.gemspec clients/ruby/CHANGELOG.md

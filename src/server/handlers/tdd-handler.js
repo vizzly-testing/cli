@@ -325,7 +325,13 @@ export const createTddHandler = (
     }
   };
 
-  const handleScreenshot = async (_buildId, name, image, properties = {}) => {
+  const handleScreenshot = async (
+    _buildId,
+    name,
+    image,
+    properties = {},
+    type
+  ) => {
     // Validate and sanitize screenshot name
     let sanitizedName;
     try {
@@ -364,8 +370,9 @@ export const createTddHandler = (
 
     // Support both base64 encoded images and file paths
     // Vitest browser mode returns file paths, so we need to handle both
+    // Use explicit type from client if provided (fast path), otherwise detect (slow path)
     let imageBuffer;
-    const inputType = detectImageInputType(image);
+    const inputType = type || detectImageInputType(image);
 
     if (inputType === 'file-path') {
       // It's a file path - resolve and read the file

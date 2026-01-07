@@ -82,41 +82,44 @@ export function looksLikeFilePath(str) {
     return false;
   }
 
-  // 0. Explicitly reject data URIs first (they contain : and / which would match path patterns)
+  // 0. Length check - file paths are short, base64 screenshots are huge
+  // Even the longest realistic file path is < 1000 chars
+  // This makes detection O(1) for large base64 strings
+  if (str.length > 2000) {
+    return false;
+  }
+
+  // 1. Explicitly reject data URIs (they contain : and / which would match path patterns)
   if (str.startsWith('data:')) {
     return false;
   }
 
-  // 1. Check for file:// URI scheme
+  // 2. Check for file:// URI scheme
   if (str.startsWith('file://')) {
     return true;
   }
 
-  // 2. Check for absolute paths (Unix or Windows)
-  // Unix: starts with /
-  // Windows: starts with drive letter like C:\ or C:/
-  if (str.startsWith('/') || /^[A-Za-z]:[/\\]/.test(str)) {
+  // 3. Windows absolute paths (C:\ or C:/) - base64 never starts with drive letter
+  if (/^[A-Za-z]:[/\\]/.test(str)) {
     return true;
   }
 
-  // 3. Check for relative path indicators
-  // ./ or ../ or .\ or ..\
+  // 4. Relative path indicators (./ or ../) - base64 never starts with dot
   if (/^\.\.?[/\\]/.test(str)) {
     return true;
   }
 
-  // 4. Check for path separators (forward or back slash)
-  // This catches paths like: subdirectory/file.png or subdirectory\file.png
-  if (/[/\\]/.test(str)) {
-    return true;
-  }
-
   // 5. Check for common image file extensions
-  // This catches simple filenames like: screenshot.png
-  // Common extensions: png, jpg, jpeg, gif, webp, bmp, svg, tiff, ico
+  // This is the safest check - base64 never ends with .png/.jpg/etc
+  // Catches: /path/file.png, subdir/file.png, file.png
   if (/\.(png|jpe?g|gif|webp|bmp|svg|tiff?|ico)$/i.test(str)) {
     return true;
   }
+
+  // Note: We intentionally don't check for bare "/" prefix or "/" anywhere
+  // because JPEG base64 starts with "/9j/" which would false-positive
+  // File paths without extensions are rare for images and will fall through
+  // to base64 detection, which is acceptable for backwards compat
 
   return false;
 }
@@ -129,14 +132,13 @@ export function looksLikeFilePath(str) {
  * - 'file-path': A file path (relative or absolute)
  * - 'unknown': Cannot determine (ambiguous or invalid)
  *
- * Strategy:
- * 1. First check if it's valid base64 (can contain / which might look like paths)
- * 2. Then check if it looks like a file path (more specific patterns)
- * 3. Otherwise return 'unknown'
+ * Strategy (optimized for performance):
+ * 1. Check for data URI prefix first (O(1), definitive)
+ * 2. Check file path patterns (O(1) prefix/suffix checks)
+ * 3. For large non-path strings, assume base64 (skip expensive validation)
+ * 4. Only run full base64 validation on small ambiguous strings
  *
- * This order prevents base64 strings (which can contain /) from being
- * misidentified as file paths. Base64 validation is stricter and should
- * be checked first.
+ * This avoids O(n) regex validation on large screenshot buffers.
  *
  * @param {string} str - String to detect
  * @returns {'base64' | 'file-path' | 'unknown'} Detected input type
@@ -153,15 +155,26 @@ export function detectImageInputType(str) {
     return 'unknown';
   }
 
-  // Check base64 FIRST - base64 strings can contain / which looks like paths
-  // Base64 validation is stricter and more deterministic
-  if (isBase64(str)) {
+  // 1. Data URIs are definitively base64 (O(1) check)
+  if (str.startsWith('data:')) {
     return 'base64';
   }
 
-  // Then check file path - catch patterns that aren't valid base64
+  // 2. Check file path patterns (O(1) prefix/suffix checks)
   if (looksLikeFilePath(str)) {
     return 'file-path';
+  }
+
+  // 3. For large strings that aren't file paths, assume base64
+  // Screenshots are typically 100KB+ as base64, file paths are <1KB
+  // Skip expensive O(n) validation for large strings
+  if (str.length > 1000) {
+    return 'base64';
+  }
+
+  // 4. Full validation only for small ambiguous strings
+  if (isBase64(str)) {
+    return 'base64';
   }
 
   return 'unknown';

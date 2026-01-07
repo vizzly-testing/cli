@@ -166,6 +166,98 @@ describe('server/handlers/api-handler', () => {
       assert.ok(result.body.error.includes('Invalid image input'));
     });
 
+    it('uses explicit base64 type parameter', async () => {
+      let mockClient = { request: async () => ({}) };
+      let handler = createApiHandler(mockClient, {
+        uploadScreenshot: async () => ({ success: true }),
+      });
+
+      let pngHeader = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      ]);
+      let base64Image = pngHeader.toString('base64');
+
+      // Pass explicit type='base64'
+      let result = await handler.handleScreenshot(
+        'build-123',
+        'test-with-type',
+        base64Image,
+        {},
+        'base64'
+      );
+
+      assert.strictEqual(result.statusCode, 200);
+      assert.strictEqual(result.body.success, true);
+    });
+
+    it('uses explicit file-path type parameter', async () => {
+      let _uploadedData = null;
+      let mockUploadScreenshot = async (
+        _client,
+        buildId,
+        name,
+        buffer,
+        props
+      ) => {
+        _uploadedData = { buildId, name, buffer, props };
+        return { success: true };
+      };
+
+      let mockClient = { request: async () => ({}) };
+      let handler = createApiHandler(mockClient, {
+        uploadScreenshot: mockUploadScreenshot,
+      });
+
+      // Create test image file
+      let { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+      let { tmpdir } = await import('node:os');
+      let { join } = await import('node:path');
+      let testDir = mkdtempSync(join(tmpdir(), 'api-handler-test-'));
+
+      let imagePath = join(testDir, 'test.png');
+      let imageData = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+      writeFileSync(imagePath, imageData);
+
+      // Pass explicit type='file-path'
+      let result = await handler.handleScreenshot(
+        'build-123',
+        'file-screenshot',
+        `file://${imagePath}`,
+        {},
+        'file-path'
+      );
+
+      assert.strictEqual(result.statusCode, 200);
+      assert.strictEqual(result.body.success, true);
+
+      await handler.flush();
+      rmSync(testDir, { recursive: true });
+    });
+
+    it('falls back to detection when type not provided', async () => {
+      let mockClient = { request: async () => ({}) };
+      let handler = createApiHandler(mockClient, {
+        uploadScreenshot: async () => ({ success: true }),
+      });
+
+      let pngHeader = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      ]);
+      let base64Image = pngHeader.toString('base64');
+
+      // No type parameter - relies on detection
+      let result = await handler.handleScreenshot(
+        'build-123',
+        'test-no-type',
+        base64Image,
+        {}
+        // No type parameter
+      );
+
+      assert.strictEqual(result.statusCode, 200);
+      assert.strictEqual(result.body.success, true);
+    });
+
     it('increments screenshot count', async () => {
       let mockClient = { request: async () => ({}) };
       let handler = createApiHandler(mockClient, {

@@ -736,6 +736,139 @@ describe('server/handlers/tdd-handler', () => {
         assert.ok(result.body.error.includes('not found'));
       });
 
+      it('uses explicit type parameter instead of detection', async () => {
+        let detectCalled = false;
+        let deps = createMockDeps({
+          detectImageInputType: () => {
+            detectCalled = true;
+            return 'base64';
+          },
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'passed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        // Pass explicit type='base64' - detection should not be called
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'base64imagedata',
+          {},
+          'base64'
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+        assert.strictEqual(detectCalled, false);
+      });
+
+      it('uses explicit file-path type parameter', async () => {
+        let detectCalled = false;
+        let deps = createMockDeps({
+          detectImageInputType: () => {
+            detectCalled = true;
+            return 'base64'; // Would return wrong type if called
+          },
+          existsSync: () => true,
+          readFileSync: () => Buffer.from('fake-png-data'),
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'passed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        // Pass explicit type='file-path' - detection should not be called
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'file:///path/to/screenshot.png',
+          {},
+          'file-path'
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+        assert.strictEqual(detectCalled, false);
+      });
+
+      it('falls back to detection when type not provided', async () => {
+        let detectCalled = false;
+        let deps = createMockDeps({
+          detectImageInputType: () => {
+            detectCalled = true;
+            return 'base64';
+          },
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'passed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        // No type parameter - should call detection
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'base64imagedata',
+          {}
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+        assert.strictEqual(detectCalled, true);
+      });
+
+      it('falls back to detection for invalid type values', async () => {
+        let detectCalled = false;
+        let deps = createMockDeps({
+          detectImageInputType: () => {
+            detectCalled = true;
+            return 'base64';
+          },
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'passed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        // Invalid type value - should fall back to detection
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'test',
+          'base64imagedata',
+          {},
+          'invalid-type'
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+        assert.strictEqual(detectCalled, true);
+      });
+
       it('returns 500 for error comparison', async () => {
         let deps = createMockDeps({
           tddServiceOverrides: {

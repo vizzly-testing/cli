@@ -83,9 +83,10 @@ export function looksLikeFilePath(str) {
   }
 
   // 0. Length check - file paths are short, base64 screenshots are huge
-  // Even the longest realistic file path is < 1000 chars
+  // Even the longest realistic file path is < 500 chars
   // This makes detection O(1) for large base64 strings
-  if (str.length > 2000) {
+  // Use same threshold (1000) as detectImageInputType for consistency
+  if (str.length > 1000) {
     return false;
   }
 

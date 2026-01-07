@@ -252,6 +252,7 @@ export class VizzlySDK extends EventEmitter {
       buildId,
       name,
       image: imageBase64,
+      type: 'base64',
       properties: options.properties || {},
     };
 

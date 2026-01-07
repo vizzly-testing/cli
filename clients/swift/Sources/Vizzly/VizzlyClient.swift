@@ -79,6 +79,7 @@ public final class VizzlyClient {
         var payload: [String: Any] = [
             "name": name,
             "image": imageBase64,
+            "type": "base64",
             "threshold": threshold,
             "fullPage": fullPage
         ]

@@ -39,8 +39,9 @@ class IntegrationTest < Minitest::Test
     result = Vizzly.screenshot('test-screenshot', image_data,
                                properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } })
 
-    assert result
-    assert_equal true, result['success']
+    assert result, 'Expected result to be non-nil'
+    # TDD mode returns status: 'new' for first screenshot, 'match' for subsequent
+    assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
   end
 
   def test_screenshot_with_auto_discovery
@@ -57,8 +58,9 @@ class IntegrationTest < Minitest::Test
     image_data = create_test_png
     result = client.screenshot('auto-discovered', image_data)
 
-    assert result
-    assert_equal true, result['success']
+    assert result, 'Expected result to be non-nil'
+    # TDD mode returns status: 'new' for first screenshot, 'match' for subsequent
+    assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
   end
 
   private

@@ -33,12 +33,6 @@ let args = process.argv.slice(2);
 let browserType = args[0];
 let testUrl = args[args.length - 1];
 
-// If using remote browser (Docker), rewrite localhost to host.docker.internal
-// so the containerized browser can reach the host's test server
-function rewriteUrlForDocker(url) {
-  return url.replace(/localhost|127\.0\.0\.1/g, 'host.docker.internal');
-}
-
 // Validate arguments
 if (!browserType || !testUrl || !testUrl.startsWith('http')) {
   console.error('Usage: vizzly-testem-launcher <browser> <url>');
@@ -49,14 +43,10 @@ if (!browserType || !testUrl || !testUrl.startsWith('http')) {
 
 // Read Playwright launch options from config file (written by configure())
 let playwrightOptions = { headless: true }; // Default to headless
-let browserWSEndpoint = null;
 let configPath = join(process.cwd(), '.vizzly', 'playwright.json');
 if (existsSync(configPath)) {
   try {
     let config = JSON.parse(readFileSync(configPath, 'utf8'));
-    // Extract browserWSEndpoint separately (not a Playwright launch option)
-    browserWSEndpoint = config.browserWSEndpoint;
-    delete config.browserWSEndpoint;
     playwrightOptions = {
       headless: true, // Default
       ...config,
@@ -122,19 +112,10 @@ async function main() {
       }
     }
 
-    // 3. Launch browser with Playwright (or connect to remote browser)
-    // If remote browser, rewrite URL so container can reach host
-    let actualTestUrl = browserWSEndpoint ? rewriteUrlForDocker(testUrl) : testUrl;
-
-    if (browserWSEndpoint) {
-      console.log(`[vizzly] Connecting to remote browser: ${browserWSEndpoint}`);
-      console.log(`[vizzly] Test URL rewritten: ${testUrl} -> ${actualTestUrl}`);
-    }
-
-    browserInstance = await launchBrowser(browserType, actualTestUrl, {
+    // 3. Launch browser with Playwright
+    browserInstance = await launchBrowser(browserType, testUrl, {
       screenshotUrl,
       failOnDiff,
-      browserWSEndpoint,
       playwrightOptions,
       onPageCreated: page => {
         setPage(page);

@@ -1,5 +1,14 @@
 # Vizzly Ruby Client Changelog
 
+## [0.2.0] - 2026-01-07
+
+## What's Changed
+
+Release v0.2.0
+
+See the full diff for detailed changes.
+
+
 All notable changes to the Vizzly Ruby client will be documented in this file.
 
 This changelog is automatically generated when releasing new versions.

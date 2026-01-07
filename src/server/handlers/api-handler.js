@@ -49,7 +49,13 @@ export const createApiHandler = (
   let screenshotCount = 0;
   let uploadPromises = [];
 
-  const handleScreenshot = async (buildId, name, image, properties = {}) => {
+  const handleScreenshot = async (
+    buildId,
+    name,
+    image,
+    properties = {},
+    type
+  ) => {
     if (vizzlyDisabled) {
       output.debug('upload', `${name} (disabled)`);
       return {
@@ -75,8 +81,12 @@ export const createApiHandler = (
     }
 
     // Support both base64 encoded images and file paths
+    // Use explicit type from client if provided (fast path), otherwise detect (slow path)
+    // Only accept valid type values to prevent invalid types from bypassing detection
     let imageBuffer;
-    const inputType = detectImageInputType(image);
+    let validTypes = ['base64', 'file-path'];
+    const inputType =
+      type && validTypes.includes(type) ? type : detectImageInputType(image);
 
     if (inputType === 'file-path') {
       // It's a file path - resolve and read the file

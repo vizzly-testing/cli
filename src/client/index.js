@@ -195,10 +195,9 @@ function createSimpleClient(serverUrl) {
       try {
         // If it's a string, assume it's a file path and send directly
         // Otherwise it's a Buffer, so convert to base64
-        const image =
-          typeof imageBuffer === 'string'
-            ? imageBuffer
-            : imageBuffer.toString('base64');
+        let isFilePath = typeof imageBuffer === 'string';
+        let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
+        let type = isFilePath ? 'file-path' : 'base64';
 
         const { status, json } = await httpPost(
           `${serverUrl}/screenshot`,
@@ -206,6 +205,7 @@ function createSimpleClient(serverUrl) {
             buildId: getBuildId(),
             name,
             image,
+            type,
             properties: options,
             fullPage: options.fullPage || false,
           },

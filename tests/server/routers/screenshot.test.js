@@ -190,6 +190,99 @@ describe('server/routers/screenshot', () => {
         assert.strictEqual(capturedBuildId, 'default-build');
       });
 
+      it('passes explicit type to handler when provided', async () => {
+        let capturedType;
+        let screenshotHandler = {
+          handleScreenshot: async (
+            _buildId,
+            _name,
+            _image,
+            _properties,
+            type
+          ) => {
+            capturedType = type;
+            return { statusCode: 200, body: { success: true } };
+          },
+        };
+
+        let handler = createScreenshotRouter({
+          screenshotHandler,
+          defaultBuildId: 'build-1',
+        });
+        let req = createMockRequest('POST', {
+          name: 'test',
+          image: 'base64data',
+          type: 'base64',
+        });
+        let res = createMockResponse();
+
+        await handler(req, res, '/screenshot');
+
+        assert.strictEqual(capturedType, 'base64');
+      });
+
+      it('passes file-path type to handler', async () => {
+        let capturedType;
+        let screenshotHandler = {
+          handleScreenshot: async (
+            _buildId,
+            _name,
+            _image,
+            _properties,
+            type
+          ) => {
+            capturedType = type;
+            return { statusCode: 200, body: { success: true } };
+          },
+        };
+
+        let handler = createScreenshotRouter({
+          screenshotHandler,
+          defaultBuildId: 'build-1',
+        });
+        let req = createMockRequest('POST', {
+          name: 'test',
+          image: '/path/to/file.png',
+          type: 'file-path',
+        });
+        let res = createMockResponse();
+
+        await handler(req, res, '/screenshot');
+
+        assert.strictEqual(capturedType, 'file-path');
+      });
+
+      it('passes undefined type when not provided (backwards compat)', async () => {
+        let capturedType = 'not-called';
+        let screenshotHandler = {
+          handleScreenshot: async (
+            _buildId,
+            _name,
+            _image,
+            _properties,
+            type
+          ) => {
+            capturedType = type;
+            return { statusCode: 200, body: { success: true } };
+          },
+        };
+
+        let handler = createScreenshotRouter({
+          screenshotHandler,
+          defaultBuildId: 'build-1',
+        });
+        let req = createMockRequest('POST', {
+          name: 'test',
+          image: 'base64data',
+          // No type field - simulating old client
+        });
+        let res = createMockResponse();
+
+        await handler(req, res, '/screenshot');
+
+        assert.strictEqual(capturedType, undefined);
+      });
+
       it('returns 400 when name is missing', async () => {
         let handler = createScreenshotRouter({
           screenshotHandler: createMockScreenshotHandler(),

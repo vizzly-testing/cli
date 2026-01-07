@@ -114,6 +114,18 @@ describe('utils/image-input-detector', () => {
     it('returns false for base64 strings', () => {
       assert.strictEqual(looksLikeFilePath('aGVsbG8='), false);
     });
+
+    it('returns false for large strings (length > 1000)', () => {
+      // Large strings are assumed to be base64, not file paths
+      let largeString = 'a'.repeat(1001);
+      assert.strictEqual(looksLikeFilePath(largeString), false);
+    });
+
+    it('returns false for JPEG base64 starting with /9j/', () => {
+      // JPEG base64 starts with /9j/ which could look like a path
+      // but should not be detected as file path
+      assert.strictEqual(looksLikeFilePath('/9j/4AAQSkZJRg=='), false);
+    });
   });
 
   describe('detectImageInputType', () => {
@@ -150,6 +162,33 @@ describe('utils/image-input-detector', () => {
 
     it('returns unknown for ambiguous strings', () => {
       assert.strictEqual(detectImageInputType('invalid!!!'), 'unknown');
+    });
+
+    it('returns base64 for large strings (length > 1000) without file path patterns', () => {
+      // Large strings are assumed to be base64 without running expensive validation
+      let largeString = 'a'.repeat(1001);
+      assert.strictEqual(detectImageInputType(largeString), 'base64');
+    });
+
+    it('returns base64 for JPEG base64 starting with /9j/', () => {
+      // JPEG base64 starts with /9j/ - should be detected as base64, not file-path
+      assert.strictEqual(detectImageInputType('/9j/4AAQSkZJRg=='), 'base64');
+    });
+
+    it('returns file-path for absolute Unix path with extension', () => {
+      // Even though it starts with /, the .png extension makes it a file path
+      assert.strictEqual(
+        detectImageInputType('/path/to/image.png'),
+        'file-path'
+      );
+    });
+
+    it('handles data URI before checking file paths', () => {
+      // Data URIs should be detected as base64 immediately
+      assert.strictEqual(
+        detectImageInputType('data:image/png;base64,abc123'),
+        'base64'
+      );
     });
   });
 });

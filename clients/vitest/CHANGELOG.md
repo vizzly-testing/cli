@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-01-07
+
+## What's Changed
+
+### Changed
+- **Migrated to Biome for linting and formatting** - Replaced ESLint + Prettier with Biome for faster, unified code quality checks. Updated all npm scripts (`lint`, `format`, `check`) to use Biome tooling.
+
+### Performance
+- **Improved screenshot upload performance** - Added explicit `type: 'file-path'` field when sending screenshots to the Vizzly server, enabling O(1) type detection instead of content sniffing. This reduces server-side processing overhead for every screenshot.
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/vitest/v0.0.3...vitest/v0.1.0
+
 ## [0.0.3] - 2025-11-29
 
 ## What's Changed

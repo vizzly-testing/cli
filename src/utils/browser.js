@@ -11,7 +11,7 @@ import { platform } from 'node:os';
  * @param {string} url - URL to validate
  * @returns {boolean} True if safe
  */
-function isValidUrl(url) {
+export function isValidBrowserUrl(url) {
   if (typeof url !== 'string' || url.length === 0) {
     return false;
   }
@@ -28,7 +28,7 @@ function isValidUrl(url) {
  */
 export async function openBrowser(url) {
   // Validate URL to prevent command injection
-  if (!isValidUrl(url)) {
+  if (!isValidBrowserUrl(url)) {
     return false;
   }
 

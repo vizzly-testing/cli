@@ -1,5 +1,11 @@
 import assert from 'node:assert';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -47,7 +53,10 @@ describe('session', () => {
 
       writeSession({ buildId: 'build-123' }, { cwd: newDir });
 
-      assert.ok(existsSync(join(newDir, '.vizzly')), '.vizzly directory should exist');
+      assert.ok(
+        existsSync(join(newDir, '.vizzly')),
+        '.vizzly directory should exist'
+      );
     });
 
     it('writes to GITHUB_ENV when available', () => {

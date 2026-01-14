@@ -6,14 +6,14 @@
  */
 
 import { exec, execSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { existsSync, statSync } from 'node:fs';
-import { readFile, stat, unlink } from 'node:fs/promises';
+import { readFile, realpath, stat, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import {
   createApiClient as defaultCreateApiClient,
-  getPreviewInfo as defaultGetPreviewInfo,
   uploadPreviewZip as defaultUploadPreviewZip,
 } from '../api/index.js';
 import { openBrowser as defaultOpenBrowser } from '../utils/browser.js';
@@ -26,6 +26,17 @@ import {
 } from '../utils/session.js';
 
 let execAsync = promisify(exec);
+
+/**
+ * Validate path for shell safety - prevents command injection
+ * @param {string} path - Path to validate
+ * @returns {boolean} true if path is safe for shell use
+ */
+function isPathSafe(path) {
+  // Reject paths with shell metacharacters that could enable command injection
+  let dangerousChars = /[`$;&|<>(){}[\]\\!*?'"]/;
+  return !dangerousChars.test(path);
+}
 
 /**
  * Check if a command exists on the system
@@ -75,17 +86,30 @@ async function createZipWithSystem(sourceDir, outputPath) {
     );
   }
 
+  // Validate paths to prevent command injection
+  // Note: outputPath is internally generated (tmpdir + random), so always safe
+  // sourceDir comes from user input, so we validate it
+  if (!isPathSafe(sourceDir)) {
+    throw new Error(
+      'Path contains unsupported characters. Please use a path without special shell characters.'
+    );
+  }
+
   if (command === 'zip') {
     // Standard zip command - create ZIP from directory contents
-    // -r: recursive, -q: quiet, -: output to stdout would be nice but we need a file
+    // Using cwd option is safe as it's not part of the command string
+    // -r: recursive, -q: quiet
     await execAsync(`zip -r -q "${outputPath}" .`, {
       cwd: sourceDir,
       maxBuffer: 1024 * 1024 * 100, // 100MB buffer
     });
   } else if (command === 'powershell') {
-    // Windows PowerShell
+    // Windows PowerShell - use -LiteralPath for safer path handling
+    // Escape single quotes in paths by doubling them
+    let safeSrcDir = sourceDir.replace(/'/g, "''");
+    let safeOutPath = outputPath.replace(/'/g, "''");
     await execAsync(
-      `powershell -Command "Compress-Archive -Path '${sourceDir}\\*' -DestinationPath '${outputPath}' -Force"`,
+      `powershell -Command "Compress-Archive -LiteralPath '${safeSrcDir}\\*' -DestinationPath '${safeOutPath}' -Force"`,
       { maxBuffer: 1024 * 1024 * 100 }
     );
   }
@@ -93,6 +117,7 @@ async function createZipWithSystem(sourceDir, outputPath) {
 
 /**
  * Count files in a directory recursively
+ * Skips symlinks to prevent path traversal attacks
  * @param {string} dir - Directory path
  * @returns {Promise<{ count: number, totalSize: number }>}
  */
@@ -101,11 +126,19 @@ async function countFiles(dir) {
   let count = 0;
   let totalSize = 0;
 
+  // Resolve the base directory to an absolute path for traversal checks
+  let baseDir = await realpath(resolve(dir));
+
   async function walk(currentDir) {
     let entries = await readdir(currentDir, { withFileTypes: true });
 
     for (let entry of entries) {
       let fullPath = join(currentDir, entry.name);
+
+      // Skip symlinks to prevent traversal attacks
+      if (entry.isSymbolicLink()) {
+        continue;
+      }
 
       if (entry.isDirectory()) {
         // Skip hidden directories and common non-content directories
@@ -116,6 +149,13 @@ async function countFiles(dir) {
         ) {
           continue;
         }
+
+        // Verify we're still within the base directory (prevent traversal)
+        let realSubDir = await realpath(fullPath);
+        if (!realSubDir.startsWith(baseDir)) {
+          continue;
+        }
+
         await walk(fullPath);
       } else if (entry.isFile()) {
         // Skip hidden files
@@ -129,7 +169,7 @@ async function countFiles(dir) {
     }
   }
 
-  await walk(dir);
+  await walk(baseDir);
   return { count, totalSize };
 }
 
@@ -161,7 +201,6 @@ export async function previewCommand(
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
     uploadPreviewZip = defaultUploadPreviewZip,
-    getPreviewInfo = defaultGetPreviewInfo,
     readSession = defaultReadSession,
     formatSessionAge = defaultFormatSessionAge,
     detectBranch = defaultDetectBranch,
@@ -282,30 +321,40 @@ export async function previewCommand(
       return { success: false, reason: 'no-files' };
     }
 
-    output.updateSpinner(`Found ${fileCount} files (${formatBytes(totalSize)})`);
+    output.updateSpinner(
+      `Found ${fileCount} files (${formatBytes(totalSize)})`
+    );
 
     // Create ZIP using system command
     output.updateSpinner('Compressing files...');
-    let zipPath = join(tmpdir(), `vizzly-preview-${Date.now()}.zip`);
+    // Use timestamp + random bytes for unique temp file (prevents race conditions)
+    let randomSuffix = randomBytes(8).toString('hex');
+    let zipPath = join(
+      tmpdir(),
+      `vizzly-preview-${Date.now()}-${randomSuffix}.zip`
+    );
 
+    let zipBuffer;
     try {
       await createZipWithSystem(path, zipPath);
+      zipBuffer = await readFile(zipPath);
     } catch (zipError) {
       output.stopSpinner();
       output.error(`Failed to create ZIP: ${zipError.message}`);
+      await unlink(zipPath).catch(() => {});
       exit(1);
       return { success: false, reason: 'zip-failed', error: zipError };
+    } finally {
+      // Always clean up temp file
+      await unlink(zipPath).catch(() => {});
     }
 
-    // Read the ZIP file
-    let zipBuffer = await readFile(zipPath);
-    let compressionRatio = ((1 - zipBuffer.length / totalSize) * 100).toFixed(0);
+    let compressionRatio = ((1 - zipBuffer.length / totalSize) * 100).toFixed(
+      0
+    );
     output.updateSpinner(
       `Compressed to ${formatBytes(zipBuffer.length)} (${compressionRatio}% smaller)`
     );
-
-    // Clean up temp file
-    await unlink(zipPath).catch(() => {});
 
     // Upload
     output.updateSpinner('Uploading preview...');
@@ -376,7 +425,9 @@ export async function previewCommand(
     } else if (error.status === 403) {
       if (error.message?.includes('Starter')) {
         output.error('Preview hosting requires Starter plan or above');
-        output.hint('Upgrade your plan at https://app.vizzly.dev/settings/billing');
+        output.hint(
+          'Upgrade your plan at https://app.vizzly.dev/settings/billing'
+        );
       } else {
         output.error('Access denied', error);
       }

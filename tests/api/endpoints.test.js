@@ -526,7 +526,9 @@ describe('api/endpoints', () => {
 
       let call = client.getLastCall();
       // Should have form-data headers
-      assert.ok(call.options.headers['content-type']?.includes('multipart/form-data'));
+      assert.ok(
+        call.options.headers['content-type']?.includes('multipart/form-data')
+      );
     });
   });
 

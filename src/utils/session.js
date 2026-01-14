@@ -9,8 +9,13 @@
  * 2. GitHub Actions env ($GITHUB_ENV) - for cross-step persistence in GHA
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { appendFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 let SESSION_DIR = '.vizzly';
@@ -57,7 +62,9 @@ export function writeSession(context, options = {}) {
     mkdirSync(sessionDir, { recursive: true });
   }
 
-  writeFileSync(sessionPath, JSON.stringify(session, null, 2) + '\n');
+  writeFileSync(sessionPath, `${JSON.stringify(session, null, 2)}\n`, {
+    mode: 0o600,
+  });
 
   // Write to GitHub Actions environment
   if (env.GITHUB_ENV) {

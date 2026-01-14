@@ -7,12 +7,9 @@ import {
   validateFinalizeOptions,
 } from './commands/finalize.js';
 import { init } from './commands/init.js';
-import {
-  previewCommand,
-  validatePreviewOptions,
-} from './commands/preview.js';
 import { loginCommand, validateLoginOptions } from './commands/login.js';
 import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
+import { previewCommand, validatePreviewOptions } from './commands/preview.js';
 import {
   projectListCommand,
   projectRemoveCommand,

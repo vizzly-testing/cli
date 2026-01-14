@@ -99,15 +99,24 @@ describe('previewCommand', () => {
     let output = createMockOutput();
     let exitCode = null;
 
-    await previewCommand(distDir, {}, {}, {
-      loadConfig: async () => ({ apiKey: null }),
-      output,
-      exit: code => { exitCode = code; },
-    });
+    await previewCommand(
+      distDir,
+      {},
+      {},
+      {
+        loadConfig: async () => ({ apiKey: null }),
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
 
     assert.strictEqual(exitCode, 1);
     assert.ok(
-      output.calls.some(c => c.method === 'error' && c.args[0].includes('API token')),
+      output.calls.some(
+        c => c.method === 'error' && c.args[0].includes('API token')
+      ),
       'Should show API token error'
     );
   });
@@ -116,15 +125,27 @@ describe('previewCommand', () => {
     let output = createMockOutput();
     let exitCode = null;
 
-    await previewCommand('/nonexistent/path', {}, {}, {
-      loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-      output,
-      exit: code => { exitCode = code; },
-    });
+    await previewCommand(
+      '/nonexistent/path',
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
 
     assert.strictEqual(exitCode, 1);
     assert.ok(
-      output.calls.some(c => c.method === 'error' && c.args[0].includes('does not exist')),
+      output.calls.some(
+        c => c.method === 'error' && c.args[0].includes('does not exist')
+      ),
       'Should show path not found error'
     );
   });
@@ -133,17 +154,29 @@ describe('previewCommand', () => {
     let output = createMockOutput();
     let exitCode = null;
 
-    await previewCommand(distDir, {}, {}, {
-      loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-      readSession: () => null, // No session
-      detectBranch: async () => 'main',
-      output,
-      exit: code => { exitCode = code; },
-    });
+    await previewCommand(
+      distDir,
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        readSession: () => null, // No session
+        detectBranch: async () => 'main',
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
 
     assert.strictEqual(exitCode, 1);
     assert.ok(
-      output.calls.some(c => c.method === 'error' && c.args[0].includes('No build found')),
+      output.calls.some(
+        c => c.method === 'error' && c.args[0].includes('No build found')
+      ),
       'Should show no build found error'
     );
   });
@@ -152,33 +185,41 @@ describe('previewCommand', () => {
     let output = createMockOutput();
     let capturedBuildId = null;
 
-    await previewCommand(distDir, {}, {}, {
-      loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-      readSession: () => ({
-        buildId: 'session-build-123',
-        source: 'session_file',
-        expired: false,
-        branchMismatch: false,
-        age: 60000,
-      }),
-      formatSessionAge: () => '1m ago',
-      detectBranch: async () => 'main',
-      createApiClient: () => ({
-        request: async () => ({}),
-      }),
-      uploadPreviewZip: async (_client, buildId) => {
-        capturedBuildId = buildId;
-        return {
-          previewUrl: 'https://preview.test',
-          uploaded: 3,
-          totalBytes: 1000,
-          newBytes: 800,
-          reusedBlobs: 0,
-        };
-      },
-      output,
-      exit: () => {},
-    });
+    await previewCommand(
+      distDir,
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        readSession: () => ({
+          buildId: 'session-build-123',
+          source: 'session_file',
+          expired: false,
+          branchMismatch: false,
+          age: 60000,
+        }),
+        formatSessionAge: () => '1m ago',
+        detectBranch: async () => 'main',
+        createApiClient: () => ({
+          request: async () => ({}),
+        }),
+        uploadPreviewZip: async (_client, buildId) => {
+          capturedBuildId = buildId;
+          return {
+            previewUrl: 'https://preview.test',
+            uploaded: 3,
+            totalBytes: 1000,
+            newBytes: 800,
+            reusedBlobs: 0,
+          };
+        },
+        output,
+        exit: () => {},
+      }
+    );
 
     assert.strictEqual(capturedBuildId, 'session-build-123');
   });
@@ -187,27 +228,35 @@ describe('previewCommand', () => {
     let output = createMockOutput();
     let capturedBuildId = null;
 
-    await previewCommand(distDir, { build: 'explicit-build-456' }, {}, {
-      loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-      readSession: () => ({
-        buildId: 'session-build-123',
-        source: 'session_file',
-        expired: false,
-      }),
-      detectBranch: async () => 'main',
-      createApiClient: () => ({}),
-      uploadPreviewZip: async (_client, buildId) => {
-        capturedBuildId = buildId;
-        return {
-          previewUrl: 'https://preview.test',
-          uploaded: 3,
-          totalBytes: 1000,
-          newBytes: 800,
-        };
-      },
-      output,
-      exit: () => {},
-    });
+    await previewCommand(
+      distDir,
+      { build: 'explicit-build-456' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        readSession: () => ({
+          buildId: 'session-build-123',
+          source: 'session_file',
+          expired: false,
+        }),
+        detectBranch: async () => 'main',
+        createApiClient: () => ({}),
+        uploadPreviewZip: async (_client, buildId) => {
+          capturedBuildId = buildId;
+          return {
+            previewUrl: 'https://preview.test',
+            uploaded: 3,
+            totalBytes: 1000,
+            newBytes: 800,
+          };
+        },
+        output,
+        exit: () => {},
+      }
+    );
 
     assert.strictEqual(capturedBuildId, 'explicit-build-456');
   });
@@ -216,23 +265,35 @@ describe('previewCommand', () => {
     let output = createMockOutput();
     let exitCode = null;
 
-    await previewCommand(distDir, {}, {}, {
-      loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-      readSession: () => ({
-        buildId: 'build-123',
-        branch: 'main',
-        source: 'session_file',
-        expired: false,
-        branchMismatch: true,
-      }),
-      detectBranch: async () => 'feature-branch',
-      output,
-      exit: code => { exitCode = code; },
-    });
+    await previewCommand(
+      distDir,
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        readSession: () => ({
+          buildId: 'build-123',
+          branch: 'main',
+          source: 'session_file',
+          expired: false,
+          branchMismatch: true,
+        }),
+        detectBranch: async () => 'feature-branch',
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
 
     assert.strictEqual(exitCode, 1);
     assert.ok(
-      output.calls.some(c => c.method === 'warn' && c.args[0].includes('different branch')),
+      output.calls.some(
+        c => c.method === 'warn' && c.args[0].includes('different branch')
+      ),
       'Should warn about branch mismatch'
     );
   });
@@ -240,19 +301,27 @@ describe('previewCommand', () => {
   it('outputs JSON when --json flag is set', async () => {
     let output = createMockOutput();
 
-    await previewCommand(distDir, { build: 'build-123' }, { json: true }, {
-      loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-      createApiClient: () => ({}),
-      uploadPreviewZip: async () => ({
-        previewUrl: 'https://preview.test',
-        uploaded: 3,
-        totalBytes: 1000,
-        newBytes: 800,
-        deduplicationRatio: 0.2,
-      }),
-      output,
-      exit: () => {},
-    });
+    await previewCommand(
+      distDir,
+      { build: 'build-123' },
+      { json: true },
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        uploadPreviewZip: async () => ({
+          previewUrl: 'https://preview.test',
+          uploaded: 3,
+          totalBytes: 1000,
+          newBytes: 800,
+          deduplicationRatio: 0.2,
+        }),
+        output,
+        exit: () => {},
+      }
+    );
 
     let dataCall = output.calls.find(c => c.method === 'data');
     assert.ok(dataCall, 'Should output JSON data');
@@ -265,22 +334,30 @@ describe('previewCommand', () => {
     let output = createMockOutput();
     let openedUrl = null;
 
-    await previewCommand(distDir, { build: 'build-123', open: true }, {}, {
-      loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-      createApiClient: () => ({}),
-      uploadPreviewZip: async () => ({
-        previewUrl: 'https://preview.test',
-        uploaded: 3,
-        totalBytes: 1000,
-        newBytes: 800,
-      }),
-      openBrowser: async url => {
-        openedUrl = url;
-        return true;
-      },
-      output,
-      exit: () => {},
-    });
+    await previewCommand(
+      distDir,
+      { build: 'build-123', open: true },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        uploadPreviewZip: async () => ({
+          previewUrl: 'https://preview.test',
+          uploaded: 3,
+          totalBytes: 1000,
+          newBytes: 800,
+        }),
+        openBrowser: async url => {
+          openedUrl = url;
+          return true;
+        },
+        output,
+        exit: () => {},
+      }
+    );
 
     assert.strictEqual(openedUrl, 'https://preview.test');
   });

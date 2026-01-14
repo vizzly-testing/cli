@@ -169,7 +169,10 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
 
     // Show preview URL if available
     if (previewInfo?.preview_url) {
-      output.labelValue('Preview', output.link('Preview', previewInfo.preview_url));
+      output.labelValue(
+        'Preview',
+        output.link('Preview', previewInfo.preview_url)
+      );
       if (previewInfo.expires_at) {
         let expiresDate = new Date(previewInfo.expires_at);
         output.hint(`Preview expires ${expiresDate.toLocaleDateString()}`);

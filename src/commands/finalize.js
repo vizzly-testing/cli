@@ -9,6 +9,7 @@ import {
 } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
+import { writeSession as defaultWriteSession } from '../utils/session.js';
 
 /**
  * Finalize command implementation
@@ -28,6 +29,7 @@ export async function finalizeCommand(
     createApiClient = defaultCreateApiClient,
     finalizeParallelBuild = defaultFinalizeParallelBuild,
     output = defaultOutput,
+    writeSession = defaultWriteSession,
     exit = code => process.exit(code),
   } = deps;
 
@@ -68,6 +70,14 @@ export async function finalizeCommand(
     });
     let result = await finalizeParallelBuild(client, parallelId);
     output.stopSpinner();
+
+    // Write session for subsequent commands (like preview)
+    if (result.build?.id) {
+      writeSession({
+        buildId: result.build.id,
+        parallelId,
+      });
+    }
 
     if (globalOptions.json) {
       output.data(result);

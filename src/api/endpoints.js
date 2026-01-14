@@ -320,3 +320,47 @@ export async function finalizeParallelBuild(client, parallelId) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
+// ============================================================================
+// Preview Endpoints
+// ============================================================================
+
+/**
+ * Upload preview ZIP file for a build
+ * @param {Object} client - API client
+ * @param {string} buildId - Build ID
+ * @param {Buffer} zipBuffer - ZIP file contents
+ * @returns {Promise<Object>} Upload result with preview URL
+ */
+export async function uploadPreviewZip(client, buildId, zipBuffer) {
+  // Create form data with the ZIP file
+  let FormData = (await import('form-data')).default;
+  let formData = new FormData();
+  formData.append('file', zipBuffer, {
+    filename: 'preview.zip',
+    contentType: 'application/zip',
+  });
+
+  return client.request(`/api/sdk/builds/${buildId}/preview/upload-zip`, {
+    method: 'POST',
+    body: formData,
+    headers: formData.getHeaders(),
+  });
+}
+
+/**
+ * Get preview info for a build
+ * @param {Object} client - API client
+ * @param {string} buildId - Build ID
+ * @returns {Promise<Object>} Preview info or null if not found
+ */
+export async function getPreviewInfo(client, buildId) {
+  try {
+    return await client.request(`/api/sdk/builds/${buildId}/preview`);
+  } catch (error) {
+    if (error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}

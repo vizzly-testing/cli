@@ -3,7 +3,7 @@
  * Uses functional API operations directly
  */
 
-import { createApiClient, getBuild } from '../api/index.js';
+import { createApiClient, getBuild, getPreviewInfo } from '../api/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { getApiUrl } from '../utils/environment-config.js';
 import * as output from '../utils/output.js';
@@ -42,6 +42,9 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
       command: 'status',
     });
     let buildStatus = await getBuild(client, buildId);
+
+    // Also fetch preview info (if exists)
+    let previewInfo = await getPreviewInfo(client, buildId);
     output.stopSpinner();
 
     // Extract build data from API response
@@ -69,6 +72,14 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
         executionTime: build.execution_time_ms,
         isBaseline: build.is_baseline,
         userAgent: build.user_agent,
+        preview: previewInfo
+          ? {
+              url: previewInfo.preview_url,
+              status: previewInfo.status,
+              fileCount: previewInfo.file_count,
+              expiresAt: previewInfo.expires_at,
+            }
+          : null,
       };
       output.data(statusData);
       output.cleanup();
@@ -154,6 +165,18 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
         `/projects/${build.project_id}/builds/${build.id}`;
       output.blank();
       output.labelValue('View', output.link('Build', buildUrl));
+    }
+
+    // Show preview URL if available
+    if (previewInfo?.preview_url) {
+      output.labelValue(
+        'Preview',
+        output.link('Preview', previewInfo.preview_url)
+      );
+      if (previewInfo.expires_at) {
+        let expiresDate = new Date(previewInfo.expires_at);
+        output.hint(`Preview expires ${expiresDate.toLocaleDateString()}`);
+      }
     }
 
     // Show additional info in verbose mode

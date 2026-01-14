@@ -13,6 +13,7 @@ import {
   generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
+import { writeSession as defaultWriteSession } from '../utils/session.js';
 
 /**
  * Construct proper build URL with org/project context
@@ -78,6 +79,7 @@ export async function uploadCommand(
     detectPullRequestNumber = defaultDetectPullRequestNumber,
     generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
     output = defaultOutput,
+    writeSession = defaultWriteSession,
     exit = code => process.exit(code),
     buildUrlConstructor = constructBuildUrl,
   } = deps;
@@ -174,6 +176,16 @@ export async function uploadCommand(
     output.progress('Starting upload...');
     const result = await uploader.upload(uploadOptions);
     buildId = result.buildId; // Ensure we have the buildId
+
+    // Write session for subsequent commands (like preview)
+    if (buildId) {
+      writeSession({
+        buildId,
+        branch,
+        commit,
+        parallelId: config.parallelId,
+      });
+    }
 
     // Mark build as completed
     if (result.buildId) {

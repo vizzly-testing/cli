@@ -45,10 +45,12 @@ export {
   getBuild,
   getBuilds,
   getComparison,
+  getPreviewInfo,
   getScreenshotHotspots,
   getTddBaselines,
   getTokenContext,
   searchComparisons,
   updateBuildStatus,
+  uploadPreviewZip,
   uploadScreenshot,
 } from './endpoints.js';

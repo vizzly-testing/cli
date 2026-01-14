@@ -7,6 +7,10 @@ import {
   validateFinalizeOptions,
 } from './commands/finalize.js';
 import { init } from './commands/init.js';
+import {
+  previewCommand,
+  validatePreviewOptions,
+} from './commands/preview.js';
 import { loginCommand, validateLoginOptions } from './commands/login.js';
 import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
 import {
@@ -566,6 +570,30 @@ program
     }
 
     await finalizeCommand(parallelId, options, globalOptions);
+  });
+
+program
+  .command('preview')
+  .description('Upload static files as a preview for a build')
+  .argument('<path>', 'Path to static files (dist/, build/, out/)')
+  .option('-b, --build <id>', 'Build ID to attach preview to')
+  .option('-p, --parallel-id <id>', 'Look up build by parallel ID')
+  .option('--base <path>', 'Override auto-detected base path')
+  .option('--open', 'Open preview URL in browser after upload')
+  .action(async (path, options) => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validatePreviewOptions(path, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await previewCommand(path, options, globalOptions);
   });
 
 program

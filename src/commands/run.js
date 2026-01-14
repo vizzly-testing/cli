@@ -28,6 +28,7 @@ import {
   generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
+import { writeSession as defaultWriteSession } from '../utils/session.js';
 
 /**
  * Run command implementation
@@ -61,6 +62,7 @@ export async function runCommand(
     generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
     spawn = defaultSpawn,
     output = defaultOutput,
+    writeSession = defaultWriteSession,
     exit = code => process.exit(code),
     processOn = (event, handler) => process.on(event, handler),
     processRemoveListener = (event, handler) =>
@@ -272,6 +274,15 @@ export async function runCommand(
           onBuildCreated: data => {
             buildUrl = data.url;
             buildId = data.buildId;
+
+            // Write session for subsequent commands (like preview)
+            writeSession({
+              buildId: data.buildId,
+              branch,
+              commit,
+              parallelId: runOptions.parallelId,
+            });
+
             if (globalOptions.verbose) {
               output.info(`Build created: ${data.buildId}`);
             }

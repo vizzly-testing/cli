@@ -16,11 +16,13 @@ import {
   getBuild,
   getBuilds,
   getComparison,
+  getPreviewInfo,
   getScreenshotHotspots,
   getTddBaselines,
   getTokenContext,
   searchComparisons,
   updateBuildStatus,
+  uploadPreviewZip,
   uploadScreenshot,
 } from '../../src/api/endpoints.js';
 
@@ -493,6 +495,85 @@ describe('api/endpoints', () => {
         '/api/sdk/parallel/parallel-123/finalize'
       );
       assert.strictEqual(call.options.method, 'POST');
+    });
+  });
+
+  describe('uploadPreviewZip', () => {
+    it('uploads ZIP to correct endpoint', async () => {
+      let client = createMockClient({
+        success: true,
+        previewUrl: 'https://preview.test',
+        uploaded: 10,
+      });
+
+      let zipBuffer = Buffer.from('fake zip data');
+      let result = await uploadPreviewZip(client, 'build-123', zipBuffer);
+
+      let call = client.getLastCall();
+      assert.strictEqual(
+        call.endpoint,
+        '/api/sdk/builds/build-123/preview/upload-zip'
+      );
+      assert.strictEqual(call.options.method, 'POST');
+      assert.strictEqual(result.previewUrl, 'https://preview.test');
+    });
+
+    it('sends ZIP as form data', async () => {
+      let client = createMockClient({ success: true });
+
+      let zipBuffer = Buffer.from('fake zip data');
+      await uploadPreviewZip(client, 'build-123', zipBuffer);
+
+      let call = client.getLastCall();
+      // Should have form-data headers
+      assert.ok(call.options.headers['content-type']?.includes('multipart/form-data'));
+    });
+  });
+
+  describe('getPreviewInfo', () => {
+    it('fetches preview info for build', async () => {
+      let client = createMockClient({
+        preview_id: 'preview-123',
+        status: 'active',
+        preview_url: 'https://preview.test',
+        file_count: 47,
+      });
+
+      let result = await getPreviewInfo(client, 'build-123');
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/builds/build-123/preview'
+      );
+      assert.strictEqual(result.preview_url, 'https://preview.test');
+      assert.strictEqual(result.file_count, 47);
+    });
+
+    it('returns null when preview not found (404)', async () => {
+      let error = new Error('Not found');
+      error.status = 404;
+
+      let client = createMockClient(() => {
+        throw error;
+      });
+
+      let result = await getPreviewInfo(client, 'build-123');
+
+      assert.strictEqual(result, null);
+    });
+
+    it('throws on other errors', async () => {
+      let error = new Error('Server error');
+      error.status = 500;
+
+      let client = createMockClient(() => {
+        throw error;
+      });
+
+      await assert.rejects(
+        () => getPreviewInfo(client, 'build-123'),
+        /Server error/
+      );
     });
   });
 });

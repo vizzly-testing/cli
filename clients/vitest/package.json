@@ -1,6 +1,6 @@
 {
   "name": "@vizzly-testing/vitest",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Drop-in replacement for Vitest visual testing - powered by Vizzly",
   "keywords": [
     "vizzly",

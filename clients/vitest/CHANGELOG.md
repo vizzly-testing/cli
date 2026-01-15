@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-01-15
+
+## What's Changed
+
+### Fixed
+- Fixed compatibility with Vizzly CLI v0.23.0+ by updating status value handling from `passed`/`failed` to `match`/`diff`
+- Added support for `baseline-updated` status to properly handle baseline updates in TDD mode
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/vitest/v0.1.0...vitest/v0.1.1
+
 ## [0.1.0] - 2026-01-07
 
 ## What's Changed

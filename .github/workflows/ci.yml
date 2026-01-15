@@ -60,56 +60,6 @@ jobs:
     - name: Run type tests
       run: npm run test:types
 
-  test-site:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 8
-    needs: lint
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Use Node.js 22
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22
-        cache: 'npm'
-
-    - name: Install CLI dependencies
-      run: npm ci
-
-    - name: Build CLI
-      run: npm run build
-
-    - name: Install test site dependencies
-      working-directory: ./test-site
-      run: npm ci
-
-    - name: Get installed Playwright version
-      working-directory: ./test-site
-      id: playwright-version
-      run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
-
-    - name: Cache Playwright browsers
-      uses: actions/cache@v4
-      id: playwright-cache
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-browsers-${{ steps.playwright-version.outputs.version }}-firefox
-
-    - name: Install Playwright browsers
-      if: steps.playwright-cache.outputs.cache-hit != 'true'
-      working-directory: ./test-site
-      run: npx playwright install firefox --with-deps
-
-    - name: Test Vizzly integration
-      working-directory: ./test-site
-      run: node ../bin/vizzly.js run "npm test"
-      env:
-        CI: true
-        VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
-        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
-        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
-
   test-reporter:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 8
@@ -408,6 +358,204 @@ jobs:
       working-directory: ./clients/static-site
       run: npm run build
 
+  # SDK E2E Integration Tests
+  # Always run to catch CLI changes that break SDK integrations
+  # Each SDK has its own job for isolation, parallelism, and clear failure diagnosis
+
+  e2e-core-js-client:
+    name: E2E - Core JS Client
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 8
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'npm'
+
+    - name: Install CLI dependencies
+      run: npm ci
+
+    - name: Build CLI
+      run: npm run build
+
+    - name: Install test-site dependencies
+      working-directory: ./test-site
+      run: npm ci
+
+    - name: Get Playwright version
+      id: playwright-version
+      run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ steps.playwright-version.outputs.version }}-firefox
+
+    - name: Install Playwright browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: ./test-site
+      run: npx playwright install firefox --with-deps
+
+    - name: Run E2E tests
+      working-directory: ./test-site
+      run: node ../bin/vizzly.js run "npm test"
+      env:
+        CI: true
+        VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  e2e-vitest-sdk:
+    name: E2E - Vitest SDK
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 8
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'npm'
+
+    - name: Install CLI dependencies
+      run: npm ci
+
+    - name: Build CLI
+      run: npm run build
+
+    - name: Install Vitest client dependencies
+      working-directory: ./clients/vitest
+      run: npm install
+
+    - name: Get Playwright version
+      working-directory: ./clients/vitest
+      id: playwright-version
+      run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+
+    - name: Install Playwright browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: ./clients/vitest
+      run: npx playwright install chromium --with-deps
+
+    - name: Run E2E tests
+      working-directory: ./clients/vitest
+      run: ../../bin/vizzly.js run "npm run test:e2e"
+      env:
+        CI: true
+        VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
+        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  e2e-ember-sdk:
+    name: E2E - Ember SDK
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 8
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'npm'
+
+    - name: Install CLI dependencies
+      run: npm ci
+
+    - name: Build CLI
+      run: npm run build
+
+    - name: Install Ember client dependencies
+      working-directory: ./clients/ember
+      run: npm install
+
+    - name: Get Playwright version
+      working-directory: ./clients/ember
+      id: playwright-version
+      run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+
+    - name: Install Playwright browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: ./clients/ember
+      run: npx playwright install chromium --with-deps
+
+    - name: Run E2E tests
+      working-directory: ./clients/ember
+      run: |
+        cd test-app
+        npm install
+        npm run build -- --mode development
+        ../../../bin/vizzly.js run "npx testem ci --file testem.cjs"
+      env:
+        CI: true
+        VIZZLY_TOKEN: ${{ secrets.VIZZLY_EMBER_CLIENT_TOKEN }}
+        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  e2e-ruby-sdk:
+    name: E2E - Ruby SDK
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 8
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'npm'
+
+    - name: Install CLI dependencies
+      run: npm ci
+
+    - name: Build CLI
+      run: npm run build
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'
+
+    - name: Install Ruby dependencies
+      working-directory: ./clients/ruby
+      run: |
+        gem install bundler
+        bundle install
+
+    - name: Run integration tests
+      working-directory: ./clients/ruby
+      run: VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb
+      env:
+        CI: true
+
   test-vitest-client:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 8
@@ -462,16 +610,6 @@ jobs:
       run: npm run test:unit
       env:
         CI: true
-
-    - name: Run Vitest client E2E tests
-      if: matrix.node-version == 22
-      working-directory: ./clients/vitest
-      run: ../../bin/vizzly.js run "npm run test:e2e"
-      env:
-        CI: true
-        VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
-        VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
-        VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
   test-swift-client:
     runs-on: macos-latest
@@ -569,14 +707,20 @@ jobs:
 
   ci-check:
     runs-on: ubuntu-latest
-    needs: [lint, test, test-site, test-reporter, test-tui, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client, changes-vitest, test-vitest-client, changes-swift, test-swift-client, changes-ember, test-ember-client]
+    needs: [lint, test, test-reporter, test-tui, e2e-core-js-client, e2e-vitest-sdk, e2e-ember-sdk, e2e-ruby-sdk, changes-ruby, test-ruby-client, changes-storybook, test-storybook-client, changes-static-site, test-static-site-client, changes-vitest, test-vitest-client, changes-swift, test-swift-client, changes-ember, test-ember-client]
     if: always()
     steps:
       - name: Check if all jobs passed
         run: |
           # Required jobs that always run
-          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.test-site.result }}" == "failure" || "${{ needs.test-reporter.result }}" == "failure" || "${{ needs.test-tui.result }}" == "failure" ]]; then
+          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.test-reporter.result }}" == "failure" || "${{ needs.test-tui.result }}" == "failure" ]]; then
             echo "One or more required jobs failed"
+            exit 1
+          fi
+
+          # SDK E2E jobs (always run)
+          if [[ "${{ needs.e2e-core-js-client.result }}" == "failure" || "${{ needs.e2e-vitest-sdk.result }}" == "failure" || "${{ needs.e2e-ember-sdk.result }}" == "failure" || "${{ needs.e2e-ruby-sdk.result }}" == "failure" ]]; then
+            echo "One or more SDK E2E jobs failed"
             exit 1
           fi
 

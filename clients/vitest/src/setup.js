@@ -93,12 +93,18 @@ async function toMatchScreenshot(element, name, options = {}) {
         message: () =>
           `New screenshot baseline created: ${screenshotName}. View at http://localhost:47392/dashboard`,
       };
-    } else if (comparisonStatus === 'passed') {
+    } else if (comparisonStatus === 'match') {
       return {
         pass: true,
         message: () => '',
       };
-    } else if (comparisonStatus === 'failed') {
+    } else if (comparisonStatus === 'baseline-updated') {
+      return {
+        pass: true,
+        message: () =>
+          `Baseline updated: ${screenshotName}. View at http://localhost:47392/dashboard`,
+      };
+    } else if (comparisonStatus === 'diff') {
       let diffPercent = comparison.diffPercentage
         ? comparison.diffPercentage.toFixed(2)
         : '0.00';

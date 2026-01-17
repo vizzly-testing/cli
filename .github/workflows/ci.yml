@@ -403,7 +403,13 @@ jobs:
       working-directory: ./test-site
       run: npx playwright install firefox --with-deps
 
-    - name: Run E2E tests
+    - name: Run E2E tests (TDD mode)
+      working-directory: ./test-site
+      run: node ../bin/vizzly.js tdd run "npm test"
+      env:
+        CI: true
+
+    - name: Run E2E tests (Cloud mode)
       working-directory: ./test-site
       run: node ../bin/vizzly.js run "npm test"
       env:
@@ -454,7 +460,13 @@ jobs:
       working-directory: ./clients/vitest
       run: npx playwright install chromium --with-deps
 
-    - name: Run E2E tests
+    - name: Run E2E tests (TDD mode)
+      working-directory: ./clients/vitest
+      run: ../../bin/vizzly.js tdd run "npm run test:e2e"
+      env:
+        CI: true
+
+    - name: Run E2E tests (Cloud mode)
       working-directory: ./clients/vitest
       run: ../../bin/vizzly.js run "npm run test:e2e"
       env:
@@ -505,13 +517,21 @@ jobs:
       working-directory: ./clients/ember
       run: npx playwright install chromium --with-deps
 
-    - name: Run E2E tests
-      working-directory: ./clients/ember
+    - name: Build Ember test app
+      working-directory: ./clients/ember/test-app
       run: |
-        cd test-app
         npm install
         npm run build -- --mode development
-        ../../../bin/vizzly.js run "npx testem ci --file testem.cjs"
+
+    - name: Run E2E tests (TDD mode)
+      working-directory: ./clients/ember/test-app
+      run: ../../../bin/vizzly.js tdd run "npx testem ci --file testem.cjs"
+      env:
+        CI: true
+
+    - name: Run E2E tests (Cloud mode)
+      working-directory: ./clients/ember/test-app
+      run: ../../../bin/vizzly.js run "npx testem ci --file testem.cjs"
       env:
         CI: true
         VIZZLY_TOKEN: ${{ secrets.VIZZLY_EMBER_CLIENT_TOKEN }}
@@ -550,9 +570,9 @@ jobs:
         gem install bundler
         bundle install
 
-    - name: Run integration tests
+    - name: Run integration tests (TDD mode)
       working-directory: ./clients/ruby
-      run: VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb
+      run: ../../bin/vizzly.js tdd run "VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb"
       env:
         CI: true
 

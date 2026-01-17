@@ -59,7 +59,6 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "dependencies": {},
   "peerDependencies": {
     "@vizzly-testing/cli": ">=0.12.0",
     "vitest": ">=4.0.0"
@@ -69,6 +68,7 @@
     "@vitest/browser": "^4.0.0",
     "@vitest/browser-playwright": "^4.0.2",
     "playwright": "^1.49.1",
+    "serve-handler": "^6.1.6",
     "vitest": "^4.0.0"
   }
 }

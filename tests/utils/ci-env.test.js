@@ -11,6 +11,7 @@ import {
   getPullRequestHeadSha,
   getPullRequestNumber,
   isPullRequest,
+  resetGitHubEventCache,
 } from '../../src/utils/ci-env.js';
 
 describe('utils/ci-env', () => {
@@ -105,10 +106,13 @@ describe('utils/ci-env', () => {
       'HEAD_COMMIT',
       'SHA',
       'COMMIT_MESSAGE',
+      'GITHUB_EVENT_PATH',
     ];
     for (let v of ciVars) {
       delete process.env[v];
     }
+    // Reset the GitHub event cache between tests
+    resetGitHubEventCache();
   });
 
   afterEach(() => {
@@ -176,7 +180,8 @@ describe('utils/ci-env', () => {
       assert.strictEqual(getCommit(), 'vizzly-sha');
     });
 
-    it('reads GITHUB_SHA for GitHub Actions', () => {
+    it('reads GITHUB_SHA for GitHub Actions push events', () => {
+      process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_SHA = 'abc123';
 
       assert.strictEqual(getCommit(), 'abc123');

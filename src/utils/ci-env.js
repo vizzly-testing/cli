@@ -4,6 +4,50 @@
  * Generic functions to extract git and PR information from any CI provider
  */
 
+import { readFileSync } from 'node:fs';
+
+// Cache for GitHub Actions event payload to avoid re-reading the file
+let _githubEventCache = null;
+
+/**
+ * Read and parse the GitHub Actions event payload from GITHUB_EVENT_PATH.
+ *
+ * GitHub Actions sets GITHUB_EVENT_PATH to a file containing the full webhook
+ * payload that triggered the workflow. This is essential for pull_request and
+ * pull_request_target events because GITHUB_SHA points to a merge commit,
+ * not the actual head commit.
+ *
+ * @returns {Object} Parsed event payload or empty object on failure
+ */
+export function getGitHubEvent() {
+  if (_githubEventCache !== null) {
+    return _githubEventCache;
+  }
+
+  let eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath) {
+    _githubEventCache = {};
+    return _githubEventCache;
+  }
+
+  try {
+    let content = readFileSync(eventPath, 'utf8');
+    _githubEventCache = JSON.parse(content);
+  } catch {
+    // File doesn't exist or invalid JSON - fail silently with empty object
+    _githubEventCache = {};
+  }
+
+  return _githubEventCache;
+}
+
+/**
+ * Reset the GitHub event cache. Useful for testing.
+ */
+export function resetGitHubEventCache() {
+  _githubEventCache = null;
+}
+
 /**
  * Get the branch name from CI environment variables
  * @returns {string|null} Branch name or null if not available
@@ -31,13 +75,41 @@ export function getBranch() {
 }
 
 /**
- * Get the commit SHA from CI environment variables
+ * Get the commit SHA from CI environment variables.
+ *
+ * IMPORTANT: For GitHub Actions pull_request events, GITHUB_SHA points to a
+ * temporary merge commit, NOT the actual head commit of the PR. This function
+ * reads the event payload from GITHUB_EVENT_PATH to extract the correct SHA.
+ *
+ * See: https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
+ * "GITHUB_SHA for this event is the last merge commit of the pull request merge branch.
+ * If you want to get the commit ID for the last commit to the head branch of the
+ * pull request, use github.event.pull_request.head.sha instead."
+ *
  * @returns {string|null} Commit SHA or null if not available
  */
 export function getCommit() {
+  // Vizzly override always takes priority
+  if (process.env.VIZZLY_COMMIT_SHA) {
+    return process.env.VIZZLY_COMMIT_SHA;
+  }
+
+  // GitHub Actions: extract the correct SHA based on event type
+  if (process.env.GITHUB_ACTIONS) {
+    let event = getGitHubEvent();
+
+    // For pull_request events, use the actual head commit SHA (not the merge commit)
+    // The event payload contains pull_request.head.sha which is what we want
+    if (event.pull_request?.head?.sha) {
+      return event.pull_request.head.sha;
+    }
+
+    // For push events or if event parsing failed, GITHUB_SHA is correct
+    return process.env.GITHUB_SHA || null;
+  }
+
+  // Other CI providers
   return (
-    process.env.VIZZLY_COMMIT_SHA || // Vizzly override
-    process.env.GITHUB_SHA || // GitHub Actions
     process.env.CI_COMMIT_SHA || // GitLab CI
     process.env.CIRCLE_SHA1 || // CircleCI
     process.env.TRAVIS_COMMIT || // Travis CI
@@ -145,13 +217,30 @@ export function getPullRequestNumber() {
 }
 
 /**
- * Get the PR head SHA from CI environment variables
+ * Get the PR head SHA from CI environment variables.
+ *
+ * For GitHub Actions, this reads from the event payload to get the actual
+ * head commit SHA, not the merge commit that GITHUB_SHA points to.
+ *
  * @returns {string|null} PR head SHA or null if not available
  */
 export function getPullRequestHeadSha() {
+  // Vizzly override always takes priority
+  if (process.env.VIZZLY_PR_HEAD_SHA) {
+    return process.env.VIZZLY_PR_HEAD_SHA;
+  }
+
+  // GitHub Actions: extract from event payload for PRs
+  if (process.env.GITHUB_ACTIONS) {
+    let event = getGitHubEvent();
+    if (event.pull_request?.head?.sha) {
+      return event.pull_request.head.sha;
+    }
+    return process.env.GITHUB_SHA || null;
+  }
+
+  // Other CI providers
   return (
-    process.env.VIZZLY_PR_HEAD_SHA || // Vizzly override
-    process.env.GITHUB_SHA || // GitHub Actions
     process.env.CI_COMMIT_SHA || // GitLab CI
     process.env.CIRCLE_SHA1 || // CircleCI
     process.env.TRAVIS_COMMIT || // Travis CI
@@ -166,12 +255,29 @@ export function getPullRequestHeadSha() {
 }
 
 /**
- * Get the PR base SHA from CI environment variables
+ * Get the PR base SHA from CI environment variables.
+ *
+ * For GitHub Actions, this reads from the event payload to get the base
+ * branch SHA that the PR is targeting.
+ *
  * @returns {string|null} PR base SHA or null if not available
  */
 export function getPullRequestBaseSha() {
+  // Vizzly override always takes priority
+  if (process.env.VIZZLY_PR_BASE_SHA) {
+    return process.env.VIZZLY_PR_BASE_SHA;
+  }
+
+  // GitHub Actions: extract from event payload
+  if (process.env.GITHUB_ACTIONS) {
+    let event = getGitHubEvent();
+    if (event.pull_request?.base?.sha) {
+      return event.pull_request.base.sha;
+    }
+  }
+
+  // Other CI providers
   return (
-    process.env.VIZZLY_PR_BASE_SHA || // Vizzly override
     process.env.CI_MERGE_REQUEST_TARGET_BRANCH_SHA || // GitLab CI
     null // Most CIs don't provide this
   );

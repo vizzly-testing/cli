@@ -1,0 +1,39 @@
+name: TUI Visual Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  visual:
+    name: Visual Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Setup tui-driver
+        uses: vizzly-testing/tui-driver@main
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run TUI visual tests
+        run: node bin/vizzly.js run "npm run test:tui"
+        env:
+          CI: true
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TUI_TOKEN }}
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}

@@ -3,12 +3,66 @@
 require 'rake/testtask'
 require 'rubocop/rake_task'
 
+# Path to vizzly CLI
+VIZZLY_CLI = File.expand_path('../../bin/vizzly.js', __dir__)
+
+# Unit tests
 Rake::TestTask.new(:test) do |t|
   t.libs << 'test'
   t.libs << 'lib'
-  t.test_files = FileList['test/**/*_test.rb']
+  t.test_files = FileList['test/vizzly_test.rb']
 end
 
 RuboCop::RakeTask.new
 
 task default: %i[rubocop test]
+
+# =============================================================================
+# Integration Tests (starts TDD server internally)
+# =============================================================================
+
+desc 'Run integration tests (starts TDD server internally)'
+task 'test:integration' do
+  ENV['VIZZLY_INTEGRATION'] = '1'
+  sh 'ruby -I lib test/integration_test.rb'
+end
+
+# =============================================================================
+# E2E Tests with Browser (requires selenium-webdriver)
+# =============================================================================
+
+desc 'Run E2E tests with browser (requires selenium-webdriver and TDD server)'
+task 'test:e2e' do
+  ENV['VIZZLY_E2E'] = '1'
+  sh 'ruby -I lib test/e2e_test.rb'
+end
+
+# =============================================================================
+# TDD Run Mode - One-shot with static report
+# =============================================================================
+
+desc 'Run integration tests in TDD mode (one-shot, generates static report)'
+task 'test:tdd:run' do
+  sh "node #{VIZZLY_CLI} tdd run 'VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb'"
+end
+
+desc 'Run E2E tests in TDD mode (one-shot, generates static report)'
+task 'test:e2e:tdd:run' do
+  sh "node #{VIZZLY_CLI} tdd run 'VIZZLY_E2E=1 ruby -I lib test/e2e_test.rb'"
+end
+
+# =============================================================================
+# Cloud Run Mode - Uploads to Vizzly (requires VIZZLY_TOKEN)
+# =============================================================================
+
+desc 'Run integration tests in cloud mode (uploads to Vizzly)'
+task 'test:cloud' do
+  abort 'VIZZLY_TOKEN required for cloud mode' unless ENV['VIZZLY_TOKEN']
+  sh "node #{VIZZLY_CLI} run 'VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb'"
+end
+
+desc 'Run E2E tests in cloud mode (uploads to Vizzly)'
+task 'test:e2e:cloud' do
+  abort 'VIZZLY_TOKEN required for cloud mode' unless ENV['VIZZLY_TOKEN']
+  sh "node #{VIZZLY_CLI} run 'VIZZLY_E2E=1 ruby -I lib test/e2e_test.rb'"
+end

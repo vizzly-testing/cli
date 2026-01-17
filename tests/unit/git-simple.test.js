@@ -5,6 +5,7 @@ import {
   detectCommit,
   generateBuildName,
 } from '../../src/utils/git.js';
+import { resetGitHubEventCache } from '../../src/utils/ci-env.js';
 
 describe('Git Utilities - Simple Tests', () => {
   let originalDateNow;
@@ -22,11 +23,15 @@ describe('Git Utilities - Simple Tests', () => {
     // Clear CI env vars that affect git detection
     delete process.env.VIZZLY_BRANCH;
     delete process.env.VIZZLY_COMMIT_SHA;
+    delete process.env.GITHUB_ACTIONS;
     delete process.env.GITHUB_HEAD_REF;
     delete process.env.GITHUB_REF_NAME;
     delete process.env.GITHUB_SHA;
+    delete process.env.GITHUB_EVENT_PATH;
     delete process.env.CI_COMMIT_REF_NAME;
     delete process.env.CI_COMMIT_SHA;
+    // Reset the GitHub event cache
+    resetGitHubEventCache();
   });
 
   afterEach(() => {
@@ -84,7 +89,8 @@ describe('Git Utilities - Simple Tests', () => {
       assert.strictEqual(result, 'env-commit-sha');
     });
 
-    it('should return GitHub SHA when set', async () => {
+    it('should return GitHub SHA when in GitHub Actions', async () => {
+      process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_SHA = 'github-commit-sha';
       let result = await detectCommit(null, process.cwd());
       assert.strictEqual(result, 'github-commit-sha');

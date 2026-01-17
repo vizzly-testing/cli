@@ -176,7 +176,8 @@ describe('utils/ci-env', () => {
       assert.strictEqual(getCommit(), 'vizzly-sha');
     });
 
-    it('reads GITHUB_SHA for GitHub Actions', () => {
+    it('reads GITHUB_SHA for GitHub Actions push events', () => {
+      process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_SHA = 'abc123';
 
       assert.strictEqual(getCommit(), 'abc123');

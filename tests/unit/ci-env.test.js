@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { writeFileSync, unlinkSync, mkdtempSync } from 'node:fs';
+import { mkdtempSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -17,9 +17,12 @@ import {
 
 describe('CI Environment Detection', () => {
   let originalEnv;
+  // Track temp files for cleanup in case assertions fail before unlinkSync
+  let tempFilesToCleanup = [];
 
   beforeEach(() => {
     originalEnv = { ...process.env };
+    tempFilesToCleanup = [];
     // Clear only CI-related environment variables
     let ciVars = [
       'VIZZLY_BRANCH',
@@ -53,6 +56,14 @@ describe('CI Environment Detection', () => {
   });
 
   afterEach(() => {
+    // Cleanup any temp files that weren't cleaned up (e.g., if assertion failed)
+    for (let file of tempFilesToCleanup) {
+      try {
+        unlinkSync(file);
+      } catch {
+        // File already cleaned up or doesn't exist
+      }
+    }
     // Restore original environment
     Object.keys(process.env).forEach(key => {
       if (!(key in originalEnv)) {
@@ -61,6 +72,20 @@ describe('CI Environment Detection', () => {
     });
     Object.assign(process.env, originalEnv);
   });
+
+  /**
+   * Helper to create a temp event file and track it for cleanup
+   */
+  function createTempEventFile(payload) {
+    let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
+    let eventPath = join(tempDir, 'event.json');
+    writeFileSync(
+      eventPath,
+      typeof payload === 'string' ? payload : JSON.stringify(payload)
+    );
+    tempFilesToCleanup.push(eventPath);
+    return eventPath;
+  }
 
   describe('getBranch', () => {
     it('should return VIZZLY_BRANCH when set', () => {
@@ -110,9 +135,7 @@ describe('CI Environment Detection', () => {
 
     it('should return PR head SHA from event file for GitHub Actions pull_request events', () => {
       // Create a temporary event file simulating GitHub Actions pull_request event
-      let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
-      let eventPath = join(tempDir, 'event.json');
-      let eventPayload = {
+      let eventPath = createTempEventFile({
         pull_request: {
           number: 123,
           head: {
@@ -124,8 +147,7 @@ describe('CI Environment Detection', () => {
             ref: 'main',
           },
         },
-      };
-      writeFileSync(eventPath, JSON.stringify(eventPayload));
+      });
 
       process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_EVENT_PATH = eventPath;
@@ -135,9 +157,6 @@ describe('CI Environment Detection', () => {
       resetGitHubEventCache();
 
       assert.strictEqual(getCommit(), 'pr-head-sha-abc123');
-
-      // Cleanup
-      unlinkSync(eventPath);
     });
 
     it('should fall back to GITHUB_SHA when event file is missing', () => {
@@ -151,10 +170,8 @@ describe('CI Environment Detection', () => {
     });
 
     it('should fall back to GITHUB_SHA when event file has no pull_request', () => {
-      let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
-      let eventPath = join(tempDir, 'event.json');
       // Push event - no pull_request object
-      writeFileSync(eventPath, JSON.stringify({ ref: 'refs/heads/main' }));
+      let eventPath = createTempEventFile({ ref: 'refs/heads/main' });
 
       process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_EVENT_PATH = eventPath;
@@ -163,8 +180,6 @@ describe('CI Environment Detection', () => {
       resetGitHubEventCache();
 
       assert.strictEqual(getCommit(), 'push-commit-sha');
-
-      unlinkSync(eventPath);
     });
 
     it('should return GitLab CI commit', () => {
@@ -187,17 +202,12 @@ describe('CI Environment Detection', () => {
     });
 
     it('should return PR head SHA from event file for GitHub Actions', () => {
-      let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
-      let eventPath = join(tempDir, 'event.json');
-      writeFileSync(
-        eventPath,
-        JSON.stringify({
-          pull_request: {
-            head: { sha: 'pr-head-sha-from-event' },
-            base: { sha: 'base-sha' },
-          },
-        })
-      );
+      let eventPath = createTempEventFile({
+        pull_request: {
+          head: { sha: 'pr-head-sha-from-event' },
+          base: { sha: 'base-sha' },
+        },
+      });
 
       process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_EVENT_PATH = eventPath;
@@ -206,8 +216,6 @@ describe('CI Environment Detection', () => {
       resetGitHubEventCache();
 
       assert.strictEqual(getPullRequestHeadSha(), 'pr-head-sha-from-event');
-
-      unlinkSync(eventPath);
     });
   });
 
@@ -219,17 +227,12 @@ describe('CI Environment Detection', () => {
     });
 
     it('should return PR base SHA from event file for GitHub Actions', () => {
-      let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
-      let eventPath = join(tempDir, 'event.json');
-      writeFileSync(
-        eventPath,
-        JSON.stringify({
-          pull_request: {
-            head: { sha: 'head-sha' },
-            base: { sha: 'base-sha-from-event' },
-          },
-        })
-      );
+      let eventPath = createTempEventFile({
+        pull_request: {
+          head: { sha: 'head-sha' },
+          base: { sha: 'base-sha-from-event' },
+        },
+      });
 
       process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_EVENT_PATH = eventPath;
@@ -237,8 +240,6 @@ describe('CI Environment Detection', () => {
       resetGitHubEventCache();
 
       assert.strictEqual(getPullRequestBaseSha(), 'base-sha-from-event');
-
-      unlinkSync(eventPath);
     });
 
     it('should return null when not in PR context', () => {
@@ -252,9 +253,7 @@ describe('CI Environment Detection', () => {
     });
 
     it('should parse and cache event file', () => {
-      let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
-      let eventPath = join(tempDir, 'event.json');
-      writeFileSync(eventPath, JSON.stringify({ action: 'opened', number: 42 }));
+      let eventPath = createTempEventFile({ action: 'opened', number: 42 });
 
       process.env.GITHUB_EVENT_PATH = eventPath;
       resetGitHubEventCache();
@@ -263,23 +262,22 @@ describe('CI Environment Detection', () => {
       assert.strictEqual(event.action, 'opened');
       assert.strictEqual(event.number, 42);
 
-      // Should return cached value
+      // Should return cached value even after file is cleaned up
       unlinkSync(eventPath);
+      // Remove from cleanup list since we manually deleted it
+      tempFilesToCleanup = tempFilesToCleanup.filter(f => f !== eventPath);
+
       let cachedEvent = getGitHubEvent();
       assert.strictEqual(cachedEvent.action, 'opened');
     });
 
     it('should return empty object for invalid JSON', () => {
-      let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
-      let eventPath = join(tempDir, 'event.json');
-      writeFileSync(eventPath, 'not valid json {{{');
+      let eventPath = createTempEventFile('not valid json {{{');
 
       process.env.GITHUB_EVENT_PATH = eventPath;
       resetGitHubEventCache();
 
       assert.deepStrictEqual(getGitHubEvent(), {});
-
-      unlinkSync(eventPath);
     });
   });
 

@@ -13,8 +13,9 @@ let _githubEventCache = null;
  * Read and parse the GitHub Actions event payload from GITHUB_EVENT_PATH.
  *
  * GitHub Actions sets GITHUB_EVENT_PATH to a file containing the full webhook
- * payload that triggered the workflow. This is essential for pull_request events
- * because GITHUB_SHA points to a merge commit, not the actual head commit.
+ * payload that triggered the workflow. This is essential for pull_request and
+ * pull_request_target events because GITHUB_SHA points to a merge commit,
+ * not the actual head commit.
  *
  * @returns {Object} Parsed event payload or empty object on failure
  */

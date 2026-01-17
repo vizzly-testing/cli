@@ -1,11 +1,11 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+import { resetGitHubEventCache } from '../../src/utils/ci-env.js';
 import {
   detectBranch,
   detectCommit,
   generateBuildName,
 } from '../../src/utils/git.js';
-import { resetGitHubEventCache } from '../../src/utils/ci-env.js';
 
 describe('Git Utilities - Simple Tests', () => {
   let originalDateNow;

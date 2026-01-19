@@ -51,6 +51,26 @@ module IntegrationTestHelpers
     @server_pid = nil
   end
 
+  # Check if running in cloud mode (vizzly run) vs TDD mode (vizzly tdd run)
+  # Cloud mode returns { success: true } without a status field
+  # TDD mode returns comparison results with status field
+  def cloud_mode?
+    # In cloud mode, VIZZLY_TOKEN is typically set
+    token = ENV.fetch('VIZZLY_TOKEN', nil)
+    token && !token.empty?
+  end
+
+  # Assert that a screenshot result indicates success
+  # In TDD mode: expects 'new' or 'match' status
+  # In cloud mode: expects 'success' to be true
+  def assert_screenshot_success(result)
+    if cloud_mode?
+      assert result['success'], "Expected success to be true in cloud mode, got: #{result.inspect}"
+    else
+      assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
+    end
+  end
+
   # Create a minimal valid PNG (1x1 red pixel)
   def create_test_png
     [
@@ -118,7 +138,7 @@ class IntegrationTest < Minitest::Test
     result = Vizzly.screenshot('basic-screenshot', image_data)
 
     assert result, 'Expected result to be non-nil'
-    assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
+    assert_screenshot_success(result)
   end
 
   def test_screenshot_with_properties
@@ -133,7 +153,7 @@ class IntegrationTest < Minitest::Test
                                })
 
     assert result, 'Expected result to be non-nil'
-    assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
+    assert_screenshot_success(result)
   end
 
   def test_screenshot_with_threshold
@@ -143,7 +163,7 @@ class IntegrationTest < Minitest::Test
     result = Vizzly.screenshot('screenshot-threshold', image_data, threshold: 5)
 
     assert result, 'Expected result to be non-nil'
-    assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
+    assert_screenshot_success(result)
   end
 
   def test_screenshot_with_full_page
@@ -153,7 +173,7 @@ class IntegrationTest < Minitest::Test
     result = Vizzly.screenshot('screenshot-fullpage', image_data, full_page: true)
 
     assert result, 'Expected result to be non-nil'
-    assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
+    assert_screenshot_success(result)
   end
 
   def test_screenshot_with_all_options
@@ -170,7 +190,7 @@ class IntegrationTest < Minitest::Test
                                full_page: false)
 
     assert result, 'Expected result to be non-nil'
-    assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
+    assert_screenshot_success(result)
   end
 
   # ===========================================================================
@@ -195,7 +215,7 @@ class IntegrationTest < Minitest::Test
     result = client.screenshot('auto-discovered', image_data)
 
     assert result, 'Expected result to be non-nil'
-    assert %w[new match].include?(result['status']), "Expected status 'new' or 'match', got: #{result['status']}"
+    assert_screenshot_success(result)
   end
 
   # ===========================================================================

@@ -100,10 +100,22 @@ module E2ETestHelpers
     Vizzly.screenshot(name, image_data, options)
   end
 
+  # Check if running in cloud mode (vizzly run) vs TDD mode (vizzly tdd run)
+  # Cloud mode returns { success: true } without a status field
+  # TDD mode returns comparison results with status field
+  def cloud_mode?
+    token = ENV.fetch('VIZZLY_TOKEN', nil)
+    token && !token.empty?
+  end
+
   def assert_screenshot_result(result)
     assert result, 'Expected screenshot result to be non-nil'
-    assert %w[new match].include?(result['status']),
-           "Expected status 'new' or 'match', got: #{result['status']}"
+    if cloud_mode?
+      assert result['success'], "Expected success to be true in cloud mode, got: #{result.inspect}"
+    else
+      assert %w[new match].include?(result['status']),
+             "Expected status 'new' or 'match', got: #{result['status']}"
+    end
   end
 end
 

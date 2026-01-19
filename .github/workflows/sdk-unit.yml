@@ -185,7 +185,7 @@ jobs:
   # Vitest SDK - runs on multiple Node versions
   vitest:
     name: Vitest SDK
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: changes
     if: needs.changes.outputs.vitest == 'true'
@@ -268,7 +268,7 @@ jobs:
   # Ember SDK - runs unit and integration tests
   ember:
     name: Ember SDK
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: changes
     if: needs.changes.outputs.ember == 'true'

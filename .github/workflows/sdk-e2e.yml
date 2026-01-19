@@ -10,7 +10,7 @@ jobs:
   # Core JS Client (test-site with Playwright)
   core-js:
     name: Core JS Client
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 8
 
     steps:
@@ -66,7 +66,7 @@ jobs:
   # Vitest SDK
   vitest:
     name: Vitest SDK
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 8
 
     steps:
@@ -123,7 +123,7 @@ jobs:
   # Storybook SDK
   storybook:
     name: Storybook SDK
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 8
 
     steps:
@@ -180,7 +180,7 @@ jobs:
   # Static-Site SDK
   static-site:
     name: Static-Site SDK
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 8
 
     steps:
@@ -237,7 +237,7 @@ jobs:
   # Ember SDK
   ember:
     name: Ember SDK
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 8
 
     steps:
@@ -300,7 +300,7 @@ jobs:
   # Ruby SDK
   ruby:
     name: Ruby SDK
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 8
 
     steps:

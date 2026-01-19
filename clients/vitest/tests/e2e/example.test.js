@@ -1,145 +1,104 @@
 /**
- * E2E Integration Tests using shared test-site (FluffyCloud)
+ * E2E tests for the Vizzly Vitest plugin
  *
- * These tests verify the Vitest plugin integration with Vizzly using
- * the same test-site as other SDKs for visual consistency.
+ * Tests the toMatchScreenshot matcher works correctly with:
+ * - Page screenshots
+ * - Element screenshots
+ * - Properties/metadata
+ * - Threshold options
  *
- * Uses custom commands to navigate Playwright to the test-site URLs.
- *
- * Local TDD mode:
- *   vizzly tdd start
- *   npm run test:e2e
- *
- * One-shot TDD mode:
- *   npm run test:e2e:tdd
+ * Uses the shared test-site CSS for consistent styling.
  */
 
-import { describe, expect, test } from 'vitest';
-import { commands, page } from 'vitest/browser';
+import { beforeAll, describe, expect, test } from 'vitest';
+import { page } from 'vitest/browser';
 
-// Base URL for test-site (defined in vitest.e2e.config.js)
+// Base URL for test-site assets (defined in vitest.e2e.config.js)
 // eslint-disable-next-line no-undef
 let baseUrl = __TEST_SITE_URL__;
 
-describe('Homepage', () => {
-  test('full page screenshot', async () => {
-    await commands.loadPage(`${baseUrl}/index.html`);
-    await expect(page).toMatchScreenshot('homepage-full.png');
-  });
+// Load test-site CSS before all tests
+beforeAll(async () => {
+  let link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `${baseUrl}/dist/output.css`;
+  document.head.appendChild(link);
 
-  test('navigation bar', async () => {
-    await commands.loadPage(`${baseUrl}/index.html`);
-    let nav = page.getByRole('navigation');
-    await expect(nav).toMatchScreenshot('homepage-nav.png');
-  });
-
-  test('hero section', async () => {
-    await commands.loadPage(`${baseUrl}/index.html`);
-    // Get hero by heading text
-    let hero = page.getByRole('heading', { name: 'Every Pet Deserves' });
-    await expect(hero).toMatchScreenshot('homepage-hero.png');
-  });
-
-  test('features heading', async () => {
-    await commands.loadPage(`${baseUrl}/index.html`);
-    // Get features section heading
-    let featuresHeading = page.getByRole('heading', { name: 'Why Choose FluffyCloud?' });
-    await expect(featuresHeading).toMatchScreenshot('homepage-features-heading.png');
+  // Wait for CSS to load
+  await new Promise((resolve) => {
+    link.onload = resolve;
+    link.onerror = resolve;
   });
 });
 
-describe('Features Page', () => {
-  test('full page screenshot', async () => {
-    await commands.loadPage(`${baseUrl}/features.html`);
-    await expect(page).toMatchScreenshot('features-full.png');
+describe('Vizzly Vitest Plugin', () => {
+  test('page screenshot', async () => {
+    document.body.innerHTML = `
+      <div class="p-8 bg-white">
+        <h1 class="text-3xl font-bold text-primary-600">Hello Vizzly</h1>
+        <p class="text-gray-600 mt-2">Testing the Vitest plugin</p>
+      </div>
+    `;
+
+    await expect(page).toMatchScreenshot('page.png');
   });
 
-  test('navigation bar', async () => {
-    await commands.loadPage(`${baseUrl}/features.html`);
-    let nav = page.getByRole('navigation');
-    await expect(nav).toMatchScreenshot('features-nav.png');
-  });
-});
+  test('element screenshot', async () => {
+    document.body.innerHTML = `
+      <div class="p-8">
+        <button class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium">
+          Click me
+        </button>
+      </div>
+    `;
 
-describe('Pricing Page', () => {
-  test('full page screenshot', async () => {
-    await commands.loadPage(`${baseUrl}/pricing.html`);
-    await expect(page).toMatchScreenshot('pricing-full.png');
-  });
-
-  test('pricing heading', async () => {
-    await commands.loadPage(`${baseUrl}/pricing.html`);
-    // Get the pricing section heading
-    let pricingHeading = page.getByRole('heading', { level: 1 });
-    await expect(pricingHeading).toMatchScreenshot('pricing-heading.png');
-  });
-});
-
-describe('Contact Page', () => {
-  test('full page screenshot', async () => {
-    await commands.loadPage(`${baseUrl}/contact.html`);
-    await expect(page).toMatchScreenshot('contact-full.png');
+    let button = page.getByRole('button');
+    await expect(button).toMatchScreenshot('button.png');
   });
 
-  test('contact heading', async () => {
-    await commands.loadPage(`${baseUrl}/contact.html`);
-    let heading = page.getByRole('heading', { level: 1 });
-    await expect(heading).toMatchScreenshot('contact-heading.png');
-  });
-});
+  test('screenshot with properties', async () => {
+    document.body.innerHTML = `
+      <div class="p-8">
+        <div class="bg-gray-900 text-white p-6 rounded-xl shadow-lg">
+          <h2 class="text-xl font-semibold">Dark Theme Card</h2>
+          <p class="text-gray-300 mt-2">Component with metadata</p>
+        </div>
+      </div>
+    `;
 
-describe('Screenshot Options', () => {
-  test('with custom threshold', async () => {
-    await commands.loadPage(`${baseUrl}/index.html`);
-    let nav = page.getByRole('navigation');
-    await expect(nav).toMatchScreenshot('threshold-test.png', {
+    await expect(page).toMatchScreenshot('card.png', {
+      properties: {
+        theme: 'dark',
+        component: 'card',
+      },
+    });
+  });
+
+  test('screenshot with threshold', async () => {
+    document.body.innerHTML = `
+      <div class="p-8">
+        <span class="text-2xl font-bold text-red-500">Warning!</span>
+      </div>
+    `;
+
+    await expect(page).toMatchScreenshot('warning.png', {
       threshold: 5,
     });
   });
 
-  test('with properties', async () => {
-    await commands.loadPage(`${baseUrl}/index.html`);
-    await expect(page).toMatchScreenshot('props-test.png', {
-      properties: {
-        browser: 'chromium',
-        viewport: '1280x720',
-        page: 'homepage',
-      },
-    });
-  });
+  test('multiple elements in sequence', async () => {
+    document.body.innerHTML = `
+      <nav class="flex gap-6 p-4 bg-gray-100 rounded-lg">
+        <a href="#" class="text-primary-600 font-medium">Home</a>
+        <a href="#" class="text-gray-600 hover:text-primary-600">About</a>
+        <a href="#" class="text-gray-600 hover:text-primary-600">Contact</a>
+      </nav>
+    `;
 
-  test('element with threshold and properties', async () => {
-    await commands.loadPage(`${baseUrl}/index.html`);
     let nav = page.getByRole('navigation');
-    await expect(nav).toMatchScreenshot('combined-options.png', {
-      threshold: 3,
-      properties: {
-        component: 'navigation',
-        variant: 'default',
-      },
-    });
-  });
-});
+    await expect(nav).toMatchScreenshot('nav.png');
 
-describe('Cross-Page Navigation', () => {
-  test('captures multiple pages in sequence', async () => {
-    let pages = ['index.html', 'features.html', 'pricing.html', 'contact.html'];
-
-    for (let pageName of pages) {
-      await commands.loadPage(`${baseUrl}/${pageName}`);
-      let nav = page.getByRole('navigation');
-      await expect(nav).toMatchScreenshot(`nav-${pageName.replace('.html', '')}.png`, {
-        properties: { page: pageName },
-      });
-    }
-  });
-});
-
-describe('Footer', () => {
-  test('footer brand on homepage', async () => {
-    await commands.loadPage(`${baseUrl}/index.html`);
-    // Get footer by text
-    let footerBrand = page.getByText('FluffyCloud', { exact: false }).last();
-    await expect(footerBrand).toMatchScreenshot('footer-brand.png');
+    let homeLink = page.getByRole('link', { name: 'Home' });
+    await expect(homeLink).toMatchScreenshot('home-link.png');
   });
 });

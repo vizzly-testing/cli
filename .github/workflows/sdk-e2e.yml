@@ -1,0 +1,380 @@
+name: SDK E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Core JS Client (test-site with Playwright)
+  core-js:
+    name: Core JS Client
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Install test-site dependencies
+        working-directory: ./test-site
+        run: npm ci
+
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.playwright-version.outputs.version }}-firefox
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: ./test-site
+        run: npx playwright install firefox --with-deps
+
+      - name: Run E2E tests (TDD mode)
+        working-directory: ./test-site
+        run: node ../bin/vizzly.js tdd run "npm test"
+        env:
+          CI: true
+
+      - name: Run E2E tests (Cloud mode)
+        working-directory: ./test-site
+        run: node ../bin/vizzly.js run "npm test"
+        env:
+          CI: true
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  # Vitest SDK
+  vitest:
+    name: Vitest SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Install Vitest client dependencies
+        working-directory: ./clients/vitest
+        run: npm install
+
+      - name: Get Playwright version
+        working-directory: ./clients/vitest
+        id: playwright-version
+        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: ./clients/vitest
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E tests (TDD mode)
+        working-directory: ./clients/vitest
+        run: ../../bin/vizzly.js tdd run "npm run test:e2e"
+        env:
+          CI: true
+
+      - name: Run E2E tests (Cloud mode)
+        working-directory: ./clients/vitest
+        run: ../../bin/vizzly.js run "npm run test:e2e"
+        env:
+          CI: true
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  # Storybook SDK
+  storybook:
+    name: Storybook SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Install Storybook client dependencies
+        working-directory: ./clients/storybook
+        run: npm install
+
+      - name: Get Playwright version
+        working-directory: ./clients/storybook
+        id: playwright-version
+        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: ./clients/storybook
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E tests (TDD mode)
+        working-directory: ./clients/storybook
+        run: ../../bin/vizzly.js tdd run "npm run test:e2e"
+        env:
+          CI: true
+
+      - name: Run E2E tests (Cloud mode)
+        working-directory: ./clients/storybook
+        run: ../../bin/vizzly.js run "npm run test:e2e"
+        env:
+          CI: true
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_STORYBOOK_CLIENT_TOKEN }}
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  # Static-Site SDK
+  static-site:
+    name: Static-Site SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Install Static-Site client dependencies
+        working-directory: ./clients/static-site
+        run: npm install
+
+      - name: Get Playwright version
+        working-directory: ./clients/static-site
+        id: playwright-version
+        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: ./clients/static-site
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E tests (TDD mode)
+        working-directory: ./clients/static-site
+        run: ../../bin/vizzly.js tdd run "npm run test:e2e"
+        env:
+          CI: true
+
+      - name: Run E2E tests (Cloud mode)
+        working-directory: ./clients/static-site
+        run: ../../bin/vizzly.js run "npm run test:e2e"
+        env:
+          CI: true
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  # Ember SDK
+  ember:
+    name: Ember SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Install Ember client dependencies
+        working-directory: ./clients/ember
+        run: npm install
+
+      - name: Get Playwright version
+        working-directory: ./clients/ember
+        id: playwright-version
+        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: ./clients/ember
+        run: npx playwright install chromium --with-deps
+
+      - name: Build Ember test app
+        working-directory: ./clients/ember/test-app
+        run: |
+          npm install
+          npm run build -- --mode development
+
+      - name: Run E2E tests (TDD mode)
+        working-directory: ./clients/ember/test-app
+        run: ../../../bin/vizzly.js tdd run "npx testem ci --file testem.cjs"
+        env:
+          CI: true
+
+      - name: Run E2E tests (Cloud mode)
+        working-directory: ./clients/ember/test-app
+        run: ../../../bin/vizzly.js run "npx testem ci --file testem.cjs"
+        env:
+          CI: true
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_EMBER_CLIENT_TOKEN }}
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  # Ruby SDK
+  ruby:
+    name: Ruby SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Ruby dependencies
+        working-directory: ./clients/ruby
+        run: |
+          gem install bundler
+          bundle install
+
+      - name: Run integration tests (TDD mode)
+        working-directory: ./clients/ruby
+        run: ../../bin/vizzly.js tdd run "VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb"
+        env:
+          CI: true
+
+      - name: Run integration tests (Cloud mode)
+        working-directory: ./clients/ruby
+        run: ../../bin/vizzly.js run "VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb"
+        env:
+          CI: true
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_RUBY_CLIENT_TOKEN }}
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+  # Status check for branch protection
+  check:
+    name: E2E Status
+    runs-on: ubuntu-latest
+    needs: [core-js, vitest, storybook, static-site, ember, ruby]
+    if: always()
+    steps:
+      - name: Check all SDK E2E tests passed
+        run: |
+          if [[ "${{ needs.core-js.result }}" == "failure" ]]; then
+            echo "Core JS Client E2E tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.vitest.result }}" == "failure" ]]; then
+            echo "Vitest SDK E2E tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.storybook.result }}" == "failure" ]]; then
+            echo "Storybook SDK E2E tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.static-site.result }}" == "failure" ]]; then
+            echo "Static-Site SDK E2E tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.ember.result }}" == "failure" ]]; then
+            echo "Ember SDK E2E tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.ruby.result }}" == "failure" ]]; then
+            echo "Ruby SDK E2E tests failed"
+            exit 1
+          fi
+          echo "All SDK E2E tests passed"

@@ -39,9 +39,11 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "test": "npm run test:unit && npm run test:e2e",
+    "test": "npm run test:unit",
     "test:unit": "vitest run --config vitest.config.js",
     "test:e2e": "vitest run --config vitest.e2e.config.js",
+    "test:e2e:tdd": "../../bin/vizzly.js tdd run 'npm run test:e2e'",
+    "test:e2e:cloud": "../../bin/vizzly.js run 'npm run test:e2e'",
     "lint": "biome lint src tests",
     "lint:fix": "biome lint --write src tests",
     "format": "biome format --write src tests",
@@ -57,7 +59,6 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "dependencies": {},
   "peerDependencies": {
     "@vizzly-testing/cli": ">=0.12.0",
     "vitest": ">=4.0.0"
@@ -67,6 +68,7 @@
     "@vitest/browser": "^4.0.0",
     "@vitest/browser-playwright": "^4.0.2",
     "playwright": "^1.49.1",
+    "serve-handler": "^6.1.6",
     "vitest": "^4.0.0"
   }
 }

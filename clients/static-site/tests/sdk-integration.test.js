@@ -326,9 +326,9 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
       pool = createTabPool(browser, 2);
 
       let pages = [
-        { path: '/index.html', source: 'html' },
-        { path: '/features.html', source: 'html' },
-        { path: '/pricing.html', source: 'html' },
+        { path: '/', source: 'html' },
+        { path: '/features', source: 'html' },
+        { path: '/pricing', source: 'html' },
       ];
 
       let config = {

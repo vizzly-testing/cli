@@ -82,7 +82,7 @@ const formatHelp = (cmd, helper) => {
           key: 'core',
           icon: '▸',
           title: 'Core',
-          names: ['run', 'tdd', 'upload', 'status', 'finalize'],
+          names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview'],
         },
         { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor'] },
         {

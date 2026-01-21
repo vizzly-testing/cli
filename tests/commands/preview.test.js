@@ -361,4 +361,205 @@ describe('previewCommand', () => {
 
     assert.strictEqual(openedUrl, 'https://preview.test');
   });
+
+  it('dry-run shows files without uploading', async () => {
+    let output = createMockOutput();
+    let uploadCalled = false;
+
+    let result = await previewCommand(
+      distDir,
+      { dryRun: true },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: null, // No API key needed for dry-run
+          apiUrl: 'https://api.test',
+        }),
+        uploadPreviewZip: async () => {
+          uploadCalled = true;
+          return {};
+        },
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(uploadCalled, false, 'Should not upload in dry-run');
+    assert.strictEqual(result.dryRun, true);
+    assert.strictEqual(result.fileCount, 3); // index.html, app.js, assets/style.css
+    assert.ok(result.files.length > 0, 'Should return file list');
+  });
+
+  it('dry-run outputs JSON when --json flag is set', async () => {
+    let output = createMockOutput();
+
+    await previewCommand(
+      distDir,
+      { dryRun: true },
+      { json: true },
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let dataCall = output.calls.find(c => c.method === 'data');
+    assert.ok(dataCall, 'Should output JSON data');
+    assert.strictEqual(dataCall.args[0].dryRun, true);
+    assert.ok(dataCall.args[0].files.length > 0);
+    assert.ok(Array.isArray(dataCall.args[0].excludedDirs));
+    assert.ok(Array.isArray(dataCall.args[0].excludedFiles));
+  });
+
+  it('excludes files matching --exclude patterns', async () => {
+    let output = createMockOutput();
+
+    let result = await previewCommand(
+      distDir,
+      { dryRun: true, exclude: ['*.js'] },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let filePaths = result.files.map(f => f.path);
+    assert.ok(
+      !filePaths.some(p => p.endsWith('.js')),
+      'Should exclude .js files'
+    );
+    assert.ok(
+      filePaths.some(p => p.endsWith('.html')),
+      'Should include .html files'
+    );
+  });
+
+  it('excludes directories matching --exclude patterns with trailing slash', async () => {
+    let output = createMockOutput();
+
+    let result = await previewCommand(
+      distDir,
+      { dryRun: true, exclude: ['assets/'] },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let filePaths = result.files.map(f => f.path);
+    assert.ok(
+      !filePaths.some(p => p.startsWith('assets/')),
+      'Should exclude assets directory'
+    );
+    assert.ok(
+      filePaths.some(p => p === 'index.html'),
+      'Should include index.html'
+    );
+  });
+
+  it('includes files matching --include patterns that override defaults', async () => {
+    // Create a package.json file (normally excluded by default)
+    writeFileSync(join(distDir, 'package.json'), '{}');
+
+    let output = createMockOutput();
+
+    let result = await previewCommand(
+      distDir,
+      { dryRun: true, include: ['package.json'] },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let filePaths = result.files.map(f => f.path);
+    assert.ok(
+      filePaths.includes('package.json'),
+      'Should include package.json when --include is used'
+    );
+  });
+
+  it('excludes node_modules by default', async () => {
+    // Create a node_modules directory with a file
+    mkdirSync(join(distDir, 'node_modules', 'some-package'), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(distDir, 'node_modules', 'some-package', 'index.js'),
+      'module.exports = {}'
+    );
+
+    let output = createMockOutput();
+
+    let result = await previewCommand(
+      distDir,
+      { dryRun: true },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let filePaths = result.files.map(f => f.path);
+    assert.ok(
+      !filePaths.some(p => p.includes('node_modules')),
+      'Should exclude node_modules by default'
+    );
+  });
+
+  it('excludes config files by default', async () => {
+    // Create config files
+    writeFileSync(join(distDir, 'vite.config.js'), 'export default {}');
+    writeFileSync(join(distDir, 'tsconfig.json'), '{}');
+
+    let output = createMockOutput();
+
+    let result = await previewCommand(
+      distDir,
+      { dryRun: true },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let filePaths = result.files.map(f => f.path);
+    assert.ok(
+      !filePaths.includes('vite.config.js'),
+      'Should exclude *.config.js'
+    );
+    assert.ok(
+      !filePaths.includes('tsconfig.json'),
+      'Should exclude tsconfig.json'
+    );
+  });
 });

@@ -333,18 +333,15 @@ export async function finalizeParallelBuild(client, parallelId) {
  * @returns {Promise<Object>} Upload result with preview URL
  */
 export async function uploadPreviewZip(client, buildId, zipBuffer) {
-  // Create form data with the ZIP file
-  let FormData = (await import('form-data')).default;
+  // Use native FormData (Node 18+) with Blob for proper fetch compatibility
   let formData = new FormData();
-  formData.append('file', zipBuffer, {
-    filename: 'preview.zip',
-    contentType: 'application/zip',
-  });
+  let blob = new Blob([zipBuffer], { type: 'application/zip' });
+  formData.append('file', blob, 'preview.zip');
 
   return client.request(`/api/sdk/builds/${buildId}/preview/upload-zip`, {
     method: 'POST',
     body: formData,
-    headers: formData.getHeaders(),
+    // Let fetch set the Content-Type with boundary automatically
   });
 }
 

@@ -27,6 +27,9 @@ import {
 
 let execAsync = promisify(exec);
 
+// Maximum files to show in dry-run output (use --verbose for all)
+let DRY_RUN_FILE_LIMIT = 50;
+
 /**
  * Validate path for shell safety - prevents command injection
  * @param {string} path - Path to validate
@@ -71,14 +74,89 @@ function getZipCommand() {
   return { command: null, available: false };
 }
 
+// Default directories to exclude from preview uploads
+let DEFAULT_EXCLUDED_DIRS = [
+  'node_modules',
+  '__pycache__',
+  '.git',
+  '.svn',
+  '.hg',
+  '.vizzly',
+  'coverage',
+  '.nyc_output',
+  '.cache',
+  '.turbo',
+  '.next/cache',
+  '.nuxt',
+  '.output',
+  '.vercel',
+  '.netlify',
+  'tests',
+  'test',
+  '__tests__',
+  'spec',
+  '__mocks__',
+  'playwright-report',
+  'cypress',
+  '.playwright',
+];
+
+// Default file patterns to exclude from preview uploads
+let DEFAULT_EXCLUDED_FILES = [
+  'package.json',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'bun.lockb',
+  '*.config.js',
+  '*.config.ts',
+  '*.config.mjs',
+  '*.config.cjs',
+  'tsconfig.json',
+  'jsconfig.json',
+  '.eslintrc*',
+  '.prettierrc*',
+  'Makefile',
+  'Dockerfile',
+  'docker-compose*.yml',
+  '*.md',
+  '*.log',
+  '*.map',
+];
+
+/**
+ * Check if a filename matches any of the exclusion patterns
+ * @param {string} filename - Filename to check
+ * @param {string[]} patterns - Patterns to match against
+ * @returns {boolean}
+ */
+function matchesPattern(filename, patterns) {
+  for (let pattern of patterns) {
+    if (pattern.includes('*')) {
+      // Simple glob matching - convert to regex
+      let regex = new RegExp(
+        `^${pattern.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`
+      );
+      if (regex.test(filename)) return true;
+    } else {
+      if (filename === pattern) return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Create a ZIP file from a directory using system commands
  * @param {string} sourceDir - Directory to zip
  * @param {string} outputPath - Path for output ZIP file
+ * @param {Object} exclusions - Exclusion patterns
+ * @param {string[]} exclusions.dirs - Directory names to exclude
+ * @param {string[]} exclusions.files - File patterns to exclude
  * @returns {Promise<void>}
  */
-async function createZipWithSystem(sourceDir, outputPath) {
+async function createZipWithSystem(sourceDir, outputPath, exclusions = {}) {
   let { command, available } = getZipCommand();
+  let { dirs = [], files = [] } = exclusions;
 
   if (!available) {
     throw new Error(
@@ -95,23 +173,62 @@ async function createZipWithSystem(sourceDir, outputPath) {
     );
   }
 
+  // Validate exclusion patterns to prevent command injection
+  // Only allow safe characters in patterns: alphanumeric, dots, asterisks, underscores, hyphens, slashes
+  let safePatternRegex = /^[a-zA-Z0-9.*_\-/]+$/;
+  for (let pattern of [...dirs, ...files]) {
+    if (!safePatternRegex.test(pattern)) {
+      throw new Error(
+        `Exclusion pattern contains unsafe characters: ${pattern}. Only alphanumeric, ., *, _, -, / are allowed.`
+      );
+    }
+  }
+
   if (command === 'zip') {
     // Standard zip command - create ZIP from directory contents
     // Using cwd option is safe as it's not part of the command string
-    // -r: recursive, -q: quiet
-    await execAsync(`zip -r -q "${outputPath}" .`, {
+    // -r: recursive, -q: quiet, -x: exclude patterns
+    let excludeArgs = [
+      ...dirs.map(dir => `-x "${dir}/*"`),
+      ...files.map(pattern => `-x "${pattern}"`),
+    ].join(' ');
+    await execAsync(`zip -r -q "${outputPath}" . ${excludeArgs}`, {
       cwd: sourceDir,
       maxBuffer: 1024 * 1024 * 100, // 100MB buffer
     });
   } else if (command === 'powershell') {
-    // Windows PowerShell - use -LiteralPath for safer path handling
-    // Escape single quotes in paths by doubling them
+    // Windows PowerShell - Compress-Archive doesn't support exclusions,
+    // so we create a temp directory with only the files we want
     let safeSrcDir = sourceDir.replace(/'/g, "''");
     let safeOutPath = outputPath.replace(/'/g, "''");
-    await execAsync(
-      `powershell -Command "Compress-Archive -LiteralPath '${safeSrcDir}\\*' -DestinationPath '${safeOutPath}' -Force"`,
-      { maxBuffer: 1024 * 1024 * 100 }
-    );
+
+    // Build exclusion filter for PowerShell
+    // We use Get-ChildItem with -Exclude and pipe to Compress-Archive
+    let excludePatterns = [...dirs, ...files].map(p => `'${p}'`).join(',');
+
+    if (excludePatterns) {
+      // Use robocopy to copy files excluding patterns, then zip
+      // This is more reliable than PowerShell's native filtering
+      await execAsync(
+        `powershell -Command "` +
+          `$src = '${safeSrcDir}'; ` +
+          `$dst = '${safeOutPath}'; ` +
+          `$exclude = @(${excludePatterns}); ` +
+          `$items = Get-ChildItem -Path $src -Recurse -File | Where-Object { ` +
+          `$rel = $_.FullName.Substring($src.Length + 1); ` +
+          `$dominated = $false; ` +
+          `foreach ($ex in $exclude) { if ($rel -like $ex -or $rel -like \\"$ex/*\\" -or $_.Name -like $ex) { $dominated = $true; break } }; ` +
+          `-not $dominated ` +
+          `}; ` +
+          `if ($items) { $items | Compress-Archive -DestinationPath $dst -Force }"`,
+        { maxBuffer: 1024 * 1024 * 100 }
+      );
+    } else {
+      await execAsync(
+        `powershell -Command "Compress-Archive -LiteralPath '${safeSrcDir}\\*' -DestinationPath '${safeOutPath}' -Force"`,
+        { maxBuffer: 1024 * 1024 * 100 }
+      );
+    }
   }
 }
 
@@ -119,12 +236,23 @@ async function createZipWithSystem(sourceDir, outputPath) {
  * Count files in a directory recursively
  * Skips symlinks to prevent path traversal attacks
  * @param {string} dir - Directory path
- * @returns {Promise<{ count: number, totalSize: number }>}
+ * @param {Object} options - Options
+ * @param {boolean} options.collectPaths - Whether to collect file paths
+ * @param {string[]} options.excludedDirs - Directory names to exclude
+ * @param {string[]} options.excludedFiles - File patterns to exclude
+ * @returns {Promise<{ count: number, totalSize: number, files?: Array<{path: string, size: number}> }>}
  */
-async function countFiles(dir) {
+async function countFiles(dir, options = {}) {
   let { readdir } = await import('node:fs/promises');
+  let {
+    collectPaths = false,
+    excludedDirs = DEFAULT_EXCLUDED_DIRS,
+    excludedFiles = DEFAULT_EXCLUDED_FILES,
+  } = options;
+
   let count = 0;
   let totalSize = 0;
+  let files = collectPaths ? [] : null;
 
   // Resolve the base directory to an absolute path for traversal checks
   let baseDir = await realpath(resolve(dir));
@@ -141,12 +269,8 @@ async function countFiles(dir) {
       }
 
       if (entry.isDirectory()) {
-        // Skip hidden directories and common non-content directories
-        if (
-          entry.name.startsWith('.') ||
-          entry.name === 'node_modules' ||
-          entry.name === '__pycache__'
-        ) {
+        // Skip hidden directories and excluded directories
+        if (entry.name.startsWith('.') || excludedDirs.includes(entry.name)) {
           continue;
         }
 
@@ -162,15 +286,27 @@ async function countFiles(dir) {
         if (entry.name.startsWith('.')) {
           continue;
         }
+
+        // Skip excluded file patterns
+        if (matchesPattern(entry.name, excludedFiles)) {
+          continue;
+        }
+
         count++;
         let fileStat = await stat(fullPath);
         totalSize += fileStat.size;
+
+        if (files) {
+          // Store relative path from base directory
+          let relativePath = fullPath.slice(baseDir.length + 1);
+          files.push({ path: relativePath, size: fileStat.size });
+        }
       }
     }
   }
 
   await walk(baseDir);
-  return { count, totalSize };
+  return { count, totalSize, files };
 }
 
 /**
@@ -220,8 +356,8 @@ export async function previewCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Validate API token
-    if (!config.apiKey) {
+    // Validate API token (skip for dry-run)
+    if (!options.dryRun && !config.apiKey) {
       output.error(
         'API token required. Use --token or set VIZZLY_TOKEN environment variable'
       );
@@ -300,19 +436,65 @@ export async function previewCommand(
       return { success: false, reason: 'no-build' };
     }
 
-    // Check for zip command availability
-    let zipInfo = getZipCommand();
-    if (!zipInfo.available) {
-      output.error(
-        'No zip command found. Please install zip (macOS/Linux) or ensure PowerShell is available (Windows).'
-      );
-      exit(1);
-      return { success: false, reason: 'no-zip-command' };
+    // Check for zip command availability (skip for dry-run)
+    if (!options.dryRun) {
+      let zipInfo = getZipCommand();
+      if (!zipInfo.available) {
+        output.error(
+          'No zip command found. Please install zip (macOS/Linux) or ensure PowerShell is available (Windows).'
+        );
+        exit(1);
+        return { success: false, reason: 'no-zip-command' };
+      }
     }
+
+    // Build exclusion lists from defaults and user options
+    let excludedDirs = [...DEFAULT_EXCLUDED_DIRS];
+    let excludedFiles = [...DEFAULT_EXCLUDED_FILES];
+
+    // Add user-specified exclusions
+    if (options.exclude) {
+      let userExcludes = Array.isArray(options.exclude)
+        ? options.exclude
+        : [options.exclude];
+      for (let pattern of userExcludes) {
+        // If pattern ends with /, treat as directory
+        if (pattern.endsWith('/')) {
+          excludedDirs.push(pattern.slice(0, -1));
+        } else {
+          excludedFiles.push(pattern);
+        }
+      }
+    }
+
+    // Remove patterns that user explicitly wants to include
+    if (options.include) {
+      let userIncludes = Array.isArray(options.include)
+        ? options.include
+        : [options.include];
+      for (let pattern of userIncludes) {
+        if (pattern.endsWith('/')) {
+          let dirName = pattern.slice(0, -1);
+          excludedDirs = excludedDirs.filter(d => d !== dirName);
+        } else {
+          excludedFiles = excludedFiles.filter(f => f !== pattern);
+        }
+      }
+    }
+
+    let exclusions = { dirs: excludedDirs, files: excludedFiles };
 
     // Count files and calculate size
     output.startSpinner('Scanning files...');
-    let { count: fileCount, totalSize } = await countFiles(path);
+    let {
+      count: fileCount,
+      totalSize,
+      files,
+    } = await countFiles(path, {
+      collectPaths: options.dryRun,
+      excludedDirs,
+      excludedFiles,
+    });
 
     if (fileCount === 0) {
       output.stopSpinner();
@@ -321,9 +503,82 @@ export async function previewCommand(
       return { success: false, reason: 'no-files' };
     }
 
-    output.updateSpinner(
-      `Found ${fileCount} files (${formatBytes(totalSize)})`
-    );
+    output.stopSpinner();
+
+    // Dry run - show what would be uploaded and exit
+    if (options.dryRun) {
+      let colors = output.getColors();
+
+      if (globalOptions.json) {
+        output.data({
+          dryRun: true,
+          path: resolve(path),
+          fileCount,
+          totalSize,
+          excludedDirs,
+          excludedFiles,
+          files: files.map(f => ({ path: f.path, size: f.size })),
+        });
+      } else {
+        output.info(
+          `Dry run - would upload ${fileCount} files (${formatBytes(totalSize)})`
+        );
+        output.blank();
+        output.print(
+          `  ${colors.brand.textTertiary('Source')}      ${resolve(path)}`
+        );
+        output.print(
+          `  ${colors.brand.textTertiary('Files')}       ${fileCount}`
+        );
+        output.print(
+          `  ${colors.brand.textTertiary('Total size')}  ${formatBytes(totalSize)}`
+        );
+        output.blank();
+
+        // Show exclusions in verbose mode
+        if (globalOptions.verbose) {
+          output.print(
+            `  ${colors.brand.textTertiary('Excluded directories:')}`
+          );
+          for (let dir of excludedDirs) {
+            output.print(`    ${colors.dim(dir)}`);
+          }
+          output.blank();
+
+          output.print(
+            `  ${colors.brand.textTertiary('Excluded file patterns:')}`
+          );
+          for (let pattern of excludedFiles) {
+            output.print(`    ${colors.dim(pattern)}`);
+          }
+          output.blank();
+        }
+
+        // Show files (limit in non-verbose mode)
+        let displayFiles = globalOptions.verbose
+          ? files
+          : files.slice(0, DRY_RUN_FILE_LIMIT);
+        let hasMore = files.length > displayFiles.length;
+
+        output.print(`  ${colors.brand.textTertiary('Files to upload:')}`);
+        for (let file of displayFiles) {
+          output.print(
+            `    ${file.path} ${colors.dim(`(${formatBytes(file.size)})`)}`
+          );
+        }
+
+        if (hasMore) {
+          output.print(
+            `    ${colors.dim(`... and ${files.length - DRY_RUN_FILE_LIMIT} more (use --verbose to see all)`)}`
+          );
+        }
+      }
+
+      output.cleanup();
+      return { success: true, dryRun: true, fileCount, totalSize, files };
+    }
+
+    output.startSpinner(`Found ${fileCount} files (${formatBytes(totalSize)})`);
 
     // Create ZIP using system command
     output.updateSpinner('Compressing files...');
@@ -336,7 +591,7 @@ export async function previewCommand(
 
     let zipBuffer;
     try {
-      await createZipWithSystem(path, zipPath);
+      await createZipWithSystem(path, zipPath, exclusions);
       zipBuffer = await readFile(zipPath);
     } catch (zipError) {
       output.stopSpinner();

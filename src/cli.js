@@ -572,13 +572,37 @@ program
 program
   .command('preview')
   .description('Upload static files as a preview for a build')
-  .argument('<path>', 'Path to static files (dist/, build/, out/)')
+  .argument('[path]', 'Path to static files (dist/, build/, out/)')
   .option('-b, --build <id>', 'Build ID to attach preview to')
   .option('-p, --parallel-id <id>', 'Look up build by parallel ID')
   .option('--base <path>', 'Override auto-detected base path')
   .option('--open', 'Open preview URL in browser after upload')
+  .option('--dry-run', 'Show what would be uploaded without uploading')
+  .option(
+    '-x, --exclude <pattern>',
+    'Exclude files/dirs (repeatable, e.g. -x "*.log" -x "temp/")',
+    (val, prev) => (prev ? [...prev, val] : [val])
+  )
+  .option(
+    '-i, --include <pattern>',
+    'Override default exclusions (repeatable, e.g. -i package.json -i tests/)',
+    (val, prev) => (prev ? [...prev, val] : [val])
+  )
   .action(async (path, options) => {
     const globalOptions = program.opts();
+
+    // Show helpful error if path is missing
+    if (!path) {
+      output.error('Path to static files is required');
+      output.blank();
+      output.print('  Upload your build output directory:');
+      output.blank();
+      output.print('    vizzly preview ./dist');
+      output.print('    vizzly preview ./build');
+      output.print('    vizzly preview ./out');
+      output.blank();
+      process.exit(1);
+    }
 
     // Validate options
     const validationErrors = validatePreviewOptions(path, options);

@@ -126,6 +126,18 @@ module Vizzly
         disable!('failure')
 
         nil
+      rescue Net::OpenTimeout => e
+        warn "Vizzly connection timed out for #{name}: couldn't connect within 10s"
+        warn "Server URL: #{@server_url}/screenshot"
+        warn 'This usually means the server is unreachable (firewall, network issue, or wrong host)'
+        disable!('failure')
+        nil
+      rescue Net::ReadTimeout => e
+        warn "Vizzly request timed out for #{name}: no response within 30s"
+        warn "Server URL: #{@server_url}/screenshot"
+        warn 'The server may be overloaded or processing is taking too long'
+        disable!('failure')
+        nil
       rescue StandardError => e
         warn "Vizzly screenshot failed for #{name}: #{e.message}"
         disable!('failure')

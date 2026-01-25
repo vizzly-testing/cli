@@ -10,4 +10,5 @@ group :development, :test do
   gem 'rake', '~> 13.0'
   gem 'rubocop', '~> 1.60'
   gem 'selenium-webdriver', '~> 4.0'
+  gem 'webrick', '~> 1.8' # Required for Ruby 3.0+ (removed from stdlib)
 end

@@ -65,7 +65,7 @@ module Vizzly
       uri = URI("#{@server_url}/screenshot")
 
       begin
-        response = Net::HTTP.start(uri.host, uri.port, read_timeout: 30) do |http|
+        response = Net::HTTP.start(uri.host, uri.port, open_timeout: 10, read_timeout: 30) do |http|
           request = Net::HTTP::Post.new(uri)
           request['Content-Type'] = 'application/json'
           request.body = JSON.generate(payload)

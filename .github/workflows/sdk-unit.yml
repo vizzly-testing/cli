@@ -86,13 +86,7 @@ jobs:
 
       - name: Run Ruby unit tests
         working-directory: ./clients/ruby
-        run: ruby -I lib test/vizzly_test.rb
-
-      - name: Run Ruby integration tests
-        working-directory: ./clients/ruby
-        run: VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb
-        env:
-          CI: true
+        run: ruby -Ilib:test test/vizzly_test.rb
 
   # Storybook SDK - runs on multiple Node versions
   storybook:

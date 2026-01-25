@@ -41,6 +41,7 @@ module Vizzly
     #     properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } },
     #     threshold: 5
     #   )
+    # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
     def screenshot(name, image_data, options = {})
       return nil if disabled?
 
@@ -65,7 +66,7 @@ module Vizzly
       uri = URI("#{@server_url}/screenshot")
 
       begin
-        response = Net::HTTP.start(uri.host, uri.port, read_timeout: 30) do |http|
+        response = Net::HTTP.start(uri.host, uri.port, open_timeout: 10, read_timeout: 30) do |http|
           request = Net::HTTP::Post.new(uri)
           request['Content-Type'] = 'application/json'
           request.body = JSON.generate(payload)
@@ -126,12 +127,25 @@ module Vizzly
         disable!('failure')
 
         nil
+      rescue Net::OpenTimeout
+        warn "Vizzly connection timed out for #{name}: couldn't connect within 10s"
+        warn "Server URL: #{@server_url}/screenshot"
+        warn 'This usually means the server is unreachable (firewall, network issue, or wrong host)'
+        disable!('failure')
+        nil
+      rescue Net::ReadTimeout
+        warn "Vizzly request timed out for #{name}: no response within 30s"
+        warn "Server URL: #{@server_url}/screenshot"
+        warn 'The server may be overloaded or processing is taking too long'
+        disable!('failure')
+        nil
       rescue StandardError => e
         warn "Vizzly screenshot failed for #{name}: #{e.message}"
         disable!('failure')
         nil
       end
     end
+    # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
     # Wait for all queued screenshots to be processed
     # (Simple client doesn't need explicit flushing)

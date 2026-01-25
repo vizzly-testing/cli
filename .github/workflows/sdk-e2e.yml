@@ -301,7 +301,7 @@ jobs:
   ruby:
     name: Ruby SDK
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -323,21 +323,26 @@ jobs:
         with:
           ruby-version: '3.3'
 
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
       - name: Install Ruby dependencies
         working-directory: ./clients/ruby
         run: |
           gem install bundler
           bundle install
 
-      - name: Run integration tests (TDD mode)
+      - name: Run E2E tests (TDD mode)
         working-directory: ./clients/ruby
-        run: ../../bin/vizzly.js tdd run "VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb"
+        run: ../../bin/vizzly.js tdd run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb"
         env:
           CI: true
 
-      - name: Run integration tests (Cloud mode)
+      - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/ruby
-        run: ../../bin/vizzly.js run "VIZZLY_INTEGRATION=1 ruby -I lib test/integration_test.rb"
+        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_RUBY_CLIENT_TOKEN }}

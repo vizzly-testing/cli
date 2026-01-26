@@ -1,46 +1,56 @@
-# Vizzly Plugin Marketplace
+# Vizzly Plugin for Claude Code
 
-This directory contains the Vizzly plugin marketplace for Claude Code.
+Visual regression testing with Vizzly - debug failures, check test status, and learn visual testing best practices.
 
-## For Users
+## Installation
 
-See the [plugin README](./plugins/vizzly/README.md) for installation instructions.
-
-**Quick install:**
-
-```
+```bash
+# Add the marketplace
 /plugin marketplace add vizzly-testing/cli
+
+# Install the plugin
 /plugin install vizzly@vizzly-marketplace
 ```
 
+Or via CLI:
+
+```bash
+claude plugin marketplace add vizzly-testing/cli
+claude plugin install vizzly@vizzly-marketplace
+```
+
 Then restart Claude Code.
+
+## What's Included
+
+### Skills (auto-activated)
+
+- **vizzly-knowledge** - Core knowledge about Vizzly file structure, CLI commands, and how it works
+- **debug-visual-regression** - Analyze visual test failures and screenshot differences
+- **check-visual-tests** - Check test status and get summaries
+- **visual-testing-philosophy** - Best practices for visual testing
+
+### Commands (manual)
+
+- `/vizzly:setup` - Initialize Vizzly in a project
+- `/vizzly:suggest-screenshots` - Analyze tests and suggest where to add visual screenshots
 
 ## Structure
 
 ```
 vizzly-plugin/
-├── .claude-plugin/
-│   └── marketplace.json    # Marketplace definition
 └── plugins/
-    └── vizzly/             # The actual plugin
+    └── vizzly/
         ├── .claude-plugin/
         │   └── plugin.json
-        ├── skills/         # Auto-activated skills
-        ├── commands/       # Manual slash commands
-        └── README.md       # User documentation
+        ├── skills/
+        └── commands/
 ```
 
-## For Plugin Developers
+## Development
 
-To test the plugin locally:
+Test the plugin locally:
 
 ```bash
 claude --plugin-dir ./vizzly-plugin/plugins/vizzly
-```
-
-To test via marketplace:
-
-```bash
-/plugin marketplace add ./vizzly-plugin
-/plugin install vizzly@vizzly-marketplace
 ```

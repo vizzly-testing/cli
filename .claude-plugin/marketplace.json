@@ -12,7 +12,7 @@
       "name": "vizzly",
       "version": "0.2.0",
       "description": "Visual regression testing with Vizzly - debug failures, check test status, and learn visual testing best practices",
-      "source": "./plugins/vizzly",
+      "source": "./vizzly-plugin/plugins/vizzly",
       "category": "testing"
     }
   ]

@@ -3,18 +3,38 @@
  * Uses functional API operations directly
  */
 
-import { createApiClient, getBuild, getPreviewInfo } from '../api/index.js';
-import { loadConfig } from '../utils/config-loader.js';
-import { getApiUrl } from '../utils/environment-config.js';
-import * as output from '../utils/output.js';
+import {
+  createApiClient as defaultCreateApiClient,
+  getBuild as defaultGetBuild,
+  getPreviewInfo as defaultGetPreviewInfo,
+} from '../api/index.js';
+import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
+import { getApiUrl as defaultGetApiUrl } from '../utils/environment-config.js';
+import * as defaultOutput from '../utils/output.js';
 
 /**
  * Status command implementation
  * @param {string} buildId - Build ID to check status for
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
  */
-export async function statusCommand(buildId, options = {}, globalOptions = {}) {
+export async function statusCommand(
+  buildId,
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
+  let {
+    loadConfig = defaultLoadConfig,
+    createApiClient = defaultCreateApiClient,
+    getBuild = defaultGetBuild,
+    getPreviewInfo = defaultGetPreviewInfo,
+    getApiUrl = defaultGetApiUrl,
+    output = defaultOutput,
+    exit = code => process.exit(code),
+  } = deps;
+
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -31,7 +51,7 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
       output.error(
         'API token required. Use --token or set VIZZLY_TOKEN environment variable'
       );
-      process.exit(1);
+      exit(1);
     }
 
     // Get build details via functional API
@@ -232,11 +252,20 @@ export async function statusCommand(buildId, options = {}, globalOptions = {}) {
 
     // Exit with appropriate code based on build status
     if (build.status === 'failed' || build.failed_jobs > 0) {
-      process.exit(1);
+      exit(1);
     }
   } catch (error) {
+    // Don't fail CI for Vizzly infrastructure issues (5xx errors)
+    let status = error.context?.status;
+    if (status >= 500) {
+      output.warn('Vizzly API unavailable - status check skipped.');
+      output.cleanup();
+      return { success: true, result: { skipped: true } };
+    }
+
     output.error('Failed to get build status', error);
-    process.exit(1);
+    exit(1);
+    return { success: false, error };
   }
 }
 

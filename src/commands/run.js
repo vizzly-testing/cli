@@ -397,6 +397,16 @@ export async function runCommand(
   } catch (error) {
     output.stopSpinner();
 
+    // Don't fail CI for Vizzly infrastructure issues (5xx errors)
+    let status = error.context?.status;
+    if (status >= 500) {
+      output.warn(
+        'Vizzly API unavailable - visual tests skipped. Your tests still ran.'
+      );
+      output.debug('api', 'API error details:', { error: error.message });
+      return { success: true, result: { skipped: true } };
+    }
+
     // Provide more context about where the error occurred
     let errorContext = 'Test run failed';
     if (error.message?.includes('build')) {

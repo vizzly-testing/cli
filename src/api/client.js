@@ -103,7 +103,9 @@ export function createApiClient(options = {}) {
 
       // Other errors
       let error = parseApiError(response.status, errorBody, url);
-      throw new VizzlyError(error.message, error.code);
+      throw new VizzlyError(error.message, error.code, {
+        status: error.status,
+      });
     }
 
     return response.json();

@@ -95,6 +95,14 @@ export async function finalizeCommand(
     return { success: true, result };
   } catch (error) {
     output.stopSpinner();
+
+    // Don't fail CI for Vizzly infrastructure issues (5xx errors)
+    let status = error.context?.status;
+    if (status >= 500) {
+      output.warn('Vizzly API unavailable - finalize skipped.');
+      return { success: true, result: { skipped: true } };
+    }
+
     output.error('Failed to finalize parallel build', error);
     exit(1);
     return { success: false, error };

@@ -787,6 +787,102 @@ describe('commands/run', () => {
       );
     });
 
+    it('does not fail CI when API returns 5xx error', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      // Simulate a 5xx API error (e.g., Cloudflare 530)
+      let apiError = new Error('API request failed: 530');
+      apiError.context = { status: 530 };
+
+      let result = await runCommand(
+        'npm test',
+        {},
+        {},
+        {
+          loadConfig: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      // Should succeed (not fail CI)
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(exitCode, null); // exit(1) should NOT be called
+
+      // Should show warning
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'warn' && c.args[0].includes('API unavailable')
+        )
+      );
+    });
+
+    it('does not fail CI when API returns 500 error', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error(
+        'API request failed: 500 - Internal Server Error'
+      );
+      apiError.context = { status: 500 };
+
+      let result = await runCommand(
+        'npm test',
+        {},
+        {},
+        {
+          loadConfig: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(exitCode, null);
+    });
+
+    it('still fails CI for 4xx client errors', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 400 - Bad Request');
+      apiError.context = { status: 400 };
+
+      let result = await runCommand(
+        'npm test',
+        {},
+        {},
+        {
+          loadConfig: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(exitCode, 1);
+    });
+
     it('SIGINT handler triggers cleanup and exit', async () => {
       let output = createMockOutput();
       let handlers = {};

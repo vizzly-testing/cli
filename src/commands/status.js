@@ -260,11 +260,12 @@ export async function statusCommand(
     if (status >= 500) {
       output.warn('Vizzly API unavailable - status check skipped.');
       output.cleanup();
-      return;
+      return { success: true, result: { skipped: true } };
     }
 
     output.error('Failed to get build status', error);
     exit(1);
+    return { success: false, error };
   }
 }
 

@@ -73,7 +73,7 @@ describe('commands/status', () => {
       );
       apiError.context = { status: 500 };
 
-      await statusCommand(
+      let result = await statusCommand(
         'build-123',
         {},
         {},
@@ -96,6 +96,8 @@ describe('commands/status', () => {
       );
 
       assert.strictEqual(exitCode, null);
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
       assert.ok(
         output.calls.some(
           c => c.method === 'warn' && c.args[0].includes('API unavailable')

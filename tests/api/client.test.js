@@ -210,6 +210,50 @@ describe('api/client', () => {
       );
     });
 
+    it('includes status code in error context for 5xx errors', async () => {
+      let client = createApiClient({
+        token: 'test-token',
+        baseUrl: 'https://api.test',
+      });
+
+      mockFetch.mock.mockImplementation(async () => ({
+        ok: false,
+        status: 503,
+        headers: new Map(),
+        text: async () => 'Service Unavailable',
+      }));
+
+      await assert.rejects(
+        () => client.request('/api/test'),
+        error => {
+          assert.strictEqual(error.context?.status, 503);
+          return true;
+        }
+      );
+    });
+
+    it('includes status code in error context for 4xx errors', async () => {
+      let client = createApiClient({
+        token: 'test-token',
+        baseUrl: 'https://api.test',
+      });
+
+      mockFetch.mock.mockImplementation(async () => ({
+        ok: false,
+        status: 404,
+        headers: new Map(),
+        text: async () => 'Not Found',
+      }));
+
+      await assert.rejects(
+        () => client.request('/api/test'),
+        error => {
+          assert.strictEqual(error.context?.status, 404);
+          return true;
+        }
+      );
+    });
+
     it('throws VizzlyError for 403 forbidden', async () => {
       let client = createApiClient({
         token: 'test-token',

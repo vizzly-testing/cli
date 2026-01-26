@@ -16,6 +16,7 @@ function createMockOutput() {
     info: msg => calls.push({ method: 'info', args: [msg] }),
     debug: (msg, data) => calls.push({ method: 'debug', args: [msg, data] }),
     error: (msg, err) => calls.push({ method: 'error', args: [msg, err] }),
+    warn: msg => calls.push({ method: 'warn', args: [msg] }),
     success: msg => calls.push({ method: 'success', args: [msg] }),
     data: d => calls.push({ method: 'data', args: [d] }),
     startSpinner: msg => calls.push({ method: 'startSpinner', args: [msg] }),
@@ -300,6 +301,43 @@ describe('commands/finalize', () => {
       assert.strictEqual(capturedConfigPath, '/path/to/config');
       assert.strictEqual(capturedOptions.token, 'option-token');
       assert.strictEqual(capturedOptions.verbose, true);
+    });
+
+    it('does not fail CI when API returns 5xx error', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 502 - Bad Gateway');
+      apiError.context = { status: 502 };
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(exitCode, null);
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'warn' && c.args[0].includes('API unavailable')
+        )
+      );
     });
   });
 });

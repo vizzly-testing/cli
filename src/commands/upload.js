@@ -263,6 +263,16 @@ export async function uploadCommand(
     output.cleanup();
     return { success: true, result };
   } catch (error) {
+    // Don't fail CI for Vizzly infrastructure issues (5xx errors)
+    let status = error.context?.status;
+    if (status >= 500) {
+      output.warn(
+        'Vizzly API unavailable - upload skipped. Your tests still ran.'
+      );
+      output.cleanup();
+      return { success: true, result: { skipped: true } };
+    }
+
     // Mark build as failed if we have a buildId and config
     if (buildId && config) {
       try {

@@ -626,4 +626,51 @@ describe('uploadCommand', () => {
 
     assert.ok(output.calls.some(c => c.method === 'debug'));
   });
+
+  it('does not fail CI when API returns 5xx error', async () => {
+    let output = createMockOutput();
+    let exitCode = null;
+
+    let apiError = new Error('API request failed: 503 - Service Unavailable');
+    apiError.context = { status: 503 };
+
+    let result = await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
+        }),
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async () => {
+            throw apiError;
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.result.skipped, true);
+    assert.strictEqual(exitCode, null);
+    assert.ok(
+      output.calls.some(
+        c => c.method === 'warn' && c.args[0].includes('API unavailable')
+      )
+    );
+  });
 });

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "vizzly-marketplace",
+  "version": "1.0.0",
+  "description": "Vizzly visual regression testing plugin for Claude Code",
+  "owner": {
+    "name": "Vizzly Team",
+    "email": "support@vizzly.dev"
+  },
+  "plugins": [
+    {
+      "name": "vizzly",
+      "version": "0.2.0",
+      "description": "Visual regression testing with Vizzly - debug failures, check test status, and learn visual testing best practices",
+      "source": "./plugins/vizzly",
+      "category": "testing"
+    }
+  ]
+}

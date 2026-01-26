@@ -51,7 +51,6 @@
   "files": [
     "bin",
     "dist",
-    "docs",
     "claude-plugin",
     "README.md",
     "LICENSE"

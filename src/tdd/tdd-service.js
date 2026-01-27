@@ -265,6 +265,9 @@ export class TddService {
     // Hotspot data (loaded lazily from disk or downloaded from cloud)
     this.hotspotData = null;
 
+    // Region data (user-defined 2D bounding boxes, loaded lazily)
+    this.regionData = null;
+
     // Track whether results have been printed (to avoid duplicate output)
     this._resultsPrinted = false;
 
@@ -1044,32 +1047,52 @@ export class TddService {
   /**
    * Download user-defined region data for screenshots
    * Regions are 2D bounding boxes that users have confirmed as dynamic content areas.
+   *
+   * @param {Array|Object} screenshotsOrOptions - Array of screenshots OR options object
+   * @param {boolean} screenshotsOrOptions.includeCandidates - Include candidate regions
+   * @returns {Promise<{ success: boolean, count: number, regionCount: number, error?: string }>}
    */
-  async downloadRegions(screenshots) {
-    let { output, getRegions, saveRegionMetadata } = this._deps;
+  async downloadRegions(screenshotsOrOptions) {
+    let { output, getRegions, saveRegionMetadata, loadBaselineMetadata } = this._deps;
 
     if (!this.config.apiKey) {
       output.debug(
         'tdd',
         'Skipping region download - no API token configured'
       );
-      return;
+      return { success: false, error: 'No API token configured', count: 0, regionCount: 0 };
     }
 
     try {
-      let screenshotNames = [...new Set(screenshots.map(s => s.name))];
+      let screenshotNames;
+      let includeCandidates = false;
+
+      // Handle both array of screenshots (from baseline download) and options object (from sync endpoint)
+      if (Array.isArray(screenshotsOrOptions)) {
+        screenshotNames = [...new Set(screenshotsOrOptions.map(s => s.name))];
+      } else {
+        // Options object - get screenshot names from baseline metadata
+        includeCandidates = screenshotsOrOptions?.includeCandidates || false;
+        let baselineData = loadBaselineMetadata(this.baselinePath);
+
+        if (!baselineData?.screenshots?.length) {
+          return { success: false, error: 'No baselines found', count: 0, regionCount: 0 };
+        }
+
+        screenshotNames = [...new Set(baselineData.screenshots.map(s => s.name))];
+      }
 
       if (screenshotNames.length === 0) {
-        return;
+        return { success: true, count: 0, regionCount: 0 };
       }
 
       output.debug('tdd', `Fetching regions for ${screenshotNames.length} screenshots...`);
 
-      let response = await getRegions(this.client, screenshotNames);
+      let response = await getRegions(this.client, screenshotNames, { includeCandidates });
 
       if (!response.regions || Object.keys(response.regions).length === 0) {
         output.debug('tdd', 'No user-defined region data available from cloud');
-        return;
+        return { success: true, count: 0, regionCount: 0 };
       }
 
       // Update memory cache
@@ -1084,9 +1107,11 @@ export class TddService {
       output.info(
         `📍 Downloaded ${regionCount} user-defined regions for ${screenshotCount} screenshots`
       );
+
+      return { success: true, count: screenshotCount, regionCount };
     } catch (error) {
       output.debug('tdd', `Region download failed: ${error.message}`);
-      // Silent failure - regions are optional enhancement
+      return { success: false, error: error.message, count: 0, regionCount: 0 };
     }
   }
 
@@ -1117,6 +1142,38 @@ export class TddService {
     }
 
     return this.hotspotData?.[screenshotName] || null;
+  }
+
+  /**
+   * Load region data from disk
+   */
+  loadRegions() {
+    let { loadRegionMetadata } = this._deps;
+    return loadRegionMetadata(this.workingDir);
+  }
+
+  /**
+   * Get user-defined regions for a specific screenshot
+   *
+   * Note: Once regionData is loaded (from disk or cloud), we don't reload.
+   * This is intentional - regions are downloaded once per session and cached.
+   * If a screenshot isn't in the cache, it means no region data exists for it.
+   *
+   * @param {string} screenshotName - Name of the screenshot
+   * @returns {Object|null} Region data { confirmed: [], candidates: [] } or null
+   */
+  getRegionsForScreenshot(screenshotName) {
+    // Check memory cache first
+    if (this.regionData?.[screenshotName]) {
+      return this.regionData[screenshotName];
+    }
+
+    // Try loading from disk (only if we haven't loaded yet)
+    if (!this.regionData) {
+      this.regionData = this.loadRegions();
+    }
+
+    return this.regionData?.[screenshotName] || null;
   }
 
   /**
@@ -1366,6 +1423,7 @@ export class TddService {
         return result;
       } else {
         let hotspotAnalysis = this.getHotspotForScreenshot(name);
+        let regionData = this.getRegionsForScreenshot(name);
 
         let result = buildFailedComparison({
           name: sanitizedName,
@@ -1378,6 +1436,7 @@ export class TddService {
           minClusterSize: effectiveMinClusterSize,
           honeydiffResult,
           hotspotAnalysis,
+          regionData,
         });
 
         // Log at debug level only (shown with --verbose)

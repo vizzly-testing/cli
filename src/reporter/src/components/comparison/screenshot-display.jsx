@@ -1,5 +1,6 @@
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import {
+  HotSpotOverlay,
   OnionSkinMode,
   OverlayMode,
   ToggleView,
@@ -23,6 +24,8 @@ export function ScreenshotDisplay({
   // Zoom support
   zoom = 'fit',
   className = '',
+  // Region overlay
+  showRegions = false,
 }) {
   const [imageErrors, setImageErrors] = useState(new Set());
   const [imageLoadStates, setImageLoadStates] = useState(new Map());
@@ -303,6 +306,19 @@ export function ScreenshotDisplay({
                 onImageLoad={handleImageLoad}
                 imageErrors={imageErrors}
                 onDiffToggle={onDiffToggle}
+              />
+            )}
+
+            {/* Region overlay - shows confirmed regions as green boxes */}
+            {showRegions && comparison?.confirmedRegions?.length > 0 && (
+              <HotSpotOverlay
+                confirmed={comparison.confirmedRegions}
+                candidates={[]}
+                imageWidth={naturalImageSize.width}
+                imageHeight={naturalImageSize.height}
+                showConfirmed={true}
+                showCandidates={false}
+                disabled={true}
               />
             )}
           </div>

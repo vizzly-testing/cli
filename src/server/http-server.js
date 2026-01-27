@@ -19,6 +19,7 @@ import { createEventsRouter } from './routers/events.js';
 // Routers
 import { createHealthRouter } from './routers/health.js';
 import { createProjectsRouter } from './routers/projects.js';
+import { createRegionsRouter } from './routers/regions.js';
 import { createScreenshotRouter } from './routers/screenshot.js';
 
 export const createHttpServer = (port, screenshotHandler, services = {}) => {
@@ -52,6 +53,7 @@ export const createHttpServer = (port, screenshotHandler, services = {}) => {
     createAuthRouter(routerContext),
     createProjectsRouter(routerContext),
     createCloudProxyRouter(routerContext),
+    createRegionsRouter(routerContext),
     createEventsRouter(routerContext), // SSE for real-time updates
     createDashboardRouter(routerContext), // Catch-all for SPA routes - must be last
   ];

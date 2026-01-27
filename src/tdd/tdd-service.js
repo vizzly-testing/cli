@@ -19,6 +19,7 @@ import {
   getBatchHotspots as defaultGetBatchHotspots,
   getBuilds as defaultGetBuilds,
   getComparison as defaultGetComparison,
+  getRegions as defaultGetRegions,
   getTddBaselines as defaultGetTddBaselines,
 } from '../api/index.js';
 import { NetworkError } from '../errors/vizzly-error.js';
@@ -51,6 +52,11 @@ import {
   loadHotspotMetadata as defaultLoadHotspotMetadata,
   saveHotspotMetadata as defaultSaveHotspotMetadata,
 } from './metadata/hotspot-metadata.js';
+
+import {
+  loadRegionMetadata as defaultLoadRegionMetadata,
+  saveRegionMetadata as defaultSaveRegionMetadata,
+} from './metadata/region-metadata.js';
 
 import {
   baselineExists as defaultBaselineExists,
@@ -153,6 +159,7 @@ export class TddService {
       getBuilds: defaultGetBuilds,
       getComparison: defaultGetComparison,
       getBatchHotspots: defaultGetBatchHotspots,
+      getRegions: defaultGetRegions,
       fetchWithTimeout: defaultFetchWithTimeout,
       getDefaultBranch: defaultGetDefaultBranch,
       ...api,
@@ -165,6 +172,8 @@ export class TddService {
       upsertScreenshotInMetadata: defaultUpsertScreenshotInMetadata,
       loadHotspotMetadata: defaultLoadHotspotMetadata,
       saveHotspotMetadata: defaultSaveHotspotMetadata,
+      loadRegionMetadata: defaultLoadRegionMetadata,
+      saveRegionMetadata: defaultSaveRegionMetadata,
       ...metadata,
     };
 
@@ -636,8 +645,9 @@ export class TddService {
 
       saveBaselineMetadata(this.baselinePath, this.baselineData);
 
-      // Download hotspots
+      // Download hotspots and user-defined regions
       await this.downloadHotspots(buildDetails.screenshots);
+      await this.downloadRegions(buildDetails.screenshots);
 
       // Save baseline build metadata for MCP plugin
       let baselineMetadataPath = safePath(
@@ -921,10 +931,11 @@ export class TddService {
 
     saveBaselineMetadata(this.baselinePath, this.baselineData);
 
-    // Download hotspots if API key is available (requires SDK auth)
-    // OAuth-only users won't get hotspots since the hotspot endpoint requires project token
+    // Download hotspots and user-defined regions if API key is available (requires SDK auth)
+    // OAuth-only users won't get these since the endpoints require project token
     if (this.config.apiKey && buildDetails.screenshots?.length > 0) {
       await this.downloadHotspots(buildDetails.screenshots);
+      await this.downloadRegions(buildDetails.screenshots);
     }
 
     // Save baseline build metadata for MCP plugin
@@ -1027,6 +1038,55 @@ export class TddService {
       output.warn(
         'Could not fetch hotspot data - comparisons will run without noise filtering'
       );
+    }
+  }
+
+  /**
+   * Download user-defined region data for screenshots
+   * Regions are 2D bounding boxes that users have confirmed as dynamic content areas.
+   */
+  async downloadRegions(screenshots) {
+    let { output, getRegions, saveRegionMetadata } = this._deps;
+
+    if (!this.config.apiKey) {
+      output.debug(
+        'tdd',
+        'Skipping region download - no API token configured'
+      );
+      return;
+    }
+
+    try {
+      let screenshotNames = [...new Set(screenshots.map(s => s.name))];
+
+      if (screenshotNames.length === 0) {
+        return;
+      }
+
+      output.debug('tdd', `Fetching regions for ${screenshotNames.length} screenshots...`);
+
+      let response = await getRegions(this.client, screenshotNames);
+
+      if (!response.regions || Object.keys(response.regions).length === 0) {
+        output.debug('tdd', 'No user-defined region data available from cloud');
+        return;
+      }
+
+      // Update memory cache
+      this.regionData = response.regions;
+
+      // Save to disk
+      saveRegionMetadata(this.workingDir, response.regions, response.summary);
+
+      let regionCount = response.summary?.total_regions || 0;
+      let screenshotCount = Object.keys(response.regions).length;
+
+      output.info(
+        `📍 Downloaded ${regionCount} user-defined regions for ${screenshotCount} screenshots`
+      );
+    } catch (error) {
+      output.debug('tdd', `Region download failed: ${error.message}`);
+      // Silent failure - regions are optional enhancement
     }
   }
 

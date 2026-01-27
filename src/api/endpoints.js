@@ -292,6 +292,34 @@ export async function getBatchHotspots(client, screenshotNames, options = {}) {
 }
 
 // ============================================================================
+// Region Endpoints (User-defined hotspot regions)
+// ============================================================================
+
+/**
+ * Get user-defined hotspot regions for screenshots (2D bounding boxes)
+ *
+ * Unlike historical hotspots (1D Y-bands derived from diff analysis),
+ * these are explicit regions users have confirmed as dynamic content areas.
+ *
+ * @param {Object} client - API client
+ * @param {string[]} screenshotNames - Array of screenshot names
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.includeCandidates - Include candidate regions (default: false)
+ * @returns {Promise<Object>} Regions keyed by screenshot name
+ */
+export async function getRegions(client, screenshotNames, options = {}) {
+  let { includeCandidates = false } = options;
+  return client.request('/api/sdk/screenshots/regions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      screenshot_names: screenshotNames,
+      include_candidates: includeCandidates,
+    }),
+  });
+}
+
+// ============================================================================
 // Auth/Token Endpoints
 // ============================================================================
 

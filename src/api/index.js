@@ -46,6 +46,7 @@ export {
   getBuilds,
   getComparison,
   getPreviewInfo,
+  getRegions,
   getScreenshotHotspots,
   getTddBaselines,
   getTokenContext,

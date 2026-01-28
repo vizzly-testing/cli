@@ -1,36 +1,19 @@
 /**
  * Browser management with Puppeteer
- * Functions for launching, managing, and closing browsers
+ * Core functions for launching and managing browsers
  */
 
 import puppeteer from 'puppeteer';
-import { setViewport } from './utils/viewport.js';
 
 /**
- * Check if running in a CI environment
- * @returns {boolean}
- */
-function isCI() {
-  return !!(
-    process.env.CI ||
-    process.env.GITHUB_ACTIONS ||
-    process.env.JENKINS_HOME ||
-    process.env.CIRCLECI ||
-    process.env.GITLAB_CI ||
-    process.env.BUILDKITE
-  );
-}
-
-/**
- * Base browser args required for headless operation
- */
-let BASE_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
-
-/**
- * Additional browser args optimized for CI environments
+ * Default browser args optimized for CI environments
  * These reduce memory usage and improve stability in resource-constrained environments
  */
 let CI_OPTIMIZED_ARGS = [
+  // Required for running in containers/CI
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+
   // Reduce memory usage
   '--disable-dev-shm-usage', // Use /tmp instead of /dev/shm (often too small in Docker)
   '--disable-gpu', // No GPU in CI
@@ -57,8 +40,8 @@ let CI_OPTIMIZED_ARGS = [
   '--no-first-run',
   '--safebrowsing-disable-auto-update',
 
-  // Memory optimizations
-  '--js-flags=--max-old-space-size=1024', // Limit V8 heap (1GB for larger Storybooks)
+  // Memory optimizations (1GB for larger Storybooks)
+  '--js-flags=--max-old-space-size=1024',
 ];
 
 /**
@@ -71,13 +54,9 @@ let CI_OPTIMIZED_ARGS = [
 export async function launchBrowser(options = {}) {
   let { headless = true, args = [] } = options;
 
-  let browserArgs = isCI()
-    ? [...BASE_ARGS, ...CI_OPTIMIZED_ARGS, ...args]
-    : [...BASE_ARGS, ...args];
-
   let browser = await puppeteer.launch({
     headless,
-    args: browserArgs,
+    args: [...CI_OPTIMIZED_ARGS, ...args],
     // Reduce protocol timeout for faster failure detection
     protocolTimeout: 60_000, // 60s instead of default 180s
   });
@@ -97,15 +76,6 @@ export async function closeBrowser(browser) {
 }
 
 /**
- * Create a new page in the browser
- * @param {Object} browser - Browser instance
- * @returns {Promise<Object>} Page instance
- */
-export async function createPage(browser) {
-  return await browser.newPage();
-}
-
-/**
  * Navigate to a URL and wait for the page to load
  * @param {Object} page - Puppeteer page instance
  * @param {string} url - URL to navigate to
@@ -121,15 +91,10 @@ export async function navigateToUrl(page, url, options = {}) {
     });
   } catch (error) {
     // Fallback to domcontentloaded if networkidle2 times out
-    let isTimeout =
-      error.name === 'TimeoutError' ||
+    if (
       error.message.includes('timeout') ||
-      error.message.includes('Navigation timeout');
-
-    if (isTimeout) {
-      console.warn(
-        `Navigation timeout for ${url}, falling back to domcontentloaded`
-      );
+      error.message.includes('Navigation timeout')
+    ) {
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: 30000,
@@ -138,46 +103,5 @@ export async function navigateToUrl(page, url, options = {}) {
     } else {
       throw error;
     }
-  }
-}
-
-/**
- * Process a single story - navigate, wait, and prepare for screenshot
- * @param {Object} browser - Browser instance
- * @param {string} url - Story URL
- * @param {Object} viewport - Viewport configuration
- * @param {Function|null} beforeScreenshot - Optional hook to run before screenshot
- * @returns {Promise<Object>} Page instance ready for screenshot
- */
-export async function prepareStoryPage(
-  browser,
-  url,
-  viewport,
-  beforeScreenshot = null
-) {
-  let page = await createPage(browser);
-
-  // Set viewport
-  await setViewport(page, viewport);
-
-  // Navigate to story (waits for networkidle2)
-  await navigateToUrl(page, url);
-
-  // Run custom interaction hook if provided
-  if (beforeScreenshot && typeof beforeScreenshot === 'function') {
-    await beforeScreenshot(page);
-  }
-
-  return page;
-}
-
-/**
- * Close a page
- * @param {Object} page - Page instance to close
- * @returns {Promise<void>}
- */
-export async function closePage(page) {
-  if (page) {
-    await page.close();
   }
 }

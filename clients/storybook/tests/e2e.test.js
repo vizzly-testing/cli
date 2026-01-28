@@ -12,7 +12,7 @@
  */
 
 import assert from 'node:assert';
-import { spawn, execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -152,7 +152,10 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
 
       let stories = await discoverStories(storybookBuildPath, config);
 
-      assert.ok(stories.length > 0, `Should find stories, found ${stories.length}`);
+      assert.ok(
+        stories.length > 0,
+        `Should find stories, found ${stories.length}`
+      );
 
       // Each story should have required fields
       for (let story of stories) {
@@ -172,7 +175,10 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
 
       let stories = await discoverStories(storybookBuildPath, config);
 
-      assert.ok(stories.length > 0, `Should find Button stories, found ${stories.length}`);
+      assert.ok(
+        stories.length > 0,
+        `Should find Button stories, found ${stories.length}`
+      );
 
       // Should only find Button stories
       for (let story of stories) {
@@ -293,7 +299,11 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
           });
           results.push({ story: story.id, success: true });
         } catch (error) {
-          results.push({ story: story.id, success: false, error: error.message });
+          results.push({
+            story: story.id,
+            success: false,
+            error: error.message,
+          });
         } finally {
           await closePage(page);
         }
@@ -360,7 +370,10 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
 
       assert.ok(url.includes(baseUrl), 'URL should include base URL');
       assert.ok(url.includes(storyId), 'URL should include story ID');
-      assert.ok(url.includes('viewMode=story'), 'URL should have viewMode=story');
+      assert.ok(
+        url.includes('viewMode=story'),
+        'URL should have viewMode=story'
+      );
     });
 
     it('gets story-specific config', () => {
@@ -466,7 +479,10 @@ describe('Storybook SDK (unit tests)', () => {
       exclude: null,
     };
 
-    let filteredStories = await discoverStories(storybookBuildPath, filteredConfig);
+    let filteredStories = await discoverStories(
+      storybookBuildPath,
+      filteredConfig
+    );
 
     assert.ok(
       filteredStories.length <= allStories.length,

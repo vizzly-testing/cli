@@ -269,7 +269,7 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+          key: playwright-${{ steps.playwright-version.outputs.version }}-ember-chromium-v2
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'

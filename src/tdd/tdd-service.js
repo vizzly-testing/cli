@@ -473,13 +473,27 @@ export class TddService {
         baselineBuild.screenshots = apiResponse.screenshots;
 
         // Store bundled hotspots and regions from API response
-        if (apiResponse.hotspots && Object.keys(apiResponse.hotspots).length > 0) {
+        if (
+          apiResponse.hotspots &&
+          Object.keys(apiResponse.hotspots).length > 0
+        ) {
           this.hotspotData = apiResponse.hotspots;
-          saveHotspotMetadata(this.workingDir, apiResponse.hotspots, apiResponse.summary);
+          saveHotspotMetadata(
+            this.workingDir,
+            apiResponse.hotspots,
+            apiResponse.summary
+          );
         }
-        if (apiResponse.regions && Object.keys(apiResponse.regions).length > 0) {
+        if (
+          apiResponse.regions &&
+          Object.keys(apiResponse.regions).length > 0
+        ) {
           this.regionData = apiResponse.regions;
-          saveRegionMetadata(this.workingDir, apiResponse.regions, apiResponse.summary);
+          saveRegionMetadata(
+            this.workingDir,
+            apiResponse.regions,
+            apiResponse.summary
+          );
         }
       }
 
@@ -759,11 +773,19 @@ export class TddService {
     let { saveHotspotMetadata, saveRegionMetadata } = this._deps;
     if (apiResponse.hotspots && Object.keys(apiResponse.hotspots).length > 0) {
       this.hotspotData = apiResponse.hotspots;
-      saveHotspotMetadata(this.workingDir, apiResponse.hotspots, apiResponse.summary);
+      saveHotspotMetadata(
+        this.workingDir,
+        apiResponse.hotspots,
+        apiResponse.summary
+      );
     }
     if (apiResponse.regions && Object.keys(apiResponse.regions).length > 0) {
       this.regionData = apiResponse.regions;
-      saveRegionMetadata(this.workingDir, apiResponse.regions, apiResponse.summary);
+      saveRegionMetadata(
+        this.workingDir,
+        apiResponse.regions,
+        apiResponse.summary
+      );
     }
 
     if (baselineBuild.status === 'failed') {

@@ -66,21 +66,23 @@ function SettingSection({ title, source, description, children, noSource }) {
   );
 }
 
-
 function SettingsForm({ config, sources, onSave, isSaving }) {
   let initialFormData = getInitialFormData(config);
   let [formData, setFormData] = useState(initialFormData);
   let [hasChanges, setHasChanges] = useState(false);
 
-  let handleFieldChange = useCallback((name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setHasChanges(true);
-  }, []);
+  let handleFieldChange = useCallback(
+    (name, value) => {
+      setFormData(prev => ({ ...prev, [name]: value }));
+      setHasChanges(true);
+    },
+    [setFormData, setHasChanges]
+  );
 
   let handleReset = useCallback(() => {
     setFormData(getInitialFormData(config));
     setHasChanges(false);
-  }, [config]);
+  }, [config, setFormData, setHasChanges]);
 
   let handleSave = useCallback(() => {
     let updates = {
@@ -100,7 +102,7 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
       },
     };
     onSave(updates, () => setHasChanges(false));
-  }, [formData, onSave]);
+  }, [formData, onSave, setHasChanges]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

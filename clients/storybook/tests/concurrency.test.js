@@ -2,8 +2,8 @@
  * Tests for concurrency control
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 // Simple concurrency control - process items with limited parallelism
 async function mapWithConcurrency(items, fn, concurrency) {
@@ -60,7 +60,10 @@ describe('mapWithConcurrency', () => {
       2
     );
 
-    assert.ok(maxConcurrent <= 2, `Expected max concurrency <= 2, got ${maxConcurrent}`);
+    assert.ok(
+      maxConcurrent <= 2,
+      `Expected max concurrency <= 2, got ${maxConcurrent}`
+    );
   });
 
   it('should handle async function results', async () => {

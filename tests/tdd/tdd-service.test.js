@@ -1696,7 +1696,7 @@ describe('tdd/tdd-service', () => {
         metadata: {
           loadBaselineMetadata: () => null,
           saveBaselineMetadata: () => {},
-          saveHotspotMetadata: (dir, hotspots) => {
+          saveHotspotMetadata: (_dir, hotspots) => {
             hotspotsSaved = true;
             savedHotspots = hotspots;
           },
@@ -1734,7 +1734,10 @@ describe('tdd/tdd-service', () => {
 
       await service.processDownloadedBaselines(apiResponse, 'build-1');
 
-      assert.ok(hotspotsSaved, 'Should save bundled hotspots from API response');
+      assert.ok(
+        hotspotsSaved,
+        'Should save bundled hotspots from API response'
+      );
       assert.deepStrictEqual(savedHotspots, apiResponse.hotspots);
     });
 

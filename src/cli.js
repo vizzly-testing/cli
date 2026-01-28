@@ -17,10 +17,6 @@ import {
   projectTokenCommand,
   validateProjectOptions,
 } from './commands/project.js';
-import {
-  regionsSyncCommand,
-  validateRegionsSyncOptions,
-} from './commands/regions.js';
 import { runCommand, validateRunOptions } from './commands/run.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
@@ -86,7 +82,7 @@ const formatHelp = (cmd, helper) => {
           key: 'core',
           icon: '▸',
           title: 'Core',
-          names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview', 'regions:sync'],
+          names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview'],
         },
         { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor'] },
         {
@@ -746,31 +742,6 @@ program
     const globalOptions = program.opts();
 
     await projectRemoveCommand(options, globalOptions);
-  });
-
-// ============================================================================
-// Regions Commands
-// ============================================================================
-
-program
-  .command('regions:sync')
-  .description('Download user-defined hotspot regions from cloud')
-  .option('--screenshots <names>', 'Specific screenshot names (comma-separated)')
-  .option('--include-candidates', 'Include candidate regions (not just confirmed)')
-  .action(async options => {
-    const globalOptions = program.opts();
-
-    // Validate options
-    const validationErrors = validateRegionsSyncOptions(options);
-    if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.print(`  - ${error}`);
-      }
-      process.exit(1);
-    }
-
-    await regionsSyncCommand(options, globalOptions);
   });
 
 program.parse();

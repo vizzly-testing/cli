@@ -120,13 +120,3 @@ export function useDeleteComparison() {
   });
 }
 
-export function useSyncRegions() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: options => tdd.syncRegions(options),
-    onSuccess: () => {
-      // Invalidate report data to pick up any region-filtered comparisons
-      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
-    },
-  });
-}

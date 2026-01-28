@@ -19,7 +19,6 @@ import {
   getBatchHotspots as defaultGetBatchHotspots,
   getBuilds as defaultGetBuilds,
   getComparison as defaultGetComparison,
-  getRegions as defaultGetRegions,
   getTddBaselines as defaultGetTddBaselines,
 } from '../api/index.js';
 import { NetworkError } from '../errors/vizzly-error.js';
@@ -159,7 +158,6 @@ export class TddService {
       getBuilds: defaultGetBuilds,
       getComparison: defaultGetComparison,
       getBatchHotspots: defaultGetBatchHotspots,
-      getRegions: defaultGetRegions,
       fetchWithTimeout: defaultFetchWithTimeout,
       getDefaultBranch: defaultGetDefaultBranch,
       ...api,
@@ -473,6 +471,16 @@ export class TddService {
 
         baselineBuild = apiResponse.build;
         baselineBuild.screenshots = apiResponse.screenshots;
+
+        // Store bundled hotspots and regions from API response
+        if (apiResponse.hotspots && Object.keys(apiResponse.hotspots).length > 0) {
+          this.hotspotData = apiResponse.hotspots;
+          saveHotspotMetadata(this.workingDir, apiResponse.hotspots, apiResponse.summary);
+        }
+        if (apiResponse.regions && Object.keys(apiResponse.regions).length > 0) {
+          this.regionData = apiResponse.regions;
+          saveRegionMetadata(this.workingDir, apiResponse.regions, apiResponse.summary);
+        }
       }
 
       let buildDetails = baselineBuild;
@@ -648,9 +656,8 @@ export class TddService {
 
       saveBaselineMetadata(this.baselinePath, this.baselineData);
 
-      // Download hotspots and user-defined regions
-      await this.downloadHotspots(buildDetails.screenshots);
-      await this.downloadRegions(buildDetails.screenshots);
+      // Hotspots and regions are now bundled in the tdd-baselines API response
+      // and saved earlier when processing the API response
 
       // Save baseline build metadata for MCP plugin
       let baselineMetadataPath = safePath(
@@ -747,6 +754,17 @@ export class TddService {
     }
 
     let baselineBuild = apiResponse.build;
+
+    // Store bundled hotspots and regions from API response
+    let { saveHotspotMetadata, saveRegionMetadata } = this._deps;
+    if (apiResponse.hotspots && Object.keys(apiResponse.hotspots).length > 0) {
+      this.hotspotData = apiResponse.hotspots;
+      saveHotspotMetadata(this.workingDir, apiResponse.hotspots, apiResponse.summary);
+    }
+    if (apiResponse.regions && Object.keys(apiResponse.regions).length > 0) {
+      this.regionData = apiResponse.regions;
+      saveRegionMetadata(this.workingDir, apiResponse.regions, apiResponse.summary);
+    }
 
     if (baselineBuild.status === 'failed') {
       output.warn(
@@ -934,12 +952,8 @@ export class TddService {
 
     saveBaselineMetadata(this.baselinePath, this.baselineData);
 
-    // Download hotspots and user-defined regions if API key is available (requires SDK auth)
-    // OAuth-only users won't get these since the endpoints require project token
-    if (this.config.apiKey && buildDetails.screenshots?.length > 0) {
-      await this.downloadHotspots(buildDetails.screenshots);
-      await this.downloadRegions(buildDetails.screenshots);
-    }
+    // Hotspots and regions are now bundled in the tdd-baselines API response
+    // and saved earlier when processing the API response
 
     // Save baseline build metadata for MCP plugin
     let baselineMetadataPath = safePath(
@@ -1041,77 +1055,6 @@ export class TddService {
       output.warn(
         'Could not fetch hotspot data - comparisons will run without noise filtering'
       );
-    }
-  }
-
-  /**
-   * Download user-defined region data for screenshots
-   * Regions are 2D bounding boxes that users have confirmed as dynamic content areas.
-   *
-   * @param {Array|Object} screenshotsOrOptions - Array of screenshots OR options object
-   * @param {boolean} screenshotsOrOptions.includeCandidates - Include candidate regions
-   * @returns {Promise<{ success: boolean, count: number, regionCount: number, error?: string }>}
-   */
-  async downloadRegions(screenshotsOrOptions) {
-    let { output, getRegions, saveRegionMetadata, loadBaselineMetadata } = this._deps;
-
-    if (!this.config.apiKey) {
-      output.debug(
-        'tdd',
-        'Skipping region download - no API token configured'
-      );
-      return { success: false, error: 'No API token configured', count: 0, regionCount: 0 };
-    }
-
-    try {
-      let screenshotNames;
-      let includeCandidates = false;
-
-      // Handle both array of screenshots (from baseline download) and options object (from sync endpoint)
-      if (Array.isArray(screenshotsOrOptions)) {
-        screenshotNames = [...new Set(screenshotsOrOptions.map(s => s.name))];
-      } else {
-        // Options object - get screenshot names from baseline metadata
-        includeCandidates = screenshotsOrOptions?.includeCandidates || false;
-        let baselineData = loadBaselineMetadata(this.baselinePath);
-
-        if (!baselineData?.screenshots?.length) {
-          return { success: false, error: 'No baselines found', count: 0, regionCount: 0 };
-        }
-
-        screenshotNames = [...new Set(baselineData.screenshots.map(s => s.name))];
-      }
-
-      if (screenshotNames.length === 0) {
-        return { success: true, count: 0, regionCount: 0 };
-      }
-
-      output.debug('tdd', `Fetching regions for ${screenshotNames.length} screenshots...`);
-
-      let response = await getRegions(this.client, screenshotNames, { includeCandidates });
-
-      if (!response.regions || Object.keys(response.regions).length === 0) {
-        output.debug('tdd', 'No user-defined region data available from cloud');
-        return { success: true, count: 0, regionCount: 0 };
-      }
-
-      // Update memory cache
-      this.regionData = response.regions;
-
-      // Save to disk
-      saveRegionMetadata(this.workingDir, response.regions, response.summary);
-
-      let regionCount = response.summary?.total_regions || 0;
-      let screenshotCount = Object.keys(response.regions).length;
-
-      output.info(
-        `📍 Downloaded ${regionCount} user-defined regions for ${screenshotCount} screenshots`
-      );
-
-      return { success: true, count: screenshotCount, regionCount };
-    } catch (error) {
-      output.debug('tdd', `Region download failed: ${error.message}`);
-      return { success: false, error: error.message, count: 0, regionCount: 0 };
     }
   }
 

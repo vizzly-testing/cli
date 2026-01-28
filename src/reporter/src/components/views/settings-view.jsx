@@ -3,7 +3,6 @@ import {
   useConfig,
   useUpdateProjectConfig,
 } from '../../hooks/queries/use-config-queries.js';
-import { useSyncRegions } from '../../hooks/queries/use-tdd-queries.js';
 import {
   Alert,
   Badge,
@@ -67,67 +66,8 @@ function SettingSection({ title, source, description, children, noSource }) {
   );
 }
 
-function RegionsSection({ addToast }) {
-  let [includeCandidates, setIncludeCandidates] = useState(false);
-  let syncMutation = useSyncRegions();
 
-  let handleSync = useCallback(() => {
-    syncMutation.mutate(
-      { includeCandidates },
-      {
-        onSuccess: data => {
-          if (data.count === 0) {
-            addToast('No regions found for current baselines', 'info');
-          } else {
-            addToast(
-              `Synced ${data.regionCount} regions for ${data.count} screenshots`,
-              'success'
-            );
-          }
-        },
-        onError: err => {
-          addToast(`Failed to sync regions: ${err.message}`, 'error');
-        },
-      }
-    );
-  }, [syncMutation, includeCandidates, addToast]);
-
-  return (
-    <Card hover={false}>
-      <CardBody>
-        <SettingSection
-          title="Regions"
-          noSource
-          description="Sync user-defined dynamic regions from cloud"
-        >
-          <div className="space-y-4">
-            <Toggle
-              label="Include candidates"
-              description="Also sync unconfirmed region candidates"
-              checked={includeCandidates}
-              onChange={e => setIncludeCandidates(e.target.checked)}
-            />
-            <Button
-              variant="secondary"
-              onClick={handleSync}
-              loading={syncMutation.isPending}
-              className="w-full"
-            >
-              Sync Regions
-            </Button>
-            <p className="text-xs text-slate-500">
-              Regions are 2D areas you've confirmed as dynamic content in the
-              cloud dashboard. Syncing them allows local tests to auto-approve
-              diffs that fall within these regions.
-            </p>
-          </div>
-        </SettingSection>
-      </CardBody>
-    </Card>
-  );
-}
-
-function SettingsForm({ config, sources, onSave, isSaving, addToast }) {
+function SettingsForm({ config, sources, onSave, isSaving }) {
   let initialFormData = getInitialFormData(config);
   let [formData, setFormData] = useState(initialFormData);
   let [hasChanges, setHasChanges] = useState(false);
@@ -271,9 +211,6 @@ function SettingsForm({ config, sources, onSave, isSaving, addToast }) {
             </SettingSection>
           </CardBody>
         </Card>
-
-        {/* Regions */}
-        <RegionsSection addToast={addToast} />
       </div>
 
       {/* Full-width Actions */}
@@ -419,7 +356,6 @@ export default function SettingsView() {
         sources={configData?.sources}
         onSave={handleSave}
         isSaving={updateMutation.isPending}
-        addToast={addToast}
       />
     </div>
   );

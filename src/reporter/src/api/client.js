@@ -117,21 +117,6 @@ export const tdd = {
       body: JSON.stringify({ buildId, organizationSlug, projectSlug }),
     });
   },
-
-  /**
-   * Sync user-defined regions from cloud
-   * @param {Object} options
-   * @param {boolean} [options.includeCandidates=false] - Include candidate regions
-   * @returns {Promise<Object>}
-   */
-  async syncRegions(options = {}) {
-    return fetchJson('/api/regions/sync', {
-      method: 'POST',
-      body: JSON.stringify({
-        includeCandidates: options.includeCandidates || false,
-      }),
-    });
-  },
 };
 
 /**

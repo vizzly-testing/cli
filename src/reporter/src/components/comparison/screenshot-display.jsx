@@ -309,7 +309,7 @@ export function ScreenshotDisplay({
               />
             )}
 
-            {/* Region overlay - shows confirmed regions as green boxes */}
+            {/* Region overlay - shows confirmed regions (green boxes) */}
             {showRegions && comparison?.confirmedRegions?.length > 0 && (
               <HotSpotOverlay
                 confirmed={comparison.confirmedRegions}

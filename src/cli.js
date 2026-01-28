@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import { program } from 'commander';
+import { saveUserPath } from './utils/global-config.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
   finalizeCommand,
@@ -22,6 +23,7 @@ import { statusCommand, validateStatusOptions } from './commands/status.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
 import {
   runDaemonChild,
+  tddListCommand,
   tddStartCommand,
   tddStatusCommand,
   tddStopCommand,
@@ -406,6 +408,15 @@ tddCmd
     await tddStatusCommand(options, globalOptions);
   });
 
+// TDD List - List all running servers (for menubar app integration)
+tddCmd
+  .command('list')
+  .description('List all running TDD servers')
+  .action(async options => {
+    const globalOptions = program.opts();
+    await tddListCommand(options, globalOptions);
+  });
+
 // TDD Run - One-off test run with ephemeral server (generates static report)
 tddCmd
   .command('run <command>')
@@ -751,5 +762,9 @@ program
 
     await projectRemoveCommand(options, globalOptions);
   });
+
+// Save user's PATH for menubar app before parsing commands
+// This auto-configures the menubar app so it can find npx/node
+await saveUserPath().catch(() => {});
 
 program.parse();

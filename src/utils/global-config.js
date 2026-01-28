@@ -100,6 +100,33 @@ export async function clearGlobalConfig() {
 }
 
 /**
+ * Save user's PATH for menubar app to use
+ * This auto-configures the menubar app so it can find npx/node
+ * @returns {Promise<void>}
+ */
+export async function saveUserPath() {
+  let config = await loadGlobalConfig();
+  let userPath = process.env.PATH;
+
+  // Only update if PATH has changed
+  if (config.userPath === userPath) {
+    return;
+  }
+
+  config.userPath = userPath;
+  await saveGlobalConfig(config);
+}
+
+/**
+ * Get stored user PATH for external tools (like menubar app)
+ * @returns {Promise<string|null>} PATH string or null if not configured
+ */
+export async function getUserPath() {
+  let config = await loadGlobalConfig();
+  return config.userPath || null;
+}
+
+/**
  * Get authentication tokens from global config
  * @returns {Promise<Object|null>} Token object with accessToken, refreshToken, expiresAt, user, or null if not found
  */

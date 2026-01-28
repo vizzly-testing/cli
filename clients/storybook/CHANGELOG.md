@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-01-28
+
+## What's Changed
+
+### Changed
+- Migrated test suite from Vitest to Node.js built-in test runner (`node:test`) for better performance and reduced dependencies
+- Replaced ESLint and Prettier with Biome for unified, faster linting and formatting
+- Upgraded minimum Node.js version requirement from 20.0.0 to 22.0.0
+- Improved test coverage from 87% to 99%
+
+### Fixed
+- Fixed `services.get()` calls to use direct property access, resolving "services.get is not a function" errors when using the plugin in cloud mode
+- Added comprehensive E2E tests that work with both `vizzly tdd run` (local TDD mode) and `vizzly run` (cloud mode)
+- Improved Puppeteer performance in CI environments with optimized arguments and timeout handling
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v0.1.2...storybook/v0.1.3
+
 ## [0.1.2] - 2025-11-30
 
 ## What's Changed

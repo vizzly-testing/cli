@@ -462,18 +462,16 @@ export const createTddHandler = (
     const vizzlyDir = join(workingDir, '.vizzly');
 
     // Record the comparison for the dashboard
+    // Spread the full comparison to include regionAnalysis, confirmedRegions, hotspotAnalysis, etc.
     const newComparison = {
-      id: comparison.id, // Include unique ID for variant identification
-      name: comparison.name,
+      ...comparison,
       originalName: name,
-      status: comparison.status,
+      // Convert absolute file paths to web-accessible URLs
       baseline: convertPathToUrl(comparison.baseline, vizzlyDir),
       current: convertPathToUrl(comparison.current, vizzlyDir),
       diff: convertPathToUrl(comparison.diff, vizzlyDir),
-      diffPercentage: comparison.diffPercentage,
-      threshold: comparison.threshold,
-      properties: extractedProperties, // Use extracted properties with top-level viewport_width/browser
-      signature: comparison.signature, // Include signature for debugging
+      // Use extracted properties with top-level viewport_width/browser
+      properties: extractedProperties,
       timestamp: Date.now(),
     };
 

@@ -53,6 +53,11 @@ import {
 } from './metadata/hotspot-metadata.js';
 
 import {
+  loadRegionMetadata as defaultLoadRegionMetadata,
+  saveRegionMetadata as defaultSaveRegionMetadata,
+} from './metadata/region-metadata.js';
+
+import {
   baselineExists as defaultBaselineExists,
   clearBaselineData as defaultClearBaselineData,
   getBaselinePath as defaultGetBaselinePath,
@@ -165,6 +170,8 @@ export class TddService {
       upsertScreenshotInMetadata: defaultUpsertScreenshotInMetadata,
       loadHotspotMetadata: defaultLoadHotspotMetadata,
       saveHotspotMetadata: defaultSaveHotspotMetadata,
+      loadRegionMetadata: defaultLoadRegionMetadata,
+      saveRegionMetadata: defaultSaveRegionMetadata,
       ...metadata,
     };
 
@@ -255,6 +262,9 @@ export class TddService {
 
     // Hotspot data (loaded lazily from disk or downloaded from cloud)
     this.hotspotData = null;
+
+    // Region data (user-defined 2D bounding boxes, loaded lazily)
+    this.regionData = null;
 
     // Track whether results have been printed (to avoid duplicate output)
     this._resultsPrinted = false;
@@ -461,6 +471,30 @@ export class TddService {
 
         baselineBuild = apiResponse.build;
         baselineBuild.screenshots = apiResponse.screenshots;
+
+        // Store bundled hotspots and regions from API response
+        if (
+          apiResponse.hotspots &&
+          Object.keys(apiResponse.hotspots).length > 0
+        ) {
+          this.hotspotData = apiResponse.hotspots;
+          saveHotspotMetadata(
+            this.workingDir,
+            apiResponse.hotspots,
+            apiResponse.summary
+          );
+        }
+        if (
+          apiResponse.regions &&
+          Object.keys(apiResponse.regions).length > 0
+        ) {
+          this.regionData = apiResponse.regions;
+          saveRegionMetadata(
+            this.workingDir,
+            apiResponse.regions,
+            apiResponse.summary
+          );
+        }
       }
 
       let buildDetails = baselineBuild;
@@ -636,8 +670,8 @@ export class TddService {
 
       saveBaselineMetadata(this.baselinePath, this.baselineData);
 
-      // Download hotspots
-      await this.downloadHotspots(buildDetails.screenshots);
+      // Hotspots and regions are now bundled in the tdd-baselines API response
+      // and saved earlier when processing the API response
 
       // Save baseline build metadata for MCP plugin
       let baselineMetadataPath = safePath(
@@ -734,6 +768,25 @@ export class TddService {
     }
 
     let baselineBuild = apiResponse.build;
+
+    // Store bundled hotspots and regions from API response
+    let { saveHotspotMetadata, saveRegionMetadata } = this._deps;
+    if (apiResponse.hotspots && Object.keys(apiResponse.hotspots).length > 0) {
+      this.hotspotData = apiResponse.hotspots;
+      saveHotspotMetadata(
+        this.workingDir,
+        apiResponse.hotspots,
+        apiResponse.summary
+      );
+    }
+    if (apiResponse.regions && Object.keys(apiResponse.regions).length > 0) {
+      this.regionData = apiResponse.regions;
+      saveRegionMetadata(
+        this.workingDir,
+        apiResponse.regions,
+        apiResponse.summary
+      );
+    }
 
     if (baselineBuild.status === 'failed') {
       output.warn(
@@ -921,11 +974,8 @@ export class TddService {
 
     saveBaselineMetadata(this.baselinePath, this.baselineData);
 
-    // Download hotspots if API key is available (requires SDK auth)
-    // OAuth-only users won't get hotspots since the hotspot endpoint requires project token
-    if (this.config.apiKey && buildDetails.screenshots?.length > 0) {
-      await this.downloadHotspots(buildDetails.screenshots);
-    }
+    // Hotspots and regions are now bundled in the tdd-baselines API response
+    // and saved earlier when processing the API response
 
     // Save baseline build metadata for MCP plugin
     let baselineMetadataPath = safePath(
@@ -1057,6 +1107,38 @@ export class TddService {
     }
 
     return this.hotspotData?.[screenshotName] || null;
+  }
+
+  /**
+   * Load region data from disk
+   */
+  loadRegions() {
+    let { loadRegionMetadata } = this._deps;
+    return loadRegionMetadata(this.workingDir);
+  }
+
+  /**
+   * Get user-defined regions for a specific screenshot
+   *
+   * Note: Once regionData is loaded (from disk or cloud), we don't reload.
+   * This is intentional - regions are downloaded once per session and cached.
+   * If a screenshot isn't in the cache, it means no region data exists for it.
+   *
+   * @param {string} screenshotName - Name of the screenshot
+   * @returns {Object|null} Region data { confirmed: [], candidates: [] } or null
+   */
+  getRegionsForScreenshot(screenshotName) {
+    // Check memory cache first
+    if (this.regionData?.[screenshotName]) {
+      return this.regionData[screenshotName];
+    }
+
+    // Try loading from disk (only if we haven't loaded yet)
+    if (!this.regionData) {
+      this.regionData = this.loadRegions();
+    }
+
+    return this.regionData?.[screenshotName] || null;
   }
 
   /**
@@ -1306,6 +1388,7 @@ export class TddService {
         return result;
       } else {
         let hotspotAnalysis = this.getHotspotForScreenshot(name);
+        let regionData = this.getRegionsForScreenshot(name);
 
         let result = buildFailedComparison({
           name: sanitizedName,
@@ -1318,6 +1401,7 @@ export class TddService {
           minClusterSize: effectiveMinClusterSize,
           honeydiffResult,
           hotspotAnalysis,
+          regionData,
         });
 
         // Log at debug level only (shown with --verbose)

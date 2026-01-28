@@ -58,7 +58,9 @@ export function generateScreenshotSignature(
         value = properties.viewport?.width;
       }
     } else if (propName === 'browser') {
-      value = properties.browser;
+      // Normalize browser to lowercase for consistent matching
+      // (Playwright reports "firefox", but cloud may store "Firefox")
+      value = properties.browser?.toLowerCase?.() ?? properties.browser;
     } else {
       // Custom property - check multiple locations
       value =

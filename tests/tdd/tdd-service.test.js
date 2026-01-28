@@ -1684,8 +1684,9 @@ describe('tdd/tdd-service', () => {
       assert.ok(savedMetadata.screenshots.length > 0);
     });
 
-    it('downloads hotspots when apiKey is configured', async () => {
-      let hotspotsCalled = false;
+    it('saves bundled hotspots from API response', async () => {
+      let hotspotsSaved = false;
+      let savedHotspots = null;
       let mockDeps = createMockDeps({
         baseline: { clearBaselineData: () => {} },
         fs: {
@@ -1695,17 +1696,17 @@ describe('tdd/tdd-service', () => {
         metadata: {
           loadBaselineMetadata: () => null,
           saveBaselineMetadata: () => {},
-          saveHotspotMetadata: () => {},
+          saveHotspotMetadata: (_dir, hotspots) => {
+            hotspotsSaved = true;
+            savedHotspots = hotspots;
+          },
+          saveRegionMetadata: () => {},
         },
         api: {
           fetchWithTimeout: async () => ({
             ok: true,
             arrayBuffer: async () => new ArrayBuffer(10),
           }),
-          getBatchHotspots: async () => {
-            hotspotsCalled = true;
-            return { hotspots: {} };
-          },
         },
       });
       let service = new TddService(
@@ -1725,15 +1726,23 @@ describe('tdd/tdd-service', () => {
             original_url: 'http://example.com/1.png',
           },
         ],
+        hotspots: {
+          test: { regions: [{ y1: 0, y2: 100 }], confidence: 'high' },
+        },
+        summary: { hotspotsCount: 1 },
       };
 
       await service.processDownloadedBaselines(apiResponse, 'build-1');
 
-      assert.ok(hotspotsCalled, 'Should call hotspots API when apiKey present');
+      assert.ok(
+        hotspotsSaved,
+        'Should save bundled hotspots from API response'
+      );
+      assert.deepStrictEqual(savedHotspots, apiResponse.hotspots);
     });
 
-    it('skips hotspot download when no apiKey configured', async () => {
-      let hotspotsCalled = false;
+    it('skips hotspot save when not in API response', async () => {
+      let hotspotsSaved = false;
       let mockDeps = createMockDeps({
         baseline: { clearBaselineData: () => {} },
         fs: {
@@ -1743,16 +1752,16 @@ describe('tdd/tdd-service', () => {
         metadata: {
           loadBaselineMetadata: () => null,
           saveBaselineMetadata: () => {},
+          saveHotspotMetadata: () => {
+            hotspotsSaved = true;
+          },
+          saveRegionMetadata: () => {},
         },
         api: {
           fetchWithTimeout: async () => ({
             ok: true,
             arrayBuffer: async () => new ArrayBuffer(10),
           }),
-          getBatchHotspots: async () => {
-            hotspotsCalled = true;
-            return { hotspots: {} };
-          },
         },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
@@ -1766,11 +1775,15 @@ describe('tdd/tdd-service', () => {
             original_url: 'http://example.com/1.png',
           },
         ],
+        // No hotspots in response
       };
 
       await service.processDownloadedBaselines(apiResponse, 'build-1');
 
-      assert.ok(!hotspotsCalled, 'Should NOT call hotspots API without apiKey');
+      assert.ok(
+        !hotspotsSaved,
+        'Should NOT save hotspots when not in API response'
+      );
     });
 
     it('returns null when all downloads fail', async () => {

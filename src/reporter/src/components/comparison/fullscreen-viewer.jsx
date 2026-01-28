@@ -19,6 +19,7 @@ import {
   DocumentMagnifyingGlassIcon,
   InformationCircleIcon,
   ListBulletIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline';
 import {
   ApprovalButtonGroup,
@@ -101,6 +102,7 @@ function FullscreenViewerInner({
   let [showInspector, setShowInspector] = useState(false);
   let [queueFilter, setQueueFilter] = useState('needs-review');
   let [_showBaseline, setShowBaseline] = useState(true);
+  let [showRegions, setShowRegions] = useState(false);
 
   let { zoom, setZoom } = useZoom('fit');
   let { isActive: isReviewMode } = useReviewMode();
@@ -111,7 +113,7 @@ function FullscreenViewerInner({
   // Toggle inspector (closes other panels)
   let toggleInspector = useCallback(() => {
     setShowInspector(prev => !prev);
-  }, []);
+  }, [setShowInspector]);
 
   // Transform comparisons for queue display
   // Map CLI status to Observatory result format
@@ -291,7 +293,7 @@ function FullscreenViewerInner({
     setViewMode(current =>
       current === VIEW_MODES.OVERLAY ? VIEW_MODES.TOGGLE : VIEW_MODES.OVERLAY
     );
-  }, []);
+  }, [setViewMode]);
 
   // Toggle handler for 'd' - toggles diff overlay or baseline/current
   let handleDiffToggle = useCallback(() => {
@@ -300,7 +302,7 @@ function FullscreenViewerInner({
     } else {
       setShowDiffOverlay(prev => !prev);
     }
-  }, [viewMode]);
+  }, [viewMode, setShowBaseline, setShowDiffOverlay]);
 
   // Review mode shortcuts
   let reviewModeShortcuts = useMemo(
@@ -320,6 +322,7 @@ function FullscreenViewerInner({
       onReject,
       cycleViewMode,
       handleDiffToggle,
+      setViewMode,
     ]
   );
 
@@ -352,12 +355,25 @@ function FullscreenViewerInner({
             toggleInspector();
           }
           break;
+        case 'g':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setShowRegions(prev => !prev);
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canNavigate, handlePrevious, handleNext, onClose, toggleInspector]);
+  }, [
+    canNavigate,
+    handlePrevious,
+    handleNext,
+    onClose,
+    toggleInspector,
+    setShowRegions,
+  ]);
 
   // Scroll active queue item into view
   useEffect(() => {
@@ -381,7 +397,7 @@ function FullscreenViewerInner({
         behavior: 'smooth',
       });
     }
-  }, []);
+  }, [activeQueueItemRef.current]);
 
   if (!comparison) {
     return (
@@ -523,6 +539,20 @@ function FullscreenViewerInner({
               <ListBulletIcon className="w-5 h-5 pointer-events-none" />
             </button>
 
+            {/* Regions toggle - only show if comparison has regions */}
+            {comparison?.confirmedRegions?.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowRegions(!showRegions)}
+                className={`p-2 rounded-md transition-colors ${showRegions ? 'bg-emerald-500/15 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                title="Show Regions (G)"
+                aria-label="Toggle regions"
+                data-testid="toggle-regions-btn"
+              >
+                <MapPinIcon className="w-5 h-5 pointer-events-none" />
+              </button>
+            )}
+
             <button
               type="button"
               onClick={toggleInspector}
@@ -661,6 +691,7 @@ function FullscreenViewerInner({
             onOnionSkinChange={setOnionSkinPosition}
             zoom={zoom}
             disableLoadingOverlay={true}
+            showRegions={showRegions}
             className="w-full h-full"
           />
         </main>
@@ -792,6 +823,19 @@ function FullscreenViewerInner({
           >
             <InformationCircleIcon className="w-5 h-5 pointer-events-none" />
           </button>
+
+          {/* Regions toggle - mobile */}
+          {comparison?.confirmedRegions?.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowRegions(!showRegions)}
+              className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showRegions ? 'bg-emerald-500/15 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60 active:bg-slate-700/60'}`}
+              aria-label="Toggle regions"
+              data-testid="mobile-toggle-regions-btn"
+            >
+              <MapPinIcon className="w-5 h-5 pointer-events-none" />
+            </button>
+          )}
 
           {canDelete && onDelete && (
             <button

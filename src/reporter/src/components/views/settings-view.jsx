@@ -51,14 +51,14 @@ function SourceBadge({ source }) {
   );
 }
 
-function SettingSection({ title, source, description, children }) {
+function SettingSection({ title, source, description, children, noSource }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
           {title}
         </h3>
-        <SourceBadge source={source || 'default'} />
+        {!noSource && <SourceBadge source={source || 'default'} />}
       </div>
       {description && <p className="text-sm text-slate-400">{description}</p>}
       <div className="space-y-4">{children}</div>
@@ -71,15 +71,18 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
   let [formData, setFormData] = useState(initialFormData);
   let [hasChanges, setHasChanges] = useState(false);
 
-  let handleFieldChange = useCallback((name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setHasChanges(true);
-  }, []);
+  let handleFieldChange = useCallback(
+    (name, value) => {
+      setFormData(prev => ({ ...prev, [name]: value }));
+      setHasChanges(true);
+    },
+    [setFormData, setHasChanges]
+  );
 
   let handleReset = useCallback(() => {
     setFormData(getInitialFormData(config));
     setHasChanges(false);
-  }, [config]);
+  }, [config, setFormData, setHasChanges]);
 
   let handleSave = useCallback(() => {
     let updates = {
@@ -99,7 +102,7 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
       },
     };
     onSave(updates, () => setHasChanges(false));
-  }, [formData, onSave]);
+  }, [formData, onSave, setHasChanges]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -55,15 +55,18 @@ function IconDropdown({
       onChange(val);
       setIsOpen(false);
     },
-    [onChange]
+    [onChange, setIsOpen]
   );
 
   // Close on outside click
-  let handleBlur = useCallback(e => {
-    if (!dropdownRef.current?.contains(e.relatedTarget)) {
-      setIsOpen(false);
-    }
-  }, []);
+  let handleBlur = useCallback(
+    e => {
+      if (!dropdownRef.current?.contains(e.relatedTarget)) {
+        setIsOpen(false);
+      }
+    },
+    [dropdownRef.current?.contains, setIsOpen]
+  );
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: dropdown container needs blur handler

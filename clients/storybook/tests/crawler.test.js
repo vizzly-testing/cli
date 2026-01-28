@@ -2,18 +2,18 @@
  * Tests for story crawler functions
  */
 
-import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile, mkdir, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { after, describe, it } from 'node:test';
 import {
+  discoverStories,
   extractStoryConfig,
   filterStories,
   generateStoryUrl,
   parseStories,
   readIndexJson,
-  discoverStories,
 } from '../src/crawler.js';
 
 describe('parseStories', () => {
@@ -157,7 +157,10 @@ describe('filterStories', () => {
     let filtered = filterStories(stories, config);
 
     assert.equal(filtered.length, 3);
-    assert.equal(filtered.find(s => s.id === 'card--skipped'), undefined);
+    assert.equal(
+      filtered.find(s => s.id === 'card--skipped'),
+      undefined
+    );
   });
 
   it('should apply both include and skip filters', () => {
@@ -220,14 +223,22 @@ describe('readIndexJson', () => {
   });
 
   it('should read and parse valid index.json', async () => {
-    let testDir = join(tmpdir(), `storybook-test-${Date.now()}-${Math.random()}`);
+    let testDir = join(
+      tmpdir(),
+      `storybook-test-${Date.now()}-${Math.random()}`
+    );
     testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
 
     let indexData = {
       v: 7,
       entries: {
-        'test--story': { id: 'test--story', title: 'Test', name: 'Story', type: 'story' },
+        'test--story': {
+          id: 'test--story',
+          title: 'Test',
+          name: 'Story',
+          type: 'story',
+        },
       },
     };
     await writeFile(join(testDir, 'index.json'), JSON.stringify(indexData));
@@ -238,20 +249,32 @@ describe('readIndexJson', () => {
   });
 
   it('should throw error for missing index.json', async () => {
-    let testDir = join(tmpdir(), `storybook-test-missing-${Date.now()}-${Math.random()}`);
+    let testDir = join(
+      tmpdir(),
+      `storybook-test-missing-${Date.now()}-${Math.random()}`
+    );
     testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
 
-    await assert.rejects(readIndexJson(testDir), /Failed to read Storybook index\.json/);
+    await assert.rejects(
+      readIndexJson(testDir),
+      /Failed to read Storybook index\.json/
+    );
   });
 
   it('should throw error for invalid JSON', async () => {
-    let testDir = join(tmpdir(), `storybook-test-invalid-${Date.now()}-${Math.random()}`);
+    let testDir = join(
+      tmpdir(),
+      `storybook-test-invalid-${Date.now()}-${Math.random()}`
+    );
     testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
     await writeFile(join(testDir, 'index.json'), 'not valid json');
 
-    await assert.rejects(readIndexJson(testDir), /Failed to read Storybook index\.json/);
+    await assert.rejects(
+      readIndexJson(testDir),
+      /Failed to read Storybook index\.json/
+    );
   });
 });
 
@@ -265,16 +288,34 @@ describe('discoverStories', () => {
   });
 
   it('should discover and filter stories from storybook path', async () => {
-    let testDir = join(tmpdir(), `storybook-test-discover-${Date.now()}-${Math.random()}`);
+    let testDir = join(
+      tmpdir(),
+      `storybook-test-discover-${Date.now()}-${Math.random()}`
+    );
     testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
 
     let indexData = {
       v: 7,
       entries: {
-        'button--primary': { id: 'button--primary', title: 'Button', name: 'Primary', type: 'story' },
-        'button--secondary': { id: 'button--secondary', title: 'Button', name: 'Secondary', type: 'story' },
-        'card--default': { id: 'card--default', title: 'Card', name: 'Default', type: 'story' },
+        'button--primary': {
+          id: 'button--primary',
+          title: 'Button',
+          name: 'Primary',
+          type: 'story',
+        },
+        'button--secondary': {
+          id: 'button--secondary',
+          title: 'Button',
+          name: 'Secondary',
+          type: 'story',
+        },
+        'card--default': {
+          id: 'card--default',
+          title: 'Card',
+          name: 'Default',
+          type: 'story',
+        },
       },
     };
     await writeFile(join(testDir, 'index.json'), JSON.stringify(indexData));
@@ -286,15 +327,28 @@ describe('discoverStories', () => {
   });
 
   it('should return all stories when no filter', async () => {
-    let testDir = join(tmpdir(), `storybook-test-discover-all-${Date.now()}-${Math.random()}`);
+    let testDir = join(
+      tmpdir(),
+      `storybook-test-discover-all-${Date.now()}-${Math.random()}`
+    );
     testDirs.push(testDir);
     await mkdir(testDir, { recursive: true });
 
     let indexData = {
       v: 7,
       entries: {
-        'button--primary': { id: 'button--primary', title: 'Button', name: 'Primary', type: 'story' },
-        'card--default': { id: 'card--default', title: 'Card', name: 'Default', type: 'story' },
+        'button--primary': {
+          id: 'button--primary',
+          title: 'Button',
+          name: 'Primary',
+          type: 'story',
+        },
+        'card--default': {
+          id: 'card--default',
+          title: 'Card',
+          name: 'Default',
+          type: 'story',
+        },
       },
     };
     await writeFile(join(testDir, 'index.json'), JSON.stringify(indexData));

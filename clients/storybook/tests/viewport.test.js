@@ -2,13 +2,13 @@
  * Tests for viewport utilities
  */
 
-import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it, mock } from 'node:test';
 import {
-  parseViewport,
   formatViewport,
-  setViewport,
   getCommonViewports,
+  parseViewport,
+  setViewport,
 } from '../src/utils/viewport.js';
 
 describe('parseViewport', () => {

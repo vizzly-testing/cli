@@ -67,7 +67,19 @@ export async function captureAndSendScreenshot(
   screenshotOptions = {}
 ) {
   let name = generateScreenshotName(story, viewport);
-  let screenshot = await captureScreenshot(page, screenshotOptions);
+  let verbose = process.env.VIZZLY_LOG_LEVEL === 'debug';
 
+  let t0 = Date.now();
+  let screenshot = await captureScreenshot(page, screenshotOptions);
+  let captureTime = Date.now() - t0;
+
+  let t1 = Date.now();
   await vizzlyScreenshot(name, screenshot);
+  let sendTime = Date.now() - t1;
+
+  if (verbose) {
+    console.error(
+      `    [screenshot] ${name}: capture=${captureTime}ms send=${sendTime}ms`
+    );
+  }
 }

@@ -56,6 +56,9 @@ export const createApiHandler = (
     properties = {},
     type
   ) => {
+    let handlerStart = Date.now();
+    output.debug('upload', `${name} received`, { buildId: buildId?.slice(0, 8) });
+
     if (vizzlyDisabled) {
       output.debug('upload', `${name} (disabled)`);
       return {
@@ -137,6 +140,7 @@ export const createApiHandler = (
       };
     }
     screenshotCount++;
+    let uploadStart = Date.now();
 
     // Fire upload in background - DON'T AWAIT!
     let uploadPromise = uploadScreenshot(
@@ -147,26 +151,34 @@ export const createApiHandler = (
       properties ?? {}
     )
       .then(result => {
+        let duration = Date.now() - uploadStart;
         if (!result.skipped) {
-          output.debug('upload', name);
+          output.debug('upload', `${name} completed`, { ms: duration });
+        } else {
+          output.debug('upload', `${name} skipped (dedup)`, { ms: duration });
         }
-        return { success: true, name, result };
+        return { success: true, name, result, duration };
       })
       .catch(uploadError => {
+        let duration = Date.now() - uploadStart;
         output.debug('upload', `${name} failed`, {
           error: uploadError.message,
+          ms: duration,
         });
         vizzlyDisabled = true;
         output.warn(
           'Vizzly disabled due to upload error - continuing tests without visual testing'
         );
-        return { success: false, name, error: uploadError };
+        return { success: false, name, error: uploadError, duration };
       });
 
     // Collect promise for later flushing
     uploadPromises.push(uploadPromise);
 
     // Return immediately - test continues without waiting!
+    let handlerMs = Date.now() - handlerStart;
+    output.debug('upload', `${name} handler returning`, { ms: handlerMs });
+
     return {
       statusCode: 200,
       body: {

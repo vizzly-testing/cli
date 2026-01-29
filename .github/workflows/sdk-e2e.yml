@@ -175,12 +175,14 @@ jobs:
         run: ../../bin/vizzly.js tdd run "npm run test:e2e"
         env:
           CI: true
+          VIZZLY_LOG_LEVEL: debug
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/storybook
         run: ../../bin/vizzly.js run "npm run test:e2e"
         env:
           CI: true
+          VIZZLY_LOG_LEVEL: debug
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STORYBOOK_CLIENT_TOKEN }}
           VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}

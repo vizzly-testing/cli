@@ -28,10 +28,27 @@ export function generateStoryUrl(baseUrl, storyId) {
 export async function navigateToStory(tab, storyId, baseUrl, options = {}) {
   let { timeout = 30000 } = options;
   let entry = tab._poolEntry;
+  let verbose = process.env.VIZZLY_LOG_LEVEL === 'debug';
+
+  // Debug: log navigation mode
+  let navMode = !entry?.storybookInitialized
+    ? 'full-page-init'
+    : entry.currentStoryId === storyId
+      ? 'skip-same-story'
+      : 'client-side';
+
+  if (verbose) {
+    console.error(`  [nav] ${storyId}: ${navMode} (poolEntry: ${!!entry})`);
+  }
 
   // First time this tab visits Storybook: full page load
   if (!entry?.storybookInitialized) {
+    let start = Date.now();
     await fullPageNavigation(tab, storyId, baseUrl, timeout);
+
+    if (verbose) {
+      console.error(`  [nav] ${storyId}: full-page took ${Date.now() - start}ms`);
+    }
 
     if (entry) {
       entry.storybookInitialized = true;
@@ -42,20 +59,32 @@ export async function navigateToStory(tab, storyId, baseUrl, options = {}) {
 
   // Same story (maybe different viewport) - no navigation needed
   if (entry.currentStoryId === storyId) {
+    if (verbose) {
+      console.error(`  [nav] ${storyId}: skip (same story)`);
+    }
     return;
   }
 
   // Subsequent visit: use client-side navigation
   try {
+    let start = Date.now();
     await clientSideNavigation(tab, storyId, timeout);
+
+    if (verbose) {
+      console.error(`  [nav] ${storyId}: client-side took ${Date.now() - start}ms`);
+    }
     entry.currentStoryId = storyId;
   } catch (error) {
-    // Log and fallback to full navigation if client-side fails
-    console.debug?.(
-      `Client-side navigation failed for ${storyId}, falling back to full page load:`,
-      error.message
+    // Log fallback - always show since this is unexpected behavior
+    console.error(
+      `  [nav] ${storyId}: client-side failed, falling back to full-page: ${error.message}`
     );
+    let start = Date.now();
     await fullPageNavigation(tab, storyId, baseUrl, timeout);
+
+    if (verbose) {
+      console.error(`  [nav] ${storyId}: fallback full-page took ${Date.now() - start}ms`);
+    }
     entry.currentStoryId = storyId;
   }
 }

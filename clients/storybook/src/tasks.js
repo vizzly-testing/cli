@@ -79,20 +79,39 @@ export async function processTask(tab, task, deps = {}) {
   };
 
   let { story, viewport, hook, storyId, baseUrl, screenshotOptions } = task;
+  let verbose = process.env.VIZZLY_LOG_LEVEL === 'debug';
+  let timings = {};
 
   // Set viewport (tab is reused, so always set)
+  let t0 = Date.now();
   await setViewport(tab, viewport);
+  timings.viewport = Date.now() - t0;
 
   // Navigate to the story (smart: uses client-side navigation when possible)
+  let t1 = Date.now();
   await navigateToStory(tab, storyId, baseUrl);
+  timings.navigate = Date.now() - t1;
 
   // Run interaction hook if provided
   if (hook && typeof hook === 'function') {
+    let t2 = Date.now();
     await hook(tab);
+    timings.hook = Date.now() - t2;
   }
 
   // Capture and send screenshot
+  let t3 = Date.now();
   await captureAndSendScreenshot(tab, story, viewport, screenshotOptions);
+  timings.screenshot = Date.now() - t3;
+
+  // Log timing breakdown in verbose mode
+  if (verbose) {
+    let total = timings.viewport + timings.navigate + (timings.hook || 0) + timings.screenshot;
+    let hookStr = timings.hook ? ` hook=${timings.hook}ms` : '';
+    console.error(
+      `  [timing] ${storyId}@${viewport.name}: viewport=${timings.viewport}ms nav=${timings.navigate}ms${hookStr} screenshot=${timings.screenshot}ms (total=${total}ms)`
+    );
+  }
 }
 
 /**

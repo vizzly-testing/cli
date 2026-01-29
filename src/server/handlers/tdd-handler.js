@@ -332,6 +332,9 @@ export const createTddHandler = (
     properties = {},
     type
   ) => {
+    let handlerStart = Date.now();
+    output.debug('tdd', `${name} received`);
+
     // Validate and sanitize screenshot name
     let sanitizedName;
     try {
@@ -522,6 +525,9 @@ export const createTddHandler = (
     }
 
     // Match or new baseline
+    let handlerMs = Date.now() - handlerStart;
+    output.debug('tdd', `${name} handler returning`, { ms: handlerMs, status: comparison.status });
+
     return {
       statusCode: 200,
       body: {

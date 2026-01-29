@@ -127,8 +127,12 @@ export function createTabPool(browser, size, options = {}) {
           available.push(newEntry);
         }
       } catch {
-        // Failed to create new tab - reduce total count
+        // Failed to create new tab - reduce total count and notify waiting worker
         totalTabs--;
+        if (waiting.length > 0) {
+          let next = waiting.shift();
+          next(null); // Signal failure so task can handle it
+        }
       }
       return;
     }

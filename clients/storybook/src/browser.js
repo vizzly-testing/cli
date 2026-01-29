@@ -6,8 +6,9 @@
 import puppeteer from 'puppeteer';
 
 /**
- * Default browser args optimized for CI environments
- * These reduce memory usage and improve stability in resource-constrained environments
+ * Browser args optimized for stability and consistency
+ * These are used in both local dev and CI to ensure identical behavior.
+ * Disabling GPU, extensions, etc. reduces flakiness and memory usage.
  */
 let CI_OPTIMIZED_ARGS = [
   // Required for running in containers/CI

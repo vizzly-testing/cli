@@ -11,7 +11,7 @@ export default {
   // Default storybook config for E2E tests
   storybook: {
     viewports: [{ name: 'default', width: 1280, height: 720 }],
-    concurrency: 3,
+    // concurrency auto-detected from CPU cores (half cores, max 4)
     browser: {
       headless: true,
     },

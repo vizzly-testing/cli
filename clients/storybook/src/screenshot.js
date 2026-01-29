@@ -34,22 +34,44 @@ export function generateScreenshotName(story, viewport) {
 }
 
 /**
+ * Default timeout for screenshot capture (45 seconds)
+ * Normal screenshots take 25-150ms; this matches static-site SDK
+ */
+const SCREENSHOT_TIMEOUT_MS = 45_000;
+
+/**
  * Capture a screenshot from a page
  * @param {Object} page - Puppeteer page instance
  * @param {Object} options - Screenshot options
  * @param {boolean} [options.fullPage=false] - Capture full page
  * @param {boolean} [options.omitBackground=false] - Omit background
  * @returns {Promise<Buffer>} Screenshot buffer
+ * @throws {Error} If screenshot takes longer than 10 seconds
  */
 export async function captureScreenshot(page, options = {}) {
   let { fullPage = false, omitBackground = false } = options;
 
-  let screenshot = await page.screenshot({
-    fullPage,
-    omitBackground,
+  let timeoutId;
+  let screenshotPromise = page.screenshot({ fullPage, omitBackground });
+
+  let timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(
+        new Error(
+          `Screenshot capture timed out after ${SCREENSHOT_TIMEOUT_MS / 1000}s - page may be unresponsive`
+        )
+      );
+    }, SCREENSHOT_TIMEOUT_MS);
   });
 
-  return screenshot;
+  try {
+    let screenshot = await Promise.race([screenshotPromise, timeoutPromise]);
+    clearTimeout(timeoutId);
+    return screenshot;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
 }
 
 /**

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-01-29
+
+# v0.2.0
+
+## What's Changed
+
+### Added
+- **Tab pool architecture** - Reuses browser tabs instead of creating/destroying per story for significantly better performance
+- **Tab recycling** - Automatically closes and recreates tabs after 10 uses to prevent memory leaks
+- **Automatic retry** - On timeout/crash, closes bad tab and retries with a fresh one
+- **Tab state reset** - Clears cookies/localStorage between uses to ensure clean test state
+- **Progress tracking** - Shows ETA and completion percentage in TTY mode
+- **CI-optimized browser flags** - Same hardened browser arguments as static-site SDK for improved stability
+
+### Fixed
+- Fixed `services.get is not a function` bug by rebuilding dist after source changes
+- Fixed timeout issues in CI environments through robust browser management
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v0.1.3...storybook/v0.2.0
+
 ## [0.1.3] - 2026-01-28
 
 ## What's Changed

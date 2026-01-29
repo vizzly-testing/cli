@@ -145,6 +145,10 @@ jobs:
         working-directory: ./clients/storybook
         run: npm install
 
+      - name: Build Storybook client
+        working-directory: ./clients/storybook
+        run: npm run build
+
       - name: Get Puppeteer version
         working-directory: ./clients/storybook
         id: puppeteer-version
@@ -205,6 +209,10 @@ jobs:
       - name: Install Static-Site client dependencies
         working-directory: ./clients/static-site
         run: npm install
+
+      - name: Build Static-Site client
+        working-directory: ./clients/static-site
+        run: npm run build
 
       - name: Get Puppeteer version
         working-directory: ./clients/static-site

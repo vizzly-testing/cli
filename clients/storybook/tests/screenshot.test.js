@@ -2,12 +2,12 @@
  * Tests for screenshot functions
  */
 
-import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it, mock } from 'node:test';
 import {
-  generateScreenshotName,
-  captureScreenshot,
   captureAndSendScreenshot,
+  captureScreenshot,
+  generateScreenshotName,
 } from '../src/screenshot.js';
 
 describe('generateScreenshotName', () => {
@@ -103,7 +103,9 @@ describe('captureAndSendScreenshot', () => {
     let story = { title: 'Card', name: 'Default' };
     let viewport = { name: 'mobile' };
 
-    await captureAndSendScreenshot(mockPage, story, viewport, { fullPage: true });
+    await captureAndSendScreenshot(mockPage, story, viewport, {
+      fullPage: true,
+    });
 
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
       fullPage: true,

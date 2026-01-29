@@ -12,22 +12,32 @@
  */
 
 import assert from 'node:assert';
-import { spawn, execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-import {
-  closeBrowser,
-  closePage,
-  launchBrowser,
-  prepareStoryPage,
-} from '../src/browser.js';
+import { closeBrowser, launchBrowser, navigateToUrl } from '../src/browser.js';
 import { discoverStories, generateStoryUrl } from '../src/crawler.js';
 import { getBeforeScreenshotHook, getStoryConfig } from '../src/hooks.js';
 import { captureAndSendScreenshot } from '../src/screenshot.js';
 import { startStaticServer, stopStaticServer } from '../src/server.js';
+import { setViewport } from '../src/utils/viewport.js';
+
+/**
+ * Prepare a story page for screenshot (test helper)
+ * @param {Object} browser - Browser instance
+ * @param {string} url - Story URL
+ * @param {Object} viewport - Viewport configuration
+ * @returns {Promise<Object>} Page instance
+ */
+async function prepareStoryPage(browser, url, viewport) {
+  let page = await browser.newPage();
+  await setViewport(page, viewport);
+  await navigateToUrl(page, url);
+  return page;
+}
 
 // Paths
 let testDir = join(tmpdir(), `vizzly-storybook-e2e-${Date.now()}`);
@@ -152,7 +162,10 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
 
       let stories = await discoverStories(storybookBuildPath, config);
 
-      assert.ok(stories.length > 0, `Should find stories, found ${stories.length}`);
+      assert.ok(
+        stories.length > 0,
+        `Should find stories, found ${stories.length}`
+      );
 
       // Each story should have required fields
       for (let story of stories) {
@@ -172,7 +185,10 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
 
       let stories = await discoverStories(storybookBuildPath, config);
 
-      assert.ok(stories.length > 0, `Should find Button stories, found ${stories.length}`);
+      assert.ok(
+        stories.length > 0,
+        `Should find Button stories, found ${stories.length}`
+      );
 
       // Should only find Button stories
       for (let story of stories) {
@@ -233,7 +249,7 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
         // If we get here without error, screenshot succeeded
         assert.ok(true, 'Screenshot should succeed');
       } finally {
-        await closePage(page);
+        await page.close();
       }
     });
 
@@ -259,7 +275,7 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
 
         assert.ok(true, 'Screenshot with threshold should succeed');
       } finally {
-        await closePage(page);
+        await page.close();
       }
     });
   });
@@ -293,9 +309,13 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
           });
           results.push({ story: story.id, success: true });
         } catch (error) {
-          results.push({ story: story.id, success: false, error: error.message });
+          results.push({
+            story: story.id,
+            success: false,
+            error: error.message,
+          });
         } finally {
-          await closePage(page);
+          await page.close();
         }
       }
 
@@ -338,7 +358,7 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
             error: error.message,
           });
         } finally {
-          await closePage(page);
+          await page.close();
         }
       }
 
@@ -360,7 +380,10 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
 
       assert.ok(url.includes(baseUrl), 'URL should include base URL');
       assert.ok(url.includes(storyId), 'URL should include story ID');
-      assert.ok(url.includes('viewMode=story'), 'URL should have viewMode=story');
+      assert.ok(
+        url.includes('viewMode=story'),
+        'URL should have viewMode=story'
+      );
     });
 
     it('gets story-specific config', () => {
@@ -466,7 +489,10 @@ describe('Storybook SDK (unit tests)', () => {
       exclude: null,
     };
 
-    let filteredStories = await discoverStories(storybookBuildPath, filteredConfig);
+    let filteredStories = await discoverStories(
+      storybookBuildPath,
+      filteredConfig
+    );
 
     assert.ok(
       filteredStories.length <= allStories.length,

@@ -1,124 +1,15 @@
 /**
  * Main entry point for @vizzly-testing/storybook
  * Functional orchestration of story discovery and screenshot capture
+ * Uses a tab pool for efficient browser tab management
  */
 
-import {
-  closeBrowser,
-  closePage,
-  launchBrowser,
-  prepareStoryPage,
-} from './browser.js';
+import { closeBrowser, launchBrowser } from './browser.js';
 import { loadConfig } from './config.js';
-import { discoverStories, generateStoryUrl } from './crawler.js';
-import { getBeforeScreenshotHook, getStoryConfig } from './hooks.js';
-import { captureAndSendScreenshot } from './screenshot.js';
+import { discoverStories } from './crawler.js';
+import { createTabPool } from './pool.js';
 import { startStaticServer, stopStaticServer } from './server.js';
-
-/**
- * Process a single story across all configured viewports
- * @param {Object} story - Story object
- * @param {Object} browser - Browser instance
- * @param {string} baseUrl - Base URL for Storybook (HTTP server)
- * @param {Object} config - Configuration
- * @param {Object} context - Plugin context
- * @returns {Promise<Object>} Result object with success count and errors
- */
-async function processStory(story, browser, baseUrl, config, context) {
-  let { logger } = context;
-  let storyConfig = getStoryConfig(story, config);
-  let storyUrl = generateStoryUrl(baseUrl, story.id);
-  let hook = getBeforeScreenshotHook(story, config);
-  let errors = [];
-
-  // Process each viewport for this story
-  for (let viewport of storyConfig.viewports) {
-    let page = null;
-
-    try {
-      page = await prepareStoryPage(browser, storyUrl, viewport, hook);
-      await captureAndSendScreenshot(
-        page,
-        story,
-        viewport,
-        storyConfig.screenshot
-      );
-
-      logger.info(`   ✓ ${story.title}/${story.name}@${viewport.name}`);
-    } catch (error) {
-      logger.error(
-        `   ✗ ${story.title}/${story.name}@${viewport.name}: ${error.message}`
-      );
-      errors.push({
-        story: `${story.title}/${story.name}`,
-        viewport: viewport.name,
-        error: error.message,
-      });
-    } finally {
-      await closePage(page);
-    }
-  }
-
-  return { errors };
-}
-
-/**
- * Simple concurrency control - process items with limited parallelism
- * @param {Array} items - Items to process
- * @param {Function} fn - Async function to process each item
- * @param {number} concurrency - Max parallel operations
- * @returns {Promise<void>}
- */
-async function mapWithConcurrency(items, fn, concurrency) {
-  let results = [];
-  let executing = [];
-
-  for (let item of items) {
-    let promise = fn(item).then(result => {
-      executing.splice(executing.indexOf(promise), 1);
-      return result;
-    });
-
-    results.push(promise);
-    executing.push(promise);
-
-    if (executing.length >= concurrency) {
-      await Promise.race(executing);
-    }
-  }
-
-  await Promise.all(results);
-}
-
-/**
- * Process all stories with concurrency control
- * @param {Array<Object>} stories - Array of story objects
- * @param {Object} browser - Browser instance
- * @param {string} baseUrl - Base URL for Storybook (HTTP server)
- * @param {Object} config - Configuration
- * @param {Object} context - Plugin context
- * @returns {Promise<Array>} Array of all errors encountered
- */
-async function processStories(stories, browser, baseUrl, config, context) {
-  let allErrors = [];
-
-  await mapWithConcurrency(
-    stories,
-    async story => {
-      let { errors } = await processStory(
-        story,
-        browser,
-        baseUrl,
-        config,
-        context
-      );
-      allErrors.push(...errors);
-    },
-    config.concurrency
-  );
-
-  return allErrors;
-}
+import { generateTasks, processAllTasks } from './tasks.js';
 
 /**
  * Check if TDD mode is available
@@ -170,6 +61,7 @@ function hasApiToken(config) {
 
 /**
  * Main run function - orchestrates the entire screenshot capture process
+ * Uses a tab pool for efficient parallel screenshot capture
  * @param {string} storybookPath - Path to static Storybook build
  * @param {Object} options - CLI options
  * @param {Object} context - Plugin context (logger, config, services)
@@ -178,6 +70,7 @@ function hasApiToken(config) {
 export async function run(storybookPath, options = {}, context = {}) {
   let { logger, config: vizzlyConfig, services } = context;
   let browser = null;
+  let pool = null;
   let serverInfo = null;
   let testRunner = null;
   let serverManager = null;
@@ -287,6 +180,8 @@ export async function run(storybookPath, options = {}, context = {}) {
       } catch (error) {
         // Log the error and continue without cloud mode
         logger.error(`Failed to initialize cloud mode: ${error.message}`);
+        logger.warn('⚠️  Falling back to local-only mode');
+        logger.info('   Screenshots will not be uploaded to cloud');
         testRunner = null;
       }
     }
@@ -310,17 +205,18 @@ export async function run(storybookPath, options = {}, context = {}) {
       return;
     }
 
-    // Launch browser
+    // Launch browser and create tab pool
     browser = await launchBrowser(config.browser);
+    pool = createTabPool(browser, config.concurrency);
 
-    // Process all stories
-    let errors = await processStories(
-      stories,
-      browser,
-      serverInfo.url,
-      config,
-      context
+    // Generate all tasks upfront (stories × viewports)
+    let tasks = generateTasks(stories, serverInfo.url, config);
+    logger.info(
+      `📸 Processing ${tasks.length} screenshots (${config.concurrency} concurrent tabs)`
     );
+
+    // Process all tasks through the tab pool
+    let errors = await processAllTasks(tasks, pool, config, logger);
 
     // Report summary
     if (errors.length > 0) {
@@ -328,8 +224,6 @@ export async function run(storybookPath, options = {}, context = {}) {
       errors.forEach(({ story, viewport, error }) => {
         logger.error(`   ${story}@${viewport}: ${error}`);
       });
-    } else {
-      logger.info(`\n✅ Captured ${stories.length} screenshots successfully`);
     }
 
     // Finalize build in run mode
@@ -356,7 +250,10 @@ export async function run(storybookPath, options = {}, context = {}) {
 
     throw error;
   } finally {
-    // Cleanup
+    // Cleanup: drain pool first, then close browser
+    if (pool) {
+      await pool.drain();
+    }
     if (browser) {
       await closeBrowser(browser);
     }

@@ -2,12 +2,12 @@
  * Tests for pattern matching utilities
  */
 
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import {
-  matchPattern,
   filterByPattern,
   findMatchingHook,
+  matchPattern,
 } from '../src/utils/patterns.js';
 
 describe('matchPattern', () => {
@@ -75,10 +75,7 @@ describe('filterByPattern', () => {
   });
 
   it('should use title as fallback when no id', () => {
-    let storiesWithoutId = [
-      { title: 'Button' },
-      { title: 'Card' },
-    ];
+    let storiesWithoutId = [{ title: 'Button' }, { title: 'Card' }];
 
     let filtered = filterByPattern(storiesWithoutId, 'Button', null);
 
@@ -128,9 +125,7 @@ describe('findMatchingHook', () => {
 
   it('should return null when no match in patterns array format', () => {
     let interactions = {
-      patterns: [
-        { match: 'card*', beforeScreenshot: () => {} },
-      ],
+      patterns: [{ match: 'card*', beforeScreenshot: () => {} }],
     };
     let story = { id: 'button--primary' };
 

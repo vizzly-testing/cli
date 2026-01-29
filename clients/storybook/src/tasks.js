@@ -3,12 +3,12 @@
  * Functional approach: tasks are (story, viewport) tuples processed through a tab pool
  */
 
-import { navigateToUrl as defaultNavigateToUrl } from './browser.js';
 import { generateStoryUrl as defaultGenerateStoryUrl } from './crawler.js';
 import {
   getBeforeScreenshotHook as defaultGetBeforeScreenshotHook,
   getStoryConfig as defaultGetStoryConfig,
 } from './hooks.js';
+import { navigateToStory as defaultNavigateToStory } from './navigation.js';
 import { captureAndSendScreenshot as defaultCaptureAndSendScreenshot } from './screenshot.js';
 import { setViewport as defaultSetViewport } from './utils/viewport.js';
 
@@ -21,12 +21,13 @@ let defaultDeps = {
   getBeforeScreenshotHook: defaultGetBeforeScreenshotHook,
   captureAndSendScreenshot: defaultCaptureAndSendScreenshot,
   setViewport: defaultSetViewport,
-  navigateToUrl: defaultNavigateToUrl,
+  navigateToStory: defaultNavigateToStory,
 };
 
 /**
  * Generate all tasks from stories and config
  * Flattens stories × viewports into individual work items
+ * Tasks are sorted by viewport to minimize viewport changes per tab
  * @param {Array<Object>} stories - Array of story objects
  * @param {string} baseUrl - Base URL for the Storybook server
  * @param {Object} config - Configuration object
@@ -34,46 +35,56 @@ let defaultDeps = {
  * @returns {Array<Object>} Array of task objects
  */
 export function generateTasks(stories, baseUrl, config, deps = {}) {
-  let { getStoryConfig, generateStoryUrl, getBeforeScreenshotHook } = {
+  let { getStoryConfig, getBeforeScreenshotHook } = {
     ...defaultDeps,
     ...deps,
   };
 
-  return stories.flatMap(story => {
+  let tasks = stories.flatMap(story => {
     let storyConfig = getStoryConfig(story, config);
-    let url = generateStoryUrl(baseUrl, story.id);
     let hook = getBeforeScreenshotHook(story, config);
 
     return storyConfig.viewports.map(viewport => ({
       story,
       viewport,
       hook,
-      url,
+      storyId: story.id,
+      baseUrl,
       screenshotOptions: storyConfig.screenshot || {},
     }));
   });
+
+  // Sort by viewport to minimize viewport changes when processing sequentially per tab
+  // This groups same-viewport tasks together, reducing resize operations
+  tasks.sort((a, b) => {
+    let viewportKey = v => `${v.width}x${v.height}`;
+    return viewportKey(a.viewport).localeCompare(viewportKey(b.viewport));
+  });
+
+  return tasks;
 }
 
 /**
  * Process a single task with a tab
+ * Uses smart navigation: first visit loads Storybook, subsequent visits use client-side routing
  * @param {Object} tab - Puppeteer page instance
- * @param {Object} task - Task object { story, viewport, hook, url, screenshotOptions }
+ * @param {Object} task - Task object { story, viewport, hook, storyId, baseUrl, screenshotOptions }
  * @param {Object} [deps] - Optional dependencies for testing
  * @returns {Promise<void>}
  */
 export async function processTask(tab, task, deps = {}) {
-  let { setViewport, navigateToUrl, captureAndSendScreenshot } = {
+  let { setViewport, navigateToStory, captureAndSendScreenshot } = {
     ...defaultDeps,
     ...deps,
   };
 
-  let { story, viewport, hook, url, screenshotOptions } = task;
+  let { story, viewport, hook, storyId, baseUrl, screenshotOptions } = task;
 
   // Set viewport (tab is reused, so always set)
   await setViewport(tab, viewport);
 
-  // Navigate to the story
-  await navigateToUrl(tab, url);
+  // Navigate to the story (smart: uses client-side navigation when possible)
+  await navigateToStory(tab, storyId, baseUrl);
 
   // Run interaction hook if provided
   if (hook && typeof hook === 'function') {

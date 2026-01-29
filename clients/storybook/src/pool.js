@@ -71,23 +71,22 @@ export function createTabPool(browser, size, options = {}) {
   };
 
   /**
-   * Reset tab state to prevent cross-contamination between tasks
-   * Clears cookies, localStorage, and resets to about:blank
+   * Reset tab state between uses
+   *
+   * For Storybook, we intentionally DON'T navigate to about:blank.
+   * Keeping Storybook loaded enables client-side navigation between stories,
+   * which is ~10x faster than reloading the entire bundle.
+   *
+   * Stories are isolated by design, so cross-contamination isn't a concern.
+   * Tab recycling every N uses handles memory cleanup.
+   *
    * @param {Object} tab - Puppeteer page instance
    * @returns {Promise<void>}
    */
   let resetTab = async tab => {
-    try {
-      // Clear cookies for this page's context
-      let client = await tab.createCDPSession();
-      await client.send('Network.clearBrowserCookies');
-      await client.detach();
-
-      // Clear localStorage/sessionStorage by navigating to blank page
-      await tab.goto('about:blank', { waitUntil: 'domcontentloaded' });
-    } catch {
-      // Ignore reset errors - tab may be in a bad state but still usable
-    }
+    // No-op for Storybook: keep the bundle loaded for client-side navigation
+    // The tab will be recycled after recycleAfter uses anyway
+    void tab;
   };
 
   /**

@@ -27,9 +27,7 @@
     }
   },
   "main": "./dist/index.js",
-  "vizzly": {
-    "plugin": "./dist/plugin.js"
-  },
+  "vizzlyPlugin": "./dist/plugin.js",
   "files": [
     "dist",
     "README.md",
@@ -41,10 +39,9 @@
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",
     "prepublishOnly": "npm run lint && npm run build",
-    "test": "node --test --test-reporter=spec $(find tests -name '*.test.js' ! -name 'e2e.test.js')",
-    "test:e2e": "VIZZLY_E2E=1 node --test --test-reporter=spec tests/e2e.test.js",
-    "test:e2e:tdd": "../../bin/vizzly.js tdd run 'VIZZLY_E2E=1 node --test --test-reporter=spec tests/e2e.test.js'",
-    "test:e2e:cloud": "../../bin/vizzly.js run 'VIZZLY_E2E=1 node --test --test-reporter=spec tests/e2e.test.js'",
+    "test": "node --test --test-reporter=spec $(find tests -name '*.test.js' ! -name 'sdk-integration.test.js')",
+    "test:sdk-integration": "VIZZLY_E2E=1 node --test --test-reporter=spec tests/sdk-integration.test.js",
+    "test:e2e": "../../bin/vizzly.js storybook ./example-storybook/dist",
     "test:watch": "node --test --test-reporter=spec --watch 'tests/**/*.test.js'",
     "lint": "biome lint src tests",
     "lint:fix": "biome lint --write src tests",

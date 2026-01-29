@@ -49,8 +49,12 @@ export async function navigateToStory(tab, storyId, baseUrl, options = {}) {
   try {
     await clientSideNavigation(tab, storyId, timeout);
     entry.currentStoryId = storyId;
-  } catch {
-    // Fallback to full navigation if client-side fails
+  } catch (error) {
+    // Log and fallback to full navigation if client-side fails
+    console.debug?.(
+      `Client-side navigation failed for ${storyId}, falling back to full page load:`,
+      error.message
+    );
     await fullPageNavigation(tab, storyId, baseUrl, timeout);
     entry.currentStoryId = storyId;
   }
@@ -94,33 +98,40 @@ async function fullPageNavigation(tab, storyId, baseUrl, timeout) {
  * @param {string} storyId - Story ID
  * @param {number} timeout - Timeout in ms
  */
-async function clientSideNavigation(tab, storyId, _timeout) {
+async function clientSideNavigation(tab, storyId, timeout) {
   // Navigate using Storybook's preview API and wait for story to render
-  await tab.evaluate(id => {
-    return new Promise((resolve, reject) => {
-      let preview = window.__STORYBOOK_PREVIEW__;
-      if (!preview?.channel) {
-        reject(new Error('Storybook preview API not available'));
-        return;
-      }
+  await tab.evaluate(
+    (id, timeoutMs) => {
+      return new Promise((resolve, reject) => {
+        let preview = window.__STORYBOOK_PREVIEW__;
+        if (!preview?.channel) {
+          reject(new Error('Storybook preview API not available'));
+          return;
+        }
 
-      // Listen for story render completion
-      let handleRendered = () => {
-        preview.channel.off('storyRendered', handleRendered);
-        resolve();
-      };
-      preview.channel.on('storyRendered', handleRendered);
+        let timeoutId;
 
-      // Navigate to the story
-      preview.channel.emit('setCurrentStory', { storyId: id });
+        // Listen for story render completion
+        let handleRendered = () => {
+          clearTimeout(timeoutId);
+          preview.channel.off('storyRendered', handleRendered);
+          resolve();
+        };
+        preview.channel.on('storyRendered', handleRendered);
 
-      // Timeout fallback
-      setTimeout(() => {
-        preview.channel.off('storyRendered', handleRendered);
-        resolve(); // Resolve anyway - story might have rendered
-      }, 5000);
-    });
-  }, storyId);
+        // Navigate to the story
+        preview.channel.emit('setCurrentStory', { storyId: id });
+
+        // Timeout fallback - use configured timeout
+        timeoutId = setTimeout(() => {
+          preview.channel.off('storyRendered', handleRendered);
+          resolve(); // Resolve anyway - story might have rendered
+        }, timeoutMs);
+      });
+    },
+    storyId,
+    timeout
+  );
 }
 
 /**

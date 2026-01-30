@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-01-30
+
+## What's Changed
+
+### Changed
+- Improved git detection in CI environments by using the new `services.git.detect()` plugin API
+- Replaced fragile dynamic imports with clean plugin API integration
+- Now correctly detects branch names and commit SHAs in GitHub Actions PR builds and other CI environments
+- Updated minimum CLI version requirement to `>=0.24.0` (graceful fallback for older versions with warning)
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/static-site/v0.1.0...static-site/v0.2.0
+
 ## [0.1.0] - 2026-01-30
 
 ## What's Changed

@@ -526,7 +526,10 @@ export const createTddHandler = (
 
     // Match or new baseline
     let handlerMs = Date.now() - handlerStart;
-    output.debug('tdd', `${name} handler returning`, { ms: handlerMs, status: comparison.status });
+    output.debug('tdd', `${name} handler returning`, {
+      ms: handlerMs,
+      status: comparison.status,
+    });
 
     return {
       statusCode: 200,

@@ -215,7 +215,9 @@ function createSimpleClient(serverUrl) {
         let httpMs = Date.now() - httpStart;
 
         if (shouldLogClient('debug')) {
-          console.debug(`[vizzly-client] ${name} HTTP completed in ${httpMs}ms`);
+          console.debug(
+            `[vizzly-client] ${name} HTTP completed in ${httpMs}ms`
+          );
         }
 
         if (status < 200 || status >= 300) {

@@ -85,15 +85,15 @@ describe('formatViewport', () => {
 });
 
 describe('setViewport', () => {
-  it('should call page.setViewport with correct dimensions', async () => {
-    let mockSetViewport = mock.fn();
-    let mockPage = { setViewport: mockSetViewport };
+  it('should call page.setViewportSize with correct dimensions', async () => {
+    let mockSetViewportSize = mock.fn();
+    let mockPage = { setViewportSize: mockSetViewportSize };
     let viewport = { width: 375, height: 667 };
 
     await setViewport(mockPage, viewport);
 
-    assert.equal(mockSetViewport.mock.calls.length, 1);
-    assert.deepEqual(mockSetViewport.mock.calls[0].arguments[0], {
+    assert.equal(mockSetViewportSize.mock.calls.length, 1);
+    assert.deepEqual(mockSetViewportSize.mock.calls[0].arguments[0], {
       width: 375,
       height: 667,
     });

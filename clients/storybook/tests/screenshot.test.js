@@ -52,6 +52,7 @@ describe('captureScreenshot', () => {
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
       fullPage: false,
       omitBackground: false,
+      timeout: 45000,
     });
   });
 
@@ -65,6 +66,7 @@ describe('captureScreenshot', () => {
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
       fullPage: true,
       omitBackground: false,
+      timeout: 45000,
     });
   });
 
@@ -78,6 +80,7 @@ describe('captureScreenshot', () => {
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
       fullPage: false,
       omitBackground: true,
+      timeout: 45000,
     });
   });
 });
@@ -110,6 +113,7 @@ describe('captureAndSendScreenshot', () => {
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
       fullPage: true,
       omitBackground: false,
+      timeout: 45000,
     });
   });
 });

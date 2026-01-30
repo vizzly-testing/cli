@@ -57,7 +57,9 @@ export const createApiHandler = (
     type
   ) => {
     let handlerStart = Date.now();
-    output.debug('upload', `${name} received`, { buildId: buildId?.slice(0, 8) });
+    output.debug('upload', `${name} received`, {
+      buildId: buildId?.slice(0, 8),
+    });
 
     if (vizzlyDisabled) {
       output.debug('upload', `${name} (disabled)`);

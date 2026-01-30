@@ -7,35 +7,43 @@ import { describe, it, mock } from 'node:test';
 import { createTabPool } from '../src/pool.js';
 
 /**
- * Create a mock browser for testing
+ * Create a mock page for testing
  */
-function createMockBrowser() {
-  let pageCount = 0;
-  let newPageCalls = 0;
-
+function createMockPage(id) {
   return {
-    newPage: mock.fn(async () => {
-      pageCount++;
-      newPageCalls++;
-      return createMockTab(pageCount);
-    }),
-    getPageCount: () => pageCount,
-    getNewPageCalls: () => newPageCalls,
+    id,
+    goto: mock.fn(async () => {}),
   };
 }
 
 /**
- * Create a mock tab/page for testing
+ * Create a mock context for testing (Playwright BrowserContext)
  */
-function createMockTab(id) {
+function createMockContext(id) {
+  let page = createMockPage(id);
   return {
     id,
+    page,
+    newPage: mock.fn(async () => page),
     close: mock.fn(async () => {}),
-    goto: mock.fn(async () => {}),
-    createCDPSession: mock.fn(async () => ({
-      send: mock.fn(async () => {}),
-      detach: mock.fn(async () => {}),
-    })),
+  };
+}
+
+/**
+ * Create a mock browser for testing (Playwright style)
+ */
+function createMockBrowser() {
+  let contextCount = 0;
+  let newContextCalls = 0;
+
+  return {
+    newContext: mock.fn(async () => {
+      contextCount++;
+      newContextCalls++;
+      return createMockContext(contextCount);
+    }),
+    getPageCount: () => contextCount,
+    getNewPageCalls: () => newContextCalls,
   };
 }
 
@@ -200,21 +208,22 @@ describe('createTabPool', () => {
   });
 
   describe('drain', () => {
-    it('closes all available tabs', async () => {
+    it('closes all available contexts', async () => {
       let browser = createMockBrowser();
       let pool = createTabPool(browser, 3);
 
-      let tab1 = await pool.acquire();
-      let tab2 = await pool.acquire();
-      await pool.release(tab1);
-      await pool.release(tab2);
+      let page1 = await pool.acquire();
+      let page2 = await pool.acquire();
+      await pool.release(page1);
+      await pool.release(page2);
 
       assert.strictEqual(pool.stats().available, 2);
 
       await pool.drain();
 
-      assert.strictEqual(tab1.close.mock.callCount(), 1);
-      assert.strictEqual(tab2.close.mock.callCount(), 1);
+      // Context close is called, not page close
+      assert.strictEqual(page1._poolEntry.context.close.mock.callCount(), 1);
+      assert.strictEqual(page2._poolEntry.context.close.mock.callCount(), 1);
       assert.strictEqual(pool.stats().available, 0);
       assert.strictEqual(pool.stats().total, 0);
     });
@@ -239,22 +248,22 @@ describe('createTabPool', () => {
       let browser = createMockBrowser();
       let pool = createTabPool(browser, 2);
 
-      let tab1 = await pool.acquire();
-      let tab2 = await pool.acquire();
+      let page1 = await pool.acquire();
+      let page2 = await pool.acquire();
 
-      // Make first tab throw on close
-      tab1.close = mock.fn(async () => {
+      // Make first context throw on close
+      page1._poolEntry.context.close = mock.fn(async () => {
         throw new Error('Close failed');
       });
 
-      await pool.release(tab1);
-      await pool.release(tab2);
+      await pool.release(page1);
+      await pool.release(page2);
 
       // Should not throw
       await pool.drain();
 
-      assert.strictEqual(tab1.close.mock.callCount(), 1);
-      assert.strictEqual(tab2.close.mock.callCount(), 1);
+      assert.strictEqual(page1._poolEntry.context.close.mock.callCount(), 1);
+      assert.strictEqual(page2._poolEntry.context.close.mock.callCount(), 1);
     });
   });
 
@@ -333,19 +342,19 @@ describe('createTabPool', () => {
       assert.strictEqual(pool.stats().recycled, 2);
     });
 
-    it('closes old tab during recycling', async () => {
+    it('closes old context during recycling', async () => {
       let browser = createMockBrowser();
       let pool = createTabPool(browser, 1, { recycleAfter: 2 });
 
-      let tab = await pool.acquire();
-      await pool.release(tab); // use 1
+      let page = await pool.acquire();
+      await pool.release(page); // use 1
 
-      tab = await pool.acquire();
-      assert.strictEqual(tab.close.mock.callCount(), 0);
+      page = await pool.acquire();
+      assert.strictEqual(page._poolEntry.context.close.mock.callCount(), 0);
 
-      await pool.release(tab); // use 2 - triggers recycle
+      await pool.release(page); // use 2 - triggers recycle
 
-      assert.strictEqual(tab.close.mock.callCount(), 1);
+      assert.strictEqual(page._poolEntry.context.close.mock.callCount(), 1);
     });
 
     it('hands off fresh tab to waiting acquirer during recycling', async () => {
@@ -368,27 +377,27 @@ describe('createTabPool', () => {
       assert.notStrictEqual(newTab.id, originalId);
     });
 
-    it('reduces total count when new tab creation fails during recycling', async () => {
+    it('reduces total count when new context creation fails during recycling', async () => {
       let callCount = 0;
       let browser = {
-        newPage: mock.fn(async () => {
+        newContext: mock.fn(async () => {
           callCount++;
           if (callCount === 2) {
-            throw new Error('Failed to create tab');
+            throw new Error('Failed to create context');
           }
-          return createMockTab(callCount);
+          return createMockContext(callCount);
         }),
       };
 
       let pool = createTabPool(browser, 1, { recycleAfter: 2 });
 
-      let tab = await pool.acquire();
+      let page = await pool.acquire();
       assert.strictEqual(pool.stats().total, 1);
 
-      await pool.release(tab); // use 1
+      await pool.release(page); // use 1
 
-      tab = await pool.acquire();
-      await pool.release(tab); // use 2 - triggers recycle, new tab fails
+      page = await pool.acquire();
+      await pool.release(page); // use 2 - triggers recycle, new context fails
 
       // Total should be reduced since we couldn't create replacement
       assert.strictEqual(pool.stats().total, 0);
@@ -398,35 +407,35 @@ describe('createTabPool', () => {
       let browser = createMockBrowser();
       let pool = createTabPool(browser, 1, { recycleAfter: 2 });
 
-      let tab = await pool.acquire();
-      tab.close = mock.fn(async () => {
+      let page = await pool.acquire();
+      page._poolEntry.context.close = mock.fn(async () => {
         throw new Error('Close failed');
       });
 
-      await pool.release(tab); // use 1
+      await pool.release(page); // use 1
 
-      tab = await pool.acquire();
-      tab.close = mock.fn(async () => {
+      page = await pool.acquire();
+      page._poolEntry.context.close = mock.fn(async () => {
         throw new Error('Close failed');
       });
 
       // Should not throw despite close error
-      await pool.release(tab); // use 2 - triggers recycle
+      await pool.release(page); // use 2 - triggers recycle
 
       assert.strictEqual(pool.stats().recycled, 1);
     });
   });
 
   describe('_poolEntry metadata', () => {
-    it('preserves _poolEntry reference on tab', async () => {
+    it('preserves _poolEntry reference on page', async () => {
       let browser = createMockBrowser();
       let pool = createTabPool(browser, 2);
 
-      let tab = await pool.acquire();
+      let page = await pool.acquire();
 
-      assert.ok(tab._poolEntry);
-      assert.strictEqual(tab._poolEntry.tab, tab);
-      assert.strictEqual(tab._poolEntry.useCount, 1);
+      assert.ok(page._poolEntry);
+      assert.strictEqual(page._poolEntry.page, page);
+      assert.strictEqual(page._poolEntry.useCount, 1);
     });
 
     it('increments useCount on each acquire', async () => {

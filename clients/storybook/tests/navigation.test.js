@@ -118,7 +118,7 @@ describe('navigateToStory', () => {
       goto: mock.fn(async (url, options) => {
         callCount++;
         gotoCalls.push({ url, waitUntil: options.waitUntil });
-        if (callCount === 1 && options.waitUntil === 'networkidle2') {
+        if (callCount === 1 && options.waitUntil === 'networkidle') {
           throw new Error('Navigation timeout exceeded');
         }
       }),
@@ -127,7 +127,7 @@ describe('navigateToStory', () => {
     await navigateToStory(tab, 'button--primary', 'http://localhost:6006');
 
     assert.strictEqual(gotoCalls.length, 2);
-    assert.strictEqual(gotoCalls[0].waitUntil, 'networkidle2');
+    assert.strictEqual(gotoCalls[0].waitUntil, 'networkidle');
     assert.strictEqual(gotoCalls[1].waitUntil, 'domcontentloaded');
   });
 

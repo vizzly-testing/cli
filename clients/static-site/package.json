@@ -1,6 +1,6 @@
 {
   "name": "@vizzly-testing/static-site",
-  "version": "0.0.11",
+  "version": "0.1.0",
   "description": "Static site generator plugin for Vizzly - seamlessly integrate static sites (Gatsby, Astro, Jekyll, Next.js) into your visual development workflow",
   "keywords": [
     "vizzly",

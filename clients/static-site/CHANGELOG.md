@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-01-30
+
+## What's Changed
+
+### Changed
+- **BREAKING: Migrated from Puppeteer to Playwright** - The SDK now uses `playwright-core` instead of `puppeteer` for browser automation. This dramatically improves performance and reliability, especially in CI environments. Screenshots now complete in <1 second instead of timing out. If you have any custom browser configurations, you may need to update them for Playwright compatibility.
+
+### Added
+- **Enhanced browser pooling with context isolation** - Migrated from tab-based pooling to Playwright's BrowserContext-based pooling, providing proper isolation for parallel workers and preventing timeout issues
+- **Improved E2E test coverage** - Added comprehensive SDK integration tests that run in both TDD and cloud modes to ensure reliability across all workflows
+- **Modern Chrome browser flags** - Updated to use current browser flags for better screenshot consistency and removed deprecated flags that could cause hangs
+
+### Fixed
+- **Critical timeout issues in CI** - Fixed screenshot capture timeouts that were occurring with Puppeteer's new headless mode by switching to Playwright's more robust browser management
+- **Plugin registration** - Updated plugin registration to use the standardized `vizzlyPlugin` field in package.json (previously `vizzly.plugin`)
+- **Tab recycling logic** - Improved tab cleanup to prevent memory leaks during long test runs
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/static-site/v0.0.11...static-site/v0.1.0
+
 ## [0.0.11] - 2026-01-06
 
 ## What's Changed

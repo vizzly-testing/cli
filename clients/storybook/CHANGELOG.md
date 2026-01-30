@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-30
+
+## What's Changed
+
+### Changed
+- Improved git detection in CI environments (GitHub Actions, GitLab, etc.) by using the CLI's plugin API instead of fragile dynamic imports
+- Updated peer dependency to `@vizzly-testing/cli >= 0.24.0` for better git detection support
+- Better handling of PR builds - now correctly detects branch names and commit SHAs in merge commits
+
+### Fixed
+- Fixed incorrect git information (wrong branch, wrong commit SHA) in PR builds
+- Fixed plugin breaking in some environments due to failed dynamic imports
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v0.3.0...storybook/v0.4.0
+
 ## [0.3.0] - 2026-01-30
 
 ## What's Changed

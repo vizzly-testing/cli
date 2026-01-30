@@ -63,10 +63,10 @@ let DEFAULT_SCREENSHOT_TIMEOUT = 45_000;
 
 /**
  * Capture a screenshot from a page
- * @param {Object} page - Puppeteer page instance
+ * @param {Object} page - Playwright page instance
  * @param {Object} options - Screenshot options
  * @param {boolean} [options.fullPage=false] - Capture full page
- * @param {boolean} [options.omitBackground=false] - Omit background
+ * @param {boolean} [options.omitBackground=false] - Omit background (transparent)
  * @param {number} [options.timeout=45000] - Screenshot timeout in ms
  * @returns {Promise<Buffer>} Screenshot buffer
  */
@@ -77,6 +77,7 @@ export async function captureScreenshot(page, options = {}) {
     timeout = DEFAULT_SCREENSHOT_TIMEOUT,
   } = options;
 
+  // Playwright has built-in timeout support
   let screenshot = await page.screenshot({
     fullPage,
     omitBackground,

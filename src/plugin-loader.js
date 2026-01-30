@@ -85,8 +85,11 @@ async function discoverInstalledPlugins() {
         const packageJson = JSON.parse(readFileSync(pkgPath, 'utf-8'));
 
         // Check if package has a plugin field
-        if (packageJson.vizzly?.plugin) {
-          const pluginRelativePath = packageJson.vizzly.plugin;
+        // Support both new `vizzlyPlugin` and legacy `vizzly.plugin` for backwards compatibility
+        const pluginField =
+          packageJson.vizzlyPlugin || packageJson.vizzly?.plugin;
+        if (pluginField) {
+          const pluginRelativePath = pluginField;
 
           // Security: Ensure plugin path is relative and doesn't traverse up
           if (
@@ -215,12 +218,17 @@ function resolvePluginPath(pluginSpec, configPath) {
       );
       const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
 
-      if (packageJson.vizzly?.plugin) {
+      // Support both new `vizzlyPlugin` and legacy `vizzly.plugin`
+      const pluginField =
+        packageJson.vizzlyPlugin || packageJson.vizzly?.plugin;
+      if (pluginField) {
         const packageDir = dirname(packageJsonPath);
-        return resolve(packageDir, packageJson.vizzly.plugin);
+        return resolve(packageDir, pluginField);
       }
 
-      throw new Error('Package does not specify a vizzly.plugin field');
+      throw new Error(
+        'Package does not specify a vizzlyPlugin or vizzly.plugin field'
+      );
     } catch (error) {
       throw new Error(
         `Cannot resolve plugin package ${pluginSpec}: ${error.message}`

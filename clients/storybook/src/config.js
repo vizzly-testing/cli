@@ -4,7 +4,18 @@
  * Reads from config.storybook section of main vizzly.config.js
  */
 
+import { cpus } from 'node:os';
 import { parseViewport } from './utils/viewport.js';
+
+/**
+ * Calculate sensible default concurrency
+ * Uses half of CPU cores, capped at 8, minimum 2
+ * Matches static-site SDK behavior
+ */
+function getDefaultConcurrency() {
+  let cores = cpus().length;
+  return Math.max(2, Math.min(8, Math.floor(cores / 2)));
+}
 
 /**
  * Default configuration values
@@ -23,7 +34,7 @@ export let defaultConfig = {
     fullPage: false,
     omitBackground: false,
   },
-  concurrency: 3,
+  concurrency: getDefaultConcurrency(),
   include: null,
   exclude: null,
   interactions: {},

@@ -86,10 +86,10 @@ describe('viewport', () => {
   });
 
   describe('setViewport', () => {
-    it('calls page.setViewport with width and height', async () => {
+    it('calls page.setViewportSize with width and height', async () => {
       let calledWith = null;
       let mockPage = {
-        setViewport: async opts => {
+        setViewportSize: async opts => {
           calledWith = opts;
         },
       };

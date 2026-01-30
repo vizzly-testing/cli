@@ -1,134 +1,120 @@
 /**
- * Functional tab pool for browser tab management
- * Uses closures instead of classes for a more functional approach
+ * Functional context pool for browser context management
+ * Uses Playwright's BrowserContext for isolation between parallel workers
  */
 
 /**
- * Default number of uses before recycling a tab
- * After this many uses, the tab is closed and a fresh one created
+ * Default number of uses before recycling a context
+ * After this many uses, the context is closed and a fresh one created
  * This prevents memory leaks from accumulating
  */
 let DEFAULT_RECYCLE_AFTER = 10;
 
 /**
- * Create a tab pool that manages browser tabs with reuse and recycling
- * @param {Object} browser - Puppeteer browser instance
- * @param {number} size - Maximum number of concurrent tabs
+ * Create a context pool that manages browser contexts with reuse and recycling
+ * Uses Playwright's BrowserContext for proper isolation between parallel workers
+ * @param {Object} browser - Playwright browser instance
+ * @param {number} size - Maximum number of concurrent contexts
  * @param {Object} [options] - Pool options
- * @param {number} [options.recycleAfter=10] - Recycle tab after N uses
+ * @param {number} [options.recycleAfter=10] - Recycle context after N uses
+ * @param {Object} [options.viewport] - Default viewport for new contexts
  * @returns {Object} Pool operations: { acquire, release, drain, stats }
  */
 export function createTabPool(browser, size, options = {}) {
-  let { recycleAfter = DEFAULT_RECYCLE_AFTER } = options;
+  let { recycleAfter = DEFAULT_RECYCLE_AFTER, viewport } = options;
 
-  // Track tabs with their use counts: { tab, useCount }
+  // Track contexts with their use counts and pages
   let available = [];
   let waiting = [];
-  let totalTabs = 0;
+  let totalContexts = 0;
   let recycledCount = 0;
 
   /**
-   * Create a fresh tab entry
-   * @returns {Promise<Object>} Tab entry { tab, useCount }
+   * Create a fresh context entry with a page
+   * @returns {Promise<Object>} Context entry { context, page, useCount }
    */
-  let createTabEntry = async () => {
-    let tab = await browser.newPage();
-    return { tab, useCount: 0 };
+  let createContextEntry = async () => {
+    let contextOptions = {};
+    if (viewport) {
+      contextOptions.viewport = { width: viewport.width, height: viewport.height };
+    }
+    let context = await browser.newContext(contextOptions);
+    let page = await context.newPage();
+    return { context, page, useCount: 0 };
   };
 
   /**
-   * Acquire a tab from the pool
-   * Returns an existing tab if available, creates new if under limit,
+   * Acquire a page from the pool
+   * Returns an existing page if available, creates new if under limit,
    * or waits for one to become available.
    *
    * IMPORTANT: If drain() is called while waiting, this returns null.
-   * Callers MUST check for null before using the tab.
+   * Callers MUST check for null before using the page.
    *
-   * @returns {Promise<Object|null>} Puppeteer page instance, or null if pool was drained
+   * @returns {Promise<Object|null>} Playwright page instance, or null if pool was drained
    */
   let acquire = async () => {
-    // Reuse existing tab if available
+    // Reuse existing context/page if available
     if (available.length > 0) {
       let entry = available.pop();
       entry.useCount++;
-      return entry.tab;
+      return entry.page;
     }
 
-    // Create new tab if under limit
-    if (totalTabs < size) {
-      totalTabs++;
-      let entry = await createTabEntry();
+    // Create new context if under limit
+    if (totalContexts < size) {
+      totalContexts++;
+      let entry = await createContextEntry();
       entry.useCount = 1;
-      // Store entry reference on tab for release lookup
-      entry.tab._poolEntry = entry;
-      return entry.tab;
+      // Store entry reference on page for release lookup
+      entry.page._poolEntry = entry;
+      return entry.page;
     }
 
-    // Wait for a tab to become available
+    // Wait for a context to become available
     return new Promise(resolve => {
       waiting.push(resolve);
     });
   };
 
   /**
-   * Reset tab state to prevent cross-contamination between tasks
-   * Clears cookies, localStorage, and resets to about:blank
-   * @param {Object} tab - Puppeteer page instance
-   * @returns {Promise<void>}
-   */
-  let resetTab = async tab => {
-    try {
-      // Clear cookies for this page's context
-      let client = await tab.createCDPSession();
-      await client.send('Network.clearBrowserCookies');
-      await client.detach();
-
-      // Clear localStorage/sessionStorage by navigating to blank page
-      await tab.goto('about:blank', { waitUntil: 'domcontentloaded' });
-    } catch {
-      // Ignore reset errors - tab may be in a bad state but still usable
-    }
-  };
-
-  /**
-   * Release a tab back to the pool
-   * Resets tab state before reuse to prevent cross-contamination.
-   * Recycles (closes and replaces) tabs that have been used too many times.
+   * Release a page back to the pool
+   * Recycles (closes and replaces) contexts that have been used too many times.
    * If workers are waiting, hand off directly; otherwise add to available.
-   * @param {Object} tab - Puppeteer page instance to release
+   * @param {Object} page - Playwright page instance to release
    */
-  let release = async tab => {
-    if (!tab) return;
+  let release = async page => {
+    if (!page) return;
 
-    let entry = tab._poolEntry;
+    let entry = page._poolEntry;
 
-    // Check if tab needs recycling
+    // Check if context needs recycling
     if (entry && entry.useCount >= recycleAfter) {
       recycledCount++;
 
-      // Close the old tab
+      // Close the old context (this also closes all its pages)
       try {
-        await tab.close();
+        await entry.context.close();
       } catch {
         // Ignore close errors
       }
 
       // Create a fresh replacement
       try {
-        let newEntry = await createTabEntry();
-        newEntry.tab._poolEntry = newEntry;
+        let newEntry = await createContextEntry();
+        newEntry.page._poolEntry = newEntry;
 
         // Hand off to waiting worker or add to available
         if (waiting.length > 0) {
           newEntry.useCount = 1;
           let next = waiting.shift();
-          next(newEntry.tab);
+          next(newEntry.page);
         } else {
           available.push(newEntry);
         }
       } catch {
-        // Failed to create new tab - reduce total count and notify waiting worker
-        totalTabs--;
+        // Failed to create new context - reduce total count and notify waiting worker
+        totalContexts--;
         if (waiting.length > 0) {
           let next = waiting.shift();
           next(null); // Signal failure so task can handle it
@@ -137,23 +123,28 @@ export function createTabPool(browser, size, options = {}) {
       return;
     }
 
-    // Reset tab state before reuse
-    await resetTab(tab);
+    // Clear context state by navigating to blank page
+    try {
+      await page.goto('about:blank', { waitUntil: 'domcontentloaded' });
+    } catch {
+      // Ignore reset errors
+    }
 
-    // If someone is waiting, give them the tab directly
+    // If someone is waiting, give them the page directly
     if (waiting.length > 0) {
       if (entry) entry.useCount++;
       let next = waiting.shift();
-      next(tab);
+      next(page);
     } else if (entry) {
       available.push(entry);
     } else {
-      available.push({ tab, useCount: 0 });
+      // Orphaned page - shouldn't happen but handle gracefully
+      available.push({ page, useCount: 0 });
     }
   };
 
   /**
-   * Close all tabs and reset pool state
+   * Close all contexts and reset pool state
    * Call this when done with the pool.
    *
    * Any pending acquire() calls will resolve with null.
@@ -162,17 +153,17 @@ export function createTabPool(browser, size, options = {}) {
    * @returns {Promise<void>}
    */
   let drain = async () => {
-    // Close all available tabs
+    // Close all available contexts
     await Promise.all(
       available.map(entry =>
-        entry.tab.close().catch(() => {
-          // Ignore close errors (tab may already be closed)
+        entry.context.close().catch(() => {
+          // Ignore close errors (context may already be closed)
         })
       )
     );
 
     available = [];
-    totalTabs = 0;
+    totalContexts = 0;
 
     // Resolve any waiting acquires with null
     for (let resolve of waiting) {
@@ -188,7 +179,7 @@ export function createTabPool(browser, size, options = {}) {
   let stats = () => ({
     available: available.length,
     waiting: waiting.length,
-    total: totalTabs,
+    total: totalContexts,
     size,
     recycled: recycledCount,
   });

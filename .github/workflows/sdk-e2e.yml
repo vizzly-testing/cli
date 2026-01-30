@@ -145,34 +145,44 @@ jobs:
         working-directory: ./clients/storybook
         run: npm install
 
+      - name: Build Storybook client
+        working-directory: ./clients/storybook
+        run: npm run build
+
       - name: Get Playwright version
         working-directory: ./clients/storybook
         id: playwright-version
-        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+        run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+          key: playwright-${{ steps.playwright-version.outputs.version }}-storybook-chromium
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/storybook
-        run: npx playwright install chromium --with-deps
+        run: npx playwright-core install chromium --with-deps
+
+      - name: Build example-storybook
+        working-directory: ./clients/storybook/example-storybook
+        run: npm install && npm run build-storybook
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./clients/storybook
         run: ../../bin/vizzly.js tdd run "npm run test:e2e"
         env:
           CI: true
+          VIZZLY_LOG_LEVEL: debug
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/storybook
         run: ../../bin/vizzly.js run "npm run test:e2e"
         env:
           CI: true
+          VIZZLY_LOG_LEVEL: debug
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STORYBOOK_CLIENT_TOKEN }}
           VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
@@ -202,22 +212,26 @@ jobs:
         working-directory: ./clients/static-site
         run: npm install
 
+      - name: Build Static-Site client
+        working-directory: ./clients/static-site
+        run: npm run build
+
       - name: Get Playwright version
         working-directory: ./clients/static-site
         id: playwright-version
-        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+        run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.playwright-version.outputs.version }}-chromium
+          key: playwright-${{ steps.playwright-version.outputs.version }}-static-site-chromium
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/static-site
-        run: npx playwright install chromium --with-deps
+        run: npx playwright-core install chromium --with-deps
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./clients/static-site

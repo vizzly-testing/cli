@@ -34,19 +34,27 @@ export function generateScreenshotName(story, viewport) {
 }
 
 /**
+ * Default timeout for screenshot capture (45 seconds)
+ * Normal screenshots take 25-150ms; this matches static-site SDK
+ */
+const SCREENSHOT_TIMEOUT_MS = 45_000;
+
+/**
  * Capture a screenshot from a page
- * @param {Object} page - Puppeteer page instance
+ * @param {Object} page - Playwright page instance
  * @param {Object} options - Screenshot options
  * @param {boolean} [options.fullPage=false] - Capture full page
- * @param {boolean} [options.omitBackground=false] - Omit background
+ * @param {boolean} [options.omitBackground=false] - Omit background (transparent)
  * @returns {Promise<Buffer>} Screenshot buffer
  */
 export async function captureScreenshot(page, options = {}) {
   let { fullPage = false, omitBackground = false } = options;
 
+  // Playwright has built-in timeout support
   let screenshot = await page.screenshot({
     fullPage,
     omitBackground,
+    timeout: SCREENSHOT_TIMEOUT_MS,
   });
 
   return screenshot;
@@ -54,7 +62,7 @@ export async function captureScreenshot(page, options = {}) {
 
 /**
  * Capture and send screenshot to Vizzly
- * @param {Object} page - Puppeteer page instance
+ * @param {Object} page - Playwright page instance
  * @param {Object} story - Story object
  * @param {Object} viewport - Viewport object
  * @param {Object} screenshotOptions - Screenshot options
@@ -67,7 +75,19 @@ export async function captureAndSendScreenshot(
   screenshotOptions = {}
 ) {
   let name = generateScreenshotName(story, viewport);
-  let screenshot = await captureScreenshot(page, screenshotOptions);
+  let verbose = process.env.VIZZLY_LOG_LEVEL === 'debug';
 
+  let t0 = Date.now();
+  let screenshot = await captureScreenshot(page, screenshotOptions);
+  let captureTime = Date.now() - t0;
+
+  let t1 = Date.now();
   await vizzlyScreenshot(name, screenshot);
+  let sendTime = Date.now() - t1;
+
+  if (verbose) {
+    console.error(
+      `    [screenshot] ${name}: capture=${captureTime}ms send=${sendTime}ms`
+    );
+  }
 }

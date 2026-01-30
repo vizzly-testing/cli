@@ -199,6 +199,7 @@ function createSimpleClient(serverUrl) {
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
 
+        let httpStart = Date.now();
         const { status, json } = await httpPost(
           `${serverUrl}/screenshot`,
           {
@@ -211,6 +212,13 @@ function createSimpleClient(serverUrl) {
           },
           DEFAULT_TIMEOUT_MS
         );
+        let httpMs = Date.now() - httpStart;
+
+        if (shouldLogClient('debug')) {
+          console.debug(
+            `[vizzly-client] ${name} HTTP completed in ${httpMs}ms`
+          );
+        }
 
         if (status < 200 || status >= 300) {
           // In TDD mode, if we get 422 (visual difference), don't throw

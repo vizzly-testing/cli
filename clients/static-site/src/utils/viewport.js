@@ -44,13 +44,13 @@ export function formatViewport(viewport) {
 }
 
 /**
- * Set viewport on Puppeteer page
- * @param {Object} page - Puppeteer page instance
+ * Set viewport on Playwright page
+ * @param {Object} page - Playwright page instance
  * @param {Object} viewport - Viewport object { width, height }
  * @returns {Promise<void>}
  */
 export async function setViewport(page, viewport) {
-  await page.setViewport({
+  await page.setViewportSize({
     width: viewport.width,
     height: viewport.height,
   });

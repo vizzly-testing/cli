@@ -21,33 +21,86 @@ describe('generateTasks', () => {
     };
 
     let deps = {
-      getStoryConfig: (story, cfg) => ({
+      getStoryConfig: (_story, cfg) => ({
         viewports: cfg.viewports,
         screenshot: {},
       }),
-      generateStoryUrl: (base, storyId) => `${base}/iframe.html?id=${storyId}`,
       getBeforeScreenshotHook: () => null,
     };
 
     let tasks = generateTasks(stories, baseUrl, config, deps);
 
     assert.strictEqual(tasks.length, 4); // 2 stories × 2 viewports
-    assert.deepStrictEqual(tasks[0], {
+
+    // Tasks are sorted by viewport, so find specific tasks by story+viewport
+    let primaryMobile = tasks.find(
+      t => t.story.id === 'button--primary' && t.viewport.name === 'mobile'
+    );
+    let primaryDesktop = tasks.find(
+      t => t.story.id === 'button--primary' && t.viewport.name === 'desktop'
+    );
+
+    assert.deepStrictEqual(primaryMobile, {
       story: { id: 'button--primary', title: 'Button', name: 'Primary' },
       viewport: { name: 'mobile', width: 375, height: 667 },
       hook: null,
-      url: 'http://localhost:6006/iframe.html?id=button--primary',
+      storyId: 'button--primary',
+      baseUrl: 'http://localhost:6006',
       screenshotOptions: {},
     });
-    assert.deepStrictEqual(tasks[1], {
+    assert.deepStrictEqual(primaryDesktop, {
       story: { id: 'button--primary', title: 'Button', name: 'Primary' },
       viewport: { name: 'desktop', width: 1920, height: 1080 },
       hook: null,
-      url: 'http://localhost:6006/iframe.html?id=button--primary',
+      storyId: 'button--primary',
+      baseUrl: 'http://localhost:6006',
       screenshotOptions: {},
     });
-    assert.strictEqual(tasks[2].story.id, 'button--secondary');
-    assert.strictEqual(tasks[3].story.id, 'button--secondary');
+    // Check secondary stories exist
+    assert.ok(tasks.some(t => t.story.id === 'button--secondary'));
+  });
+
+  it('sorts tasks by viewport to minimize viewport changes', () => {
+    let stories = [
+      { id: 'button--primary', title: 'Button', name: 'Primary' },
+      { id: 'button--secondary', title: 'Button', name: 'Secondary' },
+    ];
+    let baseUrl = 'http://localhost:6006';
+    let config = {
+      viewports: [
+        { name: 'mobile', width: 375, height: 667 },
+        { name: 'desktop', width: 1920, height: 1080 },
+      ],
+    };
+
+    let deps = {
+      getStoryConfig: (_story, cfg) => ({
+        viewports: cfg.viewports,
+        screenshot: {},
+      }),
+      getBeforeScreenshotHook: () => null,
+    };
+
+    let tasks = generateTasks(stories, baseUrl, config, deps);
+
+    // Tasks should be grouped by viewport
+    let viewportOrder = tasks.map(t => `${t.viewport.width}x${t.viewport.height}`);
+    // Same viewports should be adjacent
+    let desktopIndices = viewportOrder
+      .map((v, i) => (v === '1920x1080' ? i : -1))
+      .filter(i => i >= 0);
+    let mobileIndices = viewportOrder
+      .map((v, i) => (v === '375x667' ? i : -1))
+      .filter(i => i >= 0);
+
+    // All desktop tasks should be contiguous (indices are consecutive)
+    assert.ok(
+      desktopIndices.every((idx, i) => i === 0 || idx === desktopIndices[i - 1] + 1)
+    );
+    // All mobile tasks should be contiguous
+    assert.ok(
+      mobileIndices.every((idx, i) => i === 0 || idx === mobileIndices[i - 1] + 1)
+    );
   });
 
   it('handles single story with single viewport', () => {
@@ -58,21 +111,18 @@ describe('generateTasks', () => {
     };
 
     let deps = {
-      getStoryConfig: (story, cfg) => ({
+      getStoryConfig: (_story, cfg) => ({
         viewports: cfg.viewports,
         screenshot: {},
       }),
-      generateStoryUrl: (base, storyId) => `${base}/iframe.html?id=${storyId}`,
       getBeforeScreenshotHook: () => null,
     };
 
     let tasks = generateTasks(stories, baseUrl, config, deps);
 
     assert.strictEqual(tasks.length, 1);
-    assert.strictEqual(
-      tasks[0].url,
-      'http://localhost:6006/iframe.html?id=card--default'
-    );
+    assert.strictEqual(tasks[0].storyId, 'card--default');
+    assert.strictEqual(tasks[0].baseUrl, 'http://localhost:6006');
   });
 
   it('handles empty stories array', () => {
@@ -84,7 +134,6 @@ describe('generateTasks', () => {
 
     let deps = {
       getStoryConfig: () => ({ viewports: [], screenshot: {} }),
-      generateStoryUrl: () => '',
       getBeforeScreenshotHook: () => null,
     };
 
@@ -104,8 +153,8 @@ describe('processTask', () => {
       setViewport: async (tab, viewport) => {
         setViewportCalls.push({ tab, viewport });
       },
-      navigateToUrl: async (tab, url) => {
-        navigateCalls.push({ tab, url });
+      navigateToStory: async (tab, storyId, baseUrl) => {
+        navigateCalls.push({ tab, storyId, baseUrl });
       },
       captureAndSendScreenshot: async (tab, story, viewport, opts) => {
         screenshotCalls.push({ tab, story, viewport, opts });
@@ -117,7 +166,8 @@ describe('processTask', () => {
       story: { id: 'button--primary', title: 'Button', name: 'Primary' },
       viewport: { name: 'desktop', width: 1920, height: 1080 },
       hook: null,
-      url: 'http://localhost:6006/iframe.html?id=button--primary',
+      storyId: 'button--primary',
+      baseUrl: 'http://localhost:6006',
       screenshotOptions: { fullPage: true },
     };
 
@@ -128,7 +178,8 @@ describe('processTask', () => {
     assert.deepStrictEqual(setViewportCalls[0].viewport, task.viewport);
 
     assert.strictEqual(navigateCalls.length, 1);
-    assert.strictEqual(navigateCalls[0].url, task.url);
+    assert.strictEqual(navigateCalls[0].storyId, 'button--primary');
+    assert.strictEqual(navigateCalls[0].baseUrl, 'http://localhost:6006');
 
     assert.strictEqual(screenshotCalls.length, 1);
     assert.deepStrictEqual(screenshotCalls[0].opts, { fullPage: true });
@@ -139,7 +190,7 @@ describe('processTask', () => {
 
     let deps = {
       setViewport: async () => {},
-      navigateToUrl: async () => {},
+      navigateToStory: async () => {},
       captureAndSendScreenshot: async () => {},
     };
 
@@ -150,7 +201,8 @@ describe('processTask', () => {
       hook: async t => {
         hookCalls.push(t);
       },
-      url: 'http://localhost:6006/iframe.html?id=button--primary',
+      storyId: 'button--primary',
+      baseUrl: 'http://localhost:6006',
       screenshotOptions: {},
     };
 
@@ -177,11 +229,12 @@ describe('processAllTasks', () => {
     let logger = {
       info: mock.fn(),
       error: mock.fn(),
+      warn: mock.fn(),
     };
 
     let deps = {
       setViewport: async () => {},
-      navigateToUrl: async () => {},
+      navigateToStory: async () => {},
       captureAndSendScreenshot: async () => {},
     };
 
@@ -190,14 +243,16 @@ describe('processAllTasks', () => {
         story: { id: 'button--primary', title: 'Button', name: 'Primary' },
         viewport: { name: 'desktop', width: 1920, height: 1080 },
         hook: null,
-        url: 'http://localhost:6006/iframe.html?id=button--primary',
+        storyId: 'button--primary',
+        baseUrl: 'http://localhost:6006',
         screenshotOptions: {},
       },
       {
         story: { id: 'button--secondary', title: 'Button', name: 'Secondary' },
         viewport: { name: 'mobile', width: 375, height: 667 },
         hook: null,
-        url: 'http://localhost:6006/iframe.html?id=button--secondary',
+        storyId: 'button--secondary',
+        baseUrl: 'http://localhost:6006',
         screenshotOptions: {},
       },
     ];
@@ -226,7 +281,7 @@ describe('processAllTasks', () => {
 
     let deps = {
       setViewport: async () => {},
-      navigateToUrl: async () => {},
+      navigateToStory: async () => {},
       captureAndSendScreenshot: async () => {
         throw new Error('Screenshot failed');
       },
@@ -237,7 +292,8 @@ describe('processAllTasks', () => {
         story: { id: 'button--broken', title: 'Button', name: 'Broken' },
         viewport: { name: 'desktop', width: 1920, height: 1080 },
         hook: null,
-        url: 'http://localhost:6006/iframe.html?id=button--broken',
+        storyId: 'button--broken',
+        baseUrl: 'http://localhost:6006',
         screenshotOptions: {},
       },
     ];
@@ -270,7 +326,7 @@ describe('processAllTasks', () => {
 
     let deps = {
       setViewport: async () => {},
-      navigateToUrl: async () => {},
+      navigateToStory: async () => {},
       captureAndSendScreenshot: async () => {},
     };
 
@@ -279,7 +335,8 @@ describe('processAllTasks', () => {
         story: { id: 'button--primary', title: 'Button', name: 'Primary' },
         viewport: { name: 'desktop', width: 1920, height: 1080 },
         hook: null,
-        url: 'http://localhost:6006/iframe.html?id=button--primary',
+        storyId: 'button--primary',
+        baseUrl: 'http://localhost:6006',
         screenshotOptions: {},
       },
     ];
@@ -309,11 +366,12 @@ describe('processAllTasks', () => {
     let logger = {
       info: mock.fn(),
       error: mock.fn(),
+      warn: mock.fn(),
     };
 
     let deps = {
       setViewport: async () => {},
-      navigateToUrl: async () => {},
+      navigateToStory: async () => {},
       captureAndSendScreenshot: async () => {},
     };
 
@@ -321,7 +379,8 @@ describe('processAllTasks', () => {
       story: { id: `story--${i}`, title: 'Story', name: `${i}` },
       viewport: { name: 'desktop', width: 1920, height: 1080 },
       hook: null,
-      url: `http://localhost:6006/iframe.html?id=story--${i}`,
+      storyId: `story--${i}`,
+      baseUrl: 'http://localhost:6006',
       screenshotOptions: {},
     }));
 
@@ -354,11 +413,12 @@ describe('processAllTasks', () => {
       let logger = {
         info: mock.fn(),
         error: mock.fn(),
+        warn: mock.fn(),
       };
 
       let deps = {
         setViewport: async () => {},
-        navigateToUrl: async () => {},
+        navigateToStory: async () => {},
         captureAndSendScreenshot: async () => {
           screenshotAttempts++;
           if (screenshotAttempts === 1) {
@@ -373,7 +433,8 @@ describe('processAllTasks', () => {
           story: { id: 'button--primary', title: 'Button', name: 'Primary' },
           viewport: { name: 'desktop', width: 1920, height: 1080 },
           hook: null,
-          url: 'http://localhost:6006/iframe.html?id=button--primary',
+          storyId: 'button--primary',
+          baseUrl: 'http://localhost:6006',
           screenshotOptions: {},
         },
       ];
@@ -404,7 +465,7 @@ describe('processAllTasks', () => {
 
       let deps = {
         setViewport: async () => {},
-        navigateToUrl: async () => {},
+        navigateToStory: async () => {},
         captureAndSendScreenshot: async () => {
           screenshotAttempts++;
           throw new Error('Network error: DNS resolution failed');
@@ -416,7 +477,8 @@ describe('processAllTasks', () => {
           story: { id: 'button--primary', title: 'Button', name: 'Primary' },
           viewport: { name: 'desktop', width: 1920, height: 1080 },
           hook: null,
-          url: 'http://localhost:6006/iframe.html?id=button--primary',
+          storyId: 'button--primary',
+          baseUrl: 'http://localhost:6006',
           screenshotOptions: {},
         },
       ];
@@ -449,7 +511,7 @@ describe('processAllTasks', () => {
 
       let deps = {
         setViewport: async () => {},
-        navigateToUrl: async () => {},
+        navigateToStory: async () => {},
         captureAndSendScreenshot: async () => {
           screenshotAttempts++;
           throw new Error('Navigation timeout exceeded');
@@ -461,7 +523,8 @@ describe('processAllTasks', () => {
           story: { id: 'button--primary', title: 'Button', name: 'Primary' },
           viewport: { name: 'desktop', width: 1920, height: 1080 },
           hook: null,
-          url: 'http://localhost:6006/iframe.html?id=button--primary',
+          storyId: 'button--primary',
+          baseUrl: 'http://localhost:6006',
           screenshotOptions: {},
         },
       ];
@@ -489,7 +552,7 @@ describe('processAllTasks', () => {
 
       let deps = {
         setViewport: async () => {},
-        navigateToUrl: async () => {},
+        navigateToStory: async () => {},
         captureAndSendScreenshot: async () => {
           throw new Error('Target closed');
         },
@@ -500,7 +563,8 @@ describe('processAllTasks', () => {
           story: { id: 'button--primary', title: 'Button', name: 'Primary' },
           viewport: { name: 'desktop', width: 1920, height: 1080 },
           hook: null,
-          url: 'http://localhost:6006/iframe.html?id=button--primary',
+          storyId: 'button--primary',
+          baseUrl: 'http://localhost:6006',
           screenshotOptions: {},
         },
       ];
@@ -524,11 +588,12 @@ describe('processAllTasks', () => {
       let logger = {
         info: mock.fn(),
         error: mock.fn(),
+        warn: mock.fn(),
       };
 
       let deps = {
         setViewport: async () => {},
-        navigateToUrl: async () => {},
+        navigateToStory: async () => {},
         captureAndSendScreenshot: async () => {
           screenshotAttempts++;
           if (screenshotAttempts === 1) {
@@ -542,7 +607,8 @@ describe('processAllTasks', () => {
           story: { id: 'button--primary', title: 'Button', name: 'Primary' },
           viewport: { name: 'desktop', width: 1920, height: 1080 },
           hook: null,
-          url: 'http://localhost:6006/iframe.html?id=button--primary',
+          storyId: 'button--primary',
+          baseUrl: 'http://localhost:6006',
           screenshotOptions: {},
         },
       ];
@@ -571,12 +637,13 @@ describe('processAllTasks', () => {
       let logger = {
         info: mock.fn(),
         error: mock.fn(),
+        warn: mock.fn(),
       };
 
       let firstAttempt = true;
       let deps = {
         setViewport: async () => {},
-        navigateToUrl: async () => {},
+        navigateToStory: async () => {},
         captureAndSendScreenshot: async () => {
           if (firstAttempt) {
             firstAttempt = false;
@@ -590,7 +657,8 @@ describe('processAllTasks', () => {
           story: { id: 'button--primary', title: 'Button', name: 'Primary' },
           viewport: { name: 'desktop', width: 1920, height: 1080 },
           hook: null,
-          url: 'http://localhost:6006/iframe.html?id=button--primary',
+          storyId: 'button--primary',
+          baseUrl: 'http://localhost:6006',
           screenshotOptions: {},
         },
       ];
@@ -627,7 +695,7 @@ describe('processAllTasks', () => {
 
       let deps = {
         setViewport: async () => {},
-        navigateToUrl: async () => {},
+        navigateToStory: async () => {},
         captureAndSendScreenshot: async () => {
           throw new Error('Navigation timeout');
         },
@@ -638,7 +706,8 @@ describe('processAllTasks', () => {
           story: { id: 'button--primary', title: 'Button', name: 'Primary' },
           viewport: { name: 'desktop', width: 1920, height: 1080 },
           hook: null,
-          url: 'http://localhost:6006/iframe.html?id=button--primary',
+          storyId: 'button--primary',
+          baseUrl: 'http://localhost:6006',
           screenshotOptions: {},
         },
       ];
@@ -669,12 +738,13 @@ describe('processAllTasks', () => {
       let logger = {
         info: mock.fn(),
         error: mock.fn(),
+        warn: mock.fn(),
       };
 
       let firstAttempt = true;
       let deps = {
         setViewport: async () => {},
-        navigateToUrl: async () => {},
+        navigateToStory: async () => {},
         captureAndSendScreenshot: async () => {
           if (firstAttempt) {
             firstAttempt = false;
@@ -688,7 +758,8 @@ describe('processAllTasks', () => {
           story: { id: 'button--primary', title: 'Button', name: 'Primary' },
           viewport: { name: 'desktop', width: 1920, height: 1080 },
           hook: null,
-          url: 'http://localhost:6006/iframe.html?id=button--primary',
+          storyId: 'button--primary',
+          baseUrl: 'http://localhost:6006',
           screenshotOptions: {},
         },
       ];

@@ -67,7 +67,7 @@
   "dependencies": {
     "cosmiconfig": "^9.0.0",
     "fast-xml-parser": "^4.5.0",
-    "puppeteer": "^24.5.0",
+    "playwright-core": "^1.50.0",
     "serve-handler": "^6.1.5",
     "zod": "^4.1.12"
   },

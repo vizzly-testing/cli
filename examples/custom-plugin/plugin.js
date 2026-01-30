@@ -53,7 +53,18 @@ export default {
           output.info('Checking Vizzly services...');
 
           // Access services from the stable API
-          let { testRunner, serverManager } = services;
+          let { git, testRunner, serverManager } = services;
+
+          // Verify git detection is available (v0.25.0+)
+          if (git?.detect) {
+            output.success('git.detect is available');
+            let gitInfo = await git.detect({ buildPrefix: 'Example' });
+            output.info(`  Branch: ${gitInfo.branch}`);
+            output.info(`  Commit: ${gitInfo.commit?.slice(0, 7) || 'unknown'}`);
+            output.info(`  PR: ${gitInfo.prNumber || 'none'}`);
+          } else {
+            output.warn('git.detect not available (requires CLI v0.25.0+)');
+          }
 
           // Verify testRunner is available
           if (typeof testRunner.createBuild === 'function') {

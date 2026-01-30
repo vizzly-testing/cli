@@ -71,8 +71,28 @@ The `register` function receives:
 1. **`program`** - Commander.js program instance for adding commands
 2. **`context`** - Object containing:
    - `config` - Merged Vizzly configuration
-   - `logger` - Component logger for consistent output
-   - `services` - Service container with API client, uploader, etc.
+   - `output` - Output utilities for consistent CLI output
+   - `services` - Service container (see below)
+
+### Services API
+
+The `services` object provides stable APIs for plugins:
+
+```javascript
+let { git, testRunner, serverManager } = services;
+
+// Git detection (v0.25.0+) - handles CI environments correctly
+let gitInfo = await git.detect({ buildPrefix: 'MyPlugin' });
+// Returns: { branch, commit, message, prNumber, buildName }
+
+// Build lifecycle
+let buildId = await testRunner.createBuild(options);
+await testRunner.finalizeBuild(buildId, wait, success, executionTime);
+
+// Server control
+await serverManager.start(buildId, tddMode, setBaseline);
+await serverManager.stop();
+```
 
 ## Creating Your Own Plugin
 

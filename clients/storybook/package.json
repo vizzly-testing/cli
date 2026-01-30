@@ -58,7 +58,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "peerDependencies": {
-    "@vizzly-testing/cli": ">=0.9.0"
+    "@vizzly-testing/cli": ">=0.24.0"
   },
   "dependencies": {
     "playwright-core": "^1.50.0",

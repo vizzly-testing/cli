@@ -166,42 +166,32 @@ export async function run(buildPath, options = {}, context = {}) {
           }
         });
 
-        // Detect git info - use dynamic import to access internal utils
-        let gitUtils;
-        try {
-          // Try to import from the installed CLI package
-          let cliPath = await import.meta.resolve?.('@vizzly-testing/cli');
-          if (cliPath) {
-            gitUtils = await import(
-              '@vizzly-testing/cli/dist/utils/git.js'
-            ).catch(() => null);
-          }
-        } catch {
-          // Fallback: try relative path if in monorepo
-          try {
-            gitUtils = await import('../../../src/utils/git.js').catch(
-              () => null
-            );
-          } catch {
-            gitUtils = null;
-          }
-        }
+        // Detect git info using CLI's plugin API (preferred) or fallback to env vars
+        let branch, commit, message, buildName, pullRequestNumber;
 
-        let branch = gitUtils
-          ? await gitUtils.detectBranch()
-          : process.env.VIZZLY_BRANCH || 'main';
-        let commit = gitUtils
-          ? await gitUtils.detectCommit()
-          : process.env.VIZZLY_COMMIT_SHA || undefined;
-        let message = gitUtils
-          ? await gitUtils.detectCommitMessage()
-          : process.env.VIZZLY_COMMIT_MESSAGE || undefined;
-        let buildName = gitUtils
-          ? await gitUtils.generateBuildNameWithGit('Static Site')
-          : `Static Site ${new Date().toISOString()}`;
-        let pullRequestNumber = gitUtils
-          ? gitUtils.detectPullRequestNumber()
-          : process.env.VIZZLY_PR_NUMBER || undefined;
+        if (services.git?.detect) {
+          // Use CLI's git detection (correct handling of CI environments)
+          let gitInfo = await services.git.detect({
+            buildPrefix: 'Static Site',
+          });
+          branch = gitInfo.branch;
+          commit = gitInfo.commit;
+          message = gitInfo.message;
+          buildName = gitInfo.buildName;
+          pullRequestNumber = gitInfo.prNumber;
+        } else {
+          // Fallback for older CLI versions - use environment variables
+          logger.warn(
+            '⚠️  Upgrade to @vizzly-testing/cli@>=0.25.0 for improved git detection'
+          );
+          branch = process.env.VIZZLY_BRANCH || 'main';
+          commit = process.env.VIZZLY_COMMIT_SHA || undefined;
+          message = process.env.VIZZLY_COMMIT_MESSAGE || undefined;
+          buildName = `Static Site ${new Date().toISOString()}`;
+          pullRequestNumber = process.env.VIZZLY_PR_NUMBER
+            ? parseInt(process.env.VIZZLY_PR_NUMBER, 10)
+            : undefined;
+        }
 
         // Build options for API
         let runOptions = {

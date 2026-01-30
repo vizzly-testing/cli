@@ -118,7 +118,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     output.debug('config', 'using token from environment');
   }
   if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
-  if (envBuildName) config.build.name = envBuildName;
+  if (envBuildName) {
+    config.build.name = envBuildName;
+    output.debug('config', 'using build name from environment');
+  }
   if (envParallelId) config.parallelId = envParallelId;
 
   // 5. Apply CLI overrides (highest priority)

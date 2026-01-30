@@ -54,12 +54,14 @@ describe('utils/config-loader', () => {
       originalEnv = {
         VIZZLY_TOKEN: process.env.VIZZLY_TOKEN,
         VIZZLY_API_URL: process.env.VIZZLY_API_URL,
+        VIZZLY_BUILD_NAME: process.env.VIZZLY_BUILD_NAME,
         VIZZLY_PARALLEL_ID: process.env.VIZZLY_PARALLEL_ID,
         VIZZLY_HOME: process.env.VIZZLY_HOME,
       };
 
       // Clean env
       delete process.env.VIZZLY_TOKEN;
+      delete process.env.VIZZLY_BUILD_NAME;
       delete process.env.VIZZLY_PARALLEL_ID;
 
       // Create test directory
@@ -133,6 +135,22 @@ describe('utils/config-loader', () => {
 
       assert.strictEqual(config.apiKey, 'env-token');
       assert.strictEqual(config.parallelId, 'parallel-123');
+    });
+
+    it('applies VIZZLY_BUILD_NAME environment variable', async () => {
+      process.env.VIZZLY_BUILD_NAME = 'CI Build #123';
+
+      let config = await loadConfig();
+
+      assert.strictEqual(config.build.name, 'CI Build #123');
+    });
+
+    it('CLI buildName overrides VIZZLY_BUILD_NAME', async () => {
+      process.env.VIZZLY_BUILD_NAME = 'env-build-name';
+
+      let config = await loadConfig(null, { buildName: 'cli-build-name' });
+
+      assert.strictEqual(config.build.name, 'cli-build-name');
     });
 
     it('CLI token overrides env token', async () => {

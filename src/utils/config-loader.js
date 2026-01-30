@@ -1,7 +1,12 @@
 import { resolve } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
-import { getApiToken, getApiUrl, getParallelId } from './environment-config.js';
+import {
+  getApiToken,
+  getApiUrl,
+  getBuildName,
+  getParallelId,
+} from './environment-config.js';
 import { getProjectMapping } from './global-config.js';
 import * as output from './output.js';
 
@@ -105,6 +110,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 4. Override with environment variables (higher priority than fallbacks)
   const envApiKey = getApiToken();
   const envApiUrl = getApiUrl();
+  const envBuildName = getBuildName();
   const envParallelId = getParallelId();
 
   if (envApiKey) {
@@ -112,6 +118,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     output.debug('config', 'using token from environment');
   }
   if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
+  if (envBuildName) {
+    config.build.name = envBuildName;
+    output.debug('config', 'using build name from environment');
+  }
   if (envParallelId) config.parallelId = envParallelId;
 
   // 5. Apply CLI overrides (highest priority)

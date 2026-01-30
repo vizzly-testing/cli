@@ -78,6 +78,14 @@ export function getParallelId() {
 }
 
 /**
+ * Get build name from environment
+ * @returns {string|undefined} Build name
+ */
+export function getBuildName() {
+  return process.env.VIZZLY_BUILD_NAME;
+}
+
+/**
  * Check if TDD mode is enabled
  * @returns {boolean} Whether TDD mode is enabled
  */
@@ -107,6 +115,7 @@ export function getAllEnvironmentConfig() {
     enabled: isVizzlyEnabled(),
     serverUrl: getServerUrl(),
     buildId: getBuildId(),
+    buildName: getBuildName(),
     parallelId: getParallelId(),
     tddMode: isTddMode(),
   };

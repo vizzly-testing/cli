@@ -175,6 +175,7 @@ The React-based reporter works in two modes:
 - `VIZZLY_TOKEN` - API authentication token
 - `VIZZLY_API_URL` - API base URL (default: https://app.vizzly.dev)
 - `VIZZLY_LOG_LEVEL` - Logging level (debug|info|warn|error)
+- `VIZZLY_BUILD_NAME` - Custom build name (useful in CI for dynamic naming)
 - `VIZZLY_PARALLEL_ID` - Parallel build identifier
 - `VIZZLY_ENABLED` - Enable/disable SDK (default: auto-detect)
 - `VIZZLY_SERVER_URL` - Screenshot server URL for client

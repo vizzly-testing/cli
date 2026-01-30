@@ -5,6 +5,7 @@ import {
   getApiToken,
   getApiUrl,
   getBuildId,
+  getBuildName,
   getLogLevel,
   getParallelId,
   getServerUrl,
@@ -30,6 +31,7 @@ describe('utils/environment-config', () => {
       'VIZZLY_ENABLED',
       'VIZZLY_SERVER_URL',
       'VIZZLY_BUILD_ID',
+      'VIZZLY_BUILD_NAME',
       'VIZZLY_PARALLEL_ID',
       'VIZZLY_TDD',
     ];
@@ -156,6 +158,18 @@ describe('utils/environment-config', () => {
     });
   });
 
+  describe('getBuildName', () => {
+    it('returns undefined when not set', () => {
+      assert.strictEqual(getBuildName(), undefined);
+    });
+
+    it('returns VIZZLY_BUILD_NAME when set', () => {
+      process.env.VIZZLY_BUILD_NAME = 'My CI Build';
+
+      assert.strictEqual(getBuildName(), 'My CI Build');
+    });
+  });
+
   describe('isTddMode', () => {
     it('returns false when not set', () => {
       assert.strictEqual(isTddMode(), false);
@@ -213,6 +227,7 @@ describe('utils/environment-config', () => {
         enabled: false,
         serverUrl: undefined,
         buildId: undefined,
+        buildName: undefined,
         parallelId: undefined,
         tddMode: false,
       });
@@ -227,6 +242,7 @@ describe('utils/environment-config', () => {
       process.env.VIZZLY_ENABLED = 'true';
       process.env.VIZZLY_SERVER_URL = 'http://server';
       process.env.VIZZLY_BUILD_ID = 'build';
+      process.env.VIZZLY_BUILD_NAME = 'My Build';
       process.env.VIZZLY_PARALLEL_ID = 'parallel';
       process.env.VIZZLY_TDD = 'true';
 
@@ -241,6 +257,7 @@ describe('utils/environment-config', () => {
         enabled: true,
         serverUrl: 'http://server',
         buildId: 'build',
+        buildName: 'My Build',
         parallelId: 'parallel',
         tddMode: true,
       });

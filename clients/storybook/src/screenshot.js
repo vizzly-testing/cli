@@ -41,42 +41,28 @@ const SCREENSHOT_TIMEOUT_MS = 45_000;
 
 /**
  * Capture a screenshot from a page
- * @param {Object} page - Puppeteer page instance
+ * @param {Object} page - Playwright page instance
  * @param {Object} options - Screenshot options
  * @param {boolean} [options.fullPage=false] - Capture full page
- * @param {boolean} [options.omitBackground=false] - Omit background
+ * @param {boolean} [options.omitBackground=false] - Omit background (transparent)
  * @returns {Promise<Buffer>} Screenshot buffer
- * @throws {Error} If screenshot takes longer than 10 seconds
  */
 export async function captureScreenshot(page, options = {}) {
   let { fullPage = false, omitBackground = false } = options;
 
-  let timeoutId;
-  let screenshotPromise = page.screenshot({ fullPage, omitBackground });
-
-  let timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(
-        new Error(
-          `Screenshot capture timed out after ${SCREENSHOT_TIMEOUT_MS / 1000}s - page may be unresponsive`
-        )
-      );
-    }, SCREENSHOT_TIMEOUT_MS);
+  // Playwright has built-in timeout support
+  let screenshot = await page.screenshot({
+    fullPage,
+    omitBackground,
+    timeout: SCREENSHOT_TIMEOUT_MS,
   });
 
-  try {
-    let screenshot = await Promise.race([screenshotPromise, timeoutPromise]);
-    clearTimeout(timeoutId);
-    return screenshot;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
+  return screenshot;
 }
 
 /**
  * Capture and send screenshot to Vizzly
- * @param {Object} page - Puppeteer page instance
+ * @param {Object} page - Playwright page instance
  * @param {Object} story - Story object
  * @param {Object} viewport - Viewport object
  * @param {Object} screenshotOptions - Screenshot options

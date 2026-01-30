@@ -61,7 +61,7 @@
     "@vizzly-testing/cli": ">=0.9.0"
   },
   "dependencies": {
-    "puppeteer": "^24.5.0",
+    "playwright-core": "^1.50.0",
     "serve-handler": "^6.1.5"
   },
   "devDependencies": {

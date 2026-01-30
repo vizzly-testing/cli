@@ -149,22 +149,22 @@ jobs:
         working-directory: ./clients/storybook
         run: npm run build
 
-      - name: Get Puppeteer version
+      - name: Get Playwright version
         working-directory: ./clients/storybook
-        id: puppeteer-version
-        run: echo "version=$(node -p "require('puppeteer/package.json').version")" >> $GITHUB_OUTPUT
+        id: playwright-version
+        run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> $GITHUB_OUTPUT
 
-      - name: Cache Puppeteer browsers
+      - name: Cache Playwright browsers
         uses: actions/cache@v4
-        id: puppeteer-cache
+        id: playwright-cache
         with:
-          path: ~/.cache/puppeteer
-          key: puppeteer-${{ steps.puppeteer-version.outputs.version }}-chrome
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.playwright-version.outputs.version }}-storybook-chromium
 
-      - name: Install Puppeteer browsers
-        if: steps.puppeteer-cache.outputs.cache-hit != 'true'
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/storybook
-        run: npx puppeteer browsers install chrome
+        run: npx playwright-core install chromium --with-deps
 
       - name: Build example-storybook
         working-directory: ./clients/storybook/example-storybook

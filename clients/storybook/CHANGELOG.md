@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-01-30
+
+## What's Changed
+
+### Changed
+- **BREAKING:** Migrated from Puppeteer to Playwright for browser automation
+  - Replace `puppeteer` dependency with `playwright-core`
+  - This significantly improves screenshot performance and reliability in CI environments
+  - Screenshots now complete in <1 second instead of timing out after 60+ seconds
+  - **~47x performance improvement** for Storybook navigation (94s → 2s for 10 screenshots) thanks to client-side story navigation
+  - If you have custom browser configurations, you may need to update them for Playwright compatibility
+
+### Fixed
+- Fixed critical screenshot timeout issues in CI environments caused by Puppeteer's parallel capture limitations
+- Improved browser context isolation for parallel workers, preventing race conditions
+- Removed deprecated Chrome flags that caused hangs and inconsistent behavior
+- Added screenshot consistency flags (`--force-color-profile=srgb`, `--hide-scrollbars`) for more reliable visual comparisons
+
+### Added
+- Client-side navigation for Storybook stories using Storybook's internal event system
+  - First story per tab uses full page load to initialize Storybook
+  - Subsequent stories use fast client-side navigation with `storyRendered` event handling
+- Tasks are now sorted by viewport to minimize resize operations and improve performance
+- Support for `vizzlyPlugin` field in package.json for plugin registration (replacing nested `vizzly.plugin` format)
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v0.2.0...storybook/v0.3.0
+
 ## [0.2.0] - 2026-01-29
 
 # v0.2.0

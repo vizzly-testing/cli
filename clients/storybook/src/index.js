@@ -125,6 +125,9 @@ export async function run(storybookPath, options = {}, context = {}) {
           pullRequestNumber = gitInfo.prNumber;
         } else {
           // Fallback for older CLI versions - use environment variables
+          logger.warn(
+            '⚠️  Upgrade to @vizzly-testing/cli@>=0.25.0 for improved git detection'
+          );
           branch = process.env.VIZZLY_BRANCH || 'main';
           commit = process.env.VIZZLY_COMMIT_SHA || undefined;
           message = process.env.VIZZLY_COMMIT_MESSAGE || undefined;

@@ -9,10 +9,19 @@
  * exposed to plugins to prevent coupling to implementation details.
  */
 
+import {
+  detectBranch,
+  detectCommit,
+  detectCommitMessage,
+  detectPullRequestNumber,
+  generateBuildNameWithGit,
+} from './utils/git.js';
+
 /**
  * Creates a stable plugin services object from the internal services
  *
  * Only exposes:
+ * - git: Git information detection (branch, commit, PR number, etc.)
  * - testRunner: Build lifecycle management (createBuild, finalizeBuild, events)
  * - serverManager: Screenshot server control (start, stop)
  *
@@ -23,6 +32,35 @@ export function createPluginServices(services) {
   let { testRunner, serverManager } = services;
 
   return Object.freeze({
+    // Git detection utilities - provides correct git info from CI environments
+    git: Object.freeze({
+      /**
+       * Detect git information for build creation
+       * Handles CI environment variables correctly (GitHub Actions, GitLab, etc.)
+       *
+       * @param {Object} [options] - Detection options
+       * @param {string} [options.buildPrefix] - Prefix for generated build name
+       * @returns {Promise<Object>} Git info: { branch, commit, message, prNumber, buildName }
+       */
+      async detect(options = {}) {
+        let [branch, commit, message] = await Promise.all([
+          detectBranch(),
+          detectCommit(),
+          detectCommitMessage(),
+        ]);
+        let prNumber = detectPullRequestNumber();
+        let buildName = await generateBuildNameWithGit(options.buildPrefix);
+
+        return {
+          branch,
+          commit,
+          message,
+          prNumber,
+          buildName,
+        };
+      },
+    }),
+
     testRunner: Object.freeze({
       // EventEmitter methods for build lifecycle events
       once: testRunner.once.bind(testRunner),

@@ -16,8 +16,6 @@ let CI_OPTIMIZED_ARGS = [
 
   // Reduce memory usage
   '--disable-dev-shm-usage', // Use /tmp instead of /dev/shm (often too small in Docker)
-  '--disable-gpu', // No GPU in CI
-  '--disable-software-rasterizer',
 
   // Disable unnecessary features
   '--disable-extensions',
@@ -33,12 +31,18 @@ let CI_OPTIMIZED_ARGS = [
   '--disable-prompt-on-repost',
   '--disable-renderer-backgrounding',
   '--disable-sync',
-  '--disable-translate',
+
+  // Disable features via --disable-features (modern approach)
+  '--disable-features=Translate,OptimizationHints,MediaRouter',
 
   // Reduce resource usage
   '--metrics-recording-only',
   '--no-first-run',
-  '--safebrowsing-disable-auto-update',
+
+  // Screenshot consistency
+  '--hide-scrollbars',
+  '--mute-audio',
+  '--force-color-profile=srgb',
 
   // Memory optimizations
   '--js-flags=--max-old-space-size=512', // Limit V8 heap

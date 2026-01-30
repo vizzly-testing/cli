@@ -1,6 +1,13 @@
 # Chrome Browser Flags
 
-This document covers the Chrome command-line flags used by the Storybook and Static-Site SDKs when launching Puppeteer browsers.
+This document covers the Chrome command-line flags used by the Storybook and Static-Site SDKs when launching browsers via Playwright.
+
+## Why Playwright?
+
+We migrated from Puppeteer to Playwright because:
+- Puppeteer's new headless mode has known issues with parallel screenshot capture causing timeouts
+- Playwright's BrowserContext provides better isolation for parallel workers
+- Playwright is designed specifically for automation and handles edge cases better
 
 ## Source of Truth
 
@@ -86,7 +93,7 @@ Use `--disable-features=` for toggling Chrome features:
 |------|---------|
 | `--js-flags=--max-old-space-size=N` | Limit V8 heap (512MB static-site, 1024MB storybook) |
 
-## Removed Flags
+## Removed/Deprecated Flags
 
 These flags were removed from Chromium and should NOT be used:
 
@@ -105,6 +112,6 @@ Periodically audit flags against the source of truth:
 
 1. Check [chrome-flags-for-tools.md](https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md) for the "Removed flags" section
 2. Verify each flag still exists on [peter.sh](https://peter.sh/experiments/chromium-command-line-switches/)
-3. Check Puppeteer's default args for any new recommendations
+3. Check Playwright's default args for any new recommendations
 
 Last audited: January 2026

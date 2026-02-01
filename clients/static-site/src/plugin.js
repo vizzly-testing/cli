@@ -20,6 +20,7 @@ export default {
         { name: 'desktop', width: 1920, height: 1080 },
       ],
       browser: {
+        type: 'chromium',
         headless: true,
         args: [],
       },
@@ -63,7 +64,11 @@ export default {
       )
       .option('--include <pattern>', 'Include page pattern (glob)')
       .option('--exclude <pattern>', 'Exclude page pattern (glob)')
-      .option('--browser-args <args>', 'Additional Puppeteer browser arguments')
+      .option(
+        '--browser <type>',
+        'Browser to use: chromium, firefox, webkit (default: chromium)'
+      )
+      .option('--browser-args <args>', 'Additional browser arguments')
       .option('--headless', 'Run browser in headless mode')
       .option('--full-page', 'Capture full page screenshots')
       .option(

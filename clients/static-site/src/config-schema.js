@@ -34,6 +34,7 @@ let viewportSchema = z.object({
  * Browser configuration schema
  */
 let browserSchema = z.object({
+  type: z.enum(['chromium', 'firefox', 'webkit']).default('chromium'),
   headless: z.boolean().default(true),
   args: z.array(z.string()).default([]),
 });
@@ -90,6 +91,7 @@ export let staticSiteConfigSchema = z
       .array(viewportSchema)
       .default([{ name: 'default', width: 1920, height: 1080 }]),
     browser: browserSchema.default({
+      type: 'chromium',
       headless: true,
       args: [],
     }),
@@ -111,7 +113,7 @@ export let staticSiteConfigSchema = z
   })
   .default({
     viewports: [{ name: 'default', width: 1920, height: 1080 }],
-    browser: { headless: true, args: [] },
+    browser: { type: 'chromium', headless: true, args: [] },
     screenshot: { fullPage: false, omitBackground: false, timeout: 45_000 },
     concurrency: getDefaultConcurrency(),
     pageDiscovery: {

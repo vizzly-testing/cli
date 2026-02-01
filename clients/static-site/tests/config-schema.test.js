@@ -106,6 +106,36 @@ describe('config-schema', () => {
       assert.deepStrictEqual(validated.browser.args, ['--no-sandbox']);
     });
 
+    it('validates browser type', () => {
+      let config = {
+        browser: {
+          type: 'firefox',
+        },
+      };
+
+      let validated = validateStaticSiteConfig(config);
+
+      assert.strictEqual(validated.browser.type, 'firefox');
+    });
+
+    it('defaults browser type to chromium', () => {
+      let config = {};
+
+      let validated = validateStaticSiteConfig(config);
+
+      assert.strictEqual(validated.browser.type, 'chromium');
+    });
+
+    it('rejects invalid browser type', () => {
+      let config = {
+        browser: {
+          type: 'invalid-browser',
+        },
+      };
+
+      assert.throws(() => validateStaticSiteConfig(config));
+    });
+
     it('validates screenshot config', () => {
       let config = {
         screenshot: {

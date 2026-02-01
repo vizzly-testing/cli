@@ -58,6 +58,13 @@ describe('parseCliOptions', () => {
     assert.deepEqual(config.browser.args, ['--arg1', '--arg2']);
   });
 
+  it('should parse browser type option', () => {
+    let options = { browser: 'webkit' };
+    let config = parseCliOptions(options);
+
+    assert.equal(config.browser.type, 'webkit');
+  });
+
   it('should parse screenshot options', () => {
     let options = { fullPage: true };
     let config = parseCliOptions(options);

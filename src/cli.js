@@ -236,6 +236,10 @@ program
   .option('--json', 'Machine-readable output')
   .option('--color', 'Force colored output (even in non-TTY)')
   .option('--no-color', 'Disable colored output')
+  .option(
+    '--strict',
+    'Fail on any error (default: be resilient, warn on non-critical issues)'
+  )
   .configureHelp({ formatHelp });
 
 // Load plugins before defining commands

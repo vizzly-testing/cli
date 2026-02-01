@@ -332,10 +332,158 @@ describe('commands/finalize', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(result.result.reason, 'api-unavailable');
       assert.strictEqual(exitCode, null);
       assert.ok(
         output.calls.some(
           c => c.method === 'warn' && c.args[0].includes('API unavailable')
+        )
+      );
+    });
+
+    it('does not fail CI on 5xx even with --strict flag', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 503 - Service Unavailable');
+      apiError.context = { status: 503 };
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        { strict: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      // 5xx errors should ALWAYS be resilient, even with --strict
+      // Infrastructure issues are out of user's control
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(result.result.reason, 'api-unavailable');
+      assert.strictEqual(exitCode, null);
+    });
+
+    it('does not fail CI when no build found (404) in non-strict mode', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 404 - Not Found');
+      apiError.context = { status: 404 };
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(result.result.reason, 'no-build-found');
+      assert.strictEqual(exitCode, null);
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'warn' && c.args[0].includes('No build found')
+        )
+      );
+    });
+
+    it('fails CI when no build found (404) in strict mode', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 404 - Not Found');
+      apiError.context = { status: 404 };
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        { strict: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.reason, 'no-build-found');
+      assert.strictEqual(exitCode, 1);
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'error' && c.args[0].includes('No build found')
+        )
+      );
+    });
+
+    it('shows verbose hints when no build found in non-strict mode', async () => {
+      let output = createMockOutput();
+
+      let apiError = new Error('API request failed: 404 - Not Found');
+      apiError.context = { status: 404 };
+
+      await finalizeCommand(
+        'parallel-123',
+        {},
+        { verbose: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      // Should show helpful hints in verbose mode
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'info' && c.args[0].includes('Possible reasons')
+        )
+      );
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'info' && c.args[0].includes('--strict')
         )
       );
     });

@@ -54,6 +54,13 @@ describe('config', () => {
       ]);
     });
 
+    it('parses browser type option', () => {
+      let options = { browser: 'firefox' };
+      let config = parseCliOptions(options);
+
+      assert.strictEqual(config.browser.type, 'firefox');
+    });
+
     it('parses screenshot options', () => {
       let options = { fullPage: true };
       let config = parseCliOptions(options);

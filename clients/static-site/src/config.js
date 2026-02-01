@@ -15,6 +15,7 @@ export let defaultConfig = {
   buildPath: null,
   viewports: [{ name: 'default', width: 1920, height: 1080 }],
   browser: {
+    type: 'chromium',
     headless: true,
     args: [],
   },
@@ -58,6 +59,10 @@ export function parseCliOptions(options) {
 
   if (options.exclude) {
     config.exclude = options.exclude;
+  }
+
+  if (options.browser) {
+    config.browser = { ...config.browser, type: options.browser };
   }
 
   if (options.headless !== undefined) {

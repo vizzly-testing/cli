@@ -18,6 +18,7 @@ export default {
         { name: 'desktop', width: 1920, height: 1080 },
       ],
       browser: {
+        type: 'chromium',
         headless: true,
         args: [],
       },
@@ -56,7 +57,11 @@ export default {
       )
       .option('--include <pattern>', 'Include story pattern (glob)')
       .option('--exclude <pattern>', 'Exclude story pattern (glob)')
-      .option('--browser-args <args>', 'Additional Puppeteer browser arguments')
+      .option(
+        '--browser <type>',
+        'Browser to use: chromium, firefox, webkit (default: chromium)'
+      )
+      .option('--browser-args <args>', 'Additional browser arguments')
       .option(
         '--headless',
         'Run browser in headless mode (default: true)',

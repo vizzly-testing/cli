@@ -248,6 +248,12 @@ jobs:
           VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
+      - name: Upload preview
+        working-directory: ./clients/static-site
+        run: ../../bin/vizzly.js preview ../../test-site
+        env:
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
+
   # Ember SDK
   ember:
     name: Ember SDK

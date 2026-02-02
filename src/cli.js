@@ -583,6 +583,10 @@ program
   .option('--open', 'Open preview URL in browser after upload')
   .option('--dry-run', 'Show what would be uploaded without uploading')
   .option(
+    '--public-link',
+    'Acknowledge that preview URL grants access to anyone with the link (required for private projects)'
+  )
+  .option(
     '-x, --exclude <pattern>',
     'Exclude files/dirs (repeatable, e.g. -x "*.log" -x "temp/")',
     (val, prev) => (prev ? [...prev, val] : [val])

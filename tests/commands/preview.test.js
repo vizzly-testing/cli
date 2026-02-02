@@ -206,6 +206,7 @@ describe('previewCommand', () => {
         createApiClient: () => ({
           request: async () => ({}),
         }),
+        getBuild: async () => ({ project: { isPublic: true } }),
         uploadPreviewZip: async (_client, buildId) => {
           capturedBuildId = buildId;
           return {
@@ -244,6 +245,7 @@ describe('previewCommand', () => {
         }),
         detectBranch: async () => 'main',
         createApiClient: () => ({}),
+        getBuild: async () => ({ project: { isPublic: true } }),
         uploadPreviewZip: async (_client, buildId) => {
           capturedBuildId = buildId;
           return {
@@ -311,6 +313,7 @@ describe('previewCommand', () => {
           apiUrl: 'https://api.test',
         }),
         createApiClient: () => ({}),
+        getBuild: async () => ({ project: { isPublic: true } }),
         uploadPreviewZip: async () => ({
           previewUrl: 'https://preview.test',
           uploaded: 3,
@@ -344,6 +347,7 @@ describe('previewCommand', () => {
           apiUrl: 'https://api.test',
         }),
         createApiClient: () => ({}),
+        getBuild: async () => ({ project: { isPublic: true } }),
         uploadPreviewZip: async () => ({
           previewUrl: 'https://preview.test',
           uploaded: 3,
@@ -561,5 +565,196 @@ describe('previewCommand', () => {
       !filePaths.includes('tsconfig.json'),
       'Should exclude tsconfig.json'
     );
+  });
+
+  it('fails when getBuild returns 404', async () => {
+    let output = createMockOutput();
+    let exitCode = null;
+
+    let result = await previewCommand(
+      distDir,
+      { build: 'nonexistent-build' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        getBuild: async () => {
+          let error = new Error('Not found');
+          error.status = 404;
+          throw error;
+        },
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.reason, 'build-fetch-failed');
+    assert.ok(
+      output.calls.some(
+        c => c.method === 'error' && c.args[0].includes('Build not found')
+      ),
+      'Should show build not found error'
+    );
+  });
+
+  it('fails when getBuild throws network error', async () => {
+    let output = createMockOutput();
+    let exitCode = null;
+
+    let result = await previewCommand(
+      distDir,
+      { build: 'build-123' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        getBuild: async () => {
+          throw new Error('Network error');
+        },
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.reason, 'build-fetch-failed');
+    assert.ok(
+      output.calls.some(
+        c =>
+          c.method === 'error' &&
+          c.args[0].includes('Failed to verify project visibility')
+      ),
+      'Should show visibility check error'
+    );
+  });
+
+  it('fails for private project without --public-link flag', async () => {
+    let output = createMockOutput();
+    let exitCode = null;
+
+    let result = await previewCommand(
+      distDir,
+      { build: 'build-123' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        getBuild: async () => ({
+          id: 'build-123',
+          project: { id: 'proj-1', name: 'Test Project', isPublic: false },
+        }),
+        uploadPreviewZip: async () => {
+          throw new Error('Should not reach upload');
+        },
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
+
+    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.reason, 'private-project-no-flag');
+    assert.ok(
+      output.calls.some(
+        c => c.method === 'error' && c.args[0].includes('private')
+      ),
+      'Should show private project error'
+    );
+    assert.ok(
+      output.calls.some(
+        c => c.method === 'print' && c.args[0].includes('--public-link')
+      ),
+      'Should mention --public-link flag in output'
+    );
+  });
+
+  it('succeeds for private project with --public-link flag', async () => {
+    let output = createMockOutput();
+    let uploadCalled = false;
+
+    let result = await previewCommand(
+      distDir,
+      { build: 'build-123', publicLink: true },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        getBuild: async () => ({
+          id: 'build-123',
+          project: { id: 'proj-1', name: 'Test Project', isPublic: false },
+        }),
+        uploadPreviewZip: async () => {
+          uploadCalled = true;
+          return {
+            previewUrl: 'https://preview.test',
+            uploaded: 3,
+            totalBytes: 1000,
+            newBytes: 800,
+          };
+        },
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(uploadCalled, true, 'Should call upload');
+    assert.strictEqual(result.success, true);
+  });
+
+  it('succeeds for public project without --public-link flag', async () => {
+    let output = createMockOutput();
+    let uploadCalled = false;
+
+    let result = await previewCommand(
+      distDir,
+      { build: 'build-123' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        getBuild: async () => ({
+          id: 'build-123',
+          project: { id: 'proj-1', name: 'Test Project', isPublic: true },
+        }),
+        uploadPreviewZip: async () => {
+          uploadCalled = true;
+          return {
+            previewUrl: 'https://preview.test',
+            uploaded: 3,
+            totalBytes: 1000,
+            newBytes: 800,
+          };
+        },
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(uploadCalled, true, 'Should call upload');
+    assert.strictEqual(result.success, true);
   });
 });

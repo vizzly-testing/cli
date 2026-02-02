@@ -14,6 +14,7 @@ import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import {
   createApiClient as defaultCreateApiClient,
+  getBuild as defaultGetBuild,
   uploadPreviewZip as defaultUploadPreviewZip,
 } from '../api/index.js';
 import { openBrowser as defaultOpenBrowser } from '../utils/browser.js';
@@ -336,6 +337,7 @@ export async function previewCommand(
   let {
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
+    getBuild = defaultGetBuild,
     uploadPreviewZip = defaultUploadPreviewZip,
     readSession = defaultReadSession,
     formatSessionAge = defaultFormatSessionAge,
@@ -434,6 +436,52 @@ export async function previewCommand(
       output.blank();
       exit(1);
       return { success: false, reason: 'no-build' };
+    }
+
+    // Create API client for non-dry-run operations (reused for visibility check and upload)
+    let client;
+    if (!options.dryRun) {
+      client = createApiClient({
+        baseUrl: config.apiUrl,
+        token: config.apiKey,
+        command: 'preview',
+      });
+
+      // Check project visibility for private projects
+      let build;
+      try {
+        build = await getBuild(client, buildId);
+      } catch (error) {
+        if (error.status === 404) {
+          output.error(`Build not found: ${buildId}`);
+        } else {
+          output.error('Failed to verify project visibility', error);
+        }
+        exit(1);
+        // Return is for testing (exit is mocked in tests)
+        return { success: false, reason: 'build-fetch-failed', error };
+      }
+
+      // Check if project is private and user hasn't acknowledged public link access
+      // Use === false to handle undefined/missing isPublic defensively
+      let isPrivate = build.project && build.project.isPublic === false;
+      if (isPrivate && !options.publicLink) {
+        output.error('This project is private.');
+        output.blank();
+        output.print(
+          '  Preview URLs grant access to anyone with the link (until expiration).'
+        );
+        output.blank();
+        output.print('  To proceed, acknowledge this by using:');
+        output.blank();
+        output.print('    vizzly preview ./dist --public-link');
+        output.blank();
+        output.print('  Or set your project to public in Vizzly settings.');
+        output.blank();
+        exit(1);
+        // Return is for testing (exit is mocked in tests)
+        return { success: false, reason: 'private-project-no-flag' };
+      }
     }
 
     // Check for zip command availability (skip for dry-run)
@@ -611,14 +659,8 @@ export async function previewCommand(
       `Compressed to ${formatBytes(zipBuffer.length)} (${compressionRatio}% smaller)`
     );
 
-    // Upload
+    // Upload (reuse client created earlier)
     output.updateSpinner('Uploading preview...');
-    let client = createApiClient({
-      baseUrl: config.apiUrl,
-      token: config.apiKey,
-      command: 'preview',
-    });
-
     let result = await uploadPreviewZip(client, buildId, zipBuffer);
     output.stopSpinner();
 

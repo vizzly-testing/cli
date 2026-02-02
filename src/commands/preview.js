@@ -448,9 +448,9 @@ export async function previewCommand(
       });
 
       // Check project visibility for private projects
-      let build;
+      let buildResponse;
       try {
-        build = await getBuild(client, buildId);
+        buildResponse = await getBuild(client, buildId);
       } catch (error) {
         if (error.status === 404) {
           output.error(`Build not found: ${buildId}`);
@@ -463,8 +463,10 @@ export async function previewCommand(
       }
 
       // Check if project is private and user hasn't acknowledged public link access
+      // Note: API returns { build, project } at top level, not nested
       // Use === false to handle undefined/missing isPublic defensively
-      let isPrivate = build.project && build.project.isPublic === false;
+      let project = buildResponse.project;
+      let isPrivate = project && project.isPublic === false;
       if (isPrivate && !options.publicLink) {
         output.error('This project is private.');
         output.blank();

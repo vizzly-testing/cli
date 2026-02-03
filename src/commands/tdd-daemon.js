@@ -7,7 +7,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
+import { getServerRegistry } from '../tdd/server-registry.js';
 import * as output from '../utils/output.js';
 import { tddCommand } from './tdd.js';
 
@@ -23,36 +24,77 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     color: !globalOptions.noColor,
   });
 
-  // Check if server already running
-  if (await isServerRunning(options.port || 47392)) {
-    const port = options.port || 47392;
-    let colors = output.getColors();
+  let registry = getServerRegistry();
+  let colors = output.getColors();
 
-    output.header('tdd', 'local');
-    output.print(`  ${output.statusDot('success')} Already running`);
-    output.blank();
-    output.printBox(
-      colors.brand.info(colors.underline(`http://localhost:${port}`)),
-      {
-        title: 'Dashboard',
-        style: 'branded',
+  // Check if THIS directory already has a server running
+  let existingServer = registry.find({ directory: process.cwd() });
+  if (existingServer) {
+    // Verify it's actually running
+    if (await isServerRunning(existingServer.port)) {
+      output.header('tdd', 'local');
+      output.print(`  ${output.statusDot('success')} Already running`);
+      output.blank();
+      output.printBox(
+        colors.brand.info(
+          colors.underline(`http://localhost:${existingServer.port}`)
+        ),
+        {
+          title: 'Dashboard',
+          style: 'branded',
+        }
+      );
+
+      if (options.open) {
+        openDashboard(existingServer.port);
       }
-    );
+      return;
+    } else {
+      // Stale entry - clean it up (registry and local files)
+      registry.unregister({ directory: process.cwd() });
 
-    if (options.open) {
-      openDashboard(port);
+      let vizzlyDir = join(process.cwd(), '.vizzly');
+      let pidFile = join(vizzlyDir, 'server.pid');
+      let serverFile = join(vizzlyDir, 'server.json');
+      if (existsSync(pidFile)) unlinkSync(pidFile);
+      if (existsSync(serverFile)) unlinkSync(serverFile);
     }
-    return;
+  }
+
+  // Determine port: user-specified or auto-allocate
+  let port;
+  let autoAllocated = false;
+
+  if (options.port) {
+    // User specified a port - use it (will fail if busy)
+    port = options.port;
+
+    // Check if user-specified port is in use
+    if (await isServerRunning(port)) {
+      output.header('tdd', 'local');
+      output.print(
+        `  ${output.statusDot('error')} Port ${port} is already in use`
+      );
+      output.blank();
+      output.hint('Try a different port: vizzly tdd start --port 47393');
+      output.hint('Or let Vizzly auto-allocate: vizzly tdd start');
+      return;
+    }
+  } else {
+    // Auto-allocate an available port
+    // Note: There's a small race window between finding a port and binding.
+    // The registry acts as a soft reservation, and findAvailablePort does
+    // an actual TCP bind test to minimize this window.
+    port = await registry.findAvailablePort();
+    autoAllocated = port !== 47392;
   }
 
   try {
     // Ensure .vizzly directory exists
-    const vizzlyDir = join(process.cwd(), '.vizzly');
+    let vizzlyDir = join(process.cwd(), '.vizzly');
     if (!existsSync(vizzlyDir)) {
       mkdirSync(vizzlyDir, { recursive: true });
     }
-
-    const port = options.port || 47392;
 
     // Show header first so debug messages appear below it
     output.header('tdd', 'local');
@@ -163,7 +205,28 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       process.exit(1);
     }
 
-    // Write server info to global location for SDK discovery (iOS/Swift can read this)
+    // Register server in global registry (for menubar app)
+    try {
+      let registry = getServerRegistry();
+
+      // Clean up any stale servers first
+      registry.cleanupStale();
+
+      // Register this server with log file path for menubar to read
+      let serverLogFile = join(process.cwd(), '.vizzly', 'server.log');
+      registry.register({
+        pid: child.pid,
+        port: port,
+        directory: process.cwd(),
+        name: basename(process.cwd()),
+        startedAt: new Date().toISOString(),
+        logFile: serverLogFile,
+      });
+    } catch {
+      // Non-fatal
+    }
+
+    // Also write legacy server.json for SDK discovery (backwards compatibility)
     try {
       const globalVizzlyDir = join(homedir(), '.vizzly');
       if (!existsSync(globalVizzlyDir)) {
@@ -180,8 +243,13 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       // Non-fatal, SDK can still use health check
     }
 
-    // Get colors for styled output
-    let colors = output.getColors();
+    // Show auto-allocated port message if applicable
+    if (autoAllocated) {
+      output.print(
+        `  ${output.statusDot('info')} Auto-assigned port ${colors.brand.textTertiary(`:${port}`)}`
+      );
+      output.blank();
+    }
 
     // Show dashboard URL in a branded box
     let dashboardUrl = `http://localhost:${port}`;
@@ -227,6 +295,17 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
   const vizzlyDir = join(process.cwd(), '.vizzly');
   const port = options.port || 47392;
 
+  // Set up log file for menubar app to read
+  const logFile = join(vizzlyDir, 'server.log');
+
+  // Configure output to write JSON logs to file (before tddCommand configures it)
+  output.configure({
+    logFile,
+    json: globalOptions.json,
+    verbose: globalOptions.verbose,
+    color: !globalOptions.noColor,
+  });
+
   try {
     // Use existing tddCommand but with daemon mode
     const { cleanup } = await tddCommand(
@@ -252,6 +331,7 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
       port: port,
       startTime: Date.now(),
       failOnDiff: options.failOnDiff || false,
+      logFile: logFile,
     };
     writeFileSync(
       join(vizzlyDir, 'server.json'),
@@ -266,7 +346,15 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
         const serverFile = join(vizzlyDir, 'server.json');
         if (existsSync(serverFile)) unlinkSync(serverFile);
 
-        // Clean up global server file
+        // Unregister from global registry (for menubar app)
+        try {
+          let registry = getServerRegistry();
+          registry.unregister({ port: port, directory: process.cwd() });
+        } catch {
+          // Non-fatal
+        }
+
+        // Clean up legacy global server file
         try {
           const globalServerFile = join(homedir(), '.vizzly', 'server.json');
           if (existsSync(globalServerFile)) unlinkSync(globalServerFile);
@@ -389,12 +477,30 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
     // Clean up files
     if (existsSync(pidFile)) unlinkSync(pidFile);
     if (existsSync(serverFile)) unlinkSync(serverFile);
+
+    // Unregister from global registry (for menubar app)
+    try {
+      let registry = getServerRegistry();
+      registry.unregister({ port: port, directory: process.cwd() });
+    } catch {
+      // Non-fatal
+    }
+
+    output.print(`  ${output.statusDot('success')} Server stopped`);
   } catch (error) {
     if (error.code === 'ESRCH') {
       // Process not found - clean up stale files
       output.warn('TDD server was not running (cleaning up stale files)');
       if (existsSync(pidFile)) unlinkSync(pidFile);
       if (existsSync(serverFile)) unlinkSync(serverFile);
+
+      // Still unregister from registry
+      try {
+        let registry = getServerRegistry();
+        registry.unregister({ port: port, directory: process.cwd() });
+      } catch {
+        // Non-fatal
+      }
     } else {
       output.error('Error stopping TDD server', error);
     }
@@ -541,4 +647,80 @@ function openDashboard(port = 47392) {
     detached: true,
     stdio: 'ignore',
   }).unref();
+}
+
+/**
+ * List all running TDD servers from the global registry
+ * @param {Object} options - Command options
+ * @param {Object} globalOptions - Global CLI options
+ */
+export async function tddListCommand(_options, globalOptions = {}) {
+  output.configure({
+    json: globalOptions.json,
+    verbose: globalOptions.verbose,
+    color: !globalOptions.noColor,
+  });
+
+  let registry = getServerRegistry();
+
+  // Clean up stale servers first
+  let cleaned = registry.cleanupStale();
+  if (cleaned > 0 && globalOptions.verbose) {
+    output.debug('tdd', `Cleaned up ${cleaned} stale server(s)`);
+  }
+
+  let servers = registry.list();
+
+  // JSON output
+  if (globalOptions.json) {
+    console.log(JSON.stringify({ servers }, null, 2));
+    return;
+  }
+
+  // No servers
+  if (servers.length === 0) {
+    output.info('No TDD servers running');
+    output.hint('Start one with: vizzly tdd start');
+    return;
+  }
+
+  // Table output
+  let colors = output.getColors();
+
+  output.header('tdd', 'servers');
+  output.blank();
+
+  for (let server of servers) {
+    let uptimeStr = '';
+    if (server.startedAt) {
+      let startTime = new Date(server.startedAt).getTime();
+      let uptime = Math.floor((Date.now() - startTime) / 1000);
+      let hours = Math.floor(uptime / 3600);
+      let minutes = Math.floor((uptime % 3600) / 60);
+      if (hours > 0) uptimeStr += `${hours}h `;
+      if (minutes > 0 || hours > 0) uptimeStr += `${minutes}m`;
+      else uptimeStr = '<1m';
+    }
+
+    let name = server.name || basename(server.directory);
+    let portStr = colors.brand.textTertiary(`:${server.port}`);
+    let uptimeLabel = uptimeStr
+      ? colors.brand.textMuted(` · ${uptimeStr}`)
+      : '';
+
+    output.print(
+      `  ${output.statusDot('success')} ${name}${portStr}${uptimeLabel}`
+    );
+    output.print(`    ${colors.brand.textMuted(server.directory)}`);
+
+    if (globalOptions.verbose) {
+      output.print(`    ${colors.brand.textMuted(`PID: ${server.pid}`)}`);
+    }
+
+    output.blank();
+  }
+
+  output.print(
+    `  ${colors.brand.textTertiary(`${servers.length} server(s) running`)}`
+  );
 }

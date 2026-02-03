@@ -22,6 +22,7 @@ import { statusCommand, validateStatusOptions } from './commands/status.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
 import {
   runDaemonChild,
+  tddListCommand,
   tddStartCommand,
   tddStatusCommand,
   tddStopCommand,
@@ -39,6 +40,7 @@ import { openBrowser } from './utils/browser.js';
 import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
 import { getContext } from './utils/context.js';
+import { saveUserPath } from './utils/global-config.js';
 import * as output from './utils/output.js';
 import { getPackageVersion } from './utils/package-info.js';
 
@@ -406,6 +408,15 @@ tddCmd
     await tddStatusCommand(options, globalOptions);
   });
 
+// TDD List - List all running servers (for menubar app integration)
+tddCmd
+  .command('list')
+  .description('List all running TDD servers')
+  .action(async options => {
+    const globalOptions = program.opts();
+    await tddListCommand(options, globalOptions);
+  });
+
 // TDD Run - One-off test run with ephemeral server (generates static report)
 tddCmd
   .command('run <command>')
@@ -751,5 +762,9 @@ program
 
     await projectRemoveCommand(options, globalOptions);
   });
+
+// Save user's PATH for menubar app (non-blocking, runs in background)
+// This auto-configures the menubar app so it can find npx/node
+saveUserPath().catch(() => {});
 
 program.parse();

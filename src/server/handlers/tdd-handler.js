@@ -481,6 +481,15 @@ export const createTddHandler = (
     // Update comparison in report data file
     updateComparison(newComparison);
 
+    // Log screenshot event for menubar
+    // Normalize status to match HTTP response ('failed' -> 'diff')
+    let logStatus = comparison.status === 'failed' ? 'diff' : comparison.status;
+    output.info(`Screenshot: ${sanitizedName}`, {
+      screenshot: sanitizedName,
+      status: logStatus,
+      diffPercentage: comparison.diffPercentage || 0,
+    });
+
     // Visual diffs return 200 with status: 'diff' - they're not errors
     // The SDK/user can decide whether to fail tests based on this
     if (comparison.status === 'failed') {
@@ -572,7 +581,12 @@ export const createTddHandler = (
 
       updateComparison(updatedComparison);
 
-      output.info(`Baseline accepted for comparison ${comparisonId}`);
+      // Log screenshot event for menubar
+      output.info(`Screenshot: ${comparison.name}`, {
+        screenshot: comparison.name,
+        status: 'accepted',
+        diffPercentage: 0,
+      });
       return result;
     } catch (error) {
       output.error(`Failed to accept baseline for ${comparisonId}:`, error);
@@ -602,7 +616,12 @@ export const createTddHandler = (
 
       updateComparison(updatedComparison);
 
-      output.info(`Changes rejected for comparison ${comparisonId}`);
+      // Log screenshot event for menubar
+      output.info(`Screenshot: ${comparison.name}`, {
+        screenshot: comparison.name,
+        status: 'rejected',
+        diffPercentage: comparison.diffPercentage || 0,
+      });
       return { success: true, id: comparisonId };
     } catch (error) {
       output.error(`Failed to reject baseline for ${comparisonId}:`, error);

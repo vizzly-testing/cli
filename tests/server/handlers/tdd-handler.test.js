@@ -934,6 +934,93 @@ describe('server/handlers/tdd-handler', () => {
         assert.strictEqual(result.statusCode, 400);
         assert.ok(result.body.error.includes('Invalid image input'));
       });
+
+      it('logs screenshot event with normalized status for menubar consumption', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'failed',
+              diffPercentage: 5.5,
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: '/diffs/test.png',
+              threshold: 2.0,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.handleScreenshot('build-1', 'homepage', 'base64data', {});
+
+        // Find the screenshot log - menubar looks for logs starting with "Screenshot:"
+        let screenshotLog = deps._mockOutput.calls.find(
+          c => c.method === 'info' && c.args[0].startsWith('Screenshot:')
+        );
+
+        assert.ok(screenshotLog, 'Screenshot event should be logged');
+        assert.strictEqual(screenshotLog.args[1].screenshot, 'homepage');
+        // Status should be normalized to 'diff' (not 'failed') to match HTTP response
+        assert.strictEqual(screenshotLog.args[1].status, 'diff');
+        assert.strictEqual(screenshotLog.args[1].diffPercentage, 5.5);
+      });
+
+      it('logs passed screenshots with match-equivalent status', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'passed',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.handleScreenshot('build-1', 'button', 'base64data', {});
+
+        let screenshotLog = deps._mockOutput.calls.find(
+          c => c.method === 'info' && c.args[0].startsWith('Screenshot:')
+        );
+
+        assert.ok(screenshotLog);
+        assert.strictEqual(screenshotLog.args[1].status, 'passed');
+        assert.strictEqual(screenshotLog.args[1].diffPercentage, 0);
+      });
+
+      it('logs new baseline screenshots', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'new',
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: null,
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.handleScreenshot(
+          'build-1',
+          'new-component',
+          'base64data',
+          {}
+        );
+
+        let screenshotLog = deps._mockOutput.calls.find(
+          c => c.method === 'info' && c.args[0].startsWith('Screenshot:')
+        );
+
+        assert.ok(screenshotLog);
+        assert.strictEqual(screenshotLog.args[1].status, 'new');
+      });
     });
 
     describe('getResults', () => {
@@ -991,6 +1078,43 @@ describe('server/handlers/tdd-handler', () => {
           () => handler.acceptBaseline('non-existent'),
           /Comparison not found/
         );
+      });
+
+      it('logs screenshot event on acceptance for menubar consumption', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            acceptBaseline: () => ({ success: true }),
+          },
+        });
+
+        let reportData = {
+          timestamp: Date.now(),
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'login-form',
+              status: 'failed',
+              diffPercentage: 2.1,
+            },
+          ],
+          groups: [],
+          summary: { total: 1, passed: 0, failed: 1, errors: 0 },
+        };
+        deps._fileSystem['/test/.vizzly/report-data.json'] =
+          JSON.stringify(reportData);
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.acceptBaseline('comp-1');
+
+        // Menubar looks for screenshot logs with structured metadata
+        let screenshotLog = deps._mockOutput.calls.find(
+          c => c.method === 'info' && c.args[0].startsWith('Screenshot:')
+        );
+        assert.ok(screenshotLog, 'Screenshot event should be logged');
+        assert.strictEqual(screenshotLog.args[1].screenshot, 'login-form');
+        assert.strictEqual(screenshotLog.args[1].status, 'accepted');
+        assert.strictEqual(screenshotLog.args[1].diffPercentage, 0);
       });
     });
 
@@ -1086,12 +1210,19 @@ describe('server/handlers/tdd-handler', () => {
         assert.strictEqual(comparison.properties.browser, 'chrome');
       });
 
-      it('logs info message on successful rejection', async () => {
+      it('logs screenshot event on rejection for menubar consumption', async () => {
         let deps = createMockDeps();
 
         let reportData = {
           timestamp: Date.now(),
-          comparisons: [{ id: 'comp-1', name: 'test', status: 'failed' }],
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'button-hover',
+              status: 'failed',
+              diffPercentage: 3.2,
+            },
+          ],
           groups: [],
           summary: { total: 1, passed: 0, failed: 1, errors: 0 },
         };
@@ -1102,10 +1233,14 @@ describe('server/handlers/tdd-handler', () => {
 
         await handler.rejectBaseline('comp-1');
 
-        let infoCall = deps._mockOutput.calls.find(
-          c => c.method === 'info' && c.args[0].includes('rejected')
+        // Menubar looks for screenshot logs with structured metadata
+        let screenshotLog = deps._mockOutput.calls.find(
+          c => c.method === 'info' && c.args[0].startsWith('Screenshot:')
         );
-        assert.ok(infoCall);
+        assert.ok(screenshotLog, 'Screenshot event should be logged');
+        assert.strictEqual(screenshotLog.args[1].screenshot, 'button-hover');
+        assert.strictEqual(screenshotLog.args[1].status, 'rejected');
+        assert.strictEqual(screenshotLog.args[1].diffPercentage, 3.2);
       });
     });
 

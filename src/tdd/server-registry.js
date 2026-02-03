@@ -1,8 +1,9 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
-import { join } from 'path'
-import { homedir } from 'os'
-import { execSync } from 'child_process'
-import { randomBytes } from 'crypto'
+import { execSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 /**
  * Manages a global registry of running TDD servers at ~/.vizzly/servers.json
@@ -10,8 +11,8 @@ import { randomBytes } from 'crypto'
  */
 export class ServerRegistry {
   constructor() {
-    this.vizzlyHome = process.env.VIZZLY_HOME || join(homedir(), '.vizzly')
-    this.registryPath = join(this.vizzlyHome, 'servers.json')
+    this.vizzlyHome = process.env.VIZZLY_HOME || join(homedir(), '.vizzly');
+    this.registryPath = join(this.vizzlyHome, 'servers.json');
   }
 
   /**
@@ -19,7 +20,7 @@ export class ServerRegistry {
    */
   ensureDirectory() {
     if (!existsSync(this.vizzlyHome)) {
-      mkdirSync(this.vizzlyHome, { recursive: true })
+      mkdirSync(this.vizzlyHome, { recursive: true });
     }
   }
 
@@ -29,37 +30,37 @@ export class ServerRegistry {
   read() {
     try {
       if (existsSync(this.registryPath)) {
-        let data = JSON.parse(readFileSync(this.registryPath, 'utf8'))
+        let data = JSON.parse(readFileSync(this.registryPath, 'utf8'));
         return {
           version: data.version || 1,
           servers: data.servers || [],
-        }
+        };
       }
-    } catch (err) {
+    } catch (_err) {
       // Corrupted file, start fresh
-      console.warn('Warning: Could not read server registry, starting fresh')
+      console.warn('Warning: Could not read server registry, starting fresh');
     }
-    return { version: 1, servers: [] }
+    return { version: 1, servers: [] };
   }
 
   /**
    * Write the registry to disk
    */
   write(registry) {
-    this.ensureDirectory()
-    writeFileSync(this.registryPath, JSON.stringify(registry, null, 2))
+    this.ensureDirectory();
+    writeFileSync(this.registryPath, JSON.stringify(registry, null, 2));
   }
 
   /**
    * Register a new server in the registry
    */
   register(serverInfo) {
-    let registry = this.read()
+    let registry = this.read();
 
     // Remove any existing entry for this port or directory (shouldn't happen, but be safe)
     registry.servers = registry.servers.filter(
-      (s) => s.port !== serverInfo.port && s.directory !== serverInfo.directory
-    )
+      s => s.port !== serverInfo.port && s.directory !== serverInfo.directory
+    );
 
     // Add the new server
     registry.servers.push({
@@ -71,83 +72,85 @@ export class ServerRegistry {
       configPath: serverInfo.configPath || null,
       name: serverInfo.name || null,
       logFile: serverInfo.logFile || null,
-    })
+    });
 
-    this.write(registry)
-    this.notifyMenubar()
+    this.write(registry);
+    this.notifyMenubar();
 
-    return registry
+    return registry;
   }
 
   /**
    * Unregister a server by port or directory
    */
   unregister({ port, directory }) {
-    let registry = this.read()
-    let initialCount = registry.servers.length
+    let registry = this.read();
+    let initialCount = registry.servers.length;
 
     if (port) {
-      registry.servers = registry.servers.filter((s) => s.port !== port)
+      registry.servers = registry.servers.filter(s => s.port !== port);
     }
     if (directory) {
-      registry.servers = registry.servers.filter((s) => s.directory !== directory)
+      registry.servers = registry.servers.filter(
+        s => s.directory !== directory
+      );
     }
 
     if (registry.servers.length !== initialCount) {
-      this.write(registry)
-      this.notifyMenubar()
+      this.write(registry);
+      this.notifyMenubar();
     }
 
-    return registry
+    return registry;
   }
 
   /**
    * Find a server by port or directory
    */
   find({ port, directory }) {
-    let registry = this.read()
+    let registry = this.read();
 
     if (port) {
-      return registry.servers.find((s) => s.port === port)
+      return registry.servers.find(s => s.port === port);
     }
     if (directory) {
-      return registry.servers.find((s) => s.directory === directory)
+      return registry.servers.find(s => s.directory === directory);
     }
-    return null
+    return null;
   }
 
   /**
    * Get all registered servers
    */
   list() {
-    return this.read().servers
+    return this.read().servers;
   }
 
   /**
    * Remove servers whose PIDs no longer exist (stale entries)
    */
   cleanupStale() {
-    let registry = this.read()
-    let initialCount = registry.servers.length
+    let registry = this.read();
+    let initialCount = registry.servers.length;
 
-    registry.servers = registry.servers.filter((server) => {
+    registry.servers = registry.servers.filter(server => {
       try {
         // Signal 0 doesn't kill, just checks if process exists
-        process.kill(server.pid, 0)
-        return true
+        process.kill(server.pid, 0);
+        return true;
       } catch (err) {
         // ESRCH = process doesn't exist, EPERM = exists but no permission (still valid)
-        return err.code === 'EPERM'
+        return err.code === 'EPERM';
       }
-    })
+    });
 
     if (registry.servers.length !== initialCount) {
-      this.write(registry)
-      this.notifyMenubar()
-      return initialCount - registry.servers.length
+      this.write(registry);
+      this.notifyMenubar();
+      return initialCount - registry.servers.length;
     }
 
-    return 0
+    return 0;
   }
 
   /**
@@ -155,26 +158,90 @@ export class ServerRegistry {
    * Uses macOS DistributedNotificationCenter via osascript
    */
   notifyMenubar() {
-    if (process.platform !== 'darwin') return
+    if (process.platform !== 'darwin') return;
 
     try {
       // Post a distributed notification that the menubar app listens for
       execSync(
         `osascript -e 'tell application "System Events" to post notification with name "dev.vizzly.serverChanged"'`,
         { stdio: 'ignore', timeout: 1000 }
-      )
-    } catch (err) {
+      );
+    } catch (_err) {
       // Non-fatal - menubar might not be running or osascript might fail
     }
   }
+
+  /**
+   * Get all ports currently in use by registered servers
+   * @returns {Set<number>} Set of ports in use
+   */
+  getUsedPorts() {
+    let registry = this.read();
+    return new Set(registry.servers.map(s => s.port));
+  }
+
+  /**
+   * Find an available port starting from the default
+   * @param {number} startPort - Port to start searching from (default: 47392)
+   * @param {number} maxAttempts - Maximum ports to try (default: 100)
+   * @returns {Promise<number>} Available port
+   */
+  async findAvailablePort(startPort = 47392, maxAttempts = 100) {
+    // Clean up stale entries first
+    this.cleanupStale();
+
+    let usedPorts = this.getUsedPorts();
+
+    for (let i = 0; i < maxAttempts; i++) {
+      let port = startPort + i;
+
+      // Skip if registered in our registry
+      if (usedPorts.has(port)) continue;
+
+      // Check if port is actually free (not used by other apps)
+      let isFree = await isPortFree(port);
+      if (isFree) {
+        return port;
+      }
+    }
+
+    // Fallback to default if nothing found (will fail later with clear error)
+    return startPort;
+  }
+}
+
+/**
+ * Check if a port is free (not in use by any process)
+ * @param {number} port - Port to check
+ * @returns {Promise<boolean>} True if port is free
+ */
+async function isPortFree(port) {
+  return new Promise(resolve => {
+    let server = createServer();
+
+    server.once('error', err => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(false);
+      } else {
+        // Other errors - assume port is free
+        resolve(true);
+      }
+    });
+
+    server.once('listening', () => {
+      server.close(() => resolve(true));
+    });
+
+    server.listen(port, '127.0.0.1');
+  });
 }
 
 // Singleton instance
-let registryInstance = null
+let registryInstance = null;
 
 export function getServerRegistry() {
   if (!registryInstance) {
-    registryInstance = new ServerRegistry()
+    registryInstance = new ServerRegistry();
   }
-  return registryInstance
+  return registryInstance;
 }

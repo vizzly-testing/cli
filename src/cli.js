@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import { program } from 'commander';
-import { saveUserPath } from './utils/global-config.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
   finalizeCommand,
@@ -41,6 +40,7 @@ import { openBrowser } from './utils/browser.js';
 import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
 import { getContext } from './utils/context.js';
+import { saveUserPath } from './utils/global-config.js';
 import * as output from './utils/output.js';
 import { getPackageVersion } from './utils/package-info.js';
 

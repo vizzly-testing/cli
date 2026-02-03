@@ -8,9 +8,9 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
+import { getServerRegistry } from '../tdd/server-registry.js';
 import * as output from '../utils/output.js';
 import { tddCommand } from './tdd.js';
-import { getServerRegistry } from '../tdd/server-registry.js';
 
 /**
  * Start TDD server in daemon mode
@@ -24,36 +24,68 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     color: !globalOptions.noColor,
   });
 
-  // Check if server already running
-  if (await isServerRunning(options.port || 47392)) {
-    const port = options.port || 47392;
-    let colors = output.getColors();
+  let registry = getServerRegistry();
+  let colors = output.getColors();
 
-    output.header('tdd', 'local');
-    output.print(`  ${output.statusDot('success')} Already running`);
-    output.blank();
-    output.printBox(
-      colors.brand.info(colors.underline(`http://localhost:${port}`)),
-      {
-        title: 'Dashboard',
-        style: 'branded',
+  // Check if THIS directory already has a server running
+  let existingServer = registry.find({ directory: process.cwd() });
+  if (existingServer) {
+    // Verify it's actually running
+    if (await isServerRunning(existingServer.port)) {
+      output.header('tdd', 'local');
+      output.print(`  ${output.statusDot('success')} Already running`);
+      output.blank();
+      output.printBox(
+        colors.brand.info(
+          colors.underline(`http://localhost:${existingServer.port}`)
+        ),
+        {
+          title: 'Dashboard',
+          style: 'branded',
+        }
+      );
+
+      if (options.open) {
+        openDashboard(existingServer.port);
       }
-    );
-
-    if (options.open) {
-      openDashboard(port);
+      return;
+    } else {
+      // Stale entry - clean it up
+      registry.unregister({ directory: process.cwd() });
     }
+  }
+
+  // Determine port: user-specified or auto-allocate
+  let port;
+  let autoAllocated = false;
+
+  if (options.port) {
+    // User specified a port - use it (will fail if busy)
+    port = options.port;
+  } else {
+    // Auto-allocate an available port
+    port = await registry.findAvailablePort();
+    autoAllocated = port !== 47392;
+  }
+
+  // If user specified a port, check if it's in use
+  if (options.port && (await isServerRunning(port))) {
+    output.header('tdd', 'local');
+    output.print(
+      `  ${output.statusDot('error')} Port ${port} is already in use`
+    );
+    output.blank();
+    output.hint('Try a different port: vizzly tdd start --port 47393');
+    output.hint('Or let Vizzly auto-allocate: vizzly tdd start');
     return;
   }
 
   try {
     // Ensure .vizzly directory exists
-    const vizzlyDir = join(process.cwd(), '.vizzly');
+    let vizzlyDir = join(process.cwd(), '.vizzly');
     if (!existsSync(vizzlyDir)) {
       mkdirSync(vizzlyDir, { recursive: true });
     }
-
-    const port = options.port || 47392;
 
     // Show header first so debug messages appear below it
     output.header('tdd', 'local');
@@ -166,10 +198,10 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
     // Register server in global registry (for menubar app)
     try {
-      let registry = getServerRegistry()
+      let registry = getServerRegistry();
 
       // Clean up any stale servers first
-      registry.cleanupStale()
+      registry.cleanupStale();
 
       // Register this server
       registry.register({
@@ -178,7 +210,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
         directory: process.cwd(),
         name: basename(process.cwd()),
         startedAt: new Date().toISOString(),
-      })
+      });
     } catch {
       // Non-fatal
     }
@@ -200,8 +232,13 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       // Non-fatal, SDK can still use health check
     }
 
-    // Get colors for styled output
-    let colors = output.getColors();
+    // Show auto-allocated port message if applicable
+    if (autoAllocated) {
+      output.print(
+        `  ${output.statusDot('info')} Auto-assigned port ${colors.brand.textTertiary(`:${port}`)}`
+      );
+      output.blank();
+    }
 
     // Show dashboard URL in a branded box
     let dashboardUrl = `http://localhost:${port}`;
@@ -288,8 +325,8 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
 
         // Unregister from global registry (for menubar app)
         try {
-          let registry = getServerRegistry()
-          registry.unregister({ port: port, directory: process.cwd() })
+          let registry = getServerRegistry();
+          registry.unregister({ port: port, directory: process.cwd() });
         } catch {
           // Non-fatal
         }
@@ -420,8 +457,8 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
 
     // Unregister from global registry (for menubar app)
     try {
-      let registry = getServerRegistry()
-      registry.unregister({ port: port, directory: process.cwd() })
+      let registry = getServerRegistry();
+      registry.unregister({ port: port, directory: process.cwd() });
     } catch {
       // Non-fatal
     }
@@ -436,8 +473,8 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
 
       // Still unregister from registry
       try {
-        let registry = getServerRegistry()
-        registry.unregister({ port: port, directory: process.cwd() })
+        let registry = getServerRegistry();
+        registry.unregister({ port: port, directory: process.cwd() });
       } catch {
         // Non-fatal
       }
@@ -601,60 +638,66 @@ export async function tddListCommand(_options, globalOptions = {}) {
     color: !globalOptions.noColor,
   });
 
-  let registry = getServerRegistry()
+  let registry = getServerRegistry();
 
   // Clean up stale servers first
-  let cleaned = registry.cleanupStale()
+  let cleaned = registry.cleanupStale();
   if (cleaned > 0 && globalOptions.verbose) {
-    output.debug('tdd', `Cleaned up ${cleaned} stale server(s)`)
+    output.debug('tdd', `Cleaned up ${cleaned} stale server(s)`);
   }
 
-  let servers = registry.list()
+  let servers = registry.list();
 
   // JSON output
   if (globalOptions.json) {
-    console.log(JSON.stringify({ servers }, null, 2))
-    return
+    console.log(JSON.stringify({ servers }, null, 2));
+    return;
   }
 
   // No servers
   if (servers.length === 0) {
-    output.info('No TDD servers running')
-    output.hint('Start one with: vizzly tdd start')
-    return
+    output.info('No TDD servers running');
+    output.hint('Start one with: vizzly tdd start');
+    return;
   }
 
   // Table output
-  let colors = output.getColors()
+  let colors = output.getColors();
 
-  output.header('tdd', 'servers')
-  output.blank()
+  output.header('tdd', 'servers');
+  output.blank();
 
   for (let server of servers) {
-    let uptimeStr = ''
+    let uptimeStr = '';
     if (server.startedAt) {
-      let startTime = new Date(server.startedAt).getTime()
-      let uptime = Math.floor((Date.now() - startTime) / 1000)
-      let hours = Math.floor(uptime / 3600)
-      let minutes = Math.floor((uptime % 3600) / 60)
-      if (hours > 0) uptimeStr += `${hours}h `
-      if (minutes > 0 || hours > 0) uptimeStr += `${minutes}m`
-      else uptimeStr = '<1m'
+      let startTime = new Date(server.startedAt).getTime();
+      let uptime = Math.floor((Date.now() - startTime) / 1000);
+      let hours = Math.floor(uptime / 3600);
+      let minutes = Math.floor((uptime % 3600) / 60);
+      if (hours > 0) uptimeStr += `${hours}h `;
+      if (minutes > 0 || hours > 0) uptimeStr += `${minutes}m`;
+      else uptimeStr = '<1m';
     }
 
-    let name = server.name || basename(server.directory)
-    let portStr = colors.brand.textTertiary(`:${server.port}`)
-    let uptimeLabel = uptimeStr ? colors.brand.textMuted(` · ${uptimeStr}`) : ''
+    let name = server.name || basename(server.directory);
+    let portStr = colors.brand.textTertiary(`:${server.port}`);
+    let uptimeLabel = uptimeStr
+      ? colors.brand.textMuted(` · ${uptimeStr}`)
+      : '';
 
-    output.print(`  ${output.statusDot('success')} ${name}${portStr}${uptimeLabel}`)
-    output.print(`    ${colors.brand.textMuted(server.directory)}`)
+    output.print(
+      `  ${output.statusDot('success')} ${name}${portStr}${uptimeLabel}`
+    );
+    output.print(`    ${colors.brand.textMuted(server.directory)}`);
 
     if (globalOptions.verbose) {
-      output.print(`    ${colors.brand.textMuted(`PID: ${server.pid}`)}`)
+      output.print(`    ${colors.brand.textMuted(`PID: ${server.pid}`)}`);
     }
 
-    output.blank()
+    output.blank();
   }
 
-  output.print(`  ${colors.brand.textTertiary(`${servers.length} server(s) running`)}`)
+  output.print(
+    `  ${colors.brand.textTertiary(`${servers.length} server(s) running`)}`
+  );
 }

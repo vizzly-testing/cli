@@ -481,6 +481,13 @@ export const createTddHandler = (
     // Update comparison in report data file
     updateComparison(newComparison);
 
+    // Log screenshot event for menubar
+    output.info(`Screenshot: ${sanitizedName}`, {
+      screenshot: sanitizedName,
+      status: comparison.status,
+      diffPercentage: comparison.diffPercentage || 0,
+    });
+
     // Visual diffs return 200 with status: 'diff' - they're not errors
     // The SDK/user can decide whether to fail tests based on this
     if (comparison.status === 'failed') {

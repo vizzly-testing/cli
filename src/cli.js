@@ -763,8 +763,8 @@ program
     await projectRemoveCommand(options, globalOptions);
   });
 
-// Save user's PATH for menubar app before parsing commands
+// Save user's PATH for menubar app (non-blocking, runs in background)
 // This auto-configures the menubar app so it can find npx/node
-await saveUserPath().catch(() => {});
+saveUserPath().catch(() => {});
 
 program.parse();

@@ -1,4 +1,3 @@
-import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
@@ -55,18 +54,30 @@ export class ServerRegistry {
    * Register a new server in the registry
    */
   register(serverInfo) {
+    // Validate required fields
+    if (!serverInfo.pid || !serverInfo.port || !serverInfo.directory) {
+      throw new Error('Missing required fields: pid, port, directory');
+    }
+
+    let port = Number(serverInfo.port);
+    let pid = Number(serverInfo.pid);
+
+    if (Number.isNaN(port) || Number.isNaN(pid)) {
+      throw new Error('Invalid port or pid - must be numbers');
+    }
+
     let registry = this.read();
 
     // Remove any existing entry for this port or directory (shouldn't happen, but be safe)
     registry.servers = registry.servers.filter(
-      s => s.port !== serverInfo.port && s.directory !== serverInfo.directory
+      s => s.port !== port && s.directory !== serverInfo.directory
     );
 
     // Add the new server
     registry.servers.push({
       id: serverInfo.id || randomBytes(8).toString('hex'),
-      port: Number(serverInfo.port),
-      pid: Number(serverInfo.pid),
+      port,
+      pid,
       directory: serverInfo.directory,
       startedAt: serverInfo.startedAt || new Date().toISOString(),
       configPath: serverInfo.configPath || null,
@@ -81,16 +92,22 @@ export class ServerRegistry {
   }
 
   /**
-   * Unregister a server by port or directory
+   * Unregister a server by port and/or directory
+   * When both are provided, matches servers with BOTH criteria (AND logic)
+   * When only one is provided, matches servers with that criteria
    */
   unregister({ port, directory }) {
     let registry = this.read();
     let initialCount = registry.servers.length;
 
-    if (port) {
+    if (port && directory) {
+      // Both specified - match servers with both port AND directory
+      registry.servers = registry.servers.filter(
+        s => !(s.port === port && s.directory === directory)
+      );
+    } else if (port) {
       registry.servers = registry.servers.filter(s => s.port !== port);
-    }
-    if (directory) {
+    } else if (directory) {
       registry.servers = registry.servers.filter(
         s => s.directory !== directory
       );
@@ -155,20 +172,14 @@ export class ServerRegistry {
 
   /**
    * Notify the menubar app that the registry changed
-   * Uses macOS DistributedNotificationCenter via osascript
+   *
+   * NOTE: The menubar app primarily uses FSEvents file watching on servers.json.
+   * This method is a placeholder for future notification mechanisms (e.g., XPC).
+   * For now, file watching provides reliable, immediate updates.
    */
   notifyMenubar() {
-    if (process.platform !== 'darwin') return;
-
-    try {
-      // Post a distributed notification that the menubar app listens for
-      execSync(
-        `osascript -e 'tell application "System Events" to post notification with name "dev.vizzly.serverChanged"'`,
-        { stdio: 'ignore', timeout: 1000 }
-      );
-    } catch (_err) {
-      // Non-fatal - menubar might not be running or osascript might fail
-    }
+    // File watching on servers.json is the primary notification mechanism.
+    // This method exists for future enhancements (XPC, etc.) but is currently a no-op.
   }
 
   /**

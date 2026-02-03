@@ -50,8 +50,14 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       }
       return;
     } else {
-      // Stale entry - clean it up
+      // Stale entry - clean it up (registry and local files)
       registry.unregister({ directory: process.cwd() });
+
+      let vizzlyDir = join(process.cwd(), '.vizzly');
+      let pidFile = join(vizzlyDir, 'server.pid');
+      let serverFile = join(vizzlyDir, 'server.json');
+      if (existsSync(pidFile)) unlinkSync(pidFile);
+      if (existsSync(serverFile)) unlinkSync(serverFile);
     }
   }
 
@@ -62,22 +68,25 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
   if (options.port) {
     // User specified a port - use it (will fail if busy)
     port = options.port;
+
+    // Check if user-specified port is in use
+    if (await isServerRunning(port)) {
+      output.header('tdd', 'local');
+      output.print(
+        `  ${output.statusDot('error')} Port ${port} is already in use`
+      );
+      output.blank();
+      output.hint('Try a different port: vizzly tdd start --port 47393');
+      output.hint('Or let Vizzly auto-allocate: vizzly tdd start');
+      return;
+    }
   } else {
     // Auto-allocate an available port
+    // Note: There's a small race window between finding a port and binding.
+    // The registry acts as a soft reservation, and findAvailablePort does
+    // an actual TCP bind test to minimize this window.
     port = await registry.findAvailablePort();
     autoAllocated = port !== 47392;
-  }
-
-  // If user specified a port, check if it's in use
-  if (options.port && (await isServerRunning(port))) {
-    output.header('tdd', 'local');
-    output.print(
-      `  ${output.statusDot('error')} Port ${port} is already in use`
-    );
-    output.blank();
-    output.hint('Try a different port: vizzly tdd start --port 47393');
-    output.hint('Or let Vizzly auto-allocate: vizzly tdd start');
-    return;
   }
 
   try {

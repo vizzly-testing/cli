@@ -184,18 +184,21 @@ describe('tdd/server-registry', () => {
   });
 
   describe('findAvailablePort', () => {
+    // Use high port range (48500+) to avoid conflicts with running TDD servers
+    let testBasePort = 48500;
+
     it('returns default port when nothing is using it', async () => {
-      let port = await registry.findAvailablePort(47392);
-      assert.strictEqual(port, 47392);
+      let port = await registry.findAvailablePort(testBasePort);
+      assert.strictEqual(port, testBasePort);
     });
 
     it('skips ports registered in the registry', async () => {
-      // Register servers on 47392 and 47393 with current PID so they're not cleaned up
-      registry.register({ pid: process.pid, port: 47392, directory: '/a' });
-      registry.register({ pid: process.pid, port: 47393, directory: '/b' });
+      // Register servers on testBasePort and testBasePort+1 with current PID so they're not cleaned up
+      registry.register({ pid: process.pid, port: testBasePort, directory: '/a' });
+      registry.register({ pid: process.pid, port: testBasePort + 1, directory: '/b' });
 
-      let port = await registry.findAvailablePort(47392);
-      assert.strictEqual(port, 47394);
+      let port = await registry.findAvailablePort(testBasePort);
+      assert.strictEqual(port, testBasePort + 2);
     });
 
     it('skips ports actually in use by other processes', async () => {

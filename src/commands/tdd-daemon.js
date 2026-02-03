@@ -203,13 +203,15 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       // Clean up any stale servers first
       registry.cleanupStale();
 
-      // Register this server
+      // Register this server with log file path for menubar to read
+      let serverLogFile = join(process.cwd(), '.vizzly', 'server.log');
       registry.register({
         pid: child.pid,
         port: port,
         directory: process.cwd(),
         name: basename(process.cwd()),
         startedAt: new Date().toISOString(),
+        logFile: serverLogFile,
       });
     } catch {
       // Non-fatal
@@ -284,6 +286,17 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
   const vizzlyDir = join(process.cwd(), '.vizzly');
   const port = options.port || 47392;
 
+  // Set up log file for menubar app to read
+  const logFile = join(vizzlyDir, 'server.log');
+
+  // Configure output to write JSON logs to file (before tddCommand configures it)
+  output.configure({
+    logFile,
+    json: globalOptions.json,
+    verbose: globalOptions.verbose,
+    color: !globalOptions.noColor,
+  });
+
   try {
     // Use existing tddCommand but with daemon mode
     const { cleanup } = await tddCommand(
@@ -309,6 +322,7 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
       port: port,
       startTime: Date.now(),
       failOnDiff: options.failOnDiff || false,
+      logFile: logFile,
     };
     writeFileSync(
       join(vizzlyDir, 'server.json'),

@@ -183,6 +183,7 @@ export function getColors() {
  */
 export function success(message, data = {}) {
   stopSpinner();
+  writeLog('info', message, { status: 'success', ...data });
   if (config.silent) return;
 
   if (config.json) {
@@ -217,6 +218,7 @@ export function result(message) {
  * Show an info message
  */
 export function info(message, data = {}) {
+  writeLog('info', message, data);
   if (!shouldLog('info')) return;
 
   if (config.json) {
@@ -231,6 +233,7 @@ export function info(message, data = {}) {
  */
 export function warn(message, data = {}) {
   stopSpinner();
+  writeLog('warn', message, data);
   if (!shouldLog('warn')) return;
 
   if (config.json) {

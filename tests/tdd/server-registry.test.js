@@ -194,8 +194,16 @@ describe('tdd/server-registry', () => {
 
     it('skips ports registered in the registry', async () => {
       // Register servers on testBasePort and testBasePort+1 with current PID so they're not cleaned up
-      registry.register({ pid: process.pid, port: testBasePort, directory: '/a' });
-      registry.register({ pid: process.pid, port: testBasePort + 1, directory: '/b' });
+      registry.register({
+        pid: process.pid,
+        port: testBasePort,
+        directory: '/a',
+      });
+      registry.register({
+        pid: process.pid,
+        port: testBasePort + 1,
+        directory: '/b',
+      });
 
       let port = await registry.findAvailablePort(testBasePort);
       assert.strictEqual(port, testBasePort + 2);

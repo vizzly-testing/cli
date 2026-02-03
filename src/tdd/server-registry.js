@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
@@ -173,13 +174,20 @@ export class ServerRegistry {
   /**
    * Notify the menubar app that the registry changed
    *
-   * NOTE: The menubar app primarily uses FSEvents file watching on servers.json.
-   * This method is a placeholder for future notification mechanisms (e.g., XPC).
-   * For now, file watching provides reliable, immediate updates.
+   * Uses macOS notifyutil for instant Darwin notification delivery.
+   * The menubar app listens for this in addition to file watching.
    */
   notifyMenubar() {
-    // File watching on servers.json is the primary notification mechanism.
-    // This method exists for future enhancements (XPC, etc.) but is currently a no-op.
+    if (process.platform !== 'darwin') return;
+
+    try {
+      execSync('notifyutil -p dev.vizzly.serverChanged', {
+        stdio: 'ignore',
+        timeout: 500,
+      });
+    } catch {
+      // Non-fatal - menubar will still see changes via file watching
+    }
   }
 
   /**

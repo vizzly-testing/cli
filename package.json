@@ -86,7 +86,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@vizzly-testing/honeydiff": "^0.9.0",
+    "@vizzly-testing/honeydiff": "^0.10.0",
     "ansis": "^4.2.0",
     "commander": "^14.0.0",
     "cosmiconfig": "^9.0.0",

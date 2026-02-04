@@ -235,7 +235,7 @@ program
     '--log-level <level>',
     'Log level: debug, info, warn, error (default: info, or VIZZLY_LOG_LEVEL env var)'
   )
-  .option('--json', 'Machine-readable output')
+  .option('--json [fields]', 'JSON output, optionally specify fields (e.g., --json id,status,branch)')
   .option('--color', 'Force colored output (even in non-TTY)')
   .option('--no-color', 'Disable colored output')
   .option(
@@ -249,6 +249,7 @@ program
 let configPath = null;
 let verboseMode = false;
 let logLevelArg = null;
+let jsonArg = null;
 for (let i = 0; i < process.argv.length; i++) {
   if (
     (process.argv[i] === '-c' || process.argv[i] === '--config') &&
@@ -261,6 +262,19 @@ for (let i = 0; i < process.argv.length; i++) {
   }
   if (process.argv[i] === '--log-level' && process.argv[i + 1]) {
     logLevelArg = process.argv[i + 1];
+  }
+  // Handle --json with optional field selection
+  // --json (no value) = true, --json=fields or --json fields = "fields"
+  if (process.argv[i] === '--json') {
+    let nextArg = process.argv[i + 1];
+    // If next arg exists and doesn't start with -, it's the fields value
+    if (nextArg && !nextArg.startsWith('-')) {
+      jsonArg = nextArg;
+    } else {
+      jsonArg = true;
+    }
+  } else if (process.argv[i].startsWith('--json=')) {
+    jsonArg = process.argv[i].substring('--json='.length);
   }
 }
 
@@ -277,7 +291,7 @@ output.configure({
   logLevel: logLevelArg,
   verbose: verboseMode,
   color: colorOverride,
-  json: process.argv.includes('--json'),
+  json: jsonArg,
 });
 
 const config = await loadConfig(configPath, {});

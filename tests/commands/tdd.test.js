@@ -18,6 +18,7 @@ function createMockOutput() {
     success: msg => calls.push({ method: 'success', args: [msg] }),
     result: msg => calls.push({ method: 'result', args: [msg] }),
     print: msg => calls.push({ method: 'print', args: [msg] }),
+    data: obj => calls.push({ method: 'data', args: [obj] }),
     startSpinner: msg => calls.push({ method: 'startSpinner', args: [msg] }),
     stopSpinner: () => calls.push({ method: 'stopSpinner', args: [] }),
     cleanup: () => calls.push({ method: 'cleanup', args: [] }),

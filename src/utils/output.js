@@ -29,6 +29,7 @@ const VALID_LOG_LEVELS = Object.keys(LOG_LEVELS);
 // Module state
 const config = {
   json: false,
+  jsonFields: null, // null = all fields, array = selected fields
   logLevel: null, // null = not yet initialized, will check env var on first configure
   color: undefined, // undefined = auto-detect, true = force on, false = force off
   silent: false,
@@ -73,11 +74,88 @@ function normalizeLogLevel(level) {
 }
 
 /**
+ * Parse --json flag value into field list
+ * Supports: true (all fields), "field1,field2" (selected fields)
+ * @param {boolean|string} jsonArg - The --json flag value
+ * @returns {string[]|null} Array of field names, or null for all fields
+ */
+export function parseJsonFields(jsonArg) {
+  if (jsonArg === true || jsonArg === 'true') return null; // All fields
+  if (typeof jsonArg === 'string' && jsonArg.length > 0) {
+    return jsonArg.split(',').map(f => f.trim()).filter(f => f.length > 0);
+  }
+  return null;
+}
+
+/**
+ * Get a nested value from an object using dot notation
+ * @param {Object} obj - Source object
+ * @param {string} path - Dot-separated path (e.g., "comparisons.total")
+ * @returns {*} The value at the path, or undefined if not found
+ */
+function getNestedValue(obj, path) {
+  let parts = path.split('.');
+  let current = obj;
+  for (let part of parts) {
+    if (current === null || current === undefined) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
+/**
+ * Set a nested value in an object using dot notation
+ * Creates intermediate objects as needed
+ * @param {Object} obj - Target object
+ * @param {string} path - Dot-separated path (e.g., "comparisons.total")
+ * @param {*} value - Value to set
+ */
+function setNestedValue(obj, path, value) {
+  let parts = path.split('.');
+  let current = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    let part = parts[i];
+    if (!(part in current)) {
+      current[part] = {};
+    }
+    current = current[part];
+  }
+  current[parts[parts.length - 1]] = value;
+}
+
+/**
+ * Select specific fields from an object
+ * Supports dot notation for nested fields (e.g., "comparisons.total")
+ * @param {Object|Array} obj - Source object or array
+ * @param {string[]} fields - Fields to select
+ * @returns {Object|Array} Object with only selected fields
+ */
+function selectFields(obj, fields) {
+  if (Array.isArray(obj)) {
+    return obj.map(item => selectFields(item, fields));
+  }
+
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  let result = {};
+  for (let field of fields) {
+    let value = getNestedValue(obj, field);
+    if (value !== undefined) {
+      setNestedValue(result, field, value);
+    }
+  }
+  return result;
+}
+
+/**
  * Configure output settings
  * Call this once at CLI startup with global options
  *
  * @param {Object} options - Configuration options
- * @param {boolean} [options.json] - Enable JSON output mode
+ * @param {boolean|string} [options.json] - Enable JSON output mode, optionally with field selection
+ * @param {string[]} [options.jsonFields] - Fields to include in JSON output (null = all)
  * @param {string} [options.logLevel] - Log level (debug, info, warn, error)
  * @param {boolean} [options.verbose] - Shorthand for logLevel='debug' (backwards compatible)
  * @param {boolean} [options.color] - Enable colored output
@@ -86,7 +164,12 @@ function normalizeLogLevel(level) {
  * @param {boolean} [options.resetTimer] - Reset the start timer (default: true)
  */
 export function configure(options = {}) {
-  if (options.json !== undefined) config.json = options.json;
+  // Handle --json flag: can be boolean or string of fields
+  if (options.json !== undefined) {
+    config.json = !!options.json; // Truthy check for JSON mode
+    config.jsonFields = parseJsonFields(options.json);
+  }
+  if (options.jsonFields !== undefined) config.jsonFields = options.jsonFields;
   if (options.color !== undefined) config.color = options.color;
   if (options.silent !== undefined) config.silent = options.silent;
   if (options.logFile !== undefined) config.logFile = options.logFile;
@@ -317,13 +400,25 @@ export function printErr(text) {
 
 /**
  * Output structured data
+ * When field selection is active, only specified fields are included
+ * @param {Object|Array} obj - Data to output
  */
 export function data(obj) {
+  let output = config.jsonFields ? selectFields(obj, config.jsonFields) : obj;
+
   if (config.json) {
-    console.log(JSON.stringify({ status: 'data', data: obj }));
+    console.log(JSON.stringify({ status: 'data', data: output }));
   } else {
-    console.log(JSON.stringify(obj, null, 2));
+    console.log(JSON.stringify(output, null, 2));
   }
+}
+
+/**
+ * Get configured JSON fields (for commands that need direct access)
+ * @returns {string[]|null} Array of field names, or null for all fields
+ */
+export function getJsonFields() {
+  return config.jsonFields;
 }
 
 // ============================================================================
@@ -977,6 +1072,7 @@ export function cleanup() {
 export function reset() {
   stopSpinner();
   config.json = false;
+  config.jsonFields = null;
   config.logLevel = null;
   config.color = undefined; // Reset to auto-detect
   config.silent = false;

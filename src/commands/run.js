@@ -308,6 +308,50 @@ export async function runCommand(
         buildId = result.buildId;
       }
 
+      // JSON output mode - output structured data and exit
+      if (globalOptions.json) {
+        let executionTimeMs = Date.now() - startTime;
+
+        // Get URL from result, or construct one as fallback
+        let displayUrl = result.url;
+        if (!displayUrl && config.apiKey) {
+          try {
+            let client = createApiClient({
+              baseUrl: config.apiUrl,
+              token: config.apiKey,
+              command: 'run',
+            });
+            let tokenContext = await getTokenContext(client);
+            let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
+            if (tokenContext.organization?.slug && tokenContext.project?.slug) {
+              displayUrl = `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${result.buildId}`;
+            }
+          } catch {
+            // Fallback to simple URL if context fetch fails
+            let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
+            displayUrl = `${baseUrl}/builds/${result.buildId}`;
+          }
+        }
+
+        let jsonResult = {
+          buildId: result.buildId,
+          status: 'completed',
+          url: displayUrl,
+          screenshotsCaptured: result.screenshotsCaptured || 0,
+          executionTimeMs,
+          git: {
+            branch,
+            commit,
+            message,
+          },
+          exitCode: 0,
+        };
+
+        output.data(jsonResult);
+        output.cleanup();
+        return { success: true, result };
+      }
+
       output.complete('Test run completed');
 
       // Show Vizzly summary with link to results
@@ -362,11 +406,44 @@ export async function runCommand(
         let exitCodeMatch = error.message.match(/exited with code (\d+)/);
         let exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
 
-        output.error('Test run failed');
+        // JSON output for test command failure
+        if (globalOptions.json) {
+          let executionTimeMs = Date.now() - startTime;
+          output.data({
+            buildId: buildId || null,
+            status: 'failed',
+            error: {
+              code: error.code,
+              message: error.message,
+            },
+            executionTimeMs,
+            git: { branch, commit, message },
+            exitCode,
+          });
+          output.cleanup();
+        } else {
+          output.error('Test run failed');
+        }
         return { success: false, exitCode };
       } else {
         // Setup or other error - VizzlyError.getUserMessage() provides context
-        output.error('Test run failed', error);
+        if (globalOptions.json) {
+          let executionTimeMs = Date.now() - (startTime || Date.now());
+          output.data({
+            buildId: buildId || null,
+            status: 'failed',
+            error: {
+              code: error.code || 'UNKNOWN_ERROR',
+              message: error.getUserMessage ? error.getUserMessage() : error.message,
+            },
+            executionTimeMs,
+            git: { branch, commit, message },
+            exitCode: 1,
+          });
+          output.cleanup();
+        } else {
+          output.error('Test run failed', error);
+        }
         return { success: false, exitCode: 1 };
       }
     }
@@ -379,6 +456,57 @@ export async function runCommand(
         output.startSpinner('Processing comparisons...');
 
         let buildResult = await uploader.waitForBuild(result.buildId);
+
+        // JSON output for --wait mode
+        if (globalOptions.json) {
+          let executionTimeMs = Date.now() - startTime;
+
+          // Get URL from result, or construct one as fallback
+          let displayUrl = result.url;
+          if (!displayUrl && config.apiKey) {
+            try {
+              let client = createApiClient({
+                baseUrl: config.apiUrl,
+                token: config.apiKey,
+                command: 'run',
+              });
+              let tokenContext = await getTokenContext(client);
+              let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
+              if (tokenContext.organization?.slug && tokenContext.project?.slug) {
+                displayUrl = `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${result.buildId}`;
+              }
+            } catch {
+              let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
+              displayUrl = `${baseUrl}/builds/${result.buildId}`;
+            }
+          }
+
+          let exitCode = buildResult.failedComparisons > 0 ? 1 : 0;
+          let jsonResult = {
+            buildId: result.buildId,
+            status: buildResult.failedComparisons > 0 ? 'failed' : 'completed',
+            url: displayUrl,
+            screenshotsCaptured: result.screenshotsCaptured || 0,
+            executionTimeMs,
+            git: {
+              branch,
+              commit,
+              message,
+            },
+            comparisons: {
+              total: buildResult.totalComparisons || 0,
+              new: buildResult.newComparisons || 0,
+              changed: buildResult.failedComparisons || 0,
+              identical: buildResult.identicalComparisons || 0,
+            },
+            approvalStatus: buildResult.approvalStatus || 'pending',
+            exitCode,
+          };
+
+          output.data(jsonResult);
+          output.cleanup();
+          return { success: exitCode === 0, exitCode, result: jsonResult };
+        }
 
         output.success('Build processing completed');
 

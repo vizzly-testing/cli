@@ -220,17 +220,72 @@ export async function tddCommand(
     let hasFailures =
       runResult.failed ||
       runResult.comparisons?.some(c => c.status === 'failed');
+    let exitCode = hasFailures ? 1 : 0;
+
+    // JSON output mode
+    if (globalOptions.json) {
+      // Build comparison data for JSON output
+      let comparisons = (runResult.comparisons || []).map(c => ({
+        name: c.name,
+        status: c.status,
+        signature: c.signature,
+        diffPercentage: c.diffPercentage ?? c.diff_percentage ?? null,
+        threshold: c.threshold ?? config.comparison.threshold,
+        paths: {
+          baseline: c.baselinePath || c.baseline_path || null,
+          current: c.currentPath || c.current_path || null,
+          diff: c.diffPath || c.diff_path || null,
+        },
+        viewport: c.viewport || {
+          width: c.viewportWidth || c.viewport_width,
+          height: c.viewportHeight || c.viewport_height,
+        },
+        browser: c.browser || null,
+      }));
+
+      // Calculate summary
+      let summary = runResult.summary || {
+        total: comparisons.length,
+        passed: comparisons.filter(c => c.status === 'passed').length,
+        failed: comparisons.filter(c => c.status === 'failed').length,
+        new: comparisons.filter(c => c.status === 'new').length,
+      };
+
+      output.data({
+        status: hasFailures ? 'failed' : 'completed',
+        exitCode,
+        comparisons,
+        summary,
+        reportPath: runResult.reportPath || '.vizzly/report/index.html',
+      });
+      output.cleanup();
+    }
 
     return {
       result: {
         success: !hasFailures,
-        exitCode: hasFailures ? 1 : 0,
+        exitCode,
         ...runResult,
       },
       cleanup,
     };
   } catch (error) {
-    output.error('Test failed', error);
+    // JSON output for errors
+    if (globalOptions.json) {
+      output.data({
+        status: 'failed',
+        exitCode: 1,
+        error: {
+          message: error.message,
+          code: error.code || 'UNKNOWN_ERROR',
+        },
+        comparisons: [],
+        summary: { total: 0, passed: 0, failed: 0, new: 0 },
+      });
+      output.cleanup();
+    } else {
+      output.error('Test failed', error);
+    }
     return {
       result: {
         success: false,

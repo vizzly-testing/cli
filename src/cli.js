@@ -1,6 +1,17 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import { program } from 'commander';
+import { apiCommand, validateApiOptions } from './commands/api.js';
+import {
+  baselinesCommand,
+  validateBaselinesOptions,
+} from './commands/baselines.js';
+import { buildsCommand, validateBuildsOptions } from './commands/builds.js';
+import {
+  comparisonsCommand,
+  validateComparisonsOptions,
+} from './commands/comparisons.js';
+import { configCommand, validateConfigOptions } from './commands/config-cmd.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
   finalizeCommand,
@@ -17,14 +28,13 @@ import {
   projectTokenCommand,
   validateProjectOptions,
 } from './commands/project.js';
+import {
+  approveCommand,
+  commentCommand,
+  rejectCommand,
+} from './commands/review.js';
 import { runCommand, validateRunOptions } from './commands/run.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
-import { buildsCommand, validateBuildsOptions } from './commands/builds.js';
-import { comparisonsCommand, validateComparisonsOptions } from './commands/comparisons.js';
-import { configCommand, validateConfigOptions } from './commands/config-cmd.js';
-import { baselinesCommand, validateBaselinesOptions } from './commands/baselines.js';
-import { apiCommand, validateApiOptions } from './commands/api.js';
-import { approveCommand, rejectCommand, commentCommand } from './commands/review.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
 import {
   runDaemonChild,
@@ -90,10 +100,29 @@ const formatHelp = (cmd, helper) => {
           key: 'core',
           icon: '▸',
           title: 'Core',
-          names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview', 'builds', 'comparisons'],
+          names: [
+            'run',
+            'tdd',
+            'upload',
+            'status',
+            'finalize',
+            'preview',
+            'builds',
+            'comparisons',
+          ],
         },
-        { key: 'review', icon: '▸', title: 'Review', names: ['approve', 'reject', 'comment'] },
-        { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor', 'config', 'baselines'] },
+        {
+          key: 'review',
+          icon: '▸',
+          title: 'Review',
+          names: ['approve', 'reject', 'comment'],
+        },
+        {
+          key: 'setup',
+          icon: '▸',
+          title: 'Setup',
+          names: ['init', 'doctor', 'config', 'baselines'],
+        },
         { key: 'advanced', icon: '▸', title: 'Advanced', names: ['api'] },
         {
           key: 'auth',
@@ -114,7 +143,14 @@ const formatHelp = (cmd, helper) => {
         },
       ];
 
-      let grouped = { core: [], setup: [], advanced: [], auth: [], project: [], other: [] };
+      let grouped = {
+        core: [],
+        setup: [],
+        advanced: [],
+        auth: [],
+        project: [],
+        other: [],
+      };
 
       for (let command of commands) {
         let name = command.name();
@@ -243,7 +279,10 @@ program
     '--log-level <level>',
     'Log level: debug, info, warn, error (default: info, or VIZZLY_LOG_LEVEL env var)'
   )
-  .option('--json [fields]', 'JSON output, optionally specify fields (e.g., --json id,status,branch)')
+  .option(
+    '--json [fields]',
+    'JSON output, optionally specify fields (e.g., --json id,status,branch)'
+  )
   .option('--color', 'Force colored output (even in non-TTY)')
   .option('--no-color', 'Disable colored output')
   .option(
@@ -591,9 +630,17 @@ program
   .description('List and query builds')
   .option('-b, --build <id>', 'Get a specific build by ID')
   .option('--branch <branch>', 'Filter by branch')
-  .option('--status <status>', 'Filter by status (created, pending, processing, completed, failed)')
+  .option(
+    '--status <status>',
+    'Filter by status (created, pending, processing, completed, failed)'
+  )
   .option('--environment <env>', 'Filter by environment')
-  .option('--limit <n>', 'Maximum results to return (1-250)', val => parseInt(val, 10), 20)
+  .option(
+    '--limit <n>',
+    'Maximum results to return (1-250)',
+    val => parseInt(val, 10),
+    20
+  )
   .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
   .option('--comparisons', 'Include comparisons when fetching a specific build')
   .action(async options => {
@@ -620,7 +667,12 @@ program
   .option('--name <pattern>', 'Search comparisons by name (supports wildcards)')
   .option('--status <status>', 'Filter by status (identical, new, changed)')
   .option('--branch <branch>', 'Filter by branch (for name search)')
-  .option('--limit <n>', 'Maximum results to return (1-250)', val => parseInt(val, 10), 50)
+  .option(
+    '--limit <n>',
+    'Maximum results to return (1-250)',
+    val => parseInt(val, 10),
+    50
+  )
   .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
   .action(async options => {
     const globalOptions = program.opts();
@@ -641,7 +693,10 @@ program
 program
   .command('config')
   .description('Display current configuration')
-  .argument('[key]', 'Specific config key to get (dot notation, e.g., comparison.threshold)')
+  .argument(
+    '[key]',
+    'Specific config key to get (dot notation, e.g., comparison.threshold)'
+  )
   .action(async (key, options) => {
     const globalOptions = program.opts();
 
@@ -683,10 +738,22 @@ program
   .command('api')
   .description('Make raw API requests (for power users)')
   .argument('<endpoint>', 'API endpoint (e.g., /sdk/builds)')
-  .option('-X, --method <method>', 'HTTP method (GET or POST for approve/reject/comment)', 'GET')
+  .option(
+    '-X, --method <method>',
+    'HTTP method (GET or POST for approve/reject/comment)',
+    'GET'
+  )
   .option('-d, --data <json>', 'Request body (JSON)')
-  .option('-H, --header <header>', 'Add header (key:value), can be repeated', (val, prev) => (prev ? [...prev, val] : [val]))
-  .option('-q, --query <param>', 'Add query param (key=value), can be repeated', (val, prev) => (prev ? [...prev, val] : [val]))
+  .option(
+    '-H, --header <header>',
+    'Add header (key:value), can be repeated',
+    (val, prev) => (prev ? [...prev, val] : [val])
+  )
+  .option(
+    '-q, --query <param>',
+    'Add query param (key=value), can be repeated',
+    (val, prev) => (prev ? [...prev, val] : [val])
+  )
   .action(async (endpoint, options) => {
     const globalOptions = program.opts();
 
@@ -728,7 +795,11 @@ program
   .description('Add a comment to a build')
   .argument('<build-id>', 'Build ID to comment on')
   .argument('<message>', 'Comment message')
-  .option('-t, --type <type>', 'Comment type: general, approval, rejection', 'general')
+  .option(
+    '-t, --type <type>',
+    'Comment type: general, approval, rejection',
+    'general'
+  )
   .action(async (buildId, message, options) => {
     const globalOptions = program.opts();
     await commentCommand(buildId, message, options, globalOptions);

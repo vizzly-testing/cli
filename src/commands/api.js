@@ -13,7 +13,12 @@ import * as defaultOutput from '../utils/output.js';
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function apiCommand(endpoint, options = {}, globalOptions = {}, deps = {}) {
+export async function apiCommand(
+  endpoint,
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
   let {
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
@@ -42,7 +47,9 @@ export async function apiCommand(endpoint, options = {}, globalOptions = {}, dep
     }
 
     // Normalize endpoint
-    let normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    let normalizedEndpoint = endpoint.startsWith('/')
+      ? endpoint
+      : `/${endpoint}`;
     if (!normalizedEndpoint.startsWith('/api/')) {
       normalizedEndpoint = `/api${normalizedEndpoint}`;
     }
@@ -55,7 +62,9 @@ export async function apiCommand(endpoint, options = {}, globalOptions = {}, dep
       output.error(
         `POST not allowed for ${normalizedEndpoint}. Only approve, reject, and comment endpoints support POST.`
       );
-      output.hint('Use GET for queries, or use dedicated commands (vizzly approve, vizzly reject, vizzly comment)');
+      output.hint(
+        'Use GET for queries, or use dedicated commands (vizzly approve, vizzly reject, vizzly comment)'
+      );
       exit(1);
       return;
     }
@@ -71,7 +80,9 @@ export async function apiCommand(endpoint, options = {}, globalOptions = {}, dep
     // Add headers
     let headers = {};
     if (options.header) {
-      let headerList = Array.isArray(options.header) ? options.header : [options.header];
+      let headerList = Array.isArray(options.header)
+        ? options.header
+        : [options.header];
       for (let h of headerList) {
         let [key, ...valueParts] = h.split(':');
         if (key && valueParts.length > 0) {
@@ -93,7 +104,9 @@ export async function apiCommand(endpoint, options = {}, globalOptions = {}, dep
     // Add query parameters
     if (options.query) {
       let params = new URLSearchParams();
-      let queryList = Array.isArray(options.query) ? options.query : [options.query];
+      let queryList = Array.isArray(options.query)
+        ? options.query
+        : [options.query];
       for (let q of queryList) {
         let [key, ...valueParts] = q.split('=');
         if (key && valueParts.length > 0) {
@@ -102,7 +115,8 @@ export async function apiCommand(endpoint, options = {}, globalOptions = {}, dep
       }
       let queryString = params.toString();
       if (queryString) {
-        normalizedEndpoint += (normalizedEndpoint.includes('?') ? '&' : '?') + queryString;
+        normalizedEndpoint +=
+          (normalizedEndpoint.includes('?') ? '&' : '?') + queryString;
       }
     }
 
@@ -198,7 +212,9 @@ export function validateApiOptions(endpoint, options = {}) {
   // Only GET is allowed by default
   // POST is allowed only for whitelisted endpoints
   if (method !== 'GET' && method !== 'POST') {
-    errors.push(`Method ${method} not allowed. Use GET for queries or POST for approve/reject/comment.`);
+    errors.push(
+      `Method ${method} not allowed. Use GET for queries or POST for approve/reject/comment.`
+    );
   }
 
   return errors;

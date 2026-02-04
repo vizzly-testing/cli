@@ -439,9 +439,7 @@ export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
 
     output.complete('Project configuration removed');
     output.blank();
-    output.hint(
-      'Run "vizzly project:select" to configure a different project'
-    );
+    output.hint('Run "vizzly project:select" to configure a different project');
 
     output.cleanup();
   } catch (error) {

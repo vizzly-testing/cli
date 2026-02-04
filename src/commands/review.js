@@ -13,7 +13,12 @@ import * as defaultOutput from '../utils/output.js';
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function approveCommand(comparisonId, options = {}, globalOptions = {}, deps = {}) {
+export async function approveCommand(
+  comparisonId,
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
   let {
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
@@ -51,11 +56,17 @@ export async function approveCommand(comparisonId, options = {}, globalOptions =
       body.comment = options.comment;
     }
 
-    let response = await client.request(`/api/sdk/comparisons/${comparisonId}/approve`, {
-      method: 'POST',
-      body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
-      headers: Object.keys(body).length > 0 ? { 'Content-Type': 'application/json' } : undefined,
-    });
+    let response = await client.request(
+      `/api/sdk/comparisons/${comparisonId}/approve`,
+      {
+        method: 'POST',
+        body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
+        headers:
+          Object.keys(body).length > 0
+            ? { 'Content-Type': 'application/json' }
+            : undefined,
+      }
+    );
 
     output.stopSpinner();
 
@@ -101,7 +112,12 @@ export async function approveCommand(comparisonId, options = {}, globalOptions =
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function rejectCommand(comparisonId, options = {}, globalOptions = {}, deps = {}) {
+export async function rejectCommand(
+  comparisonId,
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
   let {
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
@@ -141,11 +157,14 @@ export async function rejectCommand(comparisonId, options = {}, globalOptions = 
       command: 'reject',
     });
 
-    let response = await client.request(`/api/sdk/comparisons/${comparisonId}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ reason: options.reason }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    let response = await client.request(
+      `/api/sdk/comparisons/${comparisonId}/reject`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason: options.reason }),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     output.stopSpinner();
 
@@ -191,7 +210,13 @@ export async function rejectCommand(comparisonId, options = {}, globalOptions = 
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function commentCommand(buildId, message, options = {}, globalOptions = {}, deps = {}) {
+export async function commentCommand(
+  buildId,
+  message,
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
   let {
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,

@@ -4,8 +4,8 @@
 
 import {
   createApiClient as defaultCreateApiClient,
-  getBuilds as defaultGetBuilds,
   getBuild as defaultGetBuild,
+  getBuilds as defaultGetBuilds,
 } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import { getApiUrl as defaultGetApiUrl } from '../utils/environment-config.js';
@@ -17,7 +17,11 @@ import * as defaultOutput from '../utils/output.js';
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function buildsCommand(options = {}, globalOptions = {}, deps = {}) {
+export async function buildsCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
   let {
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
@@ -88,7 +92,10 @@ export async function buildsCommand(options = {}, globalOptions = {}, deps = {})
     output.stopSpinner();
 
     let builds = response.builds || [];
-    let pagination = response.pagination || { total: builds.length, hasMore: false };
+    let pagination = response.pagination || {
+      total: builds.length,
+      hasMore: false,
+    };
 
     // JSON output
     if (globalOptions.json) {
@@ -118,27 +125,28 @@ export async function buildsCommand(options = {}, globalOptions = {}, deps = {})
     }
 
     let colors = output.getColors();
-    let baseUrl = config.apiUrl || getApiUrl();
+    let _baseUrl = config.apiUrl || getApiUrl();
 
     for (let build of builds) {
       let statusColor = getStatusColor(colors, build.status);
       let statusBadge = statusColor(build.status.toUpperCase());
 
-      output.print(
-        `  ${colors.bold(build.name || build.id)} ${statusBadge}`
-      );
+      output.print(`  ${colors.bold(build.name || build.id)} ${statusBadge}`);
 
       let details = [];
       if (build.branch) details.push(build.branch);
       if (build.commit_sha) details.push(build.commit_sha.substring(0, 7));
-      if (build.screenshot_count) details.push(`${build.screenshot_count} screenshots`);
+      if (build.screenshot_count)
+        details.push(`${build.screenshot_count} screenshots`);
 
       if (details.length > 0) {
         output.print(`    ${colors.dim(details.join(' · '))}`);
       }
 
       if (build.created_at) {
-        output.print(`    ${colors.dim(new Date(build.created_at).toLocaleString())}`);
+        output.print(
+          `    ${colors.dim(new Date(build.created_at).toLocaleString())}`
+        );
       }
 
       output.blank();
@@ -148,7 +156,7 @@ export async function buildsCommand(options = {}, globalOptions = {}, deps = {})
     if (pagination.total > builds.length) {
       output.hint(
         `Showing ${builds.length} of ${pagination.total} builds. ` +
-        `Use --offset ${filters.offset + filters.limit} to see more.`
+          `Use --offset ${filters.offset + filters.limit} to see more.`
       );
     }
 
@@ -225,8 +233,10 @@ function displayBuild(output, build, verbose) {
 
   let stats = [];
   if (newCount > 0) stats.push(`${colors.brand.info(newCount)} new`);
-  if (changedCount > 0) stats.push(`${colors.brand.warning(changedCount)} changed`);
-  if (identicalCount > 0) stats.push(`${colors.brand.success(identicalCount)} identical`);
+  if (changedCount > 0)
+    stats.push(`${colors.brand.warning(changedCount)} changed`);
+  if (identicalCount > 0)
+    stats.push(`${colors.brand.success(identicalCount)} identical`);
 
   if (stats.length > 0) {
     output.labelValue('Comparisons', stats.join(colors.dim(' · ')));
@@ -256,7 +266,9 @@ function displayBuild(output, build, verbose) {
     }
 
     if (build.comparisons.length > (verbose ? 50 : 10)) {
-      output.hint(`  ... and ${build.comparisons.length - (verbose ? 50 : 10)} more`);
+      output.hint(
+        `  ... and ${build.comparisons.length - (verbose ? 50 : 10)} more`
+      );
     }
   }
 }
@@ -302,11 +314,14 @@ function getComparisonStatusIcon(colors, status) {
 export function validateBuildsOptions(options = {}) {
   let errors = [];
 
-  if (options.limit && (isNaN(options.limit) || options.limit < 1 || options.limit > 250)) {
+  if (
+    options.limit &&
+    (Number.isNaN(options.limit) || options.limit < 1 || options.limit > 250)
+  ) {
     errors.push('--limit must be a number between 1 and 250');
   }
 
-  if (options.offset && (isNaN(options.offset) || options.offset < 0)) {
+  if (options.offset && (Number.isNaN(options.offset) || options.offset < 0)) {
     errors.push('--offset must be a non-negative number');
   }
 

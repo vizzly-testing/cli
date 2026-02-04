@@ -14,7 +14,12 @@ import * as defaultOutput from '../utils/output.js';
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function configCommand(key = null, options = {}, globalOptions = {}, deps = {}) {
+export async function configCommand(
+  key = null,
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
   let {
     loadConfig = defaultLoadConfig,
     getProjectMapping = defaultGetProjectMapping,
@@ -30,7 +35,10 @@ export async function configCommand(key = null, options = {}, globalOptions = {}
 
   try {
     // Load configuration
-    let config = await loadConfig(globalOptions.config, { ...globalOptions, ...options });
+    let config = await loadConfig(globalOptions.config, {
+      ...globalOptions,
+      ...options,
+    });
     let configFile = config._configPath || null;
 
     // Get project mapping if available
@@ -51,7 +59,7 @@ export async function configCommand(key = null, options = {}, globalOptions = {}
       displayConfig.api = {
         url: config.apiUrl || config.baseUrl,
         tokenConfigured: true,
-        tokenPrefix: config.apiKey.substring(0, 8) + '...',
+        tokenPrefix: `${config.apiKey.substring(0, 8)}...`,
       };
     }
 
@@ -61,7 +69,9 @@ export async function configCommand(key = null, options = {}, globalOptions = {}
 
       if (value === undefined) {
         output.error(`Configuration key "${key}" not found`);
-        output.hint('Use "vizzly config" without arguments to see all available keys');
+        output.hint(
+          'Use "vizzly config" without arguments to see all available keys'
+        );
         exit(1);
         return;
       }
@@ -109,7 +119,10 @@ export async function configCommand(key = null, options = {}, globalOptions = {}
 
     // Project context if available
     if (projectMapping) {
-      output.labelValue('Project', `${projectMapping.projectName} (${projectMapping.projectSlug})`);
+      output.labelValue(
+        'Project',
+        `${projectMapping.projectName} (${projectMapping.projectSlug})`
+      );
       output.labelValue('Organization', projectMapping.organizationSlug);
       output.blank();
     }

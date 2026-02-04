@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { comparisonsCommand, validateComparisonsOptions } from '../../src/commands/comparisons.js';
+import {
+  comparisonsCommand,
+  validateComparisonsOptions,
+} from '../../src/commands/comparisons.js';
 
 /**
  * Create mock output object that tracks calls
@@ -17,8 +20,10 @@ function createMockOutput() {
     print: msg => calls.push({ method: 'print', args: [msg] }),
     blank: () => calls.push({ method: 'blank', args: [] }),
     hint: msg => calls.push({ method: 'hint', args: [msg] }),
-    labelValue: (label, value) => calls.push({ method: 'labelValue', args: [label, value] }),
-    keyValue: (data, opts) => calls.push({ method: 'keyValue', args: [data, opts] }),
+    labelValue: (label, value) =>
+      calls.push({ method: 'labelValue', args: [label, value] }),
+    keyValue: (data, opts) =>
+      calls.push({ method: 'keyValue', args: [data, opts] }),
     cleanup: () => calls.push({ method: 'cleanup', args: [] }),
     data: obj => calls.push({ method: 'data', args: [obj] }),
     getColors: () => ({
@@ -57,11 +62,17 @@ describe('commands/comparisons', () => {
       let output = createMockOutput();
       let exitCode = null;
 
-      await comparisonsCommand({ build: 'test' }, {}, {
-        loadConfig: async () => ({}),
-        output,
-        exit: code => { exitCode = code; },
-      });
+      await comparisonsCommand(
+        { build: 'test' },
+        {},
+        {
+          loadConfig: async () => ({}),
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
 
       assert.strictEqual(exitCode, 1);
       assert.ok(output.calls.some(c => c.method === 'error'));
@@ -71,17 +82,25 @@ describe('commands/comparisons', () => {
       let output = createMockOutput();
       let exitCode = null;
 
-      await comparisonsCommand({}, {}, {
-        loadConfig: async () => ({ apiKey: 'test-token' }),
-        createApiClient: () => ({}),
-        output,
-        exit: code => { exitCode = code; },
-      });
+      await comparisonsCommand(
+        {},
+        {},
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
 
       assert.strictEqual(exitCode, 1);
-      assert.ok(output.calls.some(c =>
-        c.method === 'error' && c.args[0].includes('--build')
-      ));
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'error' && c.args[0].includes('--build')
+        )
+      );
     });
 
     it('fetches comparisons for build with JSON output', async () => {
@@ -95,13 +114,20 @@ describe('commands/comparisons', () => {
         ],
       };
 
-      await comparisonsCommand({ build: 'build-1' }, { json: true }, {
-        loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-        createApiClient: () => ({}),
-        getBuild: async () => ({ build: mockBuild }),
-        output,
-        exit: () => {},
-      });
+      await comparisonsCommand(
+        { build: 'build-1' },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
 
       let dataCall = output.calls.find(c => c.method === 'data');
       assert.ok(dataCall);
@@ -115,19 +141,31 @@ describe('commands/comparisons', () => {
       let output = createMockOutput();
       let capturedName = null;
       let mockComparisons = [
-        { id: 'comp-1', name: 'button-primary', status: 'identical', build_id: 'b1' },
+        {
+          id: 'comp-1',
+          name: 'button-primary',
+          status: 'identical',
+          build_id: 'b1',
+        },
       ];
 
-      await comparisonsCommand({ name: 'button-*' }, { json: true }, {
-        loadConfig: async () => ({ apiKey: 'test-token' }),
-        createApiClient: () => ({}),
-        searchComparisons: async (client, name) => {
-          capturedName = name;
-          return { comparisons: mockComparisons, pagination: { total: 1, hasMore: false } };
-        },
-        output,
-        exit: () => {},
-      });
+      await comparisonsCommand(
+        { name: 'button-*' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          searchComparisons: async (_client, name) => {
+            capturedName = name;
+            return {
+              comparisons: mockComparisons,
+              pagination: { total: 1, hasMore: false },
+            };
+          },
+          output,
+          exit: () => {},
+        }
+      );
 
       assert.strictEqual(capturedName, 'button-*');
       let dataCall = output.calls.find(c => c.method === 'data');
@@ -147,19 +185,26 @@ describe('commands/comparisons', () => {
         ],
       };
 
-      await comparisonsCommand({ build: 'build-1', status: 'changed' }, { json: true }, {
-        loadConfig: async () => ({ apiKey: 'test-token' }),
-        createApiClient: () => ({}),
-        getBuild: async () => ({ build: mockBuild }),
-        output,
-        exit: () => {},
-      });
+      await comparisonsCommand(
+        { build: 'build-1', status: 'changed' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
 
       let dataCall = output.calls.find(c => c.method === 'data');
       assert.ok(dataCall);
       // Only the 'changed' comparison should be returned
       assert.strictEqual(dataCall.args[0].comparisons.length, 1);
-      assert.strictEqual(dataCall.args[0].comparisons[0].name, 'button-secondary');
+      assert.strictEqual(
+        dataCall.args[0].comparisons[0].name,
+        'button-secondary'
+      );
     });
 
     it('fetches single comparison by ID', async () => {
@@ -171,13 +216,17 @@ describe('commands/comparisons', () => {
         diff_percentage: 0.05,
       };
 
-      await comparisonsCommand({ id: 'comp-1' }, { json: true }, {
-        loadConfig: async () => ({ apiKey: 'test-token' }),
-        createApiClient: () => ({}),
-        getComparison: async () => mockComparison,
-        output,
-        exit: () => {},
-      });
+      await comparisonsCommand(
+        { id: 'comp-1' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getComparison: async () => mockComparison,
+          output,
+          exit: () => {},
+        }
+      );
 
       let dataCall = output.calls.find(c => c.method === 'data');
       assert.ok(dataCall);

@@ -27,7 +27,8 @@ export class InitCommand {
           status: 'skipped',
           reason: 'config_exists',
           configPath,
-          message: 'A vizzly.config.js file already exists. Use --force to overwrite.',
+          message:
+            'A vizzly.config.js file already exists. Use --force to overwrite.',
         });
         return { status: 'skipped', configPath };
       }

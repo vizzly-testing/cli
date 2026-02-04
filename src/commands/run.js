@@ -434,7 +434,9 @@ export async function runCommand(
             status: 'failed',
             error: {
               code: error.code || 'UNKNOWN_ERROR',
-              message: error.getUserMessage ? error.getUserMessage() : error.message,
+              message: error.getUserMessage
+                ? error.getUserMessage()
+                : error.message,
             },
             executionTimeMs,
             git: { branch, commit, message },
@@ -472,7 +474,10 @@ export async function runCommand(
               });
               let tokenContext = await getTokenContext(client);
               let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
-              if (tokenContext.organization?.slug && tokenContext.project?.slug) {
+              if (
+                tokenContext.organization?.slug &&
+                tokenContext.project?.slug
+              ) {
                 displayUrl = `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${result.buildId}`;
               }
             } catch {

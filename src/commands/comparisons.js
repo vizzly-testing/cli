@@ -9,7 +9,6 @@ import {
   searchComparisons as defaultSearchComparisons,
 } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
-import { getApiUrl as defaultGetApiUrl } from '../utils/environment-config.js';
 import * as defaultOutput from '../utils/output.js';
 
 /**
@@ -18,14 +17,17 @@ import * as defaultOutput from '../utils/output.js';
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function comparisonsCommand(options = {}, globalOptions = {}, deps = {}) {
+export async function comparisonsCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
   let {
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
     getBuild = defaultGetBuild,
     getComparison = defaultGetComparison,
     searchComparisons = defaultSearchComparisons,
-    getApiUrl = defaultGetApiUrl,
     output = defaultOutput,
     exit = code => process.exit(code),
   } = deps;
@@ -76,7 +78,9 @@ export async function comparisonsCommand(options = {}, globalOptions = {}, deps 
     // Get comparisons for a specific build
     if (options.build) {
       output.startSpinner('Fetching comparisons for build...');
-      let response = await getBuild(client, options.build, { include: 'comparisons' });
+      let response = await getBuild(client, options.build, {
+        include: 'comparisons',
+      });
       output.stopSpinner();
 
       let build = response.build || response;
@@ -110,7 +114,12 @@ export async function comparisonsCommand(options = {}, globalOptions = {}, deps 
         return;
       }
 
-      displayBuildComparisons(output, build, comparisons, globalOptions.verbose);
+      displayBuildComparisons(
+        output,
+        build,
+        comparisons,
+        globalOptions.verbose
+      );
       output.cleanup();
       return;
     }
@@ -127,7 +136,10 @@ export async function comparisonsCommand(options = {}, globalOptions = {}, deps 
       output.stopSpinner();
 
       let comparisons = response.comparisons || [];
-      let pagination = response.pagination || { total: comparisons.length, hasMore: false };
+      let pagination = response.pagination || {
+        total: comparisons.length,
+        hasMore: false,
+      };
 
       if (globalOptions.json) {
         output.data({
@@ -143,13 +155,21 @@ export async function comparisonsCommand(options = {}, globalOptions = {}, deps 
         return;
       }
 
-      displaySearchResults(output, comparisons, options.name, pagination, globalOptions.verbose);
+      displaySearchResults(
+        output,
+        comparisons,
+        options.name,
+        pagination,
+        globalOptions.verbose
+      );
       output.cleanup();
       return;
     }
 
     // No valid query provided
-    output.error('Specify --build <id>, --id <comparison-id>, or --name <pattern> to query comparisons');
+    output.error(
+      'Specify --build <id>, --id <comparison-id>, or --name <pattern> to query comparisons'
+    );
     output.hint('Examples:');
     output.hint('  vizzly comparisons --build <build-id>');
     output.hint('  vizzly comparisons --name "button-*"');
@@ -192,23 +212,27 @@ function formatComparisonForJson(comparison) {
  * Display a single comparison in detail
  */
 function displayComparison(output, comparison, verbose) {
-  let colors = output.getColors();
+  let _colors = output.getColors();
 
   output.header('comparison', comparison.status);
 
   output.keyValue({
     Name: comparison.name,
     Status: comparison.status?.toUpperCase(),
-    'Diff %': comparison.diff_percentage != null
-      ? `${(comparison.diff_percentage * 100).toFixed(2)}%`
-      : 'N/A',
+    'Diff %':
+      comparison.diff_percentage != null
+        ? `${(comparison.diff_percentage * 100).toFixed(2)}%`
+        : 'N/A',
     Approval: comparison.approval_status || 'pending',
   });
 
   output.blank();
 
   if (comparison.viewport_width) {
-    output.labelValue('Viewport', `${comparison.viewport_width}×${comparison.viewport_height}`);
+    output.labelValue(
+      'Viewport',
+      `${comparison.viewport_width}×${comparison.viewport_height}`
+    );
   }
   if (comparison.browser) {
     output.labelValue('Browser', comparison.browser);
@@ -232,10 +256,14 @@ function displayComparison(output, comparison, verbose) {
     output.blank();
     output.labelValue('URLs', '');
     if (comparison.baseline_screenshot?.original_url) {
-      output.print(`    Baseline: ${comparison.baseline_screenshot.original_url}`);
+      output.print(
+        `    Baseline: ${comparison.baseline_screenshot.original_url}`
+      );
     }
     if (comparison.current_screenshot?.original_url) {
-      output.print(`    Current: ${comparison.current_screenshot.original_url}`);
+      output.print(
+        `    Current: ${comparison.current_screenshot.original_url}`
+      );
     }
     if (comparison.diff_image?.url) {
       output.print(`    Diff: ${comparison.diff_image.url}`);
@@ -280,22 +308,31 @@ function displayBuildComparisons(output, build, comparisons, verbose) {
   // List comparisons
   for (let comp of comparisons.slice(0, verbose ? 100 : 20)) {
     let icon = getStatusIcon(colors, comp.status);
-    let diffInfo = comp.diff_percentage != null
-      ? colors.dim(` (${(comp.diff_percentage * 100).toFixed(1)}%)`)
-      : '';
+    let diffInfo =
+      comp.diff_percentage != null
+        ? colors.dim(` (${(comp.diff_percentage * 100).toFixed(1)}%)`)
+        : '';
     output.print(`  ${icon} ${comp.name}${diffInfo}`);
   }
 
   if (comparisons.length > (verbose ? 100 : 20)) {
     output.blank();
-    output.hint(`... and ${comparisons.length - (verbose ? 100 : 20)} more. Use --verbose to see all.`);
+    output.hint(
+      `... and ${comparisons.length - (verbose ? 100 : 20)} more. Use --verbose to see all.`
+    );
   }
 }
 
 /**
  * Display search results
  */
-function displaySearchResults(output, comparisons, searchPattern, pagination, verbose) {
+function displaySearchResults(
+  output,
+  comparisons,
+  searchPattern,
+  pagination,
+  verbose
+) {
   let colors = output.getColors();
 
   output.header('comparisons');
@@ -333,7 +370,9 @@ function displaySearchResults(output, comparisons, searchPattern, pagination, ve
     }
 
     if (group.comparisons.length > (verbose ? 10 : 3)) {
-      output.print(`      ${colors.dim(`... and ${group.comparisons.length - (verbose ? 10 : 3)} more`)}`);
+      output.print(
+        `      ${colors.dim(`... and ${group.comparisons.length - (verbose ? 10 : 3)} more`)}`
+      );
     }
 
     output.blank();
@@ -342,7 +381,7 @@ function displaySearchResults(output, comparisons, searchPattern, pagination, ve
   if (pagination.hasMore) {
     output.hint(
       `Showing ${comparisons.length} of ${pagination.total}. ` +
-      `Use --offset ${pagination.offset + pagination.limit} to see more.`
+        `Use --offset ${pagination.offset + pagination.limit} to see more.`
     );
   }
 }
@@ -371,11 +410,14 @@ function getStatusIcon(colors, status) {
 export function validateComparisonsOptions(options = {}) {
   let errors = [];
 
-  if (options.limit && (isNaN(options.limit) || options.limit < 1 || options.limit > 250)) {
+  if (
+    options.limit &&
+    (Number.isNaN(options.limit) || options.limit < 1 || options.limit > 250)
+  ) {
     errors.push('--limit must be a number between 1 and 250');
   }
 
-  if (options.offset && (isNaN(options.offset) || options.offset < 0)) {
+  if (options.offset && (Number.isNaN(options.offset) || options.offset < 0)) {
     errors.push('--offset must be a non-negative number');
   }
 

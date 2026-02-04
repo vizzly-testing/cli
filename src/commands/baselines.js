@@ -21,7 +21,10 @@ function getFilename(screenshot) {
  */
 function getViewport(screenshot) {
   if (screenshot.viewport) return screenshot.viewport;
-  if (screenshot.properties?.viewport_width && screenshot.properties?.viewport_height) {
+  if (
+    screenshot.properties?.viewport_width &&
+    screenshot.properties?.viewport_height
+  ) {
     return {
       width: screenshot.properties.viewport_width,
       height: screenshot.properties.viewport_height,
@@ -36,7 +39,11 @@ function getViewport(screenshot) {
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function baselinesCommand(options = {}, globalOptions = {}, deps = {}) {
+export async function baselinesCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
   let {
     output = defaultOutput,
     exit = code => process.exit(code),
@@ -57,11 +64,17 @@ export async function baselinesCommand(options = {}, globalOptions = {}, deps = 
     // Check if .vizzly directory exists
     if (!existsSync(vizzlyDir)) {
       if (globalOptions.json) {
-        output.data({ baselines: [], count: 0, error: 'No .vizzly directory found' });
+        output.data({
+          baselines: [],
+          count: 0,
+          error: 'No .vizzly directory found',
+        });
         output.cleanup();
         return;
       }
-      output.warn('No .vizzly directory found. Run visual tests first to create baselines.');
+      output.warn(
+        'No .vizzly directory found. Run visual tests first to create baselines.'
+      );
       output.cleanup();
       return;
     }
@@ -97,8 +110,8 @@ export async function baselinesCommand(options = {}, globalOptions = {}, deps = 
 
     // Get specific baseline info
     if (options.info) {
-      let screenshot = screenshots.find(s =>
-        s.name === options.info || s.signature === options.info
+      let screenshot = screenshots.find(
+        s => s.name === options.info || s.signature === options.info
       );
 
       if (!screenshot) {
@@ -121,7 +134,7 @@ export async function baselinesCommand(options = {}, globalOptions = {}, deps = 
           name: screenshot.name,
           signature: screenshot.signature,
           filename,
-          path: screenshot.path || (file?.path) || join(baselinesDir, filename),
+          path: screenshot.path || file?.path || join(baselinesDir, filename),
           sha256: screenshot.sha256,
           viewport,
           browser: screenshot.browser || null,
@@ -148,11 +161,14 @@ export async function baselinesCommand(options = {}, globalOptions = {}, deps = 
         output.labelValue('Browser', screenshot.browser);
       }
       if (screenshot.sha256) {
-        output.labelValue('SHA256', screenshot.sha256.substring(0, 16) + '...');
+        output.labelValue('SHA256', `${screenshot.sha256.substring(0, 16)}...`);
       }
       if (file) {
         output.labelValue('Size', formatBytes(file.size));
-        output.labelValue('Modified', new Date(file.modifiedAt).toLocaleString());
+        output.labelValue(
+          'Modified',
+          new Date(file.modifiedAt).toLocaleString()
+        );
       }
 
       output.cleanup();
@@ -169,7 +185,7 @@ export async function baselinesCommand(options = {}, globalOptions = {}, deps = 
           name: s.name,
           signature: s.signature,
           filename,
-          path: s.path || (file?.path) || join(baselinesDir, filename),
+          path: s.path || file?.path || join(baselinesDir, filename),
           sha256: s.sha256,
           viewport,
           browser: s.browser || null,
@@ -181,13 +197,15 @@ export async function baselinesCommand(options = {}, globalOptions = {}, deps = 
       output.data({
         baselines,
         count: baselines.length,
-        metadata: metadata ? {
-          buildId: metadata.buildId,
-          buildName: metadata.buildName,
-          branch: metadata.branch,
-          threshold: metadata.threshold,
-          createdAt: metadata.createdAt,
-        } : null,
+        metadata: metadata
+          ? {
+              buildId: metadata.buildId,
+              buildName: metadata.buildName,
+              branch: metadata.branch,
+              threshold: metadata.threshold,
+              createdAt: metadata.createdAt,
+            }
+          : null,
       });
       output.cleanup();
       return;
@@ -205,7 +223,10 @@ export async function baselinesCommand(options = {}, globalOptions = {}, deps = 
 
     // Show metadata info
     if (metadata) {
-      output.labelValue('Source', metadata.buildName || metadata.buildId || 'Local');
+      output.labelValue(
+        'Source',
+        metadata.buildName || metadata.buildId || 'Local'
+      );
       if (metadata.branch && metadata.branch !== 'local') {
         output.labelValue('Branch', metadata.branch);
       }
@@ -229,17 +250,23 @@ export async function baselinesCommand(options = {}, globalOptions = {}, deps = 
         ? colors.dim(` ${screenshot.browser}`)
         : '';
 
-      output.print(`  ${colors.brand.success('●')} ${screenshot.name}${viewportInfo}${browserInfo}`);
+      output.print(
+        `  ${colors.brand.success('●')} ${screenshot.name}${viewportInfo}${browserInfo}`
+      );
     }
 
     if (screenshots.length > displayLimit) {
       output.blank();
-      output.hint(`... and ${screenshots.length - displayLimit} more. Use --verbose to see all.`);
+      output.hint(
+        `... and ${screenshots.length - displayLimit} more. Use --verbose to see all.`
+      );
     }
 
     // Show orphaned files (files without metadata)
     if (globalOptions.verbose) {
-      let knownFiles = new Set(screenshots.map(s => getFilename(s)).filter(Boolean));
+      let knownFiles = new Set(
+        screenshots.map(s => getFilename(s)).filter(Boolean)
+      );
       let orphaned = baselineFiles.filter(f => !knownFiles.has(f.filename));
 
       if (orphaned.length > 0) {

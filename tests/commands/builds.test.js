@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { buildsCommand, validateBuildsOptions } from '../../src/commands/builds.js';
+import {
+  buildsCommand,
+  validateBuildsOptions,
+} from '../../src/commands/builds.js';
 
 /**
  * Create mock output object that tracks calls
@@ -17,8 +20,10 @@ function createMockOutput() {
     print: msg => calls.push({ method: 'print', args: [msg] }),
     blank: () => calls.push({ method: 'blank', args: [] }),
     hint: msg => calls.push({ method: 'hint', args: [msg] }),
-    labelValue: (label, value) => calls.push({ method: 'labelValue', args: [label, value] }),
-    keyValue: (data, opts) => calls.push({ method: 'keyValue', args: [data, opts] }),
+    labelValue: (label, value) =>
+      calls.push({ method: 'labelValue', args: [label, value] }),
+    keyValue: (data, opts) =>
+      calls.push({ method: 'keyValue', args: [data, opts] }),
     cleanup: () => calls.push({ method: 'cleanup', args: [] }),
     data: obj => calls.push({ method: 'data', args: [obj] }),
     getColors: () => ({
@@ -57,11 +62,17 @@ describe('commands/builds', () => {
       let output = createMockOutput();
       let exitCode = null;
 
-      await buildsCommand({}, {}, {
-        loadConfig: async () => ({}),
-        output,
-        exit: code => { exitCode = code; },
-      });
+      await buildsCommand(
+        {},
+        {},
+        {
+          loadConfig: async () => ({}),
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
 
       assert.strictEqual(exitCode, 1);
       assert.ok(output.calls.some(c => c.method === 'error'));
@@ -80,13 +91,23 @@ describe('commands/builds', () => {
         },
       ];
 
-      await buildsCommand({}, { json: true }, {
-        loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-        createApiClient: () => ({}),
-        getBuilds: async () => ({ builds: mockBuilds, pagination: { total: 1, hasMore: false } }),
-        output,
-        exit: () => {},
-      });
+      await buildsCommand(
+        {},
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuilds: async () => ({
+            builds: mockBuilds,
+            pagination: { total: 1, hasMore: false },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
 
       let dataCall = output.calls.find(c => c.method === 'data');
       assert.ok(dataCall);
@@ -103,13 +124,20 @@ describe('commands/builds', () => {
         branch: 'main',
       };
 
-      await buildsCommand({ build: 'build-1' }, { json: true }, {
-        loadConfig: async () => ({ apiKey: 'test-token', apiUrl: 'https://api.test' }),
-        createApiClient: () => ({}),
-        getBuild: async () => ({ build: mockBuild }),
-        output,
-        exit: () => {},
-      });
+      await buildsCommand(
+        { build: 'build-1' },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
 
       let dataCall = output.calls.find(c => c.method === 'data');
       assert.ok(dataCall);
@@ -126,7 +154,7 @@ describe('commands/builds', () => {
         {
           loadConfig: async () => ({ apiKey: 'test-token' }),
           createApiClient: () => ({}),
-          getBuilds: async (client, filters) => {
+          getBuilds: async (_client, filters) => {
             capturedFilters = filters;
             return { builds: [], pagination: { total: 0, hasMore: false } };
           },

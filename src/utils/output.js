@@ -82,7 +82,10 @@ function normalizeLogLevel(level) {
 export function parseJsonFields(jsonArg) {
   if (jsonArg === true || jsonArg === 'true') return null; // All fields
   if (typeof jsonArg === 'string' && jsonArg.length > 0) {
-    return jsonArg.split(',').map(f => f.trim()).filter(f => f.length > 0);
+    return jsonArg
+      .split(',')
+      .map(f => f.trim())
+      .filter(f => f.length > 0);
   }
   return null;
 }

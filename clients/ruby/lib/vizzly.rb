@@ -27,6 +27,7 @@ module Vizzly
     # @param options [Hash] Optional configuration
     # @option options [Hash] :properties Additional properties to attach
     # @option options [Integer] :threshold Pixel difference threshold (0-100)
+    # @option options [Integer] :min_cluster_size Minimum cluster size to count as a real difference (default: 2)
     # @option options [Boolean] :full_page Whether this is a full page screenshot
     #
     # @return [Hash, nil] Response data or nil if disabled/failed
@@ -53,14 +54,20 @@ module Vizzly
 
       image_base64 = Base64.strict_encode64(image_data)
 
+      # Build properties hash - comparison options merged with user properties
+      # Server extracts threshold/minClusterSize from properties, not top-level
+      properties = (options[:properties] || {}).merge(
+        threshold: options[:threshold],
+        minClusterSize: options[:min_cluster_size],
+        fullPage: options[:full_page]
+      ).compact
+
       payload = {
         name: name,
         image: image_base64,
         type: 'base64',
         buildId: ENV.fetch('VIZZLY_BUILD_ID', nil),
-        threshold: options[:threshold] || 0,
-        fullPage: options[:full_page] || false,
-        properties: options[:properties] || {}
+        properties: properties
       }.compact
 
       uri = URI("#{@server_url}/screenshot")

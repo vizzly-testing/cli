@@ -22,6 +22,8 @@ import { statusCommand, validateStatusOptions } from './commands/status.js';
 import { buildsCommand, validateBuildsOptions } from './commands/builds.js';
 import { comparisonsCommand, validateComparisonsOptions } from './commands/comparisons.js';
 import { configCommand, validateConfigOptions } from './commands/config-cmd.js';
+import { baselinesCommand, validateBaselinesOptions } from './commands/baselines.js';
+import { apiCommand, validateApiOptions } from './commands/api.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
 import {
   runDaemonChild,
@@ -89,7 +91,8 @@ const formatHelp = (cmd, helper) => {
           title: 'Core',
           names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview', 'builds', 'comparisons'],
         },
-        { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor', 'config'] },
+        { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor', 'config', 'baselines'] },
+        { key: 'advanced', icon: '▸', title: 'Advanced', names: ['api'] },
         {
           key: 'auth',
           icon: '▸',
@@ -109,7 +112,7 @@ const formatHelp = (cmd, helper) => {
         },
       ];
 
-      let grouped = { core: [], setup: [], auth: [], project: [], other: [] };
+      let grouped = { core: [], setup: [], advanced: [], auth: [], project: [], other: [] };
 
       for (let command of commands) {
         let name = command.name();
@@ -651,6 +654,51 @@ program
     }
 
     await configCommand(key, options, globalOptions);
+  });
+
+program
+  .command('baselines')
+  .description('List and query local TDD baselines')
+  .option('--name <pattern>', 'Filter baselines by name (supports wildcards)')
+  .option('--info <name>', 'Get detailed info for a specific baseline')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateBaselinesOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await baselinesCommand(options, globalOptions);
+  });
+
+program
+  .command('api')
+  .description('Make raw API requests (for power users)')
+  .argument('<endpoint>', 'API endpoint (e.g., /sdk/builds)')
+  .option('-X, --method <method>', 'HTTP method (GET, POST, PUT, DELETE)', 'GET')
+  .option('-d, --data <json>', 'Request body (JSON)')
+  .option('-H, --header <header>', 'Add header (key:value), can be repeated', (val, prev) => (prev ? [...prev, val] : [val]))
+  .option('-q, --query <param>', 'Add query param (key=value), can be repeated', (val, prev) => (prev ? [...prev, val] : [val]))
+  .action(async (endpoint, options) => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateApiOptions(endpoint, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await apiCommand(endpoint, options, globalOptions);
   });
 
 program

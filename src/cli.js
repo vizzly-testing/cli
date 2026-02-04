@@ -19,6 +19,9 @@ import {
 } from './commands/project.js';
 import { runCommand, validateRunOptions } from './commands/run.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
+import { buildsCommand, validateBuildsOptions } from './commands/builds.js';
+import { comparisonsCommand, validateComparisonsOptions } from './commands/comparisons.js';
+import { configCommand, validateConfigOptions } from './commands/config-cmd.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
 import {
   runDaemonChild,
@@ -84,9 +87,9 @@ const formatHelp = (cmd, helper) => {
           key: 'core',
           icon: '▸',
           title: 'Core',
-          names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview'],
+          names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview', 'builds', 'comparisons'],
         },
-        { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor'] },
+        { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor', 'config'] },
         {
           key: 'auth',
           icon: '▸',
@@ -576,6 +579,78 @@ program
     }
 
     await statusCommand(buildId, options, globalOptions);
+  });
+
+program
+  .command('builds')
+  .description('List and query builds')
+  .option('-b, --build <id>', 'Get a specific build by ID')
+  .option('--branch <branch>', 'Filter by branch')
+  .option('--status <status>', 'Filter by status (created, pending, processing, completed, failed)')
+  .option('--environment <env>', 'Filter by environment')
+  .option('--limit <n>', 'Maximum results to return (1-250)', val => parseInt(val, 10), 20)
+  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .option('--comparisons', 'Include comparisons when fetching a specific build')
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateBuildsOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await buildsCommand(options, globalOptions);
+  });
+
+program
+  .command('comparisons')
+  .description('Query and search comparisons')
+  .option('-b, --build <id>', 'Get comparisons for a specific build')
+  .option('--id <id>', 'Get a specific comparison by ID')
+  .option('--name <pattern>', 'Search comparisons by name (supports wildcards)')
+  .option('--status <status>', 'Filter by status (identical, new, changed)')
+  .option('--branch <branch>', 'Filter by branch (for name search)')
+  .option('--limit <n>', 'Maximum results to return (1-250)', val => parseInt(val, 10), 50)
+  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateComparisonsOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await comparisonsCommand(options, globalOptions);
+  });
+
+program
+  .command('config')
+  .description('Display current configuration')
+  .argument('[key]', 'Specific config key to get (dot notation, e.g., comparison.threshold)')
+  .action(async (key, options) => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateConfigOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await configCommand(key, options, globalOptions);
   });
 
 program

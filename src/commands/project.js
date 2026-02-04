@@ -140,6 +140,25 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
       organizationSlug: selectedOrg.slug,
     });
 
+    // JSON output for success
+    if (globalOptions.json) {
+      output.data({
+        status: 'configured',
+        project: {
+          name: selectedProject.name,
+          slug: selectedProject.slug,
+        },
+        organization: {
+          name: selectedOrg.name,
+          slug: selectedOrg.slug,
+        },
+        directory: currentDir,
+        tokenCreated: true,
+      });
+      output.cleanup();
+      return;
+    }
+
     output.complete('Project configured');
     output.blank();
     output.keyValue({

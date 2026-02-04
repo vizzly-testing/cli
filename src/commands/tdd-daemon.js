@@ -32,6 +32,17 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
   if (existingServer) {
     // Verify it's actually running
     if (await isServerRunning(existingServer.port)) {
+      // JSON output for already running
+      if (globalOptions.json) {
+        output.data({
+          status: 'already_running',
+          port: existingServer.port,
+          pid: existingServer.pid,
+          dashboardUrl: `http://localhost:${existingServer.port}`,
+        });
+        return;
+      }
+
       output.header('tdd', 'local');
       output.print(`  ${output.statusDot('success')} Already running`);
       output.blank();
@@ -243,6 +254,21 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       // Non-fatal, SDK can still use health check
     }
 
+    // JSON output for successful start
+    let dashboardUrl = `http://localhost:${port}`;
+    if (globalOptions.json) {
+      output.data({
+        status: 'started',
+        port,
+        pid: child.pid,
+        dashboardUrl,
+      });
+      if (options.open) {
+        openDashboard(port);
+      }
+      return;
+    }
+
     // Show auto-allocated port message if applicable
     if (autoAllocated) {
       output.print(
@@ -252,7 +278,6 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     }
 
     // Show dashboard URL in a branded box
-    let dashboardUrl = `http://localhost:${port}`;
     output.printBox(colors.brand.info(colors.underline(dashboardUrl)), {
       title: 'Dashboard',
       style: 'branded',
@@ -443,7 +468,15 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
   }
 
   if (!pid) {
-    output.warn('No TDD server running');
+    // JSON output for not running
+    if (globalOptions.json) {
+      output.data({
+        status: 'not_running',
+        message: 'No TDD server running',
+      });
+    } else {
+      output.warn('No TDD server running');
+    }
 
     // Clean up any stale files
     if (existsSync(pidFile)) unlinkSync(pidFile);
@@ -486,6 +519,16 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
       // Non-fatal
     }
 
+    // JSON output for successful stop
+    if (globalOptions.json) {
+      output.data({
+        status: 'stopped',
+        pid,
+        port,
+      });
+      return;
+    }
+
     output.print(`  ${output.statusDot('success')} Server stopped`);
   } catch (error) {
     if (error.code === 'ESRCH') {
@@ -524,6 +567,14 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
   const serverFile = join(vizzlyDir, 'server.json');
 
   if (!existsSync(pidFile)) {
+    // JSON output for not running
+    if (globalOptions.json) {
+      output.data({
+        running: false,
+        message: 'TDD server not running',
+      });
+      return;
+    }
     output.info('TDD server not running');
     return;
   }
@@ -543,15 +594,12 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
     const health = await checkServerHealth(serverInfo.port);
 
     if (health.running) {
-      let colors = output.getColors();
-
-      // Show header
-      output.header('tdd', 'local');
-
-      // Show running status with uptime
+      // Calculate uptime
+      let uptimeMs = null;
       let uptimeStr = '';
       if (serverInfo.startTime) {
-        const uptime = Math.floor((Date.now() - serverInfo.startTime) / 1000);
+        uptimeMs = Date.now() - serverInfo.startTime;
+        const uptime = Math.floor(uptimeMs / 1000);
         const hours = Math.floor(uptime / 3600);
         const minutes = Math.floor((uptime % 3600) / 60);
         const seconds = uptime % 60;
@@ -560,13 +608,33 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
         uptimeStr += `${seconds}s`;
       }
 
+      let dashboardUrl = `http://localhost:${serverInfo.port}`;
+
+      // JSON output for running status
+      if (globalOptions.json) {
+        output.data({
+          running: true,
+          port: serverInfo.port,
+          pid,
+          uptimeMs,
+          uptime: uptimeStr || null,
+          dashboardUrl,
+        });
+        return;
+      }
+
+      let colors = output.getColors();
+
+      // Show header
+      output.header('tdd', 'local');
+
+      // Show running status with uptime
       output.print(
         `  ${output.statusDot('success')} Running ${uptimeStr ? colors.brand.textTertiary(`· ${uptimeStr}`) : ''}`
       );
       output.blank();
 
       // Show dashboard URL in a branded box
-      let dashboardUrl = `http://localhost:${serverInfo.port}`;
       output.printBox(colors.brand.info(colors.underline(dashboardUrl)), {
         title: 'Dashboard',
         style: 'branded',
@@ -673,7 +741,7 @@ export async function tddListCommand(_options, globalOptions = {}) {
 
   // JSON output
   if (globalOptions.json) {
-    console.log(JSON.stringify({ servers }, null, 2));
+    output.data({ servers });
     return;
   }
 

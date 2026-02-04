@@ -377,9 +377,6 @@ Raw API access for advanced use cases:
 # GET request
 vizzly api /sdk/builds --json
 
-# POST request with body
-vizzly api /sdk/builds -X POST -d '{"name":"Test"}' --json
-
 # Add query parameters
 vizzly api /sdk/builds -q limit=10 -q branch=main --json
 ```

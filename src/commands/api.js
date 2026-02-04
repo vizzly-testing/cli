@@ -49,6 +49,23 @@ export async function apiCommand(endpoint, options = {}, globalOptions = {}, dep
 
     // Build request options
     let method = (options.method || 'GET').toUpperCase();
+
+    // Validate method and endpoint combination
+    if (method === 'POST' && !isAllowedPostEndpoint(normalizedEndpoint)) {
+      output.error(
+        `POST not allowed for ${normalizedEndpoint}. Only approve, reject, and comment endpoints support POST.`
+      );
+      output.hint('Use GET for queries, or use dedicated commands (vizzly approve, vizzly reject, vizzly comment)');
+      exit(1);
+      return;
+    }
+
+    if (method !== 'GET' && method !== 'POST') {
+      output.error(`Method ${method} not allowed. Use GET for queries.`);
+      exit(1);
+      return;
+    }
+
     let requestOptions = { method };
 
     // Add headers
@@ -150,6 +167,23 @@ export async function apiCommand(endpoint, options = {}, globalOptions = {}, dep
 }
 
 /**
+ * Allowed POST endpoints (whitelist for mutations)
+ * Most mutations should use dedicated commands, but these are allowed for raw API access
+ */
+const ALLOWED_POST_ENDPOINTS = [
+  /^\/api\/sdk\/comparisons\/[^/]+\/approve$/,
+  /^\/api\/sdk\/comparisons\/[^/]+\/reject$/,
+  /^\/api\/sdk\/builds\/[^/]+\/comments$/,
+];
+
+/**
+ * Check if a POST endpoint is allowed
+ */
+function isAllowedPostEndpoint(endpoint) {
+  return ALLOWED_POST_ENDPOINTS.some(pattern => pattern.test(endpoint));
+}
+
+/**
  * Validate API command options
  */
 export function validateApiOptions(endpoint, options = {}) {
@@ -159,11 +193,12 @@ export function validateApiOptions(endpoint, options = {}) {
     errors.push('Endpoint is required');
   }
 
-  if (options.method) {
-    let validMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
-    if (!validMethods.includes(options.method.toUpperCase())) {
-      errors.push(`Invalid method: ${options.method}. Must be one of: ${validMethods.join(', ')}`);
-    }
+  let method = (options.method || 'GET').toUpperCase();
+
+  // Only GET is allowed by default
+  // POST is allowed only for whitelisted endpoints
+  if (method !== 'GET' && method !== 'POST') {
+    errors.push(`Method ${method} not allowed. Use GET for queries or POST for approve/reject/comment.`);
   }
 
   return errors;

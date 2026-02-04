@@ -24,6 +24,7 @@ import { comparisonsCommand, validateComparisonsOptions } from './commands/compa
 import { configCommand, validateConfigOptions } from './commands/config-cmd.js';
 import { baselinesCommand, validateBaselinesOptions } from './commands/baselines.js';
 import { apiCommand, validateApiOptions } from './commands/api.js';
+import { approveCommand, rejectCommand, commentCommand } from './commands/review.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
 import {
   runDaemonChild,
@@ -91,6 +92,7 @@ const formatHelp = (cmd, helper) => {
           title: 'Core',
           names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview', 'builds', 'comparisons'],
         },
+        { key: 'review', icon: '▸', title: 'Review', names: ['approve', 'reject', 'comment'] },
         { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor', 'config', 'baselines'] },
         { key: 'advanced', icon: '▸', title: 'Advanced', names: ['api'] },
         {
@@ -681,7 +683,7 @@ program
   .command('api')
   .description('Make raw API requests (for power users)')
   .argument('<endpoint>', 'API endpoint (e.g., /sdk/builds)')
-  .option('-X, --method <method>', 'HTTP method (GET, POST, PUT, DELETE)', 'GET')
+  .option('-X, --method <method>', 'HTTP method (GET or POST for approve/reject/comment)', 'GET')
   .option('-d, --data <json>', 'Request body (JSON)')
   .option('-H, --header <header>', 'Add header (key:value), can be repeated', (val, prev) => (prev ? [...prev, val] : [val]))
   .option('-q, --query <param>', 'Add query param (key=value), can be repeated', (val, prev) => (prev ? [...prev, val] : [val]))
@@ -699,6 +701,37 @@ program
     }
 
     await apiCommand(endpoint, options, globalOptions);
+  });
+
+program
+  .command('approve')
+  .description('Approve a comparison')
+  .argument('<comparison-id>', 'Comparison ID to approve')
+  .option('-m, --comment <message>', 'Optional comment explaining the approval')
+  .action(async (comparisonId, options) => {
+    const globalOptions = program.opts();
+    await approveCommand(comparisonId, options, globalOptions);
+  });
+
+program
+  .command('reject')
+  .description('Reject a comparison')
+  .argument('<comparison-id>', 'Comparison ID to reject')
+  .option('-r, --reason <message>', 'Required reason for rejection')
+  .action(async (comparisonId, options) => {
+    const globalOptions = program.opts();
+    await rejectCommand(comparisonId, options, globalOptions);
+  });
+
+program
+  .command('comment')
+  .description('Add a comment to a build')
+  .argument('<build-id>', 'Build ID to comment on')
+  .argument('<message>', 'Comment message')
+  .option('-t, --type <type>', 'Comment type: general, approval, rejection', 'general')
+  .action(async (buildId, message, options) => {
+    const globalOptions = program.opts();
+    await commentCommand(buildId, message, options, globalOptions);
   });
 
 program

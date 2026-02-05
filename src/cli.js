@@ -148,6 +148,7 @@ const formatHelp = (cmd, helper) => {
 
       let grouped = {
         core: [],
+        review: [],
         setup: [],
         advanced: [],
         auth: [],
@@ -646,6 +647,18 @@ program
   )
   .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
   .option('--comparisons', 'Include comparisons when fetching a specific build')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly builds                          # List recent builds
+  $ vizzly builds --branch main            # Filter by branch
+  $ vizzly builds --status completed       # Filter by status
+  $ vizzly builds -b abc123-def456         # Get specific build by ID
+  $ vizzly builds -b abc123 --comparisons  # Include comparisons
+  $ vizzly builds --json                   # Output as JSON for scripting
+`
+  )
   .action(async options => {
     const globalOptions = program.opts();
 
@@ -677,6 +690,18 @@ program
     50
   )
   .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly comparisons -b abc123           # List comparisons for a build
+  $ vizzly comparisons --id def456         # Get specific comparison by ID
+  $ vizzly comparisons --name "Button"     # Search by screenshot name
+  $ vizzly comparisons --name "Login*"     # Wildcard search
+  $ vizzly comparisons --status changed    # Only changed comparisons
+  $ vizzly comparisons --json              # Output as JSON for scripting
+`
+  )
   .action(async options => {
     const globalOptions = program.opts();
 
@@ -721,6 +746,18 @@ program
   .description('List and query local TDD baselines')
   .option('--name <pattern>', 'Filter baselines by name (supports wildcards)')
   .option('--info <name>', 'Get detailed info for a specific baseline')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly baselines                       # List all local baselines
+  $ vizzly baselines --name "Button*"      # Filter by name pattern
+  $ vizzly baselines --info "homepage"     # Get details for specific baseline
+  $ vizzly baselines --json                # Output as JSON for scripting
+
+Note: Baselines are stored locally in .vizzly/baselines/ during TDD mode.
+`
+  )
   .action(async options => {
     const globalOptions = program.opts();
 
@@ -740,7 +777,7 @@ program
 program
   .command('api')
   .description('Make raw API requests (for power users)')
-  .argument('<endpoint>', 'API endpoint (e.g., /sdk/builds)')
+  .argument('<endpoint>', 'API endpoint (e.g., /api/sdk/builds)')
   .option(
     '-X, --method <method>',
     'HTTP method (GET or POST for approve/reject/comment)',
@@ -756,6 +793,20 @@ program
     '-q, --query <param>',
     'Add query param (key=value), can be repeated',
     (val, prev) => (prev ? [...prev, val] : [val])
+  )
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly api /api/sdk/builds                    # List builds
+  $ vizzly api /api/sdk/builds -q limit=5         # With query params
+  $ vizzly api /api/sdk/builds/abc123             # Get specific build
+  $ vizzly api /api/sdk/comparisons/abc123/approve -X POST
+  $ vizzly api /api/sdk/builds/abc123/comments -X POST -d '{"content":"Nice!"}'
+
+Note: POST is restricted to approve, reject, and comment endpoints.
+Most operations have dedicated commands (builds, comparisons, approve, etc.).
+`
   )
   .action(async (endpoint, options) => {
     const globalOptions = program.opts();
@@ -776,8 +827,22 @@ program
 program
   .command('approve')
   .description('Approve a comparison')
-  .argument('<comparison-id>', 'Comparison ID to approve')
+  .argument('<comparison-id>', 'Comparison ID to approve (UUID format)')
   .option('-m, --comment <message>', 'Optional comment explaining the approval')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly approve abc123-def456-7890     # Approve a comparison
+  $ vizzly approve abc123 -m "LGTM"       # Approve with comment
+  $ vizzly approve abc123 --json          # Output as JSON for scripting
+
+Workflow:
+  1. List comparisons: vizzly comparisons -b <build-id>
+  2. Review the changes in the web UI or via URLs in the output
+  3. Approve: vizzly approve <comparison-id>
+`
+  )
   .action(async (comparisonId, options) => {
     const globalOptions = program.opts();
 
@@ -796,8 +861,22 @@ program
 program
   .command('reject')
   .description('Reject a comparison')
-  .argument('<comparison-id>', 'Comparison ID to reject')
+  .argument('<comparison-id>', 'Comparison ID to reject (UUID format)')
   .option('-r, --reason <message>', 'Required reason for rejection')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly reject abc123 -r "Button color is wrong"
+  $ vizzly reject abc123 --reason "Needs design review"
+  $ vizzly reject abc123 -r "Regression" --json
+
+Workflow:
+  1. List comparisons: vizzly comparisons -b <build-id>
+  2. Review the changes in the web UI or via URLs in the output
+  3. Reject with reason: vizzly reject <comparison-id> -r "reason"
+`
+  )
   .action(async (comparisonId, options) => {
     const globalOptions = program.opts();
 
@@ -816,12 +895,26 @@ program
 program
   .command('comment')
   .description('Add a comment to a build')
-  .argument('<build-id>', 'Build ID to comment on')
+  .argument('<build-id>', 'Build ID to comment on (UUID format)')
   .argument('<message>', 'Comment message')
   .option(
     '-t, --type <type>',
     'Comment type: general, approval, rejection',
     'general'
+  )
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly comment abc123 "Looks good overall"
+  $ vizzly comment abc123 "Approved" -t approval
+  $ vizzly comment abc123 "Please fix the header" -t rejection
+  $ vizzly comment abc123 "CI feedback" --json
+
+Workflow:
+  1. Get build ID: vizzly builds --branch main
+  2. Add comment: vizzly comment <build-id> "Your message"
+`
   )
   .action(async (buildId, message, options) => {
     const globalOptions = program.opts();

@@ -7,7 +7,7 @@ import {
   getBuildName,
   getParallelId,
 } from './environment-config.js';
-import { getProjectMapping } from './global-config.js';
+import { getAccessToken, getProjectMapping } from './global-config.js';
 import * as output from './output.js';
 
 const DEFAULT_CONFIG = {
@@ -130,6 +130,18 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   applyCLIOverrides(config, cliOverrides);
+
+  // 6. Fall back to user auth token if no other token found
+  // This enables interactive commands (builds, comparisons, approve, etc.)
+  // to work without a project token when the user is logged in
+  if (!config.apiKey) {
+    let userToken = await getAccessToken();
+    if (userToken) {
+      config.apiKey = userToken;
+      config.isUserAuth = true; // Flag to indicate this is user auth, not project token
+      output.debug('config', 'using token from user login');
+    }
+  }
 
   return config;
 }

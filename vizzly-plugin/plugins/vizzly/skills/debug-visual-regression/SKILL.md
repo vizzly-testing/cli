@@ -95,8 +95,8 @@ Based on what you observe, suggest likely causes:
 **If the change is intentional:**
 Explain that they can accept the new baseline:
 - Via the TDD dashboard at `http://localhost:47392`
-- Via CLI: `vizzly approve <comparison-id>` (for cloud builds)
-- Or by copying the file: `cp .vizzly/current/<name>.png .vizzly/baselines/<name>.png` (local TDD)
+- Via CLI (cloud): `vizzly comparisons -b <build-id>` to find ID, then `vizzly approve <id>`
+- Via file copy (local TDD): `cp .vizzly/current/<name>.png .vizzly/baselines/<name>.png`
 
 **If the change is unintentional:**
 Help them investigate:
@@ -136,7 +136,7 @@ Run: `git diff HEAD~3 -- "*.css" | grep -A5 -B5 "header\|nav"`
 **If intentional:**
 Accept the new baseline:
 - TDD dashboard at `http://localhost:47392`
-- Cloud build: `vizzly approve <comparison-id>`
+- Cloud: `vizzly comparisons -b <build-id>` → `vizzly approve <id>`
 - Local TDD: `cp .vizzly/current/homepage.png .vizzly/baselines/homepage.png`
 ```
 

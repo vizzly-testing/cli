@@ -138,16 +138,16 @@ The TDD server doesn't appear to be running. To start visual testing:
 
 You can also run CLI commands to get status:
 
-**For local TDD:**
+**For local TDD:** (use when running `vizzly tdd start`)
 ```bash
 vizzly tdd status         # Show current test status
 vizzly baselines          # List and query baselines
 ```
 
-**For cloud builds:**
+**For cloud builds:** (use when running `vizzly run` in CI)
 ```bash
-vizzly status <build-id>  # Check specific build status
-vizzly builds             # List recent builds
+vizzly status <build-id>  # Check specific build status (build ID from CI output)
+vizzly builds             # List recent builds to find build IDs
 vizzly comparisons        # Query and search comparisons
 ```
 

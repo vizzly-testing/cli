@@ -92,9 +92,12 @@ vizzly comparisons            # Query and search comparisons
 
 **Review Commands (approve/reject visual changes):**
 ```bash
-vizzly approve <comparison-id>  # Approve a comparison
-vizzly reject <comparison-id>   # Reject a comparison
-vizzly comment <build-id> "msg" # Add a comment to a build
+vizzly comparisons -b <build-id>                     # List comparisons for a build
+vizzly comparisons --name "Button*" --status changed # Search by name/status
+vizzly approve <comparison-id>                       # Approve a comparison
+vizzly approve <comparison-id> -m "LGTM"             # Approve with comment
+vizzly reject <comparison-id> -r "reason"            # Reject (reason required)
+vizzly comment <build-id> "message"                  # Add comment to a build
 ```
 
 **Project Setup:**
@@ -155,8 +158,9 @@ When a screenshot changes intentionally, you need to accept it as the new baseli
 
 **Via CLI (Cloud builds):**
 ```bash
-vizzly approve <comparison-id>  # Approve a specific comparison
-vizzly reject <comparison-id>   # Reject a specific comparison
+vizzly comparisons -b <build-id>          # List comparisons for a build
+vizzly approve <comparison-id>            # Approve a comparison
+vizzly reject <comparison-id> -r "reason" # Reject (reason required)
 ```
 
 **Via File Operations (Local TDD):**

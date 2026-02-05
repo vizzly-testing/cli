@@ -101,6 +101,7 @@ export async function approveCommand(
     }
 
     output.error('Failed to approve comparison', error);
+    output.cleanup();
     exit(1);
   }
 }
@@ -198,6 +199,7 @@ export async function rejectCommand(
     }
 
     output.error('Failed to reject comparison', error);
+    output.cleanup();
     exit(1);
   }
 }
@@ -298,6 +300,7 @@ export async function commentCommand(
     }
 
     output.error('Failed to add comment', error);
+    output.cleanup();
     exit(1);
   }
 }

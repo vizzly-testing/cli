@@ -129,6 +129,7 @@ function setNestedValue(obj, path, value) {
 /**
  * Select specific fields from an object
  * Supports dot notation for nested fields (e.g., "comparisons.total")
+ * Warns in debug mode when requested fields aren't found
  * @param {Object|Array} obj - Source object or array
  * @param {string[]} fields - Fields to select
  * @returns {Object|Array} Object with only selected fields
@@ -143,12 +144,26 @@ function selectFields(obj, fields) {
   }
 
   let result = {};
+  let missingFields = [];
+
   for (let field of fields) {
     let value = getNestedValue(obj, field);
     if (value !== undefined) {
       setNestedValue(result, field, value);
+    } else {
+      missingFields.push(field);
     }
   }
+
+  // Warn about missing fields in verbose mode
+  if (missingFields.length > 0 && shouldLog('debug')) {
+    console.error(
+      colors.dim(
+        `Note: Requested field(s) not found: ${missingFields.join(', ')}`
+      )
+    );
+  }
+
   return result;
 }
 

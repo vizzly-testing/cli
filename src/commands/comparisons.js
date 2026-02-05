@@ -178,6 +178,7 @@ export async function comparisonsCommand(
   } catch (error) {
     output.stopSpinner();
     output.error('Failed to fetch comparisons', error);
+    output.cleanup();
     exit(1);
   }
 }

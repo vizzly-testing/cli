@@ -146,6 +146,7 @@ export async function configCommand(
     output.cleanup();
   } catch (error) {
     output.error('Failed to load configuration', error);
+    output.cleanup();
     exit(1);
   }
 }

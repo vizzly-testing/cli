@@ -161,6 +161,7 @@ export async function buildsCommand(
   } catch (error) {
     output.stopSpinner();
     output.error('Failed to fetch builds', error);
+    output.cleanup();
     exit(1);
   }
 }

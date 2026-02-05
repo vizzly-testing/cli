@@ -176,6 +176,7 @@ export async function apiCommand(
     }
 
     output.error('API request failed', error);
+    output.cleanup();
     exit(1);
   }
 }

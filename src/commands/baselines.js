@@ -127,6 +127,7 @@ export async function baselinesCommand(
           return;
         }
         output.error(`Baseline "${options.info}" not found`);
+        output.cleanup();
         exit(1);
         return;
       }
@@ -287,6 +288,7 @@ export async function baselinesCommand(
     output.cleanup();
   } catch (error) {
     output.error('Failed to read baselines', error);
+    output.cleanup();
     exit(1);
   }
 }

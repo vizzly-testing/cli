@@ -26,6 +26,7 @@ export async function projectsCommand(options = {}, globalOptions = {}) {
       output.error(
         'API token required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
       );
+      output.cleanup();
       process.exit(1);
     }
 
@@ -103,6 +104,7 @@ export async function projectsCommand(options = {}, globalOptions = {}) {
   } catch (error) {
     output.stopSpinner();
     output.error('Failed to fetch projects', error);
+    output.cleanup();
     process.exit(1);
   }
 }

@@ -8,7 +8,6 @@ import {
   getBuilds as defaultGetBuilds,
 } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
-import { getApiUrl as defaultGetApiUrl } from '../utils/environment-config.js';
 import * as defaultOutput from '../utils/output.js';
 
 /**
@@ -27,7 +26,6 @@ export async function buildsCommand(
     createApiClient = defaultCreateApiClient,
     getBuilds = defaultGetBuilds,
     getBuild = defaultGetBuild,
-    getApiUrl = defaultGetApiUrl,
     output = defaultOutput,
     exit = code => process.exit(code),
   } = deps;
@@ -125,7 +123,6 @@ export async function buildsCommand(
     }
 
     let colors = output.getColors();
-    let _baseUrl = config.apiUrl || getApiUrl();
 
     for (let build of builds) {
       let statusColor = getStatusColor(colors, build.status);

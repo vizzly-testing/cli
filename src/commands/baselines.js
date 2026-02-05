@@ -90,14 +90,20 @@ export async function baselinesCommand(
         .filter(f => f.endsWith('.png'))
         .map(f => {
           let filePath = join(baselinesDir, f);
-          let stat = statSync(filePath);
-          return {
-            filename: f,
-            path: filePath,
-            size: stat.size,
-            modifiedAt: stat.mtime.toISOString(),
-          };
-        });
+          try {
+            let stat = statSync(filePath);
+            return {
+              filename: f,
+              path: filePath,
+              size: stat.size,
+              modifiedAt: stat.mtime.toISOString(),
+            };
+          } catch {
+            // File was deleted between readdir and stat, skip it
+            return null;
+          }
+        })
+        .filter(Boolean);
     }
 
     // Filter by name if provided

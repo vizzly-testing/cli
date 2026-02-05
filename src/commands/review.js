@@ -301,3 +301,58 @@ export async function commentCommand(
     exit(1);
   }
 }
+
+/**
+ * Validate approve command options
+ * @param {string} comparisonId - Comparison ID
+ * @param {Object} options - Command options
+ * @returns {string[]} Array of error messages
+ */
+export function validateApproveOptions(comparisonId, _options = {}) {
+  let errors = [];
+  if (!comparisonId || comparisonId.trim() === '') {
+    errors.push('Comparison ID is required');
+  }
+  return errors;
+}
+
+/**
+ * Validate reject command options
+ * @param {string} comparisonId - Comparison ID
+ * @param {Object} options - Command options
+ * @returns {string[]} Array of error messages
+ */
+export function validateRejectOptions(comparisonId, options = {}) {
+  let errors = [];
+  if (!comparisonId || comparisonId.trim() === '') {
+    errors.push('Comparison ID is required');
+  }
+  if (!options.reason || options.reason.trim() === '') {
+    errors.push('--reason is required when rejecting');
+  }
+  return errors;
+}
+
+/**
+ * Validate comment command options
+ * @param {string} buildId - Build ID
+ * @param {string} message - Comment message
+ * @param {Object} options - Command options
+ * @returns {string[]} Array of error messages
+ */
+export function validateCommentOptions(buildId, message, options = {}) {
+  let errors = [];
+  if (!buildId || buildId.trim() === '') {
+    errors.push('Build ID is required');
+  }
+  if (!message || message.trim() === '') {
+    errors.push('Comment message is required');
+  }
+  if (
+    options.type &&
+    !['general', 'approval', 'rejection'].includes(options.type)
+  ) {
+    errors.push('--type must be one of: general, approval, rejection');
+  }
+  return errors;
+}

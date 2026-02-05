@@ -32,6 +32,9 @@ import {
   approveCommand,
   commentCommand,
   rejectCommand,
+  validateApproveOptions,
+  validateCommentOptions,
+  validateRejectOptions,
 } from './commands/review.js';
 import { runCommand, validateRunOptions } from './commands/run.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
@@ -777,6 +780,16 @@ program
   .option('-m, --comment <message>', 'Optional comment explaining the approval')
   .action(async (comparisonId, options) => {
     const globalOptions = program.opts();
+
+    const validationErrors = validateApproveOptions(comparisonId, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
     await approveCommand(comparisonId, options, globalOptions);
   });
 
@@ -787,6 +800,16 @@ program
   .option('-r, --reason <message>', 'Required reason for rejection')
   .action(async (comparisonId, options) => {
     const globalOptions = program.opts();
+
+    const validationErrors = validateRejectOptions(comparisonId, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
     await rejectCommand(comparisonId, options, globalOptions);
   });
 
@@ -802,6 +825,16 @@ program
   )
   .action(async (buildId, message, options) => {
     const globalOptions = program.opts();
+
+    const validationErrors = validateCommentOptions(buildId, message, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
     await commentCommand(buildId, message, options, globalOptions);
   });
 

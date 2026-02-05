@@ -100,16 +100,18 @@ Check the project to determine which SDK to recommend:
 For local TDD mode, no token is needed!
 Just run: vizzly tdd start
 
-For cloud features, create a .env file:
-VIZZLY_TOKEN=your-api-token-here
+For cloud features, authenticate with your account:
+vizzly login
 
-Add .env to .gitignore
+Then select a project for your directory:
+vizzly project:select
 ```
 
 **For CI/CD:**
 
 ```
 Add VIZZLY_TOKEN as a secret in your CI provider.
+Get your project token with: vizzly project:token
 
 Example GitHub Actions:
 env:

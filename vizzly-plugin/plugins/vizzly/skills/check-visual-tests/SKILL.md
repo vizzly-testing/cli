@@ -134,15 +134,24 @@ The TDD server doesn't appear to be running. To start visual testing:
    http://localhost:47392
 ```
 
-## Alternative: CLI Status Command
+## Alternative: CLI Status Commands
 
-You can also run the CLI command to get status:
+You can also run CLI commands to get status:
 
+**For local TDD:**
 ```bash
-vizzly tdd status
+vizzly tdd status         # Show current test status
+vizzly baselines          # List and query baselines
 ```
 
-This shows the same information in the terminal.
+**For cloud builds:**
+```bash
+vizzly status <build-id>  # Check specific build status
+vizzly builds             # List recent builds
+vizzly comparisons        # Query and search comparisons
+```
+
+These commands show the same information in the terminal.
 
 ## Example Full Response
 

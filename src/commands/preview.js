@@ -672,11 +672,18 @@ export async function previewCommand(
         success: true,
         buildId,
         previewUrl: result.previewUrl,
-        files: result.uploaded,
-        totalBytes: result.totalBytes,
+        files: result.uploaded || fileCount,
+        bytes: totalSize,
+        compressedBytes: zipBuffer.length,
+        compressionRatio: parseFloat(compressionRatio) / 100,
         newBytes: result.newBytes,
+        reusedBlobs: result.reusedBlobs || 0,
         deduplicationRatio: result.deduplicationRatio,
+        basePath: result.basePath || null,
+        expiresAt: result.expiresAt || null,
       });
+      output.cleanup();
+      return { success: true, result };
     } else {
       output.complete('Preview uploaded');
       output.blank();

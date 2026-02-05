@@ -56,6 +56,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "cli": "source .envrc && node bin/vizzly.js",
     "start": "node src/index.js",
     "build": "npm run clean && npm run compile && npm run build:reporter && npm run build:reporter-ssr && npm run copy-types",
     "clean": "rimraf dist",

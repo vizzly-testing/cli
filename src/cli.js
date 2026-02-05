@@ -1,6 +1,17 @@
 #!/usr/bin/env node
 import 'dotenv/config';
 import { program } from 'commander';
+import { apiCommand, validateApiOptions } from './commands/api.js';
+import {
+  baselinesCommand,
+  validateBaselinesOptions,
+} from './commands/baselines.js';
+import { buildsCommand, validateBuildsOptions } from './commands/builds.js';
+import {
+  comparisonsCommand,
+  validateComparisonsOptions,
+} from './commands/comparisons.js';
+import { configCommand, validateConfigOptions } from './commands/config-cmd.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
   finalizeCommand,
@@ -9,6 +20,7 @@ import {
 import { init } from './commands/init.js';
 import { loginCommand, validateLoginOptions } from './commands/login.js';
 import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
+import { orgsCommand, validateOrgsOptions } from './commands/orgs.js';
 import { previewCommand, validatePreviewOptions } from './commands/preview.js';
 import {
   projectListCommand,
@@ -17,6 +29,18 @@ import {
   projectTokenCommand,
   validateProjectOptions,
 } from './commands/project.js';
+import {
+  projectsCommand,
+  validateProjectsOptions,
+} from './commands/projects.js';
+import {
+  approveCommand,
+  commentCommand,
+  rejectCommand,
+  validateApproveOptions,
+  validateCommentOptions,
+  validateRejectOptions,
+} from './commands/review.js';
 import { runCommand, validateRunOptions } from './commands/run.js';
 import { statusCommand, validateStatusOptions } from './commands/status.js';
 import { tddCommand, validateTddOptions } from './commands/tdd.js';
@@ -84,14 +108,35 @@ const formatHelp = (cmd, helper) => {
           key: 'core',
           icon: '▸',
           title: 'Core',
-          names: ['run', 'tdd', 'upload', 'status', 'finalize', 'preview'],
+          names: [
+            'run',
+            'tdd',
+            'upload',
+            'status',
+            'finalize',
+            'preview',
+            'builds',
+            'comparisons',
+          ],
         },
-        { key: 'setup', icon: '▸', title: 'Setup', names: ['init', 'doctor'] },
+        {
+          key: 'review',
+          icon: '▸',
+          title: 'Review',
+          names: ['approve', 'reject', 'comment'],
+        },
+        {
+          key: 'setup',
+          icon: '▸',
+          title: 'Setup',
+          names: ['init', 'doctor', 'config', 'baselines'],
+        },
+        { key: 'advanced', icon: '▸', title: 'Advanced', names: ['api'] },
         {
           key: 'auth',
           icon: '▸',
           title: 'Account',
-          names: ['login', 'logout', 'whoami'],
+          names: ['login', 'logout', 'whoami', 'orgs', 'projects'],
         },
         {
           key: 'project',
@@ -106,7 +151,15 @@ const formatHelp = (cmd, helper) => {
         },
       ];
 
-      let grouped = { core: [], setup: [], auth: [], project: [], other: [] };
+      let grouped = {
+        core: [],
+        review: [],
+        setup: [],
+        advanced: [],
+        auth: [],
+        project: [],
+        other: [],
+      };
 
       for (let command of commands) {
         let name = command.name();
@@ -235,7 +288,10 @@ program
     '--log-level <level>',
     'Log level: debug, info, warn, error (default: info, or VIZZLY_LOG_LEVEL env var)'
   )
-  .option('--json', 'Machine-readable output')
+  .option(
+    '--json [fields]',
+    'JSON output, optionally specify fields (e.g., --json id,status,branch)'
+  )
   .option('--color', 'Force colored output (even in non-TTY)')
   .option('--no-color', 'Disable colored output')
   .option(
@@ -249,6 +305,7 @@ program
 let configPath = null;
 let verboseMode = false;
 let logLevelArg = null;
+let jsonArg = null;
 for (let i = 0; i < process.argv.length; i++) {
   if (
     (process.argv[i] === '-c' || process.argv[i] === '--config') &&
@@ -261,6 +318,19 @@ for (let i = 0; i < process.argv.length; i++) {
   }
   if (process.argv[i] === '--log-level' && process.argv[i + 1]) {
     logLevelArg = process.argv[i + 1];
+  }
+  // Handle --json with optional field selection
+  // --json (no value) = true, --json=fields or --json fields = "fields"
+  if (process.argv[i] === '--json') {
+    let nextArg = process.argv[i + 1];
+    // If next arg exists and doesn't start with -, it's the fields value
+    if (nextArg && !nextArg.startsWith('-')) {
+      jsonArg = nextArg;
+    } else {
+      jsonArg = true;
+    }
+  } else if (process.argv[i].startsWith('--json=')) {
+    jsonArg = process.argv[i].substring('--json='.length);
   }
 }
 
@@ -277,7 +347,7 @@ output.configure({
   logLevel: logLevelArg,
   verbose: verboseMode,
   color: colorOverride,
-  json: process.argv.includes('--json'),
+  json: jsonArg,
 });
 
 const config = await loadConfig(configPath, {});
@@ -562,6 +632,377 @@ program
     }
 
     await statusCommand(buildId, options, globalOptions);
+  });
+
+program
+  .command('builds')
+  .description('List and query builds')
+  .option('-b, --build <id>', 'Get a specific build by ID')
+  .option('--branch <branch>', 'Filter by branch')
+  .option(
+    '--status <status>',
+    'Filter by status (created, pending, processing, completed, failed)'
+  )
+  .option('--environment <env>', 'Filter by environment')
+  .option(
+    '--limit <n>',
+    'Maximum results to return (1-250)',
+    val => parseInt(val, 10),
+    20
+  )
+  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .option('--comparisons', 'Include comparisons when fetching a specific build')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly builds                          # List recent builds
+  $ vizzly builds --branch main            # Filter by branch
+  $ vizzly builds --status completed       # Filter by status
+  $ vizzly builds -b abc123-def456         # Get specific build by ID
+  $ vizzly builds -b abc123 --comparisons  # Include comparisons
+  $ vizzly builds --json                   # Output as JSON for scripting
+`
+  )
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateBuildsOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await buildsCommand(options, globalOptions);
+  });
+
+program
+  .command('comparisons')
+  .description('Query and search comparisons')
+  .option('-b, --build <id>', 'Get comparisons for a specific build')
+  .option('--id <id>', 'Get a specific comparison by ID')
+  .option('--name <pattern>', 'Search comparisons by name (supports wildcards)')
+  .option('--status <status>', 'Filter by status (identical, new, changed)')
+  .option('--branch <branch>', 'Filter by branch (for name search)')
+  .option(
+    '--limit <n>',
+    'Maximum results to return (1-250)',
+    val => parseInt(val, 10),
+    50
+  )
+  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly comparisons -b abc123           # List comparisons for a build
+  $ vizzly comparisons --id def456         # Get specific comparison by ID
+  $ vizzly comparisons --name "Button"     # Search by screenshot name
+  $ vizzly comparisons --name "Login*"     # Wildcard search
+  $ vizzly comparisons --status changed    # Only changed comparisons
+  $ vizzly comparisons --json              # Output as JSON for scripting
+`
+  )
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateComparisonsOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await comparisonsCommand(options, globalOptions);
+  });
+
+program
+  .command('config')
+  .description('Display current configuration')
+  .argument(
+    '[key]',
+    'Specific config key to get (dot notation, e.g., comparison.threshold)'
+  )
+  .action(async (key, options) => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateConfigOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await configCommand(key, options, globalOptions);
+  });
+
+program
+  .command('baselines')
+  .description('List and query local TDD baselines')
+  .option('--name <pattern>', 'Filter baselines by name (supports wildcards)')
+  .option('--info <name>', 'Get detailed info for a specific baseline')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly baselines                       # List all local baselines
+  $ vizzly baselines --name "Button*"      # Filter by name pattern
+  $ vizzly baselines --info "homepage"     # Get details for specific baseline
+  $ vizzly baselines --json                # Output as JSON for scripting
+
+Note: Baselines are stored locally in .vizzly/baselines/ during TDD mode.
+`
+  )
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateBaselinesOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await baselinesCommand(options, globalOptions);
+  });
+
+program
+  .command('api')
+  .description('Make raw API requests (for power users)')
+  .argument('<endpoint>', 'API endpoint (e.g., /api/sdk/builds)')
+  .option(
+    '-X, --method <method>',
+    'HTTP method (GET or POST for approve/reject/comment)',
+    'GET'
+  )
+  .option('-d, --data <json>', 'Request body (JSON)')
+  .option(
+    '-H, --header <header>',
+    'Add header (key:value), can be repeated',
+    (val, prev) => (prev ? [...prev, val] : [val])
+  )
+  .option(
+    '-q, --query <param>',
+    'Add query param (key=value), can be repeated',
+    (val, prev) => (prev ? [...prev, val] : [val])
+  )
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly api /api/sdk/builds                    # List builds
+  $ vizzly api /api/sdk/builds -q limit=5         # With query params
+  $ vizzly api /api/sdk/builds/abc123             # Get specific build
+  $ vizzly api /api/sdk/comparisons/abc123/approve -X POST
+  $ vizzly api /api/sdk/builds/abc123/comments -X POST -d '{"content":"Nice!"}'
+
+Note: POST is restricted to approve, reject, and comment endpoints.
+Most operations have dedicated commands (builds, comparisons, approve, etc.).
+`
+  )
+  .action(async (endpoint, options) => {
+    const globalOptions = program.opts();
+
+    // Validate options
+    const validationErrors = validateApiOptions(endpoint, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await apiCommand(endpoint, options, globalOptions);
+  });
+
+program
+  .command('approve')
+  .description('Approve a comparison')
+  .argument('<comparison-id>', 'Comparison ID to approve (UUID format)')
+  .option('-m, --comment <message>', 'Optional comment explaining the approval')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly approve abc123-def456-7890     # Approve a comparison
+  $ vizzly approve abc123 -m "LGTM"       # Approve with comment
+  $ vizzly approve abc123 --json          # Output as JSON for scripting
+
+Workflow:
+  1. List comparisons: vizzly comparisons -b <build-id>
+  2. Review the changes in the web UI or via URLs in the output
+  3. Approve: vizzly approve <comparison-id>
+`
+  )
+  .action(async (comparisonId, options) => {
+    const globalOptions = program.opts();
+
+    const validationErrors = validateApproveOptions(comparisonId, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await approveCommand(comparisonId, options, globalOptions);
+  });
+
+program
+  .command('reject')
+  .description('Reject a comparison')
+  .argument('<comparison-id>', 'Comparison ID to reject (UUID format)')
+  .option('-r, --reason <message>', 'Required reason for rejection')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly reject abc123 -r "Button color is wrong"
+  $ vizzly reject abc123 --reason "Needs design review"
+  $ vizzly reject abc123 -r "Regression" --json
+
+Workflow:
+  1. List comparisons: vizzly comparisons -b <build-id>
+  2. Review the changes in the web UI or via URLs in the output
+  3. Reject with reason: vizzly reject <comparison-id> -r "reason"
+`
+  )
+  .action(async (comparisonId, options) => {
+    const globalOptions = program.opts();
+
+    const validationErrors = validateRejectOptions(comparisonId, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await rejectCommand(comparisonId, options, globalOptions);
+  });
+
+program
+  .command('comment')
+  .description('Add a comment to a build')
+  .argument('<build-id>', 'Build ID to comment on (UUID format)')
+  .argument('<message>', 'Comment message')
+  .option(
+    '-t, --type <type>',
+    'Comment type: general, approval, rejection',
+    'general'
+  )
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly comment abc123 "Looks good overall"
+  $ vizzly comment abc123 "Approved" -t approval
+  $ vizzly comment abc123 "Please fix the header" -t rejection
+  $ vizzly comment abc123 "CI feedback" --json
+
+Workflow:
+  1. Get build ID: vizzly builds --branch main
+  2. Add comment: vizzly comment <build-id> "Your message"
+`
+  )
+  .action(async (buildId, message, options) => {
+    const globalOptions = program.opts();
+
+    const validationErrors = validateCommentOptions(buildId, message, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await commentCommand(buildId, message, options, globalOptions);
+  });
+
+program
+  .command('orgs')
+  .description('List organizations you have access to')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly orgs                            # List all organizations
+  $ vizzly orgs --json                     # Output as JSON for scripting
+
+Note: Shows organizations from your user account (via vizzly login)
+or the single organization for a project token.
+`
+  )
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    const validationErrors = validateOrgsOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await orgsCommand(options, globalOptions);
+  });
+
+program
+  .command('projects')
+  .description('List projects you have access to')
+  .option('--org <slug>', 'Filter by organization slug')
+  .option(
+    '--limit <n>',
+    'Maximum results to return (1-250)',
+    val => parseInt(val, 10),
+    50
+  )
+  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly projects                        # List all projects
+  $ vizzly projects --org my-company       # Filter by organization
+  $ vizzly projects --json                 # Output as JSON for scripting
+
+Workflow:
+  1. List orgs: vizzly orgs
+  2. List projects: vizzly projects --org <org-slug>
+  3. Query builds: vizzly builds
+`
+  )
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    const validationErrors = validateProjectsOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await projectsCommand(options, globalOptions);
   });
 
 program

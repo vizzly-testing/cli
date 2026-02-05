@@ -16,27 +16,54 @@ export class InitCommand {
   }
 
   async run(options = {}) {
-    output.header('init');
+    // Check for existing config
+    let configPath = path.join(process.cwd(), 'vizzly.config.js');
+    let hasConfig = await this.fileExists(configPath);
 
-    try {
-      // Check for existing config
-      let configPath = path.join(process.cwd(), 'vizzly.config.js');
-      let hasConfig = await this.fileExists(configPath);
-
-      if (hasConfig && !options.force) {
-        output.warn('A vizzly.config.js file already exists');
-        output.hint('Use --force to overwrite');
-        return;
+    if (hasConfig && !options.force) {
+      // JSON output for skipped
+      if (options.json) {
+        output.data({
+          status: 'skipped',
+          reason: 'config_exists',
+          configPath,
+          message:
+            'A vizzly.config.js file already exists. Use --force to overwrite.',
+        });
+        return { status: 'skipped', configPath };
       }
 
+      output.header('init');
+      output.warn('A vizzly.config.js file already exists');
+      output.hint('Use --force to overwrite');
+      return { status: 'skipped', configPath };
+    }
+
+    try {
       // Generate config file with defaults
-      await this.generateConfigFile(configPath);
+      await this.generateConfigFile(configPath, options);
+
+      // Get plugins with config for JSON output
+      let pluginsWithConfig = this.plugins.filter(p => p.configSchema);
+      let pluginNames = pluginsWithConfig.map(p => p.name);
+
+      // JSON output for success
+      if (options.json) {
+        output.data({
+          status: 'created',
+          configPath,
+          plugins: pluginNames,
+        });
+        return { status: 'created', configPath, plugins: pluginNames };
+      }
 
       // Show next steps
       this.showNextSteps();
 
       output.blank();
       output.complete('Vizzly CLI setup complete');
+
+      return { status: 'created', configPath, plugins: pluginNames };
     } catch (error) {
       throw new VizzlyError(
         'Failed to initialize Vizzly configuration',
@@ -46,7 +73,7 @@ export class InitCommand {
     }
   }
 
-  async generateConfigFile(configPath) {
+  async generateConfigFile(configPath, options = {}) {
     let coreConfig = `export default {
   // Server configuration (for run command)
   server: {
@@ -86,6 +113,11 @@ export class InitCommand {
     coreConfig += '\n};\n';
 
     await fs.writeFile(configPath, coreConfig, 'utf8');
+
+    // Skip human-readable output in JSON mode
+    if (options.json) return;
+
+    output.header('init');
     output.complete('Created vizzly.config.js');
 
     // Log discovered plugins

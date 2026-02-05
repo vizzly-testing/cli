@@ -203,6 +203,40 @@ export async function uploadCommand(
       }
     }
 
+    // JSON output mode
+    if (globalOptions.json) {
+      let executionTimeMs = Date.now() - uploadStartTime;
+      let buildUrl =
+        result.url ||
+        (result.buildId
+          ? await buildUrlConstructor(
+              result.buildId,
+              config.apiUrl,
+              config.apiKey,
+              deps
+            )
+          : null);
+
+      output.data({
+        buildId: result.buildId,
+        url: buildUrl,
+        stats: {
+          total: result.stats?.total || 0,
+          uploaded: result.stats?.uploaded || 0,
+          skipped: result.stats?.skipped || 0,
+          bytes: result.stats?.bytes || 0,
+        },
+        git: {
+          branch,
+          commit,
+          message,
+        },
+        executionTimeMs,
+      });
+      output.cleanup();
+      return { success: true, result };
+    }
+
     output.complete('Upload completed');
 
     // Show Vizzly summary
@@ -232,6 +266,47 @@ export async function uploadCommand(
       let buildResult = await uploader.waitForBuild(result.buildId);
 
       output.stopSpinner();
+
+      // JSON output for --wait mode
+      if (globalOptions.json) {
+        let executionTimeMs = Date.now() - uploadStartTime;
+        let waitBuildUrl =
+          buildResult.url ||
+          (await buildUrlConstructor(
+            result.buildId,
+            config.apiUrl,
+            config.apiKey,
+            deps
+          ));
+
+        output.data({
+          buildId: result.buildId,
+          status: buildResult.failedComparisons > 0 ? 'failed' : 'completed',
+          url: waitBuildUrl,
+          stats: {
+            total: result.stats?.total || 0,
+            uploaded: result.stats?.uploaded || 0,
+            skipped: result.stats?.skipped || 0,
+            bytes: result.stats?.bytes || 0,
+          },
+          git: {
+            branch,
+            commit,
+            message,
+          },
+          comparisons: {
+            total: buildResult.totalComparisons || 0,
+            passed: buildResult.passedComparisons || 0,
+            failed: buildResult.failedComparisons || 0,
+            new: buildResult.newComparisons || 0,
+          },
+          approvalStatus: buildResult.approvalStatus || 'pending',
+          executionTimeMs,
+        });
+        output.cleanup();
+        return { success: buildResult.failedComparisons === 0, result };
+      }
+
       output.complete('Build processing completed');
 
       // Show build processing results
@@ -266,10 +341,20 @@ export async function uploadCommand(
     // Don't fail CI for Vizzly infrastructure issues (5xx errors)
     let status = error.context?.status;
     if (status >= 500) {
-      output.warn(
-        'Vizzly API unavailable - upload skipped. Your tests still ran.'
-      );
-      output.cleanup();
+      if (globalOptions.json) {
+        output.data({
+          buildId: null,
+          status: 'skipped',
+          message: 'Vizzly API unavailable - upload skipped',
+          executionTimeMs: Date.now() - uploadStartTime,
+        });
+        output.cleanup();
+      } else {
+        output.warn(
+          'Vizzly API unavailable - upload skipped. Your tests still ran.'
+        );
+        output.cleanup();
+      }
       return { success: true, result: { skipped: true } };
     }
 
@@ -287,6 +372,25 @@ export async function uploadCommand(
         // Silent fail on cleanup
       }
     }
+
+    // JSON output for errors
+    if (globalOptions.json) {
+      output.data({
+        buildId: buildId || null,
+        status: 'failed',
+        error: {
+          code: error.code || 'UPLOAD_FAILED',
+          message: error?.getUserMessage
+            ? error.getUserMessage()
+            : error.message,
+        },
+        executionTimeMs: Date.now() - uploadStartTime,
+      });
+      output.cleanup();
+      exit(1);
+      return { success: false, error };
+    }
+
     // Use user-friendly error message if available
     let errorMessage = error?.getUserMessage
       ? error.getUserMessage()

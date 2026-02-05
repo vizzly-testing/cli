@@ -372,7 +372,7 @@ describe('previewCommand', () => {
 
     let result = await previewCommand(
       distDir,
-      { dryRun: true },
+      { dryRun: true, build: 'build-123' },
       {},
       {
         loadConfig: async () => ({
@@ -399,7 +399,7 @@ describe('previewCommand', () => {
 
     await previewCommand(
       distDir,
-      { dryRun: true },
+      { dryRun: true, build: 'build-123' },
       { json: true },
       {
         loadConfig: async () => ({
@@ -424,7 +424,7 @@ describe('previewCommand', () => {
 
     let result = await previewCommand(
       distDir,
-      { dryRun: true, exclude: ['*.js'] },
+      { dryRun: true, build: 'build-123', exclude: ['*.js'] },
       {},
       {
         loadConfig: async () => ({
@@ -452,7 +452,7 @@ describe('previewCommand', () => {
 
     let result = await previewCommand(
       distDir,
-      { dryRun: true, exclude: ['assets/'] },
+      { dryRun: true, build: 'build-123', exclude: ['assets/'] },
       {},
       {
         loadConfig: async () => ({
@@ -483,7 +483,7 @@ describe('previewCommand', () => {
 
     let result = await previewCommand(
       distDir,
-      { dryRun: true, include: ['package.json'] },
+      { dryRun: true, build: 'build-123', include: ['package.json'] },
       {},
       {
         loadConfig: async () => ({
@@ -516,7 +516,7 @@ describe('previewCommand', () => {
 
     let result = await previewCommand(
       distDir,
-      { dryRun: true },
+      { dryRun: true, build: 'build-123' },
       {},
       {
         loadConfig: async () => ({
@@ -544,7 +544,7 @@ describe('previewCommand', () => {
 
     let result = await previewCommand(
       distDir,
-      { dryRun: true },
+      { dryRun: true, build: 'build-123' },
       {},
       {
         loadConfig: async () => ({

@@ -140,6 +140,25 @@ export async function projectSelectCommand(options = {}, globalOptions = {}) {
       organizationSlug: selectedOrg.slug,
     });
 
+    // JSON output for success
+    if (globalOptions.json) {
+      output.data({
+        status: 'configured',
+        project: {
+          name: selectedProject.name,
+          slug: selectedProject.slug,
+        },
+        organization: {
+          name: selectedOrg.name,
+          slug: selectedOrg.slug,
+        },
+        directory: currentDir,
+        tokenCreated: true,
+      });
+      output.cleanup();
+      return;
+    }
+
     output.complete('Project configured');
     output.blank();
     output.keyValue({
@@ -172,9 +191,11 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
     let mappings = await getProjectMappings();
     let paths = Object.keys(mappings);
 
+    let currentDir = resolve(process.cwd());
+
     if (paths.length === 0) {
       if (globalOptions.json) {
-        output.data({});
+        output.data({ projects: [], current: null });
       } else {
         output.header('project:list');
         output.print('  No projects configured');
@@ -186,7 +207,21 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
     }
 
     if (globalOptions.json) {
-      output.data(mappings);
+      let projects = paths.map(path => {
+        let mapping = mappings[path];
+        return {
+          directory: path,
+          isCurrent: path === currentDir,
+          project: {
+            name: mapping.projectName,
+            slug: mapping.projectSlug,
+          },
+          organization: mapping.organizationSlug,
+          createdAt: mapping.createdAt,
+        };
+      });
+      let current = projects.find(p => p.isCurrent) || null;
+      output.data({ projects, current });
       output.cleanup();
       return;
     }
@@ -194,7 +229,6 @@ export async function projectListCommand(_options = {}, globalOptions = {}) {
     output.header('project:list');
 
     let colors = output.getColors();
-    let currentDir = resolve(process.cwd());
 
     for (let path of paths) {
       let mapping = mappings[path];
@@ -264,8 +298,13 @@ export async function projectTokenCommand(_options = {}, globalOptions = {}) {
     if (globalOptions.json) {
       output.data({
         token: tokenStr,
-        projectSlug: mapping.projectSlug,
-        organizationSlug: mapping.organizationSlug,
+        directory: currentDir,
+        project: {
+          name: mapping.projectName,
+          slug: mapping.projectSlug,
+        },
+        organization: mapping.organizationSlug,
+        createdAt: mapping.createdAt,
       });
       output.cleanup();
       return;
@@ -362,7 +401,23 @@ export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
       return;
     }
 
-    // Confirm removal
+    // In JSON mode, skip confirmation (for scripting)
+    if (globalOptions.json) {
+      await deleteProjectMapping(currentDir);
+      output.data({
+        removed: true,
+        directory: currentDir,
+        project: {
+          name: mapping.projectName,
+          slug: mapping.projectSlug,
+        },
+        organization: mapping.organizationSlug,
+      });
+      output.cleanup();
+      return;
+    }
+
+    // Confirm removal (interactive mode only)
     output.header('project:remove');
     output.labelValue('Current configuration', '');
     output.keyValue({
@@ -382,15 +437,9 @@ export async function projectRemoveCommand(_options = {}, globalOptions = {}) {
 
     await deleteProjectMapping(currentDir);
 
-    if (globalOptions.json) {
-      output.data({ removed: true });
-    } else {
-      output.complete('Project configuration removed');
-      output.blank();
-      output.hint(
-        'Run "vizzly project:select" to configure a different project'
-      );
-    }
+    output.complete('Project configuration removed');
+    output.blank();
+    output.hint('Run "vizzly project:select" to configure a different project');
 
     output.cleanup();
   } catch (error) {

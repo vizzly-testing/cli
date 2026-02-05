@@ -155,8 +155,6 @@ jobs:
       - name: Publish to npm
         working-directory: ./clients/vitest
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Read changelog for release
         id: release_notes

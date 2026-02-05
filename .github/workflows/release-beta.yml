@@ -88,6 +88,4 @@ jobs:
           prerelease: true
 
       - name: Publish to NPM
-        run: npm publish --tag ${{ github.event.inputs.prerelease_id }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public --tag ${{ github.event.inputs.prerelease_id }}

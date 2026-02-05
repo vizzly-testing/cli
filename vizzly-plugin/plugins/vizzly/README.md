@@ -88,14 +88,14 @@ The homepage screenshot is failing, can you help debug it?
 
 This plugin is **skills-first, not tools-first**.
 
-Instead of complex MCP servers, the plugin teaches Claude:
-- How to read `.vizzly/report-data.json` for test results
-- How to view screenshot images with the Read tool
-- How to run CLI commands like `vizzly tdd start`
-- When and where to add visual tests
-- Visual testing best practices
+The plugin teaches Claude how to work with Vizzly:
+- Read `.vizzly/report-data.json` for test results
+- View screenshot images with the Read tool
+- Run CLI commands like `vizzly tdd start`
+- Review and approve visual changes via the CLI
+- Understand visual testing best practices
 
-Claude uses its built-in capabilities (Read, Bash, etc.) - the plugin just provides the knowledge.
+Claude uses its built-in capabilities (Read, Bash, etc.) combined with the Vizzly CLI - the plugin provides the knowledge to use them effectively.
 
 ---
 

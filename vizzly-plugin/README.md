@@ -35,6 +35,14 @@ Then restart Claude Code.
 - `/vizzly:setup` - Initialize Vizzly in a project
 - `/vizzly:suggest-screenshots` - Analyze tests and suggest where to add visual screenshots
 
+### CLI Integration
+
+The plugin teaches Claude how to use the full Vizzly CLI:
+- TDD commands: `vizzly tdd start`, `vizzly tdd run`, `vizzly baselines`
+- Cloud commands: `vizzly run`, `vizzly status`, `vizzly builds`
+- Review commands: `vizzly approve`, `vizzly reject`, `vizzly comment`
+- Setup commands: `vizzly init`, `vizzly login`, `vizzly project:select`
+
 ## Structure
 
 ```

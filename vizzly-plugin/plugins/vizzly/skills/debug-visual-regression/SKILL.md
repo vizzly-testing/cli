@@ -94,8 +94,9 @@ Based on what you observe, suggest likely causes:
 
 **If the change is intentional:**
 Explain that they can accept the new baseline:
-- Via the dashboard at `http://localhost:47392`
-- Or by copying the file: `cp .vizzly/current/<name>.png .vizzly/baselines/<name>.png`
+- Via the TDD dashboard at `http://localhost:47392`
+- Via CLI (cloud): `vizzly comparisons -b <build-id>` to find ID, then `vizzly approve <id>`
+- Via file copy (local TDD): `cp .vizzly/current/<name>.png .vizzly/baselines/<name>.png`
 
 **If the change is unintentional:**
 Help them investigate:
@@ -133,8 +134,10 @@ Check recent changes to header styles:
 Run: `git diff HEAD~3 -- "*.css" | grep -A5 -B5 "header\|nav"`
 
 **If intentional:**
-Accept the new baseline via the dashboard or run:
-`cp .vizzly/current/homepage.png .vizzly/baselines/homepage.png`
+Accept the new baseline:
+- TDD dashboard at `http://localhost:47392`
+- Cloud: `vizzly comparisons -b <build-id>` → `vizzly approve <id>`
+- Local TDD: `cp .vizzly/current/homepage.png .vizzly/baselines/homepage.png`
 ```
 
 ## When TDD Server Isn't Running

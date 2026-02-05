@@ -71,26 +71,64 @@ This is the primary source of truth for test results. Read it to understand test
 
 ## CLI Commands
 
-**TDD Mode:**
+**TDD Mode (Local Development):**
 ```bash
 vizzly tdd start              # Start TDD server (background)
 vizzly tdd run "npm test"     # Run tests with ephemeral server
 vizzly tdd status             # Show current test status
 vizzly tdd stop               # Stop the TDD server
+vizzly baselines              # List and query local baselines
 ```
 
-**Cloud Mode:**
+**Cloud Mode (CI/CD):**
 ```bash
 vizzly run "npm test"         # Run tests and upload to cloud
 vizzly run "npm test" --wait  # Wait for cloud processing
+vizzly status <build-id>      # Check build status
+vizzly builds                 # List and query builds
 vizzly finalize <parallel-id> # Finalize parallel builds
+vizzly comparisons            # Query and search comparisons
+```
+
+**Review Commands (approve/reject visual changes):**
+```bash
+vizzly comparisons -b <build-id>                     # List comparisons for a build
+vizzly comparisons --name "Button*" --status changed # Search by name/status
+vizzly approve <comparison-id>                       # Approve a comparison
+vizzly approve <comparison-id> -m "LGTM"             # Approve with comment
+vizzly reject <comparison-id> -r "reason"            # Reject (reason required)
+vizzly comment <build-id> "message"                  # Add comment to a build
 ```
 
 **Project Setup:**
 ```bash
 vizzly init                   # Create vizzly.config.js
+vizzly config                 # Display current configuration
+vizzly doctor                 # Run diagnostics to check environment
+```
+
+**Account & Authentication:**
+```bash
 vizzly login                  # Authenticate with Vizzly cloud
-vizzly project link           # Link to a cloud project
+vizzly logout                 # Clear stored authentication tokens
+vizzly whoami                 # Show current auth status
+vizzly orgs                   # List organizations you have access to
+vizzly projects               # List projects you have access to
+```
+
+**Project Configuration:**
+```bash
+vizzly project:select         # Configure project for current directory
+vizzly project:list           # Show all configured projects
+vizzly project:token          # Show project token for current directory
+vizzly project:remove         # Remove project configuration
+```
+
+**Advanced:**
+```bash
+vizzly api <method> <endpoint>  # Make raw API requests
+vizzly upload                   # Upload screenshots directly
+vizzly preview                  # Upload static files as preview
 ```
 
 ## Taking Screenshots in Tests
@@ -113,12 +151,19 @@ await vizzlyScreenshot('homepage', await page.screenshot(), {
 
 When a screenshot changes intentionally, you need to accept it as the new baseline:
 
-**Via Dashboard:**
+**Via TDD Dashboard (Local):**
 1. Open `http://localhost:47392`
 2. Review the visual diff
 3. Click "Accept" on screenshots you want to update
 
-**Via File Operations:**
+**Via CLI (Cloud builds):**
+```bash
+vizzly comparisons -b <build-id>          # List comparisons for a build
+vizzly approve <comparison-id>            # Approve a comparison
+vizzly reject <comparison-id> -r "reason" # Reject (reason required)
+```
+
+**Via File Operations (Local TDD):**
 Copy the current screenshot to baselines:
 ```bash
 cp .vizzly/current/homepage.png .vizzly/baselines/homepage.png

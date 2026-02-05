@@ -1,7 +1,7 @@
 {
   "name": "vizzly",
-  "description": "Visual regression testing with Vizzly - debug failures, check test status, and learn visual testing best practices",
-  "version": "0.2.0",
+  "description": "Visual regression testing with Vizzly - debug failures, check test status, review changes, and learn visual testing best practices",
+  "version": "0.3.0",
   "author": {
     "name": "Vizzly Team",
     "url": "https://vizzly.dev"

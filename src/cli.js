@@ -20,6 +20,7 @@ import {
 import { init } from './commands/init.js';
 import { loginCommand, validateLoginOptions } from './commands/login.js';
 import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
+import { orgsCommand, validateOrgsOptions } from './commands/orgs.js';
 import { previewCommand, validatePreviewOptions } from './commands/preview.js';
 import {
   projectListCommand,
@@ -28,6 +29,10 @@ import {
   projectTokenCommand,
   validateProjectOptions,
 } from './commands/project.js';
+import {
+  projectsCommand,
+  validateProjectsOptions,
+} from './commands/projects.js';
 import {
   approveCommand,
   commentCommand,
@@ -131,7 +136,7 @@ const formatHelp = (cmd, helper) => {
           key: 'auth',
           icon: '▸',
           title: 'Account',
-          names: ['login', 'logout', 'whoami'],
+          names: ['login', 'logout', 'whoami', 'orgs', 'projects'],
         },
         {
           key: 'project',
@@ -929,6 +934,75 @@ Workflow:
     }
 
     await commentCommand(buildId, message, options, globalOptions);
+  });
+
+program
+  .command('orgs')
+  .description('List organizations you have access to')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly orgs                            # List all organizations
+  $ vizzly orgs --json                     # Output as JSON for scripting
+
+Note: Shows organizations from your user account (via vizzly login)
+or the single organization for a project token.
+`
+  )
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    const validationErrors = validateOrgsOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await orgsCommand(options, globalOptions);
+  });
+
+program
+  .command('projects')
+  .description('List projects you have access to')
+  .option('--org <slug>', 'Filter by organization slug')
+  .option(
+    '--limit <n>',
+    'Maximum results to return (1-250)',
+    val => parseInt(val, 10),
+    50
+  )
+  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly projects                        # List all projects
+  $ vizzly projects --org my-company       # Filter by organization
+  $ vizzly projects --json                 # Output as JSON for scripting
+
+Workflow:
+  1. List orgs: vizzly orgs
+  2. List projects: vizzly projects --org <org-slug>
+  3. Query builds: vizzly builds
+`
+  )
+  .action(async options => {
+    const globalOptions = program.opts();
+
+    const validationErrors = validateProjectsOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await projectsCommand(options, globalOptions);
   });
 
 program

@@ -5,6 +5,7 @@
 import { createApiClient } from '../api/client.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { getApiUrl } from '../utils/environment-config.js';
+import { getAccessToken } from '../utils/global-config.js';
 import * as output from '../utils/output.js';
 
 /**
@@ -22,7 +23,10 @@ export async function projectsCommand(options = {}, globalOptions = {}) {
   try {
     let config = await loadConfig(globalOptions.config, globalOptions);
 
-    if (!config.apiKey) {
+    // Prefer user auth token for listing projects — project-scoped tokens only see one org
+    let token = (await getAccessToken()) || config.apiKey;
+
+    if (!token) {
       output.error(
         'API token required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
       );
@@ -32,7 +36,7 @@ export async function projectsCommand(options = {}, globalOptions = {}) {
 
     let client = createApiClient({
       baseUrl: config.apiUrl || getApiUrl(),
-      token: config.apiKey,
+      token,
     });
 
     // Build query params

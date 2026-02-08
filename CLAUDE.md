@@ -51,7 +51,7 @@ npm run clean              # Remove dist directory
 npm run compile            # Babel compile src to dist
 npm run types              # Generate TypeScript declarations
 
-npm test                   # Run all tests once (vitest)
+npm test                   # Run all tests once (node --test)
 npm test:watch             # Run tests in watch mode
 npm run test:reporter      # Run Playwright visual regression tests for reporter UI
 npm run test:reporter:visual  # Self-test: run reporter tests with Vizzly
@@ -64,8 +64,8 @@ npm run format:check       # Prettier check
 
 ### Testing Specific Files/Patterns
 ```bash
-npx vitest run tests/unit/config-loader.spec.js    # Single test file
-npx vitest run tests/services/                      # Directory
+node --test tests/commands/builds.test.js           # Single test file
+node --test $(find tests/services -name '*.test.js') # Directory
 ```
 
 ### Reporter Development
@@ -198,7 +198,7 @@ The package provides multiple entry points for different use cases:
 
 ## Testing
 
-- **Vitest** for unit/integration tests (`npm test`)
+- **Node test runner** for unit/integration tests (`npm test`)
 - **Playwright** for reporter UI visual tests (`npm run test:reporter`)
 - Coverage thresholds: 75% lines/functions, 70% branches
 - Tests mirror `src/` structure in `tests/`

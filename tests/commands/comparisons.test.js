@@ -137,6 +137,28 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].summary.failed, 1);
     });
 
+    it('passes include as a string to getBuild, not an object', async () => {
+      let output = createMockOutput();
+      let capturedInclude = null;
+
+      await comparisonsCommand(
+        { build: 'build-1' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async (_client, _buildId, include) => {
+            capturedInclude = include;
+            return { build: { id: 'build-1', comparisons: [] } };
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedInclude, 'comparisons');
+    });
+
     it('searches comparisons by name', async () => {
       let output = createMockOutput();
       let capturedName = null;

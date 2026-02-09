@@ -60,7 +60,7 @@ export async function buildsCommand(
     if (options.build) {
       output.startSpinner('Fetching build...');
       let include = options.comparisons ? 'comparisons' : undefined;
-      let response = await getBuild(client, options.build, { include });
+      let response = await getBuild(client, options.build, include);
       output.stopSpinner();
 
       let build = response.build || response;

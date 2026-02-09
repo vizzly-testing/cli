@@ -78,9 +78,7 @@ export async function comparisonsCommand(
     // Get comparisons for a specific build
     if (options.build) {
       output.startSpinner('Fetching comparisons for build...');
-      let response = await getBuild(client, options.build, {
-        include: 'comparisons',
-      });
+      let response = await getBuild(client, options.build, 'comparisons');
       output.stopSpinner();
 
       let build = response.build || response;

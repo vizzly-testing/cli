@@ -144,6 +144,50 @@ describe('commands/builds', () => {
       assert.strictEqual(dataCall.args[0].id, 'build-1');
     });
 
+    it('passes include as a string to getBuild when --comparisons is set', async () => {
+      let output = createMockOutput();
+      let capturedInclude = null;
+
+      await buildsCommand(
+        { build: 'build-1', comparisons: true },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async (_client, _buildId, include) => {
+            capturedInclude = include;
+            return { build: { id: 'build-1', status: 'completed' } };
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedInclude, 'comparisons');
+    });
+
+    it('passes undefined include to getBuild when --comparisons is not set', async () => {
+      let output = createMockOutput();
+      let capturedInclude = 'NOT_CALLED';
+
+      await buildsCommand(
+        { build: 'build-1' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async (_client, _buildId, include) => {
+            capturedInclude = include;
+            return { build: { id: 'build-1', status: 'completed' } };
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedInclude, undefined);
+    });
+
     it('passes filters to API', async () => {
       let output = createMockOutput();
       let capturedFilters = null;

@@ -2,17 +2,32 @@
  * Projects command - List projects the user has access to
  */
 
-import { createApiClient } from '../api/client.js';
-import { loadConfig } from '../utils/config-loader.js';
-import { getApiUrl } from '../utils/environment-config.js';
-import * as output from '../utils/output.js';
+import { createApiClient as defaultCreateApiClient } from '../api/client.js';
+import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
+import { getApiUrl as defaultGetApiUrl } from '../utils/environment-config.js';
+import { getAccessToken as defaultGetAccessToken } from '../utils/global-config.js';
+import * as defaultOutput from '../utils/output.js';
 
 /**
  * Projects command implementation
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
  */
-export async function projectsCommand(options = {}, globalOptions = {}) {
+export async function projectsCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
+  let {
+    loadConfig = defaultLoadConfig,
+    createApiClient = defaultCreateApiClient,
+    getApiUrl = defaultGetApiUrl,
+    getAccessToken = defaultGetAccessToken,
+    output = defaultOutput,
+    exit = code => process.exit(code),
+  } = deps;
+
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -22,17 +37,22 @@ export async function projectsCommand(options = {}, globalOptions = {}) {
   try {
     let config = await loadConfig(globalOptions.config, globalOptions);
 
-    if (!config.apiKey) {
+    // Prefer user auth token for listing projects (project tokens are org-scoped).
+    // Falls back to config.apiKey which may be: VIZZLY_TOKEN, --token flag, or project token.
+    let token = (await getAccessToken()) || config.apiKey;
+
+    if (!token) {
       output.error(
         'API token required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
       );
       output.cleanup();
-      process.exit(1);
+      exit(1);
+      return;
     }
 
     let client = createApiClient({
       baseUrl: config.apiUrl || getApiUrl(),
-      token: config.apiKey,
+      token,
     });
 
     // Build query params
@@ -105,7 +125,7 @@ export async function projectsCommand(options = {}, globalOptions = {}) {
     output.stopSpinner();
     output.error('Failed to fetch projects', error);
     output.cleanup();
-    process.exit(1);
+    exit(1);
   }
 }
 

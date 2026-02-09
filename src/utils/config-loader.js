@@ -107,7 +107,6 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     let userToken = await getAccessToken();
     if (userToken) {
       config.apiKey = userToken;
-      config.isUserAuth = true; // Flag to indicate this is user auth, not project token
       output.debug('config', 'using token from user login');
     }
   }

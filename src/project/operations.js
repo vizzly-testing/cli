@@ -2,7 +2,6 @@
  * Project Operations - Project operations with dependency injection
  *
  * Each operation takes its dependencies as parameters:
- * - mappingStore: for reading/writing project mappings
  * - httpClient: for making API requests (OAuth or API token based)
  *
  * This makes them trivially testable without mocking modules.

@@ -239,9 +239,10 @@ function formatComparisonForJson(comparison) {
           clusterMetadata,
           fingerprintHash,
           diffRegions:
-            comparison.diff_regions || diffImage.diff_regions || null,
-          diffLines: comparison.diff_lines || null,
-          fingerprintData: comparison.fingerprint_data || null,
+            comparison.diff_regions ?? diffImage.diff_regions ?? null,
+          diffLines: comparison.diff_lines ?? diffImage.diff_lines ?? null,
+          fingerprintData:
+            comparison.fingerprint_data ?? diffImage.fingerprint_data ?? null,
         }
       : null,
     buildId: comparison.build_id,
@@ -303,7 +304,7 @@ function displayComparison(output, comparison, verbose) {
     let fingerprint =
       comparison.fingerprint_hash || comparison.diff_image?.fingerprint_hash;
 
-    if (clusterMetadata || ssim != null || gmsd != null) {
+    if (clusterMetadata || ssim != null || gmsd != null || fingerprint) {
       output.blank();
       if (clusterMetadata?.classification) {
         output.labelValue('Classification', clusterMetadata.classification);

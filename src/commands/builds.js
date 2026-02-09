@@ -233,7 +233,7 @@ function formatBuildForJson(build, includeComparisons = false) {
               clusterClassification: clusterMetadata?.classification || null,
               clusterMetadata,
               fingerprintHash,
-              diffRegions: c.diff_regions || diffImage.diff_regions || null,
+              diffRegions: c.diff_regions ?? diffImage.diff_regions ?? null,
             }
           : null,
       };

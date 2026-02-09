@@ -195,11 +195,14 @@ export async function hasValidTokens() {
 }
 
 /**
- * Get the access token from global config if available
+ * Get the access token from global config if valid and not expired
  * @returns {Promise<string|null>} Access token or null
  */
 export async function getAccessToken() {
-  const auth = await getAuthTokens();
+  let valid = await hasValidTokens();
+  if (!valid) return null;
+
+  let auth = await getAuthTokens();
   return auth?.accessToken || null;
 }
 

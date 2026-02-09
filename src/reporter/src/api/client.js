@@ -272,7 +272,7 @@ export const auth = {
 };
 
 /**
- * Projects API - Project mappings (local storage)
+ * Projects API - Project listing and builds
  */
 export const projects = {
   /**
@@ -281,54 +281,6 @@ export const projects = {
    */
   async list() {
     return fetchJson('/api/projects');
-  },
-
-  /**
-   * List project directory mappings
-   * @returns {Promise<Object>}
-   */
-  async listMappings() {
-    return fetchJson('/api/projects/mappings');
-  },
-
-  /**
-   * Create or update project mapping
-   * @param {Object} data
-   * @returns {Promise<Object>}
-   */
-  async createMapping(data) {
-    return fetchJson('/api/projects/mappings', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  /**
-   * Delete project mapping
-   * @param {string} directory
-   * @returns {Promise<Object>}
-   */
-  async deleteMapping(directory) {
-    return fetchJson(
-      `/api/projects/mappings/${encodeURIComponent(directory)}`,
-      {
-        method: 'DELETE',
-      }
-    );
-  },
-
-  /**
-   * Get recent builds for current project
-   * @param {Object} options
-   * @returns {Promise<Object>}
-   */
-  async getRecentBuilds(options = {}) {
-    const params = new URLSearchParams();
-    if (options.limit) params.append('limit', String(options.limit));
-    if (options.branch) params.append('branch', options.branch);
-
-    const query = params.toString();
-    return fetchJson(`/api/builds/recent${query ? `?${query}` : ''}`);
   },
 
   /**

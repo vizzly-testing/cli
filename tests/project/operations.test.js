@@ -1,166 +1,21 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import {
-  createMapping,
   createProjectToken,
-  getMapping,
   getProject,
   getProjectWithApiToken,
   getProjectWithOAuth,
   getRecentBuilds,
   getRecentBuildsWithApiToken,
   getRecentBuildsWithOAuth,
-  listMappings,
   listProjects,
   listProjectsWithApiToken,
   listProjectsWithOAuth,
   listProjectTokens,
-  removeMapping,
   revokeProjectToken,
-  switchProject,
 } from '../../src/project/operations.js';
 
 describe('project/operations', () => {
-  describe('listMappings', () => {
-    it('returns array of mappings with directory included', async () => {
-      let store = createMockMappingStore({
-        '/path/a': { projectSlug: 'proj-a', token: 'tok-a' },
-        '/path/b': { projectSlug: 'proj-b', token: 'tok-b' },
-      });
-
-      let result = await listMappings(store);
-
-      assert.strictEqual(result.length, 2);
-      assert.deepStrictEqual(result[0], {
-        directory: '/path/a',
-        projectSlug: 'proj-a',
-        token: 'tok-a',
-      });
-    });
-
-    it('returns empty array for no mappings', async () => {
-      let store = createMockMappingStore({});
-
-      let result = await listMappings(store);
-
-      assert.deepStrictEqual(result, []);
-    });
-  });
-
-  describe('getMapping', () => {
-    it('returns mapping for directory', async () => {
-      let store = createMockMappingStore({});
-      store.getMapping = async _dir => ({ projectSlug: 'proj', token: 'tok' });
-
-      let result = await getMapping(store, '/my/path');
-
-      assert.deepStrictEqual(result, { projectSlug: 'proj', token: 'tok' });
-    });
-
-    it('returns null for missing directory', async () => {
-      let store = createMockMappingStore({});
-      store.getMapping = async () => null;
-
-      let result = await getMapping(store, '/unknown');
-
-      assert.strictEqual(result, null);
-    });
-  });
-
-  describe('createMapping', () => {
-    it('creates and returns mapping with directory', async () => {
-      let savedDir = null;
-      let _savedData = null;
-
-      let store = {
-        saveMapping: async (dir, data) => {
-          savedDir = dir;
-          _savedData = data;
-        },
-      };
-
-      let result = await createMapping(store, '/my/path', {
-        projectSlug: 'proj',
-        organizationSlug: 'org',
-        token: 'tok',
-      });
-
-      assert.strictEqual(savedDir, '/my/path');
-      assert.deepStrictEqual(result, {
-        directory: '/my/path',
-        projectSlug: 'proj',
-        organizationSlug: 'org',
-        token: 'tok',
-      });
-    });
-
-    it('throws for invalid directory', async () => {
-      let store = { saveMapping: async () => {} };
-
-      await assert.rejects(
-        () => createMapping(store, '', { projectSlug: 'p' }),
-        {
-          code: 'INVALID_DIRECTORY',
-        }
-      );
-    });
-
-    it('throws for missing project data', async () => {
-      let store = { saveMapping: async () => {} };
-
-      await assert.rejects(() => createMapping(store, '/path', {}), {
-        code: 'INVALID_PROJECT_DATA',
-      });
-    });
-  });
-
-  describe('removeMapping', () => {
-    it('removes mapping for directory', async () => {
-      let deletedDir = null;
-      let store = {
-        deleteMapping: async dir => {
-          deletedDir = dir;
-        },
-      };
-
-      await removeMapping(store, '/my/path');
-
-      assert.strictEqual(deletedDir, '/my/path');
-    });
-
-    it('throws for invalid directory', async () => {
-      let store = { deleteMapping: async () => {} };
-
-      await assert.rejects(() => removeMapping(store, ''), {
-        code: 'INVALID_DIRECTORY',
-      });
-    });
-  });
-
-  describe('switchProject', () => {
-    it('creates mapping with project data', async () => {
-      let savedDir = null;
-      let savedData = null;
-
-      let store = {
-        saveMapping: async (dir, data) => {
-          savedDir = dir;
-          savedData = data;
-        },
-      };
-
-      let result = await switchProject(store, '/path', 'proj', 'org', 'tok');
-
-      assert.strictEqual(savedDir, '/path');
-      assert.deepStrictEqual(savedData, {
-        projectSlug: 'proj',
-        organizationSlug: 'org',
-        token: 'tok',
-      });
-      assert.strictEqual(result.projectSlug, 'proj');
-    });
-  });
-
   describe('listProjectsWithOAuth', () => {
     it('fetches projects for all organizations', async () => {
       let client = createMockOAuthClient({
@@ -618,15 +473,6 @@ describe('project/operations', () => {
 });
 
 // Test helpers
-
-function createMockMappingStore(mappings) {
-  return {
-    getMappings: async () => mappings,
-    getMapping: async dir => mappings[dir] || null,
-    saveMapping: async () => {},
-    deleteMapping: async () => {},
-  };
-}
 
 function createMockOAuthClient(responses) {
   return {

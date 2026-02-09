@@ -23,13 +23,6 @@ import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
 import { orgsCommand, validateOrgsOptions } from './commands/orgs.js';
 import { previewCommand, validatePreviewOptions } from './commands/preview.js';
 import {
-  projectListCommand,
-  projectRemoveCommand,
-  projectSelectCommand,
-  projectTokenCommand,
-  validateProjectOptions,
-} from './commands/project.js';
-import {
   projectsCommand,
   validateProjectsOptions,
 } from './commands/projects.js';
@@ -138,17 +131,6 @@ const formatHelp = (cmd, helper) => {
           title: 'Account',
           names: ['login', 'logout', 'whoami', 'orgs', 'projects'],
         },
-        {
-          key: 'project',
-          icon: '▸',
-          title: 'Projects',
-          names: [
-            'project:select',
-            'project:list',
-            'project:token',
-            'project:remove',
-          ],
-        },
       ];
 
       let grouped = {
@@ -157,7 +139,6 @@ const formatHelp = (cmd, helper) => {
         setup: [],
         advanced: [],
         auth: [],
-        project: [],
         other: [],
       };
 
@@ -644,6 +625,7 @@ program
     'Filter by status (created, pending, processing, completed, failed)'
   )
   .option('--environment <env>', 'Filter by environment')
+  .option('-p, --project <slug>', 'Filter by project slug')
   .option(
     '--limit <n>',
     'Maximum results to return (1-250)',
@@ -658,6 +640,7 @@ program
 Examples:
   $ vizzly builds                          # List recent builds
   $ vizzly builds --branch main            # Filter by branch
+  $ vizzly builds --project abc123         # Filter by project
   $ vizzly builds --status completed       # Filter by status
   $ vizzly builds -b abc123-def456         # Get specific build by ID
   $ vizzly builds -b abc123 --comparisons  # Include comparisons
@@ -695,6 +678,7 @@ program
     50
   )
   .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .option('-p, --project <slug>', 'Filter by project slug')
   .addHelpText(
     'after',
     `
@@ -1155,53 +1139,6 @@ program
     }
 
     await whoamiCommand(options, globalOptions);
-  });
-
-program
-  .command('project:select')
-  .description('Configure project for current directory')
-  .option('--api-url <url>', 'API URL override')
-  .action(async options => {
-    const globalOptions = program.opts();
-
-    // Validate options
-    const validationErrors = validateProjectOptions(options);
-    if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
-    }
-
-    await projectSelectCommand(options, globalOptions);
-  });
-
-program
-  .command('project:list')
-  .description('Show all configured projects')
-  .action(async options => {
-    const globalOptions = program.opts();
-
-    await projectListCommand(options, globalOptions);
-  });
-
-program
-  .command('project:token')
-  .description('Show project token for current directory')
-  .action(async options => {
-    const globalOptions = program.opts();
-
-    await projectTokenCommand(options, globalOptions);
-  });
-
-program
-  .command('project:remove')
-  .description('Remove project configuration for current directory')
-  .action(async options => {
-    const globalOptions = program.opts();
-
-    await projectRemoveCommand(options, globalOptions);
   });
 
 // Save user's PATH for menubar app (non-blocking, runs in background)

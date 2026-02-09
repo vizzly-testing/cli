@@ -2,9 +2,7 @@
  * Config command - query and display configuration
  */
 
-import { resolve } from 'node:path';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
-import { getProjectMapping as defaultGetProjectMapping } from '../utils/global-config.js';
 import * as defaultOutput from '../utils/output.js';
 
 /**
@@ -22,7 +20,6 @@ export async function configCommand(
 ) {
   let {
     loadConfig = defaultLoadConfig,
-    getProjectMapping = defaultGetProjectMapping,
     output = defaultOutput,
     exit = code => process.exit(code),
   } = deps;
@@ -40,10 +37,6 @@ export async function configCommand(
       ...options,
     });
     let configFile = config._configPath || null;
-
-    // Get project mapping if available
-    let currentDir = resolve(process.cwd());
-    let projectMapping = await getProjectMapping(currentDir);
 
     // Build the config object to display
     let displayConfig = {
@@ -94,13 +87,6 @@ export async function configCommand(
       output.data({
         configFile,
         config: displayConfig,
-        project: projectMapping
-          ? {
-              name: projectMapping.projectName,
-              slug: projectMapping.projectSlug,
-              organization: projectMapping.organizationSlug,
-            }
-          : null,
       });
       output.cleanup();
       return;
@@ -116,16 +102,6 @@ export async function configCommand(
       output.labelValue('Config file', 'Using defaults (no config file found)');
     }
     output.blank();
-
-    // Project context if available
-    if (projectMapping) {
-      output.labelValue(
-        'Project',
-        `${projectMapping.projectName} (${projectMapping.projectSlug})`
-      );
-      output.labelValue('Organization', projectMapping.organizationSlug);
-      output.blank();
-    }
 
     // Display configuration sections
     displaySection(output, 'Server', displayConfig.server);

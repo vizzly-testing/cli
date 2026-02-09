@@ -4,7 +4,6 @@ import { VizzlyError } from '../../src/errors/vizzly-error.js';
 import {
   buildBuildsQueryParams,
   buildBuildsUrl,
-  buildMappingResult,
   buildNoApiServiceError,
   buildNoAuthError,
   buildOrgHeader,
@@ -21,120 +20,9 @@ import {
   extractProjects,
   extractToken,
   extractTokens,
-  mappingsToArray,
-  validateDirectory,
-  validateProjectData,
 } from '../../src/project/core.js';
 
 describe('project/core', () => {
-  describe('validateDirectory', () => {
-    it('returns valid for non-empty directory', () => {
-      let result = validateDirectory('/path/to/project');
-      assert.strictEqual(result.valid, true);
-      assert.strictEqual(result.error, null);
-    });
-
-    it('returns error for empty directory', () => {
-      let result = validateDirectory('');
-      assert.strictEqual(result.valid, false);
-      assert.ok(result.error instanceof VizzlyError);
-      assert.strictEqual(result.error.code, 'INVALID_DIRECTORY');
-    });
-
-    it('returns error for null directory', () => {
-      let result = validateDirectory(null);
-      assert.strictEqual(result.valid, false);
-      assert.ok(result.error.message.includes('Directory path is required'));
-    });
-
-    it('returns error for undefined directory', () => {
-      let result = validateDirectory(undefined);
-      assert.strictEqual(result.valid, false);
-    });
-  });
-
-  describe('validateProjectData', () => {
-    it('returns valid for complete project data', () => {
-      let result = validateProjectData({
-        projectSlug: 'my-project',
-        organizationSlug: 'my-org',
-        token: 'vzt_token_123',
-      });
-      assert.strictEqual(result.valid, true);
-      assert.strictEqual(result.error, null);
-    });
-
-    it('returns error for missing projectSlug', () => {
-      let result = validateProjectData({
-        organizationSlug: 'my-org',
-        token: 'vzt_token_123',
-      });
-      assert.strictEqual(result.valid, false);
-      assert.strictEqual(result.error.code, 'INVALID_PROJECT_DATA');
-      assert.ok(result.error.message.includes('Project slug is required'));
-    });
-
-    it('returns error for missing organizationSlug', () => {
-      let result = validateProjectData({
-        projectSlug: 'my-project',
-        token: 'vzt_token_123',
-      });
-      assert.strictEqual(result.valid, false);
-      assert.ok(result.error.message.includes('Organization slug is required'));
-    });
-
-    it('returns error for missing token', () => {
-      let result = validateProjectData({
-        projectSlug: 'my-project',
-        organizationSlug: 'my-org',
-      });
-      assert.strictEqual(result.valid, false);
-      assert.ok(result.error.message.includes('Project token is required'));
-    });
-  });
-
-  describe('mappingsToArray', () => {
-    it('converts empty object to empty array', () => {
-      assert.deepStrictEqual(mappingsToArray({}), []);
-    });
-
-    it('converts mappings object to array with directory property', () => {
-      let mappings = {
-        '/path/to/project1': { projectSlug: 'proj1', token: 'tok1' },
-        '/path/to/project2': { projectSlug: 'proj2', token: 'tok2' },
-      };
-
-      let result = mappingsToArray(mappings);
-
-      assert.strictEqual(result.length, 2);
-      assert.deepStrictEqual(result[0], {
-        directory: '/path/to/project1',
-        projectSlug: 'proj1',
-        token: 'tok1',
-      });
-      assert.deepStrictEqual(result[1], {
-        directory: '/path/to/project2',
-        projectSlug: 'proj2',
-        token: 'tok2',
-      });
-    });
-  });
-
-  describe('buildMappingResult', () => {
-    it('builds mapping result with directory included', () => {
-      let result = buildMappingResult('/my/path', {
-        projectSlug: 'proj',
-        token: 'tok',
-      });
-
-      assert.deepStrictEqual(result, {
-        directory: '/my/path',
-        projectSlug: 'proj',
-        token: 'tok',
-      });
-    });
-  });
-
   describe('buildBuildsQueryParams', () => {
     it('returns empty string for no options', () => {
       assert.strictEqual(buildBuildsQueryParams(), '');

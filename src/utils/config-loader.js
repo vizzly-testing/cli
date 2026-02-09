@@ -7,7 +7,7 @@ import {
   getBuildName,
   getParallelId,
 } from './environment-config.js';
-import { getAccessToken, getProjectMapping } from './global-config.js';
+import { getAccessToken } from './global-config.js';
 import * as output from './output.js';
 
 const DEFAULT_CONFIG = {
@@ -76,38 +76,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   // Merge validated file config
   mergeConfig(config, validatedFileConfig);
 
-  // 3. Check project mapping for current directory (if no CLI flag)
-  if (!cliOverrides.token) {
-    const currentDir = process.cwd();
-
-    const projectMapping = await getProjectMapping(currentDir);
-    if (projectMapping?.token) {
-      // Handle both string tokens and token objects (backward compatibility)
-      let token;
-      if (typeof projectMapping.token === 'string') {
-        token = projectMapping.token;
-      } else if (
-        typeof projectMapping.token === 'object' &&
-        projectMapping.token.token
-      ) {
-        // Handle nested token object from old API responses
-        token = projectMapping.token.token;
-      } else {
-        token = String(projectMapping.token);
-      }
-
-      config.apiKey = token;
-      config.projectSlug = projectMapping.projectSlug;
-      config.organizationSlug = projectMapping.organizationSlug;
-
-      output.debug(
-        'config',
-        `linked to ${projectMapping.projectSlug} (${projectMapping.organizationSlug})`
-      );
-    }
-  }
-
-  // 4. Override with environment variables (higher priority than fallbacks)
+  // 3. Override with environment variables (higher priority than fallbacks)
   const envApiKey = getApiToken();
   const envApiUrl = getApiUrl();
   const envBuildName = getBuildName();
@@ -124,21 +93,20 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
   if (envParallelId) config.parallelId = envParallelId;
 
-  // 5. Apply CLI overrides (highest priority)
+  // 4. Apply CLI overrides (highest priority)
   if (cliOverrides.token) {
     output.debug('config', 'using token from --token flag');
   }
 
   applyCLIOverrides(config, cliOverrides);
 
-  // 6. Fall back to user auth token if no other token found
+  // 5. Fall back to user auth token if no other token found
   // This enables interactive commands (builds, comparisons, approve, etc.)
   // to work without a project token when the user is logged in
   if (!config.apiKey) {
     let userToken = await getAccessToken();
     if (userToken) {
       config.apiKey = userToken;
-      config.isUserAuth = true; // Flag to indicate this is user auth, not project token
       output.debug('config', 'using token from user login');
     }
   }

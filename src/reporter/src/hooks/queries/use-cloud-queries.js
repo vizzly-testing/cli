@@ -32,32 +32,3 @@ export function useDownloadBaselines() {
     },
   });
 }
-
-export function useProjectMappings(options = {}) {
-  return useQuery({
-    queryKey: [...queryKeys.projects(), 'mappings'],
-    queryFn: projects.listMappings,
-    staleTime: 60 * 1000,
-    ...options,
-  });
-}
-
-export function useCreateProjectMapping() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: projects.createMapping,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects() });
-    },
-  });
-}
-
-export function useDeleteProjectMapping() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: directory => projects.deleteMapping(directory),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects() });
-    },
-  });
-}

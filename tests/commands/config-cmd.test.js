@@ -47,7 +47,6 @@ describe('commands/config', () => {
             comparison: { threshold: 2.0 },
             tdd: { openReport: false },
           }),
-          getProjectMapping: async () => null,
           output,
           exit: () => {},
         }
@@ -71,7 +70,6 @@ describe('commands/config', () => {
             server: { port: 47392 },
             comparison: { threshold: 2.5 },
           }),
-          getProjectMapping: async () => null,
           output,
           exit: () => {},
         }
@@ -95,7 +93,6 @@ describe('commands/config', () => {
           loadConfig: async () => ({
             server: { port: 47392 },
           }),
-          getProjectMapping: async () => null,
           output,
           exit: code => {
             exitCode = code;
@@ -105,36 +102,6 @@ describe('commands/config', () => {
 
       assert.strictEqual(exitCode, 1);
       assert.ok(output.calls.some(c => c.method === 'error'));
-    });
-
-    it('includes project mapping if available', async () => {
-      let output = createMockOutput();
-
-      await configCommand(
-        null,
-        {},
-        { json: true },
-        {
-          loadConfig: async () => ({
-            server: { port: 47392 },
-          }),
-          getProjectMapping: async () => ({
-            projectName: 'My Project',
-            projectSlug: 'my-project',
-            organizationSlug: 'my-org',
-          }),
-          output,
-          exit: () => {},
-        }
-      );
-
-      let dataCall = output.calls.find(c => c.method === 'data');
-      assert.ok(dataCall);
-      assert.deepStrictEqual(dataCall.args[0].project, {
-        name: 'My Project',
-        slug: 'my-project',
-        organization: 'my-org',
-      });
     });
 
     it('includes config file path', async () => {
@@ -149,7 +116,6 @@ describe('commands/config', () => {
             _configPath: '/path/to/vizzly.config.js',
             server: { port: 47392 },
           }),
-          getProjectMapping: async () => null,
           output,
           exit: () => {},
         }
@@ -176,7 +142,6 @@ describe('commands/config', () => {
             apiUrl: 'https://api.vizzly.dev',
             server: { port: 47392 },
           }),
-          getProjectMapping: async () => null,
           output,
           exit: () => {},
         }

@@ -6,7 +6,7 @@
 import { existsSync } from 'node:fs';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join, parse } from 'node:path';
+import { join } from 'node:path';
 import * as output from './output.js';
 
 /**
@@ -204,79 +204,4 @@ export async function getAccessToken() {
 
   let auth = await getAuthTokens();
   return auth?.accessToken || null;
-}
-
-/**
- * Get project mapping for a directory
- * Walks up the directory tree to find the closest mapping
- * @param {string} directoryPath - Absolute path to project directory
- * @returns {Promise<Object|null>} Project data or null
- */
-export async function getProjectMapping(directoryPath) {
-  const config = await loadGlobalConfig();
-  if (!config.projects) {
-    return null;
-  }
-
-  // Walk up the directory tree looking for a mapping
-  let currentPath = directoryPath;
-  const { root } = parse(currentPath);
-
-  while (currentPath !== root) {
-    if (config.projects[currentPath]) {
-      return config.projects[currentPath];
-    }
-
-    // Move to parent directory
-    const parentPath = dirname(currentPath);
-    if (parentPath === currentPath) {
-      // We've reached the root
-      break;
-    }
-    currentPath = parentPath;
-  }
-
-  return null;
-}
-
-/**
- * Save project mapping for a directory
- * @param {string} directoryPath - Absolute path to project directory
- * @param {Object} projectData - Project configuration
- * @param {string} projectData.token - Project API token (vzt_...)
- * @param {string} projectData.projectSlug - Project slug
- * @param {string} projectData.organizationSlug - Organization slug
- * @param {string} projectData.projectName - Project name
- */
-export async function saveProjectMapping(directoryPath, projectData) {
-  const config = await loadGlobalConfig();
-  if (!config.projects) {
-    config.projects = {};
-  }
-  config.projects[directoryPath] = {
-    ...projectData,
-    createdAt: new Date().toISOString(),
-  };
-  await saveGlobalConfig(config);
-}
-
-/**
- * Get all project mappings
- * @returns {Promise<Object>} Map of directory paths to project data
- */
-export async function getProjectMappings() {
-  const config = await loadGlobalConfig();
-  return config.projects || {};
-}
-
-/**
- * Delete project mapping for a directory
- * @param {string} directoryPath - Absolute path to project directory
- */
-export async function deleteProjectMapping(directoryPath) {
-  const config = await loadGlobalConfig();
-  if (config.projects?.[directoryPath]) {
-    delete config.projects[directoryPath];
-    await saveGlobalConfig(config);
-  }
 }

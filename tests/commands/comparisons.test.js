@@ -207,6 +207,31 @@ describe('commands/comparisons', () => {
       );
     });
 
+    it('passes project filter to search', async () => {
+      let output = createMockOutput();
+      let capturedFilters = null;
+
+      await comparisonsCommand(
+        { name: 'button-*', project: 'my-project' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          searchComparisons: async (_client, _name, filters) => {
+            capturedFilters = filters;
+            return {
+              comparisons: [],
+              pagination: { total: 0, hasMore: false },
+            };
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedFilters.project, 'my-project');
+    });
+
     it('fetches single comparison by ID', async () => {
       let output = createMockOutput();
       let mockComparison = {

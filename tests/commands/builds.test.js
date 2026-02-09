@@ -212,6 +212,80 @@ describe('commands/builds', () => {
       assert.strictEqual(capturedFilters.limit, 10);
     });
 
+    it('includes URLs and honeydiff in comparisonDetails', async () => {
+      let output = createMockOutput();
+      let mockBuild = {
+        id: 'build-1',
+        name: 'Build 1',
+        status: 'completed',
+        comparisons: [
+          {
+            id: 'comp-1',
+            name: 'button-primary',
+            status: 'changed',
+            diff_percentage: 0.025,
+            diff_image_url: 'https://cdn.example.com/diff.png',
+            cluster_metadata: { classification: 'minor', density: 0.05 },
+            ssim_score: 0.9876,
+            gmsd_score: 0.0123,
+            fingerprint_hash: 'abc123',
+            diff_regions: [{ x: 10, y: 20 }],
+          },
+        ],
+      };
+
+      await buildsCommand(
+        { build: 'build-1', comparisons: true },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(c => c.method === 'data');
+      assert.ok(dataCall);
+      let comp = dataCall.args[0].comparisonDetails[0];
+      assert.strictEqual(comp.urls.diff, 'https://cdn.example.com/diff.png');
+      assert.ok(comp.honeydiff, 'Should include honeydiff data');
+      assert.strictEqual(comp.honeydiff.ssimScore, 0.9876);
+      assert.strictEqual(comp.honeydiff.clusterClassification, 'minor');
+      assert.strictEqual(comp.honeydiff.fingerprintHash, 'abc123');
+    });
+
+    it('sets honeydiff to null when no analysis data in comparisons', async () => {
+      let output = createMockOutput();
+      let mockBuild = {
+        id: 'build-1',
+        name: 'Build 1',
+        status: 'completed',
+        comparisons: [
+          { id: 'comp-1', name: 'button-primary', status: 'identical' },
+        ],
+      };
+
+      await buildsCommand(
+        { build: 'build-1', comparisons: true },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(c => c.method === 'data');
+      assert.ok(dataCall);
+      let comp = dataCall.args[0].comparisonDetails[0];
+      assert.strictEqual(comp.honeydiff, null);
+      assert.strictEqual(comp.urls.diff, null);
+    });
+
     it('passes project filter to API', async () => {
       let output = createMockOutput();
       let capturedFilters = null;

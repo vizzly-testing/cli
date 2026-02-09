@@ -398,6 +398,74 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].honeydiff, null);
     });
 
+    it('resolves URLs from flat field names (single comparison endpoint)', async () => {
+      let output = createMockOutput();
+      let mockComparison = {
+        id: 'comp-1',
+        name: 'button-primary',
+        status: 'changed',
+        baseline_screenshot_url: 'https://cdn.example.com/baseline.png',
+        current_screenshot_url: 'https://cdn.example.com/current.png',
+        diff_url: 'https://cdn.example.com/diff.png',
+      };
+
+      await comparisonsCommand(
+        { id: 'comp-1' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getComparison: async () => mockComparison,
+          output,
+          exit: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(c => c.method === 'data');
+      assert.ok(dataCall);
+      let urls = dataCall.args[0].urls;
+      assert.strictEqual(urls.baseline, 'https://cdn.example.com/baseline.png');
+      assert.strictEqual(urls.current, 'https://cdn.example.com/current.png');
+      assert.strictEqual(urls.diff, 'https://cdn.example.com/diff.png');
+    });
+
+    it('resolves URLs from build detail field names (diff_image_url)', async () => {
+      let output = createMockOutput();
+      let mockBuild = {
+        id: 'build-1',
+        name: 'Build 1',
+        comparisons: [
+          {
+            id: 'comp-1',
+            name: 'button-primary',
+            status: 'changed',
+            diff_image_url: 'https://cdn.example.com/diff.png',
+            baseline_original_url: 'https://cdn.example.com/baseline.png',
+            current_original_url: 'https://cdn.example.com/current.png',
+          },
+        ],
+      };
+
+      await comparisonsCommand(
+        { build: 'build-1' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(c => c.method === 'data');
+      assert.ok(dataCall);
+      let urls = dataCall.args[0].comparisons[0].urls;
+      assert.strictEqual(urls.diff, 'https://cdn.example.com/diff.png');
+      assert.strictEqual(urls.baseline, 'https://cdn.example.com/baseline.png');
+      assert.strictEqual(urls.current, 'https://cdn.example.com/current.png');
+    });
+
     it('shows honeydiff analysis in verbose display', async () => {
       let output = createMockOutput();
       let mockComparison = {

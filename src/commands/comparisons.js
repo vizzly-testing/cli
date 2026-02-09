@@ -186,9 +186,10 @@ export async function comparisonsCommand(
  * Format a comparison for JSON output
  */
 function formatComparisonForJson(comparison) {
-  // Honeydiff fields come from different shapes depending on the endpoint:
-  // - Single comparison & build detail: top-level fields
-  // - Search results: nested under diff_image
+  // API endpoints return different shapes:
+  // - Single comparison: nested baseline_screenshot/current_screenshot + flat diff_url, honeydiff at top level
+  // - Build comparisons: flat diff_url/diff_image_url, no storage URLs, limited honeydiff
+  // - Search: nested diff_image with honeydiff, no current/baseline URLs
   let diffImage = comparison.diff_image || {};
   let clusterMetadata = comparison.cluster_metadata || diffImage.cluster_metadata || null;
   let ssimScore = comparison.ssim_score ?? diffImage.ssim_score ?? null;
@@ -208,9 +209,18 @@ function formatComparisonForJson(comparison) {
       : null,
     browser: comparison.browser || null,
     urls: {
-      baseline: comparison.baseline_screenshot?.original_url || null,
-      current: comparison.current_screenshot?.original_url || null,
-      diff: comparison.diff_image?.url || null,
+      baseline: comparison.baseline_screenshot?.original_url
+        || comparison.baseline_original_url
+        || comparison.baseline_screenshot_url
+        || null,
+      current: comparison.current_screenshot?.original_url
+        || comparison.current_original_url
+        || comparison.current_screenshot_url
+        || null,
+      diff: comparison.diff_image?.url
+        || comparison.diff_image_url
+        || comparison.diff_url
+        || null,
     },
     honeydiff: hasHoneydiff ? {
       ssimScore,
@@ -298,20 +308,22 @@ function displayComparison(output, comparison, verbose) {
 
   // URLs in verbose mode
   if (verbose) {
-    output.blank();
-    output.labelValue('URLs', '');
-    if (comparison.baseline_screenshot?.original_url) {
-      output.print(
-        `    Baseline: ${comparison.baseline_screenshot.original_url}`
-      );
-    }
-    if (comparison.current_screenshot?.original_url) {
-      output.print(
-        `    Current: ${comparison.current_screenshot.original_url}`
-      );
-    }
-    if (comparison.diff_image?.url) {
-      output.print(`    Diff: ${comparison.diff_image.url}`);
+    let baselineUrl = comparison.baseline_screenshot?.original_url
+      || comparison.baseline_original_url
+      || comparison.baseline_screenshot_url;
+    let currentUrl = comparison.current_screenshot?.original_url
+      || comparison.current_original_url
+      || comparison.current_screenshot_url;
+    let diffUrl = comparison.diff_image?.url
+      || comparison.diff_image_url
+      || comparison.diff_url;
+
+    if (baselineUrl || currentUrl || diffUrl) {
+      output.blank();
+      output.labelValue('URLs', '');
+      if (baselineUrl) output.print(`    Baseline: ${baselineUrl}`);
+      if (currentUrl) output.print(`    Current: ${currentUrl}`);
+      if (diffUrl) output.print(`    Diff: ${diffUrl}`);
     }
   }
 

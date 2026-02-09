@@ -369,7 +369,10 @@ describe('commands/comparisons', () => {
       assert.ok(result.honeydiff, 'Should include honeydiff data');
       assert.strictEqual(result.honeydiff.ssimScore, 0.9521);
       assert.strictEqual(result.honeydiff.gmsdScore, 0.0345);
-      assert.strictEqual(result.honeydiff.clusterClassification, 'dynamic_content');
+      assert.strictEqual(
+        result.honeydiff.clusterClassification,
+        'dynamic_content'
+      );
       assert.strictEqual(result.honeydiff.fingerprintHash, 'search-hash-789');
     });
 

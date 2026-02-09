@@ -191,12 +191,18 @@ function formatComparisonForJson(comparison) {
   // - Build comparisons: flat diff_url/diff_image_url, no storage URLs, limited honeydiff
   // - Search: nested diff_image with honeydiff, no current/baseline URLs
   let diffImage = comparison.diff_image || {};
-  let clusterMetadata = comparison.cluster_metadata || diffImage.cluster_metadata || null;
+  let clusterMetadata =
+    comparison.cluster_metadata || diffImage.cluster_metadata || null;
   let ssimScore = comparison.ssim_score ?? diffImage.ssim_score ?? null;
   let gmsdScore = comparison.gmsd_score ?? diffImage.gmsd_score ?? null;
-  let fingerprintHash = comparison.fingerprint_hash || diffImage.fingerprint_hash || null;
+  let fingerprintHash =
+    comparison.fingerprint_hash || diffImage.fingerprint_hash || null;
 
-  let hasHoneydiff = clusterMetadata || ssimScore != null || gmsdScore != null || fingerprintHash;
+  let hasHoneydiff =
+    clusterMetadata ||
+    ssimScore != null ||
+    gmsdScore != null ||
+    fingerprintHash;
 
   return {
     id: comparison.id,
@@ -209,29 +215,35 @@ function formatComparisonForJson(comparison) {
       : null,
     browser: comparison.browser || null,
     urls: {
-      baseline: comparison.baseline_screenshot?.original_url
-        || comparison.baseline_original_url
-        || comparison.baseline_screenshot_url
-        || null,
-      current: comparison.current_screenshot?.original_url
-        || comparison.current_original_url
-        || comparison.current_screenshot_url
-        || null,
-      diff: comparison.diff_image?.url
-        || comparison.diff_image_url
-        || comparison.diff_url
-        || null,
+      baseline:
+        comparison.baseline_screenshot?.original_url ||
+        comparison.baseline_original_url ||
+        comparison.baseline_screenshot_url ||
+        null,
+      current:
+        comparison.current_screenshot?.original_url ||
+        comparison.current_original_url ||
+        comparison.current_screenshot_url ||
+        null,
+      diff:
+        comparison.diff_image?.url ||
+        comparison.diff_image_url ||
+        comparison.diff_url ||
+        null,
     },
-    honeydiff: hasHoneydiff ? {
-      ssimScore,
-      gmsdScore,
-      clusterClassification: clusterMetadata?.classification || null,
-      clusterMetadata,
-      fingerprintHash,
-      diffRegions: comparison.diff_regions || diffImage.diff_regions || null,
-      diffLines: comparison.diff_lines || null,
-      fingerprintData: comparison.fingerprint_data || null,
-    } : null,
+    honeydiff: hasHoneydiff
+      ? {
+          ssimScore,
+          gmsdScore,
+          clusterClassification: clusterMetadata?.classification || null,
+          clusterMetadata,
+          fingerprintHash,
+          diffRegions:
+            comparison.diff_regions || diffImage.diff_regions || null,
+          diffLines: comparison.diff_lines || null,
+          fingerprintData: comparison.fingerprint_data || null,
+        }
+      : null,
     buildId: comparison.build_id,
     buildName: comparison.build_name,
     buildBranch: comparison.build_branch,
@@ -284,10 +296,12 @@ function displayComparison(output, comparison, verbose) {
 
   // Honeydiff analysis in verbose mode
   if (verbose) {
-    let clusterMetadata = comparison.cluster_metadata || comparison.diff_image?.cluster_metadata;
+    let clusterMetadata =
+      comparison.cluster_metadata || comparison.diff_image?.cluster_metadata;
     let ssim = comparison.ssim_score ?? comparison.diff_image?.ssim_score;
     let gmsd = comparison.gmsd_score ?? comparison.diff_image?.gmsd_score;
-    let fingerprint = comparison.fingerprint_hash || comparison.diff_image?.fingerprint_hash;
+    let fingerprint =
+      comparison.fingerprint_hash || comparison.diff_image?.fingerprint_hash;
 
     if (clusterMetadata || ssim != null || gmsd != null) {
       output.blank();
@@ -308,15 +322,18 @@ function displayComparison(output, comparison, verbose) {
 
   // URLs in verbose mode
   if (verbose) {
-    let baselineUrl = comparison.baseline_screenshot?.original_url
-      || comparison.baseline_original_url
-      || comparison.baseline_screenshot_url;
-    let currentUrl = comparison.current_screenshot?.original_url
-      || comparison.current_original_url
-      || comparison.current_screenshot_url;
-    let diffUrl = comparison.diff_image?.url
-      || comparison.diff_image_url
-      || comparison.diff_url;
+    let baselineUrl =
+      comparison.baseline_screenshot?.original_url ||
+      comparison.baseline_original_url ||
+      comparison.baseline_screenshot_url;
+    let currentUrl =
+      comparison.current_screenshot?.original_url ||
+      comparison.current_original_url ||
+      comparison.current_screenshot_url;
+    let diffUrl =
+      comparison.diff_image?.url ||
+      comparison.diff_image_url ||
+      comparison.diff_url;
 
     if (baselineUrl || currentUrl || diffUrl) {
       output.blank();
@@ -427,7 +444,10 @@ function displaySearchResults(
     for (let comp of group.comparisons.slice(0, verbose ? 10 : 3)) {
       let icon = getStatusIcon(colors, comp.status);
       let classification = verbose
-        ? getClassificationLabel(colors, comp.cluster_metadata || comp.diff_image?.cluster_metadata)
+        ? getClassificationLabel(
+            colors,
+            comp.cluster_metadata || comp.diff_image?.cluster_metadata
+          )
         : '';
       output.print(`      ${icon} ${comp.name}${classification}`);
     }

@@ -186,6 +186,24 @@ export async function comparisonsCommand(
  * Format a comparison for JSON output
  */
 function formatComparisonForJson(comparison) {
+  // API endpoints return different shapes:
+  // - Single comparison: nested baseline_screenshot/current_screenshot + flat diff_url, honeydiff at top level
+  // - Build comparisons: flat diff_url/diff_image_url, no storage URLs, limited honeydiff
+  // - Search: nested diff_image with honeydiff, no current/baseline URLs
+  let diffImage = comparison.diff_image || {};
+  let clusterMetadata =
+    comparison.cluster_metadata || diffImage.cluster_metadata || null;
+  let ssimScore = comparison.ssim_score ?? diffImage.ssim_score ?? null;
+  let gmsdScore = comparison.gmsd_score ?? diffImage.gmsd_score ?? null;
+  let fingerprintHash =
+    comparison.fingerprint_hash || diffImage.fingerprint_hash || null;
+
+  let hasHoneydiff =
+    clusterMetadata ||
+    ssimScore != null ||
+    gmsdScore != null ||
+    fingerprintHash;
+
   return {
     id: comparison.id,
     name: comparison.name,
@@ -197,10 +215,36 @@ function formatComparisonForJson(comparison) {
       : null,
     browser: comparison.browser || null,
     urls: {
-      baseline: comparison.baseline_screenshot?.original_url || null,
-      current: comparison.current_screenshot?.original_url || null,
-      diff: comparison.diff_image?.url || null,
+      baseline:
+        comparison.baseline_screenshot?.original_url ||
+        comparison.baseline_original_url ||
+        comparison.baseline_screenshot_url ||
+        null,
+      current:
+        comparison.current_screenshot?.original_url ||
+        comparison.current_original_url ||
+        comparison.current_screenshot_url ||
+        null,
+      diff:
+        comparison.diff_image?.url ||
+        comparison.diff_image_url ||
+        comparison.diff_url ||
+        null,
     },
+    honeydiff: hasHoneydiff
+      ? {
+          ssimScore,
+          gmsdScore,
+          clusterClassification: clusterMetadata?.classification || null,
+          clusterMetadata,
+          fingerprintHash,
+          diffRegions:
+            comparison.diff_regions ?? diffImage.diff_regions ?? null,
+          diffLines: comparison.diff_lines ?? diffImage.diff_lines ?? null,
+          fingerprintData:
+            comparison.fingerprint_data ?? diffImage.fingerprint_data ?? null,
+        }
+      : null,
     buildId: comparison.build_id,
     buildName: comparison.build_name,
     buildBranch: comparison.build_branch,
@@ -251,22 +295,53 @@ function displayComparison(output, comparison, verbose) {
     output.labelValue('Commit', comparison.build_commit_sha.substring(0, 8));
   }
 
+  // Honeydiff analysis in verbose mode
+  if (verbose) {
+    let clusterMetadata =
+      comparison.cluster_metadata || comparison.diff_image?.cluster_metadata;
+    let ssim = comparison.ssim_score ?? comparison.diff_image?.ssim_score;
+    let gmsd = comparison.gmsd_score ?? comparison.diff_image?.gmsd_score;
+    let fingerprint =
+      comparison.fingerprint_hash || comparison.diff_image?.fingerprint_hash;
+
+    if (clusterMetadata || ssim != null || gmsd != null || fingerprint) {
+      output.blank();
+      if (clusterMetadata?.classification) {
+        output.labelValue('Classification', clusterMetadata.classification);
+      }
+      if (ssim != null) {
+        output.labelValue('SSIM', ssim.toFixed(4));
+      }
+      if (gmsd != null) {
+        output.labelValue('GMSD', gmsd.toFixed(4));
+      }
+      if (fingerprint) {
+        output.labelValue('Fingerprint', fingerprint);
+      }
+    }
+  }
+
   // URLs in verbose mode
   if (verbose) {
-    output.blank();
-    output.labelValue('URLs', '');
-    if (comparison.baseline_screenshot?.original_url) {
-      output.print(
-        `    Baseline: ${comparison.baseline_screenshot.original_url}`
-      );
-    }
-    if (comparison.current_screenshot?.original_url) {
-      output.print(
-        `    Current: ${comparison.current_screenshot.original_url}`
-      );
-    }
-    if (comparison.diff_image?.url) {
-      output.print(`    Diff: ${comparison.diff_image.url}`);
+    let baselineUrl =
+      comparison.baseline_screenshot?.original_url ||
+      comparison.baseline_original_url ||
+      comparison.baseline_screenshot_url;
+    let currentUrl =
+      comparison.current_screenshot?.original_url ||
+      comparison.current_original_url ||
+      comparison.current_screenshot_url;
+    let diffUrl =
+      comparison.diff_image?.url ||
+      comparison.diff_image_url ||
+      comparison.diff_url;
+
+    if (baselineUrl || currentUrl || diffUrl) {
+      output.blank();
+      output.labelValue('URLs', '');
+      if (baselineUrl) output.print(`    Baseline: ${baselineUrl}`);
+      if (currentUrl) output.print(`    Current: ${currentUrl}`);
+      if (diffUrl) output.print(`    Diff: ${diffUrl}`);
     }
   }
 
@@ -312,7 +387,10 @@ function displayBuildComparisons(output, build, comparisons, verbose) {
       comp.diff_percentage != null
         ? colors.dim(` (${(comp.diff_percentage * 100).toFixed(1)}%)`)
         : '';
-    output.print(`  ${icon} ${comp.name}${diffInfo}`);
+    let classification = verbose
+      ? getClassificationLabel(colors, comp.cluster_metadata)
+      : '';
+    output.print(`  ${icon} ${comp.name}${diffInfo}${classification}`);
   }
 
   if (comparisons.length > (verbose ? 100 : 20)) {
@@ -366,7 +444,13 @@ function displaySearchResults(
 
     for (let comp of group.comparisons.slice(0, verbose ? 10 : 3)) {
       let icon = getStatusIcon(colors, comp.status);
-      output.print(`      ${icon} ${comp.name}`);
+      let classification = verbose
+        ? getClassificationLabel(
+            colors,
+            comp.cluster_metadata || comp.diff_image?.cluster_metadata
+          )
+        : '';
+      output.print(`      ${icon} ${comp.name}${classification}`);
     }
 
     if (group.comparisons.length > (verbose ? 10 : 3)) {
@@ -384,6 +468,15 @@ function displaySearchResults(
         `Use --offset ${pagination.offset + pagination.limit} to see more.`
     );
   }
+}
+
+/**
+ * Get a classification label for verbose display
+ */
+function getClassificationLabel(colors, clusterMetadata) {
+  let classification = clusterMetadata?.classification;
+  if (!classification) return '';
+  return colors.dim(` [${classification}]`);
 }
 
 /**

@@ -192,13 +192,52 @@ function formatBuildForJson(build, includeComparisons = false) {
   };
 
   if (includeComparisons && build.comparisons) {
-    result.comparisonDetails = build.comparisons.map(c => ({
-      id: c.id,
-      name: c.name,
-      status: c.status,
-      diffPercentage: c.diff_percentage,
-      approvalStatus: c.approval_status,
-    }));
+    result.comparisonDetails = build.comparisons.map(c => {
+      let diffUrl = c.diff_image?.url || c.diff_image_url || c.diff_url || null;
+      let diffImage = c.diff_image || {};
+      let clusterMetadata =
+        c.cluster_metadata || diffImage.cluster_metadata || null;
+      let ssimScore = c.ssim_score ?? diffImage.ssim_score ?? null;
+      let gmsdScore = c.gmsd_score ?? diffImage.gmsd_score ?? null;
+      let fingerprintHash =
+        c.fingerprint_hash || diffImage.fingerprint_hash || null;
+      let hasHoneydiff =
+        clusterMetadata ||
+        ssimScore != null ||
+        gmsdScore != null ||
+        fingerprintHash;
+
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        diffPercentage: c.diff_percentage,
+        approvalStatus: c.approval_status,
+        urls: {
+          baseline:
+            c.baseline_screenshot?.original_url ||
+            c.baseline_original_url ||
+            c.baseline_screenshot_url ||
+            null,
+          current:
+            c.current_screenshot?.original_url ||
+            c.current_original_url ||
+            c.current_screenshot_url ||
+            null,
+          diff: diffUrl,
+        },
+        honeydiff: hasHoneydiff
+          ? {
+              ssimScore,
+              gmsdScore,
+              clusterClassification: clusterMetadata?.classification || null,
+              clusterMetadata,
+              fingerprintHash,
+              diffRegions: c.diff_regions ?? diffImage.diff_regions ?? null,
+            }
+          : null,
+      };
+    });
   }
 
   return result;

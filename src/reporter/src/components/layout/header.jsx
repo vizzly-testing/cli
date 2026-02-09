@@ -10,7 +10,6 @@ import {
   ChartBarIcon,
   CloudIcon,
   Cog6ToothIcon,
-  FolderIcon,
   PhotoIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -21,7 +20,6 @@ const navItems = [
   { key: 'comparisons', label: 'Comparisons', icon: PhotoIcon },
   { key: 'stats', label: 'Stats', icon: ChartBarIcon },
   { key: 'builds', label: 'Builds', icon: CloudIcon },
-  { key: 'projects', label: 'Projects', icon: FolderIcon },
   { key: 'settings', label: 'Settings', icon: Cog6ToothIcon },
 ];
 

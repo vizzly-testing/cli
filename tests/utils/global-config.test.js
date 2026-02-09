@@ -11,18 +11,14 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   clearAuthTokens,
   clearGlobalConfig,
-  deleteProjectMapping,
   getAccessToken,
   getAuthTokens,
   getGlobalConfigDir,
   getGlobalConfigPath,
-  getProjectMapping,
-  getProjectMappings,
   hasValidTokens,
   loadGlobalConfig,
   saveAuthTokens,
   saveGlobalConfig,
-  saveProjectMapping,
 } from '../../src/utils/global-config.js';
 
 describe('utils/global-config', () => {
@@ -286,109 +282,6 @@ describe('utils/global-config', () => {
       let token = await getAccessToken();
 
       assert.strictEqual(token, 'my-token');
-    });
-  });
-
-  describe('getProjectMapping', () => {
-    it('returns null when no projects', async () => {
-      let mapping = await getProjectMapping('/some/path');
-
-      assert.strictEqual(mapping, null);
-    });
-
-    it('returns mapping for exact path', async () => {
-      await saveProjectMapping('/project/path', {
-        token: 'vzt_123',
-        projectSlug: 'my-project',
-      });
-
-      let mapping = await getProjectMapping('/project/path');
-
-      assert.strictEqual(mapping.token, 'vzt_123');
-      assert.strictEqual(mapping.projectSlug, 'my-project');
-    });
-
-    it('returns mapping from parent directory', async () => {
-      await saveProjectMapping('/project', {
-        token: 'vzt_123',
-        projectSlug: 'parent-project',
-      });
-
-      let mapping = await getProjectMapping('/project/subdir/nested');
-
-      assert.strictEqual(mapping.projectSlug, 'parent-project');
-    });
-
-    it('returns null when no ancestor has mapping', async () => {
-      await saveProjectMapping('/other/project', {
-        token: 'vzt_123',
-      });
-
-      let mapping = await getProjectMapping('/different/path');
-
-      assert.strictEqual(mapping, null);
-    });
-  });
-
-  describe('saveProjectMapping', () => {
-    it('saves project mapping with timestamp', async () => {
-      await saveProjectMapping('/project', {
-        token: 'vzt_123',
-        projectSlug: 'test',
-        organizationSlug: 'org',
-      });
-
-      let config = await loadGlobalConfig();
-
-      assert.ok(config.projects['/project']);
-      assert.strictEqual(config.projects['/project'].token, 'vzt_123');
-      assert.ok(config.projects['/project'].createdAt);
-    });
-
-    it('creates projects object if not exists', async () => {
-      await saveProjectMapping('/new-project', { token: 'vzt_abc' });
-
-      let config = await loadGlobalConfig();
-
-      assert.ok(config.projects);
-    });
-  });
-
-  describe('getProjectMappings', () => {
-    it('returns empty object when no projects', async () => {
-      let mappings = await getProjectMappings();
-
-      assert.deepStrictEqual(mappings, {});
-    });
-
-    it('returns all project mappings', async () => {
-      await saveProjectMapping('/project1', { token: 'vzt_1' });
-      await saveProjectMapping('/project2', { token: 'vzt_2' });
-
-      let mappings = await getProjectMappings();
-
-      assert.ok(mappings['/project1']);
-      assert.ok(mappings['/project2']);
-    });
-  });
-
-  describe('deleteProjectMapping', () => {
-    it('removes project mapping', async () => {
-      await saveProjectMapping('/project', { token: 'vzt_123' });
-      await deleteProjectMapping('/project');
-
-      let mapping = await getProjectMapping('/project');
-
-      assert.strictEqual(mapping, null);
-    });
-
-    it('does nothing when mapping does not exist', async () => {
-      // Should not throw
-      await deleteProjectMapping('/nonexistent');
-
-      let mappings = await getProjectMappings();
-
-      assert.deepStrictEqual(mappings, {});
     });
   });
 });

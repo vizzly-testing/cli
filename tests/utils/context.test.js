@@ -114,31 +114,6 @@ describe('utils/context', () => {
       assert.strictEqual(serverItem.value, 'running on :47392');
     });
 
-    it('detects project mapping from global config', () => {
-      process.chdir(testDir);
-
-      // Create global config with project mapping
-      let globalConfig = {
-        projects: {
-          [testDir]: {
-            projectName: 'Test Project',
-            organizationSlug: 'test-org',
-          },
-        },
-      };
-      writeFileSync(
-        join(process.env.VIZZLY_HOME, 'config.json'),
-        JSON.stringify(globalConfig)
-      );
-
-      let items = getContext();
-
-      let projectItem = items.find(i => i.label === 'Project');
-      assert.ok(projectItem);
-      assert.strictEqual(projectItem.type, 'success');
-      assert.strictEqual(projectItem.value, 'Test Project (test-org)');
-    });
-
     it('detects logged in user from global config', () => {
       process.chdir(testDir);
 
@@ -266,7 +241,6 @@ describe('utils/context', () => {
       assert.strictEqual(context.tddServer.running, false);
       assert.strictEqual(context.tddServer.port, null);
       assert.strictEqual(context.project.hasConfig, false);
-      assert.strictEqual(context.project.mapping, null);
       assert.strictEqual(context.auth.loggedIn, false);
       assert.strictEqual(context.auth.hasEnvToken, false);
       assert.strictEqual(context.baselines.count, 0);

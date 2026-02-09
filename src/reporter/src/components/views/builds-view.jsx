@@ -11,14 +11,21 @@ import {
   UserCircleIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
-import { useCallback, useMemo, useState } from 'react';
-import { useAuthStatus } from '../../hooks/queries/use-auth-queries.js';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useAuthStatus,
+  useInitiateLogin,
+  usePollAuthorization,
+} from '../../hooks/queries/use-auth-queries.js';
 import {
   useBuilds,
   useDownloadBaselines,
   useProjects,
 } from '../../hooks/queries/use-cloud-queries.js';
+import { queryKeys } from '../../lib/query-keys.js';
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -217,7 +224,143 @@ function OrganizationSection({
   );
 }
 
-function LoginPrompt({ onLogin }) {
+function DeviceFlowLogin({ onComplete }) {
+  const [deviceFlow, setDeviceFlow] = useState(null);
+  const [error, setError] = useState(null);
+
+  const initiateLoginMutation = useInitiateLogin();
+  const pollMutation = usePollAuthorization();
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    async function startDeviceFlow() {
+      try {
+        const flow = await initiateLoginMutation.mutateAsync();
+        setDeviceFlow(flow);
+      } catch (err) {
+        setError(err.message);
+        addToast(`Failed to start login: ${err.message}`, 'error');
+      }
+    }
+
+    startDeviceFlow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addToast, initiateLoginMutation.mutateAsync]);
+
+  async function checkAuthorization() {
+    if (!deviceFlow?.deviceCode) return;
+
+    setError(null);
+
+    try {
+      const result = await pollMutation.mutateAsync(deviceFlow.deviceCode);
+
+      if (result.status === 'complete') {
+        addToast('Login successful!', 'success');
+        onComplete?.();
+      } else if (result.status === 'pending') {
+        addToast('Still waiting for authorization...', 'info');
+      } else {
+        setError('Unexpected response from server');
+      }
+    } catch (err) {
+      setError(err.message);
+      addToast(`Check failed: ${err.message}`, 'error');
+    }
+  }
+
+  if (error) {
+    return (
+      <Alert variant="danger" title="Login Error">
+        {error}
+      </Alert>
+    );
+  }
+
+  if (!deviceFlow) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Spinner size="lg" className="text-amber-400 mb-4" />
+        <p className="text-slate-400">Starting login flow...</p>
+      </div>
+    );
+  }
+
+  return (
+    <Card hover={false}>
+      <CardBody className="text-center py-8">
+        <h3 className="text-xl font-semibold text-white mb-6">
+          Sign in to Vizzly
+        </h3>
+
+        <div className="bg-slate-900/50 rounded-xl p-6 mb-6 border border-slate-700/50 max-w-sm mx-auto">
+          <p className="text-sm text-slate-400 mb-4">
+            Click below to authorize:
+          </p>
+          <a
+            href={
+              deviceFlow.verificationUriComplete || deviceFlow.verificationUri
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium rounded-lg transition-colors mb-4"
+          >
+            Open Authorization Page
+          </a>
+          <div className="mt-4 pt-4 border-t border-slate-700/50">
+            <p className="text-xs text-slate-500 mb-2">
+              Or enter this code manually:
+            </p>
+            <div className="text-2xl font-mono font-bold text-amber-400 tracking-wider">
+              {deviceFlow.userCode}
+            </div>
+          </div>
+        </div>
+
+        <p className="text-sm text-slate-400 mb-4">
+          After authorizing in your browser, click the button below to complete
+          sign in.
+        </p>
+
+        <Button
+          variant="secondary"
+          onClick={checkAuthorization}
+          loading={pollMutation.isPending}
+        >
+          Check Status
+        </Button>
+      </CardBody>
+    </Card>
+  );
+}
+
+function LoginPrompt() {
+  const [showingLogin, setShowingLogin] = useState(false);
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
+
+  const handleLoginComplete = useCallback(() => {
+    setShowingLogin(false);
+    queryClient.invalidateQueries({ queryKey: queryKeys.auth });
+    queryClient.invalidateQueries({ queryKey: queryKeys.projects() });
+    addToast('Login successful!', 'success');
+  }, [queryClient, addToast]);
+
+  if (showingLogin) {
+    return (
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowingLogin(false)}
+        >
+          &larr; Back
+        </Button>
+        <DeviceFlowLogin onComplete={handleLoginComplete} />
+      </div>
+    );
+  }
+
   return (
     <Card hover={false}>
       <CardBody className="text-center py-12">
@@ -233,7 +376,7 @@ function LoginPrompt({ onLogin }) {
         </p>
         <Button
           variant="primary"
-          onClick={onLogin}
+          onClick={() => setShowingLogin(true)}
           icon={ArrowRightOnRectangleIcon}
         >
           Sign In
@@ -312,11 +455,6 @@ export default function BuildsView() {
     [downloadMutation, addToast]
   );
 
-  const handleLogin = useCallback(() => {
-    // Navigate to projects page for login
-    window.location.href = '/projects';
-  }, []);
-
   if (projectsLoading || authLoading) {
     return (
       <div className="space-y-6">
@@ -354,7 +492,7 @@ export default function BuildsView() {
 
       {/* Content */}
       {!authenticated ? (
-        <LoginPrompt onLogin={handleLogin} />
+        <LoginPrompt />
       ) : projectsByOrg.length === 0 ? (
         <Card hover={false}>
           <CardBody>

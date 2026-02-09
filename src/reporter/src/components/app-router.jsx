@@ -6,7 +6,6 @@ import { Layout } from './layout/index.js';
 import BuildsView from './views/builds-view.jsx';
 import ComparisonDetailView from './views/comparison-detail-view.jsx';
 import ComparisonsView from './views/comparisons-view.jsx';
-import ProjectsView from './views/projects-view.jsx';
 import SettingsView from './views/settings-view.jsx';
 import StatsView from './views/stats-view.jsx';
 import WaitingForScreenshots from './waiting-for-screenshots.jsx';
@@ -54,25 +53,19 @@ export default function AppRouter() {
       ? 'stats'
       : location === '/settings'
         ? 'settings'
-        : location === '/projects'
-          ? 'projects'
-          : location === '/builds'
-            ? 'builds'
-            : 'comparisons';
+        : location === '/builds'
+          ? 'builds'
+          : 'comparisons';
 
   const navigateTo = view => {
     if (view === 'stats') setLocation('/stats');
     else if (view === 'settings') setLocation('/settings');
-    else if (view === 'projects') setLocation('/projects');
     else if (view === 'builds') setLocation('/builds');
     else setLocation('/');
   };
 
   // Settings, Projects, and Builds don't need screenshot data - always allow access
-  const isManagementRoute =
-    location === '/settings' ||
-    location === '/projects' ||
-    location === '/builds';
+  const isManagementRoute = location === '/settings' || location === '/builds';
 
   // Loading state (but not for management routes)
   if (isLoading && !reportData && !isManagementRoute) {
@@ -151,10 +144,6 @@ export default function AppRouter() {
 
         <Route path="/settings">
           <SettingsView />
-        </Route>
-
-        <Route path="/projects">
-          <ProjectsView />
         </Route>
 
         <Route path="/builds">

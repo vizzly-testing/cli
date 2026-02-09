@@ -129,6 +129,7 @@ export async function comparisonsCommand(
       output.startSpinner('Searching comparisons...');
       let filters = {
         branch: options.branch,
+        project: options.project,
         limit: options.limit || 50,
         offset: options.offset || 0,
       };

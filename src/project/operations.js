@@ -10,7 +10,6 @@
 
 import {
   buildBuildsUrl,
-  buildMappingResult,
   buildNoApiServiceError,
   buildNoAuthError,
   buildOrgHeader,
@@ -27,94 +26,7 @@ import {
   extractProjects,
   extractToken,
   extractTokens,
-  mappingsToArray,
-  validateDirectory,
-  validateProjectData,
 } from './core.js';
-
-// ============================================================================
-// Mapping Operations
-// ============================================================================
-
-/**
- * List all project mappings
- * @param {Object} mappingStore - Store with getMappings method
- * @returns {Promise<Array>} Array of project mappings with directory included
- */
-export async function listMappings(mappingStore) {
-  let mappings = await mappingStore.getMappings();
-  return mappingsToArray(mappings);
-}
-
-/**
- * Get project mapping for a specific directory
- * @param {Object} mappingStore - Store with getMapping method
- * @param {string} directory - Directory path
- * @returns {Promise<Object|null>} Project mapping or null
- */
-export async function getMapping(mappingStore, directory) {
-  return mappingStore.getMapping(directory);
-}
-
-/**
- * Create or update project mapping
- * @param {Object} mappingStore - Store with saveMapping method
- * @param {string} directory - Directory path
- * @param {Object} projectData - Project data
- * @returns {Promise<Object>} Created mapping with directory included
- */
-export async function createMapping(mappingStore, directory, projectData) {
-  let dirValidation = validateDirectory(directory);
-  if (!dirValidation.valid) {
-    throw dirValidation.error;
-  }
-
-  let dataValidation = validateProjectData(projectData);
-  if (!dataValidation.valid) {
-    throw dataValidation.error;
-  }
-
-  await mappingStore.saveMapping(directory, projectData);
-  return buildMappingResult(directory, projectData);
-}
-
-/**
- * Remove project mapping
- * @param {Object} mappingStore - Store with deleteMapping method
- * @param {string} directory - Directory path
- * @returns {Promise<void>}
- */
-export async function removeMapping(mappingStore, directory) {
-  let validation = validateDirectory(directory);
-  if (!validation.valid) {
-    throw validation.error;
-  }
-
-  await mappingStore.deleteMapping(directory);
-}
-
-/**
- * Switch project for a directory (convenience wrapper for createMapping)
- * @param {Object} mappingStore - Store with saveMapping method
- * @param {string} directory - Directory path
- * @param {string} projectSlug - Project slug
- * @param {string} organizationSlug - Organization slug
- * @param {string} token - Project token
- * @returns {Promise<Object>} Updated mapping
- */
-export async function switchProject(
-  mappingStore,
-  directory,
-  projectSlug,
-  organizationSlug,
-  token
-) {
-  return createMapping(mappingStore, directory, {
-    projectSlug,
-    organizationSlug,
-    token,
-  });
-}
 
 // ============================================================================
 // API Operations - List Projects

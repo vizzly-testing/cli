@@ -4,35 +4,22 @@
  *
  * Provides the interface expected by src/server/routers/projects.js:
  * - listProjects() - Returns [] if not authenticated
- * - listMappings() - Returns [] if no mappings
- * - getMapping(directory) - Returns null if not found
- * - createMapping(directory, projectData) - Throws on invalid input
- * - removeMapping(directory) - Throws on invalid directory
  * - getRecentBuilds(projectSlug, organizationSlug, options) - Returns [] if not authenticated
  *
  * Error handling:
  * - API methods (listProjects, getRecentBuilds) return empty arrays when not authenticated
- * - Local methods (listMappings, getMapping) never require authentication
- * - Validation errors (createMapping, removeMapping) throw with descriptive messages
  */
 
 import { createAuthClient } from '../auth/client.js';
 import * as projectOps from '../project/operations.js';
 import { getApiUrl } from '../utils/environment-config.js';
-import {
-  deleteProjectMapping,
-  getAuthTokens,
-  getProjectMapping,
-  getProjectMappings,
-  saveProjectMapping,
-} from '../utils/global-config.js';
+import { getAuthTokens } from '../utils/global-config.js';
 
 /**
  * Create a project service instance
  * @param {Object} [options]
  * @param {string} [options.apiUrl] - API base URL (defaults to VIZZLY_API_URL or https://app.vizzly.dev)
  * @param {Object} [options.httpClient] - Injectable HTTP client (for testing)
- * @param {Object} [options.mappingStore] - Injectable mapping store (for testing)
  * @param {Function} [options.getAuthTokens] - Injectable token getter (for testing)
  * @returns {Object} Project service
  */
@@ -42,15 +29,6 @@ export function createProjectService(options = {}) {
   // Create HTTP client once at service creation (not per-request)
   // Allow injection for testing
   let httpClient = options.httpClient || createAuthClient({ baseUrl: apiUrl });
-
-  // Create mapping store adapter for global config
-  // Allow injection for testing
-  let mappingStore = options.mappingStore || {
-    getMappings: getProjectMappings,
-    getMapping: getProjectMapping,
-    saveMapping: saveProjectMapping,
-    deleteMapping: deleteProjectMapping,
-  };
 
   // Allow injection of getAuthTokens for testing
   let tokenGetter = options.getAuthTokens || getAuthTokens;
@@ -86,42 +64,6 @@ export function createProjectService(options = {}) {
       let oauthClient = await createOAuthClient();
       // projectOps.listProjects handles null oauthClient by returning []
       return projectOps.listProjects({ oauthClient, apiClient: null });
-    },
-
-    /**
-     * List all project mappings
-     * @returns {Promise<Array>} Array of project mappings
-     */
-    async listMappings() {
-      return projectOps.listMappings(mappingStore);
-    },
-
-    /**
-     * Get project mapping for a specific directory
-     * @param {string} directory - Directory path
-     * @returns {Promise<Object|null>} Project mapping or null
-     */
-    async getMapping(directory) {
-      return projectOps.getMapping(mappingStore, directory);
-    },
-
-    /**
-     * Create or update project mapping
-     * @param {string} directory - Directory path
-     * @param {Object} projectData - Project data
-     * @returns {Promise<Object>} Created mapping
-     */
-    async createMapping(directory, projectData) {
-      return projectOps.createMapping(mappingStore, directory, projectData);
-    },
-
-    /**
-     * Remove project mapping
-     * @param {string} directory - Directory path
-     * @returns {Promise<void>}
-     */
-    async removeMapping(directory) {
-      return projectOps.removeMapping(mappingStore, directory);
     },
 
     /**

@@ -626,6 +626,7 @@ program
   )
   .option('--environment <env>', 'Filter by environment')
   .option('-p, --project <slug>', 'Filter by project slug')
+  .option('--org <slug>', 'Filter by organization slug')
   .option(
     '--limit <n>',
     'Maximum results to return (1-250)',
@@ -640,7 +641,8 @@ program
 Examples:
   $ vizzly builds                          # List recent builds
   $ vizzly builds --branch main            # Filter by branch
-  $ vizzly builds --project abc123         # Filter by project
+  $ vizzly builds --project storybook      # Filter by project
+  $ vizzly builds --project storybook --org my-org  # Disambiguate by org
   $ vizzly builds --status completed       # Filter by status
   $ vizzly builds -b abc123-def456         # Get specific build by ID
   $ vizzly builds -b abc123 --comparisons  # Include comparisons
@@ -679,6 +681,7 @@ program
   )
   .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
   .option('-p, --project <slug>', 'Filter by project slug')
+  .option('--org <slug>', 'Filter by organization slug')
   .addHelpText(
     'after',
     `
@@ -687,6 +690,7 @@ Examples:
   $ vizzly comparisons --id def456         # Get specific comparison by ID
   $ vizzly comparisons --name "Button"     # Search by screenshot name
   $ vizzly comparisons --name "Login*"     # Wildcard search
+  $ vizzly comparisons --name "Button" --org my-org  # Filter by org
   $ vizzly comparisons --status changed    # Only changed comparisons
   $ vizzly comparisons --json              # Output as JSON for scripting
 `

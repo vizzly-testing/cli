@@ -86,6 +86,7 @@ export async function buildsCommand(
     if (options.status) filters.status = options.status;
     if (options.environment) filters.environment = options.environment;
     if (options.project) filters.project = options.project;
+    if (options.org) filters.organization = options.org;
 
     let response = await getBuilds(client, filters);
     output.stopSpinner();

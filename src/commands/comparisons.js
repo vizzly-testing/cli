@@ -128,6 +128,7 @@ export async function comparisonsCommand(
       let filters = {
         branch: options.branch,
         project: options.project,
+        organization: options.org,
         limit: options.limit || 50,
         offset: options.offset || 0,
       };

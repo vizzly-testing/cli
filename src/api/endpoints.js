@@ -237,10 +237,11 @@ export async function searchComparisons(client, name, filters = {}) {
     throw new VizzlyError('name is required and must be a non-empty string');
   }
 
-  let { branch, project, limit = 50, offset = 0 } = filters;
+  let { branch, project, organization, limit = 50, offset = 0 } = filters;
   let params = { name, limit: String(limit), offset: String(offset) };
   if (branch) params.branch = branch;
   if (project) params.project = project;
+  if (organization) params.organization = organization;
 
   let endpoint = buildEndpointWithParams('/api/sdk/comparisons/search', params);
   return client.request(endpoint);

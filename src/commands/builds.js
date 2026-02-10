@@ -129,13 +129,31 @@ export async function buildsCommand(
       let statusColor = getStatusColor(colors, build.status);
       let statusBadge = statusColor(build.status.toUpperCase());
 
-      output.print(`  ${colors.bold(build.name || build.id)} ${statusBadge}`);
+      // Approval badge
+      let approvalBadge = '';
+      if (build.approval_status && build.status === 'completed') {
+        approvalBadge = ` ${getApprovalBadge(colors, build.approval_status)}`;
+      }
+
+      output.print(
+        `  ${colors.bold(build.name || build.id)} ${statusBadge}${approvalBadge}`
+      );
 
       let details = [];
       if (build.branch) details.push(build.branch);
       if (build.commit_sha) details.push(build.commit_sha.substring(0, 7));
       if (build.screenshot_count)
         details.push(`${build.screenshot_count} screenshots`);
+
+      // Comparison counts summary
+      let compParts = [];
+      let changed = build.changed_comparisons || 0;
+      let identical = build.identical_comparisons || 0;
+      let newCount = build.new_comparisons || 0;
+      if (changed > 0) compParts.push(`${changed} changed`);
+      if (newCount > 0) compParts.push(`${newCount} new`);
+      if (identical > 0) compParts.push(`${identical} identical`);
+      if (compParts.length > 0) details.push(compParts.join(' · '));
 
       if (details.length > 0) {
         output.print(`    ${colors.dim(details.join(' · '))}`);
@@ -209,7 +227,7 @@ function formatBuildForJson(build, includeComparisons = false) {
 
       return {
         id: c.id,
-        name: c.name,
+        name: c.name || c.current_name,
         status: c.status,
         diffPercentage: c.diff_percentage,
         approvalStatus: c.approval_status,
@@ -299,8 +317,22 @@ function displayBuild(output, build, verbose) {
     output.labelValue('Comparisons', '');
 
     for (let comp of build.comparisons.slice(0, verbose ? 50 : 10)) {
-      let statusIcon = getComparisonStatusIcon(colors, comp.status);
-      output.print(`    ${statusIcon} ${comp.name}`);
+      let resultIcon = getComparisonStatusIcon(
+        colors,
+        comp.result || comp.status
+      );
+      let compName = comp.name || comp.current_name || comp.id;
+      let diffInfo = '';
+      if (comp.diff_percentage > 0) {
+        diffInfo = colors.dim(` (${comp.diff_percentage.toFixed(2)}%)`);
+      }
+      let classification = '';
+      if (verbose && comp.cluster_metadata?.classification) {
+        classification = colors.dim(
+          ` [${comp.cluster_metadata.classification}]`
+        );
+      }
+      output.print(`    ${resultIcon} ${compName}${diffInfo}${classification}`);
     }
 
     if (build.comparisons.length > (verbose ? 50 : 10)) {
@@ -325,6 +357,23 @@ function getStatusColor(colors, status) {
       return colors.brand.warning;
     default:
       return colors.dim;
+  }
+}
+
+/**
+ * Get colored approval badge
+ */
+function getApprovalBadge(colors, approvalStatus) {
+  switch (approvalStatus) {
+    case 'approved':
+    case 'auto_approved':
+      return colors.brand.success('APPROVED');
+    case 'rejected':
+      return colors.brand.error('REJECTED');
+    case 'pending':
+      return colors.brand.warning('PENDING');
+    default:
+      return colors.dim(approvalStatus?.toUpperCase() || '');
   }
 }
 

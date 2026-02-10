@@ -307,5 +307,28 @@ describe('commands/builds', () => {
 
       assert.strictEqual(capturedFilters.project, 'proj-123');
     });
+
+    it('passes organization filter to API', async () => {
+      let output = createMockOutput();
+      let capturedFilters = null;
+
+      await buildsCommand(
+        { project: 'storybook', org: 'my-org' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuilds: async (_client, filters) => {
+            capturedFilters = filters;
+            return { builds: [], pagination: { total: 0, hasMore: false } };
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedFilters.project, 'storybook');
+      assert.strictEqual(capturedFilters.organization, 'my-org');
+    });
   });
 });

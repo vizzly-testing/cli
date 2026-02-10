@@ -229,7 +229,7 @@ export async function getComparison(client, comparisonId) {
  * Search for comparisons by name
  * @param {Object} client - API client
  * @param {string} name - Screenshot name to search for
- * @param {Object} filters - Optional filters (branch, limit, offset)
+ * @param {Object} filters - Optional filters (branch, project, organization, limit, offset)
  * @returns {Promise<Object>} Search results with comparisons and pagination
  */
 export async function searchComparisons(client, name, filters = {}) {

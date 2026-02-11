@@ -3,6 +3,16 @@ import { tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 import { SSE_STATE, useReportDataSSE } from '../use-sse.js';
 
+export function useComparison(id, options = {}) {
+  return useQuery({
+    queryKey: queryKeys.comparison(id),
+    queryFn: () => tdd.getComparison(id),
+    enabled: !!id,
+    staleTime: 10_000,
+    ...options,
+  });
+}
+
 export function useReportData(options = {}) {
   // Use SSE for real-time updates
   let { state: sseState } = useReportDataSSE({

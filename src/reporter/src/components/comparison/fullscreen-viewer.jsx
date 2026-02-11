@@ -540,7 +540,8 @@ function FullscreenViewerInner({
             </button>
 
             {/* Regions toggle - only show if comparison has regions */}
-            {comparison?.confirmedRegions?.length > 0 && (
+            {(comparison?.confirmedRegions?.length > 0 ||
+              comparison?.hasConfirmedRegions) && (
               <button
                 type="button"
                 onClick={() => setShowRegions(!showRegions)}
@@ -825,7 +826,8 @@ function FullscreenViewerInner({
           </button>
 
           {/* Regions toggle - mobile */}
-          {comparison?.confirmedRegions?.length > 0 && (
+          {(comparison?.confirmedRegions?.length > 0 ||
+            comparison?.hasConfirmedRegions) && (
             <button
               type="button"
               onClick={() => setShowRegions(!showRegions)}

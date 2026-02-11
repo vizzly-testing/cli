@@ -157,6 +157,153 @@ describe('server/routers/dashboard', () => {
       });
     });
 
+    describe('GET /api/comparison/:id', () => {
+      it('returns merged comparison data by id', async () => {
+        writeFileSync(
+          join(testDir, '.vizzly', 'report-data.json'),
+          JSON.stringify({
+            comparisons: [
+              {
+                id: 'comp-1',
+                name: 'login-page',
+                signature: 'login-page|1280|chrome',
+                status: 'failed',
+                diffPercentage: 0.5,
+                hasDiffClusters: true,
+              },
+            ],
+          })
+        );
+        writeFileSync(
+          join(testDir, '.vizzly', 'comparison-details.json'),
+          JSON.stringify({
+            'comp-1': {
+              diffClusters: [{ x: 10, y: 20, width: 100, height: 50 }],
+              confirmedRegions: [{ id: 'r1', label: 'header' }],
+              intensityStats: { mean: 0.3 },
+            },
+          })
+        );
+
+        let handler = createDashboardRouter();
+        let req = createMockRequest('GET');
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/comparison/comp-1');
+
+        assert.strictEqual(res.statusCode, 200);
+        let body = res.getParsedBody();
+        assert.strictEqual(body.id, 'comp-1');
+        assert.strictEqual(body.name, 'login-page');
+        assert.strictEqual(body.diffPercentage, 0.5);
+        // Heavy fields merged in
+        assert.strictEqual(body.diffClusters.length, 1);
+        assert.strictEqual(body.confirmedRegions.length, 1);
+        assert.deepStrictEqual(body.intensityStats, { mean: 0.3 });
+      });
+
+      it('returns comparison by signature', async () => {
+        writeFileSync(
+          join(testDir, '.vizzly', 'report-data.json'),
+          JSON.stringify({
+            comparisons: [
+              {
+                id: 'comp-2',
+                name: 'home-page',
+                signature: 'home-page|1920|firefox',
+                status: 'passed',
+              },
+            ],
+          })
+        );
+
+        let handler = createDashboardRouter();
+        let req = createMockRequest('GET');
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/comparison/home-page%7C1920%7Cfirefox');
+
+        assert.strictEqual(res.statusCode, 200);
+        let body = res.getParsedBody();
+        assert.strictEqual(body.id, 'comp-2');
+      });
+
+      it('returns comparison by name', async () => {
+        writeFileSync(
+          join(testDir, '.vizzly', 'report-data.json'),
+          JSON.stringify({
+            comparisons: [
+              { id: 'comp-3', name: 'settings-page', status: 'new' },
+            ],
+          })
+        );
+
+        let handler = createDashboardRouter();
+        let req = createMockRequest('GET');
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/comparison/settings-page');
+
+        assert.strictEqual(res.statusCode, 200);
+        let body = res.getParsedBody();
+        assert.strictEqual(body.id, 'comp-3');
+      });
+
+      it('returns 404 when comparison not found', async () => {
+        writeFileSync(
+          join(testDir, '.vizzly', 'report-data.json'),
+          JSON.stringify({ comparisons: [] })
+        );
+
+        let handler = createDashboardRouter();
+        let req = createMockRequest('GET');
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/comparison/nonexistent');
+
+        assert.strictEqual(res.statusCode, 404);
+      });
+
+      it('returns 404 when no report data exists', async () => {
+        let handler = createDashboardRouter();
+        let req = createMockRequest('GET');
+        let res = createMockResponse();
+
+        // Remove the report-data.json file (doesn't exist by default in test)
+        await handler(req, res, '/api/comparison/any-id');
+
+        assert.strictEqual(res.statusCode, 404);
+      });
+
+      it('returns lightweight data when no details file exists', async () => {
+        writeFileSync(
+          join(testDir, '.vizzly', 'report-data.json'),
+          JSON.stringify({
+            comparisons: [
+              {
+                id: 'comp-4',
+                name: 'dashboard',
+                status: 'passed',
+                hasDiffClusters: false,
+              },
+            ],
+          })
+        );
+
+        let handler = createDashboardRouter();
+        let req = createMockRequest('GET');
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/comparison/comp-4');
+
+        assert.strictEqual(res.statusCode, 200);
+        let body = res.getParsedBody();
+        assert.strictEqual(body.id, 'comp-4');
+        // No heavy fields since no details file
+        assert.strictEqual(body.diffClusters, undefined);
+      });
+    });
+
     describe('SPA Routes', () => {
       it('serves dashboard HTML for / route', async () => {
         let handler = createDashboardRouter();

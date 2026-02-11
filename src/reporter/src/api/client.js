@@ -49,6 +49,15 @@ export const tdd = {
   },
 
   /**
+   * Get full comparison details (lightweight + heavy fields)
+   * @param {string} id - Comparison ID, signature, or name
+   * @returns {Promise<Object>}
+   */
+  async getComparison(id) {
+    return fetchJson(`/api/comparison/${encodeURIComponent(id)}`);
+  },
+
+  /**
    * Accept a single baseline
    * @param {string} id - Comparison ID
    * @returns {Promise<Object>}

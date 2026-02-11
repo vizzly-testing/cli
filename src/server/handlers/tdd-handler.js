@@ -198,15 +198,53 @@ export const createTddHandler = (
 
   const tddService = new TddService(config, workingDir, setBaseline);
   const reportPath = join(workingDir, '.vizzly', 'report-data.json');
+  const detailsPath = join(workingDir, '.vizzly', 'comparison-details.json');
+
+  /**
+   * Read heavy comparison details from comparison-details.json
+   * Returns a map of comparison ID -> heavy fields
+   */
+  const readComparisonDetails = () => {
+    try {
+      if (!existsSync(detailsPath)) return {};
+      return JSON.parse(readFileSync(detailsPath, 'utf8'));
+    } catch {
+      return {};
+    }
+  };
+
+  /**
+   * Persist heavy fields for a comparison to comparison-details.json
+   * This file is NOT watched by SSE, so writes here don't trigger broadcasts
+   * Skips writing if all heavy fields are empty (passed comparisons)
+   */
+  const updateComparisonDetails = (id, heavyFields) => {
+    let hasData = Object.values(heavyFields).some(
+      v => v != null && (!Array.isArray(v) || v.length > 0)
+    );
+    if (!hasData) return;
+
+    let details = readComparisonDetails();
+    details[id] = heavyFields;
+    writeFileSync(detailsPath, JSON.stringify(details));
+  };
+
+  /**
+   * Remove a comparison's heavy fields from comparison-details.json
+   */
+  const removeComparisonDetails = id => {
+    let details = readComparisonDetails();
+    delete details[id];
+    writeFileSync(detailsPath, JSON.stringify(details));
+  };
 
   const readReportData = () => {
     try {
       if (!existsSync(reportPath)) {
         return {
           timestamp: Date.now(),
-          comparisons: [], // Internal flat list for easy updates
-          groups: [], // Grouped structure for UI
-          summary: { total: 0, groups: 0, passed: 0, failed: 0, errors: 0 },
+          comparisons: [],
+          summary: { total: 0, passed: 0, failed: 0, errors: 0 },
         };
       }
       const data = readFileSync(reportPath, 'utf8');
@@ -216,8 +254,7 @@ export const createTddHandler = (
       return {
         timestamp: Date.now(),
         comparisons: [],
-        groups: [],
-        summary: { total: 0, groups: 0, passed: 0, failed: 0, errors: 0 },
+        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
       };
     }
   };
@@ -254,14 +291,10 @@ export const createTddHandler = (
         });
       }
 
-      // Generate grouped structure from flat comparisons
-      reportData.groups = groupComparisons(reportData.comparisons);
-
-      // Update summary
+      // Update summary (groups computed client-side from comparisons)
       reportData.timestamp = Date.now();
       reportData.summary = {
         total: reportData.comparisons.length,
-        groups: reportData.groups.length,
         passed: reportData.comparisons.filter(
           c =>
             c.status === 'passed' ||
@@ -275,7 +308,7 @@ export const createTddHandler = (
         errors: reportData.comparisons.filter(c => c.status === 'error').length,
       };
 
-      writeFileSync(reportPath, JSON.stringify(reportData, null, 2));
+      writeFileSync(reportPath, JSON.stringify(reportData));
     } catch (error) {
       output.error('Failed to update comparison:', error);
     }
@@ -465,21 +498,45 @@ export const createTddHandler = (
     const vizzlyDir = join(workingDir, '.vizzly');
 
     // Record the comparison for the dashboard
-    // Spread the full comparison to include regionAnalysis, confirmedRegions, hotspotAnalysis, etc.
+    // Only include lightweight fields in report-data.json (broadcast via SSE)
     const newComparison = {
-      ...comparison,
-      originalName: name,
-      // Convert absolute file paths to web-accessible URLs
+      id: comparison.id,
+      name: comparison.name,
+      status: comparison.status,
+      signature: comparison.signature,
       baseline: convertPathToUrl(comparison.baseline, vizzlyDir),
       current: convertPathToUrl(comparison.current, vizzlyDir),
       diff: convertPathToUrl(comparison.diff, vizzlyDir),
-      // Use extracted properties with top-level viewport_width/browser
       properties: extractedProperties,
+      threshold: comparison.threshold,
+      minClusterSize: comparison.minClusterSize,
+      diffPercentage: comparison.diffPercentage,
+      diffCount: comparison.diffCount,
+      reason: comparison.reason,
+      totalPixels: comparison.totalPixels,
+      aaPixelsIgnored: comparison.aaPixelsIgnored,
+      aaPercentage: comparison.aaPercentage,
+      heightDiff: comparison.heightDiff,
+      error: comparison.error,
+      originalName: name,
       timestamp: Date.now(),
+      // Boolean hints so UI can show toggle buttons without fetching heavy data
+      hasDiffClusters: comparison.diffClusters?.length > 0,
+      hasConfirmedRegions: comparison.confirmedRegions?.length > 0,
     };
 
-    // Update comparison in report data file
+    // Update lightweight comparison in report-data.json (triggers SSE broadcast)
     updateComparison(newComparison);
+
+    // Persist heavy fields separately (NOT broadcast via SSE)
+    updateComparisonDetails(comparison.id, {
+      diffClusters: comparison.diffClusters,
+      intensityStats: comparison.intensityStats,
+      boundingBox: comparison.boundingBox,
+      regionAnalysis: comparison.regionAnalysis,
+      hotspotAnalysis: comparison.hotspotAnalysis,
+      confirmedRegions: comparison.confirmedRegions,
+    });
 
     // Log screenshot event for menubar
     // Normalize status to match HTTP response ('failed' -> 'diff')
@@ -759,10 +816,14 @@ export const createTddHandler = (
       const freshReportData = {
         timestamp: Date.now(),
         comparisons: [],
-        groups: [],
-        summary: { total: 0, groups: 0, passed: 0, failed: 0, errors: 0 },
+        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
       };
-      writeFileSync(reportPath, JSON.stringify(freshReportData, null, 2));
+      writeFileSync(reportPath, JSON.stringify(freshReportData));
+
+      // Clear comparison details
+      if (existsSync(detailsPath)) {
+        writeFileSync(detailsPath, JSON.stringify({}));
+      }
 
       output.info(
         `Baselines reset - ${deletedBaselines} baselines deleted, ${deletedCurrents} current screenshots deleted, ${deletedDiffs} diffs deleted`
@@ -843,17 +904,18 @@ export const createTddHandler = (
       output.warn(`Failed to update baseline metadata: ${error.message}`);
     }
 
+    // Remove heavy fields from comparison-details.json
+    removeComparisonDetails(comparisonId);
+
     // Remove comparison from report data
     reportData.comparisons = reportData.comparisons.filter(
       c => c.id !== comparisonId
     );
 
-    // Regenerate groups and summary
-    reportData.groups = groupComparisons(reportData.comparisons);
+    // Regenerate summary (groups computed client-side)
     reportData.timestamp = Date.now();
     reportData.summary = {
       total: reportData.comparisons.length,
-      groups: reportData.groups.length,
       passed: reportData.comparisons.filter(
         c =>
           c.status === 'passed' ||
@@ -866,7 +928,7 @@ export const createTddHandler = (
       errors: reportData.comparisons.filter(c => c.status === 'error').length,
     };
 
-    writeFileSync(reportPath, JSON.stringify(reportData, null, 2));
+    writeFileSync(reportPath, JSON.stringify(reportData));
 
     output.info(`Deleted comparison ${comparisonId} (${comparison.name})`);
     return { success: true, id: comparisonId };

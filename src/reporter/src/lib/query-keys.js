@@ -11,6 +11,7 @@ export const queryKeys = {
   // TDD (local)
   tdd: ['tdd'],
   reportData: () => [...queryKeys.tdd, 'report'],
+  comparison: id => [...queryKeys.tdd, 'comparison', id],
 
   // Cloud
   cloud: ['cloud'],

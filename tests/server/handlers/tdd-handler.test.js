@@ -1349,7 +1349,68 @@ describe('server/handlers/tdd-handler', () => {
         );
         assert.ok(reportData.timestamp);
         assert.ok(Array.isArray(reportData.comparisons));
-        assert.ok(Array.isArray(reportData.groups));
+      });
+
+      it('excludes heavy fields from report-data.json and writes them to comparison-details.json', async () => {
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: name => ({
+              id: `comp-${name}`,
+              name,
+              status: 'failed',
+              signature: `${name}|1920|chrome`,
+              baseline: '/baselines/test.png',
+              current: '/current/test.png',
+              diff: '/diffs/test.png',
+              diffPercentage: 5.5,
+              threshold: 0.1,
+              diffClusters: [
+                { x: 10, y: 20, width: 100, height: 50, pixelCount: 500 },
+              ],
+              intensityStats: { mean: 0.3, max: 0.8 },
+              boundingBox: { x: 0, y: 0, width: 1920, height: 1080 },
+              regionAnalysis: { totalRegions: 1 },
+              hotspotAnalysis: { coverage: 0.9 },
+              confirmedRegions: [{ id: 'r1', label: 'header' }],
+            }),
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.handleScreenshot('build-1', 'test', 'base64data', {});
+
+        // report-data.json should NOT contain heavy fields
+        let reportData = JSON.parse(
+          deps._fileSystem['/test/.vizzly/report-data.json']
+        );
+        let comparison = reportData.comparisons[0];
+        assert.strictEqual(comparison.diffClusters, undefined);
+        assert.strictEqual(comparison.intensityStats, undefined);
+        assert.strictEqual(comparison.boundingBox, undefined);
+        assert.strictEqual(comparison.regionAnalysis, undefined);
+        assert.strictEqual(comparison.hotspotAnalysis, undefined);
+        assert.strictEqual(comparison.confirmedRegions, undefined);
+
+        // But should have boolean hints
+        assert.strictEqual(comparison.hasDiffClusters, true);
+        assert.strictEqual(comparison.hasConfirmedRegions, true);
+
+        // And should still have lightweight fields
+        assert.strictEqual(comparison.diffPercentage, 5.5);
+        assert.strictEqual(comparison.threshold, 0.1);
+        assert.strictEqual(comparison.status, 'failed');
+
+        // comparison-details.json SHOULD contain heavy fields
+        let details = JSON.parse(
+          deps._fileSystem['/test/.vizzly/comparison-details.json']
+        );
+        assert.ok(details['comp-test']);
+        assert.strictEqual(details['comp-test'].diffClusters.length, 1);
+        assert.strictEqual(details['comp-test'].confirmedRegions.length, 1);
+        assert.deepStrictEqual(details['comp-test'].intensityStats, {
+          mean: 0.3,
+          max: 0.8,
+        });
       });
 
       it('updates existing comparison by ID', async () => {

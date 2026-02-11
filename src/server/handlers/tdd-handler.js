@@ -208,7 +208,8 @@ export const createTddHandler = (
     try {
       if (!existsSync(detailsPath)) return {};
       return JSON.parse(readFileSync(detailsPath, 'utf8'));
-    } catch {
+    } catch (error) {
+      output.debug('Failed to read comparison details:', error);
       return {};
     }
   };

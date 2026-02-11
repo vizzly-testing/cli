@@ -74,6 +74,10 @@ export function createDashboardRouter(context) {
     let comparisonMatch = pathname.match(/^\/api\/comparison\/(.+)$/);
     if (comparisonMatch) {
       let comparisonId = decodeURIComponent(comparisonMatch[1]);
+      if (!comparisonId) {
+        sendError(res, 400, 'Comparison ID is required');
+        return true;
+      }
 
       let reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
       if (!existsSync(reportDataPath)) {
@@ -108,8 +112,10 @@ export function createDashboardRouter(context) {
             if (heavy) {
               comparison = { ...comparison, ...heavy };
             }
-          } catch {
-            // Details file is optional, continue without heavy fields
+          } catch (error) {
+            output.debug('Failed to read comparison details:', {
+              error: error.message,
+            });
           }
         }
 

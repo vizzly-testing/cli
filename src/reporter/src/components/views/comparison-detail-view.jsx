@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import {
   useAcceptBaseline,
+  useComparison,
   useDeleteComparison,
   useRejectBaseline,
   useReportData,
@@ -27,10 +28,10 @@ export default function ComparisonDetailView() {
     [reportData?.comparisons]
   );
 
-  // Find the comparison by ID from route params
+  // Find the lightweight comparison by ID from route params
   // Uses stable IDs (id, signature, or name) - not array indices which change with filters
-  const comparison = useMemo(() => {
-    const targetId = params?.id ? decodeURIComponent(params.id) : null;
+  let lightComparison = useMemo(() => {
+    let targetId = params?.id ? decodeURIComponent(params.id) : null;
     if (!targetId || comparisons.length === 0) {
       return null;
     }
@@ -40,6 +41,24 @@ export default function ComparisonDetailView() {
       c => c.id === targetId || c.signature === targetId || c.name === targetId
     );
   }, [params, comparisons]);
+
+  // Fetch full comparison details on-demand (includes heavy fields like diffClusters)
+  let { data: fullComparison } = useComparison(lightComparison?.id);
+
+  // Merge lightweight SSE data with on-demand heavy fields
+  let comparison = useMemo(() => {
+    if (!lightComparison) return null;
+    if (!fullComparison) return lightComparison;
+    return {
+      ...lightComparison,
+      diffClusters: fullComparison.diffClusters,
+      confirmedRegions: fullComparison.confirmedRegions,
+      intensityStats: fullComparison.intensityStats,
+      boundingBox: fullComparison.boundingBox,
+      regionAnalysis: fullComparison.regionAnalysis,
+      hotspotAnalysis: fullComparison.hotspotAnalysis,
+    };
+  }, [lightComparison, fullComparison]);
 
   // Simple navigation - just change the URL using stable IDs
   const handleNavigate = useCallback(

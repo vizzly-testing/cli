@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as output from '../../utils/output.js';
-import { sendHtml, sendSuccess } from '../middleware/response.js';
+import { sendError, sendHtml, sendSuccess } from '../middleware/response.js';
 
 // SPA routes that should serve the dashboard HTML
 const SPA_ROUTES = ['/', '/stats', '/settings', '/projects', '/builds'];
@@ -68,6 +68,65 @@ export function createDashboardRouter(context) {
         sendSuccess(res, null);
         return true;
       }
+    }
+
+    // API endpoint for fetching full comparison details (lightweight + heavy fields)
+    let comparisonMatch = pathname.match(/^\/api\/comparison\/(.+)$/);
+    if (comparisonMatch) {
+      let comparisonId = decodeURIComponent(comparisonMatch[1]);
+      if (!comparisonId) {
+        sendError(res, 400, 'Comparison ID is required');
+        return true;
+      }
+
+      let reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
+      if (!existsSync(reportDataPath)) {
+        sendError(res, 404, 'No report data found');
+        return true;
+      }
+
+      try {
+        let reportData = JSON.parse(readFileSync(reportDataPath, 'utf8'));
+        let comparison = (reportData.comparisons || []).find(
+          c =>
+            c.id === comparisonId ||
+            c.signature === comparisonId ||
+            c.name === comparisonId
+        );
+
+        if (!comparison) {
+          sendError(res, 404, 'Comparison not found');
+          return true;
+        }
+
+        // Merge with heavy fields from comparison-details.json
+        let detailsPath = join(
+          workingDir,
+          '.vizzly',
+          'comparison-details.json'
+        );
+        if (existsSync(detailsPath)) {
+          try {
+            let details = JSON.parse(readFileSync(detailsPath, 'utf8'));
+            let heavy = details[comparison.id];
+            if (heavy) {
+              comparison = { ...comparison, ...heavy };
+            }
+          } catch (error) {
+            output.debug('Failed to read comparison details:', {
+              error: error.message,
+            });
+          }
+        }
+
+        sendSuccess(res, comparison);
+      } catch (error) {
+        output.debug('Error reading comparison data:', {
+          error: error.message,
+        });
+        sendError(res, 500, 'Failed to read comparison data');
+      }
+      return true;
     }
 
     // Serve React SPA for dashboard routes

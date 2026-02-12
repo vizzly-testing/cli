@@ -97,19 +97,44 @@ export function extractStoryConfig(story) {
 }
 
 /**
+ * Check whether a story is tagged to skip Vizzly capture
+ * @param {Object} story - Story object with tags
+ * @returns {boolean}
+ */
+function hasVizzlySkipTag(story) {
+  return Array.isArray(story.tags) && story.tags.includes('vizzly-skip');
+}
+
+/**
  * Filter stories based on include/exclude patterns and skip config
  * @param {Array<Object>} stories - Array of story objects
  * @param {Object} config - Configuration object
  * @returns {Array<Object>} Filtered stories
  */
 export function filterStories(stories, config) {
+  let verbose = process.env.VIZZLY_LOG_LEVEL === 'debug';
+
   // First filter by include/exclude patterns
   let filtered = filterByPattern(stories, config.include, config.exclude);
 
   // Then filter out stories marked to skip
   filtered = filtered.filter(story => {
+    if (hasVizzlySkipTag(story)) {
+      if (verbose) {
+        console.error(`  [filter] Skipping ${story.id} (tag: vizzly-skip)`);
+      }
+      return false;
+    }
+
     let storyConfig = extractStoryConfig(story);
-    return !storyConfig?.skip;
+    if (storyConfig?.skip) {
+      if (verbose) {
+        console.error(`  [filter] Skipping ${story.id} (parameters.vizzly.skip)`);
+      }
+      return false;
+    }
+
+    return true;
   });
 
   return filtered;

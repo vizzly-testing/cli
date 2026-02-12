@@ -71,18 +71,15 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
   let [formData, setFormData] = useState(initialFormData);
   let [hasChanges, setHasChanges] = useState(false);
 
-  let handleFieldChange = useCallback(
-    (name, value) => {
-      setFormData(prev => ({ ...prev, [name]: value }));
-      setHasChanges(true);
-    },
-    [setFormData, setHasChanges]
-  );
+  let handleFieldChange = useCallback((name, value) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setHasChanges(true);
+  }, []);
 
   let handleReset = useCallback(() => {
     setFormData(getInitialFormData(config));
     setHasChanges(false);
-  }, [config, setFormData, setHasChanges]);
+  }, [config]);
 
   let handleSave = useCallback(() => {
     let updates = {
@@ -102,7 +99,7 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
       },
     };
     onSave(updates, () => setHasChanges(false));
-  }, [formData, onSave, setHasChanges]);
+  }, [formData, onSave]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -245,7 +245,7 @@ function DeviceFlowLogin({ onComplete }) {
 
     startDeviceFlow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addToast, initiateLoginMutation.mutateAsync]);
+  }, [addToast, initiateLoginMutation]);
 
   async function checkAuthorization() {
     if (!deviceFlow?.deviceCode) return;

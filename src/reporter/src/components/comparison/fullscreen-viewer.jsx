@@ -113,7 +113,7 @@ function FullscreenViewerInner({
   // Toggle inspector (closes other panels)
   let toggleInspector = useCallback(() => {
     setShowInspector(prev => !prev);
-  }, [setShowInspector]);
+  }, []);
 
   // Transform comparisons for queue display
   // Map CLI status to Observatory result format
@@ -293,7 +293,7 @@ function FullscreenViewerInner({
     setViewMode(current =>
       current === VIEW_MODES.OVERLAY ? VIEW_MODES.TOGGLE : VIEW_MODES.OVERLAY
     );
-  }, [setViewMode]);
+  }, []);
 
   // Toggle handler for 'd' - toggles diff overlay or baseline/current
   let handleDiffToggle = useCallback(() => {
@@ -302,7 +302,7 @@ function FullscreenViewerInner({
     } else {
       setShowDiffOverlay(prev => !prev);
     }
-  }, [viewMode, setShowBaseline, setShowDiffOverlay]);
+  }, [viewMode]);
 
   // Review mode shortcuts
   let reviewModeShortcuts = useMemo(
@@ -322,7 +322,6 @@ function FullscreenViewerInner({
       onReject,
       cycleViewMode,
       handleDiffToggle,
-      setViewMode,
     ]
   );
 
@@ -366,14 +365,7 @@ function FullscreenViewerInner({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    canNavigate,
-    handlePrevious,
-    handleNext,
-    onClose,
-    toggleInspector,
-    setShowRegions,
-  ]);
+  }, [canNavigate, handlePrevious, handleNext, onClose, toggleInspector]);
 
   // Scroll active queue item into view
   useEffect(() => {
@@ -397,7 +389,7 @@ function FullscreenViewerInner({
         behavior: 'smooth',
       });
     }
-  }, [activeQueueItemRef.current]);
+  }, []);
 
   if (!comparison) {
     return (

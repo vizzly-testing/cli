@@ -162,7 +162,7 @@ export default function ComparisonsView() {
         },
       });
     },
-    [acceptMutation, addToast, setLoadingStates]
+    [acceptMutation, addToast]
   );
 
   // Reject a single comparison
@@ -179,7 +179,7 @@ export default function ComparisonsView() {
         },
       });
     },
-    [rejectMutation, addToast, setLoadingStates]
+    [rejectMutation, addToast]
   );
 
   let handleAcceptAll = useCallback(async () => {

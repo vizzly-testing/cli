@@ -46,12 +46,8 @@ export let Deprecated = {
   args: {
     label: 'Old Button',
   },
-  parameters: {
-    vizzly: {
-      // Don't capture screenshots for this story
-      skip: true,
-    },
-  },
+  // Don't capture screenshots for this story
+  tags: ['vizzly-skip'],
 };
 
 // Story with full page screenshot

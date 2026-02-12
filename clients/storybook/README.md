@@ -94,7 +94,8 @@ Run `vizzly init` to generate a config file with sensible defaults.
 
 ### Per-Story Configuration
 
-You can configure specific stories by adding a `vizzly` parameter in your story files:
+You can configure specific stories by adding tags and `vizzly` parameters in your story files.
+Use `tags: ['vizzly-skip']` as the primary way to skip screenshot capture:
 
 ```javascript
 // Button.stories.js
@@ -114,13 +115,11 @@ export let Primary = {
 
 export let Disabled = {
   args: { label: 'Disabled', disabled: true },
-  parameters: {
-    vizzly: {
-      skip: true, // Don't screenshot this story
-    },
-  },
+  tags: ['vizzly-skip'], // Don't screenshot this story
 };
 ```
+
+`parameters.vizzly.skip` is still supported for backwards compatibility.
 
 ## Configuration Priority
 

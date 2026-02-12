@@ -134,6 +134,11 @@ describe('filterStories', () => {
       title: 'Card',
       parameters: { vizzly: { skip: true } },
     },
+    {
+      id: 'button--tag-skipped',
+      title: 'Button',
+      tags: ['vizzly-skip'],
+    },
   ];
 
   it('should filter by include pattern', () => {
@@ -161,6 +166,32 @@ describe('filterStories', () => {
       filtered.find(s => s.id === 'card--skipped'),
       undefined
     );
+  });
+
+  it('should skip stories tagged with vizzly-skip', () => {
+    let config = {};
+    let filtered = filterStories(stories, config);
+
+    assert.equal(
+      filtered.find(s => s.id === 'button--tag-skipped'),
+      undefined
+    );
+  });
+
+  it('should skip stories when both tag and parameters are present', () => {
+    let config = {};
+    let storiesWithBoth = [
+      ...stories,
+      {
+        id: 'card--both-skipped',
+        title: 'Card',
+        tags: ['vizzly-skip'],
+        parameters: { vizzly: { skip: true } },
+      },
+    ];
+    let filtered = filterStories(storiesWithBoth, config);
+
+    assert.equal(filtered.find(s => s.id === 'card--both-skipped'), undefined);
   });
 
   it('should apply both include and skip filters', () => {

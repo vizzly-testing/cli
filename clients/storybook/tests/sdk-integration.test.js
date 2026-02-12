@@ -19,11 +19,13 @@ import { join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import { closeBrowser, launchBrowser, navigateToUrl } from '../src/browser.js';
-import { discoverStories, generateStoryUrl } from '../src/crawler.js';
+import { discoverStories, generateStoryUrl, readIndexJson } from '../src/crawler.js';
 import { getBeforeScreenshotHook, getStoryConfig } from '../src/hooks.js';
 import { captureAndSendScreenshot } from '../src/screenshot.js';
 import { startStaticServer, stopStaticServer } from '../src/server.js';
 import { setViewport } from '../src/utils/viewport.js';
+
+let skippedStoryName = 'WE SHOULD NEVER SEE THIS IN VIZZLY';
 
 /**
  * Prepare a story page for screenshot (test helper)
@@ -216,6 +218,34 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
           `Should exclude Button stories, got: ${story.id}`
         );
       }
+    });
+
+    it('skips vizzly-skip tagged stories from discovery', async () => {
+      let indexData = await readIndexJson(storybookBuildPath);
+      let entries = Object.values(indexData.entries || indexData.stories || {});
+      let skippedEntry = entries.find(
+        entry =>
+          entry.type === 'story' &&
+          entry.name === skippedStoryName &&
+          entry.tags?.includes('vizzly-skip')
+      );
+
+      assert.ok(
+        skippedEntry,
+        `${skippedStoryName} should exist in storybook index with vizzly-skip tag`
+      );
+
+      let config = {
+        storybookPath: storybookBuildPath,
+        include: null,
+        exclude: null,
+      };
+      let stories = await discoverStories(storybookBuildPath, config);
+
+      assert.equal(
+        stories.find(story => story.name === skippedStoryName),
+        undefined
+      );
     });
   });
 

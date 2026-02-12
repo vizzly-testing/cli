@@ -33,3 +33,12 @@ export let Danger = {
     variant: 'danger',
   },
 };
+
+export let WeShouldNeverSeeThisInVizzly = {
+  name: 'WE SHOULD NEVER SEE THIS IN VIZZLY',
+  tags: ['vizzly-skip'],
+  args: {
+    label: 'WE SHOULD NEVER SEE THIS IN VIZZLY',
+    variant: 'danger',
+  },
+};

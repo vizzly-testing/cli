@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-02-13
+
+## What's Changed
+
+### Added
+- Support for `tags: ['vizzly-skip']` to skip stories during screenshot capture - now the recommended approach over `parameters.vizzly.skip`
+- Configurable browser type via `--browser <type>` flag and `browser.type` config option - supports chromium, firefox, and webkit
+- Improved error messages when browsers aren't installed, including helpful CI setup instructions
+
+### Fixed
+- Story filtering via `vizzly-skip` tag now works correctly during story discovery (fixes #215)
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v0.4.0...storybook/v0.5.0
+
 ## [0.4.0] - 2026-01-30
 
 ## What's Changed

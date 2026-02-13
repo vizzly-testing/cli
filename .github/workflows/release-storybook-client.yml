@@ -31,6 +31,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Upgrade npm for Trusted Publishers
@@ -161,7 +162,13 @@ jobs:
 
       - name: Publish to npm
         working-directory: ./clients/storybook
-        run: npm publish --provenance --access public
+        run: |
+          # Clear any auth config to ensure OIDC Trusted Publisher flow is used
+          npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
+          rm -f ~/.npmrc 2>/dev/null || true
+          npm config set registry https://registry.npmjs.org/
+          echo "npm version: $(npm --version)"
+          npm publish --provenance --access public
 
       - name: Read changelog for release
         id: release_notes

@@ -2,6 +2,31 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 import { SSE_STATE, useSSEState } from '../use-sse.js';
+import {
+  asIdList,
+  restoreComparisonsFromPrevious,
+  runBatchMutation,
+  updateComparisonsUserAction,
+} from './batch-mutation-utils.js';
+
+function rollbackBatchMutationError(queryClient, context, error) {
+  if (!context?.previousData) {
+    return;
+  }
+
+  let failedIds = asIdList(error?.failedIds);
+  let succeededIds = asIdList(error?.succeededIds);
+  let hasPartialSuccess = failedIds.length > 0 && succeededIds.length > 0;
+
+  if (hasPartialSuccess) {
+    queryClient.setQueryData(queryKeys.reportData(), old =>
+      restoreComparisonsFromPrevious(old, context.previousData, failedIds)
+    );
+    return;
+  }
+
+  queryClient.setQueryData(queryKeys.reportData(), context.previousData);
+}
 
 export function useComparison(id, options = {}) {
   return useQuery({
@@ -33,25 +58,20 @@ export function useReportData(options = {}) {
 }
 
 export function useAcceptBaseline() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: id => tdd.acceptBaseline(id),
     onMutate: async id => {
+      let ids = asIdList(id);
+
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
+
       // Optimistically update the comparison
-      const previousData = queryClient.getQueryData(queryKeys.reportData());
-      queryClient.setQueryData(queryKeys.reportData(), old => {
-        if (!old?.comparisons) return old;
-        return {
-          ...old,
-          comparisons: old.comparisons.map(c =>
-            c.id === id || c.signature === id || c.name === id
-              ? { ...c, userAction: 'accepted' }
-              : c
-          ),
-        };
-      });
+      let previousData = queryClient.getQueryData(queryKeys.reportData());
+      queryClient.setQueryData(queryKeys.reportData(), old =>
+        updateComparisonsUserAction(old, ids, 'accepted')
+      );
       return { previousData };
     },
     onError: (_err, _id, context) => {
@@ -67,7 +87,7 @@ export function useAcceptBaseline() {
 }
 
 export function useAcceptAllBaselines() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => tdd.acceptAllBaselines(),
     onSuccess: () => {
@@ -77,7 +97,7 @@ export function useAcceptAllBaselines() {
 }
 
 export function useResetBaselines() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => tdd.resetBaselines(),
     onSuccess: () => {
@@ -87,25 +107,20 @@ export function useResetBaselines() {
 }
 
 export function useRejectBaseline() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: id => tdd.rejectBaseline(id),
     onMutate: async id => {
+      let ids = asIdList(id);
+
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
+
       // Optimistically update the comparison
-      const previousData = queryClient.getQueryData(queryKeys.reportData());
-      queryClient.setQueryData(queryKeys.reportData(), old => {
-        if (!old?.comparisons) return old;
-        return {
-          ...old,
-          comparisons: old.comparisons.map(c =>
-            c.id === id || c.signature === id || c.name === id
-              ? { ...c, userAction: 'rejected' }
-              : c
-          ),
-        };
-      });
+      let previousData = queryClient.getQueryData(queryKeys.reportData());
+      queryClient.setQueryData(queryKeys.reportData(), old =>
+        updateComparisonsUserAction(old, ids, 'rejected')
+      );
       return { previousData };
     },
     onError: (_err, _id, context) => {
@@ -120,8 +135,60 @@ export function useRejectBaseline() {
   });
 }
 
+export function useAcceptBaselinesBatch() {
+  let queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ids =>
+      runBatchMutation(ids, id => tdd.acceptBaseline(id), 'accept'),
+    onMutate: async ids => {
+      let idList = asIdList(ids);
+
+      await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
+
+      let previousData = queryClient.getQueryData(queryKeys.reportData());
+      queryClient.setQueryData(queryKeys.reportData(), old =>
+        updateComparisonsUserAction(old, idList, 'accepted')
+      );
+
+      return { previousData };
+    },
+    onError: (error, _ids, context) => {
+      rollbackBatchMutationError(queryClient, context, error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
+    },
+  });
+}
+
+export function useRejectBaselinesBatch() {
+  let queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ids =>
+      runBatchMutation(ids, id => tdd.rejectBaseline(id), 'reject'),
+    onMutate: async ids => {
+      let idList = asIdList(ids);
+
+      await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
+
+      let previousData = queryClient.getQueryData(queryKeys.reportData());
+      queryClient.setQueryData(queryKeys.reportData(), old =>
+        updateComparisonsUserAction(old, idList, 'rejected')
+      );
+
+      return { previousData };
+    },
+    onError: (error, _ids, context) => {
+      rollbackBatchMutationError(queryClient, context, error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
+    },
+  });
+}
+
 export function useDeleteComparison() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: id => tdd.deleteComparison(id),
     onSuccess: () => {

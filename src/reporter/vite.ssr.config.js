@@ -7,7 +7,13 @@ import { defineConfig } from 'vite';
  * Outputs a Node-compatible ES module that can render React to HTML strings.
  */
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      babel: {
+        plugins: ['babel-plugin-react-compiler'],
+      },
+    }),
+  ],
   css: {
     postcss: '../../postcss.config.js',
   },

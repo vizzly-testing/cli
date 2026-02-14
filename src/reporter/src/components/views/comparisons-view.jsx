@@ -9,8 +9,8 @@ import { useCallback, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   useAcceptAllBaselines,
-  useAcceptBaseline,
-  useRejectBaseline,
+  useAcceptBaselinesBatch,
+  useRejectBaselinesBatch,
   useReportData,
 } from '../../hooks/queries/use-tdd-queries.js';
 import useComparisonFilters from '../../hooks/use-comparison-filters.js';
@@ -22,6 +22,18 @@ import ScreenshotList from '../comparison/screenshot-list.jsx';
 import DashboardFilters from '../dashboard/dashboard-filters.jsx';
 import { Button, Card, CardBody, EmptyState } from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
+
+function asIdList(value) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (value) {
+    return [value];
+  }
+
+  return [];
+}
 
 /**
  * Action banner for accepting changes
@@ -122,8 +134,8 @@ export default function ComparisonsView() {
   // Use TanStack Query for data
   let { data: reportData, isLoading, refetch } = useReportData();
   let acceptAllMutation = useAcceptAllBaselines();
-  let acceptMutation = useAcceptBaseline();
-  let rejectMutation = useRejectBaseline();
+  let acceptBatchMutation = useAcceptBaselinesBatch();
+  let rejectBatchMutation = useRejectBaselinesBatch();
 
   let {
     filteredComparisons,
@@ -152,38 +164,93 @@ export default function ComparisonsView() {
     [setLocation]
   );
 
-  // Accept a single comparison
-  let handleAcceptComparison = useCallback(
-    id => {
-      setLoadingStates(prev => ({ ...prev, [id]: 'accepting' }));
-      acceptMutation.mutate(id, {
+  let updateLoadingStateForIds = useCallback((ids, state) => {
+    setLoadingStates(prev => {
+      let next = { ...prev };
+
+      for (let id of ids) {
+        if (!id) continue;
+
+        if (state) {
+          next[id] = state;
+        } else {
+          delete next[id];
+        }
+      }
+
+      return next;
+    });
+  }, []);
+
+  let handleAcceptGroup = useCallback(
+    ids => {
+      if (!ids || ids.length === 0) return;
+
+      updateLoadingStateForIds(ids, 'accepting');
+      acceptBatchMutation.mutate(ids, {
         onSuccess: () => {
-          setLoadingStates(prev => ({ ...prev, [id]: 'accepted' }));
+          updateLoadingStateForIds(ids, 'accepted');
         },
         onError: err => {
-          setLoadingStates(prev => ({ ...prev, [id]: undefined }));
+          let succeededIds = asIdList(err?.succeededIds);
+          let failedIds = asIdList(err?.failedIds);
+
+          if (succeededIds.length > 0) {
+            updateLoadingStateForIds(succeededIds, 'accepted');
+          }
+
+          if (failedIds.length > 0) {
+            updateLoadingStateForIds(failedIds, null);
+          } else {
+            updateLoadingStateForIds(ids, null);
+          }
+
           addToast(`Failed to accept: ${err.message}`, 'error');
         },
       });
     },
-    [acceptMutation, addToast]
+    [acceptBatchMutation, addToast, updateLoadingStateForIds]
   );
 
-  // Reject a single comparison
-  let handleRejectComparison = useCallback(
-    id => {
-      setLoadingStates(prev => ({ ...prev, [id]: 'rejecting' }));
-      rejectMutation.mutate(id, {
+  let handleRejectGroup = useCallback(
+    ids => {
+      if (!ids || ids.length === 0) return;
+
+      updateLoadingStateForIds(ids, 'rejecting');
+      rejectBatchMutation.mutate(ids, {
         onSuccess: () => {
-          setLoadingStates(prev => ({ ...prev, [id]: 'rejected' }));
+          updateLoadingStateForIds(ids, 'rejected');
         },
         onError: err => {
-          setLoadingStates(prev => ({ ...prev, [id]: undefined }));
+          let succeededIds = asIdList(err?.succeededIds);
+          let failedIds = asIdList(err?.failedIds);
+
+          if (succeededIds.length > 0) {
+            updateLoadingStateForIds(succeededIds, 'rejected');
+          }
+
+          if (failedIds.length > 0) {
+            updateLoadingStateForIds(failedIds, null);
+          } else {
+            updateLoadingStateForIds(ids, null);
+          }
+
           addToast(`Failed to reject: ${err.message}`, 'error');
         },
       });
     },
-    [rejectMutation, addToast]
+    [rejectBatchMutation, addToast, updateLoadingStateForIds]
+  );
+
+  // Single-item handlers for fallback paths
+  let handleAcceptComparison = useCallback(
+    id => handleAcceptGroup(id ? [id] : []),
+    [handleAcceptGroup]
+  );
+
+  let handleRejectComparison = useCallback(
+    id => handleRejectGroup(id ? [id] : []),
+    [handleRejectGroup]
   );
 
   let handleAcceptAll = useCallback(async () => {
@@ -227,7 +294,6 @@ export default function ComparisonsView() {
   let newCount =
     reportData?.comparisons?.filter(c => isNewComparisonStatus(c.status))
       .length || 0;
-  let _totalToAccept = failedCount + newCount;
 
   if (hasNoComparisons) {
     return (
@@ -302,6 +368,8 @@ export default function ComparisonsView() {
           onSelectComparison={handleSelectComparison}
           onAcceptComparison={handleAcceptComparison}
           onRejectComparison={handleRejectComparison}
+          onAcceptGroup={handleAcceptGroup}
+          onRejectGroup={handleRejectGroup}
           loadingStates={loadingStates}
         />
       )}

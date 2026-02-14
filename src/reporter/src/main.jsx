@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import AppRouter from './components/app-router.jsx';
 import { ToastProvider } from './components/ui/toast.jsx';
 import { queryClient } from './lib/query-client.js';
+import { SSEProvider } from './providers/sse-provider.jsx';
 import './reporter.css';
 
 let initializeReporter = () => {
@@ -18,9 +19,11 @@ let initializeReporter = () => {
   ReactDOM.createRoot(root).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <AppRouter />
-        </ToastProvider>
+        <SSEProvider>
+          <ToastProvider>
+            <AppRouter />
+          </ToastProvider>
+        </SSEProvider>
       </QueryClientProvider>
     </StrictMode>
   );

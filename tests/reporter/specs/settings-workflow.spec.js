@@ -117,4 +117,25 @@ test.describe('Settings Workflow', () => {
     // Verify reset button is disabled again
     await expect(resetButton).toBeDisabled();
   });
+
+  test('save is disabled while numeric fields are invalid', async ({
+    page,
+  }) => {
+    await page.goto(`http://localhost:${port}/settings`);
+
+    let thresholdInput = page.getByRole('spinbutton').first();
+    let saveButton = page.getByRole('button', { name: 'Save Changes' });
+
+    await thresholdInput.fill('');
+    await expect(
+      page.getByText('Threshold must be a number greater than or equal to 0.')
+    ).toBeVisible();
+    await expect(saveButton).toBeDisabled();
+
+    await thresholdInput.fill('1.5');
+    await expect(
+      page.getByText('Threshold must be a number greater than or equal to 0.')
+    ).not.toBeVisible();
+    await expect(saveButton).toBeEnabled();
+  });
 });

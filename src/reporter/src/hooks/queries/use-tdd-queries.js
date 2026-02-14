@@ -3,6 +3,38 @@ import { tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 import { SSE_STATE, useSSEState } from '../use-sse.js';
 
+function asIdList(value) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (value) {
+    return [value];
+  }
+
+  return [];
+}
+
+function updateComparisonsUserAction(old, ids, userAction) {
+  if (!old?.comparisons || ids.length === 0) {
+    return old;
+  }
+
+  let idSet = new Set(ids);
+  return {
+    ...old,
+    comparisons: old.comparisons.map(comparison => {
+      let comparisonId = comparison.id;
+      let signature = comparison.signature;
+      let name = comparison.name;
+      let matches =
+        idSet.has(comparisonId) || idSet.has(signature) || idSet.has(name);
+
+      return matches ? { ...comparison, userAction } : comparison;
+    }),
+  };
+}
+
 export function useComparison(id, options = {}) {
   return useQuery({
     queryKey: queryKeys.comparison(id),
@@ -33,25 +65,20 @@ export function useReportData(options = {}) {
 }
 
 export function useAcceptBaseline() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: id => tdd.acceptBaseline(id),
     onMutate: async id => {
+      let ids = asIdList(id);
+
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
+
       // Optimistically update the comparison
-      const previousData = queryClient.getQueryData(queryKeys.reportData());
-      queryClient.setQueryData(queryKeys.reportData(), old => {
-        if (!old?.comparisons) return old;
-        return {
-          ...old,
-          comparisons: old.comparisons.map(c =>
-            c.id === id || c.signature === id || c.name === id
-              ? { ...c, userAction: 'accepted' }
-              : c
-          ),
-        };
-      });
+      let previousData = queryClient.getQueryData(queryKeys.reportData());
+      queryClient.setQueryData(queryKeys.reportData(), old =>
+        updateComparisonsUserAction(old, ids, 'accepted')
+      );
       return { previousData };
     },
     onError: (_err, _id, context) => {
@@ -67,7 +94,7 @@ export function useAcceptBaseline() {
 }
 
 export function useAcceptAllBaselines() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => tdd.acceptAllBaselines(),
     onSuccess: () => {
@@ -77,7 +104,7 @@ export function useAcceptAllBaselines() {
 }
 
 export function useResetBaselines() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => tdd.resetBaselines(),
     onSuccess: () => {
@@ -87,25 +114,20 @@ export function useResetBaselines() {
 }
 
 export function useRejectBaseline() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: id => tdd.rejectBaseline(id),
     onMutate: async id => {
+      let ids = asIdList(id);
+
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
+
       // Optimistically update the comparison
-      const previousData = queryClient.getQueryData(queryKeys.reportData());
-      queryClient.setQueryData(queryKeys.reportData(), old => {
-        if (!old?.comparisons) return old;
-        return {
-          ...old,
-          comparisons: old.comparisons.map(c =>
-            c.id === id || c.signature === id || c.name === id
-              ? { ...c, userAction: 'rejected' }
-              : c
-          ),
-        };
-      });
+      let previousData = queryClient.getQueryData(queryKeys.reportData());
+      queryClient.setQueryData(queryKeys.reportData(), old =>
+        updateComparisonsUserAction(old, ids, 'rejected')
+      );
       return { previousData };
     },
     onError: (_err, _id, context) => {
@@ -120,8 +142,68 @@ export function useRejectBaseline() {
   });
 }
 
+export function useAcceptBaselinesBatch() {
+  let queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ids => {
+      let idList = asIdList(ids);
+      return Promise.all(idList.map(id => tdd.acceptBaseline(id)));
+    },
+    onMutate: async ids => {
+      let idList = asIdList(ids);
+
+      await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
+
+      let previousData = queryClient.getQueryData(queryKeys.reportData());
+      queryClient.setQueryData(queryKeys.reportData(), old =>
+        updateComparisonsUserAction(old, idList, 'accepted')
+      );
+
+      return { previousData };
+    },
+    onError: (_err, _ids, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKeys.reportData(), context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
+    },
+  });
+}
+
+export function useRejectBaselinesBatch() {
+  let queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ids => {
+      let idList = asIdList(ids);
+      return Promise.all(idList.map(id => tdd.rejectBaseline(id)));
+    },
+    onMutate: async ids => {
+      let idList = asIdList(ids);
+
+      await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
+
+      let previousData = queryClient.getQueryData(queryKeys.reportData());
+      queryClient.setQueryData(queryKeys.reportData(), old =>
+        updateComparisonsUserAction(old, idList, 'rejected')
+      );
+
+      return { previousData };
+    },
+    onError: (_err, _ids, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKeys.reportData(), context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
+    },
+  });
+}
+
 export function useDeleteComparison() {
-  const queryClient = useQueryClient();
+  let queryClient = useQueryClient();
   return useMutation({
     mutationFn: id => tdd.deleteComparison(id),
     onSuccess: () => {

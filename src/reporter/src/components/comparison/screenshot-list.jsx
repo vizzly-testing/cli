@@ -10,6 +10,10 @@ import { useMemo } from 'react';
 import { Badge, Button } from '../design-system/index.js';
 import SmartImage from '../ui/smart-image.jsx';
 
+function getComparisonId(comparison) {
+  return comparison.id || comparison.signature || comparison.name;
+}
+
 /**
  * Group comparisons by name and calculate aggregate stats
  */
@@ -366,6 +370,8 @@ export default function ScreenshotList({
   onSelectComparison,
   onAcceptComparison,
   onRejectComparison,
+  onAcceptGroup,
+  onRejectGroup,
   loadingStates = {},
 }) {
   let groups = useMemo(() => {
@@ -382,16 +388,30 @@ export default function ScreenshotList({
   }
 
   let handleAcceptGroup = group => {
+    let ids = group.comparisons.map(getComparisonId).filter(Boolean);
+
+    if (onAcceptGroup) {
+      onAcceptGroup(ids);
+      return;
+    }
+
     if (!onAcceptComparison) return;
-    for (let comp of group.comparisons) {
-      onAcceptComparison(comp.id || comp.signature || comp.name);
+    for (let id of ids) {
+      onAcceptComparison(id);
     }
   };
 
   let handleRejectGroup = group => {
+    let ids = group.comparisons.map(getComparisonId).filter(Boolean);
+
+    if (onRejectGroup) {
+      onRejectGroup(ids);
+      return;
+    }
+
     if (!onRejectComparison) return;
-    for (let comp of group.comparisons) {
-      onRejectComparison(comp.id || comp.signature || comp.name);
+    for (let id of ids) {
+      onRejectComparison(id);
     }
   };
 

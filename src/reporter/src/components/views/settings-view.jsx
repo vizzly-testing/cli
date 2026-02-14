@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   useConfig,
   useUpdateProjectConfig,
@@ -18,13 +18,52 @@ import { useToast } from '../ui/toast.jsx';
 
 function getInitialFormData(config) {
   return {
-    threshold: config?.comparison?.threshold ?? 2.0,
-    port: config?.server?.port ?? 47392,
-    timeout: config?.server?.timeout ?? 30000,
+    threshold: String(config?.comparison?.threshold ?? 2.0),
+    port: String(config?.server?.port ?? 47392),
+    timeout: String(config?.server?.timeout ?? 30000),
     buildName: config?.build?.name ?? 'Build {timestamp}',
     environment: config?.build?.environment ?? 'test',
     openReport: config?.tdd?.openReport ?? false,
   };
+}
+
+function parseNumberInput(value) {
+  if (value === null || value === undefined) return null;
+  if (String(value).trim() === '') return null;
+
+  let parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseIntegerInput(value) {
+  let parsed = parseNumberInput(value);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function getValidationErrors(formData) {
+  let errors = {
+    threshold: null,
+    port: null,
+    timeout: null,
+  };
+
+  let threshold = parseNumberInput(formData.threshold);
+  if (threshold === null || threshold < 0) {
+    errors.threshold = 'Threshold must be a number greater than or equal to 0.';
+  }
+
+  let port = parseIntegerInput(formData.port);
+  if (port === null || port < 1 || port > 65535) {
+    errors.port = 'Port must be a whole number between 1 and 65535.';
+  }
+
+  let timeout = parseIntegerInput(formData.timeout);
+  if (timeout === null || timeout < 0) {
+    errors.timeout =
+      'Timeout must be a whole number greater than or equal to 0.';
+  }
+
+  return errors;
 }
 
 function SourceBadge({ source }) {
@@ -70,6 +109,11 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
   let initialFormData = getInitialFormData(config);
   let [formData, setFormData] = useState(initialFormData);
   let [hasChanges, setHasChanges] = useState(false);
+  let validationErrors = useMemo(
+    () => getValidationErrors(formData),
+    [formData]
+  );
+  let hasValidationErrors = Object.values(validationErrors).some(Boolean);
 
   let handleFieldChange = useCallback((name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -82,13 +126,21 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
   }, [config]);
 
   let handleSave = useCallback(() => {
+    let threshold = parseNumberInput(formData.threshold);
+    let port = parseIntegerInput(formData.port);
+    let timeout = parseIntegerInput(formData.timeout);
+
+    if (threshold === null || port === null || timeout === null) {
+      return;
+    }
+
     let updates = {
       comparison: {
-        threshold: formData.threshold,
+        threshold,
       },
       server: {
-        port: formData.port,
-        timeout: formData.timeout,
+        port,
+        timeout,
       },
       build: {
         name: formData.buildName,
@@ -117,13 +169,16 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
                 label="Threshold"
                 type="number"
                 value={formData.threshold}
-                onChange={e =>
-                  handleFieldChange('threshold', parseFloat(e.target.value))
-                }
+                onChange={e => handleFieldChange('threshold', e.target.value)}
                 hint="CIEDE2000 Delta E. 0 = exact, 2 = recommended"
                 step="0.1"
                 min="0"
               />
+              {validationErrors.threshold && (
+                <p className="-mt-2 text-xs text-red-400">
+                  {validationErrors.threshold}
+                </p>
+              )}
             </SettingSection>
           </CardBody>
         </Card>
@@ -140,20 +195,26 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
                 label="Port"
                 type="number"
                 value={formData.port}
-                onChange={e =>
-                  handleFieldChange('port', parseInt(e.target.value, 10))
-                }
+                onChange={e => handleFieldChange('port', e.target.value)}
                 hint="Default: 47392"
               />
+              {validationErrors.port && (
+                <p className="-mt-2 text-xs text-red-400">
+                  {validationErrors.port}
+                </p>
+              )}
               <Input
                 label="Timeout"
                 type="number"
                 value={formData.timeout}
-                onChange={e =>
-                  handleFieldChange('timeout', parseInt(e.target.value, 10))
-                }
+                onChange={e => handleFieldChange('timeout', e.target.value)}
                 hint="Request timeout in milliseconds"
               />
+              {validationErrors.timeout && (
+                <p className="-mt-2 text-xs text-red-400">
+                  {validationErrors.timeout}
+                </p>
+              )}
             </SettingSection>
           </CardBody>
         </Card>
@@ -217,7 +278,11 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
         <Card hover={false}>
           <CardBody className="flex items-center justify-between">
             <div className="text-sm text-slate-400">
-              {hasChanges ? (
+              {hasValidationErrors ? (
+                <span className="text-red-400">
+                  Fix validation errors before saving
+                </span>
+              ) : hasChanges ? (
                 <span className="text-amber-400">You have unsaved changes</span>
               ) : (
                 <span>Settings saved to project config</span>
@@ -235,7 +300,7 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
                 variant="primary"
                 onClick={handleSave}
                 loading={isSaving}
-                disabled={!hasChanges}
+                disabled={!hasChanges || hasValidationErrors}
               >
                 Save Changes
               </Button>

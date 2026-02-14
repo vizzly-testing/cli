@@ -31,6 +31,7 @@ export function createReporterTestServer(
 
   // Track mutations for test verification
   let mutations = [];
+  let requests = [];
 
   // Mutable copy of fixture data for state changes
   let currentData = JSON.parse(JSON.stringify(fixtureData));
@@ -55,6 +56,11 @@ export function createReporterTestServer(
     }
 
     const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+    requests.push({
+      method: req.method,
+      path: parsedUrl.pathname,
+      timestamp: Date.now(),
+    });
 
     // Serve main dashboard for all HTML routes (client-side routing)
     if (
@@ -63,6 +69,7 @@ export function createReporterTestServer(
         parsedUrl.pathname === '/dashboard' ||
         parsedUrl.pathname === '/stats' ||
         parsedUrl.pathname === '/settings' ||
+        parsedUrl.pathname === '/builds' ||
         parsedUrl.pathname === '/projects' ||
         parsedUrl.pathname.startsWith('/comparison/'))
     ) {
@@ -237,9 +244,18 @@ export function createReporterTestServer(
       return;
     }
 
+    // Test helper: get captured request log
+    if (req.method === 'GET' && parsedUrl.pathname === '/__test__/requests') {
+      res.setHeader('Content-Type', 'application/json');
+      res.statusCode = 200;
+      res.end(JSON.stringify({ requests }));
+      return;
+    }
+
     // Test helper: reset state
     if (req.method === 'POST' && parsedUrl.pathname === '/__test__/reset') {
       mutations = [];
+      requests = [];
       currentData = JSON.parse(JSON.stringify(fixtureData));
       res.setHeader('Content-Type', 'application/json');
       res.statusCode = 200;

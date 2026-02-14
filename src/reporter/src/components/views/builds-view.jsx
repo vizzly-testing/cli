@@ -393,14 +393,13 @@ export default function BuildsView() {
 
   // Use TanStack Query for data
   const { data: authData, isLoading: authLoading } = useAuthStatus();
+  const authenticated = authData?.authenticated;
   const {
     data: projectsData,
     isLoading: projectsLoading,
     refetch,
-  } = useProjects();
+  } = useProjects({ enabled: authenticated === true });
   const downloadMutation = useDownloadBaselines();
-
-  const authenticated = authData?.authenticated;
 
   // Group projects by organization
   const projectsByOrg = useMemo(() => {

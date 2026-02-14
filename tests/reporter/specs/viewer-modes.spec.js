@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { vizzlyScreenshot } from '../../../dist/client/index.js';
 import { createReporterTestServer } from '../test-helper.js';
+import { screenshotFullscreenViewer } from './viewer-test-utils.js';
 
 let __filename = fileURLToPath(import.meta.url);
 let __dirname = dirname(__filename);
@@ -65,7 +66,7 @@ test.describe('Viewer Modes', () => {
     // 📸 Overlay mode
     await vizzlyScreenshot(
       'viewer-overlay-mode',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
 
@@ -82,7 +83,7 @@ test.describe('Viewer Modes', () => {
     // 📸 Toggle mode
     await vizzlyScreenshot(
       'viewer-toggle-mode',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
 
@@ -99,7 +100,7 @@ test.describe('Viewer Modes', () => {
     // 📸 Slide mode
     await vizzlyScreenshot(
       'viewer-slide-mode',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
 
@@ -158,7 +159,7 @@ test.describe('Viewer Modes', () => {
     // 📸 Zoomed in view
     await vizzlyScreenshot(
       'viewer-zoomed-100',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
 
@@ -175,5 +176,34 @@ test.describe('Viewer Modes', () => {
     // Click 1:1 button for actual size
     await page.getByRole('button', { name: '1:1' }).click();
     await expect(page.getByRole('button', { name: /100%/ })).toBeVisible();
+  });
+
+  test('review shortcut "d" toggles baseline/current in toggle mode', async ({
+    page,
+  }) => {
+    // Skip on mobile - view mode buttons are hidden on small screens
+    let viewport = page.viewportSize();
+    test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
+
+    await page.goto(`http://localhost:${port}/`);
+
+    // Open a failed comparison and switch to Toggle mode
+    await page.getByRole('heading', { name: /pricing-page/i }).click();
+    await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
+    await page.getByRole('radio', { name: /toggle/i }).click();
+
+    // Enter review mode so keyboard shortcuts become active
+    await page.keyboard.press('Space');
+    await expect(page.getByText('Review Mode')).toBeVisible();
+
+    await expect(page.getByText('Showing Baseline')).toBeVisible();
+
+    // D shortcut should flip to current image in Toggle mode
+    await page.keyboard.press('d');
+    await expect(page.getByText('Showing Current')).toBeVisible();
+
+    // Pressing again should flip back
+    await page.keyboard.press('d');
+    await expect(page.getByText('Showing Baseline')).toBeVisible();
   });
 });

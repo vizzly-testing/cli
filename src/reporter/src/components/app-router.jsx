@@ -42,7 +42,19 @@ function ErrorState({ error, onRetry }) {
 
 export default function AppRouter() {
   const [location, setLocation] = useLocation();
-  const { data: reportData, isLoading, error, refetch } = useReportData();
+
+  // Settings and Builds can load independently without report-data polling/fetching
+  const isManagementRoute = location === '/settings' || location === '/builds';
+
+  const {
+    data: reportData,
+    isLoading,
+    error,
+    refetch,
+  } = useReportData({
+    enabled: !isManagementRoute,
+    polling: !isManagementRoute,
+  });
 
   // Check if we're on a comparison detail route (fullscreen)
   const isComparisonRoute = location.startsWith('/comparison/');
@@ -63,9 +75,6 @@ export default function AppRouter() {
     else if (view === 'builds') setLocation('/builds');
     else setLocation('/');
   };
-
-  // Settings, Projects, and Builds don't need screenshot data - always allow access
-  const isManagementRoute = location === '/settings' || location === '/builds';
 
   // Loading state (but not for management routes)
   if (isLoading && !reportData && !isManagementRoute) {

@@ -6,6 +6,8 @@
  * Designed for quick visual scanning with grouped status sections.
  */
 
+import { isNewComparisonStatus } from '../utils/status-utils.js';
+
 // Status configuration
 const statusConfig = {
   failed: {
@@ -541,13 +543,13 @@ export default function StaticReportView({ reportData }) {
     total: comparisons.length,
     passed: comparisons.filter(c => c.status === 'passed').length,
     failed: comparisons.filter(c => c.status === 'failed').length,
-    new: comparisons.filter(c => c.status === 'new').length,
+    new: comparisons.filter(c => isNewComparisonStatus(c.status)).length,
     error: comparisons.filter(c => c.status === 'error').length,
   };
 
   // Group comparisons by status
   let failed = comparisons.filter(c => c.status === 'failed');
-  let newItems = comparisons.filter(c => c.status === 'new');
+  let newItems = comparisons.filter(c => isNewComparisonStatus(c.status));
   let passed = comparisons.filter(c => c.status === 'passed');
   let errors = comparisons.filter(c => c.status === 'error');
 

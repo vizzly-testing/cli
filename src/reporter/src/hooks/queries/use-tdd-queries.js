@@ -14,6 +14,8 @@ export function useComparison(id, options = {}) {
 }
 
 export function useReportData(options = {}) {
+  let { polling = true, ...queryOptions } = options;
+
   // Read SSE state from the singleton provider
   let { state: sseState } = useSSEState();
 
@@ -25,8 +27,8 @@ export function useReportData(options = {}) {
     queryKey: queryKeys.reportData(),
     queryFn: tdd.getReportData,
     // Only poll as fallback when SSE is not connected
-    refetchInterval: options.polling !== false && !sseConnected ? 2000 : false,
-    ...options,
+    refetchInterval: polling !== false && !sseConnected ? 2000 : false,
+    ...queryOptions,
   });
 }
 

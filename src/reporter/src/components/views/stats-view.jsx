@@ -13,6 +13,10 @@ import {
   useResetBaselines,
 } from '../../hooks/queries/use-tdd-queries.js';
 import {
+  isNewComparisonStatus,
+  needsReviewComparisonStatus,
+} from '../../utils/status-utils.js';
+import {
   Badge,
   Button,
   Card,
@@ -65,12 +69,13 @@ export default function StatsView() {
   const total = comparisons?.length || 0;
   const passed = comparisons?.filter(c => c.status === 'passed').length || 0;
   const failed = comparisons?.filter(c => c.status === 'failed').length || 0;
-  const newCount = comparisons?.filter(c => c.status === 'new').length || 0;
+  const newCount =
+    comparisons?.filter(c => isNewComparisonStatus(c.status)).length || 0;
   const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 
   // Check if there are any changes to accept
-  const hasChanges = comparisons?.some(
-    c => c.status === 'failed' || c.status === 'new'
+  const hasChanges = comparisons?.some(c =>
+    needsReviewComparisonStatus(c.status)
   );
 
   const handleAcceptAll = useCallback(async () => {

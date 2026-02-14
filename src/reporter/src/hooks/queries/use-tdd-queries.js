@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
-import { SSE_STATE, useReportDataSSE } from '../use-sse.js';
+import { SSE_STATE, useSSEState } from '../use-sse.js';
 
 export function useComparison(id, options = {}) {
   return useQuery({
@@ -14,10 +14,8 @@ export function useComparison(id, options = {}) {
 }
 
 export function useReportData(options = {}) {
-  // Use SSE for real-time updates
-  let { state: sseState } = useReportDataSSE({
-    enabled: options.polling !== false,
-  });
+  // Read SSE state from the singleton provider
+  let { state: sseState } = useSSEState();
 
   // SSE is connected - it updates the cache directly, no polling needed
   // Fall back to polling only when SSE is not connected

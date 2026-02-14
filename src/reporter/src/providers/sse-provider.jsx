@@ -9,10 +9,7 @@ export let SSE_STATE = {
   ERROR: 'error',
 };
 
-export let SSEContext = createContext({
-  state: SSE_STATE.DISCONNECTED,
-  error: null,
-});
+export let SSEContext = createContext(null);
 
 /**
  * Singleton SSE provider — manages one EventSource connection for the entire app.

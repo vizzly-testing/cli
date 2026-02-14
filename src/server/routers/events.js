@@ -73,18 +73,8 @@ export function createEventsRouter(context) {
     return map;
   };
 
-  /**
-   * Compare two comparison objects to detect meaningful changes.
-   * Returns true if any tracked field differs.
-   */
   const comparisonChanged = (oldComp, newComp) => {
-    return (
-      oldComp.status !== newComp.status ||
-      oldComp.diffPercentage !== newComp.diffPercentage ||
-      oldComp.userAction !== newComp.userAction ||
-      oldComp.timestamp !== newComp.timestamp ||
-      oldComp.name !== newComp.name
-    );
+    return JSON.stringify(oldComp) !== JSON.stringify(newComp);
   };
 
   /**
@@ -116,7 +106,7 @@ export function createEventsRouter(context) {
     let oldMap = buildComparisonMap(oldComparisons);
     let newMap = buildComparisonMap(newComparisons);
 
-    // New or changed comparisons
+    // New or changed comparisons — sends the full comparison object, not a partial delta
     for (let [id, newComp] of newMap) {
       let oldComp = oldMap.get(id);
       if (!oldComp || comparisonChanged(oldComp, newComp)) {

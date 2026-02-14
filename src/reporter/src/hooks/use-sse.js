@@ -9,5 +9,9 @@ export { SSE_STATE };
  * @returns {{ state: string, error: Error|null }}
  */
 export function useSSEState() {
-  return useContext(SSEContext);
+  let context = useContext(SSEContext);
+  if (!context) {
+    throw new Error('useSSEState must be used within SSEProvider');
+  }
+  return context;
 }

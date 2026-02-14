@@ -331,6 +331,209 @@ describe('server/routers/events', () => {
       req.emit('close');
     });
 
+    it('sends comparisonUpdate for new comparisons', async () => {
+      let initialData = {
+        comparisons: [{ id: 'a', name: 'existing', status: 'passed' }],
+        total: 1,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(initialData)
+      );
+
+      let handler = createEventsRouter({ workingDir: testDir });
+      let req = createMockRequest('GET');
+      let res = createMockResponse();
+
+      await handler(req, res, '/api/events');
+
+      // Add a new comparison
+      let updatedData = {
+        comparisons: [
+          { id: 'a', name: 'existing', status: 'passed' },
+          { id: 'b', name: 'new-one', status: 'failed' },
+        ],
+        total: 2,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(updatedData)
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      let output = res.getOutput();
+      assert.ok(output.includes('event: comparisonUpdate'));
+      assert.ok(output.includes('"id":"b"'));
+      assert.ok(output.includes('"name":"new-one"'));
+
+      req.emit('close');
+    });
+
+    it('sends comparisonUpdate for changed comparisons', async () => {
+      let initialData = {
+        comparisons: [
+          { id: 'a', name: 'test', status: 'passed', diffPercentage: 0 },
+        ],
+        total: 1,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(initialData)
+      );
+
+      let handler = createEventsRouter({ workingDir: testDir });
+      let req = createMockRequest('GET');
+      let res = createMockResponse();
+
+      await handler(req, res, '/api/events');
+
+      // Change the comparison's status
+      let updatedData = {
+        comparisons: [
+          { id: 'a', name: 'test', status: 'failed', diffPercentage: 5.2 },
+        ],
+        total: 1,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(updatedData)
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      let output = res.getOutput();
+      assert.ok(output.includes('event: comparisonUpdate'));
+      assert.ok(output.includes('"status":"failed"'));
+      // Should not send full reportData for incremental changes
+      let reportDataCount = (output.match(/event: reportData/g) || []).length;
+      assert.strictEqual(
+        reportDataCount,
+        1,
+        'Only initial reportData should be sent'
+      );
+
+      req.emit('close');
+    });
+
+    it('sends comparisonRemoved when comparison is deleted', async () => {
+      let initialData = {
+        comparisons: [
+          { id: 'a', name: 'keep' },
+          { id: 'b', name: 'remove' },
+        ],
+        total: 2,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(initialData)
+      );
+
+      let handler = createEventsRouter({ workingDir: testDir });
+      let req = createMockRequest('GET');
+      let res = createMockResponse();
+
+      await handler(req, res, '/api/events');
+
+      // Remove comparison b
+      let updatedData = {
+        comparisons: [{ id: 'a', name: 'keep' }],
+        total: 1,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(updatedData)
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      let output = res.getOutput();
+      assert.ok(output.includes('event: comparisonRemoved'));
+      assert.ok(output.includes('"id":"b"'));
+
+      req.emit('close');
+    });
+
+    it('sends summaryUpdate when summary fields change', async () => {
+      let initialData = {
+        comparisons: [{ id: 'a', name: 'test' }],
+        total: 1,
+        passed: 1,
+        failed: 0,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(initialData)
+      );
+
+      let handler = createEventsRouter({ workingDir: testDir });
+      let req = createMockRequest('GET');
+      let res = createMockResponse();
+
+      await handler(req, res, '/api/events');
+
+      // Change summary fields only, same comparisons
+      let updatedData = {
+        comparisons: [{ id: 'a', name: 'test' }],
+        total: 1,
+        passed: 0,
+        failed: 1,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(updatedData)
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      let output = res.getOutput();
+      assert.ok(output.includes('event: summaryUpdate'));
+      assert.ok(output.includes('"failed":1'));
+      // Summary should not include comparisons
+      let summaryLine = output
+        .split('\n')
+        .find(l => l.startsWith('data:') && l.includes('"failed":1'));
+      assert.ok(!summaryLine.includes('"comparisons"'));
+
+      req.emit('close');
+    });
+
+    it('sends no events when nothing changed', async () => {
+      let initialData = {
+        comparisons: [{ id: 'a', name: 'test', status: 'passed' }],
+        total: 1,
+      };
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(initialData)
+      );
+
+      let handler = createEventsRouter({ workingDir: testDir });
+      let req = createMockRequest('GET');
+      let res = createMockResponse();
+
+      await handler(req, res, '/api/events');
+
+      let chunksAfterInitial = res.chunks.length;
+
+      // Write identical data
+      writeFileSync(
+        join(testDir, '.vizzly', 'report-data.json'),
+        JSON.stringify(initialData)
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // No new chunks should have been written
+      assert.strictEqual(
+        res.chunks.length,
+        chunksAfterInitial,
+        'No events sent for identical data'
+      );
+
+      req.emit('close');
+    });
+
     it('ignores changes to other files in .vizzly directory', async () => {
       let handler = createEventsRouter({ workingDir: testDir });
       let req = createMockRequest('GET');

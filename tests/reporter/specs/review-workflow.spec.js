@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { vizzlyScreenshot } from '../../../dist/client/index.js';
 import { createReporterTestServer } from '../test-helper.js';
+import { screenshotFullscreenViewer } from './viewer-test-utils.js';
 
 let __filename = fileURLToPath(import.meta.url);
 let __dirname = dirname(__filename);
@@ -71,7 +72,7 @@ test.describe('Review Workflow', () => {
     // 📸 Fullscreen viewer
     await vizzlyScreenshot(
       'fullscreen-viewer',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
   });

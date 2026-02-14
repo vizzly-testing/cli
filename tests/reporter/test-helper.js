@@ -74,6 +74,22 @@ export function createReporterTestServer(
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/reporter-bundle.css">
+    <style>
+      /*
+       * Stabilize visual snapshots in reporter tests:
+       * disable CSS motion that causes flapping diffs between runs.
+       */
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0ms !important;
+        animation-delay: 0ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0ms !important;
+        transition-delay: 0ms !important;
+        scroll-behavior: auto !important;
+      }
+    </style>
 </head>
 <body>
     <div id="vizzly-reporter-root">

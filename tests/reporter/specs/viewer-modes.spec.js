@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { vizzlyScreenshot } from '../../../dist/client/index.js';
 import { createReporterTestServer } from '../test-helper.js';
+import { screenshotFullscreenViewer } from './viewer-test-utils.js';
 
 let __filename = fileURLToPath(import.meta.url);
 let __dirname = dirname(__filename);
@@ -65,7 +66,7 @@ test.describe('Viewer Modes', () => {
     // 📸 Overlay mode
     await vizzlyScreenshot(
       'viewer-overlay-mode',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
 
@@ -82,7 +83,7 @@ test.describe('Viewer Modes', () => {
     // 📸 Toggle mode
     await vizzlyScreenshot(
       'viewer-toggle-mode',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
 
@@ -99,7 +100,7 @@ test.describe('Viewer Modes', () => {
     // 📸 Slide mode
     await vizzlyScreenshot(
       'viewer-slide-mode',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
 
@@ -158,7 +159,7 @@ test.describe('Viewer Modes', () => {
     // 📸 Zoomed in view
     await vizzlyScreenshot(
       'viewer-zoomed-100',
-      await page.screenshot({ fullPage: true }),
+      await screenshotFullscreenViewer(page),
       { browser: browserName, viewport: page.viewportSize() }
     );
 

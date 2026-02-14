@@ -23,6 +23,18 @@ import DashboardFilters from '../dashboard/dashboard-filters.jsx';
 import { Button, Card, CardBody, EmptyState } from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
 
+function asIdList(value) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (value) {
+    return [value];
+  }
+
+  return [];
+}
+
 /**
  * Action banner for accepting changes
  */
@@ -180,7 +192,19 @@ export default function ComparisonsView() {
           updateLoadingStateForIds(ids, 'accepted');
         },
         onError: err => {
-          updateLoadingStateForIds(ids, null);
+          let succeededIds = asIdList(err?.succeededIds);
+          let failedIds = asIdList(err?.failedIds);
+
+          if (succeededIds.length > 0) {
+            updateLoadingStateForIds(succeededIds, 'accepted');
+          }
+
+          if (failedIds.length > 0) {
+            updateLoadingStateForIds(failedIds, null);
+          } else {
+            updateLoadingStateForIds(ids, null);
+          }
+
           addToast(`Failed to accept: ${err.message}`, 'error');
         },
       });
@@ -198,7 +222,19 @@ export default function ComparisonsView() {
           updateLoadingStateForIds(ids, 'rejected');
         },
         onError: err => {
-          updateLoadingStateForIds(ids, null);
+          let succeededIds = asIdList(err?.succeededIds);
+          let failedIds = asIdList(err?.failedIds);
+
+          if (succeededIds.length > 0) {
+            updateLoadingStateForIds(succeededIds, 'rejected');
+          }
+
+          if (failedIds.length > 0) {
+            updateLoadingStateForIds(failedIds, null);
+          } else {
+            updateLoadingStateForIds(ids, null);
+          }
+
           addToast(`Failed to reject: ${err.message}`, 'error');
         },
       });

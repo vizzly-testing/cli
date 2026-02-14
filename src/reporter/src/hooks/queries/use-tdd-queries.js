@@ -2,37 +2,30 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { tdd } from '../../api/client.js';
 import { queryKeys } from '../../lib/query-keys.js';
 import { SSE_STATE, useSSEState } from '../use-sse.js';
+import {
+  asIdList,
+  restoreComparisonsFromPrevious,
+  runBatchMutation,
+  updateComparisonsUserAction,
+} from './batch-mutation-utils.js';
 
-function asIdList(value) {
-  if (Array.isArray(value)) {
-    return value.filter(Boolean);
+function rollbackBatchMutationError(queryClient, context, error) {
+  if (!context?.previousData) {
+    return;
   }
 
-  if (value) {
-    return [value];
+  let failedIds = asIdList(error?.failedIds);
+  let succeededIds = asIdList(error?.succeededIds);
+  let hasPartialSuccess = failedIds.length > 0 && succeededIds.length > 0;
+
+  if (hasPartialSuccess) {
+    queryClient.setQueryData(queryKeys.reportData(), old =>
+      restoreComparisonsFromPrevious(old, context.previousData, failedIds)
+    );
+    return;
   }
 
-  return [];
-}
-
-function updateComparisonsUserAction(old, ids, userAction) {
-  if (!old?.comparisons || ids.length === 0) {
-    return old;
-  }
-
-  let idSet = new Set(ids);
-  return {
-    ...old,
-    comparisons: old.comparisons.map(comparison => {
-      let comparisonId = comparison.id;
-      let signature = comparison.signature;
-      let name = comparison.name;
-      let matches =
-        idSet.has(comparisonId) || idSet.has(signature) || idSet.has(name);
-
-      return matches ? { ...comparison, userAction } : comparison;
-    }),
-  };
+  queryClient.setQueryData(queryKeys.reportData(), context.previousData);
 }
 
 export function useComparison(id, options = {}) {
@@ -145,10 +138,8 @@ export function useRejectBaseline() {
 export function useAcceptBaselinesBatch() {
   let queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ids => {
-      let idList = asIdList(ids);
-      return Promise.all(idList.map(id => tdd.acceptBaseline(id)));
-    },
+    mutationFn: ids =>
+      runBatchMutation(ids, id => tdd.acceptBaseline(id), 'accept'),
     onMutate: async ids => {
       let idList = asIdList(ids);
 
@@ -161,10 +152,8 @@ export function useAcceptBaselinesBatch() {
 
       return { previousData };
     },
-    onError: (_err, _ids, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(queryKeys.reportData(), context.previousData);
-      }
+    onError: (error, _ids, context) => {
+      rollbackBatchMutationError(queryClient, context, error);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
@@ -175,10 +164,8 @@ export function useAcceptBaselinesBatch() {
 export function useRejectBaselinesBatch() {
   let queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ids => {
-      let idList = asIdList(ids);
-      return Promise.all(idList.map(id => tdd.rejectBaseline(id)));
-    },
+    mutationFn: ids =>
+      runBatchMutation(ids, id => tdd.rejectBaseline(id), 'reject'),
     onMutate: async ids => {
       let idList = asIdList(ids);
 
@@ -191,10 +178,8 @@ export function useRejectBaselinesBatch() {
 
       return { previousData };
     },
-    onError: (_err, _ids, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(queryKeys.reportData(), context.previousData);
-      }
+    onError: (error, _ids, context) => {
+      rollbackBatchMutationError(queryClient, context, error);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tdd });

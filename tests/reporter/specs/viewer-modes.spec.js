@@ -176,4 +176,33 @@ test.describe('Viewer Modes', () => {
     await page.getByRole('button', { name: '1:1' }).click();
     await expect(page.getByRole('button', { name: /100%/ })).toBeVisible();
   });
+
+  test('review shortcut "d" toggles baseline/current in toggle mode', async ({
+    page,
+  }) => {
+    // Skip on mobile - view mode buttons are hidden on small screens
+    let viewport = page.viewportSize();
+    test.skip(viewport.width < 640, 'View mode buttons hidden on mobile');
+
+    await page.goto(`http://localhost:${port}/`);
+
+    // Open a failed comparison and switch to Toggle mode
+    await page.getByRole('heading', { name: /pricing-page/i }).click();
+    await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
+    await page.getByRole('radio', { name: /toggle/i }).click();
+
+    // Enter review mode so keyboard shortcuts become active
+    await page.keyboard.press('Space');
+    await expect(page.getByText('Review Mode')).toBeVisible();
+
+    await expect(page.getByText('Showing Baseline')).toBeVisible();
+
+    // D shortcut should flip to current image in Toggle mode
+    await page.keyboard.press('d');
+    await expect(page.getByText('Showing Current')).toBeVisible();
+
+    // Pressing again should flip back
+    await page.keyboard.press('d');
+    await expect(page.getByText('Showing Baseline')).toBeVisible();
+  });
 });

@@ -3,7 +3,7 @@ import {
   HotSpotOverlay,
   OnionSkinMode,
   OverlayMode,
-  ToggleView,
+  ToggleMode,
 } from '@vizzly-testing/observatory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -16,6 +16,8 @@ export function ScreenshotDisplay({
   comparison,
   viewMode = 'overlay',
   showDiffOverlay = true,
+  showBaseline = true,
+  onToggleBaseline,
   onionSkinPosition = 50,
   onOnionSkinChange,
   onDiffToggle,
@@ -29,6 +31,10 @@ export function ScreenshotDisplay({
 }) {
   const [imageErrors, setImageErrors] = useState(new Set());
   const [imageLoadStates, setImageLoadStates] = useState(new Map());
+  const [baselineImageLoaded, setBaselineImageLoaded] = useState(false);
+  const [currentImageLoaded, setCurrentImageLoaded] = useState(false);
+  const [baselineImageError, setBaselineImageError] = useState(false);
+  const [currentImageError, setCurrentImageError] = useState(false);
   const [fitScale, setFitScale] = useState(1);
   const [naturalImageSize, setNaturalImageSize] = useState({
     width: 0,
@@ -134,6 +140,22 @@ export function ScreenshotDisplay({
       name: comparison.name || comparison.originalName || 'Screenshot',
     };
   }, [comparison]);
+
+  // Reset controlled toggle state when navigating between screenshots
+  useEffect(() => {
+    if (!screenshot?.id) {
+      setBaselineImageLoaded(false);
+      setCurrentImageLoaded(false);
+      setBaselineImageError(false);
+      setCurrentImageError(false);
+      return;
+    }
+
+    setBaselineImageLoaded(false);
+    setCurrentImageLoaded(false);
+    setBaselineImageError(false);
+    setCurrentImageError(false);
+  }, [screenshot?.id]);
 
   // Render new screenshot - just show current image
   if (
@@ -276,13 +298,23 @@ export function ScreenshotDisplay({
           >
             {/* Render appropriate comparison mode */}
             {viewMode === 'toggle' && imageUrls.baseline ? (
-              <ToggleView
+              <ToggleMode
                 baselineImageUrl={imageUrls.baseline}
                 currentImageUrl={imageUrls.current}
+                baselineImageLoaded={baselineImageLoaded}
+                setBaselineImageLoaded={setBaselineImageLoaded}
+                currentImageLoaded={currentImageLoaded}
+                setCurrentImageLoaded={setCurrentImageLoaded}
+                baselineImageError={baselineImageError}
+                setBaselineImageError={setBaselineImageError}
+                currentImageError={currentImageError}
+                setCurrentImageError={setCurrentImageError}
                 screenshot={screenshot}
                 onImageError={handleImageError}
                 onImageLoad={handleImageLoad}
                 imageErrors={imageErrors}
+                showBaseline={showBaseline}
+                onToggle={onToggleBaseline}
               />
             ) : viewMode === 'onion-skin' && imageUrls.baseline ? (
               <OnionSkinMode

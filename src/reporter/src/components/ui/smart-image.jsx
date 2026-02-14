@@ -1,12 +1,19 @@
 import {
-  ArrowPathIcon,
   ExclamationTriangleIcon,
   PhotoIcon,
 } from '@heroicons/react/24/outline';
-import useImageLoader from '../../hooks/use-image-loader.js';
+import { useEffect, useState } from 'react';
 
 export default function SmartImage({ src, alt, className, style, onClick }) {
-  const status = useImageLoader(src);
+  let [status, setStatus] = useState(src ? 'loading' : 'missing');
+
+  useEffect(() => {
+    if (!src) {
+      setStatus('missing');
+      return;
+    }
+    setStatus('loading');
+  }, [src]);
 
   if (status === 'missing') {
     return (
@@ -17,20 +24,6 @@ export default function SmartImage({ src, alt, className, style, onClick }) {
         <div className="text-gray-400 text-center">
           <PhotoIcon className="w-12 h-12 mx-auto mb-3" />
           <div className="text-sm">No {alt.toLowerCase()} available</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'loading') {
-    return (
-      <div
-        className="flex items-center justify-center bg-gray-700 border border-gray-600 rounded min-h-[200px]"
-        style={style}
-      >
-        <div className="text-gray-400 text-center">
-          <ArrowPathIcon className="w-8 h-8 mx-auto mb-3 animate-spin" />
-          <div className="text-sm">Loading {alt.toLowerCase()}...</div>
         </div>
       </div>
     );
@@ -69,6 +62,10 @@ export default function SmartImage({ src, alt, className, style, onClick }) {
       alt={alt}
       className={className}
       style={style}
+      loading="lazy"
+      decoding="async"
+      onLoad={() => setStatus('loaded')}
+      onError={() => setStatus('error')}
       onClick={onClick}
       onKeyDown={handleKeyDown}
       role={onClick ? 'button' : undefined}

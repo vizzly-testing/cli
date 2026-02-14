@@ -101,7 +101,7 @@ function FullscreenViewerInner({
   let [showQueue, setShowQueue] = useState(true);
   let [showInspector, setShowInspector] = useState(false);
   let [queueFilter, setQueueFilter] = useState('needs-review');
-  let [_showBaseline, setShowBaseline] = useState(true);
+  let [showBaseline, setShowBaseline] = useState(true);
   let [showRegions, setShowRegions] = useState(false);
 
   let { zoom, setZoom } = useZoom('fit');
@@ -369,6 +369,10 @@ function FullscreenViewerInner({
 
   // Scroll active queue item into view
   useEffect(() => {
+    if (!showQueue) return;
+    if (currentFilteredIndex < 0) return;
+    if (currentFilteredIndex >= filteredQueueItems.length) return;
+
     let item = activeQueueItemRef.current;
     if (!item) return;
 
@@ -389,7 +393,7 @@ function FullscreenViewerInner({
         behavior: 'smooth',
       });
     }
-  }, []);
+  }, [currentFilteredIndex, filteredQueueItems.length, showQueue]);
 
   if (!comparison) {
     return (
@@ -680,6 +684,8 @@ function FullscreenViewerInner({
             viewMode={viewMode === VIEW_MODES.ONION ? 'onion-skin' : viewMode}
             showDiffOverlay={showDiffOverlay}
             onDiffToggle={() => setShowDiffOverlay(prev => !prev)}
+            showBaseline={showBaseline}
+            onToggleBaseline={() => setShowBaseline(prev => !prev)}
             onionSkinPosition={onionSkinPosition}
             onOnionSkinChange={setOnionSkinPosition}
             zoom={zoom}

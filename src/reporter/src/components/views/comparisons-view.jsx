@@ -14,6 +14,10 @@ import {
   useReportData,
 } from '../../hooks/queries/use-tdd-queries.js';
 import useComparisonFilters from '../../hooks/use-comparison-filters.js';
+import {
+  isNewComparisonStatus,
+  needsReviewComparisonStatus,
+} from '../../utils/status-utils.js';
 import ScreenshotList from '../comparison/screenshot-list.jsx';
 import DashboardFilters from '../dashboard/dashboard-filters.jsx';
 import { Button, Card, CardBody, EmptyState } from '../design-system/index.js';
@@ -213,15 +217,16 @@ export default function ComparisonsView() {
     selectedViewport !== 'all';
 
   // Check if there are changes to accept (failed or new comparisons)
-  let hasChangesToAccept = reportData?.comparisons?.some(
-    c => c.status === 'failed' || c.status === 'new'
+  let hasChangesToAccept = reportData?.comparisons?.some(c =>
+    needsReviewComparisonStatus(c.status)
   );
 
   // Count failed and new comparisons for the button label
   let failedCount =
     reportData?.comparisons?.filter(c => c.status === 'failed').length || 0;
   let newCount =
-    reportData?.comparisons?.filter(c => c.status === 'new').length || 0;
+    reportData?.comparisons?.filter(c => isNewComparisonStatus(c.status))
+      .length || 0;
   let _totalToAccept = failedCount + newCount;
 
   if (hasNoComparisons) {

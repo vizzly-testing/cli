@@ -4,6 +4,7 @@ import {
   sortComparisons,
 } from '../utils/comparison-helpers.js';
 import { FILTER_TYPES, SORT_TYPES } from '../utils/constants.js';
+import { isNewComparisonStatus } from '../utils/status-utils.js';
 
 // Read URL params
 const getInitialState = () => {
@@ -130,7 +131,7 @@ export default function useComparisonFilters(comparisons = []) {
       all: comparisons.length,
       failed: comparisons.filter(c => c.status === 'failed').length,
       passed: comparisons.filter(c => c.status === 'passed').length,
-      new: comparisons.filter(c => c.status === 'new').length,
+      new: comparisons.filter(c => isNewComparisonStatus(c.status)).length,
       rejected: comparisons.filter(c => c.status === 'rejected').length,
     },
   };

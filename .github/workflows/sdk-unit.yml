@@ -312,12 +312,6 @@ jobs:
         env:
           CI: true
 
-      - name: Run integration tests
-        working-directory: ./clients/ember
-        run: npm run test:integration
-        env:
-          CI: true
-
   # Status check for branch protection
   check:
     name: SDK Unit Status

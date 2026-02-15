@@ -266,6 +266,7 @@ export async function vizzlyScreenshot(name, options = {}) {
       browser: detectBrowser(),
       viewport_width: width,
       viewport_height: height,
+      url: window.location.href,
       ...properties,
     },
   };

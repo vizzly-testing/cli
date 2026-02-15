@@ -89,7 +89,7 @@ describe('captureAndSendScreenshot', () => {
   it('should capture and send screenshot to vizzly', async () => {
     let mockBuffer = Buffer.from('fake-screenshot');
     let mockScreenshot = mock.fn(() => mockBuffer);
-    let mockPage = { screenshot: mockScreenshot };
+    let mockPage = { screenshot: mockScreenshot, url: () => 'http://localhost:6006/?path=/story/button--primary' };
     let story = { title: 'Button', name: 'Primary' };
     let viewport = { name: 'desktop' };
 
@@ -102,7 +102,7 @@ describe('captureAndSendScreenshot', () => {
   it('should pass screenshot options through', async () => {
     let mockBuffer = Buffer.from('fake-screenshot');
     let mockScreenshot = mock.fn(() => mockBuffer);
-    let mockPage = { screenshot: mockScreenshot };
+    let mockPage = { screenshot: mockScreenshot, url: () => 'http://localhost:6006/?path=/story/card--default' };
     let story = { title: 'Card', name: 'Default' };
     let viewport = { name: 'mobile' };
 

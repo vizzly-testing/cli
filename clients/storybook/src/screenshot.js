@@ -82,7 +82,7 @@ export async function captureAndSendScreenshot(
   let captureTime = Date.now() - t0;
 
   let t1 = Date.now();
-  await vizzlyScreenshot(name, screenshot);
+  await vizzlyScreenshot(name, screenshot, { properties: { url: page.url() } });
   let sendTime = Date.now() - t1;
 
   if (verbose) {

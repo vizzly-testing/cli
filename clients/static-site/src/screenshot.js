@@ -103,6 +103,7 @@ export async function captureAndSendScreenshot(
 ) {
   let name = generateScreenshotName(pageObj);
   let properties = generateScreenshotProperties(viewport);
+  properties.url = page.url();
   let screenshot = await captureScreenshot(page, screenshotOptions);
 
   await vizzlyScreenshot(name, screenshot, { properties });

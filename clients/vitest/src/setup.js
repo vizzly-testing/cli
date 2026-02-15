@@ -45,6 +45,7 @@ async function toMatchScreenshot(element, name, options = {}) {
   let properties = {
     framework: 'vitest',
     vitest: true,
+    url: page.url(),
     ...customProperties,
   };
 

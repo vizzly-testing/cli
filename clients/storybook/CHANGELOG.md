@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-02-16
+
+## What's Changed
+
+### Added
+- Page URL is now automatically captured with each screenshot and sent as a property. This enables the Vizzly dashboard to link screenshots to their corresponding Storybook story URLs for easier navigation.
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v0.6.0...storybook/v0.7.0
+
 ## [0.6.0] - 2026-02-13
 
 ## What's Changed

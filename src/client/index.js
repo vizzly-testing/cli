@@ -207,7 +207,7 @@ function createSimpleClient(serverUrl) {
             name,
             image,
             type,
-            properties: options,
+            properties: { ...options, ...options.properties },
             fullPage: options.fullPage || false,
           },
           DEFAULT_TIMEOUT_MS

@@ -199,6 +199,13 @@ function createSimpleClient(serverUrl) {
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
 
+        let {
+          fullPage,
+          threshold,
+          properties: userProperties,
+          ...rest
+        } = options;
+
         let httpStart = Date.now();
         const { status, json } = await httpPost(
           `${serverUrl}/screenshot`,
@@ -207,8 +214,8 @@ function createSimpleClient(serverUrl) {
             name,
             image,
             type,
-            properties: options,
-            fullPage: options.fullPage || false,
+            properties: { ...rest, ...userProperties },
+            fullPage: fullPage || false,
           },
           DEFAULT_TIMEOUT_MS
         );

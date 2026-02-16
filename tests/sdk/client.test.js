@@ -377,6 +377,36 @@ describe('client/index httpPost integration tests', () => {
     assert.deepStrictEqual(req.body.properties, { browser: 'chrome' });
   });
 
+  it('flattens nested properties into top-level properties', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      properties: { url: 'http://localhost:3000/page' },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.deepStrictEqual(requests[0].body.properties, {
+      url: 'http://localhost:3000/page',
+    });
+  });
+
+  it('excludes SDK options from properties', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      fullPage: true,
+      threshold: 0.1,
+      properties: { url: 'http://localhost:3000' },
+      browser: 'firefox',
+    });
+
+    assert.strictEqual(requests.length, 1);
+    let { properties, fullPage } = requests[0].body;
+    assert.strictEqual(fullPage, true);
+    assert.deepStrictEqual(properties, {
+      browser: 'firefox',
+      url: 'http://localhost:3000',
+    });
+    assert.strictEqual(properties.fullPage, undefined);
+    assert.strictEqual(properties.threshold, undefined);
+  });
+
   it('sends Connection: close header to disable keep-alive', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'));
 

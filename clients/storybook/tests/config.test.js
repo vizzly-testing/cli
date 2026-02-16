@@ -71,6 +71,13 @@ describe('parseCliOptions', () => {
 
     assert.equal(config.screenshot.fullPage, true);
   });
+
+  it('should parse fullPage false for --no-full-page', () => {
+    let options = { fullPage: false };
+    let config = parseCliOptions(options);
+
+    assert.equal(config.screenshot.fullPage, false);
+  });
 });
 
 describe('mergeConfigs', () => {
@@ -124,7 +131,7 @@ describe('mergeStoryConfig', () => {
   it('should merge story config with global config', () => {
     let globalConfig = {
       viewports: [{ name: 'desktop', width: 1920, height: 1080 }],
-      screenshot: { fullPage: false },
+      screenshot: { fullPage: true },
     };
 
     let storyConfig = {
@@ -134,7 +141,7 @@ describe('mergeStoryConfig', () => {
     let merged = mergeStoryConfig(globalConfig, storyConfig);
 
     assert.equal(merged.viewports[0].name, 'mobile');
-    assert.equal(merged.screenshot.fullPage, false);
+    assert.equal(merged.screenshot.fullPage, true);
   });
 
   it('should return global config if no story config', () => {

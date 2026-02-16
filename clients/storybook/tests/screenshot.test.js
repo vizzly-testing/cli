@@ -50,21 +50,21 @@ describe('captureScreenshot', () => {
     assert.equal(result, mockBuffer);
     assert.equal(mockScreenshot.mock.calls.length, 1);
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
-      fullPage: false,
+      fullPage: true,
       omitBackground: false,
       timeout: 45000,
     });
   });
 
-  it('should capture full page screenshot', async () => {
+  it('should capture viewport screenshot when fullPage is false', async () => {
     let mockBuffer = Buffer.from('fake-screenshot');
     let mockScreenshot = mock.fn(() => mockBuffer);
     let mockPage = { screenshot: mockScreenshot };
 
-    await captureScreenshot(mockPage, { fullPage: true });
+    await captureScreenshot(mockPage, { fullPage: false });
 
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
-      fullPage: true,
+      fullPage: false,
       omitBackground: false,
       timeout: 45000,
     });
@@ -78,7 +78,7 @@ describe('captureScreenshot', () => {
     await captureScreenshot(mockPage, { omitBackground: true });
 
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
-      fullPage: false,
+      fullPage: true,
       omitBackground: true,
       timeout: 45000,
     });
@@ -107,11 +107,11 @@ describe('captureAndSendScreenshot', () => {
     let viewport = { name: 'mobile' };
 
     await captureAndSendScreenshot(mockPage, story, viewport, {
-      fullPage: true,
+      fullPage: false,
     });
 
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
-      fullPage: true,
+      fullPage: false,
       omitBackground: false,
       timeout: 45000,
     });

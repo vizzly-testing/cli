@@ -29,13 +29,13 @@ describe('CLI Options', () => {
     assert.deepStrictEqual(result.screenshot, { fullPage: false });
   });
 
-  it('preserves config fullPage: true when CLI option not set', () => {
+  it('preserves config fullPage: false when CLI option not set', () => {
     let defaultConfig = {
-      screenshot: { fullPage: false, omitBackground: false },
+      screenshot: { fullPage: true, omitBackground: false },
     };
 
     let userConfig = {
-      screenshot: { fullPage: true, omitBackground: false },
+      screenshot: { fullPage: false, omitBackground: false },
     };
 
     let cliOptions = {}; // No CLI options
@@ -43,12 +43,12 @@ describe('CLI Options', () => {
 
     let result = mergeConfigs(defaultConfig, userConfig, parsedCli);
 
-    assert.strictEqual(result.screenshot.fullPage, true);
+    assert.strictEqual(result.screenshot.fullPage, false);
   });
 
   it('allows CLI option to override config fullPage', () => {
     let defaultConfig = {
-      screenshot: { fullPage: false, omitBackground: false },
+      screenshot: { fullPage: true, omitBackground: false },
     };
 
     let userConfig = {

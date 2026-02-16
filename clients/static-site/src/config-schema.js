@@ -43,7 +43,7 @@ let browserSchema = z.object({
  * Screenshot configuration schema
  */
 let screenshotSchema = z.object({
-  fullPage: z.boolean().default(false),
+  fullPage: z.boolean().default(true),
   omitBackground: z.boolean().default(false),
   timeout: z.number().int().positive().default(45_000), // 45 seconds
 });
@@ -96,13 +96,19 @@ export let staticSiteConfigSchema = z
       args: [],
     }),
     screenshot: screenshotSchema.default({
-      fullPage: false,
+      fullPage: true,
       omitBackground: false,
       timeout: 45_000,
     }),
     concurrency: z.number().int().positive().default(getDefaultConcurrency()),
-    include: z.union([z.string(), z.array(z.string())]).nullable().optional(),
-    exclude: z.union([z.string(), z.array(z.string())]).nullable().optional(),
+    include: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .optional(),
+    exclude: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .optional(),
     pageDiscovery: pageDiscoverySchema.default({
       useSitemap: true,
       sitemapPath: 'sitemap.xml',
@@ -114,7 +120,7 @@ export let staticSiteConfigSchema = z
   .default({
     viewports: [{ name: 'default', width: 1920, height: 1080 }],
     browser: { type: 'chromium', headless: true, args: [] },
-    screenshot: { fullPage: false, omitBackground: false, timeout: 45_000 },
+    screenshot: { fullPage: true, omitBackground: false, timeout: 45_000 },
     concurrency: getDefaultConcurrency(),
     pageDiscovery: {
       useSitemap: true,

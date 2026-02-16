@@ -25,7 +25,7 @@ export default {
         args: [],
       },
       screenshot: {
-        fullPage: false,
+        fullPage: true,
         omitBackground: false,
       },
       concurrency: getDefaultConcurrency(),
@@ -71,6 +71,7 @@ export default {
       .option('--browser-args <args>', 'Additional browser arguments')
       .option('--headless', 'Run browser in headless mode')
       .option('--full-page', 'Capture full page screenshots')
+      .option('--no-full-page', 'Capture viewport-only screenshots')
       .option(
         '--timeout <ms>',
         'Screenshot timeout in milliseconds (default: 45000)',

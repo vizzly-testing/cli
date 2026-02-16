@@ -53,6 +53,12 @@ describe('config-schema', () => {
       assert.ok(validated.pageDiscovery);
     });
 
+    it('defaults screenshot.fullPage to true', () => {
+      let validated = validateStaticSiteConfig({});
+
+      assert.strictEqual(validated.screenshot.fullPage, true);
+    });
+
     it('applies default concurrency from CPU cores', () => {
       let config = {};
 

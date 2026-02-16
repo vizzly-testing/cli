@@ -43,12 +43,12 @@ const SCREENSHOT_TIMEOUT_MS = 45_000;
  * Capture a screenshot from a page
  * @param {Object} page - Playwright page instance
  * @param {Object} options - Screenshot options
- * @param {boolean} [options.fullPage=false] - Capture full page
+ * @param {boolean} [options.fullPage=true] - Capture full page
  * @param {boolean} [options.omitBackground=false] - Omit background (transparent)
  * @returns {Promise<Buffer>} Screenshot buffer
  */
 export async function captureScreenshot(page, options = {}) {
-  let { fullPage = false, omitBackground = false } = options;
+  let { fullPage = true, omitBackground = false } = options;
 
   // Playwright has built-in timeout support
   let screenshot = await page.screenshot({

@@ -20,7 +20,7 @@ export let defaultConfig = {
     args: [],
   },
   screenshot: {
-    fullPage: false,
+    fullPage: true,
     omitBackground: false,
   },
   concurrency: 3,

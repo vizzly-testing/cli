@@ -44,7 +44,7 @@ export default {
 
     // Screenshot options
     screenshot: {
-      fullPage: false, // Capture visible viewport only
+      fullPage: true, // Capture full scrollable page
       omitBackground: false, // Include page background
     },
 

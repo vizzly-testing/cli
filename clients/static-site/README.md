@@ -73,7 +73,7 @@ export default {
     },
 
     screenshot: {
-      fullPage: false,
+      fullPage: true,
       omitBackground: false,
     },
 
@@ -140,7 +140,8 @@ Configuration is merged in this order (later overrides earlier):
 - `--exclude <pattern>` - Exclude page pattern (glob)
 - `--browser-args <args>` - Additional Puppeteer browser arguments
 - `--headless` - Run browser in headless mode (default: true)
-- `--full-page` - Capture full page screenshots (default: false)
+- `--full-page` - Capture full page screenshots (default: true)
+- `--no-full-page` - Capture viewport-only screenshots
 - `--timeout <ms>` - Screenshot timeout in milliseconds (default: 45000)
 - `--dry-run` - Print discovered pages and task count without capturing screenshots
 - `--use-sitemap` - Use sitemap.xml for page discovery (default: true)

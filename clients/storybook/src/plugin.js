@@ -23,7 +23,7 @@ export default {
         args: [],
       },
       screenshot: {
-        fullPage: false,
+        fullPage: true,
         omitBackground: false,
       },
       concurrency: 3,
@@ -67,7 +67,8 @@ export default {
         'Run browser in headless mode (default: true)',
         true
       )
-      .option('--full-page', 'Capture full page screenshots', false)
+      .option('--full-page', 'Capture full page screenshots')
+      .option('--no-full-page', 'Capture viewport-only screenshots')
       .action(async (path, options) => {
         try {
           let { run } = await import('./index.js');

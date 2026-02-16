@@ -68,7 +68,7 @@ export default {
     },
 
     screenshot: {
-      fullPage: false,
+      fullPage: true,
       omitBackground: false,
     },
 
@@ -139,7 +139,8 @@ Configuration is merged in this order (later overrides earlier):
 - `--config <path>` - Path to custom config file
 - `--browser-args <args>` - Additional Puppeteer browser arguments
 - `--headless` - Run browser in headless mode (default: true)
-- `--full-page` - Capture full page screenshots (default: false)
+- `--full-page` - Capture full page screenshots (default: true)
+- `--no-full-page` - Capture viewport-only screenshots
 
 ## Interaction Hooks
 

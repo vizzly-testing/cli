@@ -516,9 +516,21 @@ describe('tdd/tdd-service', () => {
       assert.strictEqual(service.comparisons.length, 1);
     });
 
-    it('handles dimension mismatch by creating new baseline', async () => {
+    it('handles dimension mismatch as a failed comparison', async () => {
+      let baselineSaved = false;
+      let metadataSaved = false;
       let mockDeps = createMockDeps({
-        baseline: { baselineExists: () => true },
+        baseline: {
+          baselineExists: () => true,
+          saveBaseline: () => {
+            baselineSaved = true;
+          },
+        },
+        metadata: {
+          saveBaselineMetadata: () => {
+            metadataSaved = true;
+          },
+        },
         comparison: {
           compareImages: async () => {
             throw new Error("Image dimensions don't match");
@@ -535,7 +547,11 @@ describe('tdd/tdd-service', () => {
         {}
       );
 
-      assert.strictEqual(result.status, 'new');
+      assert.strictEqual(result.status, 'failed');
+      assert.strictEqual(result.reason, 'dimension-mismatch');
+      assert.strictEqual(result.error, "Image dimensions don't match");
+      assert.strictEqual(baselineSaved, false);
+      assert.strictEqual(metadataSaved, false);
       // Dimension mismatch now logs at debug level (shown with --verbose)
       let debugCall = mockDeps.output.calls.find(
         c => c.method === 'debug' && c.args[1]?.includes('dimension mismatch')

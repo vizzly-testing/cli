@@ -425,6 +425,8 @@ describe('api/core', () => {
         browser: 'chrome',
         viewport_width: 1920,
         viewport_height: 1080,
+        url: null,
+        metadata: {},
       });
     });
 

@@ -194,6 +194,8 @@ export function buildScreenshotCheckObject(sha256, name, metadata = {}) {
     browser: meta.browser || 'chrome',
     viewport_width: meta.viewport?.width || meta.viewport_width || 1920,
     viewport_height: meta.viewport?.height || meta.viewport_height || 1080,
+    url: meta.url || meta.properties?.url || null,
+    metadata: meta,
   };
 }
 

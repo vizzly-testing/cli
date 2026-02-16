@@ -24,6 +24,7 @@ import {
   runTests,
 } from '../test-runner/index.js';
 import * as output from '../utils/output.js';
+import { writeSession as defaultWriteSession } from '../utils/session.js';
 import { createBuildObject } from './build-manager.js';
 
 export class TestRunner extends EventEmitter {
@@ -46,6 +47,7 @@ export class TestRunner extends EventEmitter {
       getBuild,
       finalizeApiBuild,
       output,
+      writeSession: defaultWriteSession,
       createError: (message, code) => new VizzlyError(message, code),
     };
   }
@@ -94,7 +96,7 @@ export class TestRunner extends EventEmitter {
   }
 
   async createBuild(options, tdd) {
-    return createBuild({
+    let buildId = await createBuild({
       runOptions: options,
       tdd,
       config: this.config,
@@ -105,6 +107,18 @@ export class TestRunner extends EventEmitter {
         output: this.deps.output,
       },
     });
+
+    if (!tdd && buildId) {
+      let writeSession = this.deps.writeSession || defaultWriteSession;
+      writeSession({
+        buildId,
+        branch: options?.branch,
+        commit: options?.commit,
+        parallelId: options?.parallelId,
+      });
+    }
+
+    return buildId;
   }
 
   async finalizeBuild(buildId, isTddMode, success, executionTime) {

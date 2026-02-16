@@ -7,6 +7,8 @@ import {
   previewCommand,
   validatePreviewOptions,
 } from '../../src/commands/preview.js';
+import { TestRunner } from '../../src/services/test-runner.js';
+import { readSession, writeSession } from '../../src/utils/session.js';
 
 /**
  * Create mock output object that tracks calls
@@ -223,6 +225,89 @@ describe('previewCommand', () => {
     );
 
     assert.strictEqual(capturedBuildId, 'session-build-123');
+  });
+
+  it('uses build ID written by testRunner.createBuild', async () => {
+    let output = createMockOutput();
+    let capturedBuildId = null;
+    let buildIdFromRunner = 'api-build-from-test-runner';
+    let branch = 'feature/storybook-session';
+
+    let testRunner = new TestRunner(
+      {
+        apiKey: 'test-token',
+        apiUrl: 'https://api.test',
+        comparison: {},
+      },
+      {},
+      {
+        deps: {
+          spawn: () => {
+            throw new Error('spawn should not be called in createBuild test');
+          },
+          createApiClient: () => ({}),
+          createApiBuild: async () => ({ id: buildIdFromRunner }),
+          getBuild: async () => ({ id: buildIdFromRunner }),
+          finalizeApiBuild: async () => {},
+          output: {
+            debug: () => {},
+          },
+          writeSession: session => {
+            writeSession(session, { cwd: testDir, env: {} });
+          },
+          createError: (message, code) => {
+            let error = new Error(message);
+            error.code = code;
+            return error;
+          },
+        },
+      }
+    );
+
+    await testRunner.createBuild(
+      {
+        buildName: 'Storybook Build',
+        branch,
+        commit: 'abc123def456',
+        parallelId: 'parallel-227',
+      },
+      false
+    );
+
+    await previewCommand(
+      distDir,
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        readSession: options =>
+          readSession({
+            ...options,
+            cwd: testDir,
+            env: {},
+          }),
+        detectBranch: async () => branch,
+        createApiClient: () => ({}),
+        getBuild: async () => ({ project: { isPublic: true } }),
+        uploadPreviewZip: async (_client, buildId) => {
+          capturedBuildId = buildId;
+          return {
+            previewUrl: 'https://preview.test',
+            uploaded: 3,
+            totalBytes: 1000,
+            newBytes: 800,
+            reusedBlobs: 0,
+          };
+        },
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(capturedBuildId, buildIdFromRunner);
   });
 
   it('uses explicit build ID from options over session', async () => {

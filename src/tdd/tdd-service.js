@@ -1349,19 +1349,19 @@ export class TddService {
     }
 
     // Baseline exists - compare
+    let effectiveThreshold =
+      typeof validatedProperties.threshold === 'number' &&
+      validatedProperties.threshold >= 0
+        ? validatedProperties.threshold
+        : this.threshold;
+
+    let effectiveMinClusterSize =
+      Number.isInteger(validatedProperties.minClusterSize) &&
+      validatedProperties.minClusterSize >= 1
+        ? validatedProperties.minClusterSize
+        : this.minClusterSize;
+
     try {
-      let effectiveThreshold =
-        typeof validatedProperties.threshold === 'number' &&
-        validatedProperties.threshold >= 0
-          ? validatedProperties.threshold
-          : this.threshold;
-
-      let effectiveMinClusterSize =
-        Number.isInteger(validatedProperties.minClusterSize) &&
-        validatedProperties.minClusterSize >= 1
-          ? validatedProperties.minClusterSize
-          : this.minClusterSize;
-
       let honeydiffResult = await compareImages(
         baselineImagePath,
         currentImagePath,
@@ -1420,39 +1420,26 @@ export class TddService {
       if (isDimensionMismatchError(error)) {
         output.debug(
           'comparison',
-          `${sanitizedName}: dimension mismatch, creating new baseline`
+          `${sanitizedName}: dimension mismatch, marking comparison as failed`,
+          { error: error.message }
         );
 
-        saveBaseline(this.baselinePath, filename, imageBuffer);
-
-        if (!this.baselineData) {
-          this.baselineData = createEmptyBaselineMetadata({
-            threshold: this.threshold,
-            signatureProperties: this.signatureProperties,
-          });
-        }
-
-        let screenshotEntry = {
-          name: sanitizedName,
-          properties: validatedProperties,
-          path: baselineImagePath,
-          signature,
-        };
-
-        upsertScreenshotInMetadata(
-          this.baselineData,
-          screenshotEntry,
-          signature
-        );
-        saveBaselineMetadata(this.baselinePath, this.baselineData);
-
-        let result = buildNewComparison({
+        let result = buildFailedComparison({
           name: sanitizedName,
           signature,
           baselinePath: baselineImagePath,
           currentPath: currentImagePath,
+          diffPath: null,
           properties: validatedProperties,
+          threshold: effectiveThreshold,
+          minClusterSize: effectiveMinClusterSize,
+          honeydiffResult: {
+            isDifferent: true,
+            diffClusters: [],
+          },
         });
+        result.reason = 'dimension-mismatch';
+        result.error = error.message;
 
         this._upsertComparison(result);
         return result;

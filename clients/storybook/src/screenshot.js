@@ -66,22 +66,6 @@ export async function captureScreenshot(page, options = {}) {
 }
 
 /**
- * Convert an iframe.html URL to a Storybook story URL
- * iframe.html URLs don't render in iframes on the dashboard — the story path format does
- * @param {string} pageUrl - Current page URL (iframe.html?id=...&viewMode=story)
- * @param {string} storyId - Story ID
- * @returns {string} Storybook story URL (?path=/story/...), or the raw pageUrl as fallback
- */
-export function toStoryUrl(pageUrl, storyId) {
-  try {
-    let url = new URL(pageUrl);
-    return `${url.origin}/?path=/story/${encodeURIComponent(storyId)}`;
-  } catch {
-    return pageUrl;
-  }
-}
-
-/**
  * Capture and send screenshot to Vizzly
  * @param {Object} page - Playwright page instance
  * @param {Object} story - Story object
@@ -102,10 +86,8 @@ export async function captureAndSendScreenshot(
   let screenshot = await captureScreenshot(page, screenshotOptions);
   let captureTime = Date.now() - t0;
 
-  let storyUrl = toStoryUrl(page.url(), story.id);
-
   let t1 = Date.now();
-  await vizzlyScreenshot(name, screenshot, { properties: { url: storyUrl } });
+  await vizzlyScreenshot(name, screenshot, { properties: { url: page.url() } });
   let sendTime = Date.now() - t1;
 
   if (verbose) {

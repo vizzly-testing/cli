@@ -15,6 +15,11 @@ try {
   vizzlyScreenshot = async () => {};
 }
 
+/** @internal Replace vizzlyScreenshot for testing */
+export function _setVizzlyScreenshot(fn) {
+  vizzlyScreenshot = fn;
+}
+
 /**
  * Generate screenshot name from story and viewport
  * Format: "ComponentName-StoryName@viewportName"

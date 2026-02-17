@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
 import {
+  _setVizzlyScreenshot,
   captureAndSendScreenshot,
   captureScreenshot,
   generateScreenshotName,
@@ -86,24 +87,40 @@ describe('captureScreenshot', () => {
 });
 
 describe('captureAndSendScreenshot', () => {
-  it('should capture and send screenshot to vizzly', async () => {
+  it('should send the iframe URL for isolated story preview', async () => {
+    let mockVizzly = mock.fn(async () => {});
+    _setVizzlyScreenshot(mockVizzly);
+
     let mockBuffer = Buffer.from('fake-screenshot');
-    let mockScreenshot = mock.fn(() => mockBuffer);
-    let mockPage = { screenshot: mockScreenshot, url: () => 'http://localhost:6006/?path=/story/button--primary' };
-    let story = { title: 'Button', name: 'Primary' };
+    let iframeUrl =
+      'http://localhost:6006/iframe.html?id=button--primary&viewMode=story';
+    let mockPage = {
+      screenshot: mock.fn(() => mockBuffer),
+      url: () => iframeUrl,
+    };
+    let story = { id: 'button--primary', title: 'Button', name: 'Primary' };
     let viewport = { name: 'desktop' };
 
-    // This will use the mock vizzlyScreenshot from the module
     await captureAndSendScreenshot(mockPage, story, viewport);
 
-    assert.equal(mockScreenshot.mock.calls.length, 1);
+    assert.equal(mockVizzly.mock.calls.length, 1);
+    let [name, , options] = mockVizzly.mock.calls[0].arguments;
+    assert.equal(name, 'Button-Primary@desktop');
+    assert.equal(options.properties.url, iframeUrl);
   });
 
   it('should pass screenshot options through', async () => {
+    let mockVizzly = mock.fn(async () => {});
+    _setVizzlyScreenshot(mockVizzly);
+
     let mockBuffer = Buffer.from('fake-screenshot');
     let mockScreenshot = mock.fn(() => mockBuffer);
-    let mockPage = { screenshot: mockScreenshot, url: () => 'http://localhost:6006/?path=/story/card--default' };
-    let story = { title: 'Card', name: 'Default' };
+    let mockPage = {
+      screenshot: mockScreenshot,
+      url: () =>
+        'http://localhost:6006/iframe.html?id=card--default&viewMode=story',
+    };
+    let story = { id: 'card--default', title: 'Card', name: 'Default' };
     let viewport = { name: 'mobile' };
 
     await captureAndSendScreenshot(mockPage, story, viewport, {

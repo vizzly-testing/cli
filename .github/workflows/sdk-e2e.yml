@@ -188,6 +188,7 @@ jobs:
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
       - name: Upload preview
+        if: success()
         working-directory: ./clients/storybook
         run: ../../bin/vizzly.js preview example-storybook/dist
         env:

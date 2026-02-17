@@ -15,6 +15,11 @@ try {
   vizzlyScreenshot = async () => {};
 }
 
+/** @internal Replace vizzlyScreenshot for testing */
+export function _setVizzlyScreenshot(fn) {
+  vizzlyScreenshot = fn;
+}
+
 /**
  * Generate screenshot name from story and viewport
  * Format: "ComponentName-StoryName@viewportName"
@@ -63,13 +68,17 @@ export async function captureScreenshot(page, options = {}) {
 /**
  * Convert an iframe.html URL to a Storybook story URL
  * iframe.html URLs don't render in iframes on the dashboard — the story path format does
- * @param {string} pageUrl - Current page URL (likely iframe.html?id=...&viewMode=story)
+ * @param {string} pageUrl - Current page URL (iframe.html?id=...&viewMode=story)
  * @param {string} storyId - Story ID
- * @returns {string} Storybook story URL (?path=/story/...)
+ * @returns {string} Storybook story URL (?path=/story/...), or the raw pageUrl as fallback
  */
 export function toStoryUrl(pageUrl, storyId) {
-  let url = new URL(pageUrl);
-  return `${url.origin}/?path=/story/${storyId}`;
+  try {
+    let url = new URL(pageUrl);
+    return `${url.origin}/?path=/story/${encodeURIComponent(storyId)}`;
+  } catch {
+    return pageUrl;
+  }
 }
 
 /**

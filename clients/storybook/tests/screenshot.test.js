@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
 import {
+  _setVizzlyScreenshot,
   captureAndSendScreenshot,
   captureScreenshot,
   generateScreenshotName,
@@ -95,14 +96,14 @@ describe('toStoryUrl', () => {
     assert.equal(url, 'http://localhost:6006/?path=/story/button--primary');
   });
 
-  it('should handle encoded story IDs in the iframe URL', () => {
+  it('should encode special characters in story ID', () => {
     let url = toStoryUrl(
       'http://localhost:6006/iframe.html?id=components%2Fbutton--primary&viewMode=story',
       'components/button--primary'
     );
     assert.equal(
       url,
-      'http://localhost:6006/?path=/story/components/button--primary'
+      'http://localhost:6006/?path=/story/components%2Fbutton--primary'
     );
   });
 
@@ -113,26 +114,41 @@ describe('toStoryUrl', () => {
     );
     assert.equal(url, 'http://localhost:9009/?path=/story/card--default');
   });
+
+  it('should fall back to raw URL on invalid input', () => {
+    let url = toStoryUrl('not-a-url', 'button--primary');
+    assert.equal(url, 'not-a-url');
+  });
 });
 
 describe('captureAndSendScreenshot', () => {
-  it('should capture and send screenshot to vizzly', async () => {
+  it('should send the converted story URL to vizzly', async () => {
+    let mockVizzly = mock.fn(async () => {});
+    _setVizzlyScreenshot(mockVizzly);
+
     let mockBuffer = Buffer.from('fake-screenshot');
-    let mockScreenshot = mock.fn(() => mockBuffer);
     let mockPage = {
-      screenshot: mockScreenshot,
+      screenshot: mock.fn(() => mockBuffer),
       url: () => 'http://localhost:6006/iframe.html?id=button--primary&viewMode=story',
     };
     let story = { id: 'button--primary', title: 'Button', name: 'Primary' };
     let viewport = { name: 'desktop' };
 
-    // This will use the mock vizzlyScreenshot from the module
     await captureAndSendScreenshot(mockPage, story, viewport);
 
-    assert.equal(mockScreenshot.mock.calls.length, 1);
+    assert.equal(mockVizzly.mock.calls.length, 1);
+    let [name, , options] = mockVizzly.mock.calls[0].arguments;
+    assert.equal(name, 'Button-Primary@desktop');
+    assert.equal(
+      options.properties.url,
+      'http://localhost:6006/?path=/story/button--primary'
+    );
   });
 
   it('should pass screenshot options through', async () => {
+    let mockVizzly = mock.fn(async () => {});
+    _setVizzlyScreenshot(mockVizzly);
+
     let mockBuffer = Buffer.from('fake-screenshot');
     let mockScreenshot = mock.fn(() => mockBuffer);
     let mockPage = {

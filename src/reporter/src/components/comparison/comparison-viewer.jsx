@@ -4,6 +4,7 @@ import {
   ToggleView,
 } from '@vizzly-testing/observatory';
 import { useCallback, useMemo, useState } from 'react';
+import { withImageVersion } from '../../utils/image-url.js';
 import { VIEW_MODES } from '../../utils/constants.js';
 
 /**
@@ -38,9 +39,9 @@ export default function ComparisonViewer({ comparison, viewMode }) {
 
   // Build image URLs - no memoization needed, object creation is cheap
   const imageUrls = {
-    current: comparison.current,
-    baseline: comparison.baseline,
-    diff: comparison.diff,
+    current: withImageVersion(comparison.current, comparison.timestamp),
+    baseline: withImageVersion(comparison.baseline, comparison.timestamp),
+    diff: withImageVersion(comparison.diff, comparison.timestamp),
   };
 
   // For new screenshots, just show the current image (no baseline exists yet)
@@ -52,7 +53,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
             First screenshot - creating new baseline
           </p>
           <img
-            src={comparison.current}
+            src={imageUrls.current}
             alt="New baseline screenshot"
             className="mx-auto max-w-full block"
           />

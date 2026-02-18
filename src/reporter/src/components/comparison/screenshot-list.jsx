@@ -7,6 +7,7 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useMemo } from 'react';
+import { withImageVersion } from '../../utils/image-url.js';
 import { Badge, Button } from '../design-system/index.js';
 import SmartImage from '../ui/smart-image.jsx';
 
@@ -238,7 +239,10 @@ function ScreenshotGroupRow({
 }) {
   let { primary, hasChanges, hasNew, maxDiff } = group;
   let needsAction = hasChanges || hasNew;
-  let thumbnailSrc = primary.current || primary.baseline;
+  let thumbnailSrc = withImageVersion(
+    primary.current || primary.baseline,
+    primary.timestamp
+  );
 
   // Generate test ID from primary comparison
   let testId = `screenshot-group-${(primary.id || primary.signature || group.name).replace(/[^a-zA-Z0-9-]/g, '-')}`;

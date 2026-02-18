@@ -85,10 +85,7 @@ export function createAssetsRouter() {
         try {
           const imageData = readFileSync(fullImagePath);
           // Images are rewritten in place between TDD runs, so disable browser caching.
-          res.setHeader(
-            'Cache-Control',
-            'no-store, no-cache, must-revalidate'
-          );
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
           res.setHeader('Pragma', 'no-cache');
           res.setHeader('Expires', '0');
           sendFile(res, imageData, 'image/png');

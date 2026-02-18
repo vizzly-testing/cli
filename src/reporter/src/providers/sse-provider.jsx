@@ -61,7 +61,10 @@ export function SSEProvider({ enabled = true, children }) {
       eventSource.addEventListener('reportData', event => {
         try {
           let data = JSON.parse(event.data);
-          queryClient.setQueryData(queryKeys.reportData(), normalizeReportData(data));
+          queryClient.setQueryData(
+            queryKeys.reportData(),
+            normalizeReportData(data)
+          );
         } catch {
           // Ignore parse errors
         }

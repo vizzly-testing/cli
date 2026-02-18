@@ -137,12 +137,7 @@ export function ScreenshotDisplay({
             diff: withImageVersion(comparison.diff, comparison.timestamp),
           }
         : {},
-    [
-      comparison?.current,
-      comparison?.baseline,
-      comparison?.diff,
-      comparison?.timestamp,
-    ]
+    [comparison]
   );
 
   // Create a screenshot-like object for the comparison modes

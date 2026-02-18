@@ -4,8 +4,8 @@ import {
   ToggleView,
 } from '@vizzly-testing/observatory';
 import { useCallback, useMemo, useState } from 'react';
-import { withImageVersion } from '../../utils/image-url.js';
 import { VIEW_MODES } from '../../utils/constants.js';
+import { withImageVersion } from '../../utils/image-url.js';
 
 /**
  * Comparison Viewer for inline card display

@@ -44,8 +44,8 @@ import {
   ZoomControls,
 } from '@vizzly-testing/observatory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { withImageVersion } from '../../utils/image-url.js';
 import { VIEW_MODES } from '../../utils/constants.js';
+import { withImageVersion } from '../../utils/image-url.js';
 import { ScreenshotDisplay } from './screenshot-display.jsx';
 
 /**

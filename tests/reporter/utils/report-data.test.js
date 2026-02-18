@@ -47,7 +47,10 @@ describe('reporter/utils/report-data', () => {
   describe('normalizeComparisonUpdate', () => {
     it('returns input when comparison already has timestamp', () => {
       let comparison = { id: 'a', timestamp: 111 };
-      assert.strictEqual(normalizeComparisonUpdate(comparison, 999), comparison);
+      assert.strictEqual(
+        normalizeComparisonUpdate(comparison, 999),
+        comparison
+      );
     });
 
     it('adds fallback timestamp when missing', () => {

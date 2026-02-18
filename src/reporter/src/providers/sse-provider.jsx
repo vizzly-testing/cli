@@ -1,6 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useEffect, useRef, useState } from 'react';
 import { queryKeys } from '../lib/query-keys.js';
+import {
+  normalizeComparisonUpdate,
+  normalizeReportData,
+} from '../utils/report-data.js';
 
 export let SSE_STATE = {
   CONNECTING: 'connecting',
@@ -57,7 +61,7 @@ export function SSEProvider({ enabled = true, children }) {
       eventSource.addEventListener('reportData', event => {
         try {
           let data = JSON.parse(event.data);
-          queryClient.setQueryData(queryKeys.reportData(), data);
+          queryClient.setQueryData(queryKeys.reportData(), normalizeReportData(data));
         } catch {
           // Ignore parse errors
         }
@@ -66,9 +70,13 @@ export function SSEProvider({ enabled = true, children }) {
       // Incremental: single comparison added or changed
       eventSource.addEventListener('comparisonUpdate', event => {
         try {
-          let comparison = JSON.parse(event.data);
+          let incomingComparison = JSON.parse(event.data);
           queryClient.setQueryData(queryKeys.reportData(), old => {
             if (!old) return old;
+            let comparison = normalizeComparisonUpdate(
+              incomingComparison,
+              old.timestamp
+            );
             let comparisons = old.comparisons || [];
             let idx = comparisons.findIndex(c => c.id === comparison.id);
             if (idx >= 0) {

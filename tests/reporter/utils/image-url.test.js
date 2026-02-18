@@ -27,6 +27,13 @@ describe('reporter/utils/image-url', () => {
     );
   });
 
+  it('supports zero as a valid cache-busting version', () => {
+    assert.strictEqual(
+      withImageVersion('/images/current/homepage.png', 0),
+      '/images/current/homepage.png?v=0'
+    );
+  });
+
   it('appends v query param using ampersand when query already exists', () => {
     assert.strictEqual(
       withImageVersion('/images/current/homepage.png?mode=thumb', 456),
@@ -34,10 +41,17 @@ describe('reporter/utils/image-url', () => {
     );
   });
 
+  it('replaces existing v query param instead of duplicating', () => {
+    assert.strictEqual(
+      withImageVersion('/images/current/homepage.png?v=old&mode=thumb', 456),
+      '/images/current/homepage.png?v=456&mode=thumb'
+    );
+  });
+
   it('encodes non-numeric version values', () => {
     assert.strictEqual(
       withImageVersion('/images/current/homepage.png', 'run 1'),
-      '/images/current/homepage.png?v=run%201'
+      '/images/current/homepage.png?v=run+1'
     );
   });
 });

@@ -187,6 +187,8 @@ describe('server/routers/assets', () => {
           res.getHeader('Cache-Control'),
           'no-store, no-cache, must-revalidate'
         );
+        assert.strictEqual(res.getHeader('Pragma'), 'no-cache');
+        assert.strictEqual(res.getHeader('Expires'), '0');
       });
     });
   });

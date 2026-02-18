@@ -124,14 +124,26 @@ export function ScreenshotDisplay({
     setImageLoadStates(prev => new Map(prev).set(imageKey, 'loaded'));
   }, []);
 
-  // Build image URLs from comparison object - no memoization needed, object creation is cheap
-  const imageUrls = comparison
-    ? {
-        current: withImageVersion(comparison.current, comparison.timestamp),
-        baseline: withImageVersion(comparison.baseline, comparison.timestamp),
-        diff: withImageVersion(comparison.diff, comparison.timestamp),
-      }
-    : {};
+  // Build image URLs once per comparison update.
+  const imageUrls = useMemo(
+    () =>
+      comparison
+        ? {
+            current: withImageVersion(comparison.current, comparison.timestamp),
+            baseline: withImageVersion(
+              comparison.baseline,
+              comparison.timestamp
+            ),
+            diff: withImageVersion(comparison.diff, comparison.timestamp),
+          }
+        : {},
+    [
+      comparison?.current,
+      comparison?.baseline,
+      comparison?.diff,
+      comparison?.timestamp,
+    ]
+  );
 
   // Create a screenshot-like object for the comparison modes
   const screenshot = useMemo(() => {

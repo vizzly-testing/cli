@@ -37,12 +37,20 @@ export default function ComparisonViewer({ comparison, viewMode }) {
     [comparison]
   );
 
-  // Build image URLs - no memoization needed, object creation is cheap
-  const imageUrls = {
-    current: withImageVersion(comparison.current, comparison.timestamp),
-    baseline: withImageVersion(comparison.baseline, comparison.timestamp),
-    diff: withImageVersion(comparison.diff, comparison.timestamp),
-  };
+  // Build image URLs once per comparison update.
+  const imageUrls = useMemo(
+    () => ({
+      current: withImageVersion(comparison.current, comparison.timestamp),
+      baseline: withImageVersion(comparison.baseline, comparison.timestamp),
+      diff: withImageVersion(comparison.diff, comparison.timestamp),
+    }),
+    [
+      comparison.current,
+      comparison.baseline,
+      comparison.diff,
+      comparison.timestamp,
+    ]
+  );
 
   // For new screenshots, just show the current image (no baseline exists yet)
   if (comparison.status === 'new' || comparison.status === 'baseline-created') {

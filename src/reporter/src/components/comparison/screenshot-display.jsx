@@ -6,6 +6,7 @@ import {
   ToggleMode,
 } from '@vizzly-testing/observatory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { withImageVersion } from '../../utils/image-url.js';
 
 /**
  * Unified Screenshot Display Component - matches Observatory architecture
@@ -123,14 +124,21 @@ export function ScreenshotDisplay({
     setImageLoadStates(prev => new Map(prev).set(imageKey, 'loaded'));
   }, []);
 
-  // Build image URLs from comparison object - no memoization needed, object creation is cheap
-  const imageUrls = comparison
-    ? {
-        current: comparison.current,
-        baseline: comparison.baseline,
-        diff: comparison.diff,
-      }
-    : {};
+  // Build image URLs once per comparison update.
+  const imageUrls = useMemo(
+    () =>
+      comparison
+        ? {
+            current: withImageVersion(comparison.current, comparison.timestamp),
+            baseline: withImageVersion(
+              comparison.baseline,
+              comparison.timestamp
+            ),
+            diff: withImageVersion(comparison.diff, comparison.timestamp),
+          }
+        : {},
+    [comparison]
+  );
 
   // Create a screenshot-like object for the comparison modes
   const screenshot = useMemo(() => {
@@ -213,7 +221,7 @@ export function ScreenshotDisplay({
             >
               {comparison && (
                 <img
-                  src={comparison.current}
+                  src={imageUrls.current}
                   alt={comparison.name || 'New screenshot'}
                   className="block"
                   onLoad={() => handleImageLoad(`current-${screenshot?.id}`)}

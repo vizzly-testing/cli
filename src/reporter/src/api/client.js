@@ -9,6 +9,8 @@
  * - api.auth.*   - Authentication
  */
 
+import { normalizeReportData } from '../utils/report-data.js';
+
 /**
  * Make a JSON API request
  * @param {string} url - Request URL
@@ -45,7 +47,8 @@ export const tdd = {
    * @returns {Promise<Object|null>}
    */
   async getReportData() {
-    return fetchJson('/api/report-data');
+    let data = await fetchJson('/api/report-data');
+    return normalizeReportData(data);
   },
 
   /**

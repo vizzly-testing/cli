@@ -5,6 +5,7 @@ import {
 } from '@vizzly-testing/observatory';
 import { useCallback, useMemo, useState } from 'react';
 import { VIEW_MODES } from '../../utils/constants.js';
+import { withImageVersion } from '../../utils/image-url.js';
 
 /**
  * Comparison Viewer for inline card display
@@ -36,12 +37,20 @@ export default function ComparisonViewer({ comparison, viewMode }) {
     [comparison]
   );
 
-  // Build image URLs - no memoization needed, object creation is cheap
-  const imageUrls = {
-    current: comparison.current,
-    baseline: comparison.baseline,
-    diff: comparison.diff,
-  };
+  // Build image URLs once per comparison update.
+  const imageUrls = useMemo(
+    () => ({
+      current: withImageVersion(comparison.current, comparison.timestamp),
+      baseline: withImageVersion(comparison.baseline, comparison.timestamp),
+      diff: withImageVersion(comparison.diff, comparison.timestamp),
+    }),
+    [
+      comparison.current,
+      comparison.baseline,
+      comparison.diff,
+      comparison.timestamp,
+    ]
+  );
 
   // For new screenshots, just show the current image (no baseline exists yet)
   if (comparison.status === 'new' || comparison.status === 'baseline-created') {
@@ -52,7 +61,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
             First screenshot - creating new baseline
           </p>
           <img
-            src={comparison.current}
+            src={imageUrls.current}
             alt="New baseline screenshot"
             className="mx-auto max-w-full block"
           />

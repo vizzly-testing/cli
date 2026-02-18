@@ -45,6 +45,7 @@ import {
 } from '@vizzly-testing/observatory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VIEW_MODES } from '../../utils/constants.js';
+import { withImageVersion } from '../../utils/image-url.js';
 import { ScreenshotDisplay } from './screenshot-display.jsx';
 
 /**
@@ -641,7 +642,10 @@ function FullscreenViewerInner({
                   <QueueItem
                     item={item}
                     isActive={isActive}
-                    thumbnailUrl={item.current || item.baseline}
+                    thumbnailUrl={withImageVersion(
+                      item.current || item.baseline,
+                      item.timestamp
+                    )}
                     onClick={() => onNavigate(item)}
                   />
                 </div>

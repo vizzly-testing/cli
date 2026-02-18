@@ -148,6 +148,12 @@ describe('server/routers/assets', () => {
 
         assert.strictEqual(res.statusCode, 200);
         assert.strictEqual(res.getHeader('Content-Type'), 'image/png');
+        assert.strictEqual(
+          res.getHeader('Cache-Control'),
+          'no-store, no-cache, must-revalidate'
+        );
+        assert.strictEqual(res.getHeader('Pragma'), 'no-cache');
+        assert.strictEqual(res.getHeader('Expires'), '0');
       });
 
       it('returns 404 for non-existent image', async () => {
@@ -177,6 +183,12 @@ describe('server/routers/assets', () => {
 
         assert.strictEqual(res.statusCode, 200);
         assert.strictEqual(res.getHeader('Content-Type'), 'image/png');
+        assert.strictEqual(
+          res.getHeader('Cache-Control'),
+          'no-store, no-cache, must-revalidate'
+        );
+        assert.strictEqual(res.getHeader('Pragma'), 'no-cache');
+        assert.strictEqual(res.getHeader('Expires'), '0');
       });
     });
   });

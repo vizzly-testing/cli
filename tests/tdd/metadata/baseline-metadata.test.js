@@ -1,23 +1,20 @@
 import assert from 'node:assert';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   createEmptyBaselineMetadata,
   findScreenshotBySignature,
+  loadBaselineBuildMetadata,
   loadBaselineMetadata,
+  saveBaselineBuildMetadata,
   saveBaselineMetadata,
   upsertScreenshotInMetadata,
 } from '../../../src/tdd/metadata/baseline-metadata.js';
 
 describe('tdd/metadata/baseline-metadata', () => {
   let testDir = join(process.cwd(), '.test-baseline-metadata');
+  let baselinePath = join(testDir, '.vizzly', 'baselines');
 
   beforeEach(() => {
     if (existsSync(testDir)) {
@@ -32,68 +29,78 @@ describe('tdd/metadata/baseline-metadata', () => {
   });
 
   describe('loadBaselineMetadata', () => {
-    it('returns null when metadata file does not exist', () => {
-      let result = loadBaselineMetadata(testDir);
+    it('returns null when metadata does not exist', () => {
+      let result = loadBaselineMetadata(baselinePath);
 
       assert.strictEqual(result, null);
     });
 
-    it('loads and parses existing metadata file', () => {
-      mkdirSync(testDir, { recursive: true });
+    it('loads metadata after saving', () => {
       let metadata = { buildId: 'test-123', screenshots: [] };
-      writeFileSync(join(testDir, 'metadata.json'), JSON.stringify(metadata));
+      saveBaselineMetadata(baselinePath, metadata);
 
-      let result = loadBaselineMetadata(testDir);
+      let result = loadBaselineMetadata(baselinePath);
 
       assert.deepStrictEqual(result, metadata);
     });
 
-    it('returns null for invalid JSON', () => {
-      mkdirSync(testDir, { recursive: true });
-      writeFileSync(join(testDir, 'metadata.json'), 'not valid json {{{');
+    it('imports legacy baselines/metadata.json into DB', () => {
+      mkdirSync(baselinePath, { recursive: true });
+      let metadata = {
+        buildId: 'legacy-build',
+        screenshots: [{ name: 'home' }],
+      };
+      writeFileSync(
+        join(baselinePath, 'metadata.json'),
+        JSON.stringify(metadata)
+      );
 
-      let result = loadBaselineMetadata(testDir);
+      let result = loadBaselineMetadata(baselinePath);
 
-      assert.strictEqual(result, null);
+      assert.deepStrictEqual(result, metadata);
     });
   });
 
   describe('saveBaselineMetadata', () => {
-    it('creates directory and saves metadata', () => {
+    it('creates state db and saves metadata', () => {
       let metadata = { buildId: 'new-build', screenshots: [] };
 
-      saveBaselineMetadata(testDir, metadata);
+      saveBaselineMetadata(baselinePath, metadata);
 
-      assert.strictEqual(existsSync(testDir), true);
-      let content = JSON.parse(
-        readFileSync(join(testDir, 'metadata.json'), 'utf8')
+      assert.strictEqual(
+        existsSync(join(testDir, '.vizzly', 'state.db')),
+        true
       );
-      assert.deepStrictEqual(content, metadata);
+      assert.deepStrictEqual(loadBaselineMetadata(baselinePath), metadata);
     });
 
-    it('overwrites existing metadata file', () => {
-      mkdirSync(testDir, { recursive: true });
-      writeFileSync(
-        join(testDir, 'metadata.json'),
-        JSON.stringify({ old: true })
-      );
-      let newMetadata = { buildId: 'updated', screenshots: [] };
+    it('overwrites existing metadata', () => {
+      saveBaselineMetadata(baselinePath, { buildId: 'old-build' });
+      let newMetadata = { buildId: 'updated-build', screenshots: [] };
 
-      saveBaselineMetadata(testDir, newMetadata);
+      saveBaselineMetadata(baselinePath, newMetadata);
 
-      let content = JSON.parse(
-        readFileSync(join(testDir, 'metadata.json'), 'utf8')
-      );
-      assert.deepStrictEqual(content, newMetadata);
+      assert.deepStrictEqual(loadBaselineMetadata(baselinePath), newMetadata);
+    });
+  });
+
+  describe('baseline build metadata', () => {
+    it('saves and loads baseline build metadata', () => {
+      let metadata = {
+        buildId: 'build-1',
+        commitSha: 'abc123',
+        downloadedAt: '2025-01-01T00:00:00Z',
+      };
+
+      saveBaselineBuildMetadata(testDir, metadata);
+
+      let result = loadBaselineBuildMetadata(testDir);
+      assert.deepStrictEqual(result, metadata);
     });
 
-    it('writes formatted JSON with 2-space indent', () => {
-      let metadata = { key: 'value' };
-
-      saveBaselineMetadata(testDir, metadata);
-
-      let raw = readFileSync(join(testDir, 'metadata.json'), 'utf8');
-      assert.strictEqual(raw, JSON.stringify(metadata, null, 2));
+    it('returns null when baseline build metadata is missing', () => {
+      let result = loadBaselineBuildMetadata(testDir);
+      assert.strictEqual(result, null);
     });
   });
 

@@ -31,7 +31,7 @@ export async function downloadRegions(options) {
       return { success: false, error: 'API returned no region data' };
     }
 
-    // Save regions to disk
+    // Save regions to state storage
     saveRegionMetadata(workingDir, response.regions, response.summary);
 
     // Calculate stats

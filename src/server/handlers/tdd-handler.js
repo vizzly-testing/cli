@@ -1,12 +1,14 @@
 import { Buffer as defaultBuffer } from 'node:buffer';
 import {
   existsSync as defaultExistsSync,
+  mkdirSync as defaultMkdirSync,
   readFileSync as defaultReadFileSync,
   unlinkSync as defaultUnlinkSync,
   writeFileSync as defaultWriteFileSync,
 } from 'node:fs';
 import { join as defaultJoin, resolve as defaultResolve } from 'node:path';
 import { getDimensionsSync as defaultGetDimensionsSync } from '@vizzly-testing/honeydiff';
+import { createStateStore } from '../../tdd/state-store.js';
 import { TddService as DefaultTddService } from '../../tdd/tdd-service.js';
 import { detectImageInputType as defaultDetectImageInputType } from '../../utils/image-input-detector.js';
 import * as defaultOutput from '../../utils/output.js';
@@ -182,6 +184,7 @@ export const createTddHandler = (
   let {
     TddService = DefaultTddService,
     existsSync = defaultExistsSync,
+    mkdirSync = defaultMkdirSync,
     readFileSync = defaultReadFileSync,
     unlinkSync = defaultUnlinkSync,
     writeFileSync = defaultWriteFileSync,
@@ -194,29 +197,48 @@ export const createTddHandler = (
     sanitizeScreenshotName = defaultSanitizeScreenshotName,
     validateScreenshotProperties = defaultValidateScreenshotProperties,
     output = defaultOutput,
+    stateStore: injectedStateStore = null,
+    stateBackend = 'sqlite',
   } = deps;
 
   const tddService = new TddService(config, workingDir, setBaseline);
-  const reportPath = join(workingDir, '.vizzly', 'report-data.json');
-  const detailsPath = join(workingDir, '.vizzly', 'comparison-details.json');
+  const stateStore =
+    injectedStateStore ||
+    createStateStore({
+      backend: stateBackend,
+      workingDir,
+      output,
+      existsSync,
+      mkdirSync,
+      unlinkSync,
+      readFileSync,
+      writeFileSync,
+      joinPath: join,
+    });
 
   /**
-   * Read heavy comparison details from comparison-details.json
-   * Returns a map of comparison ID -> heavy fields
+   * Read report data from state store.
+   * Returns an empty shape for backward compatibility with call sites.
    */
-  const readComparisonDetails = () => {
+  const readReportData = () => {
     try {
-      if (!existsSync(detailsPath)) return {};
-      return JSON.parse(readFileSync(detailsPath, 'utf8'));
+      let data = stateStore.readReportData();
+      if (data) {
+        return data;
+      }
     } catch (error) {
-      output.debug('Failed to read comparison details:', error);
-      return {};
+      output.error('Failed to read report data:', error);
     }
+
+    return {
+      timestamp: Date.now(),
+      comparisons: [],
+      summary: { total: 0, passed: 0, failed: 0, errors: 0 },
+    };
   };
 
   /**
-   * Persist heavy fields for a comparison to comparison-details.json
-   * This file is NOT watched by SSE, so writes here don't trigger broadcasts
+   * Persist heavy fields for a comparison.
    * Skips writing if all heavy fields are empty (passed comparisons)
    */
   const updateComparisonDetails = (id, heavyFields) => {
@@ -225,91 +247,12 @@ export const createTddHandler = (
     );
     if (!hasData) return;
 
-    let details = readComparisonDetails();
-    details[id] = heavyFields;
-    writeFileSync(detailsPath, JSON.stringify(details));
-  };
-
-  /**
-   * Remove a comparison's heavy fields from comparison-details.json
-   */
-  const removeComparisonDetails = id => {
-    let details = readComparisonDetails();
-    delete details[id];
-    writeFileSync(detailsPath, JSON.stringify(details));
-  };
-
-  const readReportData = () => {
-    try {
-      if (!existsSync(reportPath)) {
-        return {
-          timestamp: Date.now(),
-          comparisons: [],
-          summary: { total: 0, passed: 0, failed: 0, errors: 0 },
-        };
-      }
-      const data = readFileSync(reportPath, 'utf8');
-      return JSON.parse(data);
-    } catch (error) {
-      output.error('Failed to read report data:', error);
-      return {
-        timestamp: Date.now(),
-        comparisons: [],
-        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
-      };
-    }
+    stateStore.upsertComparisonDetails(id, heavyFields);
   };
 
   const updateComparison = newComparison => {
     try {
-      const reportData = readReportData();
-
-      // Ensure comparisons array exists (backward compatibility)
-      if (!reportData.comparisons) {
-        reportData.comparisons = [];
-      }
-
-      // Find existing comparison by unique ID
-      // This ensures we update the correct variant even with same name
-      const existingIndex = reportData.comparisons.findIndex(
-        c => c.id === newComparison.id
-      );
-
-      if (existingIndex >= 0) {
-        // Preserve initialStatus from the original comparison
-        // This keeps sort order stable when status changes (e.g., after approval)
-        const initialStatus =
-          reportData.comparisons[existingIndex].initialStatus;
-        reportData.comparisons[existingIndex] = {
-          ...newComparison,
-          initialStatus: initialStatus || newComparison.status,
-        };
-      } else {
-        // New comparison - set initialStatus to current status
-        reportData.comparisons.push({
-          ...newComparison,
-          initialStatus: newComparison.status,
-        });
-      }
-
-      // Update summary (groups computed client-side from comparisons)
-      reportData.timestamp = Date.now();
-      reportData.summary = {
-        total: reportData.comparisons.length,
-        passed: reportData.comparisons.filter(
-          c =>
-            c.status === 'passed' ||
-            c.status === 'baseline-created' ||
-            c.status === 'new'
-        ).length,
-        failed: reportData.comparisons.filter(c => c.status === 'failed')
-          .length,
-        rejected: reportData.comparisons.filter(c => c.status === 'rejected')
-          .length,
-        errors: reportData.comparisons.filter(c => c.status === 'error').length,
-      };
-
-      writeFileSync(reportPath, JSON.stringify(reportData));
+      stateStore.upsertComparison(newComparison);
     } catch (error) {
       output.error('Failed to update comparison:', error);
     }
@@ -526,7 +469,7 @@ export const createTddHandler = (
       hasConfirmedRegions: comparison.confirmedRegions?.length > 0,
     };
 
-    // Update lightweight comparison in report-data.json (triggers SSE broadcast)
+    // Update lightweight comparison in state store (triggers SSE broadcast)
     updateComparison(newComparison);
 
     // Persist heavy fields separately (NOT broadcast via SSE)
@@ -796,35 +739,14 @@ export const createTddHandler = (
         }
       }
 
-      // Delete baseline metadata
-      const metadataPath = join(
-        workingDir,
-        '.vizzly',
-        'baselines',
-        'metadata.json'
-      );
-      if (existsSync(metadataPath)) {
-        try {
-          const { unlinkSync } = await import('node:fs');
-          unlinkSync(metadataPath);
-          output.debug('Deleted baseline metadata');
-        } catch (error) {
-          output.warn(`Failed to delete baseline metadata: ${error.message}`);
-        }
-      }
+      // Clear metadata state
+      stateStore.clearBaselineMetadata();
+      stateStore.clearBaselineBuildMetadata();
+      stateStore.clearHotspotMetadata();
+      stateStore.clearRegionMetadata();
 
-      // Clear the report data entirely - fresh start
-      const freshReportData = {
-        timestamp: Date.now(),
-        comparisons: [],
-        summary: { total: 0, passed: 0, failed: 0, errors: 0 },
-      };
-      writeFileSync(reportPath, JSON.stringify(freshReportData));
-
-      // Clear comparison details
-      if (existsSync(detailsPath)) {
-        writeFileSync(detailsPath, JSON.stringify({}));
-      }
+      // Clear state store data entirely - fresh start
+      stateStore.resetReportData();
 
       output.info(
         `Baselines reset - ${deletedBaselines} baselines deleted, ${deletedCurrents} current screenshots deleted, ${deletedDiffs} diffs deleted`
@@ -878,65 +800,27 @@ export const createTddHandler = (
     safeDeleteFile(comparison.current, 'current', comparison.name);
     safeDeleteFile(comparison.diff, 'diff', comparison.name);
 
-    // Remove from baseline metadata if it exists
-    try {
-      const metadataPath = safePath(
-        workingDir,
-        '.vizzly',
-        'baselines',
-        'metadata.json'
-      );
-      if (existsSync(metadataPath) && comparison.signature) {
-        const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'));
-        if (metadata.screenshots) {
-          const originalLength = metadata.screenshots.length;
-          metadata.screenshots = metadata.screenshots.filter(
-            s => s.signature !== comparison.signature
+    if (comparison.signature) {
+      try {
+        let removed = stateStore.removeBaselineScreenshot(comparison.signature);
+        if (removed) {
+          output.debug(
+            `Removed ${comparison.signature} from baseline metadata`
           );
-          if (metadata.screenshots.length < originalLength) {
-            writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-            output.debug(
-              `Removed ${comparison.signature} from baseline metadata`
-            );
-          }
         }
+      } catch (error) {
+        output.warn(`Failed to update baseline metadata: ${error.message}`);
       }
-    } catch (error) {
-      output.warn(`Failed to update baseline metadata: ${error.message}`);
     }
 
-    // Remove heavy fields from comparison-details.json
-    removeComparisonDetails(comparisonId);
-
-    // Remove comparison from report data
-    reportData.comparisons = reportData.comparisons.filter(
-      c => c.id !== comparisonId
-    );
-
-    // Regenerate summary (groups computed client-side)
-    reportData.timestamp = Date.now();
-    reportData.summary = {
-      total: reportData.comparisons.length,
-      passed: reportData.comparisons.filter(
-        c =>
-          c.status === 'passed' ||
-          c.status === 'baseline-created' ||
-          c.status === 'new'
-      ).length,
-      failed: reportData.comparisons.filter(c => c.status === 'failed').length,
-      rejected: reportData.comparisons.filter(c => c.status === 'rejected')
-        .length,
-      errors: reportData.comparisons.filter(c => c.status === 'error').length,
-    };
-
-    writeFileSync(reportPath, JSON.stringify(reportData));
+    stateStore.deleteComparison(comparisonId);
 
     output.info(`Deleted comparison ${comparisonId} (${comparison.name})`);
     return { success: true, id: comparisonId };
   };
 
   const cleanup = () => {
-    // Report data is persisted to file, no in-memory cleanup needed
+    stateStore.close();
   };
 
   return {

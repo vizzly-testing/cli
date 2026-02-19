@@ -80,6 +80,16 @@ function createMockDeps(overrides = {}) {
       overrides.TddService ??
       createMockTddService(overrides.tddServiceOverrides),
     existsSync: overrides.existsSync ?? (path => path in fileSystem),
+    mkdirSync:
+      overrides.mkdirSync ??
+      (() => {
+        // No-op for virtual file system
+      }),
+    unlinkSync:
+      overrides.unlinkSync ??
+      (path => {
+        delete fileSystem[path];
+      }),
     readFileSync:
       overrides.readFileSync ??
       (path => {
@@ -103,6 +113,7 @@ function createMockDeps(overrides = {}) {
     validateScreenshotProperties:
       overrides.validateScreenshotProperties ?? (props => props),
     output: overrides.output ?? mockOutput,
+    stateBackend: overrides.stateBackend ?? 'file',
     _fileSystem: fileSystem,
     _mockOutput: mockOutput,
   };
@@ -1453,7 +1464,10 @@ describe('server/handlers/tdd-handler', () => {
         await handler.handleScreenshot('build-1', 'test', 'base64data', {});
 
         let errorCall = deps._mockOutput.calls.find(
-          c => c.method === 'error' && c.args[0].includes('Failed to read')
+          c =>
+            c.method === 'error' &&
+            (c.args[0].includes('Failed to read') ||
+              c.args[0].includes('Failed to update comparison'))
         );
         assert.ok(errorCall);
       });

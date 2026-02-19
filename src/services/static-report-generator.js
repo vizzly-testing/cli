@@ -16,6 +16,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createStateStore } from '../tdd/state-store.js';
 
 let __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -154,9 +155,17 @@ export async function generateStaticReport(workingDir, options = {}) {
   let vizzlyDir = join(workingDir, '.vizzly');
 
   try {
-    // Read report data
-    let reportDataPath = join(vizzlyDir, 'report-data.json');
-    if (!existsSync(reportDataPath)) {
+    let reportData = null;
+    let baselineMetadata = null;
+    let stateStore = createStateStore({ workingDir });
+    try {
+      reportData = stateStore.readReportData();
+      baselineMetadata = stateStore.getBaselineMetadata();
+    } finally {
+      stateStore.close();
+    }
+
+    if (!reportData) {
       return {
         success: false,
         reportPath: null,
@@ -164,17 +173,7 @@ export async function generateStaticReport(workingDir, options = {}) {
       };
     }
 
-    let reportData = JSON.parse(readFileSync(reportDataPath, 'utf8'));
-
-    // Read baseline metadata if available
-    let metadataPath = join(vizzlyDir, 'baselines', 'metadata.json');
-    if (existsSync(metadataPath)) {
-      try {
-        reportData.baseline = JSON.parse(readFileSync(metadataPath, 'utf8'));
-      } catch {
-        // Ignore metadata read errors
-      }
-    }
+    reportData.baseline = baselineMetadata;
 
     // Transform image URLs to relative paths
     let transformedData = transformImageUrls(reportData);

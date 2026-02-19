@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { createHealthRouter } from '../../../src/server/routers/health.js';
+import { createStateStore } from '../../../src/tdd/state-store.js';
 
 /**
  * Creates a mock HTTP request
@@ -45,6 +46,18 @@ function createMockResponse() {
       return body ? JSON.parse(body) : null;
     },
   };
+}
+
+function writeReportData(workingDir, reportData) {
+  let store = createStateStore({ workingDir });
+  store.replaceReportData(reportData);
+  store.close();
+}
+
+function writeBaselineMetadata(workingDir, metadata) {
+  let store = createStateStore({ workingDir });
+  store.setBaselineMetadata(metadata);
+  store.close();
 }
 
 describe('server/routers/health', () => {
@@ -120,17 +133,20 @@ describe('server/routers/health', () => {
     });
 
     it('includes report stats when report-data.json exists', async () => {
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({
-          summary: {
-            total: 10,
-            passed: 8,
-            failed: 1,
-            errors: 1,
-          },
-        })
-      );
+      writeReportData(testDir, {
+        comparisons: [
+          { id: 'p1', name: 'a', status: 'passed' },
+          { id: 'p2', name: 'b', status: 'passed' },
+          { id: 'p3', name: 'c', status: 'passed' },
+          { id: 'p4', name: 'd', status: 'passed' },
+          { id: 'p5', name: 'e', status: 'passed' },
+          { id: 'p6', name: 'f', status: 'passed' },
+          { id: 'p7', name: 'g', status: 'passed' },
+          { id: 'p8', name: 'h', status: 'passed' },
+          { id: 'f1', name: 'i', status: 'failed' },
+          { id: 'e1', name: 'j', status: 'error' },
+        ],
+      });
 
       let handler = createHealthRouter({ port: 3000, screenshotHandler: null });
       let req = createMockRequest('GET');
@@ -148,13 +164,10 @@ describe('server/routers/health', () => {
     });
 
     it('includes baseline info when metadata.json exists', async () => {
-      writeFileSync(
-        join(testDir, '.vizzly', 'baselines', 'metadata.json'),
-        JSON.stringify({
-          buildName: 'Test Build',
-          createdAt: '2025-01-01T00:00:00Z',
-        })
-      );
+      writeBaselineMetadata(testDir, {
+        buildName: 'Test Build',
+        createdAt: '2025-01-01T00:00:00Z',
+      });
 
       let handler = createHealthRouter({ port: 3000, screenshotHandler: null });
       let req = createMockRequest('GET');

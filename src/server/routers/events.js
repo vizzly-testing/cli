@@ -3,8 +3,7 @@
  * Server-Sent Events endpoint for real-time dashboard updates
  */
 
-import { existsSync, readFileSync, watch } from 'node:fs';
-import { join } from 'node:path';
+import { createStateStore } from '../../tdd/state-store.js';
 
 /**
  * Create events router for SSE
@@ -13,50 +12,25 @@ import { join } from 'node:path';
  * @returns {Function} Route handler
  */
 export function createEventsRouter(context) {
-  const { workingDir = process.cwd() } = context || {};
-  const reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
-  const baselineMetadataPath = join(
-    workingDir,
-    '.vizzly',
-    'baselines',
-    'metadata.json'
-  );
-
-  /**
-   * Read and parse baseline metadata, returning null on error
-   */
-  const readBaselineMetadata = () => {
-    if (!existsSync(baselineMetadataPath)) {
-      return null;
-    }
-    try {
-      return JSON.parse(readFileSync(baselineMetadataPath, 'utf8'));
-    } catch {
-      return null;
-    }
-  };
+  let { workingDir = process.cwd() } = context || {};
 
   /**
    * Read and parse report data with baseline metadata included
    */
-  const readReportData = () => {
-    if (!existsSync(reportDataPath)) {
+  let readReportData = stateStore => {
+    let data = stateStore.readReportData();
+    if (!data) {
       return null;
     }
-    try {
-      const data = JSON.parse(readFileSync(reportDataPath, 'utf8'));
-      // Include baseline metadata for stats view
-      data.baseline = readBaselineMetadata();
-      return data;
-    } catch {
-      return null;
-    }
+
+    data.baseline = stateStore.getBaselineMetadata();
+    return data;
   };
 
   /**
    * Send SSE event to response
    */
-  const sendEvent = (res, eventType, data) => {
+  let sendEvent = (res, eventType, data) => {
     if (res.writableEnded) return;
     res.write(`event: ${eventType}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -65,7 +39,7 @@ export function createEventsRouter(context) {
   /**
    * Build a lookup map from comparisons array keyed by id
    */
-  const buildComparisonMap = comparisons => {
+  let buildComparisonMap = comparisons => {
     let map = new Map();
     for (let c of comparisons) {
       map.set(c.id, c);
@@ -73,14 +47,14 @@ export function createEventsRouter(context) {
     return map;
   };
 
-  const comparisonChanged = (oldComp, newComp) => {
+  let comparisonChanged = (oldComp, newComp) => {
     return JSON.stringify(oldComp) !== JSON.stringify(newComp);
   };
 
   /**
    * Extract summary fields (everything except comparisons) for diffing
    */
-  const extractSummary = data => {
+  let extractSummary = data => {
     let { comparisons: _c, ...summary } = data;
     return summary;
   };
@@ -88,7 +62,7 @@ export function createEventsRouter(context) {
   /**
    * Check if summary-level fields changed between old and new data
    */
-  const summaryChanged = (oldData, newData) => {
+  let summaryChanged = (oldData, newData) => {
     let oldSummary = extractSummary(oldData);
     let newSummary = extractSummary(newData);
     return JSON.stringify(oldSummary) !== JSON.stringify(newSummary);
@@ -98,7 +72,7 @@ export function createEventsRouter(context) {
    * Send incremental updates by diffing old vs new report data.
    * Returns true if any events were sent.
    */
-  const sendIncrementalUpdates = (res, oldData, newData) => {
+  let sendIncrementalUpdates = (res, oldData, newData) => {
     let sent = false;
     let oldComparisons = oldData.comparisons || [];
     let newComparisons = newData.comparisons || [];
@@ -137,6 +111,8 @@ export function createEventsRouter(context) {
       return false;
     }
 
+    let stateStore = createStateStore({ workingDir });
+
     // Set SSE headers
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -146,17 +122,16 @@ export function createEventsRouter(context) {
     });
 
     // Send initial full data immediately
-    let lastSentData = readReportData();
+    let lastSentData = readReportData(stateStore);
     if (lastSentData) {
       sendEvent(res, 'reportData', lastSentData);
     }
 
-    // Debounce file change events (fs.watch can fire multiple times)
-    let debounceTimer = null;
-    let watcher = null;
+    let closed = false;
+    let updateQueued = false;
 
-    const sendUpdate = () => {
-      const newData = readReportData();
+    let sendUpdate = () => {
+      let newData = readReportData(stateStore);
       if (!newData) return;
 
       if (!lastSentData) {
@@ -171,45 +146,34 @@ export function createEventsRouter(context) {
       lastSentData = newData;
     };
 
-    // Watch for file changes
-    const vizzlyDir = join(workingDir, '.vizzly');
-    if (existsSync(vizzlyDir)) {
-      try {
-        watcher = watch(
-          vizzlyDir,
-          { recursive: false },
-          (_eventType, filename) => {
-            // Only react to report-data.json changes
-            if (filename === 'report-data.json') {
-              // Debounce: wait 100ms after last change before sending
-              if (debounceTimer) {
-                clearTimeout(debounceTimer);
-              }
-              debounceTimer = setTimeout(sendUpdate, 100);
-            }
-          }
-        );
-      } catch {
-        // File watching not available, client will fall back to polling
+    let queueUpdate = () => {
+      if (closed || updateQueued) {
+        return;
       }
-    }
+
+      updateQueued = true;
+      queueMicrotask(() => {
+        updateQueued = false;
+        if (closed) return;
+        sendUpdate();
+      });
+    };
+
+    let unsubscribe = stateStore.subscribe(queueUpdate);
 
     // Heartbeat to keep connection alive (every 30 seconds)
-    const heartbeatInterval = setInterval(() => {
+    let heartbeatInterval = setInterval(() => {
       if (!res.writableEnded) {
         sendEvent(res, 'heartbeat', { timestamp: Date.now() });
       }
     }, 30000);
 
     // Cleanup on connection close
-    const cleanup = () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
+    let cleanup = () => {
+      closed = true;
       clearInterval(heartbeatInterval);
-      if (watcher) {
-        watcher.close();
-      }
+      unsubscribe();
+      stateStore.close();
     };
 
     req.on('close', cleanup);

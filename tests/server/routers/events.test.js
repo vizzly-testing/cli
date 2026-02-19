@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { createEventsRouter } from '../../../src/server/routers/events.js';
+import { createStateStore } from '../../../src/tdd/state-store.js';
 
 /**
  * Creates a mock HTTP request with EventEmitter capabilities
@@ -60,6 +61,22 @@ function createMockResponse() {
       return chunks.join('');
     },
   };
+}
+
+function writeReportData(workingDir, reportData, details = null) {
+  let store = createStateStore({ workingDir });
+  store.replaceReportData(reportData, details);
+  store.close();
+}
+
+function writeBaselineMetadata(workingDir, metadata) {
+  let store = createStateStore({ workingDir });
+  store.setBaselineMetadata(metadata);
+  store.close();
+}
+
+async function flushSseUpdates() {
+  await new Promise(resolve => setImmediate(resolve));
 }
 
 describe('server/routers/events', () => {
@@ -120,11 +137,11 @@ describe('server/routers/events', () => {
     });
 
     it('sends initial data when report-data.json exists', async () => {
-      let reportData = { comparisons: [{ id: 'test' }], summary: { total: 1 } };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(reportData)
-      );
+      let reportData = {
+        comparisons: [{ id: 'test', name: 'shot', status: 'passed' }],
+        summary: { total: 1 },
+      };
+      writeReportData(testDir, reportData);
 
       let handler = createEventsRouter({ workingDir: testDir });
       let req = createMockRequest('GET');
@@ -142,15 +159,11 @@ describe('server/routers/events', () => {
     });
 
     it('includes baseline metadata in report data', async () => {
-      mkdirSync(join(testDir, '.vizzly', 'baselines'), { recursive: true });
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({ comparisons: [], summary: { total: 0 } })
-      );
-      writeFileSync(
-        join(testDir, '.vizzly', 'baselines', 'metadata.json'),
-        JSON.stringify({ buildName: 'Test Build', createdAt: '2025-01-01' })
-      );
+      writeReportData(testDir, { comparisons: [], summary: { total: 0 } });
+      writeBaselineMetadata(testDir, {
+        buildName: 'Test Build',
+        createdAt: '2025-01-01',
+      });
 
       let handler = createEventsRouter({ workingDir: testDir });
       let req = createMockRequest('GET');
@@ -236,14 +249,11 @@ describe('server/routers/events', () => {
 
       await handler(req, res, '/api/events');
 
-      // Write initial data - this triggers the file watcher
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({ comparisons: [{ id: 'updated' }] })
-      );
+      writeReportData(testDir, {
+        comparisons: [{ id: 'updated', name: 'shot', status: 'failed' }],
+      });
 
-      // Wait for debounce (100ms) + buffer
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: reportData'));
@@ -260,28 +270,23 @@ describe('server/routers/events', () => {
 
       await handler(req, res, '/api/events');
 
-      // Rapid file changes
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({ version: 1 })
-      );
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({ version: 2 })
-      );
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({ version: 3 })
-      );
+      writeReportData(testDir, {
+        comparisons: [{ id: 'v1', name: 'shot', status: 'passed' }],
+      });
+      writeReportData(testDir, {
+        comparisons: [{ id: 'v2', name: 'shot', status: 'passed' }],
+      });
+      writeReportData(testDir, {
+        comparisons: [{ id: 'v3', name: 'shot', status: 'passed' }],
+      });
 
-      // Wait for debounce
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       let output = res.getOutput();
-      // Should only have one event with the final version
+      // Should have at least one event and include the final update.
       let eventCount = (output.match(/event: reportData/g) || []).length;
       assert.ok(eventCount >= 1, 'Should have at least one event');
-      assert.ok(output.includes('"version":3'), 'Should contain final version');
+      assert.ok(output.includes('"id":"v3"'), 'Should contain final version');
 
       // Clean up
       req.emit('close');
@@ -298,12 +303,9 @@ describe('server/routers/events', () => {
       res.end();
 
       // Try to trigger an update
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({ test: true })
-      );
+      writeReportData(testDir, { test: true, comparisons: [] });
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       // Should not have written after end()
       // The initial chunks should be empty since no initial data
@@ -323,7 +325,7 @@ describe('server/routers/events', () => {
 
       let result = await handler(req, res, '/api/events');
 
-      // Should still work, just no file watching
+      // Should still work, just no state updates yet
       assert.strictEqual(result, true);
       assert.strictEqual(res.statusCode, 200);
 
@@ -336,10 +338,7 @@ describe('server/routers/events', () => {
         comparisons: [{ id: 'a', name: 'existing', status: 'passed' }],
         total: 1,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(initialData)
-      );
+      writeReportData(testDir, initialData);
 
       let handler = createEventsRouter({ workingDir: testDir });
       let req = createMockRequest('GET');
@@ -355,12 +354,9 @@ describe('server/routers/events', () => {
         ],
         total: 2,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(updatedData)
-      );
+      writeReportData(testDir, updatedData);
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: comparisonUpdate'));
@@ -377,10 +373,7 @@ describe('server/routers/events', () => {
         ],
         total: 1,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(initialData)
-      );
+      writeReportData(testDir, initialData);
 
       let handler = createEventsRouter({ workingDir: testDir });
       let req = createMockRequest('GET');
@@ -395,12 +388,9 @@ describe('server/routers/events', () => {
         ],
         total: 1,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(updatedData)
-      );
+      writeReportData(testDir, updatedData);
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: comparisonUpdate'));
@@ -419,15 +409,12 @@ describe('server/routers/events', () => {
     it('sends comparisonRemoved when comparison is deleted', async () => {
       let initialData = {
         comparisons: [
-          { id: 'a', name: 'keep' },
-          { id: 'b', name: 'remove' },
+          { id: 'a', name: 'keep', status: 'passed' },
+          { id: 'b', name: 'remove', status: 'failed' },
         ],
         total: 2,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(initialData)
-      );
+      writeReportData(testDir, initialData);
 
       let handler = createEventsRouter({ workingDir: testDir });
       let req = createMockRequest('GET');
@@ -437,15 +424,12 @@ describe('server/routers/events', () => {
 
       // Remove comparison b
       let updatedData = {
-        comparisons: [{ id: 'a', name: 'keep' }],
+        comparisons: [{ id: 'a', name: 'keep', status: 'passed' }],
         total: 1,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(updatedData)
-      );
+      writeReportData(testDir, updatedData);
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: comparisonRemoved'));
@@ -456,15 +440,12 @@ describe('server/routers/events', () => {
 
     it('sends summaryUpdate when summary fields change', async () => {
       let initialData = {
-        comparisons: [{ id: 'a', name: 'test' }],
+        comparisons: [{ id: 'a', name: 'test', status: 'passed' }],
         total: 1,
         passed: 1,
         failed: 0,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(initialData)
-      );
+      writeReportData(testDir, initialData);
 
       let handler = createEventsRouter({ workingDir: testDir });
       let req = createMockRequest('GET');
@@ -472,19 +453,16 @@ describe('server/routers/events', () => {
 
       await handler(req, res, '/api/events');
 
-      // Change summary fields only, same comparisons
+      // Change status so summary changes.
       let updatedData = {
-        comparisons: [{ id: 'a', name: 'test' }],
+        comparisons: [{ id: 'a', name: 'test', status: 'failed' }],
         total: 1,
         passed: 0,
         failed: 1,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(updatedData)
-      );
+      writeReportData(testDir, updatedData);
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: summaryUpdate'));
@@ -500,13 +478,13 @@ describe('server/routers/events', () => {
 
     it('sends no events when nothing changed', async () => {
       let initialData = {
-        comparisons: [{ id: 'a', name: 'test', status: 'passed' }],
+        timestamp: 1234,
+        comparisons: [
+          { id: 'a', name: 'test', status: 'passed', timestamp: 1000 },
+        ],
         total: 1,
       };
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(initialData)
-      );
+      writeReportData(testDir, initialData);
 
       let handler = createEventsRouter({ workingDir: testDir });
       let req = createMockRequest('GET');
@@ -517,12 +495,9 @@ describe('server/routers/events', () => {
       let chunksAfterInitial = res.chunks.length;
 
       // Write identical data
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify(initialData)
-      );
+      writeReportData(testDir, initialData);
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       // No new chunks should have been written
       assert.strictEqual(
@@ -547,7 +522,7 @@ describe('server/routers/events', () => {
         JSON.stringify({ ignored: true })
       );
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await flushSseUpdates();
 
       // Should not have sent any events
       let output = res.getOutput();

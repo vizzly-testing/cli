@@ -13,6 +13,7 @@ function createTestRegistry(testDir) {
   let registry = new ServerRegistry();
   registry.vizzlyHome = testDir;
   registry.registryPath = join(testDir, 'servers.json');
+  registry.dbPath = join(testDir, 'servers.db');
   // Disable menubar notifications in tests
   registry.notifyMenubar = () => {};
   return registry;
@@ -44,6 +45,9 @@ describe('tdd/server-registry', () => {
   });
 
   afterEach(() => {
+    if (registry) {
+      registry.close();
+    }
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true });
     }
@@ -249,6 +253,30 @@ describe('tdd/server-registry', () => {
       // Can still register new servers
       registry.register({ pid: 1, port: 47392, directory: '/a' });
       assert.strictEqual(registry.list().length, 1);
+    });
+
+    it('imports valid legacy servers.json on first load', () => {
+      writeFileSync(
+        registry.registryPath,
+        JSON.stringify({
+          version: 1,
+          servers: [
+            {
+              id: 'legacy-1',
+              port: 47392,
+              pid: process.pid,
+              directory: '/legacy-app',
+              startedAt: '2025-01-01T00:00:00.000Z',
+              name: 'legacy-app',
+            },
+          ],
+        })
+      );
+
+      let servers = registry.list();
+      assert.strictEqual(servers.length, 1);
+      assert.strictEqual(servers[0].id, 'legacy-1');
+      assert.strictEqual(servers[0].directory, '/legacy-app');
     });
   });
 

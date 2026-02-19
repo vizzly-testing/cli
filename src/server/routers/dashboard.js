@@ -3,13 +3,12 @@
  * Serves the React SPA for all dashboard routes
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createStateStore } from '../../tdd/state-store.js';
 import * as output from '../../utils/output.js';
 import { sendError, sendHtml, sendSuccess } from '../middleware/response.js';
 
 // SPA routes that should serve the dashboard HTML
-const SPA_ROUTES = ['/', '/stats', '/settings', '/projects', '/builds'];
+let SPA_ROUTES = ['/', '/stats', '/settings', '/projects', '/builds'];
 
 /**
  * Create dashboard router
@@ -18,27 +17,7 @@ const SPA_ROUTES = ['/', '/stats', '/settings', '/projects', '/builds'];
  * @returns {Function} Route handler
  */
 export function createDashboardRouter(context) {
-  const { workingDir = process.cwd() } = context || {};
-
-  /**
-   * Read baseline metadata from baselines/metadata.json
-   */
-  const readBaselineMetadata = () => {
-    const metadataPath = join(
-      workingDir,
-      '.vizzly',
-      'baselines',
-      'metadata.json'
-    );
-    if (!existsSync(metadataPath)) {
-      return null;
-    }
-    try {
-      return JSON.parse(readFileSync(metadataPath, 'utf8'));
-    } catch {
-      return null;
-    }
-  };
+  let { workingDir = process.cwd() } = context || {};
 
   return async function handleDashboardRoute(req, res, pathname) {
     if (req.method !== 'GET') {
@@ -47,26 +26,26 @@ export function createDashboardRouter(context) {
 
     // API endpoint for fetching report data
     if (pathname === '/api/report-data') {
-      const reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
-
-      if (existsSync(reportDataPath)) {
-        try {
-          const data = JSON.parse(readFileSync(reportDataPath, 'utf8'));
-          // Include baseline metadata for stats view
-          data.baseline = readBaselineMetadata();
-          res.setHeader('Content-Type', 'application/json');
-          res.statusCode = 200;
-          res.end(JSON.stringify(data));
-          return true;
-        } catch (error) {
-          output.debug('Error reading report data:', { error: error.message });
-          res.statusCode = 500;
-          res.end(JSON.stringify({ error: 'Failed to read report data' }));
+      let stateStore = createStateStore({ workingDir, output });
+      try {
+        let data = stateStore.readReportData();
+        if (!data) {
+          sendSuccess(res, null);
           return true;
         }
-      } else {
-        sendSuccess(res, null);
+
+        data.baseline = stateStore.getBaselineMetadata();
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify(data));
         return true;
+      } catch (error) {
+        output.debug('Error reading report data:', { error: error.message });
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: 'Failed to read report data' }));
+        return true;
+      } finally {
+        stateStore.close();
       }
     }
 
@@ -79,44 +58,24 @@ export function createDashboardRouter(context) {
         return true;
       }
 
-      let reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
-      if (!existsSync(reportDataPath)) {
-        sendError(res, 404, 'No report data found');
-        return true;
-      }
-
+      let stateStore = createStateStore({ workingDir, output });
       try {
-        let reportData = JSON.parse(readFileSync(reportDataPath, 'utf8'));
-        let comparison = (reportData.comparisons || []).find(
-          c =>
-            c.id === comparisonId ||
-            c.signature === comparisonId ||
-            c.name === comparisonId
-        );
+        let reportData = stateStore.readReportData();
+        if (!reportData) {
+          sendError(res, 404, 'No report data found');
+          return true;
+        }
 
+        let comparison =
+          stateStore.getComparisonByIdOrSignatureOrName(comparisonId);
         if (!comparison) {
           sendError(res, 404, 'Comparison not found');
           return true;
         }
 
-        // Merge with heavy fields from comparison-details.json
-        let detailsPath = join(
-          workingDir,
-          '.vizzly',
-          'comparison-details.json'
-        );
-        if (existsSync(detailsPath)) {
-          try {
-            let details = JSON.parse(readFileSync(detailsPath, 'utf8'));
-            let heavy = details[comparison.id];
-            if (heavy) {
-              comparison = { ...comparison, ...heavy };
-            }
-          } catch (error) {
-            output.debug('Failed to read comparison details:', {
-              error: error.message,
-            });
-          }
+        let heavy = stateStore.getComparisonDetails(comparison.id);
+        if (heavy) {
+          comparison = { ...comparison, ...heavy };
         }
 
         sendSuccess(res, comparison);
@@ -125,27 +84,29 @@ export function createDashboardRouter(context) {
           error: error.message,
         });
         sendError(res, 500, 'Failed to read comparison data');
+      } finally {
+        stateStore.close();
       }
       return true;
     }
 
     // Serve React SPA for dashboard routes
     if (SPA_ROUTES.includes(pathname) || pathname.startsWith('/comparison/')) {
-      const reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
       let reportData = null;
 
-      if (existsSync(reportDataPath)) {
-        try {
-          const data = readFileSync(reportDataPath, 'utf8');
-          reportData = JSON.parse(data);
-          // Include baseline metadata for stats view
-          reportData.baseline = readBaselineMetadata();
-        } catch (error) {
-          output.debug('Could not read report data:', { error: error.message });
+      let stateStore = createStateStore({ workingDir, output });
+      try {
+        reportData = stateStore.readReportData();
+        if (reportData) {
+          reportData.baseline = stateStore.getBaselineMetadata();
         }
+      } catch (error) {
+        output.debug('Could not read report data:', { error: error.message });
+      } finally {
+        stateStore.close();
       }
 
-      const dashboardHtml = `
+      let dashboardHtml = `
 <!DOCTYPE html>
 <html>
 <head>

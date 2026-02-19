@@ -1,8 +1,9 @@
 import assert from 'node:assert';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { createHttpServer } from '../../src/server/http-server.js';
+import { createStateStore } from '../../src/tdd/state-store.js';
 
 /**
  * Make an HTTP request to the server
@@ -18,6 +19,12 @@ async function request(port, path, options = {}) {
     body = text;
   }
   return { status: response.status, body, headers: response.headers };
+}
+
+function writeReportData(workingDir, reportData) {
+  let store = createStateStore({ workingDir });
+  store.replaceReportData(reportData);
+  store.close();
 }
 
 describe('server/http-server', () => {
@@ -100,10 +107,7 @@ describe('server/http-server', () => {
     });
 
     it('serves /api/events SSE endpoint', async () => {
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({ comparisons: [], summary: { total: 0 } })
-      );
+      writeReportData(testDir, { comparisons: [], summary: { total: 0 } });
 
       server = createHttpServer(testPort, null);
       await server.start();
@@ -118,10 +122,7 @@ describe('server/http-server', () => {
     });
 
     it('serves /api/report-data endpoint', async () => {
-      writeFileSync(
-        join(testDir, '.vizzly', 'report-data.json'),
-        JSON.stringify({ comparisons: [], summary: { total: 0 } })
-      );
+      writeReportData(testDir, { comparisons: [], summary: { total: 0 } });
 
       server = createHttpServer(testPort, null);
       await server.start();

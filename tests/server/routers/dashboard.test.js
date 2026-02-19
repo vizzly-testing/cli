@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { createDashboardRouter } from '../../../src/server/routers/dashboard.js';
+import { createStateStore } from '../../../src/tdd/state-store.js';
 
 /**
  * Creates a mock HTTP request
@@ -47,6 +48,18 @@ function createMockResponse() {
   };
 }
 
+function writeReportData(workingDir, reportData, details = null) {
+  let store = createStateStore({ workingDir });
+  store.replaceReportData(reportData, details);
+  store.close();
+}
+
+function writeBaselineMetadata(workingDir, metadata) {
+  let store = createStateStore({ workingDir });
+  store.setBaselineMetadata(metadata);
+  store.close();
+}
+
 describe('server/routers/dashboard', () => {
   let testDir = join(process.cwd(), '.test-dashboard-router');
   let originalCwd = process.cwd();
@@ -89,10 +102,10 @@ describe('server/routers/dashboard', () => {
 
     describe('GET /api/report-data', () => {
       it('returns report data when file exists', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({ comparisons: [{ id: '1' }], summary: { total: 1 } })
-        );
+        writeReportData(testDir, {
+          comparisons: [{ id: '1', name: 'shot', status: 'passed' }],
+          summary: { total: 1 },
+        });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
@@ -118,14 +131,11 @@ describe('server/routers/dashboard', () => {
       });
 
       it('includes baseline metadata when available', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({ comparisons: [], summary: { total: 0 } })
-        );
-        writeFileSync(
-          join(testDir, '.vizzly', 'baselines', 'metadata.json'),
-          JSON.stringify({ buildName: 'Test Build', createdAt: '2025-01-01' })
-        );
+        writeReportData(testDir, { comparisons: [], summary: { total: 0 } });
+        writeBaselineMetadata(testDir, {
+          buildName: 'Test Build',
+          createdAt: '2025-01-01',
+        });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
@@ -140,10 +150,7 @@ describe('server/routers/dashboard', () => {
       });
 
       it('returns null baseline when metadata does not exist', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({ comparisons: [], summary: { total: 0 } })
-        );
+        writeReportData(testDir, { comparisons: [], summary: { total: 0 } });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
@@ -159,9 +166,9 @@ describe('server/routers/dashboard', () => {
 
     describe('GET /api/comparison/:id', () => {
       it('returns merged comparison data by id', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({
+        writeReportData(
+          testDir,
+          {
             comparisons: [
               {
                 id: 'comp-1',
@@ -172,17 +179,14 @@ describe('server/routers/dashboard', () => {
                 hasDiffClusters: true,
               },
             ],
-          })
-        );
-        writeFileSync(
-          join(testDir, '.vizzly', 'comparison-details.json'),
-          JSON.stringify({
+          },
+          {
             'comp-1': {
               diffClusters: [{ x: 10, y: 20, width: 100, height: 50 }],
               confirmedRegions: [{ id: 'r1', label: 'header' }],
               intensityStats: { mean: 0.3 },
             },
-          })
+          }
         );
 
         let handler = createDashboardRouter();
@@ -203,19 +207,16 @@ describe('server/routers/dashboard', () => {
       });
 
       it('returns comparison by signature', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({
-            comparisons: [
-              {
-                id: 'comp-2',
-                name: 'home-page',
-                signature: 'home-page|1920|firefox',
-                status: 'passed',
-              },
-            ],
-          })
-        );
+        writeReportData(testDir, {
+          comparisons: [
+            {
+              id: 'comp-2',
+              name: 'home-page',
+              signature: 'home-page|1920|firefox',
+              status: 'passed',
+            },
+          ],
+        });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
@@ -229,14 +230,9 @@ describe('server/routers/dashboard', () => {
       });
 
       it('returns comparison by name', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({
-            comparisons: [
-              { id: 'comp-3', name: 'settings-page', status: 'new' },
-            ],
-          })
-        );
+        writeReportData(testDir, {
+          comparisons: [{ id: 'comp-3', name: 'settings-page', status: 'new' }],
+        });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
@@ -250,10 +246,7 @@ describe('server/routers/dashboard', () => {
       });
 
       it('returns 404 when comparison not found', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({ comparisons: [] })
-        );
+        writeReportData(testDir, { comparisons: [] });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
@@ -276,19 +269,16 @@ describe('server/routers/dashboard', () => {
       });
 
       it('returns lightweight data when no details file exists', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({
-            comparisons: [
-              {
-                id: 'comp-4',
-                name: 'dashboard',
-                status: 'passed',
-                hasDiffClusters: false,
-              },
-            ],
-          })
-        );
+        writeReportData(testDir, {
+          comparisons: [
+            {
+              id: 'comp-4',
+              name: 'dashboard',
+              status: 'passed',
+              hasDiffClusters: false,
+            },
+          ],
+        });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');
@@ -381,10 +371,9 @@ describe('server/routers/dashboard', () => {
       });
 
       it('injects report data into HTML when available', async () => {
-        writeFileSync(
-          join(testDir, '.vizzly', 'report-data.json'),
-          JSON.stringify({ comparisons: [{ id: 'test-123' }] })
-        );
+        writeReportData(testDir, {
+          comparisons: [{ id: 'test-123', name: 'shot', status: 'passed' }],
+        });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');

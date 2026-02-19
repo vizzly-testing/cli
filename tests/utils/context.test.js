@@ -3,7 +3,14 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+import { createStateStore } from '../../src/tdd/state-store.js';
 import { getContext, getDetailedContext } from '../../src/utils/context.js';
+
+function saveBaselineMetadata(workingDir, metadata) {
+  let store = createStateStore({ workingDir });
+  store.setBaselineMetadata(metadata);
+  store.close();
+}
 
 describe('utils/context', () => {
   let testDir;
@@ -73,19 +80,9 @@ describe('utils/context', () => {
     it('detects baselines in .vizzly directory', () => {
       process.chdir(testDir);
 
-      // Create baseline metadata
-      let baselinesDir = join(testDir, '.vizzly', 'baselines');
-      mkdirSync(baselinesDir, { recursive: true });
-      writeFileSync(
-        join(baselinesDir, 'metadata.json'),
-        JSON.stringify({
-          screenshots: [
-            { name: 'test1' },
-            { name: 'test2' },
-            { name: 'test3' },
-          ],
-        })
-      );
+      saveBaselineMetadata(testDir, {
+        screenshots: [{ name: 'test1' }, { name: 'test2' }, { name: 'test3' }],
+      });
 
       let items = getContext();
 
@@ -218,13 +215,9 @@ describe('utils/context', () => {
       process.chdir(testDir);
 
       let baselinesDir = join(testDir, '.vizzly', 'baselines');
-      mkdirSync(baselinesDir, { recursive: true });
-      writeFileSync(
-        join(baselinesDir, 'metadata.json'),
-        JSON.stringify({
-          screenshots: [{ name: 'test1' }, { name: 'test2' }],
-        })
-      );
+      saveBaselineMetadata(testDir, {
+        screenshots: [{ name: 'test1' }, { name: 'test2' }],
+      });
 
       let context = getDetailedContext();
 

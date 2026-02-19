@@ -13,11 +13,22 @@ function getStateEmitter(workingDir) {
 }
 
 export function emitStateChanged(workingDir) {
-  getStateEmitter(workingDir).emit('changed');
+  let emitter = stateEmitters.get(workingDir);
+  if (!emitter) {
+    return;
+  }
+
+  emitter.emit('changed');
 }
 
 export function subscribeToStateChanges(workingDir, listener) {
   let emitter = getStateEmitter(workingDir);
   emitter.on('changed', listener);
-  return () => emitter.off('changed', listener);
+  return () => {
+    emitter.off('changed', listener);
+
+    if (emitter.listenerCount('changed') === 0) {
+      stateEmitters.delete(workingDir);
+    }
+  };
 }

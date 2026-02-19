@@ -1,10 +1,8 @@
 import { Buffer as defaultBuffer } from 'node:buffer';
 import {
   existsSync as defaultExistsSync,
-  mkdirSync as defaultMkdirSync,
   readFileSync as defaultReadFileSync,
   unlinkSync as defaultUnlinkSync,
-  writeFileSync as defaultWriteFileSync,
 } from 'node:fs';
 import { join as defaultJoin, resolve as defaultResolve } from 'node:path';
 import { getDimensionsSync as defaultGetDimensionsSync } from '@vizzly-testing/honeydiff';
@@ -184,10 +182,8 @@ export const createTddHandler = (
   let {
     TddService = DefaultTddService,
     existsSync = defaultExistsSync,
-    mkdirSync = defaultMkdirSync,
     readFileSync = defaultReadFileSync,
     unlinkSync = defaultUnlinkSync,
-    writeFileSync = defaultWriteFileSync,
     join = defaultJoin,
     resolve = defaultResolve,
     Buffer = defaultBuffer,
@@ -198,22 +194,14 @@ export const createTddHandler = (
     validateScreenshotProperties = defaultValidateScreenshotProperties,
     output = defaultOutput,
     stateStore: injectedStateStore = null,
-    stateBackend = 'sqlite',
   } = deps;
 
   const tddService = new TddService(config, workingDir, setBaseline);
   const stateStore =
     injectedStateStore ||
     createStateStore({
-      backend: stateBackend,
       workingDir,
       output,
-      existsSync,
-      mkdirSync,
-      unlinkSync,
-      readFileSync,
-      writeFileSync,
-      joinPath: join,
     });
 
   /**

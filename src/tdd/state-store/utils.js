@@ -10,14 +10,6 @@ export function parseJson(value, fallback = null) {
   }
 }
 
-function toIntegerBool(value) {
-  return value ? 1 : 0;
-}
-
-function fromIntegerBool(value) {
-  return value === 1;
-}
-
 export function hasReportData(reportData) {
   if (!reportData || typeof reportData !== 'object') {
     return false;
@@ -73,8 +65,8 @@ export function mapComparisonRow(row) {
     error: row.error,
     originalName: row.original_name,
     timestamp: row.timestamp,
-    hasDiffClusters: fromIntegerBool(row.has_diff_clusters),
-    hasConfirmedRegions: fromIntegerBool(row.has_confirmed_regions),
+    hasDiffClusters: Boolean(row.has_diff_clusters),
+    hasConfirmedRegions: Boolean(row.has_confirmed_regions),
   };
 }
 
@@ -122,8 +114,8 @@ export function normalizeComparison(comparison, initialStatus) {
       normalized.heightDiff == null ? null : Number(normalized.heightDiff),
     error: normalized.error ?? null,
     original_name: normalized.originalName ?? null,
-    has_diff_clusters: toIntegerBool(normalized.hasDiffClusters),
-    has_confirmed_regions: toIntegerBool(normalized.hasConfirmedRegions),
+    has_diff_clusters: Number(Boolean(normalized.hasDiffClusters)),
+    has_confirmed_regions: Number(Boolean(normalized.hasConfirmedRegions)),
     timestamp:
       normalized.timestamp == null ? now : Number(normalized.timestamp),
     updated_at: now,

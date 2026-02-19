@@ -300,4 +300,38 @@ describe('tdd/server-registry', () => {
       assert.strictEqual(servers[0].directory, '/projects/app-b');
     });
   });
+
+  describe('write', () => {
+    it('deduplicates conflicting rows and keeps the last one', () => {
+      registry.write({
+        servers: [
+          { id: 'a', pid: 1, port: 47392, directory: '/projects/app-a' },
+          { id: 'b', pid: 2, port: 47392, directory: '/projects/app-b' },
+          { id: 'c', pid: 3, port: 47393, directory: '/projects/app-b' },
+        ],
+      });
+
+      let servers = registry.list();
+      assert.strictEqual(servers.length, 1);
+      assert.strictEqual(servers[0].id, 'c');
+      assert.strictEqual(servers[0].port, 47393);
+      assert.strictEqual(servers[0].directory, '/projects/app-b');
+    });
+
+    it('skips rows with invalid numeric fields', () => {
+      registry.write({
+        servers: [
+          { id: 'bad-port', pid: 1, port: 'oops', directory: '/bad-port' },
+          { id: 'ok', pid: 2, port: 47395, directory: '/ok' },
+          { id: 'bad-pid', pid: 'oops', port: 47396, directory: '/bad-pid' },
+        ],
+      });
+
+      let servers = registry.list();
+      assert.strictEqual(servers.length, 1);
+      assert.strictEqual(servers[0].id, 'ok');
+      assert.strictEqual(servers[0].port, 47395);
+      assert.strictEqual(servers[0].pid, 2);
+    });
+  });
 });

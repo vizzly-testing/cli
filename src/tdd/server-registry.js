@@ -234,7 +234,18 @@ export class ServerRegistry {
       INSERT INTO registry_servers (
         id, port, pid, directory, started_at, config_path, name, log_file
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        port = excluded.port,
+        pid = excluded.pid,
+        directory = excluded.directory,
+        started_at = excluded.started_at,
+        config_path = excluded.config_path,
+        name = excluded.name,
+        log_file = excluded.log_file
     `);
+    let removeExisting = db.prepare(
+      'DELETE FROM registry_servers WHERE port = ? OR directory = ?'
+    );
 
     let transaction = db.transaction(() => {
       db.prepare('DELETE FROM registry_servers').run();
@@ -244,10 +255,19 @@ export class ServerRegistry {
           continue;
         }
 
+        let port = Number(server.port);
+        let pid = Number(server.pid);
+        if (Number.isNaN(port) || Number.isNaN(pid)) {
+          continue;
+        }
+
+        // Ensure uniqueness within the incoming batch; later rows win.
+        removeExisting.run(port, server.directory);
+
         insert.run(
           server.id || randomBytes(8).toString('hex'),
-          Number(server.port),
-          Number(server.pid),
+          port,
+          pid,
           server.directory,
           server.startedAt || new Date().toISOString(),
           server.configPath || null,

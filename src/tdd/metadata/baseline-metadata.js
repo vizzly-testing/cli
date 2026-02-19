@@ -1,50 +1,98 @@
 /**
  * Baseline Metadata I/O
  *
- * Functions for reading and writing baseline metadata.json files.
- * These handle the local storage of baseline information.
+ * Functions for reading and writing baseline metadata in state storage.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
+import { createStateStore } from '../state-store.js';
+
+function resolveWorkingDirFromBaselinePath(baselinePath) {
+  let resolvedPath = resolve(baselinePath);
+  let parent = dirname(resolvedPath);
+
+  if (
+    basename(resolvedPath) === 'baselines' &&
+    basename(parent) === '.vizzly'
+  ) {
+    return dirname(parent);
+  }
+
+  return resolvedPath;
+}
+
+function withStateStore(workingDir, operation) {
+  let store = createStateStore({ workingDir });
+
+  try {
+    return operation(store);
+  } finally {
+    store.close();
+  }
+}
 
 /**
- * Load baseline metadata from disk
+ * Load baseline metadata from state storage
  *
  * @param {string} baselinePath - Path to baselines directory
  * @returns {Object|null} Baseline metadata or null if not found
  */
 export function loadBaselineMetadata(baselinePath) {
-  let metadataPath = join(baselinePath, 'metadata.json');
+  let workingDir = resolveWorkingDirFromBaselinePath(baselinePath);
 
-  if (!existsSync(metadataPath)) {
-    return null;
-  }
-
-  try {
-    let content = readFileSync(metadataPath, 'utf8');
-    return JSON.parse(content);
-  } catch (error) {
-    // Log for debugging but return null - caller can handle missing metadata
-    console.debug?.(`Failed to parse baseline metadata: ${error.message}`);
-    return null;
-  }
+  return withStateStore(workingDir, store => {
+    try {
+      return store.getBaselineMetadata();
+    } catch (error) {
+      console.debug?.(`Failed to read baseline metadata: ${error.message}`);
+      return null;
+    }
+  });
 }
 
 /**
- * Save baseline metadata to disk
+ * Save baseline metadata to state storage
  *
  * @param {string} baselinePath - Path to baselines directory
  * @param {Object} metadata - Metadata object to save
  */
 export function saveBaselineMetadata(baselinePath, metadata) {
-  // Ensure directory exists
-  if (!existsSync(baselinePath)) {
-    mkdirSync(baselinePath, { recursive: true });
-  }
+  let workingDir = resolveWorkingDirFromBaselinePath(baselinePath);
 
-  let metadataPath = join(baselinePath, 'metadata.json');
-  writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+  withStateStore(workingDir, store => {
+    store.setBaselineMetadata(metadata);
+  });
+}
+
+/**
+ * Load baseline build metadata from state storage
+ *
+ * @param {string} workingDir - Working directory containing .vizzly
+ * @returns {Object|null} Baseline build metadata or null
+ */
+export function loadBaselineBuildMetadata(workingDir) {
+  return withStateStore(workingDir, store => {
+    try {
+      return store.getBaselineBuildMetadata();
+    } catch (error) {
+      console.debug?.(
+        `Failed to read baseline build metadata: ${error.message}`
+      );
+      return null;
+    }
+  });
+}
+
+/**
+ * Save baseline build metadata to state storage
+ *
+ * @param {string} workingDir - Working directory containing .vizzly
+ * @param {Object} metadata - Metadata object to save
+ */
+export function saveBaselineBuildMetadata(workingDir, metadata) {
+  withStateStore(workingDir, store => {
+    store.setBaselineBuildMetadata(metadata);
+  });
 }
 
 /**
@@ -86,7 +134,7 @@ export function upsertScreenshotInMetadata(
   }
 
   let existingIndex = metadata.screenshots.findIndex(
-    s => s.signature === signature
+    screenshot => screenshot.signature === signature
   );
 
   if (existingIndex >= 0) {
@@ -110,5 +158,9 @@ export function findScreenshotBySignature(metadata, signature) {
     return null;
   }
 
-  return metadata.screenshots.find(s => s.signature === signature) || null;
+  return (
+    metadata.screenshots.find(
+      screenshot => screenshot.signature === signature
+    ) || null
+  );
 }

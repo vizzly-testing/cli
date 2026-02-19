@@ -42,7 +42,9 @@ import {
 
 import {
   createEmptyBaselineMetadata as defaultCreateEmptyBaselineMetadata,
+  loadBaselineBuildMetadata as defaultLoadBaselineBuildMetadata,
   loadBaselineMetadata as defaultLoadBaselineMetadata,
+  saveBaselineBuildMetadata as defaultSaveBaselineBuildMetadata,
   saveBaselineMetadata as defaultSaveBaselineMetadata,
   upsertScreenshotInMetadata as defaultUpsertScreenshotInMetadata,
 } from './metadata/baseline-metadata.js';
@@ -164,7 +166,9 @@ export class TddService {
     };
 
     let metadataOps = {
+      loadBaselineBuildMetadata: defaultLoadBaselineBuildMetadata,
       loadBaselineMetadata: defaultLoadBaselineMetadata,
+      saveBaselineBuildMetadata: defaultSaveBaselineBuildMetadata,
       saveBaselineMetadata: defaultSaveBaselineMetadata,
       createEmptyBaselineMetadata: defaultCreateEmptyBaselineMetadata,
       upsertScreenshotInMetadata: defaultUpsertScreenshotInMetadata,
@@ -260,7 +264,7 @@ export class TddService {
     this.minClusterSize = config.comparison?.minClusterSize ?? 2;
     this.signatureProperties = config.signatureProperties ?? [];
 
-    // Hotspot data (loaded lazily from disk or downloaded from cloud)
+    // Hotspot data (loaded lazily from state storage or downloaded from cloud)
     this.hotspotData = null;
 
     // Region data (user-defined 2D bounding boxes, loaded lazily)
@@ -301,6 +305,7 @@ export class TddService {
       existsSync,
       fetchWithTimeout,
       writeFileSync,
+      saveBaselineBuildMetadata,
       saveBaselineMetadata,
     } = this._deps;
 
@@ -674,29 +679,17 @@ export class TddService {
       // and saved earlier when processing the API response
 
       // Save baseline build metadata for MCP plugin
-      let baselineMetadataPath = safePath(
-        this.workingDir,
-        '.vizzly',
-        'baseline-metadata.json'
-      );
-      writeFileSync(
-        baselineMetadataPath,
-        JSON.stringify(
-          {
-            buildId: baselineBuild.id,
-            buildName: baselineBuild.name,
-            branch,
-            environment,
-            commitSha: baselineBuild.commit_sha,
-            commitMessage: baselineBuild.commit_message,
-            approvalStatus: baselineBuild.approval_status,
-            completedAt: baselineBuild.completed_at,
-            downloadedAt: new Date().toISOString(),
-          },
-          null,
-          2
-        )
-      );
+      saveBaselineBuildMetadata(this.workingDir, {
+        buildId: baselineBuild.id,
+        buildName: baselineBuild.name,
+        branch,
+        environment,
+        commitSha: baselineBuild.commit_sha,
+        commitMessage: baselineBuild.commit_message,
+        approvalStatus: baselineBuild.approval_status,
+        completedAt: baselineBuild.completed_at,
+        downloadedAt: new Date().toISOString(),
+      });
 
       // Summary
       let actualDownloads = downloadedCount - skippedCount;
@@ -743,6 +736,7 @@ export class TddService {
       existsSync,
       fetchWithTimeout,
       writeFileSync,
+      saveBaselineBuildMetadata,
       saveBaselineMetadata,
     } = this._deps;
 
@@ -978,29 +972,17 @@ export class TddService {
     // and saved earlier when processing the API response
 
     // Save baseline build metadata for MCP plugin
-    let baselineMetadataPath = safePath(
-      this.workingDir,
-      '.vizzly',
-      'baseline-metadata.json'
-    );
-    writeFileSync(
-      baselineMetadataPath,
-      JSON.stringify(
-        {
-          buildId: baselineBuild.id,
-          buildName: baselineBuild.name,
-          branch: null,
-          environment: 'test',
-          commitSha: baselineBuild.commit_sha,
-          commitMessage: baselineBuild.commit_message,
-          approvalStatus: baselineBuild.approval_status,
-          completedAt: baselineBuild.completed_at,
-          downloadedAt: new Date().toISOString(),
-        },
-        null,
-        2
-      )
-    );
+    saveBaselineBuildMetadata(this.workingDir, {
+      buildId: baselineBuild.id,
+      buildName: baselineBuild.name,
+      branch: null,
+      environment: 'test',
+      commitSha: baselineBuild.commit_sha,
+      commitMessage: baselineBuild.commit_message,
+      approvalStatus: baselineBuild.approval_status,
+      completedAt: baselineBuild.completed_at,
+      downloadedAt: new Date().toISOString(),
+    });
 
     // Summary
     let actualDownloads = downloadedCount - skippedCount;
@@ -1060,7 +1042,7 @@ export class TddService {
       // Update memory cache
       this.hotspotData = response.hotspots;
 
-      // Save to disk using extracted module
+      // Save to state storage using extracted module
       saveHotspotMetadata(this.workingDir, response.hotspots, response.summary);
 
       let hotspotCount = Object.keys(response.hotspots).length;
@@ -1081,7 +1063,7 @@ export class TddService {
   }
 
   /**
-   * Load hotspot data from disk
+   * Load hotspot data from state storage
    */
   loadHotspots() {
     let { loadHotspotMetadata } = this._deps;
@@ -1091,7 +1073,7 @@ export class TddService {
   /**
    * Get hotspot for a specific screenshot
    *
-   * Note: Once hotspotData is loaded (from disk or cloud), we don't reload.
+   * Note: Once hotspotData is loaded (from state or cloud), we don't reload.
    * This is intentional - hotspots are downloaded once per session and cached.
    * If a screenshot isn't in the cache, it means no hotspot data exists for it.
    */
@@ -1101,7 +1083,7 @@ export class TddService {
       return this.hotspotData[screenshotName];
     }
 
-    // Try loading from disk (only if we haven't loaded yet)
+    // Try loading from state storage (only if we haven't loaded yet)
     if (!this.hotspotData) {
       this.hotspotData = this.loadHotspots();
     }
@@ -1110,7 +1092,7 @@ export class TddService {
   }
 
   /**
-   * Load region data from disk
+   * Load region data from state storage
    */
   loadRegions() {
     let { loadRegionMetadata } = this._deps;
@@ -1120,7 +1102,7 @@ export class TddService {
   /**
    * Get user-defined regions for a specific screenshot
    *
-   * Note: Once regionData is loaded (from disk or cloud), we don't reload.
+   * Note: Once regionData is loaded (from state or cloud), we don't reload.
    * This is intentional - regions are downloaded once per session and cached.
    * If a screenshot isn't in the cache, it means no region data exists for it.
    *
@@ -1133,7 +1115,7 @@ export class TddService {
       return this.regionData[screenshotName];
     }
 
-    // Try loading from disk (only if we haven't loaded yet)
+    // Try loading from state storage (only if we haven't loaded yet)
     if (!this.regionData) {
       this.regionData = this.loadRegions();
     }

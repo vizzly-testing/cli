@@ -1,11 +1,5 @@
 import assert from 'node:assert';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -14,6 +8,7 @@ import {
   loadHotspotMetadata,
   saveHotspotMetadata,
 } from '../../../src/tdd/metadata/hotspot-metadata.js';
+import { createStateStore } from '../../../src/tdd/state-store.js';
 
 describe('tdd/metadata/hotspot-metadata', () => {
   let testDir = join(process.cwd(), '.test-hotspot-metadata');
@@ -32,98 +27,71 @@ describe('tdd/metadata/hotspot-metadata', () => {
   });
 
   describe('loadHotspotMetadata', () => {
-    it('returns null when hotspots.json does not exist', () => {
+    it('returns null when hotspot metadata does not exist', () => {
       let result = loadHotspotMetadata(testDir);
 
       assert.strictEqual(result, null);
     });
 
-    it('loads and returns hotspots from file', () => {
+    it('loads hotspot metadata after saving', () => {
+      let hotspotData = {
+        homepage: { regions: [{ y1: 0, y2: 100 }], confidence: 'high' },
+      };
+
+      saveHotspotMetadata(testDir, hotspotData);
+
+      let result = loadHotspotMetadata(testDir);
+      assert.deepStrictEqual(result, hotspotData);
+    });
+
+    it('imports legacy hotspots.json into DB', () => {
       mkdirSync(vizzlyDir, { recursive: true });
       let hotspotsData = {
+        downloadedAt: '2025-01-01T00:00:00Z',
+        summary: { totalScreenshots: 1 },
         hotspots: {
           homepage: { regions: [{ y1: 0, y2: 100 }], confidence: 'high' },
         },
       };
+
       writeFileSync(
         join(vizzlyDir, 'hotspots.json'),
         JSON.stringify(hotspotsData)
       );
 
       let result = loadHotspotMetadata(testDir);
-
       assert.deepStrictEqual(result, hotspotsData.hotspots);
-    });
-
-    it('returns null when hotspots field is missing', () => {
-      mkdirSync(vizzlyDir, { recursive: true });
-      writeFileSync(
-        join(vizzlyDir, 'hotspots.json'),
-        JSON.stringify({ other: 'data' })
-      );
-
-      let result = loadHotspotMetadata(testDir);
-
-      assert.strictEqual(result, null);
-    });
-
-    it('returns null for invalid JSON', () => {
-      mkdirSync(vizzlyDir, { recursive: true });
-      writeFileSync(join(vizzlyDir, 'hotspots.json'), 'not valid json');
-
-      let result = loadHotspotMetadata(testDir);
-
-      assert.strictEqual(result, null);
     });
   });
 
   describe('saveHotspotMetadata', () => {
-    it('creates .vizzly directory and saves hotspots', () => {
+    it('stores hotspot metadata in state db', () => {
       let hotspotData = {
         homepage: { regions: [{ y1: 0, y2: 100 }] },
       };
 
       saveHotspotMetadata(testDir, hotspotData);
 
-      assert.strictEqual(existsSync(vizzlyDir), true);
-      let content = JSON.parse(
-        readFileSync(join(vizzlyDir, 'hotspots.json'), 'utf8')
+      assert.strictEqual(
+        existsSync(join(testDir, '.vizzly', 'state.db')),
+        true
       );
-      assert.deepStrictEqual(content.hotspots, hotspotData);
-      assert.ok(content.downloadedAt);
+      assert.deepStrictEqual(loadHotspotMetadata(testDir), hotspotData);
     });
 
-    it('includes summary in saved data', () => {
+    it('stores summary with hotspot metadata', () => {
       let hotspotData = { homepage: {} };
       let summary = { totalScreenshots: 5, screenshotsWithHotspots: 3 };
 
       saveHotspotMetadata(testDir, hotspotData, summary);
 
-      let content = JSON.parse(
-        readFileSync(join(vizzlyDir, 'hotspots.json'), 'utf8')
-      );
-      assert.deepStrictEqual(content.summary, summary);
-    });
-
-    it('writes formatted JSON', () => {
-      let hotspotData = { key: 'value' };
-
-      saveHotspotMetadata(testDir, hotspotData);
-
-      let raw = readFileSync(join(vizzlyDir, 'hotspots.json'), 'utf8');
-      assert.ok(raw.includes('\n')); // Check it's formatted
-    });
-
-    it('works when .vizzly directory already exists', () => {
-      mkdirSync(vizzlyDir, { recursive: true });
-      let hotspotData = { test: {} };
-
-      saveHotspotMetadata(testDir, hotspotData);
-
-      let content = JSON.parse(
-        readFileSync(join(vizzlyDir, 'hotspots.json'), 'utf8')
-      );
-      assert.deepStrictEqual(content.hotspots, hotspotData);
+      let store = createStateStore({ workingDir: testDir });
+      try {
+        let bundle = store.getHotspotBundle();
+        assert.deepStrictEqual(bundle.summary, summary);
+      } finally {
+        store.close();
+      }
     });
   });
 
@@ -136,16 +104,16 @@ describe('tdd/metadata/hotspot-metadata', () => {
   });
 
   describe('getHotspotForScreenshot', () => {
-    it('returns null when cache is empty and no file exists', () => {
+    it('returns null when cache is empty and no metadata exists', () => {
       let cache = createHotspotCache();
 
       let result = getHotspotForScreenshot(cache, testDir, 'homepage');
 
       assert.strictEqual(result, null);
-      assert.strictEqual(cache.loaded, true); // Should mark as loaded
+      assert.strictEqual(cache.loaded, true);
     });
 
-    it('returns cached data without reading file again', () => {
+    it('returns cached data without loading from storage', () => {
       let cache = {
         data: { homepage: { regions: [], confidence: 'high' } },
         loaded: true,
@@ -156,15 +124,11 @@ describe('tdd/metadata/hotspot-metadata', () => {
       assert.deepStrictEqual(result, { regions: [], confidence: 'high' });
     });
 
-    it('loads from disk on first access and caches', () => {
-      mkdirSync(vizzlyDir, { recursive: true });
+    it('loads from storage on first access and caches', () => {
       let hotspotData = {
         homepage: { regions: [{ y1: 10, y2: 50 }], confidence: 'medium' },
       };
-      writeFileSync(
-        join(vizzlyDir, 'hotspots.json'),
-        JSON.stringify({ hotspots: hotspotData })
-      );
+      saveHotspotMetadata(testDir, hotspotData);
       let cache = createHotspotCache();
 
       let result = getHotspotForScreenshot(cache, testDir, 'homepage');
@@ -186,7 +150,6 @@ describe('tdd/metadata/hotspot-metadata', () => {
     });
 
     it('returns from cache.data before checking loaded flag', () => {
-      // Even if loaded is false, if data exists for this screenshot, return it
       let cache = {
         data: { homepage: { regions: [], confidence: 'low' } },
         loaded: false,
@@ -195,7 +158,6 @@ describe('tdd/metadata/hotspot-metadata', () => {
       let result = getHotspotForScreenshot(cache, testDir, 'homepage');
 
       assert.deepStrictEqual(result, { regions: [], confidence: 'low' });
-      // loaded should still be false since we got a cache hit
       assert.strictEqual(cache.loaded, false);
     });
   });

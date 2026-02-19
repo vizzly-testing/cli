@@ -11,6 +11,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { createStateStore } from '../tdd/state-store.js';
 
 /**
  * Get dynamic context about the current Vizzly state
@@ -44,10 +45,22 @@ export function getContext() {
     // Check for .vizzly directory (TDD baselines)
     let baselineCount = 0;
     try {
-      let metaPath = join(cwd, '.vizzly', 'baselines', 'metadata.json');
-      if (existsSync(metaPath)) {
-        let meta = JSON.parse(readFileSync(metaPath, 'utf8'));
-        baselineCount = meta.screenshots?.length || 0;
+      let stateDbPath = join(cwd, '.vizzly', 'state.db');
+      let legacyBaselinePath = join(
+        cwd,
+        '.vizzly',
+        'baselines',
+        'metadata.json'
+      );
+
+      if (existsSync(stateDbPath) || existsSync(legacyBaselinePath)) {
+        let stateStore = createStateStore({ workingDir: cwd });
+        try {
+          let metadata = stateStore.getBaselineMetadata();
+          baselineCount = metadata?.screenshots?.length || 0;
+        } finally {
+          stateStore.close();
+        }
       }
     } catch {
       // Ignore
@@ -171,11 +184,25 @@ export function getDetailedContext() {
 
     // Check for baselines
     try {
-      let metaPath = join(cwd, '.vizzly', 'baselines', 'metadata.json');
-      if (existsSync(metaPath)) {
-        let meta = JSON.parse(readFileSync(metaPath, 'utf8'));
-        context.baselines.count = meta.screenshots?.length || 0;
-        context.baselines.path = join(cwd, '.vizzly', 'baselines');
+      let stateDbPath = join(cwd, '.vizzly', 'state.db');
+      let legacyBaselinePath = join(
+        cwd,
+        '.vizzly',
+        'baselines',
+        'metadata.json'
+      );
+
+      if (existsSync(stateDbPath) || existsSync(legacyBaselinePath)) {
+        let stateStore = createStateStore({ workingDir: cwd });
+        try {
+          let metadata = stateStore.getBaselineMetadata();
+          context.baselines.count = metadata?.screenshots?.length || 0;
+          if (metadata) {
+            context.baselines.path = join(cwd, '.vizzly', 'baselines');
+          }
+        } finally {
+          stateStore.close();
+        }
       }
     } catch {
       // Ignore

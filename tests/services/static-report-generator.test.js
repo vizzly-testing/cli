@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { createStateStore } from '../../src/tdd/state-store.js';
 
 let __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -60,7 +61,6 @@ function setupMockVizzlyDir(workingDir, options = {}) {
   let vizzlyDir = join(workingDir, '.vizzly');
   mkdirSync(vizzlyDir, { recursive: true });
 
-  // Create report-data.json
   let reportData = options.reportData || {
     comparisons: [
       {
@@ -74,10 +74,9 @@ function setupMockVizzlyDir(workingDir, options = {}) {
     ],
     timestamp: Date.now(),
   };
-  writeFileSync(
-    join(vizzlyDir, 'report-data.json'),
-    JSON.stringify(reportData)
-  );
+  let store = createStateStore({ workingDir });
+  store.replaceReportData(reportData);
+  store.close();
 
   // Create image directories with test images
   let imageData = Buffer.from(
@@ -238,14 +237,11 @@ describe('services/static-report-generator', () => {
         return;
       }
 
-      let vizzlyDir = setupMockVizzlyDir(tempDir);
+      setupMockVizzlyDir(tempDir);
 
-      // Add baseline metadata
-      let metadataDir = join(vizzlyDir, 'baselines');
-      writeFileSync(
-        join(metadataDir, 'metadata.json'),
-        JSON.stringify({ branch: 'main', commit: 'abc123' })
-      );
+      let store = createStateStore({ workingDir: tempDir });
+      store.setBaselineMetadata({ branch: 'main', commit: 'abc123' });
+      store.close();
 
       let { generateStaticReport } = await import(
         '../../src/services/static-report-generator.js'

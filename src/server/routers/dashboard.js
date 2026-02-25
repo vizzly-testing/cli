@@ -26,7 +26,7 @@ export function createDashboardRouter(context) {
 
     // API endpoint for fetching report data
     if (pathname === '/api/report-data') {
-      let stateStore = createStateStore({ workingDir, output });
+      let stateStore = createStateStore({ workingDir, output, mode: 'read' });
       try {
         let data = stateStore.readReportData();
         if (!data) {
@@ -58,7 +58,7 @@ export function createDashboardRouter(context) {
         return true;
       }
 
-      let stateStore = createStateStore({ workingDir, output });
+      let stateStore = createStateStore({ workingDir, output, mode: 'read' });
       try {
         let reportData = stateStore.readReportData();
         if (!reportData) {
@@ -94,7 +94,7 @@ export function createDashboardRouter(context) {
     if (SPA_ROUTES.includes(pathname) || pathname.startsWith('/comparison/')) {
       let reportData = null;
 
-      let stateStore = createStateStore({ workingDir, output });
+      let stateStore = createStateStore({ workingDir, output, mode: 'read' });
       try {
         reportData = stateStore.readReportData();
         if (reportData) {

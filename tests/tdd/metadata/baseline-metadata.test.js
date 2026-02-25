@@ -55,7 +55,7 @@ describe('tdd/metadata/baseline-metadata', () => {
         JSON.stringify(metadata)
       );
 
-      let result = loadBaselineMetadata(baselinePath);
+      let result = loadBaselineMetadata(baselinePath, { mode: 'write' });
 
       assert.deepStrictEqual(result, metadata);
     });

@@ -74,7 +74,7 @@ function setupMockVizzlyDir(workingDir, options = {}) {
     ],
     timestamp: Date.now(),
   };
-  let store = createStateStore({ workingDir });
+  let store = createStateStore({ workingDir, mode: 'write' });
   store.replaceReportData(reportData);
   store.close();
 
@@ -239,7 +239,7 @@ describe('services/static-report-generator', () => {
 
       setupMockVizzlyDir(tempDir);
 
-      let store = createStateStore({ workingDir: tempDir });
+      let store = createStateStore({ workingDir: tempDir, mode: 'write' });
       store.setBaselineMetadata({ branch: 'main', commit: 'abc123' });
       store.close();
 

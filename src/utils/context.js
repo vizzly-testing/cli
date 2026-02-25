@@ -54,7 +54,7 @@ export function getContext() {
       );
 
       if (existsSync(stateDbPath) || existsSync(legacyBaselinePath)) {
-        let stateStore = createStateStore({ workingDir: cwd });
+        let stateStore = createStateStore({ workingDir: cwd, mode: 'read' });
         try {
           let metadata = stateStore.getBaselineMetadata();
           baselineCount = metadata?.screenshots?.length || 0;
@@ -193,7 +193,7 @@ export function getDetailedContext() {
       );
 
       if (existsSync(stateDbPath) || existsSync(legacyBaselinePath)) {
-        let stateStore = createStateStore({ workingDir: cwd });
+        let stateStore = createStateStore({ workingDir: cwd, mode: 'read' });
         try {
           let metadata = stateStore.getBaselineMetadata();
           context.baselines.count = metadata?.screenshots?.length || 0;

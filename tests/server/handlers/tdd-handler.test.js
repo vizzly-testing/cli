@@ -78,6 +78,10 @@ function createMockTddService(overrides = {}) {
     async acceptBaseline(comparison) {
       return overrides.acceptBaseline?.(comparison) ?? { success: true };
     }
+
+    resetRuntimeState() {
+      return overrides.resetRuntimeState?.();
+    }
   };
 }
 
@@ -87,7 +91,10 @@ function createMockTddService(overrides = {}) {
 function createMockDeps(overrides = {}) {
   let mockOutput = createMockOutput();
   let dbWorkingDir = mkdtempSync(joinPath(tmpdir(), 'vizzly-tdd-handler-'));
-  let stateStore = createStateStore({ workingDir: dbWorkingDir });
+  let stateStore = createStateStore({
+    workingDir: dbWorkingDir,
+    mode: 'write',
+  });
 
   let deps = {
     TddService:
@@ -1336,6 +1343,34 @@ describe('server/handlers/tdd-handler', () => {
         // Check report was cleared
         let newReportData = deps.readStoredReportData();
         assert.strictEqual(newReportData.comparisons.length, 0);
+      });
+
+      it('resets in-memory tddService runtime state', async () => {
+        let resetCalled = false;
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            resetRuntimeState: () => {
+              resetCalled = true;
+            },
+          },
+        });
+
+        deps.seedReportData({
+          timestamp: Date.now(),
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'test',
+              status: 'failed',
+              baseline: '/images/baselines/test.png',
+            },
+          ],
+        });
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+        await handler.resetBaselines();
+
+        assert.strictEqual(resetCalled, true);
       });
     });
 

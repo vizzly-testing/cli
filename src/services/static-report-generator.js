@@ -157,7 +157,7 @@ export async function generateStaticReport(workingDir, options = {}) {
   try {
     let reportData = null;
     let baselineMetadata = null;
-    let stateStore = createStateStore({ workingDir });
+    let stateStore = createStateStore({ workingDir, mode: 'read' });
     try {
       reportData = stateStore.readReportData();
       baselineMetadata = stateStore.getBaselineMetadata();

@@ -281,6 +281,21 @@ export class TddService {
   }
 
   /**
+   * Reset in-memory runtime state so a baseline reset is truly fresh.
+   * Persisted state is handled separately by the state store.
+   */
+  resetRuntimeState() {
+    this.baselineData = null;
+    this.comparisons = [];
+    this.threshold = this.config.comparison?.threshold || 2.0;
+    this.minClusterSize = this.config.comparison?.minClusterSize ?? 2;
+    this.signatureProperties = this.config.signatureProperties ?? [];
+    this.hotspotData = null;
+    this.regionData = null;
+    this._resultsPrinted = false;
+  }
+
+  /**
    * Download baselines from cloud
    */
   async downloadBaselines(
@@ -1067,7 +1082,7 @@ export class TddService {
    */
   loadHotspots() {
     let { loadHotspotMetadata } = this._deps;
-    return loadHotspotMetadata(this.workingDir);
+    return loadHotspotMetadata(this.workingDir, { mode: 'write' });
   }
 
   /**
@@ -1096,7 +1111,7 @@ export class TddService {
    */
   loadRegions() {
     let { loadRegionMetadata } = this._deps;
-    return loadRegionMetadata(this.workingDir);
+    return loadRegionMetadata(this.workingDir, { mode: 'write' });
   }
 
   /**
@@ -1174,7 +1189,9 @@ export class TddService {
       return null;
     }
 
-    let metadata = loadBaselineMetadata(this.baselinePath);
+    let metadata = loadBaselineMetadata(this.baselinePath, {
+      mode: 'write',
+    });
 
     if (!metadata) {
       return null;

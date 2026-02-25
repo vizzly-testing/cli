@@ -202,6 +202,7 @@ export const createTddHandler = (
     createStateStore({
       workingDir,
       output,
+      mode: 'write',
     });
 
   /**
@@ -735,6 +736,11 @@ export const createTddHandler = (
 
       // Clear state store data entirely - fresh start
       stateStore.resetReportData();
+
+      // Reset in-memory TDD runtime caches so the current process is also fresh.
+      if (typeof tddService.resetRuntimeState === 'function') {
+        tddService.resetRuntimeState();
+      }
 
       output.info(
         `Baselines reset - ${deletedBaselines} baselines deleted, ${deletedCurrents} current screenshots deleted, ${deletedDiffs} diffs deleted`

@@ -49,13 +49,13 @@ function createMockResponse() {
 }
 
 function writeReportData(workingDir, reportData) {
-  let store = createStateStore({ workingDir });
+  let store = createStateStore({ workingDir, mode: 'write' });
   store.replaceReportData(reportData);
   store.close();
 }
 
 function writeBaselineMetadata(workingDir, metadata) {
-  let store = createStateStore({ workingDir });
+  let store = createStateStore({ workingDir, mode: 'write' });
   store.setBaselineMetadata(metadata);
   store.close();
 }

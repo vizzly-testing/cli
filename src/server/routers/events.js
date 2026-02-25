@@ -17,14 +17,19 @@ export function createEventsRouter(context) {
   /**
    * Read and parse report data with baseline metadata included
    */
-  let readReportData = stateStore => {
-    let data = stateStore.readReportData();
-    if (!data) {
-      return null;
-    }
+  let readReportData = () => {
+    let snapshotStore = createStateStore({ workingDir, mode: 'read' });
+    try {
+      let data = snapshotStore.readReportData();
+      if (!data) {
+        return null;
+      }
 
-    data.baseline = stateStore.getBaselineMetadata();
-    return data;
+      data.baseline = snapshotStore.getBaselineMetadata();
+      return data;
+    } finally {
+      snapshotStore.close();
+    }
   };
 
   /**
@@ -111,7 +116,7 @@ export function createEventsRouter(context) {
       return false;
     }
 
-    let stateStore = createStateStore({ workingDir });
+    let subscriptionStore = createStateStore({ workingDir, mode: 'read' });
 
     // Set SSE headers
     res.writeHead(200, {
@@ -122,7 +127,7 @@ export function createEventsRouter(context) {
     });
 
     // Send initial full data immediately
-    let lastSentData = readReportData(stateStore);
+    let lastSentData = readReportData();
     if (lastSentData) {
       sendEvent(res, 'reportData', lastSentData);
     }
@@ -131,7 +136,7 @@ export function createEventsRouter(context) {
     let updateQueued = false;
 
     let sendUpdate = () => {
-      let newData = readReportData(stateStore);
+      let newData = readReportData();
       if (!newData) return;
 
       if (!lastSentData) {
@@ -159,7 +164,7 @@ export function createEventsRouter(context) {
       });
     };
 
-    let unsubscribe = stateStore.subscribe(queueUpdate);
+    let unsubscribe = subscriptionStore.subscribe(queueUpdate);
 
     // Heartbeat to keep connection alive (every 30 seconds)
     let heartbeatInterval = setInterval(() => {
@@ -173,7 +178,7 @@ export function createEventsRouter(context) {
       closed = true;
       clearInterval(heartbeatInterval);
       unsubscribe();
-      stateStore.close();
+      subscriptionStore.close();
     };
 
     req.on('close', cleanup);

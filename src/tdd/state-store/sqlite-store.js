@@ -22,11 +22,18 @@ export function createSqliteStateStore(options = {}) {
   let {
     workingDir = process.cwd(),
     output = {},
+    mode = 'read',
     Database,
     fs = {},
     joinPath = join,
     dbPath = null,
   } = options;
+
+  if (mode !== 'read' && mode !== 'write') {
+    throw new Error(`Invalid state store mode: ${mode}`);
+  }
+
+  let isWriteMode = mode === 'write';
 
   let {
     existsSync: existsSyncImpl = existsSync,
@@ -35,25 +42,181 @@ export function createSqliteStateStore(options = {}) {
   } = fs;
 
   let vizzlyDir = joinPath(workingDir, '.vizzly');
-  if (!existsSyncImpl(vizzlyDir)) {
-    mkdirSyncImpl(vizzlyDir, { recursive: true });
-  }
-
   let resolvedDbPath = dbPath || joinPath(vizzlyDir, 'state.db');
-  let dbDirectory = dirname(resolvedDbPath);
-  if (!existsSyncImpl(dbDirectory)) {
-    mkdirSyncImpl(dbDirectory, { recursive: true });
+  let DatabaseImpl = Database || BetterSqlite3;
+  let db = null;
+  let shouldRunLegacyMigration = false;
+
+  function assertWriteMode(methodName) {
+    if (isWriteMode) {
+      return;
+    }
+
+    throw new Error(
+      `State store is read-only. '${methodName}' requires mode: 'write'.`
+    );
   }
 
-  let DatabaseImpl = Database || BetterSqlite3;
-  let db = new DatabaseImpl(resolvedDbPath);
+  if (isWriteMode) {
+    let dbExistedBeforeOpen = existsSyncImpl(resolvedDbPath);
 
-  db.pragma('journal_mode = WAL');
-  db.pragma('synchronous = NORMAL');
-  db.pragma('foreign_keys = ON');
-  db.pragma('busy_timeout = 5000');
+    if (!existsSyncImpl(vizzlyDir)) {
+      mkdirSyncImpl(vizzlyDir, { recursive: true });
+    }
 
-  applySchemaMigrations(db, output);
+    let dbDirectory = dirname(resolvedDbPath);
+    if (!existsSyncImpl(dbDirectory)) {
+      mkdirSyncImpl(dbDirectory, { recursive: true });
+    }
+
+    db = new DatabaseImpl(resolvedDbPath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('synchronous = NORMAL');
+    db.pragma('foreign_keys = ON');
+    db.pragma('busy_timeout = 5000');
+    applySchemaMigrations(db, output);
+    // Legacy JSON is a one-time bootstrap into a freshly created state.db.
+    shouldRunLegacyMigration = !dbExistedBeforeOpen;
+  } else if (existsSyncImpl(resolvedDbPath)) {
+    db = new DatabaseImpl(resolvedDbPath, {
+      readonly: true,
+      fileMustExist: true,
+    });
+    db.pragma('busy_timeout = 5000');
+  }
+
+  if (!db) {
+    return {
+      backend: 'sqlite',
+      mode,
+
+      readReportData() {
+        return null;
+      },
+
+      replaceReportData() {
+        assertWriteMode('replaceReportData');
+      },
+
+      upsertComparison() {
+        assertWriteMode('upsertComparison');
+      },
+
+      getComparisonByIdOrSignatureOrName() {
+        return null;
+      },
+
+      upsertComparisonDetails() {
+        assertWriteMode('upsertComparisonDetails');
+      },
+
+      getComparisonDetails() {
+        return null;
+      },
+
+      removeComparisonDetails() {
+        assertWriteMode('removeComparisonDetails');
+      },
+
+      deleteComparison() {
+        assertWriteMode('deleteComparison');
+      },
+
+      resetReportData() {
+        assertWriteMode('resetReportData');
+      },
+
+      getMetadata(_key, fallback = null) {
+        return fallback;
+      },
+
+      getSchemaVersion() {
+        return 0;
+      },
+
+      setMetadata() {
+        assertWriteMode('setMetadata');
+      },
+
+      removeMetadata() {
+        assertWriteMode('removeMetadata');
+        return false;
+      },
+
+      getBaselineMetadata() {
+        return null;
+      },
+
+      setBaselineMetadata() {
+        assertWriteMode('setBaselineMetadata');
+      },
+
+      clearBaselineMetadata() {
+        assertWriteMode('clearBaselineMetadata');
+        return false;
+      },
+
+      removeBaselineScreenshot() {
+        assertWriteMode('removeBaselineScreenshot');
+        return false;
+      },
+
+      getHotspotBundle() {
+        return null;
+      },
+
+      getHotspotMetadata() {
+        return null;
+      },
+
+      setHotspotMetadata() {
+        assertWriteMode('setHotspotMetadata');
+      },
+
+      clearHotspotMetadata() {
+        assertWriteMode('clearHotspotMetadata');
+        return false;
+      },
+
+      getRegionBundle() {
+        return null;
+      },
+
+      getRegionMetadata() {
+        return null;
+      },
+
+      setRegionMetadata() {
+        assertWriteMode('setRegionMetadata');
+      },
+
+      clearRegionMetadata() {
+        assertWriteMode('clearRegionMetadata');
+        return false;
+      },
+
+      getBaselineBuildMetadata() {
+        return null;
+      },
+
+      setBaselineBuildMetadata() {
+        assertWriteMode('setBaselineBuildMetadata');
+      },
+
+      clearBaselineBuildMetadata() {
+        assertWriteMode('clearBaselineBuildMetadata');
+        return false;
+      },
+
+      subscribe(listener) {
+        return subscribeToStateChanges(workingDir, listener);
+      },
+
+      close() {
+        // No-op
+      },
+    };
+  }
 
   let getKvStmt = db.prepare('SELECT value FROM kv WHERE key = ?');
   let setKvStmt = db.prepare(`
@@ -163,6 +326,7 @@ export function createSqliteStateStore(options = {}) {
   }
 
   function setKey(key, value) {
+    assertWriteMode('setKey');
     setKvStmt.run(key, String(value), Date.now());
   }
 
@@ -336,15 +500,9 @@ export function createSqliteStateStore(options = {}) {
   }
 
   function maybeMigrateLegacyJson() {
-    let legacyMigrated = getKey('legacy_json_migrated');
-    if (legacyMigrated === '1') {
-      return;
-    }
-
     let hasRows = countComparisonsStmt.get().count > 0;
     let initialized = getKey('report_initialized') === '1';
     if (hasRows || initialized) {
-      setKey('legacy_json_migrated', '1');
       return;
     }
 
@@ -352,14 +510,12 @@ export function createSqliteStateStore(options = {}) {
     let detailsPath = joinPath(vizzlyDir, 'comparison-details.json');
 
     if (!existsSyncImpl(reportPath)) {
-      setKey('legacy_json_migrated', '1');
       return;
     }
 
     try {
       let reportData = parseJson(readFileSyncImpl(reportPath, 'utf8'), null);
       if (!hasReportData(reportData)) {
-        setKey('legacy_json_migrated', '1');
         return;
       }
 
@@ -375,17 +531,10 @@ export function createSqliteStateStore(options = {}) {
         'state',
         `legacy report JSON migration skipped: ${error.message}`
       );
-    } finally {
-      setKey('legacy_json_migrated', '1');
     }
   }
 
   function maybeMigrateLegacyMetadataJson() {
-    let legacyMigrated = getKey('legacy_metadata_json_migrated');
-    if (legacyMigrated === '1') {
-      return;
-    }
-
     let baselineMetadataPath = joinPath(
       vizzlyDir,
       'baselines',
@@ -398,8 +547,8 @@ export function createSqliteStateStore(options = {}) {
       'baseline-metadata.json'
     );
 
-    try {
-      if (existsSyncImpl(baselineMetadataPath) && !getBaselineMetadata()) {
+    if (existsSyncImpl(baselineMetadataPath) && !getBaselineMetadata()) {
+      try {
         let baselineMetadata = parseJson(
           readFileSyncImpl(baselineMetadataPath, 'utf8'),
           null
@@ -411,9 +560,16 @@ export function createSqliteStateStore(options = {}) {
             'migrated baselines/metadata.json to SQLite metadata state'
           );
         }
+      } catch (error) {
+        output.debug?.(
+          'state',
+          `legacy baselines/metadata.json migration skipped: ${error.message}`
+        );
       }
+    }
 
-      if (existsSyncImpl(hotspotMetadataPath) && !getHotspotBundle()) {
+    if (existsSyncImpl(hotspotMetadataPath) && !getHotspotBundle()) {
+      try {
         let rawHotspots = parseJson(
           readFileSyncImpl(hotspotMetadataPath, 'utf8'),
           null
@@ -430,9 +586,16 @@ export function createSqliteStateStore(options = {}) {
             'migrated hotspots.json to SQLite metadata state'
           );
         }
+      } catch (error) {
+        output.debug?.(
+          'state',
+          `legacy hotspots.json migration skipped: ${error.message}`
+        );
       }
+    }
 
-      if (existsSyncImpl(regionMetadataPath) && !getRegionBundle()) {
+    if (existsSyncImpl(regionMetadataPath) && !getRegionBundle()) {
+      try {
         let rawRegions = parseJson(
           readFileSyncImpl(regionMetadataPath, 'utf8'),
           null
@@ -445,12 +608,19 @@ export function createSqliteStateStore(options = {}) {
             'migrated regions.json to SQLite metadata state'
           );
         }
+      } catch (error) {
+        output.debug?.(
+          'state',
+          `legacy regions.json migration skipped: ${error.message}`
+        );
       }
+    }
 
-      if (
-        existsSyncImpl(baselineBuildMetadataPath) &&
-        !getBaselineBuildMetadata()
-      ) {
+    if (
+      existsSyncImpl(baselineBuildMetadataPath) &&
+      !getBaselineBuildMetadata()
+    ) {
+      try {
         let baselineBuildMetadata = parseJson(
           readFileSyncImpl(baselineBuildMetadataPath, 'utf8'),
           null
@@ -462,22 +632,23 @@ export function createSqliteStateStore(options = {}) {
             'migrated baseline-metadata.json to SQLite metadata state'
           );
         }
+      } catch (error) {
+        output.debug?.(
+          'state',
+          `legacy baseline-metadata.json migration skipped: ${error.message}`
+        );
       }
-    } catch (error) {
-      output.debug?.(
-        'state',
-        `legacy metadata JSON migration skipped: ${error.message}`
-      );
-    } finally {
-      setKey('legacy_metadata_json_migrated', '1');
     }
   }
 
-  maybeMigrateLegacyJson();
-  maybeMigrateLegacyMetadataJson();
+  if (shouldRunLegacyMigration) {
+    maybeMigrateLegacyJson();
+    maybeMigrateLegacyMetadataJson();
+  }
 
   return {
     backend: 'sqlite',
+    mode,
 
     readReportData() {
       let comparisons = listComparisonsStmt.all().map(mapComparisonRow);
@@ -497,10 +668,12 @@ export function createSqliteStateStore(options = {}) {
     },
 
     replaceReportData(reportData, detailsById = null) {
+      assertWriteMode('replaceReportData');
       replaceReportDataInternal(reportData, detailsById, true);
     },
 
     upsertComparison(comparison) {
+      assertWriteMode('upsertComparison');
       if (!comparison?.id || !comparison?.name || !comparison?.status) {
         throw new Error('Comparison must include id, name, and status');
       }
@@ -531,6 +704,7 @@ export function createSqliteStateStore(options = {}) {
     },
 
     upsertComparisonDetails(id, details) {
+      assertWriteMode('upsertComparisonDetails');
       upsertDetailsStmt.run(id, JSON.stringify(details || {}), Date.now());
     },
 
@@ -541,10 +715,12 @@ export function createSqliteStateStore(options = {}) {
     },
 
     removeComparisonDetails(id) {
+      assertWriteMode('removeComparisonDetails');
       deleteDetailsStmt.run(id);
     },
 
     deleteComparison(id) {
+      assertWriteMode('deleteComparison');
       let transaction = db.transaction(() => {
         deleteDetailsStmt.run(id);
         deleteComparisonStmt.run(id);
@@ -556,6 +732,7 @@ export function createSqliteStateStore(options = {}) {
     },
 
     resetReportData() {
+      assertWriteMode('resetReportData');
       let transaction = db.transaction(() => {
         clearDetailsStmt.run();
         clearComparisonsStmt.run();
@@ -575,10 +752,12 @@ export function createSqliteStateStore(options = {}) {
     },
 
     setMetadata(key, value) {
+      assertWriteMode('setMetadata');
       setMetadataInternal(key, value, true);
     },
 
     removeMetadata(key) {
+      assertWriteMode('removeMetadata');
       return removeMetadataInternal(key, true);
     },
 
@@ -587,14 +766,17 @@ export function createSqliteStateStore(options = {}) {
     },
 
     setBaselineMetadata(metadata) {
+      assertWriteMode('setBaselineMetadata');
       setBaselineMetadata(metadata, true);
     },
 
     clearBaselineMetadata() {
+      assertWriteMode('clearBaselineMetadata');
       return clearBaselineMetadata(true);
     },
 
     removeBaselineScreenshot(signature) {
+      assertWriteMode('removeBaselineScreenshot');
       return removeBaselineScreenshot(signature);
     },
 
@@ -607,10 +789,12 @@ export function createSqliteStateStore(options = {}) {
     },
 
     setHotspotMetadata(hotspotData, summary = {}) {
+      assertWriteMode('setHotspotMetadata');
       setHotspotMetadata(hotspotData, summary, true);
     },
 
     clearHotspotMetadata() {
+      assertWriteMode('clearHotspotMetadata');
       return clearHotspotMetadata(true);
     },
 
@@ -623,10 +807,12 @@ export function createSqliteStateStore(options = {}) {
     },
 
     setRegionMetadata(regionData, summary = {}) {
+      assertWriteMode('setRegionMetadata');
       setRegionMetadata(regionData, summary, true);
     },
 
     clearRegionMetadata() {
+      assertWriteMode('clearRegionMetadata');
       return clearRegionMetadata(true);
     },
 
@@ -635,10 +821,12 @@ export function createSqliteStateStore(options = {}) {
     },
 
     setBaselineBuildMetadata(metadata) {
+      assertWriteMode('setBaselineBuildMetadata');
       setBaselineBuildMetadata(metadata, true);
     },
 
     clearBaselineBuildMetadata() {
+      assertWriteMode('clearBaselineBuildMetadata');
       return clearBaselineBuildMetadata(true);
     },
 

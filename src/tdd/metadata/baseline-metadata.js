@@ -21,8 +21,8 @@ function resolveWorkingDirFromBaselinePath(baselinePath) {
   return resolvedPath;
 }
 
-function withStateStore(workingDir, operation) {
-  let store = createStateStore({ workingDir });
+function withStateStore(workingDir, mode, operation) {
+  let store = createStateStore({ workingDir, mode });
 
   try {
     return operation(store);
@@ -37,10 +37,11 @@ function withStateStore(workingDir, operation) {
  * @param {string} baselinePath - Path to baselines directory
  * @returns {Object|null} Baseline metadata or null if not found
  */
-export function loadBaselineMetadata(baselinePath) {
+export function loadBaselineMetadata(baselinePath, options = {}) {
+  let { mode = 'read' } = options;
   let workingDir = resolveWorkingDirFromBaselinePath(baselinePath);
 
-  return withStateStore(workingDir, store => {
+  return withStateStore(workingDir, mode, store => {
     try {
       return store.getBaselineMetadata();
     } catch (error) {
@@ -59,7 +60,7 @@ export function loadBaselineMetadata(baselinePath) {
 export function saveBaselineMetadata(baselinePath, metadata) {
   let workingDir = resolveWorkingDirFromBaselinePath(baselinePath);
 
-  withStateStore(workingDir, store => {
+  withStateStore(workingDir, 'write', store => {
     store.setBaselineMetadata(metadata);
   });
 }
@@ -70,8 +71,10 @@ export function saveBaselineMetadata(baselinePath, metadata) {
  * @param {string} workingDir - Working directory containing .vizzly
  * @returns {Object|null} Baseline build metadata or null
  */
-export function loadBaselineBuildMetadata(workingDir) {
-  return withStateStore(workingDir, store => {
+export function loadBaselineBuildMetadata(workingDir, options = {}) {
+  let { mode = 'read' } = options;
+
+  return withStateStore(workingDir, mode, store => {
     try {
       return store.getBaselineBuildMetadata();
     } catch (error) {
@@ -90,7 +93,7 @@ export function loadBaselineBuildMetadata(workingDir) {
  * @param {Object} metadata - Metadata object to save
  */
 export function saveBaselineBuildMetadata(workingDir, metadata) {
-  withStateStore(workingDir, store => {
+  withStateStore(workingDir, 'write', store => {
     store.setBaselineBuildMetadata(metadata);
   });
 }

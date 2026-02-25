@@ -61,7 +61,7 @@ describe('tdd/tdd-service integration', () => {
     assert.strictEqual(existsSync(result.baseline), true);
     assert.strictEqual(existsSync(result.current), true);
 
-    let store = createStateStore({ workingDir });
+    let store = createStateStore({ workingDir, mode: 'write' });
     try {
       let metadata = store.getBaselineMetadata();
       assert.ok(metadata);
@@ -208,7 +208,7 @@ describe('tdd/tdd-service integration', () => {
     let baselineBytes = readFileSync(changed.baseline);
     assert.strictEqual(String(baselineBytes), 'image-b');
 
-    let store = createStateStore({ workingDir });
+    let store = createStateStore({ workingDir, mode: 'write' });
     try {
       let metadata = store.getBaselineMetadata();
       assert.ok(metadata);
@@ -280,7 +280,7 @@ describe('tdd/tdd-service integration', () => {
       true
     );
 
-    let store = createStateStore({ workingDir });
+    let store = createStateStore({ workingDir, mode: 'write' });
     try {
       let buildMetadata = store.getBaselineBuildMetadata();
       assert.ok(buildMetadata);

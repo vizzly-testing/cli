@@ -61,7 +61,7 @@ describe('tdd/metadata/region-metadata', () => {
 
       writeFileSync(join(vizzlyDir, 'regions.json'), JSON.stringify(legacy));
 
-      let result = loadRegionMetadata(testDir);
+      let result = loadRegionMetadata(testDir, { mode: 'write' });
       assert.deepStrictEqual(result, legacy.regions);
     });
   });
@@ -87,7 +87,7 @@ describe('tdd/metadata/region-metadata', () => {
 
       saveRegionMetadata(testDir, regionData, summary);
 
-      let store = createStateStore({ workingDir: testDir });
+      let store = createStateStore({ workingDir: testDir, mode: 'write' });
       try {
         let bundle = store.getRegionBundle();
         assert.deepStrictEqual(bundle.summary, summary);

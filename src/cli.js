@@ -53,6 +53,7 @@ import {
   generateStaticReport,
   getReportFileUrl,
 } from './services/static-report-generator.js';
+import { bootstrapLegacyStateIfNeeded } from './tdd/state-store.js';
 import { openBrowser } from './utils/browser.js';
 import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
@@ -329,6 +330,11 @@ output.configure({
   verbose: verboseMode,
   color: colorOverride,
   json: jsonArg,
+});
+
+bootstrapLegacyStateIfNeeded({
+  workingDir: process.cwd(),
+  output,
 });
 
 const config = await loadConfig(configPath, {});

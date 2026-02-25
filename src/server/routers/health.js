@@ -26,7 +26,7 @@ export function createHealthRouter({
 
     let reportData = null;
     let baselineInfo = null;
-    let stateStore = createStateStore({ workingDir });
+    let stateStore = createStateStore({ workingDir, mode: 'read' });
     try {
       reportData = stateStore.readReportData();
       baselineInfo = stateStore.getBaselineMetadata();

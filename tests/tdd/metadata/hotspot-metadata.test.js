@@ -59,7 +59,7 @@ describe('tdd/metadata/hotspot-metadata', () => {
         JSON.stringify(hotspotsData)
       );
 
-      let result = loadHotspotMetadata(testDir);
+      let result = loadHotspotMetadata(testDir, { mode: 'write' });
       assert.deepStrictEqual(result, hotspotsData.hotspots);
     });
   });
@@ -85,7 +85,7 @@ describe('tdd/metadata/hotspot-metadata', () => {
 
       saveHotspotMetadata(testDir, hotspotData, summary);
 
-      let store = createStateStore({ workingDir: testDir });
+      let store = createStateStore({ workingDir: testDir, mode: 'write' });
       try {
         let bundle = store.getHotspotBundle();
         assert.deepStrictEqual(bundle.summary, summary);

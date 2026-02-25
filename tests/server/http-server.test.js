@@ -22,7 +22,7 @@ async function request(port, path, options = {}) {
 }
 
 function writeReportData(workingDir, reportData) {
-  let store = createStateStore({ workingDir });
+  let store = createStateStore({ workingDir, mode: 'write' });
   store.replaceReportData(reportData);
   store.close();
 }

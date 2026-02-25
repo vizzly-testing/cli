@@ -7,8 +7,8 @@
 
 import { createStateStore } from '../state-store.js';
 
-function withStateStore(workingDir, operation) {
-  let store = createStateStore({ workingDir });
+function withStateStore(workingDir, mode, operation) {
+  let store = createStateStore({ workingDir, mode });
 
   try {
     return operation(store);
@@ -23,8 +23,10 @@ function withStateStore(workingDir, operation) {
  * @param {string} workingDir - Working directory containing .vizzly folder
  * @returns {Object|null} Region data keyed by screenshot name, or null if not found
  */
-export function loadRegionMetadata(workingDir) {
-  return withStateStore(workingDir, store => {
+export function loadRegionMetadata(workingDir, options = {}) {
+  let { mode = 'read' } = options;
+
+  return withStateStore(workingDir, mode, store => {
     try {
       return store.getRegionMetadata();
     } catch {
@@ -41,7 +43,7 @@ export function loadRegionMetadata(workingDir) {
  * @param {Object} summary - Summary information about the regions
  */
 export function saveRegionMetadata(workingDir, regionData, summary = {}) {
-  withStateStore(workingDir, store => {
+  withStateStore(workingDir, 'write', store => {
     store.setRegionMetadata(regionData, summary);
   });
 }

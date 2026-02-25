@@ -7,7 +7,7 @@ import { createStateStore } from '../../src/tdd/state-store.js';
 import { getContext, getDetailedContext } from '../../src/utils/context.js';
 
 function saveBaselineMetadata(workingDir, metadata) {
-  let store = createStateStore({ workingDir });
+  let store = createStateStore({ workingDir, mode: 'write' });
   store.setBaselineMetadata(metadata);
   store.close();
 }

@@ -8,8 +8,8 @@
 
 import { createStateStore } from '../state-store.js';
 
-function withStateStore(workingDir, operation) {
-  let store = createStateStore({ workingDir });
+function withStateStore(workingDir, mode, operation) {
+  let store = createStateStore({ workingDir, mode });
 
   try {
     return operation(store);
@@ -24,8 +24,10 @@ function withStateStore(workingDir, operation) {
  * @param {string} workingDir - Working directory containing .vizzly folder
  * @returns {Object|null} Hotspot data keyed by screenshot name, or null if not found
  */
-export function loadHotspotMetadata(workingDir) {
-  return withStateStore(workingDir, store => {
+export function loadHotspotMetadata(workingDir, options = {}) {
+  let { mode = 'read' } = options;
+
+  return withStateStore(workingDir, mode, store => {
     try {
       return store.getHotspotMetadata();
     } catch {
@@ -42,7 +44,7 @@ export function loadHotspotMetadata(workingDir) {
  * @param {Object} summary - Summary information about the hotspots
  */
 export function saveHotspotMetadata(workingDir, hotspotData, summary = {}) {
-  withStateStore(workingDir, store => {
+  withStateStore(workingDir, 'write', store => {
     store.setHotspotMetadata(hotspotData, summary);
   });
 }

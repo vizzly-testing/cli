@@ -1,60 +1,52 @@
 /**
  * Hotspot Metadata I/O
  *
- * Functions for reading and writing hotspot data files.
+ * Functions for reading and writing hotspot metadata in state storage.
  * Hotspots identify regions of screenshots that frequently change
  * due to dynamic content (timestamps, animations, etc.).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createStateStore } from '../state-store.js';
 
-/**
- * Load hotspot data from disk
- *
- * @param {string} workingDir - Working directory containing .vizzly folder
- * @returns {Object|null} Hotspot data keyed by screenshot name, or null if not found
- */
-export function loadHotspotMetadata(workingDir) {
-  let hotspotsPath = join(workingDir, '.vizzly', 'hotspots.json');
-
-  if (!existsSync(hotspotsPath)) {
-    return null;
-  }
+function withStateStore(workingDir, mode, operation) {
+  let store = createStateStore({ workingDir, mode });
 
   try {
-    let content = readFileSync(hotspotsPath, 'utf8');
-    let data = JSON.parse(content);
-    return data.hotspots || null;
-  } catch {
-    // Return null for parse/read errors
-    return null;
+    return operation(store);
+  } finally {
+    store.close();
   }
 }
 
 /**
- * Save hotspot data to disk
+ * Load hotspot data from state storage
+ *
+ * @param {string} workingDir - Working directory containing .vizzly folder
+ * @returns {Object|null} Hotspot data keyed by screenshot name, or null if not found
+ */
+export function loadHotspotMetadata(workingDir, options = {}) {
+  let { mode = 'read' } = options;
+
+  return withStateStore(workingDir, mode, store => {
+    try {
+      return store.getHotspotMetadata();
+    } catch {
+      return null;
+    }
+  });
+}
+
+/**
+ * Save hotspot data to state storage
  *
  * @param {string} workingDir - Working directory containing .vizzly folder
  * @param {Object} hotspotData - Hotspot data keyed by screenshot name
  * @param {Object} summary - Summary information about the hotspots
  */
 export function saveHotspotMetadata(workingDir, hotspotData, summary = {}) {
-  let vizzlyDir = join(workingDir, '.vizzly');
-
-  // Ensure directory exists
-  if (!existsSync(vizzlyDir)) {
-    mkdirSync(vizzlyDir, { recursive: true });
-  }
-
-  let hotspotsPath = join(vizzlyDir, 'hotspots.json');
-  let content = {
-    downloadedAt: new Date().toISOString(),
-    summary,
-    hotspots: hotspotData,
-  };
-
-  writeFileSync(hotspotsPath, JSON.stringify(content, null, 2));
+  withStateStore(workingDir, 'write', store => {
+    store.setHotspotMetadata(hotspotData, summary);
+  });
 }
 
 /**
@@ -69,12 +61,10 @@ export function saveHotspotMetadata(workingDir, hotspotData, summary = {}) {
  * @returns {Object|null} Hotspot analysis or null if not available
  */
 export function getHotspotForScreenshot(cache, workingDir, screenshotName) {
-  // Check cache first
   if (cache.data?.[screenshotName]) {
     return cache.data[screenshotName];
   }
 
-  // Load from disk if not yet loaded
   if (!cache.loaded) {
     cache.data = loadHotspotMetadata(workingDir);
     cache.loaded = true;

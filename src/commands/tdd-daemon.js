@@ -97,6 +97,16 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     // The registry acts as a soft reservation, and findAvailablePort does
     // an actual TCP bind test to minimize this window.
     port = await registry.findAvailablePort();
+    if (port == null) {
+      output.header('tdd', 'local');
+      output.print(
+        `  ${output.statusDot('error')} No available port found after trying 100 ports starting at 47392`
+      );
+      output.blank();
+      output.hint('Free a running TDD server and try again');
+      output.hint('Or specify a port manually: vizzly tdd start --port <port>');
+      return;
+    }
     autoAllocated = port !== 47392;
   }
 

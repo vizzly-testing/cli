@@ -162,6 +162,21 @@ describe('server/routers/dashboard', () => {
         let body = res.getParsedBody();
         assert.strictEqual(body.baseline, null);
       });
+
+      it('returns 500 when the state store cannot be opened', async () => {
+        mkdirSync(join(testDir, '.vizzly', 'state.db'), { recursive: true });
+
+        let handler = createDashboardRouter();
+        let req = createMockRequest('GET');
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/report-data');
+
+        assert.strictEqual(res.statusCode, 500);
+        assert.deepStrictEqual(res.getParsedBody(), {
+          error: 'Failed to read report data',
+        });
+      });
     });
 
     describe('GET /api/comparison/:id', () => {
@@ -391,6 +406,19 @@ describe('server/routers/dashboard', () => {
           join(testDir, '.vizzly', 'report-data.json'),
           'invalid json'
         );
+
+        let handler = createDashboardRouter();
+        let req = createMockRequest('GET');
+        let res = createMockResponse();
+
+        await handler(req, res, '/');
+
+        assert.strictEqual(res.statusCode, 200);
+        assert.ok(res.body.includes('<!DOCTYPE html>'));
+      });
+
+      it('still serves HTML when opening the state store fails', async () => {
+        mkdirSync(join(testDir, '.vizzly', 'state.db'), { recursive: true });
 
         let handler = createDashboardRouter();
         let req = createMockRequest('GET');

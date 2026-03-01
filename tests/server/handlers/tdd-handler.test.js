@@ -1306,7 +1306,6 @@ describe('server/handlers/tdd-handler', () => {
 
     describe('resetBaselines', () => {
       it('clears report data and returns counts', async () => {
-        let _deletedFiles = [];
         let deps = createMockDeps({
           existsSync: path => {
             // Simulate existing files
@@ -1325,6 +1324,7 @@ describe('server/handlers/tdd-handler', () => {
             {
               id: 'comp-1',
               name: 'test',
+              status: 'failed',
               baseline: '/images/baselines/test.png',
               current: '/images/current/test.png',
               diff: '/images/diffs/test.png',
@@ -1343,6 +1343,43 @@ describe('server/handlers/tdd-handler', () => {
         // Check report was cleared
         let newReportData = deps.readStoredReportData();
         assert.strictEqual(newReportData.comparisons.length, 0);
+      });
+
+      it('uses injected unlinkSync and reports deleted file counts', async () => {
+        let deletedPaths = [];
+        let deps = createMockDeps({
+          existsSync: () => true,
+          unlinkSync: path => deletedPaths.push(path),
+        });
+
+        deps.seedReportData({
+          timestamp: Date.now(),
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'test',
+              status: 'failed',
+              baseline: '/images/baselines/test.png',
+              current: '/images/current/test.png',
+              diff: '/images/diffs/test.png',
+            },
+          ],
+        });
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+        let result = await handler.resetBaselines();
+
+        assert.strictEqual(result.deletedBaselines, 1);
+        assert.strictEqual(result.deletedCurrents, 1);
+        assert.strictEqual(result.deletedDiffs, 1);
+        assert.strictEqual(deletedPaths.length, 3);
+        assert.ok(
+          deletedPaths.some(path => path.includes('/baselines/test.png'))
+        );
+        assert.ok(
+          deletedPaths.some(path => path.includes('/current/test.png'))
+        );
+        assert.ok(deletedPaths.some(path => path.includes('/diffs/test.png')));
       });
 
       it('resets in-memory tddService runtime state', async () => {

@@ -664,67 +664,16 @@ export const createTddHandler = (
 
       // Delete all baseline, current, and diff images
       for (const comparison of reportData.comparisons) {
-        // Delete baseline image if it exists
-        if (comparison.baseline) {
-          const baselinePath = join(
-            workingDir,
-            '.vizzly',
-            comparison.baseline.replace('/images/', '')
-          );
-          if (existsSync(baselinePath)) {
-            try {
-              const { unlinkSync } = await import('node:fs');
-              unlinkSync(baselinePath);
-              deletedBaselines++;
-              // Silent deletion
-            } catch (error) {
-              output.warn(
-                `Failed to delete baseline for ${comparison.name}: ${error.message}`
-              );
-            }
-          }
+        if (safeDeleteFile(comparison.baseline, 'baseline', comparison.name)) {
+          deletedBaselines++;
         }
 
-        // Delete current screenshot if it exists
-        if (comparison.current) {
-          const currentPath = join(
-            workingDir,
-            '.vizzly',
-            comparison.current.replace('/images/', '')
-          );
-          if (existsSync(currentPath)) {
-            try {
-              const { unlinkSync } = await import('node:fs');
-              unlinkSync(currentPath);
-              deletedCurrents++;
-              // Silent deletion
-            } catch (error) {
-              output.warn(
-                `Failed to delete current screenshot for ${comparison.name}: ${error.message}`
-              );
-            }
-          }
+        if (safeDeleteFile(comparison.current, 'current', comparison.name)) {
+          deletedCurrents++;
         }
 
-        // Delete diff image if it exists
-        if (comparison.diff) {
-          const diffPath = join(
-            workingDir,
-            '.vizzly',
-            comparison.diff.replace('/images/', '')
-          );
-          if (existsSync(diffPath)) {
-            try {
-              const { unlinkSync } = await import('node:fs');
-              unlinkSync(diffPath);
-              deletedDiffs++;
-              output.debug(`Deleted diff for ${comparison.name}`);
-            } catch (error) {
-              output.warn(
-                `Failed to delete diff for ${comparison.name}: ${error.message}`
-              );
-            }
-          }
+        if (safeDeleteFile(comparison.diff, 'diff', comparison.name)) {
+          deletedDiffs++;
         }
       }
 
@@ -757,25 +706,29 @@ export const createTddHandler = (
    * @param {string} imagePath - Path like "/images/baselines/foo.png"
    * @param {string} label - Label for logging (e.g., "baseline", "current", "diff")
    * @param {string} name - Screenshot name for logging
+   * @returns {boolean} true when a file was deleted
    */
   const safeDeleteFile = (imagePath, label, name) => {
-    if (!imagePath) return;
+    if (!imagePath) return false;
 
     try {
+      let relativeImagePath = imagePath
+        .replace(/^\/?images\//, '')
+        .replace(/^\/+/, '');
+
       // Use safePath to validate the path stays within workingDir
-      const filePath = safePath(
-        workingDir,
-        '.vizzly',
-        imagePath.replace('/images/', '')
-      );
+      const filePath = safePath(workingDir, '.vizzly', relativeImagePath);
 
       if (existsSync(filePath)) {
         unlinkSync(filePath);
         output.debug(`Deleted ${label} for ${name}`);
+        return true;
       }
+      return false;
     } catch (error) {
       // safePath throws if path traversal is attempted
       output.warn(`Failed to delete ${label} for ${name}: ${error.message}`);
+      return false;
     }
   };
 

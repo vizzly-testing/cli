@@ -225,5 +225,21 @@ describe('server/routers/health', () => {
       assert.strictEqual(body.stats, null);
       assert.strictEqual(body.baseline, null);
     });
+
+    it('returns healthy response when state store open fails', async () => {
+      mkdirSync(join(testDir, '.vizzly', 'state.db'), { recursive: true });
+
+      let handler = createHealthRouter({ port: 3000, screenshotHandler: null });
+      let req = createMockRequest('GET');
+      let res = createMockResponse();
+
+      await handler(req, res, '/health');
+
+      assert.strictEqual(res.statusCode, 200);
+      let body = res.getParsedBody();
+      assert.strictEqual(body.status, 'ok');
+      assert.strictEqual(body.stats, null);
+      assert.strictEqual(body.baseline, null);
+    });
   });
 });

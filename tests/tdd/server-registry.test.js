@@ -240,6 +240,22 @@ describe('tdd/server-registry', () => {
         occupyingServer.close();
       }
     });
+
+    it('returns null when max attempts are exhausted', async () => {
+      registry.register({
+        pid: process.pid,
+        port: 47700,
+        directory: '/projects/app-a',
+      });
+      registry.register({
+        pid: process.pid,
+        port: 47701,
+        directory: '/projects/app-b',
+      });
+
+      let port = await registry.findAvailablePort(47700, 2);
+      assert.strictEqual(port, null);
+    });
   });
 
   describe('corrupted registry file', () => {
@@ -277,6 +293,34 @@ describe('tdd/server-registry', () => {
       assert.strictEqual(servers.length, 1);
       assert.strictEqual(servers[0].id, 'legacy-1');
       assert.strictEqual(servers[0].directory, '/legacy-app');
+    });
+
+    it('retries legacy import when JSON is fixed after a parse failure', () => {
+      writeFileSync(registry.registryPath, 'not valid json{{{');
+
+      let firstRead = registry.list();
+      assert.deepStrictEqual(firstRead, []);
+
+      writeFileSync(
+        registry.registryPath,
+        JSON.stringify({
+          version: 1,
+          servers: [
+            {
+              id: 'legacy-2',
+              port: 47393,
+              pid: process.pid,
+              directory: '/legacy-retry',
+              startedAt: '2025-01-01T00:00:00.000Z',
+            },
+          ],
+        })
+      );
+
+      let secondRead = registry.list();
+      assert.strictEqual(secondRead.length, 1);
+      assert.strictEqual(secondRead[0].id, 'legacy-2');
+      assert.strictEqual(secondRead[0].directory, '/legacy-retry');
     });
   });
 

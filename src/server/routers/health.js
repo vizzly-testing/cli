@@ -26,14 +26,15 @@ export function createHealthRouter({
 
     let reportData = null;
     let baselineInfo = null;
-    let stateStore = createStateStore({ workingDir, mode: 'read' });
+    let stateStore = null;
     try {
+      stateStore = createStateStore({ workingDir, mode: 'read' });
       reportData = stateStore.readReportData();
       baselineInfo = stateStore.getBaselineMetadata();
     } catch {
       // Ignore read errors
     } finally {
-      stateStore.close();
+      stateStore?.close();
     }
 
     sendSuccess(res, {

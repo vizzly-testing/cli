@@ -26,8 +26,9 @@ export function createDashboardRouter(context) {
 
     // API endpoint for fetching report data
     if (pathname === '/api/report-data') {
-      let stateStore = createStateStore({ workingDir, output, mode: 'read' });
+      let stateStore = null;
       try {
+        stateStore = createStateStore({ workingDir, output, mode: 'read' });
         let data = stateStore.readReportData();
         if (!data) {
           sendSuccess(res, null);
@@ -45,7 +46,7 @@ export function createDashboardRouter(context) {
         res.end(JSON.stringify({ error: 'Failed to read report data' }));
         return true;
       } finally {
-        stateStore.close();
+        stateStore?.close();
       }
     }
 
@@ -58,8 +59,9 @@ export function createDashboardRouter(context) {
         return true;
       }
 
-      let stateStore = createStateStore({ workingDir, output, mode: 'read' });
+      let stateStore = null;
       try {
+        stateStore = createStateStore({ workingDir, output, mode: 'read' });
         let reportData = stateStore.readReportData();
         if (!reportData) {
           sendError(res, 404, 'No report data found');
@@ -85,7 +87,7 @@ export function createDashboardRouter(context) {
         });
         sendError(res, 500, 'Failed to read comparison data');
       } finally {
-        stateStore.close();
+        stateStore?.close();
       }
       return true;
     }
@@ -94,8 +96,9 @@ export function createDashboardRouter(context) {
     if (SPA_ROUTES.includes(pathname) || pathname.startsWith('/comparison/')) {
       let reportData = null;
 
-      let stateStore = createStateStore({ workingDir, output, mode: 'read' });
+      let stateStore = null;
       try {
+        stateStore = createStateStore({ workingDir, output, mode: 'read' });
         reportData = stateStore.readReportData();
         if (reportData) {
           reportData.baseline = stateStore.getBaselineMetadata();
@@ -103,7 +106,7 @@ export function createDashboardRouter(context) {
       } catch (error) {
         output.debug('Could not read report data:', { error: error.message });
       } finally {
-        stateStore.close();
+        stateStore?.close();
       }
 
       let dashboardHtml = `

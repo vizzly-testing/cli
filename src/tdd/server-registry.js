@@ -159,57 +159,60 @@ export class ServerRegistry {
         .prepare('SELECT COUNT(*) AS count FROM registry_servers')
         .get().count;
 
-      if (count === 0 && existsSync(this.registryPath)) {
-        let raw = readFileSync(this.registryPath, 'utf8');
-        let legacy = JSON.parse(raw);
-        let servers = Array.isArray(legacy?.servers) ? legacy.servers : [];
-
-        if (servers.length > 0) {
-          let insert = db.prepare(`
-            INSERT INTO registry_servers (
-              id, port, pid, directory, started_at, config_path, name, log_file
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-              port = excluded.port,
-              pid = excluded.pid,
-              directory = excluded.directory,
-              started_at = excluded.started_at,
-              config_path = excluded.config_path,
-              name = excluded.name,
-              log_file = excluded.log_file
-          `);
-          let removeExisting = db.prepare(
-            'DELETE FROM registry_servers WHERE port = ? OR directory = ?'
-          );
-
-          let transaction = db.transaction(() => {
-            for (let server of servers) {
-              if (!server?.port || !server?.pid || !server?.directory) {
-                continue;
-              }
-
-              removeExisting.run(Number(server.port), server.directory);
-
-              insert.run(
-                server.id || randomBytes(8).toString('hex'),
-                Number(server.port),
-                Number(server.pid),
-                server.directory,
-                server.startedAt || new Date().toISOString(),
-                server.configPath || null,
-                server.name || null,
-                server.logFile || null
-              );
-            }
-          });
-
-          transaction();
-        }
+      if (count > 0 || !existsSync(this.registryPath)) {
+        this.setMeta('legacy_json_migrated', '1');
+        return;
       }
+
+      let raw = readFileSync(this.registryPath, 'utf8');
+      let legacy = JSON.parse(raw);
+      let servers = Array.isArray(legacy?.servers) ? legacy.servers : [];
+
+      if (servers.length > 0) {
+        let insert = db.prepare(`
+          INSERT INTO registry_servers (
+            id, port, pid, directory, started_at, config_path, name, log_file
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            port = excluded.port,
+            pid = excluded.pid,
+            directory = excluded.directory,
+            started_at = excluded.started_at,
+            config_path = excluded.config_path,
+            name = excluded.name,
+            log_file = excluded.log_file
+        `);
+        let removeExisting = db.prepare(
+          'DELETE FROM registry_servers WHERE port = ? OR directory = ?'
+        );
+
+        let transaction = db.transaction(() => {
+          for (let server of servers) {
+            if (!server?.port || !server?.pid || !server?.directory) {
+              continue;
+            }
+
+            removeExisting.run(Number(server.port), server.directory);
+
+            insert.run(
+              server.id || randomBytes(8).toString('hex'),
+              Number(server.port),
+              Number(server.pid),
+              server.directory,
+              server.startedAt || new Date().toISOString(),
+              server.configPath || null,
+              server.name || null,
+              server.logFile || null
+            );
+          }
+        });
+
+        transaction();
+      }
+
+      this.setMeta('legacy_json_migrated', '1');
     } catch {
       console.warn('Warning: Could not read server registry, starting fresh');
-    } finally {
-      this.setMeta('legacy_json_migrated', '1');
     }
   }
 
@@ -243,36 +246,49 @@ export class ServerRegistry {
         name = excluded.name,
         log_file = excluded.log_file
     `);
-    let removeExisting = db.prepare(
-      'DELETE FROM registry_servers WHERE port = ? OR directory = ?'
-    );
+    let normalized = [];
+
+    for (let server of servers) {
+      if (!server?.port || !server?.pid || !server?.directory) {
+        continue;
+      }
+
+      let port = Number(server.port);
+      let pid = Number(server.pid);
+      if (Number.isNaN(port) || Number.isNaN(pid)) {
+        continue;
+      }
+
+      // Ensure uniqueness within the incoming batch; later rows win.
+      normalized = normalized.filter(
+        entry => entry.port !== port && entry.directory !== server.directory
+      );
+
+      normalized.push({
+        id: server.id || randomBytes(8).toString('hex'),
+        port,
+        pid,
+        directory: server.directory,
+        startedAt: server.startedAt || new Date().toISOString(),
+        configPath: server.configPath || null,
+        name: server.name || null,
+        logFile: server.logFile || null,
+      });
+    }
 
     let transaction = db.transaction(() => {
       db.prepare('DELETE FROM registry_servers').run();
 
-      for (let server of servers) {
-        if (!server?.port || !server?.pid || !server?.directory) {
-          continue;
-        }
-
-        let port = Number(server.port);
-        let pid = Number(server.pid);
-        if (Number.isNaN(port) || Number.isNaN(pid)) {
-          continue;
-        }
-
-        // Ensure uniqueness within the incoming batch; later rows win.
-        removeExisting.run(port, server.directory);
-
+      for (let server of normalized) {
         insert.run(
-          server.id || randomBytes(8).toString('hex'),
-          port,
-          pid,
+          server.id,
+          server.port,
+          server.pid,
           server.directory,
-          server.startedAt || new Date().toISOString(),
-          server.configPath || null,
-          server.name || null,
-          server.logFile || null
+          server.startedAt,
+          server.configPath,
+          server.name,
+          server.logFile
         );
       }
     });
@@ -385,6 +401,7 @@ export class ServerRegistry {
    */
   list() {
     let db = this.openDb();
+    this.maybeMigrateLegacyJson();
     let rows = db
       .prepare('SELECT * FROM registry_servers ORDER BY started_at ASC')
       .all();
@@ -455,7 +472,7 @@ export class ServerRegistry {
    * Find an available port starting from the default
    * @param {number} startPort - Port to start searching from (default: 47392)
    * @param {number} maxAttempts - Maximum ports to try (default: 100)
-   * @returns {Promise<number>} Available port
+   * @returns {Promise<number|null>} Available port, or null when exhausted
    */
   async findAvailablePort(startPort = 47392, maxAttempts = 100) {
     this.cleanupStale();
@@ -473,7 +490,7 @@ export class ServerRegistry {
       }
     }
 
-    return startPort;
+    return null;
   }
 
   close() {

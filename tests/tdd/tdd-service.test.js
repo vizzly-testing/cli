@@ -49,7 +49,9 @@ function createMockDeps(overrides = {}) {
   };
 
   let defaultMetadata = {
+    loadBaselineBuildMetadata: () => null,
     loadBaselineMetadata: () => null,
+    saveBaselineBuildMetadata: () => {},
     saveBaselineMetadata: () => {},
     createEmptyBaselineMetadata: opts => ({
       buildId: 'local',
@@ -60,6 +62,8 @@ function createMockDeps(overrides = {}) {
     upsertScreenshotInMetadata: () => {},
     loadHotspotMetadata: () => null,
     saveHotspotMetadata: () => {},
+    loadRegionMetadata: () => null,
+    saveRegionMetadata: () => {},
   };
 
   let defaultBaseline = {
@@ -1551,7 +1555,7 @@ describe('tdd/tdd-service', () => {
       await service.processDownloadedBaselines(apiResponse, 'build-1');
 
       assert.ok(fetchCalled, 'Should fetch when SHA differs');
-      assert.strictEqual(writtenFiles.length, 2); // screenshot + metadata
+      assert.strictEqual(writtenFiles.length, 1); // screenshot only
     });
 
     it('skips screenshots without download URL', async () => {
@@ -1928,17 +1932,20 @@ describe('tdd/tdd-service', () => {
       assert.ok(batchCalls.length >= 2, 'Should process in at least 2 batches');
     });
 
-    it('saves baseline-metadata.json for MCP plugin', async () => {
-      let writtenFiles = [];
+    it('saves baseline build metadata for MCP plugin', async () => {
+      let baselineBuildMetadata = null;
       let mockDeps = createMockDeps({
         baseline: { clearBaselineData: () => {} },
         fs: {
           existsSync: () => false,
-          writeFileSync: (path, data) => writtenFiles.push({ path, data }),
+          writeFileSync: () => {},
         },
         metadata: {
           loadBaselineMetadata: () => null,
           saveBaselineMetadata: () => {},
+          saveBaselineBuildMetadata: (_workingDir, metadata) => {
+            baselineBuildMetadata = metadata;
+          },
         },
         api: {
           fetchWithTimeout: async () => ({
@@ -1968,14 +1975,9 @@ describe('tdd/tdd-service', () => {
 
       await service.processDownloadedBaselines(apiResponse, 'build-1');
 
-      let metadataFile = writtenFiles.find(f =>
-        f.path.includes('baseline-metadata.json')
-      );
-      assert.ok(metadataFile, 'Should write baseline-metadata.json');
-
-      let metadata = JSON.parse(metadataFile.data);
-      assert.strictEqual(metadata.buildId, 'build-1');
-      assert.strictEqual(metadata.commitSha, 'abc123');
+      assert.ok(baselineBuildMetadata, 'Should save baseline build metadata');
+      assert.strictEqual(baselineBuildMetadata.buildId, 'build-1');
+      assert.strictEqual(baselineBuildMetadata.commitSha, 'abc123');
     });
 
     it('logs summary with download counts', async () => {

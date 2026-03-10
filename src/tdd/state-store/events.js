@@ -1,0 +1,34 @@
+import { EventEmitter } from 'node:events';
+
+let stateEmitters = new Map();
+
+function getStateEmitter(workingDir) {
+  let emitter = stateEmitters.get(workingDir);
+  if (!emitter) {
+    emitter = new EventEmitter();
+    emitter.setMaxListeners(100);
+    stateEmitters.set(workingDir, emitter);
+  }
+  return emitter;
+}
+
+export function emitStateChanged(workingDir) {
+  let emitter = stateEmitters.get(workingDir);
+  if (!emitter) {
+    return;
+  }
+
+  emitter.emit('changed');
+}
+
+export function subscribeToStateChanges(workingDir, listener) {
+  let emitter = getStateEmitter(workingDir);
+  emitter.on('changed', listener);
+  return () => {
+    emitter.off('changed', listener);
+
+    if (emitter.listenerCount('changed') === 0) {
+      stateEmitters.delete(workingDir);
+    }
+  };
+}

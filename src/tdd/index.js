@@ -19,7 +19,9 @@ export {
 export {
   createEmptyBaselineMetadata,
   findScreenshotBySignature,
+  loadBaselineBuildMetadata,
   loadBaselineMetadata,
+  saveBaselineBuildMetadata,
   saveBaselineMetadata,
   upsertScreenshotInMetadata,
 } from './metadata/baseline-metadata.js';

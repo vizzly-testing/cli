@@ -30,7 +30,7 @@ export async function downloadHotspots(options) {
       return { success: false, error: 'API returned no hotspot data' };
     }
 
-    // Save hotspots to disk
+    // Save hotspots to state storage
     saveHotspotMetadata(workingDir, response.hotspots, response.summary);
 
     // Calculate stats

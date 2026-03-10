@@ -1,5 +1,8 @@
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as joinPath } from 'node:path';
+import { afterEach, describe, it } from 'node:test';
 import {
   convertPathToUrl,
   createTddHandler,
@@ -7,6 +10,16 @@ import {
   groupComparisons,
   unwrapProperties,
 } from '../../../src/server/handlers/tdd-handler.js';
+import { createStateStore } from '../../../src/tdd/state-store.js';
+
+let testResources = [];
+
+afterEach(() => {
+  for (let cleanup of testResources) {
+    cleanup();
+  }
+  testResources = [];
+});
 
 /**
  * Create mock output for testing
@@ -65,6 +78,10 @@ function createMockTddService(overrides = {}) {
     async acceptBaseline(comparison) {
       return overrides.acceptBaseline?.(comparison) ?? { success: true };
     }
+
+    resetRuntimeState() {
+      return overrides.resetRuntimeState?.();
+    }
   };
 }
 
@@ -73,23 +90,22 @@ function createMockTddService(overrides = {}) {
  */
 function createMockDeps(overrides = {}) {
   let mockOutput = createMockOutput();
-  let fileSystem = {};
+  let dbWorkingDir = mkdtempSync(joinPath(tmpdir(), 'vizzly-tdd-handler-'));
+  let stateStore = createStateStore({
+    workingDir: dbWorkingDir,
+    mode: 'write',
+  });
 
-  return {
+  let deps = {
     TddService:
       overrides.TddService ??
       createMockTddService(overrides.tddServiceOverrides),
-    existsSync: overrides.existsSync ?? (path => path in fileSystem),
+    existsSync: overrides.existsSync ?? (() => false),
+    unlinkSync: overrides.unlinkSync ?? (() => {}),
     readFileSync:
       overrides.readFileSync ??
       (path => {
-        if (path in fileSystem) return fileSystem[path];
         throw new Error(`File not found: ${path}`);
-      }),
-    writeFileSync:
-      overrides.writeFileSync ??
-      ((path, content) => {
-        fileSystem[path] = content;
       }),
     join: overrides.join ?? ((...parts) => parts.join('/')),
     resolve: overrides.resolve ?? (path => path.replace('file://', '')),
@@ -103,9 +119,27 @@ function createMockDeps(overrides = {}) {
     validateScreenshotProperties:
       overrides.validateScreenshotProperties ?? (props => props),
     output: overrides.output ?? mockOutput,
-    _fileSystem: fileSystem,
+    stateStore,
     _mockOutput: mockOutput,
+    _stateStore: stateStore,
+    _dbWorkingDir: dbWorkingDir,
+    seedReportData: (reportData, detailsById = null) =>
+      stateStore.replaceReportData(reportData, detailsById),
+    readStoredReportData: () => stateStore.readReportData(),
+    readStoredDetails: id => stateStore.getComparisonDetails(id),
   };
+
+  testResources.push(() => {
+    try {
+      stateStore.close();
+    } catch {
+      // ignore
+    }
+
+    rmSync(dbWorkingDir, { recursive: true, force: true });
+  });
+
+  return deps;
 }
 
 describe('server/handlers/tdd-handler', () => {
@@ -1059,8 +1093,7 @@ describe('server/handlers/tdd-handler', () => {
           groups: [],
           summary: { total: 1, passed: 0, failed: 1, errors: 0 },
         };
-        deps._fileSystem['/test/.vizzly/report-data.json'] =
-          JSON.stringify(reportData);
+        deps.seedReportData(reportData);
 
         let handler = createTddHandler({}, '/test', null, null, false, deps);
 
@@ -1100,8 +1133,7 @@ describe('server/handlers/tdd-handler', () => {
           groups: [],
           summary: { total: 1, passed: 0, failed: 1, errors: 0 },
         };
-        deps._fileSystem['/test/.vizzly/report-data.json'] =
-          JSON.stringify(reportData);
+        deps.seedReportData(reportData);
 
         let handler = createTddHandler({}, '/test', null, null, false, deps);
 
@@ -1137,8 +1169,7 @@ describe('server/handlers/tdd-handler', () => {
           groups: [],
           summary: { total: 1, passed: 0, failed: 1, errors: 0 },
         };
-        deps._fileSystem['/test/.vizzly/report-data.json'] =
-          JSON.stringify(reportData);
+        deps.seedReportData(reportData);
 
         let handler = createTddHandler({}, '/test', null, null, false, deps);
 
@@ -1148,9 +1179,7 @@ describe('server/handlers/tdd-handler', () => {
         assert.strictEqual(result.id, 'comp-1');
 
         // Check that comparison was updated to rejected status
-        let updatedReportData = JSON.parse(
-          deps._fileSystem['/test/.vizzly/report-data.json']
-        );
+        let updatedReportData = deps.readStoredReportData();
         let comparison = updatedReportData.comparisons.find(
           c => c.id === 'comp-1'
         );
@@ -1187,16 +1216,13 @@ describe('server/handlers/tdd-handler', () => {
           groups: [],
           summary: { total: 1, passed: 0, failed: 1, errors: 0 },
         };
-        deps._fileSystem['/test/.vizzly/report-data.json'] =
-          JSON.stringify(reportData);
+        deps.seedReportData(reportData);
 
         let handler = createTddHandler({}, '/test', null, null, false, deps);
 
         await handler.rejectBaseline('comp-1');
 
-        let updatedReportData = JSON.parse(
-          deps._fileSystem['/test/.vizzly/report-data.json']
-        );
+        let updatedReportData = deps.readStoredReportData();
         let comparison = updatedReportData.comparisons.find(
           c => c.id === 'comp-1'
         );
@@ -1226,8 +1252,7 @@ describe('server/handlers/tdd-handler', () => {
           groups: [],
           summary: { total: 1, passed: 0, failed: 1, errors: 0 },
         };
-        deps._fileSystem['/test/.vizzly/report-data.json'] =
-          JSON.stringify(reportData);
+        deps.seedReportData(reportData);
 
         let handler = createTddHandler({}, '/test', null, null, false, deps);
 
@@ -1266,8 +1291,7 @@ describe('server/handlers/tdd-handler', () => {
           groups: [],
           summary: { total: 3, passed: 1, failed: 1, errors: 0 },
         };
-        deps._fileSystem['/test/.vizzly/report-data.json'] =
-          JSON.stringify(reportData);
+        deps.seedReportData(reportData);
 
         let handler = createTddHandler({}, '/test', null, null, false, deps);
 
@@ -1282,7 +1306,6 @@ describe('server/handlers/tdd-handler', () => {
 
     describe('resetBaselines', () => {
       it('clears report data and returns counts', async () => {
-        let _deletedFiles = [];
         let deps = createMockDeps({
           existsSync: path => {
             // Simulate existing files
@@ -1301,6 +1324,7 @@ describe('server/handlers/tdd-handler', () => {
             {
               id: 'comp-1',
               name: 'test',
+              status: 'failed',
               baseline: '/images/baselines/test.png',
               current: '/images/current/test.png',
               diff: '/images/diffs/test.png',
@@ -1309,8 +1333,7 @@ describe('server/handlers/tdd-handler', () => {
           groups: [],
           summary: { total: 1, passed: 0, failed: 1, errors: 0 },
         };
-        deps._fileSystem['/test/.vizzly/report-data.json'] =
-          JSON.stringify(reportData);
+        deps.seedReportData(reportData);
 
         let handler = createTddHandler({}, '/test', null, null, false, deps);
 
@@ -1318,10 +1341,73 @@ describe('server/handlers/tdd-handler', () => {
 
         assert.ok(result.success);
         // Check report was cleared
-        let newReportData = JSON.parse(
-          deps._fileSystem['/test/.vizzly/report-data.json']
-        );
+        let newReportData = deps.readStoredReportData();
         assert.strictEqual(newReportData.comparisons.length, 0);
+      });
+
+      it('uses injected unlinkSync and reports deleted file counts', async () => {
+        let deletedPaths = [];
+        let deps = createMockDeps({
+          existsSync: () => true,
+          unlinkSync: path => deletedPaths.push(path),
+        });
+
+        deps.seedReportData({
+          timestamp: Date.now(),
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'test',
+              status: 'failed',
+              baseline: '/images/baselines/test.png',
+              current: '/images/current/test.png',
+              diff: '/images/diffs/test.png',
+            },
+          ],
+        });
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+        let result = await handler.resetBaselines();
+
+        assert.strictEqual(result.deletedBaselines, 1);
+        assert.strictEqual(result.deletedCurrents, 1);
+        assert.strictEqual(result.deletedDiffs, 1);
+        assert.strictEqual(deletedPaths.length, 3);
+        assert.ok(
+          deletedPaths.some(path => path.includes('/baselines/test.png'))
+        );
+        assert.ok(
+          deletedPaths.some(path => path.includes('/current/test.png'))
+        );
+        assert.ok(deletedPaths.some(path => path.includes('/diffs/test.png')));
+      });
+
+      it('resets in-memory tddService runtime state', async () => {
+        let resetCalled = false;
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            resetRuntimeState: () => {
+              resetCalled = true;
+            },
+          },
+        });
+
+        deps.seedReportData({
+          timestamp: Date.now(),
+          comparisons: [
+            {
+              id: 'comp-1',
+              name: 'test',
+              status: 'failed',
+              baseline: '/images/baselines/test.png',
+            },
+          ],
+        });
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+        await handler.resetBaselines();
+
+        assert.strictEqual(resetCalled, true);
       });
     });
 
@@ -1336,22 +1422,20 @@ describe('server/handlers/tdd-handler', () => {
     });
 
     describe('readReportData / updateComparison', () => {
-      it('creates empty report data when file does not exist', async () => {
+      it('creates state data when no prior report exists', async () => {
         let deps = createMockDeps();
         let handler = createTddHandler({}, '/test', null, null, false, deps);
 
         // Trigger a screenshot which calls updateComparison
         await handler.handleScreenshot('build-1', 'test', 'base64data', {});
 
-        // Check report was created
-        let reportData = JSON.parse(
-          deps._fileSystem['/test/.vizzly/report-data.json']
-        );
+        // Check report state was created
+        let reportData = deps.readStoredReportData();
         assert.ok(reportData.timestamp);
         assert.ok(Array.isArray(reportData.comparisons));
       });
 
-      it('excludes heavy fields from report-data.json and writes them to comparison-details.json', async () => {
+      it('stores heavy fields in details state and keeps report rows lightweight', async () => {
         let deps = createMockDeps({
           tddServiceOverrides: {
             compareScreenshot: name => ({
@@ -1379,10 +1463,8 @@ describe('server/handlers/tdd-handler', () => {
 
         await handler.handleScreenshot('build-1', 'test', 'base64data', {});
 
-        // report-data.json should NOT contain heavy fields
-        let reportData = JSON.parse(
-          deps._fileSystem['/test/.vizzly/report-data.json']
-        );
+        // Report state should NOT contain heavy fields
+        let reportData = deps.readStoredReportData();
         let comparison = reportData.comparisons[0];
         assert.strictEqual(comparison.diffClusters, undefined);
         assert.strictEqual(comparison.intensityStats, undefined);
@@ -1400,14 +1482,12 @@ describe('server/handlers/tdd-handler', () => {
         assert.strictEqual(comparison.threshold, 0.1);
         assert.strictEqual(comparison.status, 'failed');
 
-        // comparison-details.json SHOULD contain heavy fields
-        let details = JSON.parse(
-          deps._fileSystem['/test/.vizzly/comparison-details.json']
-        );
-        assert.ok(details['comp-test']);
-        assert.strictEqual(details['comp-test'].diffClusters.length, 1);
-        assert.strictEqual(details['comp-test'].confirmedRegions.length, 1);
-        assert.deepStrictEqual(details['comp-test'].intensityStats, {
+        // Details state SHOULD contain heavy fields
+        let details = deps.readStoredDetails('comp-test');
+        assert.ok(details);
+        assert.strictEqual(details.diffClusters.length, 1);
+        assert.strictEqual(details.confirmedRegions.length, 1);
+        assert.deepStrictEqual(details.intensityStats, {
           mean: 0.3,
           max: 0.8,
         });
@@ -1434,28 +1514,8 @@ describe('server/handlers/tdd-handler', () => {
         // Same ID, should update not add
         await handler.handleScreenshot('build-1', 'test', 'base64data', {});
 
-        let reportData = JSON.parse(
-          deps._fileSystem['/test/.vizzly/report-data.json']
-        );
+        let reportData = deps.readStoredReportData();
         assert.strictEqual(reportData.comparisons.length, 1);
-      });
-
-      it('handles read error gracefully', async () => {
-        let deps = createMockDeps({
-          existsSync: () => true,
-          readFileSync: () => {
-            throw new Error('Read error');
-          },
-        });
-        let handler = createTddHandler({}, '/test', null, null, false, deps);
-
-        // Should not throw, returns empty data
-        await handler.handleScreenshot('build-1', 'test', 'base64data', {});
-
-        let errorCall = deps._mockOutput.calls.find(
-          c => c.method === 'error' && c.args[0].includes('Failed to read')
-        );
-        assert.ok(errorCall);
       });
     });
   });

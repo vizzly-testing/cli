@@ -13,6 +13,7 @@ function createTestRegistry(testDir) {
   let registry = new ServerRegistry();
   registry.vizzlyHome = testDir;
   registry.registryPath = join(testDir, 'servers.json');
+  registry.dbPath = join(testDir, 'servers.db');
   // Disable menubar notifications in tests
   registry.notifyMenubar = () => {};
   return registry;
@@ -44,6 +45,9 @@ describe('tdd/server-registry', () => {
   });
 
   afterEach(() => {
+    if (registry) {
+      registry.close();
+    }
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true });
     }
@@ -236,6 +240,22 @@ describe('tdd/server-registry', () => {
         occupyingServer.close();
       }
     });
+
+    it('returns null when max attempts are exhausted', async () => {
+      registry.register({
+        pid: process.pid,
+        port: 47700,
+        directory: '/projects/app-a',
+      });
+      registry.register({
+        pid: process.pid,
+        port: 47701,
+        directory: '/projects/app-b',
+      });
+
+      let port = await registry.findAvailablePort(47700, 2);
+      assert.strictEqual(port, null);
+    });
   });
 
   describe('corrupted registry file', () => {
@@ -249,6 +269,58 @@ describe('tdd/server-registry', () => {
       // Can still register new servers
       registry.register({ pid: 1, port: 47392, directory: '/a' });
       assert.strictEqual(registry.list().length, 1);
+    });
+
+    it('imports valid legacy servers.json on first load', () => {
+      writeFileSync(
+        registry.registryPath,
+        JSON.stringify({
+          version: 1,
+          servers: [
+            {
+              id: 'legacy-1',
+              port: 47392,
+              pid: process.pid,
+              directory: '/legacy-app',
+              startedAt: '2025-01-01T00:00:00.000Z',
+              name: 'legacy-app',
+            },
+          ],
+        })
+      );
+
+      let servers = registry.list();
+      assert.strictEqual(servers.length, 1);
+      assert.strictEqual(servers[0].id, 'legacy-1');
+      assert.strictEqual(servers[0].directory, '/legacy-app');
+    });
+
+    it('retries legacy import when JSON is fixed after a parse failure', () => {
+      writeFileSync(registry.registryPath, 'not valid json{{{');
+
+      let firstRead = registry.list();
+      assert.deepStrictEqual(firstRead, []);
+
+      writeFileSync(
+        registry.registryPath,
+        JSON.stringify({
+          version: 1,
+          servers: [
+            {
+              id: 'legacy-2',
+              port: 47393,
+              pid: process.pid,
+              directory: '/legacy-retry',
+              startedAt: '2025-01-01T00:00:00.000Z',
+            },
+          ],
+        })
+      );
+
+      let secondRead = registry.list();
+      assert.strictEqual(secondRead.length, 1);
+      assert.strictEqual(secondRead[0].id, 'legacy-2');
+      assert.strictEqual(secondRead[0].directory, '/legacy-retry');
     });
   });
 
@@ -270,6 +342,40 @@ describe('tdd/server-registry', () => {
       let servers = registry.list();
       assert.strictEqual(servers.length, 1);
       assert.strictEqual(servers[0].directory, '/projects/app-b');
+    });
+  });
+
+  describe('write', () => {
+    it('deduplicates conflicting rows and keeps the last one', () => {
+      registry.write({
+        servers: [
+          { id: 'a', pid: 1, port: 47392, directory: '/projects/app-a' },
+          { id: 'b', pid: 2, port: 47392, directory: '/projects/app-b' },
+          { id: 'c', pid: 3, port: 47393, directory: '/projects/app-b' },
+        ],
+      });
+
+      let servers = registry.list();
+      assert.strictEqual(servers.length, 1);
+      assert.strictEqual(servers[0].id, 'c');
+      assert.strictEqual(servers[0].port, 47393);
+      assert.strictEqual(servers[0].directory, '/projects/app-b');
+    });
+
+    it('skips rows with invalid numeric fields', () => {
+      registry.write({
+        servers: [
+          { id: 'bad-port', pid: 1, port: 'oops', directory: '/bad-port' },
+          { id: 'ok', pid: 2, port: 47395, directory: '/ok' },
+          { id: 'bad-pid', pid: 'oops', port: 47396, directory: '/bad-pid' },
+        ],
+      });
+
+      let servers = registry.list();
+      assert.strictEqual(servers.length, 1);
+      assert.strictEqual(servers[0].id, 'ok');
+      assert.strictEqual(servers[0].port, 47395);
+      assert.strictEqual(servers[0].pid, 2);
     });
   });
 });

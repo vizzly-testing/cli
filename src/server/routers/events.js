@@ -6,12 +6,8 @@
 import { existsSync, readFileSync, statSync, watch } from 'node:fs';
 import { join } from 'node:path';
 
-<<<<<<< HEAD
-let FILE_WATCH_DEBOUNCE_MS = 100;
-=======
 let FILE_WATCH_DEBOUNCE_MS = 25;
 let FILE_POLL_INTERVAL_MS = 50;
->>>>>>> a86fdb5 (⬆️ upgrade vite 8 toolchain)
 let REPORT_READ_RETRY_MS = 25;
 let MAX_REPORT_READ_RETRIES = 3;
 

@@ -1,7 +1,7 @@
 // Color utility using ansis for rich terminal styling.
 // Detects terminal color support and provides chainable color functions.
 
-import ansis, { Ansis } from 'ansis';
+import { Ansis } from 'ansis';
 
 // =============================================================================
 // Vizzly Observatory Design System Colors

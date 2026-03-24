@@ -162,7 +162,10 @@ export function createEventsRouter(context) {
     const sendUpdate = (retryCount = 0) => {
       const newData = readReportData();
       if (!newData) {
-        if (existsSync(reportDataPath) && retryCount < MAX_REPORT_READ_RETRIES) {
+        if (
+          existsSync(reportDataPath) &&
+          retryCount < MAX_REPORT_READ_RETRIES
+        ) {
           debounceTimer = setTimeout(
             () => sendUpdate(retryCount + 1),
             REPORT_READ_RETRY_MS

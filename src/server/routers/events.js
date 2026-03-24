@@ -3,10 +3,11 @@
  * Server-Sent Events endpoint for real-time dashboard updates
  */
 
-import { existsSync, readFileSync, watch } from 'node:fs';
+import { existsSync, readFileSync, statSync, watch } from 'node:fs';
 import { join } from 'node:path';
 
-let FILE_WATCH_DEBOUNCE_MS = 100;
+let FILE_WATCH_DEBOUNCE_MS = 25;
+let FILE_POLL_INTERVAL_MS = 50;
 let REPORT_READ_RETRY_MS = 25;
 let MAX_REPORT_READ_RETRIES = 3;
 
@@ -158,7 +159,14 @@ export function createEventsRouter(context) {
     // Debounce file change events (fs.watch can fire multiple times)
     let debounceTimer = null;
     let watcher = null;
+    let filePollInterval = null;
 
+    const scheduleUpdate = () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(sendUpdate, FILE_WATCH_DEBOUNCE_MS);
+    };
     const sendUpdate = (retryCount = 0) => {
       const newData = readReportData();
       if (!newData) {
@@ -197,21 +205,38 @@ export function createEventsRouter(context) {
             // Some platforms occasionally omit the filename for directory watch
             // events. In that case, fall back to re-reading report data.
             if (!filename || filename === 'report-data.json') {
-              // Debounce rapid duplicate watch events from a single write.
-              if (debounceTimer) {
-                clearTimeout(debounceTimer);
-              }
-              debounceTimer = setTimeout(sendUpdate, FILE_WATCH_DEBOUNCE_MS);
+              scheduleUpdate();
             }
           }
         );
         watcher.on('error', () => {
-          cleanup();
+          if (watcher) {
+            watcher.close();
+            watcher = null;
+          }
         });
       } catch {
         // File watching not available, client will fall back to polling
       }
     }
+
+    let lastPolledMtime = existsSync(reportDataPath)
+      ? statSync(reportDataPath).mtimeMs
+      : null;
+    filePollInterval = setInterval(() => {
+      let nextMtime = null;
+      if (existsSync(reportDataPath)) {
+        try {
+          nextMtime = statSync(reportDataPath).mtimeMs;
+        } catch {
+          nextMtime = null;
+        }
+      }
+      if (nextMtime !== lastPolledMtime) {
+        lastPolledMtime = nextMtime;
+        scheduleUpdate();
+      }
+    }, FILE_POLL_INTERVAL_MS);
 
     // Heartbeat to keep connection alive (every 30 seconds)
     const heartbeatInterval = setInterval(() => {
@@ -230,6 +255,10 @@ export function createEventsRouter(context) {
       if (watcher) {
         watcher.close();
         watcher = null;
+      }
+      if (filePollInterval) {
+        clearInterval(filePollInterval);
+        filePollInterval = null;
       }
     };
 

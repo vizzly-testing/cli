@@ -150,62 +150,62 @@ export function createColors(options = {}) {
     };
   }
 
-  let colorApi = new Ansis(level);
+  let colors = new Ansis(level);
 
   return {
     // Modifiers
-    reset: colorApi.reset,
-    bold: colorApi.bold,
-    dim: colorApi.dim,
-    italic: colorApi.italic,
-    underline: colorApi.underline,
-    strikethrough: colorApi.strikethrough,
+    reset: colors.reset,
+    bold: colors.bold,
+    dim: colors.dim,
+    italic: colors.italic,
+    underline: colors.underline,
+    strikethrough: colors.strikethrough,
     // Basic ANSI colors (fallback)
-    red: colorApi.red,
-    green: colorApi.green,
-    yellow: colorApi.yellow,
-    blue: colorApi.blue,
-    magenta: colorApi.magenta,
-    cyan: colorApi.cyan,
-    white: colorApi.white,
-    gray: colorApi.gray,
-    black: colorApi.black,
+    red: colors.red,
+    green: colors.green,
+    yellow: colors.yellow,
+    blue: colors.blue,
+    magenta: colors.magenta,
+    cyan: colors.cyan,
+    white: colors.white,
+    gray: colors.gray,
+    black: colors.black,
     // Semantic aliases (basic)
-    success: colorApi.green,
-    error: colorApi.red,
-    warning: colorApi.yellow,
-    info: colorApi.blue,
+    success: colors.green,
+    error: colors.red,
+    warning: colors.yellow,
+    info: colors.blue,
     // Extended colors for rich styling
-    rgb: colorApi.rgb,
-    hex: colorApi.hex,
-    bgRgb: colorApi.bgRgb,
-    bgHex: colorApi.bgHex,
+    rgb: colors.rgb.bind(colors),
+    hex: colors.hex.bind(colors),
+    bgRgb: colors.bgRgb.bind(colors),
+    bgHex: colors.bgHex.bind(colors),
     // Observatory brand colors (Truecolor) - aligned with design system
     brand: {
       // Primary brand color
-      amber: colorApi.hex(brand.amber),
-      amberLight: colorApi.hex(brand.amberLight),
+      amber: colors.hex(brand.amber),
+      amberLight: colors.hex(brand.amberLight),
       // Semantic accents
-      success: colorApi.hex(brand.success),
-      warning: colorApi.hex(brand.warning),
-      danger: colorApi.hex(brand.danger),
-      info: colorApi.hex(brand.info),
+      success: colors.hex(brand.success),
+      warning: colors.hex(brand.warning),
+      danger: colors.hex(brand.danger),
+      info: colors.hex(brand.info),
       // Text hierarchy
-      textPrimary: colorApi.hex(brand.textPrimary),
-      textSecondary: colorApi.hex(brand.textSecondary),
-      textTertiary: colorApi.hex(brand.textTertiary),
-      textMuted: colorApi.hex(brand.textMuted),
+      textPrimary: colors.hex(brand.textPrimary),
+      textSecondary: colors.hex(brand.textSecondary),
+      textTertiary: colors.hex(brand.textTertiary),
+      textMuted: colors.hex(brand.textMuted),
       // Background variants
-      bgAmber: colorApi.bgHex(brand.amber),
-      bgSuccess: colorApi.bgHex(brand.success),
-      bgWarning: colorApi.bgHex(brand.warning),
-      bgDanger: colorApi.bgHex(brand.danger),
-      bgInfo: colorApi.bgHex(brand.info),
+      bgAmber: colors.bgHex(brand.amber),
+      bgSuccess: colors.bgHex(brand.success),
+      bgWarning: colors.bgHex(brand.warning),
+      bgDanger: colors.bgHex(brand.danger),
+      bgInfo: colors.bgHex(brand.info),
       // Legacy aliases (backward compatibility)
-      green: colorApi.hex(brand.green),
-      red: colorApi.hex(brand.red),
-      cyan: colorApi.hex(brand.cyan),
-      slate: colorApi.hex(brand.slate),
+      green: colors.hex(brand.green),
+      red: colors.hex(brand.red),
+      cyan: colors.hex(brand.cyan),
+      slate: colors.hex(brand.slate),
     },
   };
 }

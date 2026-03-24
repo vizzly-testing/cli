@@ -1,7 +1,7 @@
 // Color utility using ansis for rich terminal styling.
 // Detects terminal color support and provides chainable color functions.
 
-import ansis from 'ansis';
+import ansis, { Ansis } from 'ansis';
 
 // =============================================================================
 // Vizzly Observatory Design System Colors
@@ -86,6 +86,8 @@ export function createColors(options = {}) {
     options.useColor !== undefined
       ? !!options.useColor
       : supportsColorDefault();
+  let level =
+    options.useColor !== undefined ? (enabled ? 3 : 0) : enabled ? 3 : 0;
 
   if (!enabled) {
     // Return no-op functions when color disabled
@@ -148,60 +150,62 @@ export function createColors(options = {}) {
     };
   }
 
+  let colorApi = new Ansis(level);
+
   return {
     // Modifiers
-    reset: ansis.reset,
-    bold: ansis.bold,
-    dim: ansis.dim,
-    italic: ansis.italic,
-    underline: ansis.underline,
-    strikethrough: ansis.strikethrough,
+    reset: colorApi.reset,
+    bold: colorApi.bold,
+    dim: colorApi.dim,
+    italic: colorApi.italic,
+    underline: colorApi.underline,
+    strikethrough: colorApi.strikethrough,
     // Basic ANSI colors (fallback)
-    red: ansis.red,
-    green: ansis.green,
-    yellow: ansis.yellow,
-    blue: ansis.blue,
-    magenta: ansis.magenta,
-    cyan: ansis.cyan,
-    white: ansis.white,
-    gray: ansis.gray,
-    black: ansis.black,
+    red: colorApi.red,
+    green: colorApi.green,
+    yellow: colorApi.yellow,
+    blue: colorApi.blue,
+    magenta: colorApi.magenta,
+    cyan: colorApi.cyan,
+    white: colorApi.white,
+    gray: colorApi.gray,
+    black: colorApi.black,
     // Semantic aliases (basic)
-    success: ansis.green,
-    error: ansis.red,
-    warning: ansis.yellow,
-    info: ansis.blue,
+    success: colorApi.green,
+    error: colorApi.red,
+    warning: colorApi.yellow,
+    info: colorApi.blue,
     // Extended colors for rich styling
-    rgb: ansis.rgb,
-    hex: ansis.hex,
-    bgRgb: ansis.bgRgb,
-    bgHex: ansis.bgHex,
+    rgb: colorApi.rgb,
+    hex: colorApi.hex,
+    bgRgb: colorApi.bgRgb,
+    bgHex: colorApi.bgHex,
     // Observatory brand colors (Truecolor) - aligned with design system
     brand: {
       // Primary brand color
-      amber: ansis.hex(brand.amber),
-      amberLight: ansis.hex(brand.amberLight),
+      amber: colorApi.hex(brand.amber),
+      amberLight: colorApi.hex(brand.amberLight),
       // Semantic accents
-      success: ansis.hex(brand.success),
-      warning: ansis.hex(brand.warning),
-      danger: ansis.hex(brand.danger),
-      info: ansis.hex(brand.info),
+      success: colorApi.hex(brand.success),
+      warning: colorApi.hex(brand.warning),
+      danger: colorApi.hex(brand.danger),
+      info: colorApi.hex(brand.info),
       // Text hierarchy
-      textPrimary: ansis.hex(brand.textPrimary),
-      textSecondary: ansis.hex(brand.textSecondary),
-      textTertiary: ansis.hex(brand.textTertiary),
-      textMuted: ansis.hex(brand.textMuted),
+      textPrimary: colorApi.hex(brand.textPrimary),
+      textSecondary: colorApi.hex(brand.textSecondary),
+      textTertiary: colorApi.hex(brand.textTertiary),
+      textMuted: colorApi.hex(brand.textMuted),
       // Background variants
-      bgAmber: ansis.bgHex(brand.amber),
-      bgSuccess: ansis.bgHex(brand.success),
-      bgWarning: ansis.bgHex(brand.warning),
-      bgDanger: ansis.bgHex(brand.danger),
-      bgInfo: ansis.bgHex(brand.info),
+      bgAmber: colorApi.bgHex(brand.amber),
+      bgSuccess: colorApi.bgHex(brand.success),
+      bgWarning: colorApi.bgHex(brand.warning),
+      bgDanger: colorApi.bgHex(brand.danger),
+      bgInfo: colorApi.bgHex(brand.info),
       // Legacy aliases (backward compatibility)
-      green: ansis.hex(brand.green),
-      red: ansis.hex(brand.red),
-      cyan: ansis.hex(brand.cyan),
-      slate: ansis.hex(brand.slate),
+      green: colorApi.hex(brand.green),
+      red: colorApi.hex(brand.red),
+      cyan: colorApi.hex(brand.cyan),
+      slate: colorApi.hex(brand.slate),
     },
   };
 }

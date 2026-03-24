@@ -6,6 +6,10 @@
 import { existsSync, readFileSync, watch } from 'node:fs';
 import { join } from 'node:path';
 
+let FILE_WATCH_DEBOUNCE_MS = 100;
+let REPORT_READ_RETRY_MS = 25;
+let MAX_REPORT_READ_RETRIES = 3;
+
 /**
  * Create events router for SSE
  * @param {Object} context - Router context
@@ -155,9 +159,17 @@ export function createEventsRouter(context) {
     let debounceTimer = null;
     let watcher = null;
 
-    const sendUpdate = () => {
+    const sendUpdate = (retryCount = 0) => {
       const newData = readReportData();
-      if (!newData) return;
+      if (!newData) {
+        if (existsSync(reportDataPath) && retryCount < MAX_REPORT_READ_RETRIES) {
+          debounceTimer = setTimeout(
+            () => sendUpdate(retryCount + 1),
+            REPORT_READ_RETRY_MS
+          );
+        }
+        return;
+      }
 
       if (!lastSentData) {
         // No previous data — send full payload
@@ -179,16 +191,20 @@ export function createEventsRouter(context) {
           vizzlyDir,
           { recursive: false },
           (_eventType, filename) => {
-            // Only react to report-data.json changes
-            if (filename === 'report-data.json') {
-              // Debounce: wait 100ms after last change before sending
+            // Some platforms occasionally omit the filename for directory watch
+            // events. In that case, fall back to re-reading report data.
+            if (!filename || filename === 'report-data.json') {
+              // Debounce rapid duplicate watch events from a single write.
               if (debounceTimer) {
                 clearTimeout(debounceTimer);
               }
-              debounceTimer = setTimeout(sendUpdate, 100);
+              debounceTimer = setTimeout(sendUpdate, FILE_WATCH_DEBOUNCE_MS);
             }
           }
         );
+        watcher.on('error', () => {
+          cleanup();
+        });
       } catch {
         // File watching not available, client will fall back to polling
       }
@@ -205,10 +221,12 @@ export function createEventsRouter(context) {
     const cleanup = () => {
       if (debounceTimer) {
         clearTimeout(debounceTimer);
+        debounceTimer = null;
       }
       clearInterval(heartbeatInterval);
       if (watcher) {
         watcher.close();
+        watcher = null;
       }
     };
 

@@ -115,7 +115,7 @@ export function createApiClient(options = {}) {
    * Check if refresh token is available
    */
   async function hasRefreshToken() {
-    let auth = await getAuthTokens();
+    let auth = await getAuthTokens(baseUrl);
     return !!auth?.refreshToken;
   }
 
@@ -124,7 +124,7 @@ export function createApiClient(options = {}) {
    * @returns {Promise<string|null>} New token or null if refresh failed
    */
   async function attemptTokenRefresh() {
-    let auth = await getAuthTokens();
+    let auth = await getAuthTokens(baseUrl);
     if (!auth?.refreshToken) return null;
 
     try {
@@ -143,12 +143,15 @@ export function createApiClient(options = {}) {
       let data = await response.json();
 
       // Save new tokens
-      await saveAuthTokens({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        expiresAt: data.expiresAt,
-        user: auth.user,
-      });
+      await saveAuthTokens(
+        {
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          expiresAt: data.expiresAt,
+          user: auth.user,
+        },
+        baseUrl
+      );
 
       return data.accessToken;
     } catch {

@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
+import { DEFAULT_API_URL } from '../api/client.js';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
 import {
   getApiToken,
@@ -13,7 +14,7 @@ import * as output from './output.js';
 const DEFAULT_CONFIG = {
   // API Configuration
   apiKey: undefined, // Will be set from env, global config, or CLI overrides
-  apiUrl: getApiUrl(),
+  apiUrl: DEFAULT_API_URL,
 
   // Server Configuration (for run command)
   server: {
@@ -86,7 +87,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     config.apiKey = envApiKey;
     output.debug('config', 'using token from environment');
   }
-  if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
+  if (process.env.VIZZLY_API_URL !== undefined) config.apiUrl = envApiUrl;
   if (envBuildName) {
     config.build.name = envBuildName;
     output.debug('config', 'using build name from environment');
@@ -104,7 +105,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   // This enables interactive commands (builds, comparisons, approve, etc.)
   // to work without a project token when the user is logged in
   if (!config.apiKey) {
-    let userToken = await getAccessToken();
+    let userToken = await getAccessToken(config.apiUrl);
     if (userToken) {
       config.apiKey = userToken;
       output.debug('config', 'using token from user login');
@@ -122,6 +123,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 function applyCLIOverrides(config, cliOverrides = {}) {
   // Global overrides
   if (cliOverrides.token) config.apiKey = cliOverrides.token;
+  if (cliOverrides.apiUrl) config.apiUrl = cliOverrides.apiUrl;
 
   // Build-related overrides
   if (cliOverrides.buildName) config.build.name = cliOverrides.buildName;

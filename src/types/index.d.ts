@@ -46,9 +46,16 @@ export interface TddConfig {
   openReport?: boolean;
 }
 
+export interface TargetConfig {
+  organizationSlug?: string;
+  projectSlug?: string;
+  projectId?: string;
+}
+
 export interface VizzlyConfig {
   apiKey?: string;
   apiUrl?: string;
+  target?: TargetConfig;
   server?: ServerConfig;
   build?: BuildConfig;
   upload?: UploadConfig;
@@ -150,6 +157,7 @@ export interface UploadOptions {
   threshold?: number;
   pullRequestNumber?: string;
   parallelId?: string;
+  target?: TargetConfig;
   onProgress?: (progress: UploadProgress) => void;
 }
 
@@ -419,6 +427,7 @@ export interface BuildOptions {
   uploadAll?: boolean;
   pullRequestNumber?: string;
   parallelId?: string;
+  target?: TargetConfig;
 }
 
 /**

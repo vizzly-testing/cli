@@ -48,6 +48,10 @@ function createMockConfig(overrides = {}) {
   return {
     apiKey: 'test-token',
     apiUrl: 'https://api.test',
+    target: {
+      organizationSlug: 'acme',
+      projectSlug: 'marketing-site',
+    },
     server: { port: 47392, timeout: 30000 },
     build: { environment: 'test' },
     comparison: { threshold: 0.1 },
@@ -80,6 +84,38 @@ describe('commands/run', () => {
       assert.strictEqual(result.reason, 'no-api-key');
       assert.strictEqual(exitCode, 1);
       assert.ok(output.calls.some(c => c.method === 'error'));
+    });
+
+    it('returns error when build target cannot be resolved', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let result = await runCommand(
+        'npm test',
+        {},
+        {},
+        {
+          loadConfig: async () =>
+            createMockConfig({ apiKey: 'user-token', target: undefined }),
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(exitCode, 1);
+      assert.ok(
+        output.calls.some(
+          c =>
+            c.method === 'error' &&
+            c.args[0] === 'Test run failed' &&
+            c.args[1]?.message?.includes('This command needs a target project')
+        )
+      );
     });
 
     it('allows running without token when allowNoToken is set', async () => {
@@ -476,6 +512,82 @@ describe('commands/run', () => {
         'minClusterSize should be passed from config to runOptions'
       );
       assert.strictEqual(capturedRunOptions.threshold, 2.0);
+    });
+
+    it('passes resolved target to the run flow for user auth', async () => {
+      let output = createMockOutput();
+      let capturedRunOptions = null;
+
+      await runCommand(
+        'npm test',
+        {},
+        {},
+        {
+          loadConfig: async () => createMockConfig({ apiKey: 'user-token' }),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          createUploader: () => ({}),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { buildId: null, screenshotsCaptured: 0 };
+          },
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          detectCommitMessage: async () => 'test',
+          detectPullRequestNumber: () => null,
+          generateBuildNameWithGit: async () => 'test-build',
+          output,
+          exit: () => {},
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.deepStrictEqual(capturedRunOptions.target, {
+        organizationSlug: 'acme',
+        projectSlug: 'marketing-site',
+      });
+    });
+
+    it('keeps project token runs working without an explicit target', async () => {
+      let output = createMockOutput();
+      let capturedRunOptions = null;
+
+      let result = await runCommand(
+        'npm test',
+        {},
+        {},
+        {
+          loadConfig: async () =>
+            createMockConfig({
+              apiKey: 'vzt_project-token',
+              target: undefined,
+            }),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          createUploader: () => ({}),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { buildId: 'build-123', screenshotsCaptured: 1 };
+          },
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          detectCommitMessage: async () => 'test',
+          detectPullRequestNumber: () => null,
+          generateBuildNameWithGit: async () => 'test-build',
+          output,
+          exit: () => {},
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(capturedRunOptions.target, undefined);
     });
 
     it('uses provided git metadata options', async () => {
@@ -1302,6 +1414,26 @@ describe('commands/run', () => {
         assert.ok(
           errors.includes(
             'Upload timeout must be a positive integer (milliseconds)'
+          )
+        );
+      });
+    });
+
+    describe('target validation', () => {
+      it('should fail with --project but no --org', () => {
+        let errors = validateRunOptions('npm test', { project: 'web-app' });
+        assert.ok(
+          errors.includes(
+            '--project requires --org. Pass both --org and --project, or use --project-id.'
+          )
+        );
+      });
+
+      it('should fail with --org but no --project', () => {
+        let errors = validateRunOptions('npm test', { org: 'acme' });
+        assert.ok(
+          errors.includes(
+            '--org requires --project. Pass both --org and --project, or use --project-id.'
           )
         );
       });

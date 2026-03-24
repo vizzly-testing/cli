@@ -127,6 +127,36 @@ describe('commands/orgs', () => {
       assert.strictEqual(capturedToken, 'env-token');
     });
 
+    it('uses the targeted apiUrl when resolving user auth', async () => {
+      let output = createMockOutput();
+      let capturedApiUrl = null;
+      let capturedBaseUrl = null;
+
+      await orgsCommand(
+        {},
+        { json: true, apiUrl: 'http://localhost:3000' },
+        {
+          loadConfig: async (_configPath, overrides) => ({
+            apiUrl: overrides.apiUrl,
+          }),
+          getAccessToken: async apiUrl => {
+            capturedApiUrl = apiUrl;
+            return 'local-user-token';
+          },
+          createApiClient: ({ baseUrl, token }) => {
+            capturedBaseUrl = baseUrl;
+            assert.strictEqual(token, 'local-user-token');
+            return { request: async () => ({ organizations: mockOrgs }) };
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedApiUrl, 'http://localhost:3000');
+      assert.strictEqual(capturedBaseUrl, 'http://localhost:3000');
+    });
+
     it('returns all orgs in JSON output', async () => {
       let output = createMockOutput();
 

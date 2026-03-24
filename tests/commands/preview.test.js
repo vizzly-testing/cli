@@ -75,6 +75,24 @@ describe('validatePreviewOptions', () => {
     let errors = validatePreviewOptions('   ', {});
     assert.ok(errors.includes('Path to static files is required'));
   });
+
+  it('fails with --project but no --org', () => {
+    let errors = validatePreviewOptions('./dist', { project: 'web-app' });
+    assert.ok(
+      errors.includes(
+        '--project requires --org. Pass both --org and --project, or use --project-id.'
+      )
+    );
+  });
+
+  it('fails with --org but no --project', () => {
+    let errors = validatePreviewOptions('./dist', { org: 'acme' });
+    assert.ok(
+      errors.includes(
+        '--org requires --project. Pass both --org and --project, or use --project-id.'
+      )
+    );
+  });
 });
 
 describe('previewCommand', () => {
@@ -180,6 +198,132 @@ describe('previewCommand', () => {
         c => c.method === 'error' && c.args[0].includes('No build found')
       ),
       'Should show no build found error'
+    );
+  });
+
+  it('uses build ID from matching session parallel ID', async () => {
+    let output = createMockOutput();
+    let capturedBuildId = null;
+
+    await previewCommand(
+      distDir,
+      { parallelId: 'parallel-123' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'user-token',
+          apiUrl: 'https://api.test',
+          target: {
+            organizationSlug: 'acme',
+            projectSlug: 'marketing-site',
+          },
+        }),
+        readSession: () => ({
+          buildId: 'session-build-123',
+          parallelId: 'parallel-123',
+          source: 'session_file',
+          expired: false,
+        }),
+        detectBranch: async () => 'main',
+        createApiClient: () => ({}),
+        getBuild: async () => ({ project: { isPublic: true } }),
+        uploadPreviewZip: async (_client, buildId) => {
+          capturedBuildId = buildId;
+          return {
+            previewUrl: 'https://preview.test',
+            uploaded: 3,
+            totalBytes: 1000,
+            newBytes: 800,
+          };
+        },
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(capturedBuildId, 'session-build-123');
+  });
+
+  it('looks up build by parallel ID with target filters', async () => {
+    let output = createMockOutput();
+    let capturedFilters = null;
+    let capturedBuildId = null;
+
+    await previewCommand(
+      distDir,
+      { parallelId: 'parallel-789' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'user-token',
+          apiUrl: 'https://api.test',
+          target: {
+            organizationSlug: 'acme',
+            projectSlug: 'marketing-site',
+          },
+        }),
+        readSession: () => null,
+        detectBranch: async () => 'main',
+        createApiClient: () => ({}),
+        getBuilds: async (_client, filters) => {
+          capturedFilters = filters;
+          return {
+            builds: [{ id: 'build-789', parallel_id: 'parallel-789' }],
+          };
+        },
+        getBuild: async () => ({ project: { isPublic: true } }),
+        uploadPreviewZip: async (_client, buildId) => {
+          capturedBuildId = buildId;
+          return {
+            previewUrl: 'https://preview.test',
+            uploaded: 3,
+            totalBytes: 1000,
+            newBytes: 800,
+          };
+        },
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.deepStrictEqual(capturedFilters, {
+      limit: 20,
+      parallelId: 'parallel-789',
+      organization: 'acme',
+      project: 'marketing-site',
+    });
+    assert.strictEqual(capturedBuildId, 'build-789');
+  });
+
+  it('requires a target for user-auth parallel ID lookup', async () => {
+    let output = createMockOutput();
+    let exitCode = null;
+
+    let result = await previewCommand(
+      distDir,
+      { parallelId: 'parallel-123' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'user-token',
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(exitCode, 1);
+    assert.ok(
+      output.calls.some(
+        c =>
+          c.method === 'error' &&
+          c.args[0] === 'Preview upload failed' &&
+          c.args[1]?.message?.includes('This command needs a target project')
+      )
     );
   });
 

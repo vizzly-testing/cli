@@ -9,6 +9,10 @@ import {
 } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
+import {
+  resolveProjectTarget as defaultResolveProjectTarget,
+  validateTargetOptions,
+} from '../utils/project-target.js';
 import { writeSession as defaultWriteSession } from '../utils/session.js';
 
 let MISSING_BUILD_HINTS = [
@@ -34,6 +38,7 @@ export async function finalizeCommand(
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
     finalizeParallelBuild = defaultFinalizeParallelBuild,
+    resolveProjectTarget = defaultResolveProjectTarget,
     output = defaultOutput,
     writeSession = defaultWriteSession,
     exit = code => process.exit(code),
@@ -59,6 +64,21 @@ export async function finalizeCommand(
       return { success: false, reason: 'no-api-key' };
     }
 
+    let resolvedTarget = await resolveProjectTarget({
+      command: 'finalize',
+      options,
+      config,
+      requireTarget: true,
+    });
+    if (resolvedTarget.target) {
+      config.target = resolvedTarget.target;
+    }
+    output.debug('target', {
+      command: 'finalize',
+      source: resolvedTarget.source,
+      target: resolvedTarget.target,
+    });
+
     if (globalOptions.verbose) {
       output.info('Configuration loaded');
       output.debug('Config details', {
@@ -74,7 +94,9 @@ export async function finalizeCommand(
       token: config.apiKey,
       command: 'finalize',
     });
-    let result = await finalizeParallelBuild(client, parallelId);
+    let result = await finalizeParallelBuild(client, parallelId, {
+      target: config.target,
+    });
     output.stopSpinner();
 
     // Write session for subsequent commands (like preview)
@@ -166,6 +188,8 @@ export function validateFinalizeOptions(parallelId, _options) {
   if (!parallelId || parallelId.trim() === '') {
     errors.push('Parallel ID is required');
   }
+
+  errors.push(...validateTargetOptions(_options));
 
   return errors;
 }

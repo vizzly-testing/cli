@@ -31,11 +31,13 @@ export async function loginCommand(options = {}, globalOptions = {}) {
   try {
     output.header('login');
 
+    let apiUrl = globalOptions.apiUrl || options.apiUrl || getApiUrl();
+
     // Create auth client and token store
     let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
+      baseUrl: apiUrl,
     });
-    let tokenStore = createTokenStore();
+    let tokenStore = createTokenStore(apiUrl);
 
     // Initiate device flow
     output.startSpinner('Connecting to Vizzly...');

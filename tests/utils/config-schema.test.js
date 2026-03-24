@@ -48,6 +48,20 @@ describe('utils/config-schema', () => {
       assert.strictEqual(result.build.commit, 'abc123');
     });
 
+    it('accepts a target project in config', () => {
+      let result = vizzlyConfigSchema.parse({
+        target: {
+          organizationSlug: 'acme',
+          projectSlug: 'marketing-site',
+        },
+      });
+
+      assert.deepStrictEqual(result.target, {
+        organizationSlug: 'acme',
+        projectSlug: 'marketing-site',
+      });
+    });
+
     it('accepts array of screenshot directories', () => {
       let result = vizzlyConfigSchema.parse({
         upload: { screenshotsDir: ['./screenshots', './e2e/snapshots'] },
@@ -124,6 +138,24 @@ describe('utils/config-schema', () => {
         () => validateVizzlyConfig({ apiUrl: 'not-a-url' }),
         error => {
           assert.ok(error.message.includes('Invalid Vizzly configuration'));
+          return true;
+        }
+      );
+    });
+
+    it('throws error for partial target config', () => {
+      assert.throws(
+        () =>
+          validateVizzlyConfig({
+            target: { organizationSlug: 'acme' },
+          }),
+        error => {
+          assert.ok(error.message.includes('Invalid Vizzly configuration'));
+          assert.ok(
+            error.message.includes(
+              'target.organizationSlug and target.projectSlug must be provided together'
+            )
+          );
           return true;
         }
       );

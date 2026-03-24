@@ -17,6 +17,7 @@ import {
   getGlobalConfigPath,
   hasValidTokens,
   loadGlobalConfig,
+  normalizeApiUrl,
   saveAuthTokens,
   saveGlobalConfig,
 } from '../../src/utils/global-config.js';
@@ -138,7 +139,13 @@ describe('utils/global-config', () => {
     });
 
     it('returns null when auth has no accessToken', async () => {
-      await saveGlobalConfig({ auth: { refreshToken: 'xyz' } });
+      await saveGlobalConfig({
+        authByApiUrl: {
+          [normalizeApiUrl('https://app.vizzly.dev')]: {
+            refreshToken: 'xyz',
+          },
+        },
+      });
 
       let tokens = await getAuthTokens();
 
@@ -147,10 +154,12 @@ describe('utils/global-config', () => {
 
     it('returns auth tokens when they exist', async () => {
       await saveGlobalConfig({
-        auth: {
-          accessToken: 'abc123',
-          refreshToken: 'xyz789',
-          expiresAt: '2025-01-01T00:00:00Z',
+        authByApiUrl: {
+          [normalizeApiUrl('https://app.vizzly.dev')]: {
+            accessToken: 'abc123',
+            refreshToken: 'xyz789',
+            expiresAt: '2025-01-01T00:00:00Z',
+          },
         },
       });
 
@@ -158,6 +167,45 @@ describe('utils/global-config', () => {
 
       assert.strictEqual(tokens.accessToken, 'abc123');
       assert.strictEqual(tokens.refreshToken, 'xyz789');
+    });
+
+    it('returns tokens scoped to the requested API URL', async () => {
+      await saveGlobalConfig({
+        authByApiUrl: {
+          [normalizeApiUrl('https://app.vizzly.dev')]: {
+            accessToken: 'cloud-token',
+          },
+          [normalizeApiUrl('http://localhost:3000')]: {
+            accessToken: 'local-token',
+          },
+        },
+      });
+
+      let cloudTokens = await getAuthTokens('https://app.vizzly.dev/');
+      let localTokens = await getAuthTokens('http://localhost:3000/');
+
+      assert.strictEqual(cloudTokens.accessToken, 'cloud-token');
+      assert.strictEqual(localTokens.accessToken, 'local-token');
+    });
+
+    it('migrates legacy auth to authByApiUrl for cloud', async () => {
+      await saveGlobalConfig({
+        auth: {
+          accessToken: 'legacy-token',
+          refreshToken: 'legacy-refresh',
+        },
+      });
+
+      let tokens = await getAuthTokens();
+      let config = await loadGlobalConfig();
+
+      assert.strictEqual(tokens.accessToken, 'legacy-token');
+      assert.strictEqual(config.auth, undefined);
+      assert.strictEqual(
+        config.authByApiUrl[normalizeApiUrl('https://app.vizzly.dev')]
+          .accessToken,
+        'legacy-token'
+      );
     });
   });
 
@@ -172,10 +220,11 @@ describe('utils/global-config', () => {
 
       let config = await loadGlobalConfig();
 
-      assert.strictEqual(config.auth.accessToken, 'token123');
-      assert.strictEqual(config.auth.refreshToken, 'refresh456');
-      assert.strictEqual(config.auth.expiresAt, '2025-06-01T00:00:00Z');
-      assert.strictEqual(config.auth.user.email, 'test@example.com');
+      let auth = config.authByApiUrl[normalizeApiUrl('https://app.vizzly.dev')];
+      assert.strictEqual(auth.accessToken, 'token123');
+      assert.strictEqual(auth.refreshToken, 'refresh456');
+      assert.strictEqual(auth.expiresAt, '2025-06-01T00:00:00Z');
+      assert.strictEqual(auth.user.email, 'test@example.com');
     });
 
     it('preserves other config when saving tokens', async () => {
@@ -185,7 +234,28 @@ describe('utils/global-config', () => {
       let config = await loadGlobalConfig();
 
       assert.strictEqual(config.other, 'data');
-      assert.strictEqual(config.auth.accessToken, 'token');
+      assert.strictEqual(
+        config.authByApiUrl[normalizeApiUrl('https://app.vizzly.dev')]
+          .accessToken,
+        'token'
+      );
+    });
+
+    it('stores tokens under the requested API URL', async () => {
+      await saveAuthTokens(
+        {
+          accessToken: 'local-token',
+        },
+        'http://localhost:3000/'
+      );
+
+      let config = await loadGlobalConfig();
+
+      assert.strictEqual(
+        config.authByApiUrl[normalizeApiUrl('http://localhost:3000')]
+          .accessToken,
+        'local-token'
+      );
     });
   });
 
@@ -196,20 +266,51 @@ describe('utils/global-config', () => {
 
       let config = await loadGlobalConfig();
 
-      assert.strictEqual(config.auth, undefined);
+      assert.strictEqual(config.authByApiUrl, undefined);
     });
 
     it('preserves other config', async () => {
       await saveGlobalConfig({
         other: 'data',
-        auth: { accessToken: 'token' },
+        authByApiUrl: {
+          [normalizeApiUrl('https://app.vizzly.dev')]: {
+            accessToken: 'token',
+          },
+        },
       });
       await clearAuthTokens();
 
       let config = await loadGlobalConfig();
 
       assert.strictEqual(config.other, 'data');
-      assert.strictEqual(config.auth, undefined);
+      assert.strictEqual(config.authByApiUrl, undefined);
+    });
+
+    it('only removes tokens for the targeted API URL', async () => {
+      await saveGlobalConfig({
+        authByApiUrl: {
+          [normalizeApiUrl('https://app.vizzly.dev')]: {
+            accessToken: 'cloud-token',
+          },
+          [normalizeApiUrl('http://localhost:3000')]: {
+            accessToken: 'local-token',
+          },
+        },
+      });
+
+      await clearAuthTokens('http://localhost:3000');
+
+      let config = await loadGlobalConfig();
+
+      assert.strictEqual(
+        config.authByApiUrl[normalizeApiUrl('https://app.vizzly.dev')]
+          .accessToken,
+        'cloud-token'
+      );
+      assert.strictEqual(
+        config.authByApiUrl[normalizeApiUrl('http://localhost:3000')],
+        undefined
+      );
     });
   });
 
@@ -282,6 +383,23 @@ describe('utils/global-config', () => {
       let token = await getAccessToken();
 
       assert.strictEqual(token, 'my-token');
+    });
+
+    it('returns access token for the targeted API URL only', async () => {
+      await saveGlobalConfig({
+        authByApiUrl: {
+          [normalizeApiUrl('https://app.vizzly.dev')]: {
+            accessToken: 'cloud-token',
+          },
+          [normalizeApiUrl('http://localhost:3000')]: {
+            accessToken: 'local-token',
+          },
+        },
+      });
+
+      let token = await getAccessToken('http://localhost:3000/');
+
+      assert.strictEqual(token, 'local-token');
     });
   });
 });

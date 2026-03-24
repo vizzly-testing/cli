@@ -6,6 +6,7 @@ import {
   getScreenshotPaths,
   loadConfig,
 } from '../../src/utils/config-loader.js';
+import { saveAuthTokens } from '../../src/utils/global-config.js';
 
 describe('utils/config-loader', () => {
   describe('getScreenshotPaths', () => {
@@ -111,6 +112,26 @@ describe('utils/config-loader', () => {
       assert.strictEqual(config.comparison.threshold, 1.5);
     });
 
+    it('loads target config from vizzly.config.js', async () => {
+      let configPath = join(testDir, 'vizzly.target.config.js');
+      writeFileSync(
+        configPath,
+        `export default {
+          target: {
+            organizationSlug: 'acme',
+            projectSlug: 'marketing-site'
+          }
+        };`
+      );
+
+      let config = await loadConfig(configPath);
+
+      assert.deepStrictEqual(config.target, {
+        organizationSlug: 'acme',
+        projectSlug: 'marketing-site',
+      });
+    });
+
     it('applies CLI overrides', async () => {
       let config = await loadConfig(null, {
         token: 'cli-token',
@@ -145,6 +166,31 @@ describe('utils/config-loader', () => {
       assert.strictEqual(config.build.name, 'CI Build #123');
     });
 
+    it('lets --api-url override config apiUrl', async () => {
+      writeFileSync(
+        join(testDir, 'vizzly.config.js'),
+        "export default { apiUrl: 'http://localhost:3000' };"
+      );
+
+      let config = await loadConfig(null, {
+        apiUrl: 'https://app.vizzly.dev',
+      });
+
+      assert.strictEqual(config.apiUrl, 'https://app.vizzly.dev');
+    });
+
+    it('lets VIZZLY_API_URL override config apiUrl even for the cloud default', async () => {
+      process.env.VIZZLY_API_URL = 'https://app.vizzly.dev';
+      writeFileSync(
+        join(testDir, 'vizzly.config.js'),
+        "export default { apiUrl: 'http://localhost:3000' };"
+      );
+
+      let config = await loadConfig();
+
+      assert.strictEqual(config.apiUrl, 'https://app.vizzly.dev');
+    });
+
     it('CLI buildName overrides VIZZLY_BUILD_NAME', async () => {
       process.env.VIZZLY_BUILD_NAME = 'env-build-name';
 
@@ -159,6 +205,22 @@ describe('utils/config-loader', () => {
       let config = await loadConfig(null, { token: 'cli-token' });
 
       assert.strictEqual(config.apiKey, 'cli-token');
+    });
+
+    it('uses login token scoped to the resolved apiUrl', async () => {
+      await saveAuthTokens(
+        { accessToken: 'local-login-token' },
+        'http://localhost:3000'
+      );
+      await saveAuthTokens(
+        { accessToken: 'cloud-login-token' },
+        'https://app.vizzly.dev'
+      );
+
+      let config = await loadConfig(null, { apiUrl: 'http://localhost:3000' });
+
+      assert.strictEqual(config.apiKey, 'local-login-token');
+      assert.strictEqual(config.apiUrl, 'http://localhost:3000');
     });
 
     it('applies branch/commit/message overrides', async () => {

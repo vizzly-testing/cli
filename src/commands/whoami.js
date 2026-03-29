@@ -17,56 +17,71 @@ import * as output from '../utils/output.js';
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
  */
-export async function whoamiCommand(options = {}, globalOptions = {}) {
-  output.configure({
+export async function whoamiCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
+  let {
+    createAuthClient: createAuthClientImpl = createAuthClient,
+    createTokenStore: createTokenStoreImpl = createTokenStore,
+    getAuthTokens: getAuthTokensImpl = getAuthTokens,
+    whoami: whoamiImpl = whoami,
+    output: outputImpl = output,
+    exit = code => process.exit(code),
+  } = deps;
+
+  outputImpl.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
   });
 
   try {
+    let apiUrl = globalOptions.apiUrl || options.apiUrl || getApiUrl();
+
     // Check if user is logged in
-    let auth = await getAuthTokens();
+    let auth = await getAuthTokensImpl(apiUrl);
 
     if (!auth || !auth.accessToken) {
       if (globalOptions.json) {
-        output.data({ authenticated: false });
+        outputImpl.data({ authenticated: false });
       } else {
-        output.header('whoami');
-        output.print('  Not logged in');
-        output.blank();
-        output.hint('Run "vizzly login" to authenticate');
+        outputImpl.header('whoami');
+        outputImpl.print('  Not logged in');
+        outputImpl.blank();
+        outputImpl.hint('Run "vizzly login" to authenticate');
       }
-      output.cleanup();
+      outputImpl.cleanup();
       return;
     }
 
     // Get current user info
-    output.startSpinner('Fetching user information...');
+    outputImpl.startSpinner('Fetching user information...');
 
-    let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
+    let client = createAuthClientImpl({
+      baseUrl: apiUrl,
     });
-    let tokenStore = createTokenStore();
+    let tokenStore = createTokenStoreImpl(apiUrl);
 
-    let response = await whoami(client, tokenStore);
+    let response = await whoamiImpl(client, tokenStore);
 
-    output.stopSpinner();
+    outputImpl.stopSpinner();
 
     // Output in JSON mode
     if (globalOptions.json) {
-      output.data({
+      outputImpl.data({
         authenticated: true,
         user: response.user,
         organizations: response.organizations || [],
         tokenExpiresAt: auth.expiresAt,
       });
-      output.cleanup();
+      outputImpl.cleanup();
       return;
     }
 
     // Human-readable output
-    output.header('whoami');
+    outputImpl.header('whoami');
 
     // Show user info using keyValue
     if (response.user) {
@@ -83,25 +98,25 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
         userInfo['User ID'] = response.user.id;
       }
 
-      output.keyValue(userInfo);
+      outputImpl.keyValue(userInfo);
     }
 
     // Show organizations as a list
     if (response.organizations && response.organizations.length > 0) {
-      output.blank();
-      output.labelValue('Organizations', '');
+      outputImpl.blank();
+      outputImpl.labelValue('Organizations', '');
       let orgItems = response.organizations.map(org => {
         let parts = [org.name];
         if (org.slug) parts.push(`@${org.slug}`);
         if (org.role) parts.push(`[${org.role}]`);
         return parts.join(' ');
       });
-      output.list(orgItems);
+      outputImpl.list(orgItems);
 
       if (globalOptions.verbose) {
         for (let org of response.organizations) {
           if (org.id) {
-            output.hint(`  ${org.name} ID: ${org.id}`);
+            outputImpl.hint(`  ${org.name} ID: ${org.id}`);
           }
         }
       }
@@ -109,7 +124,7 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
 
     // Show token expiry info
     if (auth.expiresAt) {
-      output.blank();
+      outputImpl.blank();
       let expiresAt = new Date(auth.expiresAt);
       let now = new Date();
       let msUntilExpiry = expiresAt.getTime() - now.getTime();
@@ -118,51 +133,51 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
       let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
 
       if (msUntilExpiry <= 0) {
-        output.warn('Token has expired');
-        output.hint('Run "vizzly login" to refresh your authentication');
+        outputImpl.warn('Token has expired');
+        outputImpl.hint('Run "vizzly login" to refresh your authentication');
       } else if (daysUntilExpiry > 0) {
-        output.hint(
+        outputImpl.hint(
           `Token expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} (${expiresAt.toLocaleDateString()})`
         );
       } else if (hoursUntilExpiry > 0) {
-        output.hint(
+        outputImpl.hint(
           `Token expires in ${hoursUntilExpiry} hour${hoursUntilExpiry !== 1 ? 's' : ''}`
         );
       } else if (minutesUntilExpiry > 0) {
-        output.hint(
+        outputImpl.hint(
           `Token expires in ${minutesUntilExpiry} minute${minutesUntilExpiry !== 1 ? 's' : ''}`
         );
       } else {
-        output.warn('Token expires in less than a minute');
-        output.hint('Run "vizzly login" to refresh your authentication');
+        outputImpl.warn('Token expires in less than a minute');
+        outputImpl.hint('Run "vizzly login" to refresh your authentication');
       }
 
       if (globalOptions.verbose) {
-        output.hint(`Token expires at: ${expiresAt.toISOString()}`);
+        outputImpl.hint(`Token expires at: ${expiresAt.toISOString()}`);
       }
     }
 
-    output.cleanup();
+    outputImpl.cleanup();
   } catch (error) {
-    output.stopSpinner();
+    outputImpl.stopSpinner();
 
     // Handle authentication errors with helpful messages
     if (error.name === 'AuthError') {
       if (globalOptions.json) {
-        output.data({
+        outputImpl.data({
           authenticated: false,
           error: error.message,
         });
       } else {
-        output.error('Authentication token is invalid or expired', error);
-        output.blank();
-        output.hint('Run "vizzly login" to authenticate again');
+        outputImpl.error('Authentication token is invalid or expired', error);
+        outputImpl.blank();
+        outputImpl.hint('Run "vizzly login" to authenticate again');
       }
-      output.cleanup();
-      process.exit(1);
+      outputImpl.cleanup();
+      exit(1);
     } else {
-      output.error('Failed to get user information', error);
-      process.exit(1);
+      outputImpl.error('Failed to get user information', error);
+      exit(1);
     }
   }
 }

@@ -78,6 +78,10 @@ export function buildApiBuildPayload(options, comparisonConfig = null) {
     };
   }
 
+  if (options.target) {
+    payload.target = options.target;
+  }
+
   return payload;
 }
 

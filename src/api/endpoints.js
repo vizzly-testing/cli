@@ -14,6 +14,7 @@ import {
   buildScreenshotCheckObject,
   buildScreenshotPayload,
   buildShaCheckPayload,
+  buildTargetPayload,
   computeSha256,
   findScreenshotBySha,
   shaExists,
@@ -58,10 +59,17 @@ export async function getBuilds(client, filters = {}) {
  */
 export async function createBuild(client, metadata) {
   let payload = buildBuildPayload(metadata);
+  let target = buildTargetPayload(metadata?.target);
+  let body = { build: payload };
+
+  if (target) {
+    body.target = target;
+  }
+
   return client.request('/api/sdk/builds', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ build: payload }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -314,13 +322,22 @@ export async function getTokenContext(client) {
  * Finalize a parallel build
  * @param {Object} client - API client
  * @param {string} parallelId - Parallel ID to finalize
+ * @param {Object} [options] - Optional target metadata
  * @returns {Promise<Object>} Finalization result
  */
-export async function finalizeParallelBuild(client, parallelId) {
-  return client.request(`/api/sdk/parallel/${parallelId}/finalize`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
+export async function finalizeParallelBuild(client, parallelId, options = {}) {
+  let target = buildTargetPayload(options.target);
+  let requestOptions = { method: 'POST' };
+
+  if (target) {
+    requestOptions.headers = { 'Content-Type': 'application/json' };
+    requestOptions.body = JSON.stringify({ target });
+  }
+
+  return client.request(
+    `/api/sdk/parallel/${parallelId}/finalize`,
+    requestOptions
+  );
 }
 
 // ============================================================================

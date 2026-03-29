@@ -15,12 +15,17 @@ import { promisify } from 'node:util';
 import {
   createApiClient as defaultCreateApiClient,
   getBuild as defaultGetBuild,
+  getBuilds as defaultGetBuilds,
   uploadPreviewZip as defaultUploadPreviewZip,
 } from '../api/index.js';
 import { openBrowser as defaultOpenBrowser } from '../utils/browser.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import { detectBranch as defaultDetectBranch } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
+import {
+  resolveProjectTarget as defaultResolveProjectTarget,
+  validateTargetOptions,
+} from '../utils/project-target.js';
 import {
   formatSessionAge as defaultFormatSessionAge,
   readSession as defaultReadSession,
@@ -321,6 +326,50 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function buildParallelLookupFilters(parallelId, target = null) {
+  let filters = {
+    limit: 20,
+    parallelId,
+  };
+
+  if (target?.projectId) {
+    filters.projectId = target.projectId;
+    return filters;
+  }
+
+  if (target?.organizationSlug) {
+    filters.organization = target.organizationSlug;
+  }
+
+  if (target?.projectSlug) {
+    filters.project = target.projectSlug;
+  }
+
+  return filters;
+}
+
+function extractBuildList(response) {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  return response?.builds || [];
+}
+
+function findBuildByParallelId(builds, parallelId) {
+  let matches = builds.filter(build => build.parallel_id === parallelId);
+
+  if (matches.length === 1) {
+    return { build: matches[0], ambiguous: false };
+  }
+
+  if (matches.length > 1) {
+    return { build: null, ambiguous: true };
+  }
+
+  return { build: null, ambiguous: false };
+}
+
 /**
  * Preview command implementation
  * @param {string} path - Path to static files
@@ -338,10 +387,12 @@ export async function previewCommand(
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
     getBuild = defaultGetBuild,
+    getBuilds = defaultGetBuilds,
     uploadPreviewZip = defaultUploadPreviewZip,
     readSession = defaultReadSession,
     formatSessionAge = defaultFormatSessionAge,
     detectBranch = defaultDetectBranch,
+    resolveProjectTarget = defaultResolveProjectTarget,
     openBrowser = defaultOpenBrowser,
     output = defaultOutput,
     exit = code => process.exit(code),
@@ -357,6 +408,11 @@ export async function previewCommand(
     // Load configuration
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
+    let requiresParallelTarget =
+      !options.dryRun &&
+      Boolean(config.apiKey) &&
+      !options.build &&
+      Boolean(options.parallelId);
 
     // Validate API token (skip for dry-run)
     if (!options.dryRun && !config.apiKey) {
@@ -365,6 +421,23 @@ export async function previewCommand(
       );
       exit(1);
       return { success: false, reason: 'no-api-key' };
+    }
+
+    if (!options.dryRun && config.apiKey) {
+      let resolvedTarget = await resolveProjectTarget({
+        command: 'preview',
+        options,
+        config,
+        requireTarget: requiresParallelTarget,
+      });
+      if (resolvedTarget?.target) {
+        config.target = resolvedTarget.target;
+      }
+      output.debug('target', {
+        command: 'preview',
+        source: resolvedTarget?.source,
+        target: resolvedTarget?.target,
+      });
     }
 
     // Validate path exists and is a directory
@@ -384,20 +457,68 @@ export async function previewCommand(
     // Resolve build ID
     let buildId = options.build;
     let buildSource = 'flag';
+    let currentBranch = null;
+    let session = null;
 
     if (!buildId && options.parallelId) {
-      // TODO: Look up build by parallel ID
-      output.error(
-        'Parallel ID lookup not yet implemented. Use --build to specify build ID directly.'
-      );
-      exit(1);
-      return { success: false, reason: 'parallel-id-not-implemented' };
+      currentBranch = await detectBranch();
+      session = readSession({ currentBranch });
+
+      if (
+        session?.buildId &&
+        !session.expired &&
+        session.parallelId === options.parallelId
+      ) {
+        buildId = session.buildId;
+        buildSource = `${session.source}:parallel-id`;
+      } else if (!options.dryRun) {
+        let client = createApiClient({
+          baseUrl: config.apiUrl,
+          token: config.apiKey,
+          command: 'preview',
+        });
+        let response = await getBuilds(
+          client,
+          buildParallelLookupFilters(options.parallelId, config.target)
+        );
+        let lookupResult = findBuildByParallelId(
+          extractBuildList(response),
+          options.parallelId
+        );
+
+        if (lookupResult.ambiguous) {
+          output.error(
+            `Multiple builds found for parallel ID: ${options.parallelId}`
+          );
+          output.hint(
+            'Pass a more specific target project or use --build to choose a build directly.'
+          );
+          exit(1);
+          return { success: false, reason: 'parallel-id-ambiguous' };
+        }
+
+        if (lookupResult.build) {
+          buildId = lookupResult.build.id;
+          buildSource = 'parallel-id';
+        } else {
+          output.error(`No build found for parallel ID: ${options.parallelId}`);
+          output.hint(
+            'Run visual tests first, or pass --build to attach a preview to a known build.'
+          );
+          exit(1);
+          return { success: false, reason: 'no-build-for-parallel-id' };
+        }
+      }
     }
 
     if (!buildId) {
       // Try to read from session
-      let currentBranch = await detectBranch();
-      let session = readSession({ currentBranch });
+      if (!currentBranch) {
+        currentBranch = await detectBranch();
+      }
+      if (!session) {
+        session = readSession({ currentBranch });
+      }
 
       if (session?.buildId && !session.expired) {
         if (session.branchMismatch) {
@@ -753,12 +874,14 @@ export async function previewCommand(
  * @param {string} path - Path to static files
  * @param {Object} options - Command options
  */
-export function validatePreviewOptions(path, _options) {
+export function validatePreviewOptions(path, options) {
   let errors = [];
 
   if (!path || path.trim() === '') {
     errors.push('Path to static files is required');
   }
+
+  errors.push(...validateTargetOptions(options));
 
   return errors;
 }

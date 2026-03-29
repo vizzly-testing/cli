@@ -120,6 +120,27 @@ describe('api/endpoints', () => {
       let body = JSON.parse(call.options.body);
       assert.strictEqual(body.build.name, 'Test Build');
       assert.strictEqual(body.build.branch, 'main');
+      assert.strictEqual(body.target, undefined);
+    });
+
+    it('includes explicit target metadata when provided', async () => {
+      let client = createMockClient({ id: 'new-build' });
+
+      await createBuild(client, {
+        name: 'Test Build',
+        branch: 'main',
+        environment: 'test',
+        target: {
+          organizationSlug: 'acme',
+          projectSlug: 'marketing-site',
+        },
+      });
+
+      let body = JSON.parse(client.getLastCall().options.body);
+      assert.deepStrictEqual(body.target, {
+        organizationSlug: 'acme',
+        projectSlug: 'marketing-site',
+      });
     });
   });
 
@@ -495,6 +516,24 @@ describe('api/endpoints', () => {
         '/api/sdk/parallel/parallel-123/finalize'
       );
       assert.strictEqual(call.options.method, 'POST');
+      assert.strictEqual(call.options.body, undefined);
+    });
+
+    it('includes explicit target metadata when provided', async () => {
+      let client = createMockClient({ success: true });
+
+      await finalizeParallelBuild(client, 'parallel-123', {
+        target: {
+          organizationSlug: 'acme',
+          projectSlug: 'marketing-site',
+        },
+      });
+
+      let body = JSON.parse(client.getLastCall().options.body);
+      assert.deepStrictEqual(body.target, {
+        organizationSlug: 'acme',
+        projectSlug: 'marketing-site',
+      });
     });
   });
 

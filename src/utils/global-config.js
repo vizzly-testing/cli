@@ -4,10 +4,18 @@
  */
 
 import { existsSync } from 'node:fs';
-import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  readFile,
+  rename,
+  writeFile,
+} from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as output from './output.js';
+
+let DEFAULT_AUTH_API_URL = 'https://app.vizzly.dev';
 
 /**
  * Get the path to the global Vizzly directory
@@ -74,21 +82,24 @@ export async function loadGlobalConfig() {
 export async function saveGlobalConfig(config) {
   await ensureGlobalConfigDir();
 
-  const configPath = getGlobalConfigPath();
-  const content = JSON.stringify(config, null, 2);
+  let configPath = getGlobalConfigPath();
+  let content = JSON.stringify(config, null, 2);
+  let tempPath = `${configPath}.${process.pid}.${Date.now()}.tmp`;
 
-  // Write file with secure permissions (owner read/write only)
-  await writeFile(configPath, content, { mode: 0o600 });
+  // Write atomically so concurrent readers never observe a truncated file.
+  await writeFile(tempPath, content, { mode: 0o600 });
 
   // Ensure permissions are set correctly (in case umask interfered)
   try {
-    await chmod(configPath, 0o600);
+    await chmod(tempPath, 0o600);
   } catch (error) {
     // On Windows, chmod may not work as expected, but that's okay
     if (process.platform !== 'win32') {
       throw error;
     }
   }
+
+  await rename(tempPath, configPath);
 }
 
 /**
@@ -97,6 +108,47 @@ export async function saveGlobalConfig(config) {
  */
 export async function clearGlobalConfig() {
   await saveGlobalConfig({});
+}
+
+export function normalizeApiUrl(apiUrl = DEFAULT_AUTH_API_URL) {
+  let parsedUrl = new URL(apiUrl || DEFAULT_AUTH_API_URL);
+  let pathname = parsedUrl.pathname.replace(/\/+$/, '');
+
+  if (pathname === '/') {
+    pathname = '';
+  }
+
+  return `${parsedUrl.origin}${pathname}`;
+}
+
+function migrateLegacyAuthConfig(config) {
+  let migratedConfig = { ...config };
+  let defaultApiUrl = normalizeApiUrl(DEFAULT_AUTH_API_URL);
+
+  if (migratedConfig.auth?.accessToken) {
+    migratedConfig.authByApiUrl = {
+      ...(migratedConfig.authByApiUrl || {}),
+    };
+
+    if (!migratedConfig.authByApiUrl[defaultApiUrl]) {
+      migratedConfig.authByApiUrl[defaultApiUrl] = migratedConfig.auth;
+    }
+  }
+
+  delete migratedConfig.auth;
+
+  return migratedConfig;
+}
+
+async function loadMigratedGlobalConfig(persist = false) {
+  let config = await loadGlobalConfig();
+  let migratedConfig = migrateLegacyAuthConfig(config);
+
+  if (persist && JSON.stringify(migratedConfig) !== JSON.stringify(config)) {
+    await saveGlobalConfig(migratedConfig);
+  }
+
+  return migratedConfig;
 }
 
 /**
@@ -128,31 +180,39 @@ export async function getUserPath() {
 
 /**
  * Get authentication tokens from global config
+ * @param {string} [apiUrl] - API URL scope (defaults to cloud)
  * @returns {Promise<Object|null>} Token object with accessToken, refreshToken, expiresAt, user, or null if not found
  */
-export async function getAuthTokens() {
-  const config = await loadGlobalConfig();
+export async function getAuthTokens(apiUrl = DEFAULT_AUTH_API_URL) {
+  let config = await loadMigratedGlobalConfig(true);
+  let normalizedApiUrl = normalizeApiUrl(apiUrl);
+  let auth = config.authByApiUrl?.[normalizedApiUrl];
 
-  if (!config.auth || !config.auth.accessToken) {
+  if (!auth || !auth.accessToken) {
     return null;
   }
 
-  return config.auth;
+  return auth;
 }
 
 /**
  * Save authentication tokens to global config
  * @param {Object} auth - Auth object with accessToken, refreshToken, expiresAt, user
+ * @param {string} [apiUrl] - API URL scope (defaults to cloud)
  * @returns {Promise<void>}
  */
-export async function saveAuthTokens(auth) {
-  const config = await loadGlobalConfig();
+export async function saveAuthTokens(auth, apiUrl = DEFAULT_AUTH_API_URL) {
+  let config = await loadMigratedGlobalConfig();
+  let normalizedApiUrl = normalizeApiUrl(apiUrl);
 
-  config.auth = {
-    accessToken: auth.accessToken,
-    refreshToken: auth.refreshToken,
-    expiresAt: auth.expiresAt,
-    user: auth.user,
+  config.authByApiUrl = {
+    ...(config.authByApiUrl || {}),
+    [normalizedApiUrl]: {
+      accessToken: auth.accessToken,
+      refreshToken: auth.refreshToken,
+      expiresAt: auth.expiresAt,
+      user: auth.user,
+    },
   };
 
   await saveGlobalConfig(config);
@@ -160,20 +220,31 @@ export async function saveAuthTokens(auth) {
 
 /**
  * Clear authentication tokens from global config
+ * @param {string} [apiUrl] - API URL scope (defaults to cloud)
  * @returns {Promise<void>}
  */
-export async function clearAuthTokens() {
-  const config = await loadGlobalConfig();
-  delete config.auth;
+export async function clearAuthTokens(apiUrl = DEFAULT_AUTH_API_URL) {
+  let config = await loadMigratedGlobalConfig();
+  let normalizedApiUrl = normalizeApiUrl(apiUrl);
+
+  if (config.authByApiUrl) {
+    delete config.authByApiUrl[normalizedApiUrl];
+
+    if (Object.keys(config.authByApiUrl).length === 0) {
+      delete config.authByApiUrl;
+    }
+  }
+
   await saveGlobalConfig(config);
 }
 
 /**
  * Check if authentication tokens exist and are not expired
+ * @param {string} [apiUrl] - API URL scope (defaults to cloud)
  * @returns {Promise<boolean>} True if valid tokens exist
  */
-export async function hasValidTokens() {
-  const auth = await getAuthTokens();
+export async function hasValidTokens(apiUrl = DEFAULT_AUTH_API_URL) {
+  let auth = await getAuthTokens(apiUrl);
 
   if (!auth || !auth.accessToken) {
     return false;
@@ -196,12 +267,13 @@ export async function hasValidTokens() {
 
 /**
  * Get the access token from global config if valid and not expired
+ * @param {string} [apiUrl] - API URL scope (defaults to cloud)
  * @returns {Promise<string|null>} Access token or null
  */
-export async function getAccessToken() {
-  let valid = await hasValidTokens();
+export async function getAccessToken(apiUrl = DEFAULT_AUTH_API_URL) {
+  let valid = await hasValidTokens(apiUrl);
   if (!valid) return null;
 
-  let auth = await getAuthTokens();
+  let auth = await getAuthTokens(apiUrl);
   return auth?.accessToken || null;
 }

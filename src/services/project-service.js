@@ -31,7 +31,7 @@ export function createProjectService(options = {}) {
   let httpClient = options.httpClient || createAuthClient({ baseUrl: apiUrl });
 
   // Allow injection of getAuthTokens for testing
-  let tokenGetter = options.getAuthTokens || getAuthTokens;
+  let tokenGetter = options.getAuthTokens || (() => getAuthTokens(apiUrl));
 
   /**
    * Create an OAuth client with current access token

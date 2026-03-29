@@ -13,6 +13,10 @@ import {
   generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
+import {
+  resolveProjectTarget as defaultResolveProjectTarget,
+  validateTargetOptions,
+} from '../utils/project-target.js';
 import { writeSession as defaultWriteSession } from '../utils/session.js';
 
 /**
@@ -78,6 +82,7 @@ export async function uploadCommand(
     detectCommitMessage = defaultDetectCommitMessage,
     detectPullRequestNumber = defaultDetectPullRequestNumber,
     generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
+    resolveProjectTarget = defaultResolveProjectTarget,
     output = defaultOutput,
     writeSession = defaultWriteSession,
     exit = code => process.exit(code),
@@ -109,6 +114,20 @@ export async function uploadCommand(
       exit(1);
       return { success: false, reason: 'no-api-key' };
     }
+
+    let resolvedTarget = await resolveProjectTarget({
+      command: 'upload',
+      options,
+      config,
+    });
+    if (resolvedTarget.target) {
+      config.target = resolvedTarget.target;
+    }
+    output.debug('target', {
+      command: 'upload',
+      source: resolvedTarget.source,
+      target: resolvedTarget.target,
+    });
 
     // Collect git metadata if not provided
     const branch = await detectBranch(options.branch);
@@ -145,6 +164,7 @@ export async function uploadCommand(
       metadata: options.metadata ? JSON.parse(options.metadata) : {},
       pullRequestNumber,
       parallelId: config.parallelId,
+      target: config.target,
       onProgress: progressData => {
         const {
           message: progressMessage,
@@ -443,6 +463,8 @@ export function validateUploadOptions(screenshotsPath, options) {
       errors.push('Upload timeout must be a positive integer (milliseconds)');
     }
   }
+
+  errors.push(...validateTargetOptions(options));
 
   return errors;
 }

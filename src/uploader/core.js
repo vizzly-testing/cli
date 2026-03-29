@@ -107,7 +107,7 @@ export function extractBrowserFromFilename(filename) {
  * @returns {Object} Build info payload
  */
 export function buildBuildInfo(options, defaultBranch = 'main') {
-  return {
+  let buildInfo = {
     name: options.buildName || `Upload ${new Date().toISOString()}`,
     branch: options.branch || defaultBranch || 'main',
     commit_sha: options.commit,
@@ -117,6 +117,12 @@ export function buildBuildInfo(options, defaultBranch = 'main') {
     github_pull_request_number: options.pullRequestNumber,
     parallel_id: options.parallelId,
   };
+
+  if (options.target) {
+    buildInfo.target = options.target;
+  }
+
+  return buildInfo;
 }
 
 // ============================================================================

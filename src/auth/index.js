@@ -45,10 +45,10 @@ export { clearAuthTokens, getAuthTokens, saveAuthTokens };
  * Create a token store adapter from global-config functions
  * Used by auth operations that need tokenStore parameter
  */
-export function createTokenStore() {
+export function createTokenStore(apiUrl) {
   return {
-    getTokens: getAuthTokens,
-    saveTokens: saveAuthTokens,
-    clearTokens: clearAuthTokens,
+    getTokens: () => getAuthTokens(apiUrl),
+    saveTokens: tokens => saveAuthTokens(tokens, apiUrl),
+    clearTokens: () => clearAuthTokens(apiUrl),
   };
 }

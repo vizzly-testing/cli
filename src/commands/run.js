@@ -28,6 +28,10 @@ import {
   generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
+import {
+  resolveProjectTarget as defaultResolveProjectTarget,
+  validateTargetOptions,
+} from '../utils/project-target.js';
 import { writeSession as defaultWriteSession } from '../utils/session.js';
 
 /**
@@ -60,6 +64,7 @@ export async function runCommand(
     detectCommitMessage = defaultDetectCommitMessage,
     detectPullRequestNumber = defaultDetectPullRequestNumber,
     generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
+    resolveProjectTarget = defaultResolveProjectTarget,
     spawn = defaultSpawn,
     output = defaultOutput,
     writeSession = defaultWriteSession,
@@ -173,6 +178,22 @@ export async function runCommand(
       return { success: false, reason: 'no-api-key' };
     }
 
+    if (config.apiKey) {
+      let resolvedTarget = await resolveProjectTarget({
+        command: 'run',
+        options,
+        config,
+      });
+      if (resolvedTarget.target) {
+        config.target = resolvedTarget.target;
+      }
+      output.debug('target', {
+        command: 'run',
+        source: resolvedTarget.source,
+        target: resolvedTarget.target,
+      });
+    }
+
     // Collect git metadata and build info
     let branch = await detectBranch(options.branch);
     let commit = await detectCommit(options.commit);
@@ -245,6 +266,7 @@ export async function runCommand(
       uploadAll: options.uploadAll || false,
       pullRequestNumber,
       parallelId: config.parallelId,
+      target: config.target,
     };
 
     // Start test run
@@ -599,6 +621,8 @@ export function validateRunOptions(testCommand, options) {
       errors.push('Upload timeout must be a positive integer (milliseconds)');
     }
   }
+
+  errors.push(...validateTargetOptions(options));
 
   return errors;
 }

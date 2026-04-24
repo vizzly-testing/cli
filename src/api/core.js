@@ -69,6 +69,15 @@ export function buildRequestHeaders({
 // Payload Construction
 // ============================================================================
 
+function cleanString(value) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  let trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+}
+
 /**
  * Build payload for screenshot upload
  * @param {string} name - Screenshot name
@@ -94,6 +103,43 @@ export function buildScreenshotPayload(
   }
 
   return payload;
+}
+
+/**
+ * Build payload for explicit project targeting
+ * @param {Object|null|undefined} target - Target options
+ * @returns {Object|null} Normalized target payload
+ */
+export function buildTargetPayload(target) {
+  if (!target || typeof target !== 'object' || Array.isArray(target)) {
+    return null;
+  }
+
+  let projectId = cleanString(
+    target.projectId || target.project_id || target.id
+  );
+  let organizationSlug = cleanString(
+    target.organizationSlug ||
+      target.organization_slug ||
+      target.organization?.slug ||
+      target.organization
+  );
+  let projectSlug = cleanString(
+    target.projectSlug ||
+      target.project_slug ||
+      target.project?.slug ||
+      target.project
+  );
+
+  if (projectId) {
+    return { projectId };
+  }
+
+  if (organizationSlug && projectSlug) {
+    return { organizationSlug, projectSlug };
+  }
+
+  return null;
 }
 
 /**

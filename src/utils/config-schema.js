@@ -52,6 +52,29 @@ const tddSchema = z.object({
   openReport: z.boolean().default(false),
 });
 
+const targetSchema = z
+  .object({
+    organizationSlug: z.string().trim().min(1).optional(),
+    projectSlug: z.string().trim().min(1).optional(),
+    projectId: z.string().trim().min(1).optional(),
+  })
+  .superRefine((target, ctx) => {
+    if (target.projectId) {
+      return;
+    }
+
+    let hasOrganizationSlug = Boolean(target.organizationSlug);
+    let hasProjectSlug = Boolean(target.projectSlug);
+
+    if (hasOrganizationSlug !== hasProjectSlug) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'target.organizationSlug and target.projectSlug must be provided together unless target.projectId is set',
+      });
+    }
+  });
+
 /**
  * Core Vizzly configuration schema
  * Allows plugin-specific keys with passthrough for extensibility
@@ -61,6 +84,7 @@ export const vizzlyConfigSchema = z
     // Core Vizzly config
     apiKey: z.string().optional(),
     apiUrl: z.string().url().optional(),
+    target: targetSchema.optional(),
     server: serverSchema.default({ port: 47392, timeout: 30000 }),
     build: buildSchema.default({
       name: 'Build {timestamp}',

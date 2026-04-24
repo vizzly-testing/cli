@@ -167,6 +167,20 @@ describe('test-runner/core', () => {
 
       assert.strictEqual(payload.metadata, undefined);
     });
+
+    it('includes explicit target when provided', () => {
+      let payload = buildApiBuildPayload({
+        target: {
+          organizationSlug: 'acme',
+          projectSlug: 'marketing-site',
+        },
+      });
+
+      assert.deepStrictEqual(payload.target, {
+        organizationSlug: 'acme',
+        projectSlug: 'marketing-site',
+      });
+    });
   });
 
   describe('shouldDisableVizzly', () => {

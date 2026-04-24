@@ -17,54 +17,69 @@ import * as output from '../utils/output.js';
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
  */
-export async function logoutCommand(options = {}, globalOptions = {}) {
-  output.configure({
+export async function logoutCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
+  let {
+    createAuthClient: createAuthClientImpl = createAuthClient,
+    createTokenStore: createTokenStoreImpl = createTokenStore,
+    getAuthTokens: getAuthTokensImpl = getAuthTokens,
+    logout: logoutImpl = logout,
+    output: outputImpl = output,
+    exit = code => process.exit(code),
+  } = deps;
+
+  outputImpl.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
     color: !globalOptions.noColor,
   });
 
   try {
+    let apiUrl = globalOptions.apiUrl || options.apiUrl || getApiUrl();
+
     // Check if user is logged in
-    let auth = await getAuthTokens();
+    let auth = await getAuthTokensImpl(apiUrl);
 
     if (!auth || !auth.accessToken) {
       if (globalOptions.json) {
-        output.data({ loggedOut: false, reason: 'not_logged_in' });
+        outputImpl.data({ loggedOut: false, reason: 'not_logged_in' });
       } else {
-        output.header('logout');
-        output.print('  Not logged in');
+        outputImpl.header('logout');
+        outputImpl.print('  Not logged in');
       }
-      output.cleanup();
+      outputImpl.cleanup();
       return;
     }
 
     // Logout
-    output.startSpinner('Logging out...');
+    outputImpl.startSpinner('Logging out...');
 
-    let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
+    let client = createAuthClientImpl({
+      baseUrl: apiUrl,
     });
-    let tokenStore = createTokenStore();
+    let tokenStore = createTokenStoreImpl(apiUrl);
 
-    await logout(client, tokenStore);
+    await logoutImpl(client, tokenStore);
 
-    output.stopSpinner();
+    outputImpl.stopSpinner();
 
     if (globalOptions.json) {
-      output.data({ loggedOut: true });
+      outputImpl.data({ loggedOut: true });
     } else {
-      output.header('logout');
-      output.complete('Logged out');
-      output.blank();
-      output.hint('Run "vizzly login" to authenticate again');
+      outputImpl.header('logout');
+      outputImpl.complete('Logged out');
+      outputImpl.blank();
+      outputImpl.hint('Run "vizzly login" to authenticate again');
     }
 
-    output.cleanup();
+    outputImpl.cleanup();
   } catch (error) {
-    output.stopSpinner();
-    output.error('Logout failed', error);
-    process.exit(1);
+    outputImpl.stopSpinner();
+    outputImpl.error('Logout failed', error);
+    exit(1);
   }
 }
 

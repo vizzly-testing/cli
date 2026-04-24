@@ -43,6 +43,20 @@ function createMockOutput() {
   };
 }
 
+function createMockConfig(overrides = {}) {
+  return {
+    apiKey: 'test-token',
+    apiUrl: 'https://api.test',
+    target: {
+      organizationSlug: 'acme',
+      projectSlug: 'marketing-site',
+    },
+    build: { environment: 'test' },
+    comparison: { threshold: 2.0 },
+    ...overrides,
+  };
+}
+
 describe('validateUploadOptions', () => {
   describe('screenshots path validation', () => {
     it('should pass with valid screenshots path', () => {
@@ -189,6 +203,30 @@ describe('validateUploadOptions', () => {
     });
   });
 
+  describe('target validation', () => {
+    it('should fail with --project but no --org', () => {
+      let errors = validateUploadOptions('./screenshots', {
+        project: 'web-app',
+      });
+      assert.ok(
+        errors.includes(
+          '--project requires --org. Pass both --org and --project, or use --project-id.'
+        )
+      );
+    });
+
+    it('should fail with --org but no --project', () => {
+      let errors = validateUploadOptions('./screenshots', {
+        org: 'acme',
+      });
+      assert.ok(
+        errors.includes(
+          '--org requires --project. Pass both --org and --project, or use --project-id.'
+        )
+      );
+    });
+  });
+
   describe('multiple validation errors', () => {
     it('should return all validation errors', () => {
       let errors = validateUploadOptions(null, {
@@ -299,12 +337,7 @@ describe('uploadCommand', () => {
       {},
       {},
       {
-        loadConfig: async () => ({
-          apiKey: null,
-          apiUrl: 'https://api.test',
-          build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () => createMockConfig({ apiKey: null }),
         output,
         exit: code => {
           exitCode = code;
@@ -315,6 +348,35 @@ describe('uploadCommand', () => {
     assert.strictEqual(result.success, false);
     assert.strictEqual(result.reason, 'no-api-key');
     assert.strictEqual(exitCode, 1);
+  });
+
+  it('returns error when target cannot be resolved', async () => {
+    let output = createMockOutput();
+    let exitCode = null;
+
+    let result = await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () =>
+          createMockConfig({ apiKey: 'user-token', target: undefined }),
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
+
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(exitCode, 1);
+    assert.ok(
+      output.calls.some(
+        c =>
+          c.method === 'error' &&
+          c.args[0].includes('This command needs a target project')
+      )
+    );
   });
 
   it('uploads screenshots and finalizes build', async () => {
@@ -328,12 +390,7 @@ describe('uploadCommand', () => {
       {},
       {},
       {
-        loadConfig: async () => ({
-          apiKey: 'test-token',
-          apiUrl: 'https://api.test',
-          build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () => createMockConfig(),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
         detectCommitMessage: async () => 'Test commit',
@@ -368,6 +425,84 @@ describe('uploadCommand', () => {
     assert.ok(output.calls.some(c => c.method === 'complete'));
   });
 
+  it('passes resolved target to the upload flow for user auth', async () => {
+    let output = createMockOutput();
+    let capturedUploadOptions = null;
+
+    await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () => createMockConfig({ apiKey: 'user-token' }),
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async options => {
+            capturedUploadOptions = options;
+            return {
+              buildId: 'build-123',
+              url: 'https://app.vizzly.dev/builds/build-123',
+              stats: { uploaded: 1, total: 1, skipped: 0, bytes: 10 },
+            };
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.deepStrictEqual(capturedUploadOptions.target, {
+      organizationSlug: 'acme',
+      projectSlug: 'marketing-site',
+    });
+  });
+
+  it('keeps project token uploads working without an explicit target', async () => {
+    let output = createMockOutput();
+    let capturedUploadOptions = null;
+
+    let result = await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () =>
+          createMockConfig({
+            apiKey: 'vzt_project-token',
+            target: undefined,
+          }),
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async options => {
+            capturedUploadOptions = options;
+            return {
+              buildId: 'build-123',
+              url: 'https://app.vizzly.dev/builds/build-123',
+              stats: { uploaded: 1, total: 1, skipped: 0, bytes: 10 },
+            };
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(capturedUploadOptions.target, undefined);
+  });
+
   it('handles upload errors and marks build as failed', async () => {
     let output = createMockOutput();
     let exitCode = null;
@@ -378,12 +513,7 @@ describe('uploadCommand', () => {
       {},
       {},
       {
-        loadConfig: async () => ({
-          apiKey: 'test-token',
-          apiUrl: 'https://api.test',
-          build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () => createMockConfig(),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
         detectCommitMessage: async () => 'Test commit',
@@ -423,12 +553,7 @@ describe('uploadCommand', () => {
       { wait: true },
       {},
       {
-        loadConfig: async () => ({
-          apiKey: 'test-token',
-          apiUrl: 'https://api.test',
-          build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () => createMockConfig(),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
         detectCommitMessage: async () => 'Test commit',
@@ -465,12 +590,7 @@ describe('uploadCommand', () => {
       { wait: true },
       {},
       {
-        loadConfig: async () => ({
-          apiKey: 'test-token',
-          apiUrl: 'https://api.test',
-          build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () => createMockConfig(),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
         detectCommitMessage: async () => 'Test commit',
@@ -511,12 +631,7 @@ describe('uploadCommand', () => {
       {},
       {},
       {
-        loadConfig: async () => ({
-          apiKey: 'test-token',
-          apiUrl: 'https://api.test',
-          build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () => createMockConfig(),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
         detectCommitMessage: async () => 'Test commit',
@@ -553,12 +668,7 @@ describe('uploadCommand', () => {
       {},
       {},
       {
-        loadConfig: async () => ({
-          apiKey: 'test-token',
-          apiUrl: 'https://api.test',
-          build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () => createMockConfig(),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
         detectCommitMessage: async () => 'Test commit',
@@ -598,12 +708,10 @@ describe('uploadCommand', () => {
       {},
       { verbose: true },
       {
-        loadConfig: async () => ({
-          apiKey: 'test-token',
-          apiUrl: 'https://api.test',
-          build: { environment: 'test', name: 'Test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () =>
+          createMockConfig({
+            build: { environment: 'test', name: 'Test' },
+          }),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
         detectCommitMessage: async () => 'Test commit',
@@ -639,12 +747,7 @@ describe('uploadCommand', () => {
       {},
       {},
       {
-        loadConfig: async () => ({
-          apiKey: 'test-token',
-          apiUrl: 'https://api.test',
-          build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
-        }),
+        loadConfig: async () => createMockConfig(),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
         detectCommitMessage: async () => 'Test commit',

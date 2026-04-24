@@ -32,6 +32,18 @@ function createMockOutput() {
   };
 }
 
+function createMockConfig(overrides = {}) {
+  return {
+    apiKey: 'test-token',
+    apiUrl: 'https://api.test',
+    target: {
+      organizationSlug: 'acme',
+      projectSlug: 'marketing-site',
+    },
+    ...overrides,
+  };
+}
+
 describe('commands/finalize', () => {
   describe('validateFinalizeOptions', () => {
     it('returns no errors for valid parallel ID', () => {
@@ -57,6 +69,22 @@ describe('commands/finalize', () => {
     it('returns error for undefined parallel ID', () => {
       let errors = validateFinalizeOptions(undefined, {});
       assert.deepStrictEqual(errors, ['Parallel ID is required']);
+    });
+
+    it('returns error for --project without --org', () => {
+      let errors = validateFinalizeOptions('parallel-123', {
+        project: 'web-app',
+      });
+      assert.deepStrictEqual(errors, [
+        '--project requires --org. Pass both --org and --project, or use --project-id.',
+      ]);
+    });
+
+    it('returns error for --org without --project', () => {
+      let errors = validateFinalizeOptions('parallel-123', { org: 'acme' });
+      assert.deepStrictEqual(errors, [
+        '--org requires --project. Pass both --org and --project, or use --project-id.',
+      ]);
     });
   });
 
@@ -87,26 +115,55 @@ describe('commands/finalize', () => {
       assert.ok(output.calls.some(c => c.method === 'error'));
     });
 
-    it('calls finalizeParallelBuild with correct params', async () => {
+    it('returns error when target cannot be resolved for user auth', async () => {
       let output = createMockOutput();
-      let capturedClient = null;
-      let capturedParallelId = null;
+      let exitCode = null;
 
       let result = await finalizeCommand(
         'parallel-123',
         {},
         {},
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () =>
+            createMockConfig({ apiKey: 'user-token', target: undefined }),
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(exitCode, 1);
+      assert.ok(
+        output.calls.some(
+          c =>
+            c.method === 'error' &&
+            c.args[0] === 'Failed to finalize parallel build' &&
+            c.args[1]?.message?.includes('This command needs a target project')
+        )
+      );
+    });
+
+    it('calls finalizeParallelBuild with correct params', async () => {
+      let output = createMockOutput();
+      let capturedClient = null;
+      let capturedParallelId = null;
+      let capturedOptions = null;
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () => createMockConfig({ apiKey: 'user-token' }),
           createApiClient: opts => {
             capturedClient = opts;
             return { request: async () => ({}) };
           },
-          finalizeParallelBuild: async (_client, parallelId) => {
+          finalizeParallelBuild: async (_client, parallelId, options) => {
             capturedParallelId = parallelId;
+            capturedOptions = options;
             return {
               build: {
                 id: 'build-456',
@@ -122,8 +179,48 @@ describe('commands/finalize', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(capturedParallelId, 'parallel-123');
-      assert.strictEqual(capturedClient.token, 'test-token');
+      assert.strictEqual(capturedClient.token, 'user-token');
       assert.strictEqual(capturedClient.command, 'finalize');
+      assert.deepStrictEqual(capturedOptions, {
+        target: {
+          organizationSlug: 'acme',
+          projectSlug: 'marketing-site',
+        },
+      });
+    });
+
+    it('keeps project token finalize working without an explicit target', async () => {
+      let output = createMockOutput();
+      let capturedOptions = null;
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () =>
+            createMockConfig({
+              apiKey: 'vzt_project-token',
+              target: undefined,
+            }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async (_client, _parallelId, options) => {
+            capturedOptions = options;
+            return {
+              build: {
+                id: 'build-456',
+                status: 'completed',
+                parallel_id: 'parallel-123',
+              },
+            };
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.deepStrictEqual(capturedOptions, { target: undefined });
     });
 
     it('outputs JSON when json flag is set', async () => {
@@ -134,10 +231,7 @@ describe('commands/finalize', () => {
         {},
         { json: true },
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => ({
             build: {
@@ -164,10 +258,7 @@ describe('commands/finalize', () => {
         {},
         { json: false },
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => ({
             build: {
@@ -195,10 +286,7 @@ describe('commands/finalize', () => {
         {},
         { verbose: true },
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => ({
             build: {
@@ -224,10 +312,7 @@ describe('commands/finalize', () => {
         {},
         {},
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => {
             throw new Error('API error');
@@ -254,10 +339,7 @@ describe('commands/finalize', () => {
         {},
         {},
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => ({
             build: {
@@ -287,7 +369,7 @@ describe('commands/finalize', () => {
           loadConfig: async (configPath, options) => {
             capturedConfigPath = configPath;
             capturedOptions = options;
-            return { apiKey: 'test-token', apiUrl: 'https://api.test' };
+            return createMockConfig();
           },
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => ({
@@ -315,10 +397,7 @@ describe('commands/finalize', () => {
         {},
         {},
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => {
             throw apiError;
@@ -353,10 +432,7 @@ describe('commands/finalize', () => {
         {},
         { strict: true },
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => {
             throw apiError;
@@ -388,10 +464,7 @@ describe('commands/finalize', () => {
         {},
         {},
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => {
             throw apiError;
@@ -426,10 +499,7 @@ describe('commands/finalize', () => {
         {},
         { strict: true },
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => {
             throw apiError;
@@ -462,10 +532,7 @@ describe('commands/finalize', () => {
         {},
         { verbose: true },
         {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
+          loadConfig: async () => createMockConfig(),
           createApiClient: () => ({ request: async () => ({}) }),
           finalizeParallelBuild: async () => {
             throw apiError;

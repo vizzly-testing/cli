@@ -45,9 +45,9 @@ export function createAuthService(options = {}) {
   // Create token store adapter for global config
   // Allow injection for testing
   let tokenStore = options.tokenStore || {
-    getTokens: getAuthTokens,
-    saveTokens: saveAuthTokens,
-    clearTokens: clearAuthTokens,
+    getTokens: () => getAuthTokens(apiUrl),
+    saveTokens: tokens => saveAuthTokens(tokens, apiUrl),
+    clearTokens: () => clearAuthTokens(apiUrl),
   };
 
   return {

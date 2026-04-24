@@ -16,6 +16,7 @@ import {
   buildScreenshotCheckObject,
   buildScreenshotPayload,
   buildShaCheckPayload,
+  buildTargetPayload,
   buildUserAgent,
   computeSha256,
   extractErrorBody,
@@ -381,6 +382,32 @@ describe('api/core', () => {
       });
 
       assert.deepStrictEqual(result.metadata, { ci: 'github' });
+    });
+  });
+
+  describe('buildTargetPayload', () => {
+    it('builds a project id target', () => {
+      let result = buildTargetPayload({ projectId: 'proj_123' });
+
+      assert.deepStrictEqual(result, { projectId: 'proj_123' });
+    });
+
+    it('normalizes slug targets from nested objects', () => {
+      let result = buildTargetPayload({
+        organization: { slug: 'acme' },
+        project: { slug: 'marketing-site' },
+      });
+
+      assert.deepStrictEqual(result, {
+        organizationSlug: 'acme',
+        projectSlug: 'marketing-site',
+      });
+    });
+
+    it('returns null for partial targets', () => {
+      let result = buildTargetPayload({ organizationSlug: 'acme' });
+
+      assert.strictEqual(result, null);
     });
   });
 

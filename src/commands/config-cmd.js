@@ -40,6 +40,7 @@ export async function configCommand(
 
     // Build the config object to display
     let displayConfig = {
+      target: config.target || {},
       server: config.server || { port: 47392, timeout: 30000 },
       build: config.build || {},
       upload: config.upload || {},
@@ -109,6 +110,7 @@ export async function configCommand(
     displaySection(output, 'TDD', displayConfig.tdd);
 
     if (globalOptions.verbose) {
+      displaySection(output, 'Target', displayConfig.target);
       displaySection(output, 'Build', displayConfig.build);
       displaySection(output, 'Upload', displayConfig.upload);
 

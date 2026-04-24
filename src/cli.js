@@ -263,6 +263,7 @@ program
   .description('Vizzly CLI for visual regression testing')
   .version(getPackageVersion())
   .option('-c, --config <path>', 'Config file path')
+  .option('--api-url <url>', 'API URL override')
   .option('--token <token>', 'Vizzly API token')
   .option('-v, --verbose', 'Verbose output (shorthand for --log-level debug)')
   .option(
@@ -389,6 +390,9 @@ program
   .option('--commit <sha>', 'Git commit SHA')
   .option('--message <msg>', 'Commit message')
   .option('--environment <env>', 'Environment name', 'test')
+  .option('--org <slug>', 'Target organization slug')
+  .option('--project <slug>', 'Target project slug')
+  .option('--project-id <id>', 'Target project ID')
   .option('--threshold <number>', 'Comparison threshold', parseFloat)
   .option('--token <token>', 'API token override')
   .option('--wait', 'Wait for build completion')
@@ -565,6 +569,9 @@ program
   .option('--commit <sha>', 'Git commit SHA')
   .option('--message <msg>', 'Commit message')
   .option('--environment <env>', 'Environment name', 'test')
+  .option('--org <slug>', 'Target organization slug')
+  .option('--project <slug>', 'Target project slug')
+  .option('--project-id <id>', 'Target project ID')
   .option('--token <token>', 'API token override')
   .option('--wait', 'Wait for build completion')
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
@@ -997,6 +1004,9 @@ program
   .command('finalize')
   .description('Finalize a parallel build after all shards complete')
   .argument('<parallel-id>', 'Parallel ID to finalize')
+  .option('--org <slug>', 'Target organization slug')
+  .option('--project <slug>', 'Target project slug')
+  .option('--project-id <id>', 'Target project ID')
   .action(async (parallelId, options) => {
     const globalOptions = program.opts();
 
@@ -1019,6 +1029,9 @@ program
   .argument('[path]', 'Path to static files (dist/, build/, out/)')
   .option('-b, --build <id>', 'Build ID to attach preview to')
   .option('-p, --parallel-id <id>', 'Look up build by parallel ID')
+  .option('--org <slug>', 'Target organization slug')
+  .option('--project <slug>', 'Target project slug')
+  .option('--project-id <id>', 'Target project ID')
   .option('--base <path>', 'Override auto-detected base path')
   .option('--open', 'Open preview URL in browser after upload')
   .option('--dry-run', 'Show what would be uploaded without uploading')
@@ -1088,7 +1101,6 @@ program
 program
   .command('login')
   .description('Authenticate with your Vizzly account')
-  .option('--api-url <url>', 'API URL override')
   .action(async options => {
     const globalOptions = program.opts();
 
@@ -1108,7 +1120,6 @@ program
 program
   .command('logout')
   .description('Clear stored authentication tokens')
-  .option('--api-url <url>', 'API URL override')
   .action(async options => {
     const globalOptions = program.opts();
 
@@ -1128,7 +1139,6 @@ program
 program
   .command('whoami')
   .description('Show current authentication status and user information')
-  .option('--api-url <url>', 'API URL override')
   .action(async options => {
     const globalOptions = program.opts();
 

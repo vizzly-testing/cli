@@ -205,6 +205,23 @@ describe('uploader/core', () => {
       let result = buildBuildInfo({}, null);
       assert.strictEqual(result.branch, 'main');
     });
+
+    it('includes explicit target when provided', () => {
+      let result = buildBuildInfo(
+        {
+          target: {
+            organizationSlug: 'acme',
+            projectSlug: 'marketing-site',
+          },
+        },
+        'main'
+      );
+
+      assert.deepStrictEqual(result.target, {
+        organizationSlug: 'acme',
+        projectSlug: 'marketing-site',
+      });
+    });
   });
 
   describe('computeSha256', () => {

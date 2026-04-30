@@ -231,7 +231,7 @@ export class VizzlySDK extends EventEmitter {
    * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
    */
   async screenshot(name, imageBuffer, options = {}) {
-    if (!this.server || !this.server.isRunning()) {
+    if (!this.server?.isRunning()) {
       throw new VizzlyError(
         'Server not running. Call start() first.',
         'SERVER_NOT_RUNNING'

@@ -8,16 +8,16 @@ import { EventEmitter } from 'node:events';
 
 // Re-export common types
 export {
-  VizzlyConfig,
+  BaselineData,
+  ComparisonResult,
+  OutputUtils,
   ScreenshotOptions,
+  TddResults,
+  TddService,
+  Uploader,
   UploadOptions,
   UploadResult,
-  ComparisonResult,
-  TddResults,
-  BaselineData,
-  Uploader,
-  TddService,
-  OutputUtils,
+  VizzlyConfig,
 } from './index';
 
 /**

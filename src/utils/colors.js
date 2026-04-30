@@ -60,7 +60,7 @@ function supportsColorDefault() {
   }
 
   // If stdout is not a TTY, assume no color
-  if (!process.stdout || !process.stdout.isTTY) return false;
+  if (!process.stdout?.isTTY) return false;
 
   // Prefer getColorDepth when available
   try {

@@ -26,7 +26,7 @@ export async function downloadHotspots(options) {
   try {
     let response = await api.getHotspots(screenshotNames);
 
-    if (!response || !response.hotspots) {
+    if (!response?.hotspots) {
       return { success: false, error: 'API returned no hotspot data' };
     }
 

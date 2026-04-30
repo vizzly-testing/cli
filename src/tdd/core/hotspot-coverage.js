@@ -20,11 +20,7 @@ export function calculateHotspotCoverage(diffClusters, hotspotAnalysis) {
     return { coverage: 0, linesInHotspots: 0, totalLines: 0 };
   }
 
-  if (
-    !hotspotAnalysis ||
-    !hotspotAnalysis.regions ||
-    hotspotAnalysis.regions.length === 0
-  ) {
+  if (!hotspotAnalysis?.regions || hotspotAnalysis.regions.length === 0) {
     return { coverage: 0, linesInHotspots: 0, totalLines: 0 };
   }
 

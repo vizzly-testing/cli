@@ -173,7 +173,7 @@ export function buildTokenData(response, existingUser = null) {
  * @returns {{ valid: boolean, error: Error|null }}
  */
 export function validateTokens(auth, requiredField = 'accessToken') {
-  if (!auth || !auth[requiredField]) {
+  if (!auth?.[requiredField]) {
     let message =
       requiredField === 'refreshToken'
         ? 'No refresh token found. Please run "vizzly login" first.'

@@ -16,9 +16,17 @@ export function resolveContextSource(options = {}, deps = {}) {
   }
 
   let localProvider = createLocalWorkspaceContextProvider({ projectRoot });
+  let localSnapshot =
+    typeof localProvider.loadSnapshot === 'function'
+      ? localProvider.loadSnapshot()
+      : null;
+  let isLocalAvailable =
+    localSnapshot == null
+      ? localProvider.isAvailable()
+      : localProvider.isAvailable(localSnapshot);
 
   if (requestedSource === 'local') {
-    if (!localProvider.isAvailable()) {
+    if (!isLocalAvailable) {
       let error = new Error(
         'No local workspace context found. Start a local TDD session or ensure .vizzly/ has report data.'
       );
@@ -29,7 +37,12 @@ export function resolveContextSource(options = {}, deps = {}) {
     return 'local';
   }
 
-  if (localProvider.isAvailable() && localProvider.canHandle(command, target)) {
+  if (
+    isLocalAvailable &&
+    (localSnapshot == null
+      ? localProvider.canHandle(command, target)
+      : localProvider.canHandle(command, target, localSnapshot))
+  ) {
     return 'local';
   }
 

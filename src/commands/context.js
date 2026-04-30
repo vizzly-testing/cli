@@ -431,19 +431,22 @@ function displayFingerprintContext(output, context) {
   output.header('context', 'similar');
 
   let colors = output.getColors();
+  let fingerprintHash =
+    context.fingerprint?.hash || context.fingerprint_hash || 'unknown';
+  let comparisons = context.comparisons || context.matches || [];
 
-  output.print(`  ${colors.bold(context.fingerprint_hash)}`);
+  output.print(`  ${colors.bold(fingerprintHash)}`);
   output.print(
     `  ${colors.dim(`@${context.scope.organization.slug}/${context.scope.project.slug}`)}`
   );
   output.blank();
 
-  output.labelValue('Matches', String(context.comparisons.length));
+  output.labelValue('Matches', String(comparisons.length));
 
-  if (context.comparisons.length > 0) {
+  if (comparisons.length > 0) {
     output.blank();
     output.print('  Similar Diffs');
-    printComparisonList(output, context.comparisons, { limit: 10 });
+    printComparisonList(output, comparisons, { limit: 10 });
   }
 }
 

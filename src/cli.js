@@ -756,11 +756,7 @@ contextCmd
   .command('build')
   .description('Fetch a build context bundle')
   .argument('<build-id>', 'Build ID to fetch context for')
-  .option(
-    '--source <source>',
-    'Context source: auto, cloud, or local workspace',
-    'auto'
-  )
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .addHelpText(
     'after',
     `
@@ -789,11 +785,7 @@ contextCmd
   .command('comparison')
   .description('Fetch a comparison context bundle')
   .argument('<comparison-id>', 'Comparison ID to fetch context for')
-  .option(
-    '--source <source>',
-    'Context source: auto, cloud, or local workspace',
-    'auto'
-  )
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option(
     '--similar-limit <n>',
     'Maximum similar fingerprint matches to return (1-50)',
@@ -837,11 +829,7 @@ contextCmd
   .command('screenshot')
   .description('Fetch screenshot context and historical memory')
   .argument('<name>', 'Screenshot name')
-  .option(
-    '--source <source>',
-    'Context source: auto, cloud, or local workspace',
-    'auto'
-  )
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
   .option('--org <slug>', 'Organization slug when project slug is ambiguous')
   .option(
@@ -882,11 +870,7 @@ contextCmd
   .command('similar')
   .description('Fetch project-scoped matches for a fingerprint hash')
   .argument('<fingerprint-hash>', 'Fingerprint hash to search for')
-  .option(
-    '--source <source>',
-    'Context source: auto, cloud, or local workspace',
-    'auto'
-  )
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
   .option('--org <slug>', 'Organization slug when project slug is ambiguous')
   .option('--limit <n>', 'Maximum matches to return (1-50)', val =>
@@ -918,11 +902,7 @@ Examples:
 contextCmd
   .command('review-queue')
   .description('Fetch pending review context for a project')
-  .option(
-    '--source <source>',
-    'Context source: auto, cloud, or local workspace',
-    'auto'
-  )
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
   .option('--org <slug>', 'Organization slug when project slug is ambiguous')
   .option('--limit <n>', 'Maximum comparisons to return (1-100)', val =>

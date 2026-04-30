@@ -437,6 +437,72 @@ describe('commands/context', () => {
         )
       );
     });
+
+    it('explains the local similarity gap before an auth error in auto mode', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      await contextSimilarCommand(
+        'fp-dashboard',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiUrl: 'https://api.test',
+          }),
+          createLocalWorkspaceContextProvider: () => ({
+            isAvailable: () => true,
+            canHandle: () => false,
+          }),
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(exitCode, 1);
+      let errorCall = output.calls.find(call => call.method === 'error');
+      assert.ok(errorCall);
+      assert.strictEqual(
+        errorCall.args[1]?.message,
+        'Local workspace context does not support fingerprint similarity yet. Use --source cloud for this query.'
+      );
+    });
+
+    it('renders nested fingerprint hashes in human output', async () => {
+      let output = createMockOutput();
+
+      await contextSimilarCommand(
+        'fp-dashboard',
+        { project: 'storybook', org: 'acme' },
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getSimilarFingerprintContext: async () => ({
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'storybook' },
+            },
+            fingerprint: { hash: 'fp-dashboard' },
+            matches: [],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'print' && call.args[0].includes('fp-dashboard')
+        )
+      );
+    });
   });
 
   describe('contextReviewQueueCommand', () => {

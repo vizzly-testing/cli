@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, isAbsolute, join } from 'node:path';
 import { normalizeReportData } from '../reporter/src/utils/report-data.js';
 
 let LOCAL_CONTEXT_SOURCE = 'local_workspace';
+let DEFAULT_LOCAL_REVIEW_QUEUE_LIMIT = 50;
 
 function readJsonIfExists(path) {
   if (!existsSync(path)) {
@@ -88,7 +89,7 @@ function resolveAssetReference(assetPath, snapshot) {
     return null;
   }
 
-  if (/^https?:\/\//.test(assetPath) || assetPath.startsWith('/Users/')) {
+  if (/^https?:\/\//.test(assetPath) || isAbsolute(assetPath)) {
     return assetPath;
   }
 
@@ -285,10 +286,15 @@ function createLocalWorkspaceError(message) {
 export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
   let projectRoot = options.projectRoot || process.cwd();
   let readJson = deps.readJsonIfExists || readJsonIfExists;
+  let snapshotCache = null;
 
   function loadSnapshot() {
+    if (snapshotCache) {
+      return snapshotCache;
+    }
+
     let vizzlyDir = join(projectRoot, '.vizzly');
-    let snapshot = {
+    snapshotCache = {
       projectRoot,
       vizzlyDir,
       serverInfo: readJson(join(vizzlyDir, 'server.json')),
@@ -303,14 +309,12 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       regionFile: readJson(join(vizzlyDir, 'regions.json')),
     };
 
-    snapshot.hotspots = snapshot.hotspotFile?.hotspots || null;
-    snapshot.regions = snapshot.regionFile?.regions || null;
-    return snapshot;
+    snapshotCache.hotspots = snapshotCache.hotspotFile?.hotspots || null;
+    snapshotCache.regions = snapshotCache.regionFile?.regions || null;
+    return snapshotCache;
   }
 
-  function isAvailable() {
-    let snapshot = loadSnapshot();
-
+  function isAvailable(snapshot = loadSnapshot()) {
     return Boolean(
       snapshot.serverInfo ||
         snapshot.session ||
@@ -338,10 +342,8 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
     );
   }
 
-  function canHandle(command, target) {
-    let snapshot = loadSnapshot();
-
-    if (!isAvailable()) {
+  function canHandle(command, target, snapshot = loadSnapshot()) {
+    if (!isAvailable(snapshot)) {
       return false;
     }
 
@@ -540,7 +542,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
         comparison.status === 'failed' || comparison.status === 'new'
     );
     let offset = query.offset || 0;
-    let limit = query.limit || unresolved.length || 10;
+    let limit = query.limit || DEFAULT_LOCAL_REVIEW_QUEUE_LIMIT;
     let visible = unresolved
       .slice(offset, offset + limit)
       .map(comparison => mapLocalComparison(snapshot, comparison));
@@ -569,6 +571,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
 
   return {
     source: LOCAL_CONTEXT_SOURCE,
+    loadSnapshot,
     isAvailable,
     canHandle,
     getBuildContext,

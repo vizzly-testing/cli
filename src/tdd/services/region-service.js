@@ -27,7 +27,7 @@ export async function downloadRegions(options) {
   try {
     let response = await api.getRegions(screenshotNames, { includeCandidates });
 
-    if (!response || !response.regions) {
+    if (!response?.regions) {
       return { success: false, error: 'API returned no region data' };
     }
 

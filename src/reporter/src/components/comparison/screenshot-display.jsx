@@ -50,7 +50,7 @@ export function ScreenshotDisplay({
       const container = screenshotContainerRef.current;
       const image = container?.querySelector('img');
 
-      if (!container || !image || !image.naturalWidth) return;
+      if (!container || !image?.naturalWidth) return;
 
       // Always track natural size for overflow calculations
       setNaturalImageSize({

@@ -28,7 +28,7 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
     // Check if user is logged in
     let auth = await getAuthTokens();
 
-    if (!auth || !auth.accessToken) {
+    if (!auth?.accessToken) {
       if (globalOptions.json) {
         output.data({ loggedOut: false, reason: 'not_logged_in' });
       } else {

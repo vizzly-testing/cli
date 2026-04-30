@@ -408,7 +408,7 @@ export function serializeConfig(config, filepath) {
  * @returns {{ config: Object|null, filepath: string|null }}
  */
 export function extractCosmiconfigResult(result) {
-  if (!result || !result.config) {
+  if (!result?.config) {
     return { config: null, filepath: null };
   }
 

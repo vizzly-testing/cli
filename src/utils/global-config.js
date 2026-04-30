@@ -133,7 +133,7 @@ export async function getUserPath() {
 export async function getAuthTokens() {
   const config = await loadGlobalConfig();
 
-  if (!config.auth || !config.auth.accessToken) {
+  if (!config.auth?.accessToken) {
     return null;
   }
 
@@ -175,7 +175,7 @@ export async function clearAuthTokens() {
 export async function hasValidTokens() {
   const auth = await getAuthTokens();
 
-  if (!auth || !auth.accessToken) {
+  if (!auth?.accessToken) {
     return false;
   }
 

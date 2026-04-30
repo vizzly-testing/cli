@@ -28,7 +28,7 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
     // Check if user is logged in
     let auth = await getAuthTokens();
 
-    if (!auth || !auth.accessToken) {
+    if (!auth?.accessToken) {
       if (globalOptions.json) {
         output.data({ authenticated: false });
       } else {

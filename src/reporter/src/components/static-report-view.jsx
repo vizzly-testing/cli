@@ -523,7 +523,7 @@ function Header({ timestamp }) {
 }
 
 export default function StaticReportView({ reportData }) {
-  if (!reportData || !reportData.comparisons) {
+  if (!reportData?.comparisons) {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
         <div className="text-center">

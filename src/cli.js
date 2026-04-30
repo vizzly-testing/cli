@@ -12,6 +12,18 @@ import {
   validateComparisonsOptions,
 } from './commands/comparisons.js';
 import { configCommand, validateConfigOptions } from './commands/config-cmd.js';
+import {
+  contextBuildCommand,
+  contextComparisonCommand,
+  contextReviewQueueCommand,
+  contextScreenshotCommand,
+  contextSimilarCommand,
+  validateContextBuildOptions,
+  validateContextComparisonOptions,
+  validateContextReviewQueueOptions,
+  validateContextScreenshotOptions,
+  validateContextSimilarOptions,
+} from './commands/context.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
   finalizeCommand,
@@ -106,6 +118,7 @@ const formatHelp = (cmd, helper) => {
             'tdd',
             'upload',
             'status',
+            'context',
             'finalize',
             'preview',
             'builds',
@@ -258,6 +271,59 @@ const formatHelp = (cmd, helper) => {
   return lines.join('\n');
 };
 
+function extractGlobalOptionsFromArgv(argv, commandNames = null) {
+  let configPath = null;
+  let verboseMode = false;
+  let logLevelArg = null;
+  let jsonArg = null;
+
+  for (let i = 0; i < argv.length; i++) {
+    if ((argv[i] === '-c' || argv[i] === '--config') && argv[i + 1]) {
+      configPath = argv[i + 1];
+    }
+
+    if (argv[i] === '-v' || argv[i] === '--verbose') {
+      verboseMode = true;
+    }
+
+    if (argv[i] === '--log-level' && argv[i + 1]) {
+      logLevelArg = argv[i + 1];
+    }
+
+    if (argv[i] === '--json') {
+      let nextArg = argv[i + 1];
+      let nextArgIsCommand = commandNames?.has(nextArg);
+
+      if (nextArg && !nextArg.startsWith('-') && !nextArgIsCommand) {
+        jsonArg = nextArg;
+      } else {
+        jsonArg = true;
+      }
+    } else if (argv[i].startsWith('--json=')) {
+      jsonArg = argv[i].substring('--json='.length);
+    }
+  }
+
+  return { configPath, verboseMode, logLevelArg, jsonArg };
+}
+
+function normalizeJsonArgv(argv, commandNames) {
+  let normalizedArgv = [...argv];
+
+  for (let i = 0; i < normalizedArgv.length; i++) {
+    if (normalizedArgv[i] !== '--json') {
+      continue;
+    }
+
+    let nextArg = normalizedArgv[i + 1];
+    if (nextArg && !nextArg.startsWith('-') && commandNames.has(nextArg)) {
+      normalizedArgv[i] = '--json=true';
+    }
+  }
+
+  return normalizedArgv;
+}
+
 program
   .name('vizzly')
   .description('Vizzly CLI for visual regression testing')
@@ -283,37 +349,8 @@ program
 
 // Load plugins before defining commands
 // We need to manually parse to get the config option early
-let configPath = null;
-let verboseMode = false;
-let logLevelArg = null;
-let jsonArg = null;
-for (let i = 0; i < process.argv.length; i++) {
-  if (
-    (process.argv[i] === '-c' || process.argv[i] === '--config') &&
-    process.argv[i + 1]
-  ) {
-    configPath = process.argv[i + 1];
-  }
-  if (process.argv[i] === '-v' || process.argv[i] === '--verbose') {
-    verboseMode = true;
-  }
-  if (process.argv[i] === '--log-level' && process.argv[i + 1]) {
-    logLevelArg = process.argv[i + 1];
-  }
-  // Handle --json with optional field selection
-  // --json (no value) = true, --json=fields or --json fields = "fields"
-  if (process.argv[i] === '--json') {
-    let nextArg = process.argv[i + 1];
-    // If next arg exists and doesn't start with -, it's the fields value
-    if (nextArg && !nextArg.startsWith('-')) {
-      jsonArg = nextArg;
-    } else {
-      jsonArg = true;
-    }
-  } else if (process.argv[i].startsWith('--json=')) {
-    jsonArg = process.argv[i].substring('--json='.length);
-  }
-}
+let { configPath, verboseMode, logLevelArg, jsonArg } =
+  extractGlobalOptionsFromArgv(process.argv);
 
 // Configure output early
 // Priority: --log-level > --verbose > VIZZLY_LOG_LEVEL env var > default ('info')
@@ -709,6 +746,191 @@ Examples:
     }
 
     await comparisonsCommand(options, globalOptions);
+  });
+
+let contextCmd = program
+  .command('context')
+  .description('Fetch visual context bundles for agents and reviewers');
+
+contextCmd
+  .command('build')
+  .description('Fetch a build context bundle')
+  .argument('<build-id>', 'Build ID to fetch context for')
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly context build abc123
+  $ vizzly context build current --source local
+  $ vizzly context build abc123 --json
+  $ vizzly context build abc123 --json build.id,summary.comparisons
+`
+  )
+  .action(async (buildId, options) => {
+    const globalOptions = program.opts();
+    const validationErrors = validateContextBuildOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await contextBuildCommand(buildId, options, globalOptions);
+  });
+
+contextCmd
+  .command('comparison')
+  .description('Fetch a comparison context bundle')
+  .argument('<comparison-id>', 'Comparison ID to fetch context for')
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
+  .option(
+    '--similar-limit <n>',
+    'Maximum similar fingerprint matches to return (1-50)',
+    val => parseInt(val, 10)
+  )
+  .option(
+    '--recent-limit <n>',
+    'Maximum recent same-name comparisons to return (1-50)',
+    val => parseInt(val, 10)
+  )
+  .option(
+    '--window-size <n>',
+    'Historical hotspot analysis window size (1-50)',
+    val => parseInt(val, 10)
+  )
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly context comparison def456
+  $ vizzly context comparison def456 --source local
+  $ vizzly context comparison def456 --similar-limit 5 --recent-limit 5
+  $ vizzly context comparison def456 --json
+`
+  )
+  .action(async (comparisonId, options) => {
+    const globalOptions = program.opts();
+    const validationErrors = validateContextComparisonOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await contextComparisonCommand(comparisonId, options, globalOptions);
+  });
+
+contextCmd
+  .command('screenshot')
+  .description('Fetch screenshot context and historical memory')
+  .argument('<name>', 'Screenshot name')
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
+  .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
+  .option('--org <slug>', 'Organization slug when project slug is ambiguous')
+  .option(
+    '--recent-limit <n>',
+    'Maximum recent comparisons to return (1-50)',
+    val => parseInt(val, 10)
+  )
+  .option(
+    '--window-size <n>',
+    'Historical hotspot analysis window size (1-50)',
+    val => parseInt(val, 10)
+  )
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly context screenshot Dashboard
+  $ vizzly context screenshot Dashboard --source local
+  $ vizzly context screenshot Dashboard --project storybook --org acme
+  $ vizzly context screenshot Dashboard --json
+`
+  )
+  .action(async (name, options) => {
+    const globalOptions = program.opts();
+    const validationErrors = validateContextScreenshotOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await contextScreenshotCommand(name, options, globalOptions);
+  });
+
+contextCmd
+  .command('similar')
+  .description('Fetch project-scoped matches for a fingerprint hash')
+  .argument('<fingerprint-hash>', 'Fingerprint hash to search for')
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
+  .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
+  .option('--org <slug>', 'Organization slug when project slug is ambiguous')
+  .option('--limit <n>', 'Maximum matches to return (1-50)', val =>
+    parseInt(val, 10)
+  )
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly context similar fp-dashboard
+  $ vizzly context similar fp-dashboard --project storybook --org acme
+  $ vizzly context similar fp-dashboard --json
+`
+  )
+  .action(async (fingerprintHash, options) => {
+    const globalOptions = program.opts();
+    const validationErrors = validateContextSimilarOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await contextSimilarCommand(fingerprintHash, options, globalOptions);
+  });
+
+contextCmd
+  .command('review-queue')
+  .description('Fetch pending review context for a project')
+  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
+  .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
+  .option('--org <slug>', 'Organization slug when project slug is ambiguous')
+  .option('--limit <n>', 'Maximum comparisons to return (1-100)', val =>
+    parseInt(val, 10)
+  )
+  .option('--offset <n>', 'Skip first N comparisons', val => parseInt(val, 10))
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly context review-queue --project storybook --org acme
+  $ vizzly context review-queue --source local
+  $ vizzly context review-queue --limit 10
+  $ vizzly context review-queue --json
+`
+  )
+  .action(async options => {
+    const globalOptions = program.opts();
+    const validationErrors = validateContextReviewQueueOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await contextReviewQueueCommand(options, globalOptions);
   });
 
 program
@@ -1149,4 +1371,19 @@ program
 // This auto-configures the menubar app so it can find npx/node
 saveUserPath().catch(() => {});
 
-program.parse();
+let commandNames = new Set(program.commands.map(command => command.name()));
+let normalizedArgv = normalizeJsonArgv(process.argv, commandNames);
+let normalizedGlobals = extractGlobalOptionsFromArgv(
+  normalizedArgv,
+  commandNames
+);
+
+output.configure({
+  logLevel: normalizedGlobals.logLevelArg,
+  verbose: normalizedGlobals.verboseMode,
+  color: colorOverride,
+  json: normalizedGlobals.jsonArg,
+  resetTimer: false,
+});
+
+program.parse(normalizedArgv);

@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import {
   normalizeComparisonUpdate,
   normalizeReportData,
-} from '../../../src/reporter/src/utils/report-data.js';
+} from '../../../src/utils/report-data.js';
 
 describe('reporter/utils/report-data', () => {
   describe('normalizeReportData', () => {

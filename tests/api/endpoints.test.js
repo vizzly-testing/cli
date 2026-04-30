@@ -14,10 +14,15 @@ import {
   finalizeParallelBuild,
   getBatchHotspots,
   getBuild,
+  getBuildContext,
   getBuilds,
   getComparison,
+  getComparisonContext,
   getPreviewInfo,
+  getReviewQueueContext,
+  getScreenshotContext,
   getScreenshotHotspots,
+  getSimilarFingerprintContext,
   getTddBaselines,
   getTokenContext,
   searchComparisons,
@@ -78,6 +83,78 @@ describe('api/endpoints', () => {
       assert.strictEqual(
         client.getLastCall().endpoint,
         '/api/sdk/builds/123?include=screenshots'
+      );
+    });
+  });
+
+  describe('context endpoints', () => {
+    it('requests build context endpoint', async () => {
+      let client = createMockClient({ resource: 'build_context' });
+
+      await getBuildContext(client, 'build-123');
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/builds/build-123'
+      );
+    });
+
+    it('includes comparison context query params when provided', async () => {
+      let client = createMockClient({ resource: 'comparison_context' });
+
+      await getComparisonContext(client, 'comparison-123', {
+        similarLimit: 5,
+        recentLimit: 4,
+        windowSize: 12,
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/comparisons/comparison-123?similarLimit=5&recentLimit=4&windowSize=12'
+      );
+    });
+
+    it('encodes screenshot names and applies scope query params', async () => {
+      let client = createMockClient({ resource: 'screenshot_context' });
+
+      await getScreenshotContext(client, 'Dashboard/Header', {
+        project: 'storybook',
+        organization: 'acme',
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/screenshots/Dashboard%2FHeader?project=storybook&organization=acme'
+      );
+    });
+
+    it('builds fingerprint similarity endpoint with project scope', async () => {
+      let client = createMockClient({ resource: 'fingerprint_context' });
+
+      await getSimilarFingerprintContext(client, 'fp:dashboard', {
+        project: 'storybook',
+        limit: 7,
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/fingerprints/fp%3Adashboard/similar?project=storybook&limit=7'
+      );
+    });
+
+    it('builds review queue endpoint with scope and pagination', async () => {
+      let client = createMockClient({ resource: 'review_queue_context' });
+
+      await getReviewQueueContext(client, {
+        project: 'storybook',
+        organization: 'acme',
+        limit: 15,
+        offset: 30,
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/review-queue?project=storybook&organization=acme&limit=15&offset=30'
       );
     });
   });

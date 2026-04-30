@@ -226,6 +226,85 @@ export async function getComparison(client, comparisonId) {
 }
 
 /**
+ * Get build context bundle for agent and reviewer workflows
+ * @param {Object} client - API client
+ * @param {string} buildId - Build ID
+ * @returns {Promise<Object>} Build context bundle
+ */
+export async function getBuildContext(client, buildId) {
+  return client.request(`/api/sdk/context/builds/${buildId}`);
+}
+
+/**
+ * Get comparison context bundle with similarity and history
+ * @param {Object} client - API client
+ * @param {string} comparisonId - Comparison ID
+ * @param {Object} options - Optional query params
+ * @returns {Promise<Object>} Comparison context bundle
+ */
+export async function getComparisonContext(client, comparisonId, options = {}) {
+  let endpoint = buildEndpointWithParams(
+    `/api/sdk/context/comparisons/${comparisonId}`,
+    options
+  );
+  return client.request(endpoint);
+}
+
+/**
+ * Get screenshot context bundle for a screenshot name
+ * @param {Object} client - API client
+ * @param {string} screenshotName - Screenshot name
+ * @param {Object} options - Optional query params
+ * @returns {Promise<Object>} Screenshot context bundle
+ */
+export async function getScreenshotContext(
+  client,
+  screenshotName,
+  options = {}
+) {
+  let encodedName = encodeURIComponent(screenshotName);
+  let endpoint = buildEndpointWithParams(
+    `/api/sdk/context/screenshots/${encodedName}`,
+    options
+  );
+  return client.request(endpoint);
+}
+
+/**
+ * Get project-scoped similar comparisons for a fingerprint hash
+ * @param {Object} client - API client
+ * @param {string} fingerprintHash - Honeydiff fingerprint hash
+ * @param {Object} options - Optional query params
+ * @returns {Promise<Object>} Fingerprint context bundle
+ */
+export async function getSimilarFingerprintContext(
+  client,
+  fingerprintHash,
+  options = {}
+) {
+  let encodedFingerprint = encodeURIComponent(fingerprintHash);
+  let endpoint = buildEndpointWithParams(
+    `/api/sdk/context/fingerprints/${encodedFingerprint}/similar`,
+    options
+  );
+  return client.request(endpoint);
+}
+
+/**
+ * Get pending review queue context for a project
+ * @param {Object} client - API client
+ * @param {Object} options - Optional query params
+ * @returns {Promise<Object>} Review queue context bundle
+ */
+export async function getReviewQueueContext(client, options = {}) {
+  let endpoint = buildEndpointWithParams(
+    '/api/sdk/context/review-queue',
+    options
+  );
+  return client.request(endpoint);
+}
+
+/**
  * Search for comparisons by name
  * @param {Object} client - API client
  * @param {string} name - Screenshot name to search for

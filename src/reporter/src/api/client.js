@@ -9,7 +9,7 @@
  * - api.auth.*   - Authentication
  */
 
-import { normalizeReportData } from '../utils/report-data.js';
+import { normalizeReportData } from '../../../utils/report-data.js';
 
 /**
  * Make a JSON API request

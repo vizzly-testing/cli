@@ -1,10 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useEffect, useRef, useState } from 'react';
-import { queryKeys } from '../lib/query-keys.js';
 import {
   normalizeComparisonUpdate,
   normalizeReportData,
-} from '../utils/report-data.js';
+} from '../../../utils/report-data.js';
+import { queryKeys } from '../lib/query-keys.js';
 
 export let SSE_STATE = {
   CONNECTING: 'connecting',

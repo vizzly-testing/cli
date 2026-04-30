@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
-import { normalizeReportData } from '../reporter/src/utils/report-data.js';
+import { normalizeReportData } from '../utils/report-data.js';
 
 let LOCAL_CONTEXT_SOURCE = 'local_workspace';
 let DEFAULT_LOCAL_REVIEW_QUEUE_LIMIT = 50;

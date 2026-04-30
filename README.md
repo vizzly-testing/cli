@@ -58,6 +58,33 @@ export VIZZLY_TOKEN=your-project-token
 vizzly run "npm test" --wait
 ```
 
+### Visual Context For Agents
+
+Use `vizzly context` when you want Vizzly to act more like visual context than a test runner.
+
+This is especially useful for LLM agents, automation, and quick debugging loops. Instead of
+making a bunch of narrow API calls, you can ask for one build, comparison, screenshot, or review
+queue bundle and get the evidence in one place.
+
+```bash
+# Cloud context for a build or comparison
+vizzly context build abc123
+vizzly context comparison def456 --json
+
+# Local workspace context from .vizzly/
+vizzly context build current --source local
+vizzly context screenshot build-detail-screenshots --source local --json
+```
+
+`--json` is the main automation path. Human-readable output is there for quick terminal use, but
+JSON is what you want for scripts, agents, and prompt assembly.
+
+Local context is read-only and file-backed. It reads your existing `.vizzly` workspace state from
+TDD runs, including screenshots, diffs, and any saved hotspot or region metadata.
+
+Cloud context is also read-only right now. That is intentional. It keeps the trust model simple:
+Vizzly helps you see and inspect visual changes, while people still decide what gets approved.
+
 ## Capture Screenshots
 
 Add screenshots to your existing tests:
@@ -116,6 +143,7 @@ export default {
 | `vizzly tdd start` | Start local TDD server with dashboard |
 | `vizzly tdd run "cmd"` | Run tests once, generate static report |
 | `vizzly run "cmd"` | Run tests with cloud integration |
+| `vizzly context ...` | Fetch visual context bundles for builds, comparisons, and screenshots |
 | `vizzly upload <dir>` | Upload existing screenshots |
 | `vizzly login` | Authenticate via browser |
 | `vizzly doctor` | Validate local setup |

@@ -190,6 +190,166 @@ vizzly tdd list --json
 }
 ```
 
+### `vizzly context`
+
+Use `vizzly context` when you want one machine-friendly bundle instead of several narrow calls.
+This is the best fit for automation, agents, and scripts that need visual evidence plus a little
+bit of memory.
+
+Every context payload includes a `source` field. That tells you whether the bundle came from
+cloud data or your local `.vizzly` workspace.
+
+#### `vizzly context build`
+
+```bash
+vizzly context build abc123 --json
+vizzly context build current --source local --json
+```
+
+```json
+{
+  "resource": "build_context",
+  "source": "cloud",
+  "scope": {
+    "organization": { "slug": "acme" },
+    "project": { "slug": "storybook" }
+  },
+  "build": {
+    "id": "abc123",
+    "status": "completed",
+    "approval_status": "pending"
+  },
+  "summary": {
+    "comparisons": {
+      "total": 12,
+      "changed": 2,
+      "new": 1
+    },
+    "review": {
+      "pending": 3,
+      "approved": 9,
+      "rejected": 0
+    }
+  },
+  "comparisons": [
+    {
+      "id": "cmp-1",
+      "name": "Dashboard",
+      "result": "changed",
+      "diff_percentage": 0.42
+    }
+  ]
+}
+```
+
+#### `vizzly context comparison`
+
+```bash
+vizzly context comparison cmp-1 --json
+vizzly context comparison build-detail-screenshots --source local --json
+```
+
+```json
+{
+  "resource": "comparison_context",
+  "source": "local_workspace",
+  "comparison": {
+    "id": "cmp-1",
+    "name": "Dashboard",
+    "result": "changed",
+    "analysis": {
+      "diff_image_url": ".vizzly/diffs/dashboard.png",
+      "diff_regions": [],
+      "confirmed_regions": []
+    }
+  },
+  "history": {
+    "similar_by_fingerprint": [],
+    "recent_by_name": [],
+    "hotspot_analysis": {
+      "confidence": "no_data"
+    }
+  }
+}
+```
+
+#### `vizzly context screenshot`
+
+```bash
+vizzly context screenshot Dashboard --json
+vizzly context screenshot Dashboard --source local --json
+```
+
+```json
+{
+  "resource": "screenshot_context",
+  "source": "cloud",
+  "screenshot": {
+    "name": "Dashboard"
+  },
+  "confirmed_regions": [
+    {
+      "label": "Known header copy band"
+    }
+  ],
+  "history": {
+    "recent_comparisons": []
+  }
+}
+```
+
+#### `vizzly context similar`
+
+```bash
+vizzly context similar fp-dashboard --project storybook --org acme --json
+```
+
+```json
+{
+  "resource": "fingerprint_context",
+  "source": "cloud",
+  "fingerprint": {
+    "hash": "fp-dashboard"
+  },
+  "matches": [
+    {
+      "comparison_id": "cmp-1",
+      "build_id": "abc123",
+      "screenshot_name": "Dashboard"
+    }
+  ]
+}
+```
+
+Local workspace similarity is not supported yet. If you point `context similar` at `--source local`,
+the CLI returns a clear error instead of pretending the data exists.
+
+#### `vizzly context review-queue`
+
+```bash
+vizzly context review-queue --project storybook --org acme --json
+vizzly context review-queue --source local --json
+```
+
+```json
+{
+  "resource": "review_queue_context",
+  "source": "local_workspace",
+  "summary": {
+    "total": 2,
+    "changed": 1,
+    "new": 1
+  },
+  "comparisons": [
+    {
+      "id": "cmp-1",
+      "name": "Settings Panel",
+      "result": "changed"
+    }
+  ]
+}
+```
+
 ### `vizzly builds`
 
 List builds with optional filtering:

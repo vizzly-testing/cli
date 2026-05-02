@@ -12,6 +12,18 @@ npm install @vizzly-testing/storybook
 
 The plugin is automatically discovered by the Vizzly CLI via the `@vizzly-testing/*` scope.
 
+## Storybook 10 Compatibility
+
+The plugin works with the current stable Storybook 10 release. If you're upgrading an existing
+Storybook app to the latest major, keep these Storybook 10 requirements in mind:
+
+- `.storybook/main.js|ts` and related presets must be valid ESM
+- Storybook 10 requires Node `20.19+` or `22.12+`
+- `@storybook/addon-essentials` is zero-config in Storybook 10, so many apps no longer need to
+  list it explicitly in `addons`
+
+Storybook's official migration guide: https://storybook.js.org/docs/releases/migration-guide
+
 ## Quick Start
 
 ### CLI Usage
@@ -137,7 +149,7 @@ Configuration is merged in this order (later overrides earlier):
 - `--include <pattern>` - Include story pattern (glob)
 - `--exclude <pattern>` - Exclude story pattern (glob)
 - `--config <path>` - Path to custom config file
-- `--browser-args <args>` - Additional Puppeteer browser arguments
+- `--browser-args <args>` - Additional Playwright browser arguments
 - `--headless` - Run browser in headless mode (default: true)
 - `--full-page` - Capture full page screenshots (default: true)
 - `--no-full-page` - Capture viewport-only screenshots

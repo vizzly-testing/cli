@@ -67,7 +67,7 @@ export function generateTasks(stories, baseUrl, config, deps = {}) {
 /**
  * Process a single task with a tab
  * Uses smart navigation: first visit loads Storybook, subsequent visits use client-side routing
- * @param {Object} tab - Puppeteer page instance
+ * @param {Object} tab - Playwright page instance
  * @param {Object} task - Task object { story, viewport, hook, storyId, baseUrl, screenshotOptions }
  * @param {Object} [deps] - Optional dependencies for testing
  * @returns {Promise<void>}

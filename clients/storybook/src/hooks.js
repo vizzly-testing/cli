@@ -32,7 +32,7 @@ export function getBeforeScreenshotHook(story, globalConfig) {
 
 /**
  * Apply hook to a page if it exists
- * @param {Object} page - Puppeteer page instance
+ * @param {Object} page - Playwright page instance
  * @param {Function|null} hook - Hook function to apply
  * @param {Object} context - Additional context to pass to hook
  * @returns {Promise<void>}

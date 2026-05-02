@@ -511,7 +511,13 @@ describe('commands/context', () => {
       let capturedQuery = null;
 
       await contextReviewQueueCommand(
-        { project: 'storybook', org: 'acme', limit: 15, offset: 30 },
+        {
+          project: 'storybook',
+          org: 'acme',
+          limit: 15,
+          offset: 30,
+          source: 'cloud',
+        },
         { json: true },
         {
           loadConfig: async () => ({

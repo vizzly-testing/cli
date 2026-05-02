@@ -252,6 +252,15 @@ describe('utils/security', () => {
       assert.strictEqual(result.custom_key, 'value');
     });
 
+    it('preserves ampersands in safe string properties like URLs', () => {
+      let url =
+        'http://localhost:6006/iframe.html?id=button--primary&viewMode=story';
+      let result = validateScreenshotProperties({
+        url,
+      });
+      assert.strictEqual(result.url, url);
+    });
+
     it('validates custom number properties', () => {
       let result = validateScreenshotProperties({
         count: 42,

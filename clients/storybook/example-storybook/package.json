@@ -8,13 +8,12 @@
     "build-storybook": "storybook build -o dist"
   },
   "devDependencies": {
-    "@storybook/addon-essentials": "^8.5.0",
-    "@storybook/react": "^8.5.0",
-    "@storybook/react-vite": "^8.5.0",
+    "@storybook/react": "^10.3.6",
+    "@storybook/react-vite": "^10.3.6",
     "@vitejs/plugin-react": "^5.1.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "storybook": "^8.5.0",
+    "storybook": "^10.3.6",
     "vite": "^6.0.11"
   }
 }

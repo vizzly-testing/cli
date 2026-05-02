@@ -241,8 +241,9 @@ export function validateScreenshotProperties(properties = {}) {
       /^[a-zA-Z0-9_-]+$/.test(key)
     ) {
       if (typeof value === 'string' && value.length <= 200) {
-        // Store sanitized version of string values
-        validated[key] = value.replace(/[<>&"']/g, ''); // Basic HTML entity prevention
+        // Preserve safe URL/query characters like '&' in metadata values.
+        // Rendering layers should escape for HTML instead of mutating payload data here.
+        validated[key] = value.replace(/[<>"']/g, '');
       } else if (
         typeof value === 'number' &&
         !Number.isNaN(value) &&

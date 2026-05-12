@@ -376,11 +376,51 @@ jobs:
           VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
+  # Swift SDK
+  swift:
+    name: Swift SDK
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install CLI dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Build Swift package
+        working-directory: ./clients/swift
+        run: swift build
+
+      - name: Run E2E tests (TDD mode)
+        working-directory: ./clients/swift
+        run: ../../bin/vizzly.js tdd run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests"
+        env:
+          CI: true
+
+      - name: Run E2E tests (Cloud mode)
+        working-directory: ./clients/swift
+        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests"
+        env:
+          CI: true
+          VIZZLY_TOKEN: ${{ secrets.VIZZLY_SWIFT_CLIENT_TOKEN }}
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
   # Status check for branch protection
   check:
     name: E2E Status
     runs-on: ubuntu-latest
-    needs: [core-js, vitest, storybook, static-site, ember, ruby]
+    needs: [core-js, vitest, storybook, static-site, ember, ruby, swift]
     if: always()
     steps:
       - name: Check all SDK E2E tests passed
@@ -407,6 +447,10 @@ jobs:
           fi
           if [[ "${{ needs.ruby.result }}" == "failure" ]]; then
             echo "Ruby SDK E2E tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.swift.result }}" == "failure" ]]; then
+            echo "Swift SDK E2E tests failed"
             exit 1
           fi
           echo "All SDK E2E tests passed"

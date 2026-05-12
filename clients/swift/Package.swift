@@ -27,5 +27,8 @@ let package = Package(
         .testTarget(
             name: "VizzlyTests",
             dependencies: ["Vizzly", "VizzlyXCTest"]),
+        .testTarget(
+            name: "VizzlyE2ETests",
+            dependencies: ["Vizzly"]),
     ]
 )

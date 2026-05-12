@@ -458,6 +458,18 @@ Check out the `Example/` directory for:
 - Custom properties and thresholds
 - Direct client usage
 
+## SDK E2E Tests
+
+The Swift SDK has an end-to-end test path that runs against a real local
+Vizzly TDD server and uploads real PNG bytes through `VizzlyClient`:
+
+```bash
+npm run test:swift:e2e
+```
+
+This command builds the CLI, starts an isolated TDD run in a temp directory,
+and executes the `VizzlyE2ETests` SwiftPM suite.
+
 ## Contributing
 
 Bug reports and pull requests are welcome at https://github.com/vizzly-testing/cli

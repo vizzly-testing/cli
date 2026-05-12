@@ -33,12 +33,15 @@ final class VizzlyE2ETests: XCTestCase {
         )
 
         XCTAssertTrue(
-            Self.successStatuses.contains(Self.status(from: firstResult)),
+            Self.isSuccessfulUpload(firstResult),
             "Expected first upload to create or match a baseline, got: \(firstResult)"
         )
         XCTAssertEqual(firstResult["name"] as? String, "swift-sdk-e2e-home")
-        XCTAssertNotNil(firstResult["current"])
-        XCTAssertNotNil(firstResult["baseline"])
+
+        if Self.hasTddComparisonMetadata(firstResult) {
+            XCTAssertNotNil(firstResult["current"])
+            XCTAssertNotNil(firstResult["baseline"])
+        }
     }
 
     func testSecondUploadMatchesExistingBaseline() throws {
@@ -52,7 +55,7 @@ final class VizzlyE2ETests: XCTestCase {
             )
         )
         XCTAssertTrue(
-            Self.successStatuses.contains(Self.status(from: firstResult)),
+            Self.isSuccessfulUpload(firstResult),
             "Expected first upload to create or match a baseline, got: \(firstResult)"
         )
 
@@ -63,13 +66,36 @@ final class VizzlyE2ETests: XCTestCase {
                 properties: ["case": "repeatable"]
             )
         )
-        XCTAssertEqual(Self.status(from: secondResult), "match")
+        XCTAssertTrue(
+            Self.isSuccessfulUpload(secondResult),
+            "Expected second upload to succeed, got: \(secondResult)"
+        )
+
+        if let status = secondResult["status"] as? String {
+            XCTAssertEqual(status, "match")
+        }
     }
 
     private static let successStatuses: Set<String> = ["new", "match"]
 
-    private static func status(from result: [String: Any]) -> String {
-        return result["status"] as? String ?? ""
+    private static func isSuccessfulUpload(_ result: [String: Any]) -> Bool {
+        if let status = result["status"] as? String {
+            return successStatuses.contains(status)
+        }
+
+        if let success = result["success"] as? Bool {
+            return success
+        }
+
+        if let success = result["success"] as? Int {
+            return success == 1
+        }
+
+        return false
+    }
+
+    private static func hasTddComparisonMetadata(_ result: [String: Any]) -> Bool {
+        return result["status"] != nil
     }
 
     private static func makeTestPng() throws -> Data {

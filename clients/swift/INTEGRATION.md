@@ -21,7 +21,10 @@ In Xcode:
 1. **File → Add Package Dependencies**
 2. Enter URL: `https://github.com/vizzly-testing/cli`
 3. Select version/branch
-4. **Important**: Add the package to your **UI Test target** (not the main app target)
+4. Add the `VizzlyXCTest` product to your **UI Test target**
+
+Use the core `Vizzly` product directly only when you need to send PNG data from
+app or test-support code without the XCTest convenience extensions.
 
 #### Option B: Local Package
 
@@ -78,6 +81,7 @@ Create or update your UI test file:
 ```swift
 import XCTest
 import Vizzly
+import VizzlyXCTest
 
 final class MyAppUITests: XCTestCase {
 
@@ -265,13 +269,13 @@ For views with animations or timing-sensitive content:
 func testAnimatedView() {
     app.launch()
 
-    // Wait for animation to complete
-    sleep(1) // Or use expectations
+    let finishedState = app.otherElements["AnimatedBannerReady"]
+    XCTAssertTrue(finishedState.waitForExistence(timeout: 5))
 
     // Use threshold for slight variations
     app.vizzlyScreenshot(
         name: "animated-banner",
-        threshold: 5  // Allow 5% difference
+        threshold: 5
     )
 }
 ```

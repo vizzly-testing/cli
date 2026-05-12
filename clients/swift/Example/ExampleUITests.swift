@@ -1,5 +1,6 @@
 import XCTest
 import Vizzly
+import VizzlyXCTest
 
 /// Example UI tests demonstrating Vizzly integration
 ///
@@ -133,7 +134,6 @@ final class ExampleUITests: XCTestCase {
     func testResponsiveLayout() throws {
         // Test different device orientations
         XCUIDevice.shared.orientation = .portrait
-        sleep(1) // Wait for orientation change
 
         app.vizzlyScreenshot(
             name: "home-portrait",
@@ -141,7 +141,6 @@ final class ExampleUITests: XCTestCase {
         )
 
         XCUIDevice.shared.orientation = .landscapeLeft
-        sleep(1)
 
         app.vizzlyScreenshot(
             name: "home-landscape",
@@ -187,7 +186,7 @@ final class ExampleUITests: XCTestCase {
     // MARK: - Custom Threshold Example
 
     func testWithCustomThreshold() throws {
-        // Allow up to 5% pixel difference
+        // Allow a higher comparison threshold for animated content
         app.vizzlyScreenshot(
             name: "animation-test",
             threshold: 5,

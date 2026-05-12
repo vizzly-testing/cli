@@ -13,7 +13,7 @@ npm install -g @vizzly-testing/cli
 1. Open your iOS project in Xcode
 2. **File → Add Package Dependencies**
 3. Paste: `https://github.com/vizzly-testing/cli`
-4. Add to your **UI Test target** (not main app)
+4. Add the `VizzlyXCTest` product to your **UI Test target**
 
 ## 3. Start TDD Server
 
@@ -28,6 +28,7 @@ vizzly tdd start
 ```swift
 import XCTest
 import Vizzly
+import VizzlyXCTest
 
 class MyAppUITests: XCTestCase {
     let app = XCUIApplication()
@@ -96,7 +97,7 @@ button.vizzlyScreenshot(name: "submit-button")
 ### Custom Threshold
 
 ```swift
-// Allow 5% pixel difference (useful for animations)
+// Allow a higher comparison threshold for animated content
 app.vizzlyScreenshot(
     name: "animated-view",
     threshold: 5

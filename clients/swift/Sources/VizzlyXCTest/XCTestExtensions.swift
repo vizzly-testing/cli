@@ -1,4 +1,5 @@
 import Foundation
+import Vizzly
 import XCTest
 
 #if canImport(UIKit)
@@ -18,7 +19,10 @@ extension XCTestCase {
     ///   - name: Unique name for the screenshot
     ///   - app: The XCUIApplication instance (iOS/macOS)
     ///   - properties: Additional properties to attach
-    ///   - threshold: Pixel difference threshold (0-100)
+    ///   - threshold: Optional CIEDE2000 Delta E threshold. When nil, the
+    ///     Vizzly server configuration is used.
+    ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
+    ///     as a real difference. When nil, the server configuration is used.
     ///   - fullPage: Whether this is a full page screenshot
     @available(iOS 13.0, macOS 10.15, *)
     @discardableResult
@@ -26,7 +30,8 @@ extension XCTestCase {
         name: String,
         app: XCUIApplication,
         properties: [String: Any]? = nil,
-        threshold: Int = 0,
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil,
         fullPage: Bool = false
     ) -> [String: Any]? {
         let screenshot = app.screenshot()
@@ -62,6 +67,7 @@ extension XCTestCase {
             image: screenshot.pngRepresentation,
             properties: combinedProperties,
             threshold: threshold,
+            minClusterSize: minClusterSize,
             fullPage: fullPage
         )
     }
@@ -72,14 +78,18 @@ extension XCTestCase {
     ///   - name: Unique name for the screenshot
     ///   - element: The XCUIElement to screenshot
     ///   - properties: Additional properties to attach
-    ///   - threshold: Pixel difference threshold (0-100)
+    ///   - threshold: Optional CIEDE2000 Delta E threshold. When nil, the
+    ///     Vizzly server configuration is used.
+    ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
+    ///     as a real difference. When nil, the server configuration is used.
     @available(iOS 13.0, macOS 10.15, *)
     @discardableResult
     public func vizzlyScreenshot(
         name: String,
         element: XCUIElement,
         properties: [String: Any]? = nil,
-        threshold: Int = 0
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil
     ) -> [String: Any]? {
         let screenshot = element.screenshot()
 
@@ -99,6 +109,7 @@ extension XCTestCase {
             image: screenshot.pngRepresentation,
             properties: combinedProperties,
             threshold: threshold,
+            minClusterSize: minClusterSize,
             fullPage: false
         )
     }
@@ -113,13 +124,17 @@ extension XCUIApplication {
     /// - Parameters:
     ///   - name: Unique name for the screenshot
     ///   - properties: Additional properties to attach
-    ///   - threshold: Pixel difference threshold (0-100)
+    ///   - threshold: Optional CIEDE2000 Delta E threshold. When nil, the
+    ///     Vizzly server configuration is used.
+    ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
+    ///     as a real difference. When nil, the server configuration is used.
     ///   - fullPage: Whether this is a full page screenshot
     @discardableResult
     public func vizzlyScreenshot(
         name: String,
         properties: [String: Any]? = nil,
-        threshold: Int = 0,
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil,
         fullPage: Bool = false
     ) -> [String: Any]? {
         let screenshot = self.screenshot()
@@ -147,6 +162,7 @@ extension XCUIApplication {
             image: screenshot.pngRepresentation,
             properties: combinedProperties,
             threshold: threshold,
+            minClusterSize: minClusterSize,
             fullPage: fullPage
         )
     }
@@ -161,12 +177,16 @@ extension XCUIElement {
     /// - Parameters:
     ///   - name: Unique name for the screenshot
     ///   - properties: Additional properties to attach
-    ///   - threshold: Pixel difference threshold (0-100)
+    ///   - threshold: Optional CIEDE2000 Delta E threshold. When nil, the
+    ///     Vizzly server configuration is used.
+    ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
+    ///     as a real difference. When nil, the server configuration is used.
     @discardableResult
     public func vizzlyScreenshot(
         name: String,
         properties: [String: Any]? = nil,
-        threshold: Int = 0
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil
     ) -> [String: Any]? {
         let screenshot = self.screenshot()
 
@@ -186,6 +206,7 @@ extension XCUIElement {
             image: screenshot.pngRepresentation,
             properties: combinedProperties,
             threshold: threshold,
+            minClusterSize: minClusterSize,
             fullPage: false
         )
     }

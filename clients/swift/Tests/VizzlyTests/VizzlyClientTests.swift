@@ -1,5 +1,6 @@
 import XCTest
 @testable import Vizzly
+import VizzlyXCTest
 
 final class VizzlyClientTests: XCTestCase {
 
@@ -56,7 +57,7 @@ final class VizzlyClientTests: XCTestCase {
 
     func testScreenshotWithNoServer() {
         // Create client with invalid server URL
-        let client = VizzlyClient(serverUrl: nil)
+        let client = VizzlyClient(serverUrl: nil, autoDiscover: false)
 
         let testImage = createTestImage()
         let result = client.screenshot(name: "test", image: testImage)
@@ -80,25 +81,55 @@ final class VizzlyClientTests: XCTestCase {
     }
 
     func testUserPropertiesTakePrecedence() {
-        // This test verifies the merge behavior conceptually
-        // User-provided properties should override auto-detected ones
-        let client = VizzlyClient(serverUrl: "http://localhost:47392")
-
-        // When user provides custom platform, it should be used
-        // (We can't easily test the actual HTTP payload without mocking,
-        // but we verify the client accepts properties)
-        let testImage = createTestImage()
-
-        // This should not crash and should accept custom properties
-        client.disable() // Disable to prevent actual network call
-        let result = client.screenshot(
+        let payload = VizzlyClient.makeScreenshotPayload(
             name: "test",
-            image: testImage,
-            properties: ["platform": "custom-platform", "customKey": "customValue"]
+            image: createTestImage(),
+            properties: [
+                "platform": "custom-platform",
+                "customKey": "customValue"
+            ],
+            deviceInfo: [
+                "platform": "iOS",
+                "deviceName": "iPhone"
+            ]
         )
 
-        // Result is nil because client is disabled, but no crash means properties work
-        XCTAssertNil(result)
+        let properties = payload["properties"] as? [String: Any]
+        XCTAssertEqual(properties?["platform"] as? String, "custom-platform")
+        XCTAssertEqual(properties?["customKey"] as? String, "customValue")
+        XCTAssertEqual(properties?["deviceName"] as? String, "iPhone")
+    }
+
+    func testComparisonOptionsAreSentAsProperties() {
+        let payload = VizzlyClient.makeScreenshotPayload(
+            name: "test",
+            image: createTestImage(),
+            properties: ["theme": "dark"],
+            threshold: 1.5,
+            minClusterSize: 4,
+            fullPage: true
+        )
+
+        XCTAssertNil(payload["threshold"])
+        XCTAssertNil(payload["minClusterSize"])
+
+        let properties = payload["properties"] as? [String: Any]
+        XCTAssertEqual(properties?["theme"] as? String, "dark")
+        XCTAssertEqual(properties?["threshold"] as? Double, 1.5)
+        XCTAssertEqual(properties?["minClusterSize"] as? Int, 4)
+        XCTAssertEqual(properties?["fullPage"] as? Bool, true)
+    }
+
+    func testDefaultComparisonOptionsUseServerConfiguration() {
+        let payload = VizzlyClient.makeScreenshotPayload(
+            name: "test",
+            image: createTestImage()
+        )
+
+        XCTAssertNil(payload["threshold"])
+        XCTAssertNil(payload["minClusterSize"])
+        XCTAssertNil(payload["fullPage"])
+        XCTAssertNil(payload["properties"])
     }
 
     // MARK: - Helpers

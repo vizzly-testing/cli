@@ -12,10 +12,22 @@ import AppKit
 import WatchKit
 #endif
 
-/// Vizzly visual regression testing client for Swift/iOS
+private enum VizzlyClientError: LocalizedError {
+    case requestTimedOut
+
+    var errorDescription: String? {
+        switch self {
+        case .requestTimedOut:
+            return "request timed out"
+        }
+    }
+}
+
+/// Vizzly visual regression testing client for Swift/iOS.
 ///
-/// A lightweight client SDK for capturing screenshots and sending them to Vizzly for visual
-/// regression testing. Works with both local TDD mode and cloud builds.
+/// A lightweight client SDK for capturing screenshots and sending them to
+/// Vizzly for visual regression testing. Works with both local TDD mode and
+/// cloud builds.
 ///
 /// ## Usage
 ///
@@ -27,6 +39,45 @@ import WatchKit
 /// client.screenshot(name: "login-screen", image: screenshot.pngRepresentation)
 /// ```
 public final class VizzlyClient {
+    private struct ScreenshotResponse {
+        var data: Data?
+        var response: URLResponse?
+        var error: Error?
+    }
+
+    private final class ScreenshotRequestState {
+        private let lock = NSLock()
+        private var didTimeOut = false
+        private var response = ScreenshotResponse()
+
+        func complete(data: Data?, response: URLResponse?, error: Error?) {
+            lock.lock()
+            defer { lock.unlock() }
+
+            guard !didTimeOut else { return }
+
+            self.response = ScreenshotResponse(
+                data: data,
+                response: response,
+                error: error
+            )
+        }
+
+        func timeOut() {
+            lock.lock()
+            defer { lock.unlock() }
+
+            didTimeOut = true
+            response.error = VizzlyClientError.requestTimedOut
+        }
+
+        var currentResponse: ScreenshotResponse {
+            lock.lock()
+            defer { lock.unlock() }
+
+            return response
+        }
+    }
 
     /// Shared singleton instance
     public static let shared = VizzlyClient()
@@ -43,8 +94,10 @@ public final class VizzlyClient {
     /// Initialize a new Vizzly client
     ///
     /// - Parameter serverUrl: Optional server URL. If not provided, auto-discovery will be used.
-    public init(serverUrl: String? = nil) {
-        self.serverUrl = serverUrl ?? discoverServerUrl()
+    /// - Parameter autoDiscover: Whether to discover a local Vizzly server when
+    ///   `serverUrl` is nil.
+    public init(serverUrl: String? = nil, autoDiscover: Bool = true) {
+        self.serverUrl = serverUrl ?? (autoDiscover ? discoverServerUrl() : nil)
     }
 
     /// Take a screenshot for visual regression testing
@@ -53,7 +106,10 @@ public final class VizzlyClient {
     ///   - name: Unique name for the screenshot
     ///   - image: PNG image data
     ///   - properties: Additional properties to attach (browser, viewport, etc.)
-    ///   - threshold: Pixel difference threshold (0-100)
+    ///   - threshold: Optional CIEDE2000 Delta E threshold. When nil, the
+    ///     Vizzly server configuration is used.
+    ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
+    ///     as a real difference. When nil, the server configuration is used.
     ///   - fullPage: Whether this is a full page screenshot
     /// - Returns: Response data if successful, nil otherwise
     @discardableResult
@@ -61,7 +117,8 @@ public final class VizzlyClient {
         name: String,
         image: Data,
         properties: [String: Any]? = nil,
-        threshold: Int = 0,
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil,
         fullPage: Bool = false
     ) -> [String: Any]? {
         guard !isDisabled else { return nil }
@@ -72,39 +129,16 @@ public final class VizzlyClient {
             return nil
         }
 
-        // Encode image to base64
-        let imageBase64 = image.base64EncodedString()
-
-        // Build payload
-        var payload: [String: Any] = [
-            "name": name,
-            "image": imageBase64,
-            "type": "base64",
-            "threshold": threshold,
-            "fullPage": fullPage
-        ]
-
-        // Build properties - merge user properties with auto-detected device info
-        var mergedProperties: [String: Any] = properties ?? [:]
-
-        // Add device info (user properties take precedence)
-        let deviceInfo = getDeviceInfo()
-        for (key, value) in deviceInfo {
-            if mergedProperties[key] == nil {
-                mergedProperties[key] = value
-            }
-        }
-
-        if !mergedProperties.isEmpty {
-            payload["properties"] = mergedProperties
-        }
-
-        // Try to get buildId from multiple sources (priority order):
-        // 1. Environment variable (for Node.js and other runtimes that support it)
-        // 2. Server info file (for iOS/Swift where env vars don't propagate to simulator)
-        if let buildId = getBuildId() {
-            payload["buildId"] = buildId
-        }
+        let payload = Self.makeScreenshotPayload(
+            name: name,
+            image: image,
+            properties: properties,
+            threshold: threshold,
+            minClusterSize: minClusterSize,
+            fullPage: fullPage,
+            buildId: getBuildId(),
+            deviceInfo: getDeviceInfo()
+        )
 
         // Send HTTP request
         guard let url = URL(string: "\(serverUrl)/screenshot") else {
@@ -125,54 +159,35 @@ public final class VizzlyClient {
             return nil
         }
 
-        // Use semaphore for synchronous request (needed in test context)
-        let semaphore = DispatchSemaphore(value: 0)
-        var result: [String: Any]?
+        let response = send(request)
 
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
-            defer { semaphore.signal() }
-
-            if let error = error {
-                self.handleError(name: name, error: error)
-                return
-            }
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                print("❌ Invalid response for screenshot: \(name)")
-                self.disable(reason: "failure")
-                return
-            }
-
-            guard let data = data else {
-                print("❌ No data received for screenshot: \(name)")
-                self.disable(reason: "failure")
-                return
-            }
-
-            // Handle non-success responses
-            if httpResponse.statusCode != 200 {
-                self.handleNonSuccessResponse(
-                    statusCode: httpResponse.statusCode,
-                    data: data,
-                    name: name
-                )
-                return
-            }
-
-            // Parse successful response
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    result = json
-                }
-            } catch {
-                print("⚠️  Failed to parse response for \(name): \(error)")
-            }
+        if let error = response.error {
+            handleError(name: name, error: error)
+            return nil
         }
 
-        task.resume()
-        semaphore.wait()
+        guard let httpResponse = response.response as? HTTPURLResponse else {
+            print("❌ Invalid response for screenshot: \(name)")
+            disable(reason: "failure")
+            return nil
+        }
 
-        return result
+        guard let data = response.data else {
+            print("❌ No data received for screenshot: \(name)")
+            disable(reason: "failure")
+            return nil
+        }
+
+        if httpResponse.statusCode != 200 {
+            handleNonSuccessResponse(
+                statusCode: httpResponse.statusCode,
+                data: data,
+                name: name
+            )
+            return nil
+        }
+
+        return parseScreenshotResponse(data, name: name)
     }
 
     /// Flush any pending screenshots (no-op for simple client)
@@ -217,6 +232,53 @@ public final class VizzlyClient {
 
     // MARK: - Private Methods
 
+    internal static func makeScreenshotPayload(
+        name: String,
+        image: Data,
+        properties: [String: Any]? = nil,
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil,
+        fullPage: Bool = false,
+        buildId: String? = nil,
+        deviceInfo: [String: Any] = [:]
+    ) -> [String: Any] {
+        var mergedProperties = properties ?? [:]
+
+        for (key, value) in deviceInfo {
+            if mergedProperties[key] == nil {
+                mergedProperties[key] = value
+            }
+        }
+
+        if let threshold = threshold {
+            mergedProperties["threshold"] = threshold
+        }
+
+        if let minClusterSize = minClusterSize {
+            mergedProperties["minClusterSize"] = minClusterSize
+        }
+
+        if fullPage {
+            mergedProperties["fullPage"] = true
+        }
+
+        var payload: [String: Any] = [
+            "name": name,
+            "image": image.base64EncodedString(),
+            "type": "base64"
+        ]
+
+        if !mergedProperties.isEmpty {
+            payload["properties"] = mergedProperties
+        }
+
+        if let buildId = buildId {
+            payload["buildId"] = buildId
+        }
+
+        return payload
+    }
+
     private func getDeviceInfo() -> [String: Any] {
         var info: [String: Any] = [:]
 
@@ -247,6 +309,37 @@ public final class VizzlyClient {
         guard !hasWarned else { return }
         print("⚠️  \(message)")
         hasWarned = true
+    }
+
+    private func send(_ request: URLRequest) -> ScreenshotResponse {
+        let semaphore = DispatchSemaphore(value: 0)
+        let state = ScreenshotRequestState()
+
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            defer { semaphore.signal() }
+            state.complete(
+                data: data,
+                response: response,
+                error: error
+            )
+        }
+
+        task.resume()
+        if semaphore.wait(timeout: .now() + request.timeoutInterval + 5) == .timedOut {
+            state.timeOut()
+            task.cancel()
+        }
+
+        return state.currentResponse
+    }
+
+    private func parseScreenshotResponse(_ data: Data, name: String) -> [String: Any]? {
+        do {
+            return try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        } catch {
+            print("⚠️  Failed to parse response for \(name): \(error)")
+            return nil
+        }
     }
 
     private func discoverServerUrl() -> String? {
@@ -353,7 +446,7 @@ public final class VizzlyClient {
         let semaphore = DispatchSemaphore(value: 0)
         var isReachable = false
 
-        let task = URLSession.shared.dataTask(with: request) { _, response, error in
+        let task = URLSession.shared.dataTask(with: request) { _, response, _ in
             defer { semaphore.signal() }
 
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
@@ -366,7 +459,6 @@ public final class VizzlyClient {
 
         return isReachable
     }
-
 
     private func handleError(name: String, error: Error) {
         print("⚠️  Vizzly screenshot failed for \(name): \(error.localizedDescription)")

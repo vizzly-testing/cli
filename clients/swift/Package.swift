@@ -13,13 +13,22 @@ let package = Package(
         .library(
             name: "Vizzly",
             targets: ["Vizzly"]),
+        .library(
+            name: "VizzlyXCTest",
+            targets: ["VizzlyXCTest"]),
     ],
     targets: [
         .target(
             name: "Vizzly",
             dependencies: []),
+        .target(
+            name: "VizzlyXCTest",
+            dependencies: ["Vizzly"]),
         .testTarget(
             name: "VizzlyTests",
+            dependencies: ["Vizzly", "VizzlyXCTest"]),
+        .testTarget(
+            name: "VizzlyE2ETests",
             dependencies: ["Vizzly"]),
     ]
 )

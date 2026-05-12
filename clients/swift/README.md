@@ -7,7 +7,7 @@ Unlike tools that render components in isolation, Vizzly captures screenshots di
 ## Features
 
 - **Zero Configuration** - Auto-discovers Vizzly TDD server
-- **Native XCTest Integration** - Simple extensions for `XCUIApplication` and `XCUIElement`
+- **Native XCTest Integration** - Simple extensions for `XCUIApplication` and `XCUIElement` via the `VizzlyXCTest` helper product
 - **iOS & macOS Support** - Works on both platforms
 - **Automatic Metadata** - Captures device, screen size, and platform info
 - **TDD Mode** - Local visual testing with instant feedback
@@ -22,21 +22,29 @@ Add Vizzly to your test target using Xcode:
 
 1. File → Add Package Dependencies
 2. Enter repository URL: `https://github.com/vizzly-testing/cli`
-3. Select version and add to your UI test target
+3. Select version and add the `VizzlyXCTest` product to your UI test target
+
+The core `Vizzly` product has no XCTest dependency and can also be used from
+native app or test-support code when you want to send PNG data directly.
 
 Or add to your `Package.swift`:
 
 ```swift
 dependencies: [
     .package(url: "https://github.com/vizzly-testing/cli", from: "1.0.0")
+],
+targets: [
+    .testTarget(
+        name: "MyAppUITests",
+        dependencies: [
+            .product(name: "VizzlyXCTest", package: "cli")
+        ]
+    )
 ]
 ```
 
-### CocoaPods
-
-```ruby
-pod 'Vizzly', :git => 'https://github.com/vizzly-testing/cli', :branch => 'main'
-```
+Vizzly does not currently ship a CocoaPods podspec. Use Swift Package Manager
+for native app integration.
 
 ## Quick Start
 
@@ -54,6 +62,7 @@ This starts a local server at `http://localhost:47392` that receives screenshots
 ```swift
 import XCTest
 import Vizzly
+import VizzlyXCTest
 
 class MyUITests: XCTestCase {
     let app = XCUIApplication()
@@ -128,13 +137,16 @@ func testNavigationBar() {
 
 ```swift
 func testAnimatedContent() {
-    // Allow up to 5% pixel difference (useful for animations)
+    // Allow a higher comparison threshold for animated content
     app.vizzlyScreenshot(
         name: "animated-banner",
         threshold: 5
     )
 }
 ```
+
+If `threshold` or `minClusterSize` is omitted, the server's configured
+comparison settings are used.
 
 ### Multiple Device Orientations
 
@@ -187,7 +199,8 @@ extension XCUIApplication {
     func vizzlyScreenshot(
         name: String,
         properties: [String: Any]? = nil,
-        threshold: Int = 0,
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil,
         fullPage: Bool = false
     ) -> [String: Any]?
 }
@@ -200,7 +213,8 @@ extension XCUIElement {
     func vizzlyScreenshot(
         name: String,
         properties: [String: Any]? = nil,
-        threshold: Int = 0
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil
     ) -> [String: Any]?
 }
 ```
@@ -213,7 +227,8 @@ extension XCTestCase {
         name: String,
         app: XCUIApplication,
         properties: [String: Any]? = nil,
-        threshold: Int = 0,
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil,
         fullPage: Bool = false
     ) -> [String: Any]?
 
@@ -221,7 +236,8 @@ extension XCTestCase {
         name: String,
         element: XCUIElement,
         properties: [String: Any]? = nil,
-        threshold: Int = 0
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil
     ) -> [String: Any]?
 }
 ```
@@ -236,7 +252,8 @@ class VizzlyClient {
         name: String,
         image: Data,
         properties: [String: Any]? = nil,
-        threshold: Int = 0,
+        threshold: Double? = nil,
+        minClusterSize: Int? = nil,
         fullPage: Bool = false
     ) -> [String: Any]?
 
@@ -254,8 +271,9 @@ class VizzlyClient {
 The SDK automatically discovers a running Vizzly TDD server using this priority order:
 
 1. **VIZZLY_SERVER_URL environment variable** - Explicitly set server URL
-2. **Global server file** - `~/.vizzly/server.json` written by CLI
-3. **Default port health check** - Tests `http://localhost:47392/health`
+2. **Project server file** - `.vizzly/server.json` in the current directory
+3. **Global server file** - `~/.vizzly/server.json` written by CLI
+4. **Default port health check** - Tests `http://localhost:47392/health`
 
 When you run `vizzly tdd start`, the CLI automatically writes server info to `~/.vizzly/server.json` in your home directory, enabling zero-config discovery from iOS tests.
 
@@ -439,6 +457,18 @@ Check out the `Example/` directory for:
 - Orientation changes
 - Custom properties and thresholds
 - Direct client usage
+
+## SDK E2E Tests
+
+The Swift SDK has an end-to-end test path that runs against a real local
+Vizzly TDD server and uploads real PNG bytes through `VizzlyClient`:
+
+```bash
+npm run test:swift:e2e
+```
+
+This command builds the CLI, starts an isolated TDD run in a temp directory,
+and executes the `VizzlyE2ETests` SwiftPM suite.
 
 ## Contributing
 

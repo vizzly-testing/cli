@@ -34,5 +34,4 @@ Thumbs.db
 tests/client/
 playwright-report/
 test-results/
-.claude
 .envrc

@@ -65,29 +65,30 @@ jobs:
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
           echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
 
-      - name: Generate release notes with Claude
-        id: changelog
-        uses: anthropics/claude-code-action@v1
+      - name: Generate release notes
+        uses: openai/codex-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
           prompt: |
             Generate release notes for Vizzly CLI ${{ steps.version.outputs.new_version }}.
 
             Context:
             - Previous tag: `${{ steps.prev_version.outputs.tag }}`
             - New version: `${{ steps.version.outputs.new_version }}`
-            - This is the main CLI package for Vizzly visual testing
+            - This is the main CLI package for Vizzly visual testing.
 
             Instructions:
-            1. Use git commands to get commits since the previous tag
-            2. Analyze the commits and understand what changed
-            3. Read relevant code changes if needed to understand the impact
-            4. Generate user-friendly release notes with categories: Added, Changed, Fixed, Removed
-            5. Focus on user-facing changes - skip internal refactors unless significant
-            6. Write clear, concise descriptions (not just commit messages)
-            7. Group related changes together
+            1. Use git commands to inspect commits and changed files since the previous tag. If there is no previous tag, inspect the recent release commits.
+            2. Read relevant code changes when commit messages are not enough.
+            3. Generate user-friendly release notes with categories: Added, Changed, Fixed, Removed.
+            4. Focus on user-facing changes. Skip internal refactors unless they affect behavior.
+            5. Omit empty sections.
+            6. If there are no meaningful user-facing changes, write a brief summary.
+            7. Save the release notes to `RELEASE-NOTES.md`.
 
-            Save the release notes to `RELEASE-NOTES.md` with this format:
+            Use this format:
 
             ## What's Changed
 
@@ -101,14 +102,9 @@ jobs:
             - Bug fixes
 
             ### Removed
-            - Deprecated features removed (if any)
+            - Deprecated features removed
 
             **Full Changelog**: https://github.com/vizzly-testing/cli/compare/${{ steps.prev_version.outputs.tag }}...${{ steps.version.outputs.new_version }}
-
-            Notes:
-            - Omit empty sections
-            - If there are no meaningful user-facing changes, just write a brief summary
-          claude_args: '--allowed-tools "Bash(git:*),Read,Write" --model haiku'
 
       - name: Read release notes
         id: release_notes

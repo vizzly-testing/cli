@@ -74,11 +74,12 @@ jobs:
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "tag=swift/v$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Generate changelog with Claude
-        id: changelog
-        uses: anthropics/claude-code-action@v1
+      - name: Generate changelog
+        uses: openai/codex-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
           prompt: |
             Generate release notes for the Vizzly Swift SDK v${{ steps.new_version.outputs.version }}.
 
@@ -86,17 +87,18 @@ jobs:
             - Client location: `clients/swift/`
             - Previous tag: `swift/v${{ steps.current_version.outputs.version }}`
             - New version: `${{ steps.new_version.outputs.version }}`
-            - This is a monorepo with multiple clients and a CLI
+            - This is a monorepo with multiple clients and a CLI.
 
             Instructions:
-            1. Use git commands (via Bash tool) to get commits since last swift/* tag
-            2. Analyze which commits are relevant to `clients/swift/`
-            3. Read the code changes if needed to understand impact
-            4. Generate user-friendly release notes with categories: Added, Changed, Fixed
-            5. Focus on user-facing changes only
-            6. If no relevant changes, output: "No changes to Swift client in this release"
+            1. Use git commands to inspect commits and changed files since the previous Swift tag.
+            2. Analyze which changes are relevant to `clients/swift/`.
+            3. Read relevant code changes when commit messages are not enough.
+            4. Generate user-friendly release notes with categories: Added, Changed, Fixed.
+            5. Focus on user-facing changes only.
+            6. If there are no relevant changes, output: "No changes to Swift client in this release".
+            7. Save the changelog to `clients/swift/CHANGELOG-RELEASE.md`.
 
-            Save the changelog to `clients/swift/CHANGELOG-RELEASE.md` with this format:
+            Use this format:
 
             ## What's Changed
 
@@ -110,7 +112,6 @@ jobs:
             - Bug fixes
 
             **Full Changelog**: https://github.com/vizzly-testing/cli/compare/swift/v${{ steps.current_version.outputs.version }}...swift/v${{ steps.new_version.outputs.version }}
-          claude_args: '--allowed-tools "Bash(git:*)"'
 
       - name: Update CHANGELOG.md
         working-directory: ./clients/swift

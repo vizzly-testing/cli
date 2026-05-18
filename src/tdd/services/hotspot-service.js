@@ -45,17 +45,3 @@ export async function downloadHotspots(options) {
     return { success: false, error: error.message };
   }
 }
-
-/**
- * Extract screenshot names from a list of screenshots
- *
- * @param {Array} screenshots - Screenshots with name property
- * @returns {string[]}
- */
-export function extractScreenshotNames(screenshots) {
-  if (!screenshots || !Array.isArray(screenshots)) {
-    return [];
-  }
-
-  return screenshots.map(s => s.name).filter(Boolean);
-}

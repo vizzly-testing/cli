@@ -256,7 +256,7 @@ export class TddService {
     // State
     this.baselineData = null;
     this.comparisons = [];
-    this.threshold = config.comparison?.threshold || 2.0;
+    this.threshold = config.comparison?.threshold ?? 2.0;
     this.minClusterSize = config.comparison?.minClusterSize ?? 2;
     this.signatureProperties = config.signatureProperties ?? [];
 
@@ -1199,7 +1199,7 @@ export class TddService {
     }
 
     this.baselineData = metadata;
-    this.threshold = metadata.threshold || this.threshold;
+    this.threshold = metadata.threshold ?? this.threshold;
     this.signatureProperties =
       metadata.signatureProperties || this.signatureProperties;
 

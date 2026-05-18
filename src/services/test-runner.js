@@ -2,9 +2,8 @@
  * Test Runner Service
  * Orchestrates the test execution flow
  *
- * This class is a thin wrapper around the functional operations in
- * src/test-runner/. It maintains backwards compatibility while
- * delegating to pure functions for testability.
+ * This EventEmitter adapter keeps the stable plugin-facing runner contract
+ * while delegating execution to the functional operations in src/test-runner/.
  */
 
 import { spawn } from 'node:child_process';
@@ -135,47 +134,6 @@ export class TestRunner extends EventEmitter {
         output: this.deps.output,
         onFinalizeFailed: data => this.emit('build-finalize-failed', data),
       },
-    });
-  }
-
-  async executeTestCommand(testCommand, env) {
-    return new Promise((resolve, reject) => {
-      let proc = this.deps.spawn(testCommand, {
-        env,
-        stdio: 'inherit',
-        shell: true,
-      });
-
-      this.testProcess = proc;
-
-      proc.on('error', error => {
-        reject(
-          this.deps.createError(
-            `Failed to run test command: ${error.message}`,
-            'TEST_COMMAND_FAILED'
-          )
-        );
-      });
-
-      proc.on('exit', (code, signal) => {
-        if (signal === 'SIGINT') {
-          reject(
-            this.deps.createError(
-              'Test command was interrupted',
-              'TEST_COMMAND_INTERRUPTED'
-            )
-          );
-        } else if (code !== 0) {
-          reject(
-            this.deps.createError(
-              `Test command exited with code ${code}`,
-              'TEST_COMMAND_FAILED'
-            )
-          );
-        } else {
-          resolve();
-        }
-      });
     });
   }
 

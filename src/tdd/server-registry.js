@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
@@ -10,9 +10,11 @@ import { join } from 'node:path';
  * Enables the menubar app to discover and manage multiple concurrent servers.
  */
 export class ServerRegistry {
-  constructor() {
-    this.vizzlyHome = process.env.VIZZLY_HOME || join(homedir(), '.vizzly');
+  constructor({ vizzlyHome, logger = console } = {}) {
+    this.vizzlyHome =
+      vizzlyHome || process.env.VIZZLY_HOME || join(homedir(), '.vizzly');
     this.registryPath = join(this.vizzlyHome, 'servers.json');
+    this.logger = logger;
   }
 
   /**
@@ -38,7 +40,9 @@ export class ServerRegistry {
       }
     } catch (_err) {
       // Corrupted file, start fresh
-      console.warn('Warning: Could not read server registry, starting fresh');
+      this.logger.warn(
+        'Warning: Could not read server registry, starting fresh'
+      );
     }
     return { version: 1, servers: [] };
   }
@@ -60,11 +64,11 @@ export class ServerRegistry {
       throw new Error('Missing required fields: pid, port, directory');
     }
 
-    let port = Number(serverInfo.port);
-    let pid = Number(serverInfo.pid);
+    let port = parsePositiveInteger(serverInfo.port);
+    let pid = parsePositiveInteger(serverInfo.pid);
 
-    if (Number.isNaN(port) || Number.isNaN(pid)) {
-      throw new Error('Invalid port or pid - must be numbers');
+    if (port === null || pid === null) {
+      throw new Error('Invalid port or pid - must be positive integers');
     }
 
     let registry = this.read();
@@ -178,16 +182,7 @@ export class ServerRegistry {
    * The menubar app listens for this in addition to file watching.
    */
   notifyMenubar() {
-    if (process.platform !== 'darwin') return;
-
-    try {
-      execSync('notifyutil -p dev.vizzly.serverChanged', {
-        stdio: 'ignore',
-        timeout: 500,
-      });
-    } catch {
-      // Non-fatal - menubar will still see changes via file watching
-    }
+    notifyServerRegistryChanged();
   }
 
   /**
@@ -226,6 +221,36 @@ export class ServerRegistry {
 
     // Fallback to default if nothing found (will fail later with clear error)
     return startPort;
+  }
+}
+
+function parsePositiveInteger(value) {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  if (typeof value === 'string' && /^[1-9]\d*$/.test(value)) {
+    return Number(value);
+  }
+
+  return null;
+}
+
+export function notifyServerRegistryChanged({
+  platform = process.platform,
+  execFile = execFileSync,
+} = {}) {
+  if (platform !== 'darwin') return false;
+
+  try {
+    execFile('notifyutil', ['-p', 'dev.vizzly.serverChanged'], {
+      stdio: 'ignore',
+      timeout: 500,
+    });
+    return true;
+  } catch {
+    // Non-fatal - menubar will still see changes via file watching
+    return false;
   }
 }
 

@@ -14,7 +14,7 @@ import {
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
 import { createBuildObject as defaultCreateBuildObject } from '../services/build-manager.js';
-import { createUploader as defaultCreateUploader } from '../services/uploader.js';
+import { createUploader as defaultCreateUploader } from '../uploader/index.js';
 import {
   finalizeBuild as defaultFinalizeBuild,
   runTests as defaultRunTests,

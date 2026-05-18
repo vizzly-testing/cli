@@ -3,7 +3,7 @@ import {
   finalizeBuild as defaultFinalizeBuild,
   getTokenContext as defaultGetTokenContext,
 } from '../api/index.js';
-import { createUploader as defaultCreateUploader } from '../services/uploader.js';
+import { createUploader as defaultCreateUploader } from '../uploader/index.js';
 import { getAppBaseUrl } from '../utils/api-url.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import {

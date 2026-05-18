@@ -359,6 +359,92 @@ describe('uploader/operations', () => {
       assert.ok(result.build);
     });
 
+    it('waits between pending status checks without busy looping', async () => {
+      let requestCount = 0;
+      let waited = [];
+      let now = 0;
+      let mockClient = {
+        request: async () => {
+          requestCount++;
+          if (requestCount === 1) {
+            return { build: { status: 'processing' } };
+          }
+          return {
+            build: {
+              status: 'completed',
+              id: 'build-123',
+              url: 'https://app.vizzly.dev/builds/123',
+            },
+          };
+        },
+      };
+
+      let deps = {
+        createError: () => new Error(),
+        createTimeoutError: () => new Error(),
+        now: () => now,
+        pollInterval: 250,
+        wait: async ms => {
+          waited.push(ms);
+          now += ms;
+        },
+      };
+
+      let result = await waitForBuild({
+        buildId: 'build-123',
+        timeout: 30000,
+        signal: { aborted: false },
+        client: mockClient,
+        deps,
+      });
+
+      assert.strictEqual(result.status, 'completed');
+      assert.strictEqual(requestCount, 2);
+      assert.deepStrictEqual(waited, [250]);
+    });
+
+    it('times out pending builds after the remaining wait budget', async () => {
+      let now = 0;
+      let waited = [];
+      let mockClient = {
+        request: async () => ({ build: { status: 'processing' } }),
+      };
+
+      let deps = {
+        createError: () => new Error(),
+        createTimeoutError: (msg, context) => {
+          let err = new Error(msg);
+          err.code = 'TIMEOUT';
+          err.context = context;
+          return err;
+        },
+        now: () => now,
+        pollInterval: 250,
+        wait: async ms => {
+          waited.push(ms);
+          now += ms;
+        },
+      };
+
+      await assert.rejects(
+        () =>
+          waitForBuild({
+            buildId: 'build-123',
+            timeout: 600,
+            signal: { aborted: false },
+            client: mockClient,
+            deps,
+          }),
+        error => {
+          assert.strictEqual(error.code, 'TIMEOUT');
+          assert.strictEqual(error.context.elapsed, 600);
+          return true;
+        }
+      );
+
+      assert.deepStrictEqual(waited, [250, 250, 100]);
+    });
+
     it('throws when build status is failed', async () => {
       let mockClient = {
         request: async () => ({

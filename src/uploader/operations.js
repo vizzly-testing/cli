@@ -15,6 +15,7 @@ import {
   buildUploadingProgress,
   buildUploadResult,
   buildWaitResult,
+  DEFAULT_BUILD_POLL_INTERVAL,
   DEFAULT_SHA_CHECK_BATCH_SIZE,
   extractStatusCodeFromError,
   fileToScreenshotFormat,
@@ -26,6 +27,38 @@ import {
   validateFilesFound,
   validateScreenshotsDir,
 } from './core.js';
+
+function delay(ms, signal) {
+  if (ms <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    let timeoutId;
+
+    function cleanup() {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener?.('abort', handleAbort);
+    }
+
+    function handleAbort() {
+      cleanup();
+      reject(new Error('Operation cancelled'));
+    }
+
+    timeoutId = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+
+    signal?.addEventListener?.('abort', handleAbort, { once: true });
+  });
+}
 
 // ============================================================================
 // File Discovery
@@ -232,10 +265,16 @@ export async function uploadFiles({
  * @returns {Promise<Object>} Build result
  */
 export async function waitForBuild({ buildId, timeout, signal, client, deps }) {
-  let { createError, createTimeoutError } = deps;
-  let startTime = Date.now();
+  let {
+    createError,
+    createTimeoutError,
+    now = () => Date.now(),
+    pollInterval = DEFAULT_BUILD_POLL_INTERVAL,
+    wait = delay,
+  } = deps;
+  let startTime = now();
 
-  while (!isTimedOut(startTime, timeout)) {
+  while (!isTimedOut(startTime, timeout, now())) {
     if (signal.aborted) {
       throw createError('Operation cancelled', 'UPLOAD_CANCELLED', { buildId });
     }
@@ -263,12 +302,19 @@ export async function waitForBuild({ buildId, timeout, signal, client, deps }) {
         'BUILD_FAILED'
       );
     }
+
+    let remaining = timeout - getElapsedTime(startTime, now());
+    if (remaining <= 0) {
+      break;
+    }
+
+    await wait(Math.min(pollInterval, remaining), signal);
   }
 
   throw createTimeoutError(`Build timed out after ${timeout}ms`, {
     buildId,
     timeout,
-    elapsed: getElapsedTime(startTime),
+    elapsed: getElapsedTime(startTime, now()),
   });
 }
 

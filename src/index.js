@@ -16,7 +16,7 @@ export { UploadError } from './errors/vizzly-error.js';
 export { createVizzly } from './sdk/index.js';
 export { createServices } from './services/index.js';
 // Core services (for advanced usage)
-export { createUploader } from './services/uploader.js';
+export { createUploader } from './uploader/index.js';
 export { createTDDService } from './tdd/tdd-service.js';
 // Configuration helper
 export { defineConfig } from './utils/config-helpers.js';

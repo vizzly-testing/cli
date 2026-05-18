@@ -62,6 +62,66 @@ function createMockResponse() {
   };
 }
 
+function createManualTimers() {
+  let timeouts = [];
+  let intervals = new Set();
+
+  return {
+    setTimeout(fn) {
+      let timeout = { fn };
+      timeouts.push(timeout);
+      return timeout;
+    },
+    clearTimeout(timeout) {
+      timeouts = timeouts.filter(candidate => candidate !== timeout);
+    },
+    setInterval() {
+      let interval = {};
+      intervals.add(interval);
+      return interval;
+    },
+    clearInterval(interval) {
+      intervals.delete(interval);
+    },
+    flushTimeouts() {
+      let pending = timeouts;
+      timeouts = [];
+      for (let timeout of pending) {
+        timeout.fn();
+      }
+    },
+  };
+}
+
+function createEventsHarness(workingDir) {
+  let timers = createManualTimers();
+  let triggerReportDataChanged = () => {
+    throw new Error('report data watcher was not registered');
+  };
+  let cleanupCalled = false;
+  let handler = createEventsRouter({
+    workingDir,
+    timers,
+    watchReportData({ onReportDataChanged }) {
+      triggerReportDataChanged = onReportDataChanged;
+      return () => {
+        cleanupCalled = true;
+      };
+    },
+  });
+
+  return {
+    handler,
+    timers,
+    triggerReportDataChanged() {
+      triggerReportDataChanged();
+    },
+    get cleanupCalled() {
+      return cleanupCalled;
+    },
+  };
+}
+
 describe('server/routers/events', () => {
   let testDir = join(process.cwd(), '.test-events-router');
   let originalCwd = process.cwd();
@@ -230,20 +290,19 @@ describe('server/routers/events', () => {
     });
 
     it('sends update when report-data.json changes', async () => {
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
-      // Write initial data - this triggers the file watcher
       writeFileSync(
         join(testDir, '.vizzly', 'report-data.json'),
         JSON.stringify({ comparisons: [{ id: 'updated' }] })
       );
 
-      // Wait for debounce (100ms) + buffer
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.triggerReportDataChanged();
+      harness.timers.flushTimeouts();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: reportData'));
@@ -254,33 +313,35 @@ describe('server/routers/events', () => {
     });
 
     it('debounces rapid file changes', async () => {
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
       // Rapid file changes
       writeFileSync(
         join(testDir, '.vizzly', 'report-data.json'),
         JSON.stringify({ version: 1 })
       );
+      harness.triggerReportDataChanged();
       writeFileSync(
         join(testDir, '.vizzly', 'report-data.json'),
         JSON.stringify({ version: 2 })
       );
+      harness.triggerReportDataChanged();
       writeFileSync(
         join(testDir, '.vizzly', 'report-data.json'),
         JSON.stringify({ version: 3 })
       );
+      harness.triggerReportDataChanged();
 
-      // Wait for debounce
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.timers.flushTimeouts();
 
       let output = res.getOutput();
       // Should only have one event with the final version
       let eventCount = (output.match(/event: reportData/g) || []).length;
-      assert.ok(eventCount >= 1, 'Should have at least one event');
+      assert.strictEqual(eventCount, 1, 'Should send one debounced event');
       assert.ok(output.includes('"version":3'), 'Should contain final version');
 
       // Clean up
@@ -288,11 +349,11 @@ describe('server/routers/events', () => {
     });
 
     it('does not send to closed connections', async () => {
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
       // Mark connection as ended
       res.end();
@@ -303,11 +364,10 @@ describe('server/routers/events', () => {
         JSON.stringify({ test: true })
       );
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.triggerReportDataChanged();
+      harness.timers.flushTimeouts();
 
-      // Should not have written after end()
-      // The initial chunks should be empty since no initial data
-      assert.ok(true, 'Should not crash when writing to closed connection');
+      assert.strictEqual(res.getOutput(), '');
 
       // Clean up
       req.emit('close');
@@ -341,11 +401,11 @@ describe('server/routers/events', () => {
         JSON.stringify(initialData)
       );
 
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
       // Add a new comparison
       let updatedData = {
@@ -360,7 +420,8 @@ describe('server/routers/events', () => {
         JSON.stringify(updatedData)
       );
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.triggerReportDataChanged();
+      harness.timers.flushTimeouts();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: comparisonUpdate'));
@@ -382,11 +443,11 @@ describe('server/routers/events', () => {
         JSON.stringify(initialData)
       );
 
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
       // Change the comparison's status
       let updatedData = {
@@ -400,7 +461,8 @@ describe('server/routers/events', () => {
         JSON.stringify(updatedData)
       );
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.triggerReportDataChanged();
+      harness.timers.flushTimeouts();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: comparisonUpdate'));
@@ -429,11 +491,11 @@ describe('server/routers/events', () => {
         JSON.stringify(initialData)
       );
 
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
       // Remove comparison b
       let updatedData = {
@@ -445,7 +507,8 @@ describe('server/routers/events', () => {
         JSON.stringify(updatedData)
       );
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.triggerReportDataChanged();
+      harness.timers.flushTimeouts();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: comparisonRemoved'));
@@ -466,11 +529,11 @@ describe('server/routers/events', () => {
         JSON.stringify(initialData)
       );
 
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
       // Change summary fields only, same comparisons
       let updatedData = {
@@ -484,7 +547,8 @@ describe('server/routers/events', () => {
         JSON.stringify(updatedData)
       );
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.triggerReportDataChanged();
+      harness.timers.flushTimeouts();
 
       let output = res.getOutput();
       assert.ok(output.includes('event: summaryUpdate'));
@@ -508,11 +572,11 @@ describe('server/routers/events', () => {
         JSON.stringify(initialData)
       );
 
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
       let chunksAfterInitial = res.chunks.length;
 
@@ -522,7 +586,8 @@ describe('server/routers/events', () => {
         JSON.stringify(initialData)
       );
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.triggerReportDataChanged();
+      harness.timers.flushTimeouts();
 
       // No new chunks should have been written
       assert.strictEqual(
@@ -535,11 +600,11 @@ describe('server/routers/events', () => {
     });
 
     it('ignores changes to other files in .vizzly directory', async () => {
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
       // Write to a different file
       writeFileSync(
@@ -547,7 +612,7 @@ describe('server/routers/events', () => {
         JSON.stringify({ ignored: true })
       );
 
-      await new Promise(resolve => setTimeout(resolve, 200));
+      harness.timers.flushTimeouts();
 
       // Should not have sent any events
       let output = res.getOutput();

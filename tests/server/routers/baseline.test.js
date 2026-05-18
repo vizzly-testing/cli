@@ -1,60 +1,10 @@
 import assert from 'node:assert';
-import { EventEmitter } from 'node:events';
 import { describe, it } from 'node:test';
 import { createBaselineRouter } from '../../../src/server/routers/baseline.js';
-
-/**
- * Creates a mock HTTP request with body support
- */
-function createMockRequest(method = 'GET', body = null) {
-  let emitter = new EventEmitter();
-  emitter.method = method;
-
-  if (body !== null) {
-    process.nextTick(() => {
-      emitter.emit('data', JSON.stringify(body));
-      emitter.emit('end');
-    });
-  }
-
-  return emitter;
-}
-
-/**
- * Creates a mock HTTP response with tracking
- */
-function createMockResponse() {
-  let headers = {};
-  let statusCode = null;
-  let body = null;
-
-  return {
-    get statusCode() {
-      return statusCode;
-    },
-    set statusCode(code) {
-      statusCode = code;
-    },
-    setHeader(name, value) {
-      headers[name] = value;
-    },
-    getHeader(name) {
-      return headers[name];
-    },
-    end(content) {
-      body = content;
-    },
-    get headers() {
-      return headers;
-    },
-    get body() {
-      return body;
-    },
-    getParsedBody() {
-      return body ? JSON.parse(body) : null;
-    },
-  };
-}
+import {
+  createMockRequest,
+  createMockResponse,
+} from '../../helpers/http-mocks.js';
 
 /**
  * Creates a mock screenshot handler
@@ -78,6 +28,12 @@ function createMockScreenshotHandler(options = {}) {
           if (options.resetError) throw options.resetError;
         }
       : undefined,
+    rejectBaseline: options.rejectBaseline
+      ? async id => {
+          if (options.rejectError) throw options.rejectError;
+          return { success: true, id };
+        }
+      : undefined,
     deleteComparison: options.deleteComparison
       ? async id => {
           if (options.deleteError) throw options.deleteError;
@@ -99,24 +55,6 @@ function createMockTddService(options = {}) {
     processDownloadedBaselines: async (_apiResponse, _buildId) => {
       if (options.processError) throw options.processError;
       return { downloaded: options.downloadCount || 10 };
-    },
-  };
-}
-
-/**
- * Creates a mock auth service
- */
-function _createMockAuthService(options = {}) {
-  return {
-    authenticatedRequest: async (_path, _options) => {
-      if (options.authError) throw options.authError;
-      return (
-        options.response || {
-          build: { id: 'build-123', status: 'completed' },
-          screenshots: [],
-          signatureProperties: [],
-        }
-      );
     },
   };
 }
@@ -311,6 +249,76 @@ describe('server/routers/baseline', () => {
         assert.strictEqual(res.statusCode, 500);
         let body = res.getParsedBody();
         assert.ok(body.error.includes('Reset failed'));
+      });
+    });
+
+    describe('POST /api/baseline/reject', () => {
+      it('rejects comparison changes with ID', async () => {
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            rejectBaseline: true,
+          }),
+          tddService: null,
+        });
+        let req = createMockRequest('POST', { id: 'comparison-123' });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/reject');
+
+        assert.strictEqual(res.statusCode, 200);
+        let body = res.getParsedBody();
+        assert.strictEqual(body.success, true);
+        assert.ok(body.message.includes('comparison-123'));
+      });
+
+      it('returns 400 when rejectBaseline is not available', async () => {
+        let handler = createBaselineRouter({
+          screenshotHandler: {},
+          tddService: null,
+        });
+        let req = createMockRequest('POST', { id: 'comparison-123' });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/reject');
+
+        assert.strictEqual(res.statusCode, 400);
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('not available'));
+      });
+
+      it('returns 400 when ID is missing', async () => {
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            rejectBaseline: true,
+          }),
+          tddService: null,
+        });
+        let req = createMockRequest('POST', {});
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/reject');
+
+        assert.strictEqual(res.statusCode, 400);
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('ID'));
+      });
+
+      it('returns 500 on error', async () => {
+        let handler = createBaselineRouter({
+          screenshotHandler: createMockScreenshotHandler({
+            rejectBaseline: true,
+            rejectError: new Error('Reject failed'),
+          }),
+          tddService: null,
+        });
+        let req = createMockRequest('POST', { id: 'comparison-123' });
+        let res = createMockResponse();
+
+        await handler(req, res, '/api/baseline/reject');
+
+        assert.strictEqual(res.statusCode, 500);
+        let body = res.getParsedBody();
+        assert.ok(body.error.includes('Reject failed'));
       });
     });
 

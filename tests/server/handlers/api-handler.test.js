@@ -1,5 +1,12 @@
 import assert from 'node:assert';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { createApiHandler } from '../../../src/server/handlers/api-handler.js';
@@ -191,7 +198,7 @@ describe('server/handlers/api-handler', () => {
     });
 
     it('uses explicit file-path type parameter', async () => {
-      let _uploadedData = null;
+      let uploadedData = null;
       let mockUploadScreenshot = async (
         _client,
         buildId,
@@ -199,7 +206,7 @@ describe('server/handlers/api-handler', () => {
         buffer,
         props
       ) => {
-        _uploadedData = { buildId, name, buffer, props };
+        uploadedData = { buildId, name, buffer, props };
         return { success: true };
       };
 
@@ -209,12 +216,9 @@ describe('server/handlers/api-handler', () => {
       });
 
       // Create test image file
-      let { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
-      let { tmpdir } = await import('node:os');
-      let { join } = await import('node:path');
-      let testDir = mkdtempSync(join(tmpdir(), 'api-handler-test-'));
+      let imageTestDir = mkdtempSync(join(tmpdir(), 'api-handler-test-'));
 
-      let imagePath = join(testDir, 'test.png');
+      let imagePath = join(imageTestDir, 'test.png');
       let imageData = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
       writeFileSync(imagePath, imageData);
 
@@ -229,9 +233,13 @@ describe('server/handlers/api-handler', () => {
 
       assert.strictEqual(result.statusCode, 200);
       assert.strictEqual(result.body.success, true);
+      assert.strictEqual(uploadedData.buildId, 'build-123');
+      assert.strictEqual(uploadedData.name, 'file-screenshot');
+      assert.deepStrictEqual(uploadedData.buffer, imageData);
+      assert.deepStrictEqual(uploadedData.props, {});
 
       await handler.flush();
-      rmSync(testDir, { recursive: true });
+      rmSync(imageTestDir, { recursive: true });
     });
 
     it('falls back to detection when type not provided', async () => {

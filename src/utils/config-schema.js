@@ -4,21 +4,22 @@
  */
 
 import { z } from 'zod';
+import { CONFIG_DEFAULTS } from '../config/core.js';
 
 /**
  * Server configuration schema
  */
 const serverSchema = z.object({
-  port: z.number().int().positive().default(47392),
-  timeout: z.number().int().positive().default(30000),
+  port: z.number().int().positive().default(CONFIG_DEFAULTS.server.port),
+  timeout: z.number().int().positive().default(CONFIG_DEFAULTS.server.timeout),
 });
 
 /**
  * Build configuration schema
  */
 const buildSchema = z.object({
-  name: z.string().default('Build {timestamp}'),
-  environment: z.string().default('test'),
+  name: z.string().default(CONFIG_DEFAULTS.build.name),
+  environment: z.string().default(CONFIG_DEFAULTS.build.environment),
   branch: z.string().optional(),
   commit: z.string().optional(),
   message: z.string().optional(),
@@ -30,9 +31,13 @@ const buildSchema = z.object({
 const uploadSchema = z.object({
   screenshotsDir: z
     .union([z.string(), z.array(z.string())])
-    .default('./screenshots'),
-  batchSize: z.number().int().positive().default(10),
-  timeout: z.number().int().positive().default(30000),
+    .default(CONFIG_DEFAULTS.upload.screenshotsDir),
+  batchSize: z
+    .number()
+    .int()
+    .positive()
+    .default(CONFIG_DEFAULTS.upload.batchSize),
+  timeout: z.number().int().positive().default(CONFIG_DEFAULTS.upload.timeout),
 });
 
 /**
@@ -41,15 +46,18 @@ const uploadSchema = z.object({
  * minClusterSize: pixels (1 = exact)
  */
 const comparisonSchema = z.object({
-  threshold: z.number().min(0).default(2.0),
-  minClusterSize: z.int().min(1).default(2),
+  threshold: z.number().min(0).default(CONFIG_DEFAULTS.comparison.threshold),
+  minClusterSize: z
+    .int()
+    .min(1)
+    .default(CONFIG_DEFAULTS.comparison.minClusterSize),
 });
 
 /**
  * TDD configuration schema
  */
 const tddSchema = z.object({
-  openReport: z.boolean().default(false),
+  openReport: z.boolean().default(CONFIG_DEFAULTS.tdd.openReport),
 });
 
 /**
@@ -60,21 +68,14 @@ export const vizzlyConfigSchema = z
   .object({
     // Core Vizzly config
     apiKey: z.string().optional(),
-    apiUrl: z.string().url().optional(),
-    server: serverSchema.default({ port: 47392, timeout: 30000 }),
-    build: buildSchema.default({
-      name: 'Build {timestamp}',
-      environment: 'test',
-    }),
-    upload: uploadSchema.default({
-      screenshotsDir: './screenshots',
-      batchSize: 10,
-      timeout: 30000,
-    }),
-    comparison: comparisonSchema.default({ threshold: 2.0, minClusterSize: 2 }),
-    tdd: tddSchema.default({ openReport: false }),
+    apiUrl: z.string().url().default(CONFIG_DEFAULTS.apiUrl),
+    server: serverSchema.default(CONFIG_DEFAULTS.server),
+    build: buildSchema.default(CONFIG_DEFAULTS.build),
+    upload: uploadSchema.default(CONFIG_DEFAULTS.upload),
+    comparison: comparisonSchema.default(CONFIG_DEFAULTS.comparison),
+    tdd: tddSchema.default(CONFIG_DEFAULTS.tdd),
     signatureProperties: z.array(z.string()).default([]),
-    plugins: z.array(z.string()).default([]),
+    plugins: z.array(z.string()).default(CONFIG_DEFAULTS.plugins),
 
     // Additional optional fields
     parallelId: z.string().optional(),
@@ -85,14 +86,7 @@ export const vizzlyConfigSchema = z
     allowNoToken: z.boolean().optional(),
   })
   .passthrough() // Allow plugin-specific keys like `staticSite`, `storybook`, etc.
-  .default({
-    server: { port: 47392, timeout: 30000 },
-    build: { name: 'Build {timestamp}', environment: 'test' },
-    upload: { screenshotsDir: './screenshots', batchSize: 10, timeout: 30000 },
-    comparison: { threshold: 2.0, minClusterSize: 2 },
-    tdd: { openReport: false },
-    plugins: [],
-  });
+  .default(CONFIG_DEFAULTS);
 
 /**
  * Validate Vizzly configuration

@@ -7,6 +7,7 @@ import {
   getLogLevel,
   info,
   isVerbose,
+  normalizeDebugArgs,
   reset,
   warn,
 } from '../../src/utils/output.js';
@@ -229,6 +230,56 @@ describe('Output - Log Levels', () => {
 
       assert.strictEqual(consoleLogMock.mock.calls.length, 0);
       assert.strictEqual(consoleErrorMock.mock.calls.length, 0);
+    });
+  });
+
+  describe('debug argument normalization', () => {
+    it('keeps component-scoped debug messages explicit', () => {
+      assert.deepStrictEqual(
+        normalizeDebugArgs('server', 'ready on :47392', { port: 47392 }),
+        {
+          component: 'server',
+          message: 'ready on :47392',
+          data: { port: 47392 },
+        }
+      );
+    });
+
+    it('preserves legacy message-only debug calls', () => {
+      assert.deepStrictEqual(normalizeDebugArgs('Plugin loaded'), {
+        component: null,
+        message: 'Plugin loaded',
+        data: {},
+      });
+    });
+
+    it('preserves legacy message plus data debug calls', () => {
+      assert.deepStrictEqual(
+        normalizeDebugArgs('Failed to read cache', { error: 'ENOENT' }),
+        {
+          component: null,
+          message: 'Failed to read cache',
+          data: { error: 'ENOENT' },
+        }
+      );
+    });
+
+    it('prints legacy debug data in JSON mode without losing fields', () => {
+      configure({ json: true, logLevel: 'debug' });
+
+      debug('Failed to read cache', { error: 'ENOENT' });
+
+      assert.strictEqual(consoleErrorMock.mock.calls.length, 1);
+      let line = consoleErrorMock.mock.calls[0].arguments[0];
+      let data = JSON.parse(line);
+      assert.match(data.time, /^\d+ms$/);
+      delete data.time;
+      assert.deepStrictEqual(data, {
+        status: 'debug',
+        component: null,
+        message: 'Failed to read cache',
+        error: 'ENOENT',
+      });
     });
   });
 

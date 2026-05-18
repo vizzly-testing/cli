@@ -603,15 +603,22 @@ function getComponentColor(component) {
   return componentColors[component] || colors.brand.info;
 }
 
+export function normalizeDebugArgs(component, message, data = {}) {
+  if (typeof message === 'object' || message === undefined) {
+    return {
+      component: null,
+      message: component,
+      data: message || {},
+    };
+  }
+
+  return { component, message, data };
+}
+
 export function debug(component, message, data = {}) {
   if (!shouldLog('debug')) return;
 
-  // Handle legacy calls: debug('message') or debug('message', {data})
-  if (typeof message === 'object' || message === undefined) {
-    data = message || {};
-    message = component;
-    component = null;
-  }
+  ({ component, message, data } = normalizeDebugArgs(component, message, data));
 
   let elapsed = getElapsedTime();
 

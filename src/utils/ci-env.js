@@ -147,6 +147,15 @@ export function getCommitMessage() {
   );
 }
 
+function parsePullRequestNumber(value) {
+  if (!/^\d+$/.test(value)) {
+    return null;
+  }
+
+  let number = Number(value);
+  return Number.isSafeInteger(number) && number > 0 ? number : null;
+}
+
 /**
  * Get the pull request number from CI environment variables
  * @returns {number|null} PR number or null if not available/not a PR
@@ -154,7 +163,7 @@ export function getCommitMessage() {
 export function getPullRequestNumber() {
   // Check VIZZLY override first
   if (process.env.VIZZLY_PR_NUMBER) {
-    return parseInt(process.env.VIZZLY_PR_NUMBER, 10);
+    return parsePullRequestNumber(process.env.VIZZLY_PR_NUMBER);
   }
 
   // GitHub Actions - extract from GITHUB_REF
@@ -162,19 +171,19 @@ export function getPullRequestNumber() {
     process.env.GITHUB_ACTIONS &&
     process.env.GITHUB_EVENT_NAME === 'pull_request'
   ) {
-    const prMatch = process.env.GITHUB_REF?.match(/refs\/pull\/(\d+)\/merge/);
-    if (prMatch?.[1]) return parseInt(prMatch[1], 10);
+    let prMatch = process.env.GITHUB_REF?.match(/refs\/pull\/(\d+)\/merge/);
+    if (prMatch?.[1]) return parsePullRequestNumber(prMatch[1]);
   }
 
   // GitLab CI
   if (process.env.CI_MERGE_REQUEST_ID) {
-    return parseInt(process.env.CI_MERGE_REQUEST_ID, 10);
+    return parsePullRequestNumber(process.env.CI_MERGE_REQUEST_ID);
   }
 
   // CircleCI - extract from PR URL
   if (process.env.CIRCLE_PULL_REQUEST) {
-    const prMatch = process.env.CIRCLE_PULL_REQUEST.match(/\/pull\/(\d+)$/);
-    if (prMatch?.[1]) return parseInt(prMatch[1], 10);
+    let prMatch = process.env.CIRCLE_PULL_REQUEST.match(/\/pull\/(\d+)$/);
+    if (prMatch?.[1]) return parsePullRequestNumber(prMatch[1]);
   }
 
   // Travis CI
@@ -182,7 +191,7 @@ export function getPullRequestNumber() {
     process.env.TRAVIS_PULL_REQUEST &&
     process.env.TRAVIS_PULL_REQUEST !== 'false'
   ) {
-    return parseInt(process.env.TRAVIS_PULL_REQUEST, 10);
+    return parsePullRequestNumber(process.env.TRAVIS_PULL_REQUEST);
   }
 
   // Buildkite
@@ -190,27 +199,27 @@ export function getPullRequestNumber() {
     process.env.BUILDKITE_PULL_REQUEST &&
     process.env.BUILDKITE_PULL_REQUEST !== 'false'
   ) {
-    return parseInt(process.env.BUILDKITE_PULL_REQUEST, 10);
+    return parsePullRequestNumber(process.env.BUILDKITE_PULL_REQUEST);
   }
 
   // Drone CI
   if (process.env.DRONE_PULL_REQUEST) {
-    return parseInt(process.env.DRONE_PULL_REQUEST, 10);
+    return parsePullRequestNumber(process.env.DRONE_PULL_REQUEST);
   }
 
   // Jenkins (GitHub Pull Request Builder plugin)
   if (process.env.ghprbPullId) {
-    return parseInt(process.env.ghprbPullId, 10);
+    return parsePullRequestNumber(process.env.ghprbPullId);
   }
 
   // Azure DevOps
   if (process.env.SYSTEM_PULLREQUEST_PULLREQUESTID) {
-    return parseInt(process.env.SYSTEM_PULLREQUEST_PULLREQUESTID, 10);
+    return parsePullRequestNumber(process.env.SYSTEM_PULLREQUEST_PULLREQUESTID);
   }
 
   // AppVeyor
   if (process.env.APPVEYOR_PULL_REQUEST_NUMBER) {
-    return parseInt(process.env.APPVEYOR_PULL_REQUEST_NUMBER, 10);
+    return parsePullRequestNumber(process.env.APPVEYOR_PULL_REQUEST_NUMBER);
   }
 
   return null;

@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
+import { CONFIG_DEFAULTS, deepMerge } from '../config/core.js';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
 import {
   getApiToken,
@@ -10,48 +11,10 @@ import {
 import { getAccessToken } from './global-config.js';
 import * as output from './output.js';
 
-const DEFAULT_CONFIG = {
-  // API Configuration
-  apiKey: undefined, // Will be set from env, global config, or CLI overrides
-  apiUrl: getApiUrl(),
-
-  // Server Configuration (for run command)
-  server: {
-    port: 47392,
-    timeout: 30000,
-  },
-
-  // Build Configuration
-  build: {
-    name: 'Build {timestamp}',
-    environment: 'test',
-  },
-
-  // Upload Configuration (for upload command)
-  upload: {
-    screenshotsDir: './screenshots',
-    batchSize: 10,
-    timeout: 30000,
-  },
-
-  // Comparison Configuration (CIEDE2000 Delta E: 0=exact, 1=JND, 2=recommended)
-  comparison: {
-    threshold: 2.0,
-  },
-
-  // TDD Configuration
-  tdd: {
-    openReport: false, // Whether to auto-open HTML report in browser
-  },
-
-  // Plugins
-  plugins: [],
-};
-
 export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 1. Load from config file using cosmiconfig
-  const explorer = cosmiconfigSync('vizzly');
-  const result = configPath ? explorer.load(configPath) : explorer.search();
+  let explorer = cosmiconfigSync('vizzly');
+  let result = configPath ? explorer.load(configPath) : explorer.search();
 
   let fileConfig = {};
   if (result?.config) {
@@ -60,18 +23,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   // 2. Validate config file using Zod schema
-  const validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
+  let validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
 
   // Create a proper clone of the default config to avoid shared object references
-  const config = {
-    ...DEFAULT_CONFIG,
-    server: { ...DEFAULT_CONFIG.server },
-    build: { ...DEFAULT_CONFIG.build },
-    upload: { ...DEFAULT_CONFIG.upload },
-    comparison: { ...DEFAULT_CONFIG.comparison },
-    tdd: { ...DEFAULT_CONFIG.tdd },
-    plugins: [...DEFAULT_CONFIG.plugins],
-  };
+  let config = deepMerge(CONFIG_DEFAULTS, {});
 
   // Merge validated file config
   mergeConfig(config, validatedFileConfig);
@@ -133,21 +88,24 @@ function applyCLIOverrides(config, cliOverrides = {}) {
   if (cliOverrides.parallelId) config.parallelId = cliOverrides.parallelId;
 
   // Server overrides
-  if (cliOverrides.port) config.server.port = parseInt(cliOverrides.port, 10);
+  if (cliOverrides.port) config.server.port = Number(cliOverrides.port);
   if (cliOverrides.timeout)
-    config.server.timeout = parseInt(cliOverrides.timeout, 10);
+    config.server.timeout = Number(cliOverrides.timeout);
 
   // Upload overrides
   if (cliOverrides.batchSize !== undefined) {
-    config.upload.batchSize = parseInt(cliOverrides.batchSize, 10);
+    config.upload.batchSize = Number(cliOverrides.batchSize);
   }
   if (cliOverrides.uploadTimeout !== undefined) {
-    config.upload.timeout = parseInt(cliOverrides.uploadTimeout, 10);
+    config.upload.timeout = Number(cliOverrides.uploadTimeout);
   }
 
   // Comparison overrides
   if (cliOverrides.threshold !== undefined)
     config.comparison.threshold = cliOverrides.threshold;
+  if (cliOverrides.minClusterSize !== undefined) {
+    config.comparison.minClusterSize = Number(cliOverrides.minClusterSize);
+  }
 
   // Baseline overrides
   if (cliOverrides.baselineBuild)

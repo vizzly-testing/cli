@@ -22,7 +22,7 @@ export const CONFIG_DEFAULTS = {
     batchSize: 10,
     timeout: 30000,
   },
-  comparison: { threshold: 2.0 },
+  comparison: { threshold: 2.0, minClusterSize: 2 },
   tdd: { openReport: false },
   plugins: [],
 };
@@ -81,6 +81,26 @@ export function validateWriteScope(scope) {
 // Deep Merge
 // ============================================================================
 
+function isPlainConfigObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cloneConfigValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(cloneConfigValue);
+  }
+
+  if (isPlainConfigObject(value)) {
+    let cloned = {};
+    for (let key of Object.keys(value)) {
+      cloned[key] = cloneConfigValue(value[key]);
+    }
+    return cloned;
+  }
+
+  return value;
+}
+
 /**
  * Deep merge two objects
  * @param {Object} target - Target object
@@ -88,25 +108,17 @@ export function validateWriteScope(scope) {
  * @returns {Object} Merged object (new object, inputs not mutated)
  */
 export function deepMerge(target, source) {
-  let output = { ...target };
+  let output = cloneConfigValue(target);
 
   for (let key of Object.keys(source)) {
-    if (
-      source[key] &&
-      typeof source[key] === 'object' &&
-      !Array.isArray(source[key])
-    ) {
-      if (
-        target[key] &&
-        typeof target[key] === 'object' &&
-        !Array.isArray(target[key])
-      ) {
+    if (isPlainConfigObject(source[key])) {
+      if (isPlainConfigObject(target[key])) {
         output[key] = deepMerge(target[key], source[key]);
       } else {
-        output[key] = source[key];
+        output[key] = cloneConfigValue(source[key]);
       }
     } else {
-      output[key] = source[key];
+      output[key] = cloneConfigValue(source[key]);
     }
   }
 
@@ -123,10 +135,20 @@ export function deepMerge(target, source) {
  * @returns {Object} The value if it's an object, empty object otherwise
  */
 function ensureObject(value) {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
+  if (isPlainConfigObject(value)) {
     return value;
   }
   return {};
+}
+
+function applyConfigLayer(config, sources, layer, sourceName) {
+  let merged = deepMerge(config, layer);
+
+  for (let key of Object.keys(layer)) {
+    sources[key] = sourceName;
+  }
+
+  return merged;
 }
 
 /**
@@ -147,37 +169,31 @@ export function buildMergedConfig({
   let safeGlobalConfig = ensureObject(globalConfig);
   let safeEnvOverrides = ensureObject(envOverrides);
 
-  let mergedConfig = {};
+  let mergedConfig = cloneConfigValue(CONFIG_DEFAULTS);
   let sources = {};
 
-  // Layer 1: Defaults
   for (let key of Object.keys(CONFIG_DEFAULTS)) {
-    mergedConfig[key] = CONFIG_DEFAULTS[key];
     sources[key] = 'default';
   }
 
-  // Layer 2: Global config (auth, project mappings, user preferences)
-  if (safeGlobalConfig.auth) {
-    mergedConfig.auth = safeGlobalConfig.auth;
-    sources.auth = 'global';
-  }
-
-  if (safeGlobalConfig.projects) {
-    mergedConfig.projects = safeGlobalConfig.projects;
-    sources.projects = 'global';
-  }
-
-  // Layer 3: Project config file
-  for (let key of Object.keys(safeProjectConfig)) {
-    mergedConfig[key] = safeProjectConfig[key];
-    sources[key] = 'project';
-  }
-
-  // Layer 4: Environment variables
-  for (let key of Object.keys(safeEnvOverrides)) {
-    mergedConfig[key] = safeEnvOverrides[key];
-    sources[key] = 'env';
-  }
+  mergedConfig = applyConfigLayer(
+    mergedConfig,
+    sources,
+    safeGlobalConfig,
+    'global'
+  );
+  mergedConfig = applyConfigLayer(
+    mergedConfig,
+    sources,
+    safeProjectConfig,
+    'project'
+  );
+  mergedConfig = applyConfigLayer(
+    mergedConfig,
+    sources,
+    safeEnvOverrides,
+    'env'
+  );
 
   return { config: mergedConfig, sources };
 }

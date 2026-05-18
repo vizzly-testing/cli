@@ -4,7 +4,7 @@
 
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
-import { generateTasks, processTask, processAllTasks } from '../src/tasks.js';
+import { generateTasks, processAllTasks, processTask } from '../src/tasks.js';
 
 describe('generateTasks', () => {
   it('generates tasks for each page × viewport combination', () => {
@@ -18,7 +18,7 @@ describe('generateTasks', () => {
     };
 
     let deps = {
-      getPageConfig: (cfg, page) => ({
+      getPageConfig: (cfg, _page) => ({
         viewports: cfg.viewports,
         screenshot: {},
       }),
@@ -55,7 +55,7 @@ describe('generateTasks', () => {
     };
 
     let deps = {
-      getPageConfig: (cfg, page) => ({
+      getPageConfig: (cfg, _page) => ({
         viewports: cfg.viewports,
         screenshot: {},
       }),

@@ -4,20 +4,78 @@
  */
 
 import {
-  createAuthClient,
-  createTokenStore,
-  getAuthTokens,
-  whoami,
+  createAuthClient as defaultCreateAuthClient,
+  createTokenStore as defaultCreateTokenStore,
+  getAuthTokens as defaultGetAuthTokens,
+  whoami as defaultWhoami,
 } from '../auth/index.js';
-import { getApiUrl } from '../utils/environment-config.js';
-import * as output from '../utils/output.js';
+import { getApiUrl as defaultGetApiUrl } from '../utils/environment-config.js';
+import * as defaultOutput from '../utils/output.js';
+
+export function getTokenExpiryStatus(expiresAt, now = new Date()) {
+  let expiresDate = new Date(expiresAt);
+  let msUntilExpiry = expiresDate.getTime() - now.getTime();
+  let daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
+  let hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
+  let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
+
+  if (msUntilExpiry <= 0) {
+    return {
+      level: 'warn',
+      message: 'Token has expired',
+      refreshHint: 'Run "vizzly login" to refresh your authentication',
+    };
+  }
+
+  if (daysUntilExpiry > 0) {
+    return {
+      level: 'hint',
+      message: `Token expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} (${expiresDate.toLocaleDateString()})`,
+    };
+  }
+
+  if (hoursUntilExpiry > 0) {
+    return {
+      level: 'hint',
+      message: `Token expires in ${hoursUntilExpiry} hour${hoursUntilExpiry !== 1 ? 's' : ''}`,
+    };
+  }
+
+  if (minutesUntilExpiry > 0) {
+    return {
+      level: 'hint',
+      message: `Token expires in ${minutesUntilExpiry} minute${minutesUntilExpiry !== 1 ? 's' : ''}`,
+    };
+  }
+
+  return {
+    level: 'warn',
+    message: 'Token expires in less than a minute',
+    refreshHint: 'Run "vizzly login" to refresh your authentication',
+  };
+}
 
 /**
  * Whoami command implementation
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
  */
-export async function whoamiCommand(options = {}, globalOptions = {}) {
+export async function whoamiCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
+  let {
+    createAuthClient = defaultCreateAuthClient,
+    createTokenStore = defaultCreateTokenStore,
+    getApiUrl = defaultGetApiUrl,
+    getAuthTokens = defaultGetAuthTokens,
+    output = defaultOutput,
+    whoami = defaultWhoami,
+    exit = code => process.exit(code),
+  } = deps;
+
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -110,35 +168,21 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
     // Show token expiry info
     if (auth.expiresAt) {
       output.blank();
-      let expiresAt = new Date(auth.expiresAt);
-      let now = new Date();
-      let msUntilExpiry = expiresAt.getTime() - now.getTime();
-      let daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
-      let hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
-      let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
-
-      if (msUntilExpiry <= 0) {
-        output.warn('Token has expired');
-        output.hint('Run "vizzly login" to refresh your authentication');
-      } else if (daysUntilExpiry > 0) {
-        output.hint(
-          `Token expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''} (${expiresAt.toLocaleDateString()})`
-        );
-      } else if (hoursUntilExpiry > 0) {
-        output.hint(
-          `Token expires in ${hoursUntilExpiry} hour${hoursUntilExpiry !== 1 ? 's' : ''}`
-        );
-      } else if (minutesUntilExpiry > 0) {
-        output.hint(
-          `Token expires in ${minutesUntilExpiry} minute${minutesUntilExpiry !== 1 ? 's' : ''}`
-        );
+      let expiry = getTokenExpiryStatus(auth.expiresAt);
+      if (expiry.level === 'warn') {
+        output.warn(expiry.message);
       } else {
-        output.warn('Token expires in less than a minute');
-        output.hint('Run "vizzly login" to refresh your authentication');
+        output.hint(expiry.message);
+      }
+
+      if (expiry.refreshHint) {
+        output.hint(expiry.refreshHint);
       }
 
       if (globalOptions.verbose) {
-        output.hint(`Token expires at: ${expiresAt.toISOString()}`);
+        output.hint(
+          `Token expires at: ${new Date(auth.expiresAt).toISOString()}`
+        );
       }
     }
 
@@ -159,10 +203,11 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
         output.hint('Run "vizzly login" to authenticate again');
       }
       output.cleanup();
-      process.exit(1);
+      exit(1);
     } else {
       output.error('Failed to get user information', error);
-      process.exit(1);
+      output.cleanup();
+      exit(1);
     }
   }
 }
@@ -172,7 +217,7 @@ export async function whoamiCommand(options = {}, globalOptions = {}) {
  * @param {Object} options - Command options
  */
 export function validateWhoamiOptions() {
-  const errors = [];
+  let errors = [];
 
   // No specific validation needed for whoami command
 

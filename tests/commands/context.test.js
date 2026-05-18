@@ -52,7 +52,25 @@ describe('commands/context', () => {
     it('rejects out-of-range comparison context limits', () => {
       let errors = validateContextComparisonOptions({ similarLimit: 51 });
       assert.ok(
-        errors.includes('--similar-limit must be a number between 1 and 50')
+        errors.includes('--similar-limit must be an integer between 1 and 50')
+      );
+    });
+
+    it('rejects malformed and decimal comparison context limits', () => {
+      assert.ok(
+        validateContextComparisonOptions({
+          similarLimit: Number('10abc'),
+        }).includes('--similar-limit must be an integer between 1 and 50')
+      );
+      assert.ok(
+        validateContextComparisonOptions({ recentLimit: 4.5 }).includes(
+          '--recent-limit must be an integer between 1 and 50'
+        )
+      );
+      assert.ok(
+        validateContextComparisonOptions({ windowSize: 2.5 }).includes(
+          '--window-size must be an integer between 1 and 50'
+        )
       );
     });
 
@@ -63,12 +81,25 @@ describe('commands/context', () => {
 
     it('rejects out-of-range similar limit', () => {
       let errors = validateContextSimilarOptions({ limit: 0 });
-      assert.ok(errors.includes('--limit must be a number between 1 and 50'));
+      assert.ok(errors.includes('--limit must be an integer between 1 and 50'));
     });
 
     it('rejects negative review queue offsets', () => {
       let errors = validateContextReviewQueueOptions({ offset: -1 });
-      assert.ok(errors.includes('--offset must be a non-negative number'));
+      assert.ok(errors.includes('--offset must be a non-negative integer'));
+    });
+
+    it('rejects malformed and decimal review queue pagination', () => {
+      assert.ok(
+        validateContextReviewQueueOptions({ limit: Number('20abc') }).includes(
+          '--limit must be an integer between 1 and 100'
+        )
+      );
+      assert.ok(
+        validateContextReviewQueueOptions({ offset: 1.5 }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
     });
   });
 

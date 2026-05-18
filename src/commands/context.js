@@ -29,7 +29,7 @@ function validateLimitRange(value, flagName, { min = 1, max }) {
   }
 
   if (!Number.isInteger(value) || value < min || value > max) {
-    return [`${flagName} must be a number between ${min} and ${max}`];
+    return [`${flagName} must be an integer between ${min} and ${max}`];
   }
 
   return [];
@@ -41,7 +41,7 @@ function validateOffset(value) {
   }
 
   if (!Number.isInteger(value) || value < 0) {
-    return ['--offset must be a non-negative number'];
+    return ['--offset must be a non-negative integer'];
   }
 
   return [];

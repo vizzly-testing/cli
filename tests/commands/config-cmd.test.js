@@ -44,7 +44,7 @@ describe('commands/config', () => {
         {
           loadConfig: async () => ({
             server: { port: 47392, timeout: 30000 },
-            comparison: { threshold: 2.0 },
+            comparison: { threshold: 2.0, minClusterSize: 2 },
             tdd: { openReport: false },
           }),
           output,
@@ -56,6 +56,30 @@ describe('commands/config', () => {
       assert.ok(dataCall);
       assert.strictEqual(dataCall.args[0].config.server.port, 47392);
       assert.strictEqual(dataCall.args[0].config.comparison.threshold, 2.0);
+      assert.strictEqual(dataCall.args[0].config.comparison.minClusterSize, 2);
+    });
+
+    it('shows complete comparison defaults when config omits that section', async () => {
+      let output = createMockOutput();
+
+      await configCommand(
+        null,
+        {},
+        { json: true },
+        {
+          loadConfig: async () => ({
+            server: { port: 47392, timeout: 30000 },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(c => c.method === 'data');
+      assert.deepStrictEqual(dataCall.args[0].config.comparison, {
+        threshold: 2.0,
+        minClusterSize: 2,
+      });
     });
 
     it('outputs specific key as JSON', async () => {

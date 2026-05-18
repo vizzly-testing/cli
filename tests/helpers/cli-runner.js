@@ -45,8 +45,6 @@ function createCleanEnv(overrides = {}) {
     // Remove any tokens
     VIZZLY_TOKEN: undefined,
     VIZZLY_API_KEY: undefined,
-    // Pass through V8 coverage directory so child processes contribute to coverage
-    NODE_V8_COVERAGE: process.env.NODE_V8_COVERAGE,
     ...overrides,
   };
 }
@@ -70,7 +68,13 @@ export async function runCLI(args, options = {}) {
     mkdirSync(cwd, { recursive: true });
   }
 
-  let cleanEnv = createCleanEnv(env);
+  let vizzlyHome = env.VIZZLY_HOME || join(cwd, '.vizzly-home');
+  mkdirSync(vizzlyHome, { recursive: true });
+
+  let cleanEnv = createCleanEnv({
+    VIZZLY_HOME: vizzlyHome,
+    ...env,
+  });
 
   return new Promise((resolve, reject) => {
     let child = spawn('node', [CLI_PATH, ...args], {

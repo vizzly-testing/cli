@@ -42,6 +42,18 @@ export class VizzlySDK extends EventEmitter {
   constructor(config: import('./index').VizzlyConfig, services: unknown);
 
   /**
+   * Reload file config and re-apply current in-memory overrides.
+   */
+  init(): Promise<import('./index').VizzlyConfig>;
+
+  /**
+   * Merge new config values into the active SDK config.
+   */
+  updateConfig(
+    newConfig: Partial<import('./index').VizzlyConfig>
+  ): import('./index').VizzlyConfig;
+
+  /**
    * Start the Vizzly server
    * @returns Server information including port and URL
    */
@@ -90,6 +102,34 @@ export class VizzlySDK extends EventEmitter {
     name: string,
     imageBuffer: Buffer | string
   ): Promise<import('./index').ComparisonResult>;
+
+  /**
+   * Create an uploader using the SDK config.
+   */
+  createUploader(options?: {
+    upload?: import('./index').UploadConfig;
+    signal?: AbortSignal;
+    batchSize?: number;
+    timeout?: number;
+  }): import('./index').Uploader;
+
+  /**
+   * Create a local TDD service using the SDK config.
+   */
+  createTDDService(options?: {
+    workingDir?: string;
+    setBaseline?: boolean;
+    authService?: unknown;
+  }): import('./index').TddService;
+
+  /**
+   * Start a local TDD service.
+   */
+  startTDD(options?: {
+    workingDir?: string;
+    setBaseline?: boolean;
+    authService?: unknown;
+  }): Promise<unknown>;
 }
 
 /**

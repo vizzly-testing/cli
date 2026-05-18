@@ -13,16 +13,17 @@ import {
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
+import { createScreenshotProperties } from '../utils/screenshot-options.js';
 
 // Internal client state
 let currentClient = null;
 let isDisabled = false;
 
 // Default timeout for screenshot requests (30 seconds)
-const DEFAULT_TIMEOUT_MS = 30000;
+let DEFAULT_TIMEOUT_MS = 30000;
 
 // Log levels for client SDK output control
-export const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+export let LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
 
 /**
  * Check if client should log at the given level
@@ -71,16 +72,16 @@ export function autoDiscoverTddServer(startDir, deps = {}) {
   try {
     // Look for .vizzly/server.json in current directory and parent directories
     let currentDir = startDir || process.cwd();
-    const root = parse(currentDir).root;
+    let root = parse(currentDir).root;
 
     while (currentDir !== root) {
-      const serverJsonPath = join(currentDir, '.vizzly', 'server.json');
+      let serverJsonPath = join(currentDir, '.vizzly', 'server.json');
 
       if (exists(serverJsonPath)) {
         try {
-          const serverInfo = JSON.parse(readFile(serverJsonPath, 'utf8'));
+          let serverInfo = JSON.parse(readFile(serverJsonPath, 'utf8'));
           if (serverInfo.port) {
-            const url = `http://localhost:${serverInfo.port}`;
+            let url = `http://localhost:${serverInfo.port}`;
             return url;
           }
         } catch {
@@ -199,23 +200,17 @@ function createSimpleClient(serverUrl) {
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
 
-        let {
-          fullPage,
-          threshold,
-          properties: userProperties,
-          ...rest
-        } = options;
+        let properties = createScreenshotProperties(options);
 
         let httpStart = Date.now();
-        const { status, json } = await httpPost(
+        let { status, json } = await httpPost(
           `${serverUrl}/screenshot`,
           {
             buildId: getBuildId(),
             name,
             image,
             type,
-            properties: { ...rest, ...userProperties },
-            fullPage: fullPage || false,
+            properties,
           },
           DEFAULT_TIMEOUT_MS
         );
@@ -321,10 +316,11 @@ function createSimpleClient(serverUrl) {
  * @param {Buffer|string} imageBuffer - PNG image data as a Buffer, or a file path to an image
  * @param {Object} [options] - Optional configuration
  * @param {Record<string, any>} [options.properties] - Additional properties to attach to the screenshot
- * @param {number} [options.threshold=0] - Pixel difference threshold (0-100)
- * @param {boolean} [options.fullPage=false] - Whether this is a full page screenshot
+ * @param {number} [options.threshold] - CIEDE2000 Delta E threshold for this screenshot
+ * @param {number} [options.minClusterSize] - Minimum changed cluster size for this screenshot
+ * @param {boolean} [options.fullPage] - Whether this is a full page screenshot
  *
- * @returns {Promise<void>}
+ * @returns {Promise<Object|null>} Screenshot result from the server, or null when capture is skipped
  *
  * @example
  * // Basic usage with Buffer
@@ -347,20 +343,18 @@ function createSimpleClient(serverUrl) {
  *   threshold: 5
  * });
  *
- * @throws {VizzlyError} When screenshot capture fails or client is not initialized
- * @throws {VizzlyError} When file path is provided but file doesn't exist
- * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
+ * Capture failures are logged and return null so test suites can continue.
  */
 export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
   if (isVizzlyDisabled()) {
-    return; // Silently skip when disabled
+    return null; // Silently skip when disabled
   }
 
   let client = getClient();
   if (!client) {
     // Silently disable - no server running, nothing to do
     disableVizzly();
-    return;
+    return null;
   }
 
   // Pass through the original value (Buffer or file path)
@@ -371,7 +365,7 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
 /**
  * Wait for all queued screenshots to be processed
  *
- * @returns {Promise<void>}
+ * @returns {Promise<Object|null>} Flush summary, or null if no server is connected
  *
  * @example
  * afterAll(async () => {
@@ -379,10 +373,11 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
  * });
  */
 export async function vizzlyFlush() {
-  const client = getClient();
+  let client = getClient();
   if (client) {
     return client.flush();
   }
+  return null;
 }
 
 /**
@@ -431,7 +426,7 @@ export function setEnabled(enabled) {
  * @returns {Object} Client information
  */
 export function getVizzlyInfo() {
-  const client = getClient();
+  let client = getClient();
   return {
     enabled: !isVizzlyDisabled(),
     serverUrl: getServerUrl(),

@@ -4,6 +4,40 @@
  * @module @vizzly-testing/cli/client
  */
 
+export type ClientLogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export const LOG_LEVELS: Readonly<Record<ClientLogLevel, number>>;
+
+/**
+ * Check whether client SDK output should log at the requested level.
+ */
+export function shouldLogClient(
+  level: string,
+  configuredLevel?: string
+): boolean;
+
+/**
+ * Auto-discover a local TDD server by searching for `.vizzly/server.json`.
+ */
+export function autoDiscoverTddServer(
+  startDir?: string,
+  deps?: {
+    exists?: (path: string) => boolean;
+    readFile?: (path: string, encoding: BufferEncoding) => string | Buffer;
+  }
+): string | null;
+
+/**
+ * Result returned by a successful screenshot capture.
+ */
+export interface ScreenshotResult {
+  success: boolean;
+  status?: 'passed' | 'failed' | 'new';
+  name?: string;
+  diffPercentage?: number;
+  [key: string]: unknown;
+}
+
 /**
  * Take a screenshot for visual regression testing
  *
@@ -38,8 +72,9 @@ export function vizzlyScreenshot(
     threshold?: number;
     minClusterSize?: number;
     fullPage?: boolean;
+    [key: string]: unknown;
   }
-): Promise<void>;
+): Promise<ScreenshotResult | null>;
 
 /**
  * Flush result summary returned by vizzlyFlush

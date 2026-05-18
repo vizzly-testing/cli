@@ -6,6 +6,7 @@
  */
 
 import assert from 'node:assert';
+import { createHash } from 'node:crypto';
 import { describe, it } from 'node:test';
 import {
   checkShas,
@@ -362,8 +363,7 @@ describe('api/endpoints', () => {
     it('skips upload when SHA exists', async () => {
       let buffer = Buffer.from('fake png data');
       // Compute the actual SHA that will be generated
-      let crypto = await import('node:crypto');
-      let sha = crypto.createHash('sha256').update(buffer).digest('hex');
+      let sha = createHash('sha256').update(buffer).digest('hex');
 
       let client = createMockClient(endpoint => {
         if (endpoint === '/api/sdk/check-shas') {

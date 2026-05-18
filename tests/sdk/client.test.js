@@ -237,31 +237,30 @@ describe('client/index', () => {
   });
 
   describe('vizzlyScreenshot (unit tests)', () => {
-    it('returns early when disabled', async () => {
+    it('returns null when disabled', async () => {
       configure({ enabled: false });
 
       let result = await vizzlyScreenshot('test', Buffer.from('image'));
 
-      assert.strictEqual(result, undefined);
+      assert.strictEqual(result, null);
     });
 
-    it('returns undefined or null when no server configured', async () => {
+    it('returns null when no server configured', async () => {
       configure({ enabled: true, serverUrl: null });
 
       let result = await vizzlyScreenshot('test', Buffer.from('image'));
 
-      // Returns undefined if no server discovered, null if server failed
-      assert.ok(result === undefined || result === null);
+      assert.strictEqual(result, null);
     });
   });
 
   describe('vizzlyFlush (unit tests)', () => {
-    it('returns undefined when no client', async () => {
+    it('returns null when no client', async () => {
       configure({ enabled: false });
 
       let result = await vizzlyFlush();
 
-      assert.strictEqual(result, undefined);
+      assert.strictEqual(result, null);
     });
   });
 
@@ -388,23 +387,44 @@ describe('client/index httpPost integration tests', () => {
     });
   });
 
-  it('excludes SDK options from properties', async () => {
+  it('sends comparison options in properties for the TDD server', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'), {
       fullPage: true,
       threshold: 0.1,
+      minClusterSize: 4,
       properties: { url: 'http://localhost:3000' },
       browser: 'firefox',
     });
 
     assert.strictEqual(requests.length, 1);
-    let { properties, fullPage } = requests[0].body;
-    assert.strictEqual(fullPage, true);
+    let { properties, fullPage, threshold, minClusterSize } = requests[0].body;
+    assert.strictEqual(fullPage, undefined);
+    assert.strictEqual(threshold, undefined);
+    assert.strictEqual(minClusterSize, undefined);
     assert.deepStrictEqual(properties, {
       browser: 'firefox',
       url: 'http://localhost:3000',
+      threshold: 0.1,
+      minClusterSize: 4,
+      fullPage: true,
     });
-    assert.strictEqual(properties.fullPage, undefined);
-    assert.strictEqual(properties.threshold, undefined);
+  });
+
+  it('lets explicit comparison options override nested properties', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      threshold: 0,
+      minClusterSize: 2,
+      properties: {
+        threshold: 5,
+        minClusterSize: 10,
+      },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.deepStrictEqual(requests[0].body.properties, {
+      threshold: 0,
+      minClusterSize: 2,
+    });
   });
 
   it('sends Connection: close header to disable keep-alive', async () => {
@@ -433,7 +453,8 @@ describe('client/index httpPost integration tests', () => {
 
     // Need to reconfigure to actually hit the different endpoint
     // Actually, let's use a different approach - modify what endpoint we hit
-    server.close();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
     requests = [];
 
     server = createServer((req, res) => {
@@ -477,14 +498,12 @@ describe('client/index httpPost integration tests', () => {
   });
 
   it('handles server error and disables SDK', async () => {
-    server.close();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
     requests = [];
 
     server = createServer((req, res) => {
-      let _body = '';
-      req.on('data', chunk => {
-        _body += chunk;
-      });
+      req.on('data', () => {});
       req.on('end', () => {
         requests.push({ method: req.method, url: req.url });
         res.setHeader('Content-Type', 'application/json');
@@ -508,14 +527,12 @@ describe('client/index httpPost integration tests', () => {
   });
 
   it('handles invalid JSON response gracefully', async () => {
-    server.close();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
     requests = [];
 
     server = createServer((req, res) => {
-      let _body = '';
-      req.on('data', chunk => {
-        _body += chunk;
-      });
+      req.on('data', () => {});
       req.on('end', () => {
         requests.push({ method: req.method, url: req.url });
         res.setHeader('Content-Type', 'text/plain');

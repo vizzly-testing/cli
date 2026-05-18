@@ -15,12 +15,20 @@ import handler from 'serve-handler';
  */
 export async function startStaticServer(rootDir, port = 0) {
   let absoluteRoot = resolve(rootDir);
+  let sockets = new Set();
 
   let server = createServer((req, res) => {
     return handler(req, res, {
       public: absoluteRoot,
       cleanUrls: false,
       trailingSlash: false,
+    });
+  });
+
+  server.on('connection', socket => {
+    sockets.add(socket);
+    socket.on('close', () => {
+      sockets.delete(socket);
     });
   });
 
@@ -34,6 +42,7 @@ export async function startStaticServer(rootDir, port = 0) {
         server,
         port: actualPort,
         url,
+        sockets,
       });
     });
 
@@ -51,7 +60,25 @@ export async function stopStaticServer(serverInfo) {
     return;
   }
 
-  return new Promise(resolve => {
-    serverInfo.server.close(() => resolve());
+  let { server, sockets = new Set() } = serverInfo;
+
+  await new Promise((resolve, reject) => {
+    server.close(error => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+
+    if (typeof server.closeAllConnections === 'function') {
+      server.closeAllConnections();
+      return;
+    }
+
+    for (let socket of sockets) {
+      socket.destroy();
+    }
   });
 }

@@ -103,7 +103,10 @@ async function main() {
 
     // 2. Determine failOnDiff: env var > server.json > default (false)
     let failOnDiff = false;
-    if (process.env.VIZZLY_FAIL_ON_DIFF === 'true' || process.env.VIZZLY_FAIL_ON_DIFF === '1') {
+    if (
+      process.env.VIZZLY_FAIL_ON_DIFF === 'true' ||
+      process.env.VIZZLY_FAIL_ON_DIFF === '1'
+    ) {
       failOnDiff = true;
     } else {
       let serverInfo = getServerInfo();

@@ -47,7 +47,9 @@ export async function navigateToStory(page, storyId, baseUrl, options = {}) {
     await fullPageNavigation(page, storyId, baseUrl, timeout);
 
     if (verbose) {
-      console.error(`  [nav] ${storyId}: full-page took ${Date.now() - start}ms`);
+      console.error(
+        `  [nav] ${storyId}: full-page took ${Date.now() - start}ms`
+      );
     }
 
     if (entry) {
@@ -71,7 +73,9 @@ export async function navigateToStory(page, storyId, baseUrl, options = {}) {
     await clientSideNavigation(page, storyId, timeout);
 
     if (verbose) {
-      console.error(`  [nav] ${storyId}: client-side took ${Date.now() - start}ms`);
+      console.error(
+        `  [nav] ${storyId}: client-side took ${Date.now() - start}ms`
+      );
     }
     entry.currentStoryId = storyId;
   } catch (error) {
@@ -83,7 +87,9 @@ export async function navigateToStory(page, storyId, baseUrl, options = {}) {
     await fullPageNavigation(page, storyId, baseUrl, timeout);
 
     if (verbose) {
-      console.error(`  [nav] ${storyId}: fallback full-page took ${Date.now() - start}ms`);
+      console.error(
+        `  [nav] ${storyId}: fallback full-page took ${Date.now() - start}ms`
+      );
     }
     entry.currentStoryId = storyId;
   }
@@ -152,10 +158,10 @@ async function clientSideNavigation(page, storyId, timeout) {
         // Navigate to the story
         preview.channel.emit('setCurrentStory', { storyId: id });
 
-        // Timeout fallback - use configured timeout
+        // Trigger the full-page fallback when Storybook does not emit a render.
         timeoutId = setTimeout(() => {
           preview.channel.off('storyRendered', handleRendered);
-          resolve(); // Resolve anyway - story might have rendered
+          reject(new Error(`Storybook did not render ${id} before timeout`));
         }, timeoutMs);
       });
     },

@@ -161,8 +161,10 @@ function prepareTestingContainer(width = 1280, height = 720, fullPage = false) {
  * @returns {boolean}
  */
 function shouldFailOnDiff() {
-  return window.__VIZZLY_FAIL_ON_DIFF__ === true ||
-         window.__VIZZLY_FAIL_ON_DIFF__ === 'true';
+  return (
+    window.__VIZZLY_FAIL_ON_DIFF__ === true ||
+    window.__VIZZLY_FAIL_ON_DIFF__ === 'true'
+  );
 }
 
 /**
@@ -285,7 +287,9 @@ export async function vizzlyScreenshot(name, options = {}) {
       // Check if this is a "no server" error - gracefully skip instead of failing
       // This allows tests to pass when Vizzly isn't running (like Percy behavior)
       if (errorText.includes('No Vizzly server found')) {
-        console.warn('[vizzly] Vizzly server not running. Skipping visual screenshot.');
+        console.warn(
+          '[vizzly] Vizzly server not running. Skipping visual screenshot.'
+        );
         return { status: 'skipped', reason: 'no-server' };
       }
 
@@ -302,12 +306,14 @@ export async function vizzlyScreenshot(name, options = {}) {
       if (shouldFail) {
         throw new VizzlyDiffError(
           `Visual difference detected for '${name}' (${result.diffPercentage?.toFixed(2)}% diff). ` +
-          `View diff in Vizzly dashboard.`
+            `View diff in Vizzly dashboard.`
         );
       }
 
       // Log warning but don't fail
-      console.warn(`[vizzly] Visual difference detected for '${name}'. View diff in Vizzly dashboard.`);
+      console.warn(
+        `[vizzly] Visual difference detected for '${name}'. View diff in Vizzly dashboard.`
+      );
     }
 
     return result;
@@ -320,7 +326,9 @@ export async function vizzlyScreenshot(name, options = {}) {
     // Log connection errors only once to avoid spam
     if (!hasLoggedConnectionError) {
       hasLoggedConnectionError = true;
-      console.warn(`[vizzly] Screenshots skipped - server not available. Run 'vizzly tdd start' to enable.`);
+      console.warn(
+        `[vizzly] Screenshots skipped - server not available. Run 'vizzly tdd start' to enable.`
+      );
     }
     return { status: 'skipped', reason: 'error', error: error.message };
   } finally {

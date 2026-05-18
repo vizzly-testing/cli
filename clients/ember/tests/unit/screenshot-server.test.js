@@ -231,7 +231,10 @@ describe('screenshot-server', () => {
         // (unless there's a server.json in a parent directory)
         if (info !== null) {
           assert.ok(typeof info.url === 'string', 'should have url');
-          assert.ok(typeof info.failOnDiff === 'boolean', 'should have failOnDiff');
+          assert.ok(
+            typeof info.failOnDiff === 'boolean',
+            'should have failOnDiff'
+          );
         }
       } finally {
         process.chdir(originalCwd);
@@ -260,8 +263,16 @@ describe('screenshot-server', () => {
         let info = getServerInfo();
 
         assert.ok(info !== null, 'should find server.json');
-        assert.strictEqual(info.url, 'http://localhost:47392', 'should have correct url');
-        assert.strictEqual(info.failOnDiff, true, 'should read failOnDiff as true');
+        assert.strictEqual(
+          info.url,
+          'http://localhost:47392',
+          'should have correct url'
+        );
+        assert.strictEqual(
+          info.failOnDiff,
+          true,
+          'should read failOnDiff as true'
+        );
       } finally {
         process.chdir(originalCwd);
       }
@@ -287,8 +298,16 @@ describe('screenshot-server', () => {
         let info = getServerInfo();
 
         assert.ok(info !== null, 'should find server.json');
-        assert.strictEqual(info.url, 'http://localhost:47393', 'should have correct url');
-        assert.strictEqual(info.failOnDiff, false, 'should default failOnDiff to false');
+        assert.strictEqual(
+          info.url,
+          'http://localhost:47393',
+          'should have correct url'
+        );
+        assert.strictEqual(
+          info.failOnDiff,
+          false,
+          'should default failOnDiff to false'
+        );
       } finally {
         process.chdir(originalCwd);
       }

@@ -1282,7 +1282,6 @@ describe('server/handlers/tdd-handler', () => {
 
     describe('resetBaselines', () => {
       it('clears report data and returns counts', async () => {
-        let _deletedFiles = [];
         let deps = createMockDeps({
           existsSync: path => {
             // Simulate existing files

@@ -1,5 +1,10 @@
 import assert from 'node:assert';
+import { execFile } from 'node:child_process';
+import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { promisify } from 'node:util';
 import {
   detectBranch,
   detectCommit,
@@ -8,12 +13,36 @@ import {
   generateBuildName,
   generateBuildNameWithGit,
   getCommitMessage,
+  getCommonAncestor,
   getCurrentBranch,
   getCurrentCommitSha,
   getDefaultBranch,
   getGitStatus,
   isGitRepository,
 } from '../../src/utils/git.js';
+
+let execFileAsync = promisify(execFile);
+
+async function runGit(cwd, args) {
+  await execFileAsync('git', args, { cwd });
+}
+
+async function withGitRepo(testFn) {
+  let directory = await mkdtemp(join(tmpdir(), 'vizzly-git-'));
+
+  try {
+    await runGit(directory, ['init']);
+    await runGit(directory, ['config', 'user.email', 'test@example.com']);
+    await runGit(directory, ['config', 'user.name', 'Vizzly Test']);
+    await writeFile(join(directory, 'README.md'), 'hello\n');
+    await runGit(directory, ['add', 'README.md']);
+    await runGit(directory, ['commit', '-m', 'Initial commit']);
+
+    return await testFn(directory);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
 
 describe('utils/git', () => {
   describe('generateBuildName', () => {
@@ -64,6 +93,23 @@ describe('utils/git', () => {
       let sha = await getCurrentCommitSha('/non-existent-path-12345');
 
       assert.strictEqual(sha, null);
+    });
+  });
+
+  describe('getCommonAncestor', () => {
+    it('does not execute shell metacharacters from commit refs', async () => {
+      await withGitRepo(async directory => {
+        let markerPath = join(directory, 'shell-marker');
+
+        let ancestor = await getCommonAncestor(
+          `HEAD; touch ${markerPath}`,
+          'HEAD',
+          directory
+        );
+
+        assert.strictEqual(ancestor, null);
+        await assert.rejects(() => access(markerPath));
+      });
     });
   });
 

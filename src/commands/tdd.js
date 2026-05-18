@@ -113,7 +113,7 @@ export async function tddCommand(
       // Show config in verbose mode
       output.debug(
         'config',
-        `port=${config.server.port} threshold=${config.comparison.threshold}`
+        `port=${config.server.port} threshold=${config.comparison.threshold} minClusterSize=${config.comparison.minClusterSize}`
       );
     }
 
@@ -153,6 +153,7 @@ export async function tddCommand(
       commit,
       environment: config.build.environment,
       threshold: config.comparison.threshold,
+      minClusterSize: config.comparison.minClusterSize,
       allowNoToken: config.allowNoToken || false,
       baselineBuildId: config.baselineBuildId,
       baselineComparisonId: config.baselineComparisonId,
@@ -310,25 +311,32 @@ export function validateTddOptions(testCommand, options) {
   }
 
   if (options.port) {
-    let port = parseInt(options.port, 10);
-    if (Number.isNaN(port) || port < 1 || port > 65535) {
+    let port = Number(options.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
       errors.push('Port must be a valid number between 1 and 65535');
     }
   }
 
   if (options.timeout) {
-    let timeout = parseInt(options.timeout, 10);
-    if (Number.isNaN(timeout) || timeout < 1000) {
+    let timeout = Number(options.timeout);
+    if (!Number.isInteger(timeout) || timeout < 1000) {
       errors.push('Timeout must be at least 1000 milliseconds');
     }
   }
 
   if (options.threshold !== undefined) {
-    let threshold = parseFloat(options.threshold);
-    if (Number.isNaN(threshold) || threshold < 0) {
+    let threshold = Number(options.threshold);
+    if (!Number.isFinite(threshold) || threshold < 0) {
       errors.push(
         'Threshold must be a non-negative number (CIEDE2000 Delta E)'
       );
+    }
+  }
+
+  if (options.minClusterSize !== undefined) {
+    let minClusterSize = Number(options.minClusterSize);
+    if (!Number.isInteger(minClusterSize) || minClusterSize < 1) {
+      errors.push('Min cluster size must be a positive integer');
     }
   }
 

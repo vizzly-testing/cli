@@ -2,6 +2,7 @@
  * Config command - query and display configuration
  */
 
+import { CONFIG_DEFAULTS } from '../config/core.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 
@@ -40,10 +41,10 @@ export async function configCommand(
 
     // Build the config object to display
     let displayConfig = {
-      server: config.server || { port: 47392, timeout: 30000 },
+      server: config.server || CONFIG_DEFAULTS.server,
       build: config.build || {},
       upload: config.upload || {},
-      comparison: config.comparison || { threshold: 2.0 },
+      comparison: config.comparison || CONFIG_DEFAULTS.comparison,
       tdd: config.tdd || {},
     };
 

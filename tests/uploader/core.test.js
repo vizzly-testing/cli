@@ -13,6 +13,7 @@ import {
   buildWaitResult,
   computeSha256,
   DEFAULT_BATCH_SIZE,
+  DEFAULT_BUILD_POLL_INTERVAL,
   DEFAULT_SHA_CHECK_BATCH_SIZE,
   DEFAULT_TIMEOUT,
   extractBrowserFromFilename,
@@ -35,6 +36,7 @@ describe('uploader/core', () => {
       assert.strictEqual(DEFAULT_BATCH_SIZE, 50);
       assert.strictEqual(DEFAULT_SHA_CHECK_BATCH_SIZE, 100);
       assert.strictEqual(DEFAULT_TIMEOUT, 30000);
+      assert.strictEqual(DEFAULT_BUILD_POLL_INTERVAL, 1000);
     });
   });
 

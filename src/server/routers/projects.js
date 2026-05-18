@@ -43,13 +43,18 @@ export function createProjectsRouter({ projectService }) {
     );
     if (req.method === 'GET' && projectBuildsMatch) {
       try {
-        const organizationSlug = decodeURIComponent(projectBuildsMatch[1]);
-        const projectSlug = decodeURIComponent(projectBuildsMatch[2]);
+        let organizationSlug = decodeURIComponent(projectBuildsMatch[1]);
+        let projectSlug = decodeURIComponent(projectBuildsMatch[2]);
+        let limit = parseLimitParam(parsedUrl.searchParams.get('limit'));
 
-        const limit = parseInt(parsedUrl.searchParams.get('limit') || '20', 10);
-        const branch = parsedUrl.searchParams.get('branch') || undefined;
+        if (limit === null) {
+          sendError(res, 400, 'limit must be a positive integer');
+          return true;
+        }
 
-        const builds = await projectService.getRecentBuilds(
+        let branch = parsedUrl.searchParams.get('branch') || undefined;
+
+        let builds = await projectService.getRecentBuilds(
           projectSlug,
           organizationSlug,
           { limit, branch }
@@ -68,4 +73,10 @@ export function createProjectsRouter({ projectService }) {
 
     return false;
   };
+}
+
+function parseLimitParam(value) {
+  if (value === null) return 20;
+  if (!/^[1-9]\d*$/.test(value)) return null;
+  return Number(value);
 }

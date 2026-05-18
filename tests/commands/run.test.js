@@ -1,6 +1,10 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { runCommand, validateRunOptions } from '../../src/commands/run.js';
+import {
+  resolveBuildDisplayUrl,
+  runCommand,
+  validateRunOptions,
+} from '../../src/commands/run.js';
 
 /**
  * Create mock output object that tracks calls
@@ -56,6 +60,77 @@ function createMockConfig(overrides = {}) {
 }
 
 describe('commands/run', () => {
+  describe('resolveBuildDisplayUrl', () => {
+    it('uses the API result URL when one is already present', async () => {
+      let url = await resolveBuildDisplayUrl({
+        result: {
+          buildId: 'build-123',
+          url: 'https://app.test/acme/web/builds/build-123',
+        },
+        config: createMockConfig(),
+        createApiClient: () => {
+          throw new Error('should not fetch token context');
+        },
+      });
+
+      assert.strictEqual(url, 'https://app.test/acme/web/builds/build-123');
+    });
+
+    it('builds an organization/project URL from token context', async () => {
+      let clientArgs;
+      let url = await resolveBuildDisplayUrl({
+        result: { buildId: 'build-123' },
+        config: createMockConfig({
+          apiUrl: 'https://api.test/api/v1',
+          apiKey: 'token-123',
+        }),
+        createApiClient: args => {
+          clientArgs = args;
+          return { client: true };
+        },
+        getTokenContext: async client => {
+          assert.deepStrictEqual(client, { client: true });
+          return {
+            organization: { slug: 'acme' },
+            project: { slug: 'web' },
+          };
+        },
+      });
+
+      assert.deepStrictEqual(clientArgs, {
+        baseUrl: 'https://api.test/api/v1',
+        token: 'token-123',
+        command: 'run',
+      });
+      assert.strictEqual(url, 'https://api.test/acme/web/builds/build-123');
+    });
+
+    it('falls back to the build URL when token context lookup fails', async () => {
+      let url = await resolveBuildDisplayUrl({
+        result: { buildId: 'build-123' },
+        config: createMockConfig({
+          apiUrl: 'https://api.test/api/v1',
+          apiKey: 'token-123',
+        }),
+        createApiClient: () => ({ client: true }),
+        getTokenContext: async () => {
+          throw new Error('context unavailable');
+        },
+      });
+
+      assert.strictEqual(url, 'https://api.test/builds/build-123');
+    });
+
+    it('returns undefined when no URL can be resolved without a token', async () => {
+      let url = await resolveBuildDisplayUrl({
+        result: { buildId: 'build-123' },
+        config: createMockConfig({ apiKey: null }),
+      });
+
+      assert.strictEqual(url, undefined);
+    });
+  });
+
   describe('runCommand', () => {
     it('returns error when no API key and allowNoToken not set', async () => {
       let output = createMockOutput();
@@ -1222,6 +1297,13 @@ describe('commands/run', () => {
         );
       });
 
+      it('should fail with decimal port number', () => {
+        let errors = validateRunOptions('npm test', { port: '3000.5' });
+        assert.ok(
+          errors.includes('Port must be a valid number between 1 and 65535')
+        );
+      });
+
       it('should fail with port out of range (too low)', () => {
         let errors = validateRunOptions('npm test', { port: '0' });
         assert.ok(
@@ -1250,6 +1332,13 @@ describe('commands/run', () => {
         );
       });
 
+      it('should fail with decimal timeout', () => {
+        let errors = validateRunOptions('npm test', { timeout: '5000.5' });
+        assert.ok(
+          errors.includes('Timeout must be at least 1000 milliseconds')
+        );
+      });
+
       it('should fail with timeout too low', () => {
         let errors = validateRunOptions('npm test', { timeout: '500' });
         assert.ok(
@@ -1266,6 +1355,11 @@ describe('commands/run', () => {
 
       it('should fail with invalid batch size', () => {
         let errors = validateRunOptions('npm test', { batchSize: 'invalid' });
+        assert.ok(errors.includes('Batch size must be a positive integer'));
+      });
+
+      it('should fail with decimal batch size', () => {
+        let errors = validateRunOptions('npm test', { batchSize: '2.5' });
         assert.ok(errors.includes('Batch size must be a positive integer'));
       });
 
@@ -1297,12 +1391,78 @@ describe('commands/run', () => {
         );
       });
 
+      it('should fail with decimal upload timeout', () => {
+        let errors = validateRunOptions('npm test', {
+          uploadTimeout: '2500.5',
+        });
+        assert.ok(
+          errors.includes(
+            'Upload timeout must be a positive integer (milliseconds)'
+          )
+        );
+      });
+
       it('should fail with zero upload timeout', () => {
         let errors = validateRunOptions('npm test', { uploadTimeout: '0' });
         assert.ok(
           errors.includes(
             'Upload timeout must be a positive integer (milliseconds)'
           )
+        );
+      });
+    });
+
+    describe('comparison validation', () => {
+      it('should pass with exact-match threshold and min cluster size', () => {
+        let errors = validateRunOptions('npm test', {
+          threshold: '0',
+          minClusterSize: '1',
+        });
+
+        assert.strictEqual(errors.length, 0);
+      });
+
+      it('should fail with invalid threshold', () => {
+        let errors = validateRunOptions('npm test', {
+          threshold: 'invalid',
+        });
+
+        assert.ok(
+          errors.includes(
+            'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+          )
+        );
+      });
+
+      it('should fail when threshold has trailing text', () => {
+        let errors = validateRunOptions('npm test', {
+          threshold: '2abc',
+        });
+
+        assert.ok(
+          errors.includes(
+            'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+          )
+        );
+      });
+
+      it('should fail with non-integer min cluster size', () => {
+        let errors = validateRunOptions('npm test', {
+          minClusterSize: '2.5',
+        });
+
+        assert.ok(
+          errors.includes('Min cluster size must be a positive integer')
+        );
+      });
+
+      it('should fail with zero min cluster size', () => {
+        let errors = validateRunOptions('npm test', {
+          minClusterSize: '0',
+        });
+
+        assert.ok(
+          errors.includes('Min cluster size must be a positive integer')
         );
       });
     });

@@ -6,6 +6,127 @@ import { createApiClient as defaultCreateApiClient } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 
+function createReviewDeps(deps = {}) {
+  return {
+    loadConfig: deps.loadConfig || defaultLoadConfig,
+    createApiClient: deps.createApiClient || defaultCreateApiClient,
+    output: deps.output || defaultOutput,
+    exit: deps.exit || (code => process.exit(code)),
+  };
+}
+
+function configureOutput(output, globalOptions) {
+  output.configure({
+    json: globalOptions.json,
+    verbose: globalOptions.verbose,
+    color: !globalOptions.noColor,
+  });
+}
+
+async function loadReviewConfig({ loadConfig, options, globalOptions }) {
+  let allOptions = { ...globalOptions, ...options };
+  return await loadConfig(globalOptions.config, allOptions);
+}
+
+function createReviewClient({ createApiClient, config, command }) {
+  return createApiClient({
+    baseUrl: config.apiUrl,
+    token: config.apiKey,
+    command,
+  });
+}
+
+function jsonBody(body) {
+  if (!body || Object.keys(body).length === 0) {
+    return {};
+  }
+
+  return {
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  };
+}
+
+async function runReviewMutation({
+  command,
+  endpoint,
+  failureMessage,
+  globalOptions,
+  options,
+  requestBody,
+  spinnerMessage,
+  writeJsonError,
+  writeJsonSuccess,
+  writeHumanSuccess,
+  deps,
+  configure = true,
+}) {
+  let { loadConfig, createApiClient, output, exit } = createReviewDeps(deps);
+
+  if (configure) {
+    configureOutput(output, globalOptions);
+  }
+
+  try {
+    let config = await loadReviewConfig({ loadConfig, options, globalOptions });
+
+    if (!config.apiKey) {
+      output.error('API token required');
+      output.hint('Use --token or set VIZZLY_TOKEN environment variable');
+      output.cleanup();
+      exit(1);
+      return;
+    }
+
+    output.startSpinner(spinnerMessage);
+
+    let client = createReviewClient({ createApiClient, config, command });
+    let response = await client.request(endpoint, {
+      method: 'POST',
+      ...jsonBody(requestBody),
+    });
+
+    output.stopSpinner();
+
+    if (globalOptions.json) {
+      writeJsonSuccess(output, response);
+      output.cleanup();
+      return;
+    }
+
+    writeHumanSuccess(output, response);
+    output.cleanup();
+  } catch (error) {
+    output.stopSpinner();
+
+    if (globalOptions.json) {
+      writeJsonError(output, error);
+      output.cleanup();
+      exit(1);
+      return;
+    }
+
+    output.error(failureMessage, error);
+    output.cleanup();
+    exit(1);
+  }
+}
+
+export function createApprovalBody(options = {}) {
+  return options.comment ? { comment: options.comment } : {};
+}
+
+export function createRejectionBody(options = {}) {
+  return { reason: options.reason };
+}
+
+export function createCommentBody(message, options = {}) {
+  return {
+    content: message,
+    type: options.type || 'general',
+  };
+}
+
 /**
  * Approve a comparison
  * @param {string} comparisonId - Comparison ID to approve
@@ -19,91 +140,34 @@ export async function approveCommand(
   globalOptions = {},
   deps = {}
 ) {
-  let {
-    loadConfig = defaultLoadConfig,
-    createApiClient = defaultCreateApiClient,
-    output = defaultOutput,
-    exit = code => process.exit(code),
-  } = deps;
-
-  output.configure({
-    json: globalOptions.json,
-    verbose: globalOptions.verbose,
-    color: !globalOptions.noColor,
-  });
-
-  try {
-    let allOptions = { ...globalOptions, ...options };
-    let config = await loadConfig(globalOptions.config, allOptions);
-
-    if (!config.apiKey) {
-      output.error('API token required');
-      output.hint('Use --token or set VIZZLY_TOKEN environment variable');
-      exit(1);
-      return;
-    }
-
-    output.startSpinner('Approving comparison...');
-
-    let client = createApiClient({
-      baseUrl: config.apiUrl,
-      token: config.apiKey,
-      command: 'approve',
-    });
-
-    let body = {};
-    if (options.comment) {
-      body.comment = options.comment;
-    }
-
-    let response = await client.request(
-      `/api/sdk/comparisons/${comparisonId}/approve`,
-      {
-        method: 'POST',
-        body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
-        headers:
-          Object.keys(body).length > 0
-            ? { 'Content-Type': 'application/json' }
-            : undefined,
-      }
-    );
-
-    output.stopSpinner();
-
-    if (globalOptions.json) {
-      output.data({
-        approved: true,
-        comparisonId,
-        comparison: response.comparison,
-      });
-      output.cleanup();
-      return;
-    }
-
-    output.complete(`Comparison ${comparisonId} approved`);
-    if (options.comment) {
-      output.hint(`Comment: "${options.comment}"`);
-    }
-
-    output.cleanup();
-  } catch (error) {
-    output.stopSpinner();
-
-    if (globalOptions.json) {
+  return await runReviewMutation({
+    command: 'approve',
+    endpoint: `/api/sdk/comparisons/${comparisonId}/approve`,
+    failureMessage: 'Failed to approve comparison',
+    globalOptions,
+    options,
+    requestBody: createApprovalBody(options),
+    spinnerMessage: 'Approving comparison...',
+    writeJsonError: (output, error) =>
       output.data({
         approved: false,
         comparisonId,
         error: { message: error.message, code: error.code },
-      });
-      output.cleanup();
-      exit(1);
-      return;
-    }
-
-    output.error('Failed to approve comparison', error);
-    output.cleanup();
-    exit(1);
-  }
+      }),
+    writeJsonSuccess: (output, response) =>
+      output.data({
+        approved: true,
+        comparisonId,
+        comparison: response.comparison,
+      }),
+    writeHumanSuccess: output => {
+      output.complete(`Comparison ${comparisonId} approved`);
+      if (options.comment) {
+        output.hint(`Comment: "${options.comment}"`);
+      }
+    },
+    deps,
+  });
 }
 
 /**
@@ -119,89 +183,45 @@ export async function rejectCommand(
   globalOptions = {},
   deps = {}
 ) {
-  let {
-    loadConfig = defaultLoadConfig,
-    createApiClient = defaultCreateApiClient,
-    output = defaultOutput,
-    exit = code => process.exit(code),
-  } = deps;
+  let { output, exit } = createReviewDeps(deps);
+  configureOutput(output, globalOptions);
 
-  output.configure({
-    json: globalOptions.json,
-    verbose: globalOptions.verbose,
-    color: !globalOptions.noColor,
-  });
+  if (!options.reason) {
+    output.error('Reason required when rejecting');
+    output.hint('Use --reason "explanation" to provide a reason');
+    output.cleanup();
+    exit(1);
+    return;
+  }
 
-  try {
-    let allOptions = { ...globalOptions, ...options };
-    let config = await loadConfig(globalOptions.config, allOptions);
-
-    if (!config.apiKey) {
-      output.error('API token required');
-      output.hint('Use --token or set VIZZLY_TOKEN environment variable');
-      exit(1);
-      return;
-    }
-
-    if (!options.reason) {
-      output.error('Reason required when rejecting');
-      output.hint('Use --reason "explanation" to provide a reason');
-      exit(1);
-      return;
-    }
-
-    output.startSpinner('Rejecting comparison...');
-
-    let client = createApiClient({
-      baseUrl: config.apiUrl,
-      token: config.apiKey,
-      command: 'reject',
-    });
-
-    let response = await client.request(
-      `/api/sdk/comparisons/${comparisonId}/reject`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ reason: options.reason }),
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-
-    output.stopSpinner();
-
-    if (globalOptions.json) {
+  return await runReviewMutation({
+    command: 'reject',
+    endpoint: `/api/sdk/comparisons/${comparisonId}/reject`,
+    failureMessage: 'Failed to reject comparison',
+    globalOptions,
+    options,
+    requestBody: createRejectionBody(options),
+    spinnerMessage: 'Rejecting comparison...',
+    writeJsonError: (output, error) =>
+      output.data({
+        rejected: false,
+        comparisonId,
+        error: { message: error.message, code: error.code },
+      }),
+    writeJsonSuccess: (output, response) =>
       output.data({
         rejected: true,
         comparisonId,
         reason: options.reason,
         comparison: response.comparison,
-      });
-      output.cleanup();
-      return;
-    }
-
-    output.complete(`Comparison ${comparisonId} rejected`);
-    output.hint(`Reason: "${options.reason}"`);
-
-    output.cleanup();
-  } catch (error) {
-    output.stopSpinner();
-
-    if (globalOptions.json) {
-      output.data({
-        rejected: false,
-        comparisonId,
-        error: { message: error.message, code: error.code },
-      });
-      output.cleanup();
-      exit(1);
-      return;
-    }
-
-    output.error('Failed to reject comparison', error);
-    output.cleanup();
-    exit(1);
-  }
+      }),
+    writeHumanSuccess: output => {
+      output.complete(`Comparison ${comparisonId} rejected`);
+      output.hint(`Reason: "${options.reason}"`);
+    },
+    deps,
+    configure: false,
+  });
 }
 
 /**
@@ -219,90 +239,44 @@ export async function commentCommand(
   globalOptions = {},
   deps = {}
 ) {
-  let {
-    loadConfig = defaultLoadConfig,
-    createApiClient = defaultCreateApiClient,
-    output = defaultOutput,
-    exit = code => process.exit(code),
-  } = deps;
+  let { output, exit } = createReviewDeps(deps);
+  configureOutput(output, globalOptions);
 
-  output.configure({
-    json: globalOptions.json,
-    verbose: globalOptions.verbose,
-    color: !globalOptions.noColor,
-  });
-
-  try {
-    let allOptions = { ...globalOptions, ...options };
-    let config = await loadConfig(globalOptions.config, allOptions);
-
-    if (!config.apiKey) {
-      output.error('API token required');
-      output.hint('Use --token or set VIZZLY_TOKEN environment variable');
-      exit(1);
-      return;
-    }
-
-    if (!message || message.trim() === '') {
-      output.error('Comment message required');
-      exit(1);
-      return;
-    }
-
-    output.startSpinner('Adding comment...');
-
-    let client = createApiClient({
-      baseUrl: config.apiUrl,
-      token: config.apiKey,
-      command: 'comment',
-    });
-
-    let body = {
-      content: message,
-      type: options.type || 'general',
-    };
-
-    let response = await client.request(`/api/sdk/builds/${buildId}/comments`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    output.stopSpinner();
-
-    if (globalOptions.json) {
-      output.data({
-        created: true,
-        buildId,
-        comment: response.comment,
-      });
-      output.cleanup();
-      return;
-    }
-
-    output.complete('Comment added');
-    output.labelValue('Build', buildId);
-    output.labelValue('Message', message);
-
+  if (!message || message.trim() === '') {
+    output.error('Comment message required');
     output.cleanup();
-  } catch (error) {
-    output.stopSpinner();
+    exit(1);
+    return;
+  }
 
-    if (globalOptions.json) {
+  return await runReviewMutation({
+    command: 'comment',
+    endpoint: `/api/sdk/builds/${buildId}/comments`,
+    failureMessage: 'Failed to add comment',
+    globalOptions,
+    options,
+    requestBody: createCommentBody(message, options),
+    spinnerMessage: 'Adding comment...',
+    writeJsonError: (output, error) =>
       output.data({
         created: false,
         buildId,
         error: { message: error.message, code: error.code },
-      });
-      output.cleanup();
-      exit(1);
-      return;
-    }
-
-    output.error('Failed to add comment', error);
-    output.cleanup();
-    exit(1);
-  }
+      }),
+    writeJsonSuccess: (output, response) =>
+      output.data({
+        created: true,
+        buildId,
+        comment: response.comment,
+      }),
+    writeHumanSuccess: output => {
+      output.complete('Comment added');
+      output.labelValue('Build', buildId);
+      output.labelValue('Message', message);
+    },
+    deps,
+    configure: false,
+  });
 }
 
 /**

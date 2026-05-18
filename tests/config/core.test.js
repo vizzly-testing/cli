@@ -26,6 +26,7 @@ describe('config/core', () => {
       assert.strictEqual(CONFIG_DEFAULTS.apiUrl, 'https://app.vizzly.dev');
       assert.strictEqual(CONFIG_DEFAULTS.server.port, 47392);
       assert.strictEqual(CONFIG_DEFAULTS.comparison.threshold, 2.0);
+      assert.strictEqual(CONFIG_DEFAULTS.comparison.minClusterSize, 2);
       assert.strictEqual(CONFIG_DEFAULTS.tdd.openReport, false);
       assert.deepStrictEqual(CONFIG_DEFAULTS.plugins, []);
     });
@@ -116,6 +117,15 @@ describe('config/core', () => {
       assert.deepStrictEqual(result.plugins, ['c']);
     });
 
+    it('does not share nested arrays with the source object', () => {
+      let source = { plugins: ['a'] };
+      let result = deepMerge({}, source);
+
+      result.plugins.push('b');
+
+      assert.deepStrictEqual(source.plugins, ['a']);
+    });
+
     it('handles null and undefined in source', () => {
       let target = { a: 1 };
       let source = { b: null, c: undefined };
@@ -162,8 +172,35 @@ describe('config/core', () => {
         },
       });
 
-      assert.deepStrictEqual(config.comparison, { threshold: 5.0 });
+      assert.deepStrictEqual(config.comparison, {
+        threshold: 5.0,
+        minClusterSize: CONFIG_DEFAULTS.comparison.minClusterSize,
+      });
       assert.strictEqual(sources.comparison, 'project');
+    });
+
+    it('deep merges partial global and project config with defaults', () => {
+      let { config, sources } = buildMergedConfig({
+        globalConfig: {
+          server: { timeout: 45000 },
+          upload: { batchSize: 25 },
+        },
+        projectConfig: {
+          server: { timeout: 60000 },
+        },
+      });
+
+      assert.deepStrictEqual(config.server, {
+        port: CONFIG_DEFAULTS.server.port,
+        timeout: 60000,
+      });
+      assert.deepStrictEqual(config.upload, {
+        screenshotsDir: './screenshots',
+        batchSize: 25,
+        timeout: CONFIG_DEFAULTS.upload.timeout,
+      });
+      assert.strictEqual(sources.server, 'project');
+      assert.strictEqual(sources.upload, 'global');
     });
 
     it('overlays env overrides on top of project', () => {
@@ -187,7 +224,10 @@ describe('config/core', () => {
       assert.strictEqual(sources.apiUrl, 'default');
       assert.deepStrictEqual(config.auth, { accessToken: 'global_token' });
       assert.strictEqual(sources.auth, 'global');
-      assert.deepStrictEqual(config.comparison, { threshold: 3.0 });
+      assert.deepStrictEqual(config.comparison, {
+        threshold: 3.0,
+        minClusterSize: CONFIG_DEFAULTS.comparison.minClusterSize,
+      });
       assert.strictEqual(sources.comparison, 'project');
       assert.strictEqual(config.apiKey, 'env_key');
       assert.strictEqual(sources.apiKey, 'env');

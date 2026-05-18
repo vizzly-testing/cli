@@ -52,6 +52,14 @@ async function testVizzlySDK() {
   // getConfig() should return VizzlyConfig
   expectType<VizzlyConfig>(sdk.getConfig());
 
+  // updateConfig() should return the updated config
+  expectType<VizzlyConfig>(
+    sdk.updateConfig({ build: { environment: 'staging' } })
+  );
+
+  // init() should reload configuration
+  expectType<Promise<VizzlyConfig>>(sdk.init());
+
   // screenshot() with Buffer
   expectType<Promise<void>>(sdk.screenshot('test', Buffer.from('test')));
 
@@ -79,6 +87,17 @@ async function testVizzlySDK() {
   // compare() should return ComparisonResult
   expectType<Promise<ComparisonResult>>(sdk.compare('test', Buffer.from('test')));
   expectType<Promise<ComparisonResult>>(sdk.compare('test', '/path/to/image.png'));
+
+  // advanced service factories should match their public service contracts
+  expectType<Uploader>(sdk.createUploader());
+  expectType<Uploader>(
+    sdk.createUploader({
+      batchSize: 10,
+      upload: { screenshotsDir: './screenshots' },
+    })
+  );
+  expectType<TddService>(sdk.createTDDService());
+  expectType<Promise<unknown>>(sdk.startTDD({ workingDir: '/tmp/vizzly' }));
 }
 
 // VizzlySDK should be an EventEmitter (has on/off/emit)

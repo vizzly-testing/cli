@@ -6,6 +6,132 @@ import { createApiClient as defaultCreateApiClient } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 
+let ALLOWED_POST_ENDPOINTS = [
+  /^\/api\/sdk\/comparisons\/[^/]+\/approve$/,
+  /^\/api\/sdk\/comparisons\/[^/]+\/reject$/,
+  /^\/api\/sdk\/builds\/[^/]+\/comments$/,
+];
+
+function createApiCommandDeps(deps = {}) {
+  return {
+    loadConfig: deps.loadConfig || defaultLoadConfig,
+    createApiClient: deps.createApiClient || defaultCreateApiClient,
+    output: deps.output || defaultOutput,
+    exit: deps.exit || (code => process.exit(code)),
+  };
+}
+
+function configureOutput(output, globalOptions) {
+  output.configure({
+    json: globalOptions.json,
+    verbose: globalOptions.verbose,
+    color: !globalOptions.noColor,
+  });
+}
+
+export function normalizeApiEndpoint(endpoint) {
+  let normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  if (!normalizedEndpoint.startsWith('/api/')) {
+    normalizedEndpoint = `/api${normalizedEndpoint}`;
+  }
+
+  return normalizedEndpoint;
+}
+
+export function normalizeApiMethod(method = 'GET') {
+  return method.toUpperCase();
+}
+
+export function isAllowedPostEndpoint(endpoint) {
+  return ALLOWED_POST_ENDPOINTS.some(pattern => pattern.test(endpoint));
+}
+
+export function parseApiHeaders(headerOption) {
+  let headers = {};
+  let headerList = Array.isArray(headerOption) ? headerOption : [headerOption];
+
+  for (let header of headerList.filter(Boolean)) {
+    let [key, ...valueParts] = header.split(':');
+    if (key && valueParts.length > 0) {
+      headers[key.trim()] = valueParts.join(':').trim();
+    }
+  }
+
+  return headers;
+}
+
+export function appendApiQuery(endpoint, queryOption) {
+  if (!queryOption) {
+    return endpoint;
+  }
+
+  let params = new URLSearchParams();
+  let queryList = Array.isArray(queryOption) ? queryOption : [queryOption];
+
+  for (let query of queryList) {
+    let [key, ...valueParts] = query.split('=');
+    if (key && valueParts.length > 0) {
+      params.append(key.trim(), valueParts.join('=').trim());
+    }
+  }
+
+  let queryString = params.toString();
+  if (!queryString) {
+    return endpoint;
+  }
+
+  return endpoint + (endpoint.includes('?') ? '&' : '?') + queryString;
+}
+
+export function validateApiRequest({ endpoint, method }) {
+  let errors = [];
+
+  if (method !== 'GET' && method !== 'POST') {
+    errors.push(
+      `Method ${method} not allowed. Use GET for queries or POST for approve/reject/comment.`
+    );
+    return errors;
+  }
+
+  if (method === 'POST' && !isAllowedPostEndpoint(endpoint)) {
+    errors.push(
+      `POST not allowed for ${endpoint}. Only approve, reject, and comment endpoints support POST.`
+    );
+  }
+
+  return errors;
+}
+
+export function buildApiRequest({ endpoint, options = {} }) {
+  let normalizedEndpoint = normalizeApiEndpoint(endpoint);
+  let method = normalizeApiMethod(options.method || 'GET');
+  let errors = validateApiRequest({ endpoint: normalizedEndpoint, method });
+
+  if (errors.length > 0) {
+    return { errors, method, normalizedEndpoint, requestOptions: null };
+  }
+
+  let headers = parseApiHeaders(options.header);
+  let requestOptions = { method };
+
+  if (options.data && method === 'POST') {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+    requestOptions.body = options.data;
+  }
+
+  if (Object.keys(headers).length > 0) {
+    requestOptions.headers = headers;
+  }
+
+  return {
+    errors: [],
+    method,
+    normalizedEndpoint: appendApiQuery(normalizedEndpoint, options.query),
+    requestOptions,
+  };
+}
+
 /**
  * API command - make raw API requests
  * @param {string} endpoint - API endpoint (e.g., /sdk/builds)
@@ -19,18 +145,12 @@ export async function apiCommand(
   globalOptions = {},
   deps = {}
 ) {
-  let {
-    loadConfig = defaultLoadConfig,
-    createApiClient = defaultCreateApiClient,
-    output = defaultOutput,
-    exit = code => process.exit(code),
-  } = deps;
+  let { loadConfig, createApiClient, output, exit } =
+    createApiCommandDeps(deps);
+  let displayEndpoint = normalizeApiEndpoint(endpoint);
+  let displayMethod = normalizeApiMethod(options.method || 'GET');
 
-  output.configure({
-    json: globalOptions.json,
-    verbose: globalOptions.verbose,
-    color: !globalOptions.noColor,
-  });
+  configureOutput(output, globalOptions);
 
   try {
     // Load configuration
@@ -42,82 +162,30 @@ export async function apiCommand(
       output.error(
         'API token required. Use --token or set VIZZLY_TOKEN environment variable'
       );
+      output.cleanup();
       exit(1);
       return;
     }
 
-    // Normalize endpoint
-    let normalizedEndpoint = endpoint.startsWith('/')
-      ? endpoint
-      : `/${endpoint}`;
-    if (!normalizedEndpoint.startsWith('/api/')) {
-      normalizedEndpoint = `/api${normalizedEndpoint}`;
-    }
+    let { errors, method, normalizedEndpoint, requestOptions } =
+      buildApiRequest({ endpoint, options });
 
-    // Build request options
-    let method = (options.method || 'GET').toUpperCase();
+    displayEndpoint = normalizedEndpoint;
+    displayMethod = method;
 
-    // Validate method and endpoint combination
-    if (method === 'POST' && !isAllowedPostEndpoint(normalizedEndpoint)) {
-      output.error(
-        `POST not allowed for ${normalizedEndpoint}. Only approve, reject, and comment endpoints support POST.`
-      );
+    if (errors.length > 0) {
+      output.error(errors[0]);
+      if (method === 'POST') {
+        output.hint(
+          'Use GET for queries, or use dedicated commands (vizzly approve, vizzly reject, vizzly comment)'
+        );
+      }
       output.hint(
-        'Use GET for queries, or use dedicated commands (vizzly approve, vizzly reject, vizzly comment)'
+        'Most raw API use should stay read-only; prefer dedicated commands for mutations.'
       );
+      output.cleanup();
       exit(1);
       return;
-    }
-
-    if (method !== 'GET' && method !== 'POST') {
-      output.error(`Method ${method} not allowed. Use GET for queries.`);
-      exit(1);
-      return;
-    }
-
-    let requestOptions = { method };
-
-    // Add headers
-    let headers = {};
-    if (options.header) {
-      let headerList = Array.isArray(options.header)
-        ? options.header
-        : [options.header];
-      for (let h of headerList) {
-        let [key, ...valueParts] = h.split(':');
-        if (key && valueParts.length > 0) {
-          headers[key.trim()] = valueParts.join(':').trim();
-        }
-      }
-    }
-
-    // Add body for POST/PUT/PATCH
-    if (options.data && ['POST', 'PUT', 'PATCH'].includes(method)) {
-      headers['Content-Type'] = headers['Content-Type'] || 'application/json';
-      requestOptions.body = options.data;
-    }
-
-    if (Object.keys(headers).length > 0) {
-      requestOptions.headers = headers;
-    }
-
-    // Add query parameters
-    if (options.query) {
-      let params = new URLSearchParams();
-      let queryList = Array.isArray(options.query)
-        ? options.query
-        : [options.query];
-      for (let q of queryList) {
-        let [key, ...valueParts] = q.split('=');
-        if (key && valueParts.length > 0) {
-          params.append(key.trim(), valueParts.join('=').trim());
-        }
-      }
-      let queryString = params.toString();
-      if (queryString) {
-        normalizedEndpoint +=
-          (normalizedEndpoint.includes('?') ? '&' : '?') + queryString;
-      }
     }
 
     // Make the request
@@ -162,8 +230,8 @@ export async function apiCommand(
 
     if (globalOptions.json) {
       output.data({
-        endpoint,
-        method: options.method || 'GET',
+        endpoint: displayEndpoint,
+        method: displayMethod,
         error: {
           message: error.message,
           code: error.code,
@@ -182,23 +250,6 @@ export async function apiCommand(
 }
 
 /**
- * Allowed POST endpoints (whitelist for mutations)
- * Most mutations should use dedicated commands, but these are allowed for raw API access
- */
-const ALLOWED_POST_ENDPOINTS = [
-  /^\/api\/sdk\/comparisons\/[^/]+\/approve$/,
-  /^\/api\/sdk\/comparisons\/[^/]+\/reject$/,
-  /^\/api\/sdk\/builds\/[^/]+\/comments$/,
-];
-
-/**
- * Check if a POST endpoint is allowed
- */
-function isAllowedPostEndpoint(endpoint) {
-  return ALLOWED_POST_ENDPOINTS.some(pattern => pattern.test(endpoint));
-}
-
-/**
  * Validate API command options
  */
 export function validateApiOptions(endpoint, options = {}) {
@@ -208,15 +259,13 @@ export function validateApiOptions(endpoint, options = {}) {
     errors.push('Endpoint is required');
   }
 
-  let method = (options.method || 'GET').toUpperCase();
-
-  // Only GET is allowed by default
-  // POST is allowed only for whitelisted endpoints
-  if (method !== 'GET' && method !== 'POST') {
-    errors.push(
-      `Method ${method} not allowed. Use GET for queries or POST for approve/reject/comment.`
-    );
+  if (!endpoint || endpoint.trim() === '') {
+    return errors;
   }
+
+  let normalizedEndpoint = normalizeApiEndpoint(endpoint);
+  let method = normalizeApiMethod(options.method || 'GET');
+  errors.push(...validateApiRequest({ endpoint: normalizedEndpoint, method }));
 
   return errors;
 }

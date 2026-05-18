@@ -14,6 +14,7 @@ import { basename } from 'node:path';
 export const DEFAULT_BATCH_SIZE = 50;
 export const DEFAULT_SHA_CHECK_BATCH_SIZE = 100;
 export const DEFAULT_TIMEOUT = 30000; // 30 seconds
+export const DEFAULT_BUILD_POLL_INTERVAL = 1000; // 1 second
 
 // ============================================================================
 // Validation
@@ -340,8 +341,8 @@ export function resolveTimeout(options, uploadConfig) {
  * @param {number} timeout - Timeout in ms
  * @returns {boolean} True if timed out
  */
-export function isTimedOut(startTime, timeout) {
-  return Date.now() - startTime >= timeout;
+export function isTimedOut(startTime, timeout, now = Date.now()) {
+  return now - startTime >= timeout;
 }
 
 /**
@@ -349,8 +350,8 @@ export function isTimedOut(startTime, timeout) {
  * @param {number} startTime - Start timestamp
  * @returns {number} Elapsed time in ms
  */
-export function getElapsedTime(startTime) {
-  return Date.now() - startTime;
+export function getElapsedTime(startTime, now = Date.now()) {
+  return now - startTime;
 }
 
 /**

@@ -48,12 +48,40 @@ describe('commands/builds', () => {
 
     it('returns error for invalid limit', () => {
       let errors = validateBuildsOptions({ limit: 500 });
-      assert.ok(errors.includes('--limit must be a number between 1 and 250'));
+      assert.ok(
+        errors.includes('--limit must be an integer between 1 and 250')
+      );
+    });
+
+    it('returns error for malformed and decimal limits', () => {
+      assert.ok(
+        validateBuildsOptions({ limit: Number('20abc') }).includes(
+          '--limit must be an integer between 1 and 250'
+        )
+      );
+      assert.ok(
+        validateBuildsOptions({ limit: 20.5 }).includes(
+          '--limit must be an integer between 1 and 250'
+        )
+      );
     });
 
     it('returns error for negative offset', () => {
       let errors = validateBuildsOptions({ offset: -1 });
-      assert.ok(errors.includes('--offset must be a non-negative number'));
+      assert.ok(errors.includes('--offset must be a non-negative integer'));
+    });
+
+    it('returns error for malformed and decimal offsets', () => {
+      assert.ok(
+        validateBuildsOptions({ offset: Number('1abc') }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
+      assert.ok(
+        validateBuildsOptions({ offset: 1.5 }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
     });
   });
 

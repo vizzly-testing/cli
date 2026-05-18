@@ -14,11 +14,12 @@ import {
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
 import { createBuildObject as defaultCreateBuildObject } from '../services/build-manager.js';
-import { createUploader as defaultCreateUploader } from '../services/uploader.js';
 import {
   finalizeBuild as defaultFinalizeBuild,
   runTests as defaultRunTests,
 } from '../test-runner/index.js';
+import { createUploader as defaultCreateUploader } from '../uploader/index.js';
+import { getAppBaseUrl } from '../utils/api-url.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import {
   detectBranch as defaultDetectBranch,
@@ -29,6 +30,39 @@ import {
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
 import { writeSession as defaultWriteSession } from '../utils/session.js';
+
+export async function resolveBuildDisplayUrl({
+  result,
+  config,
+  createApiClient = defaultCreateApiClient,
+  getTokenContext = defaultGetTokenContext,
+}) {
+  if (result.url) {
+    return result.url;
+  }
+
+  if (!config.apiKey) {
+    return undefined;
+  }
+
+  let baseUrl = getAppBaseUrl(config.apiUrl);
+
+  try {
+    let client = createApiClient({
+      baseUrl: config.apiUrl,
+      token: config.apiKey,
+      command: 'run',
+    });
+    let tokenContext = await getTokenContext(client);
+    if (tokenContext.organization?.slug && tokenContext.project?.slug) {
+      return `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${result.buildId}`;
+    }
+  } catch {
+    return `${baseUrl}/builds/${result.buildId}`;
+  }
+
+  return undefined;
+}
 
 /**
  * Run command implementation
@@ -311,27 +345,12 @@ export async function runCommand(
       // JSON output mode - output structured data and exit
       if (globalOptions.json) {
         let executionTimeMs = Date.now() - startTime;
-
-        // Get URL from result, or construct one as fallback
-        let displayUrl = result.url;
-        if (!displayUrl && config.apiKey) {
-          try {
-            let client = createApiClient({
-              baseUrl: config.apiUrl,
-              token: config.apiKey,
-              command: 'run',
-            });
-            let tokenContext = await getTokenContext(client);
-            let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
-            if (tokenContext.organization?.slug && tokenContext.project?.slug) {
-              displayUrl = `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${result.buildId}`;
-            }
-          } catch {
-            // Fallback to simple URL if context fetch fails
-            let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
-            displayUrl = `${baseUrl}/builds/${result.buildId}`;
-          }
-        }
+        let displayUrl = await resolveBuildDisplayUrl({
+          result,
+          config,
+          createApiClient,
+          getTokenContext,
+        });
 
         let jsonResult = {
           buildId: result.buildId,
@@ -362,26 +381,12 @@ export async function runCommand(
           `  ${colors.brand.textTertiary('Screenshots')}  ${colors.white(result.screenshotsCaptured)}`
         );
 
-        // Get URL from result, or construct one as fallback
-        let displayUrl = result.url;
-        if (!displayUrl && config.apiKey) {
-          try {
-            let client = createApiClient({
-              baseUrl: config.apiUrl,
-              token: config.apiKey,
-              command: 'run',
-            });
-            let tokenContext = await getTokenContext(client);
-            let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
-            if (tokenContext.organization?.slug && tokenContext.project?.slug) {
-              displayUrl = `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${result.buildId}`;
-            }
-          } catch {
-            // Fallback to simple URL if context fetch fails
-            let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
-            displayUrl = `${baseUrl}/builds/${result.buildId}`;
-          }
-        }
+        let displayUrl = await resolveBuildDisplayUrl({
+          result,
+          config,
+          createApiClient,
+          getTokenContext,
+        });
 
         if (displayUrl) {
           output.print(
@@ -404,7 +409,7 @@ export async function runCommand(
       ) {
         // Extract exit code from error message if available
         let exitCodeMatch = error.message.match(/exited with code (\d+)/);
-        let exitCode = exitCodeMatch ? parseInt(exitCodeMatch[1], 10) : 1;
+        let exitCode = exitCodeMatch ? Number(exitCodeMatch[1]) : 1;
 
         // JSON output for test command failure
         if (globalOptions.json) {
@@ -462,29 +467,12 @@ export async function runCommand(
         // JSON output for --wait mode
         if (globalOptions.json) {
           let executionTimeMs = Date.now() - startTime;
-
-          // Get URL from result, or construct one as fallback
-          let displayUrl = result.url;
-          if (!displayUrl && config.apiKey) {
-            try {
-              let client = createApiClient({
-                baseUrl: config.apiUrl,
-                token: config.apiKey,
-                command: 'run',
-              });
-              let tokenContext = await getTokenContext(client);
-              let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
-              if (
-                tokenContext.organization?.slug &&
-                tokenContext.project?.slug
-              ) {
-                displayUrl = `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${result.buildId}`;
-              }
-            } catch {
-              let baseUrl = config.apiUrl.replace(/\/api.*$/, '');
-              displayUrl = `${baseUrl}/builds/${result.buildId}`;
-            }
-          }
+          let displayUrl = await resolveBuildDisplayUrl({
+            result,
+            config,
+            createApiClient,
+            getTokenContext,
+          });
 
           let exitCode = buildResult.failedComparisons > 0 ? 1 : 0;
           let jsonResult = {
@@ -573,30 +561,46 @@ export function validateRunOptions(testCommand, options) {
   }
 
   if (options.port) {
-    let port = parseInt(options.port, 10);
-    if (Number.isNaN(port) || port < 1 || port > 65535) {
+    let port = Number(options.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
       errors.push('Port must be a valid number between 1 and 65535');
     }
   }
 
   if (options.timeout) {
-    let timeout = parseInt(options.timeout, 10);
-    if (Number.isNaN(timeout) || timeout < 1000) {
+    let timeout = Number(options.timeout);
+    if (!Number.isInteger(timeout) || timeout < 1000) {
       errors.push('Timeout must be at least 1000 milliseconds');
     }
   }
 
   if (options.batchSize !== undefined) {
-    let n = parseInt(options.batchSize, 10);
-    if (!Number.isFinite(n) || n <= 0) {
+    let n = Number(options.batchSize);
+    if (!Number.isInteger(n) || n <= 0) {
       errors.push('Batch size must be a positive integer');
     }
   }
 
   if (options.uploadTimeout !== undefined) {
-    let n = parseInt(options.uploadTimeout, 10);
-    if (!Number.isFinite(n) || n <= 0) {
+    let n = Number(options.uploadTimeout);
+    if (!Number.isInteger(n) || n <= 0) {
       errors.push('Upload timeout must be a positive integer (milliseconds)');
+    }
+  }
+
+  if (options.threshold !== undefined) {
+    let threshold = Number(options.threshold);
+    if (!Number.isFinite(threshold) || threshold < 0) {
+      errors.push(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
+    }
+  }
+
+  if (options.minClusterSize !== undefined) {
+    let minClusterSize = Number(options.minClusterSize);
+    if (!Number.isInteger(minClusterSize) || minClusterSize < 1) {
+      errors.push('Min cluster size must be a positive integer');
     }
   }
 

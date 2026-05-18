@@ -13,6 +13,7 @@
 
 import assert from 'node:assert';
 import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -24,6 +25,15 @@ import { createTabPool } from '../src/pool.js';
 import { captureScreenshot } from '../src/screenshot.js';
 import { startStaticServer, stopStaticServer } from '../src/server.js';
 import { generateTasks, processAllTasks } from '../src/tasks.js';
+
+async function stopProcess(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  child.kill('SIGTERM');
+  await once(child, 'exit');
+}
 
 // Paths
 let testDir = join(tmpdir(), `vizzly-static-site-e2e-${Date.now()}`);
@@ -104,11 +114,7 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
     if (serverInfo) await stopStaticServer(serverInfo);
 
     if (tddServer && !externalServer) {
-      tddServer.kill('SIGTERM');
-      await new Promise(resolve => {
-        tddServer.on('exit', resolve);
-        setTimeout(resolve, 2000);
-      });
+      await stopProcess(tddServer);
     }
 
     if (!externalServer) {
@@ -140,7 +146,10 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
 
       let pages = await discoverPages(testSitePath, config);
 
-      assert.ok(pages.length >= 4, `Should find at least 4 pages, found ${pages.length}`);
+      assert.ok(
+        pages.length >= 4,
+        `Should find at least 4 pages, found ${pages.length}`
+      );
 
       let pagePaths = pages.map(p => p.path);
       assert.ok(
@@ -175,7 +184,11 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
       };
 
       let pages = await discoverPages(testSitePath, config);
-      assert.strictEqual(pages.length, 2, `Should find exactly 2 pages, found ${pages.length}: ${pages.map(p => p.path).join(', ')}`);
+      assert.strictEqual(
+        pages.length,
+        2,
+        `Should find exactly 2 pages, found ${pages.length}: ${pages.map(p => p.path).join(', ')}`
+      );
     });
 
     it('excludes pages with exclude patterns', async () => {
@@ -202,7 +215,10 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
         !pagePaths.some(p => p.includes('contact')),
         'Should exclude contact page'
       );
-      assert.ok(pages.length >= 2, `Should have at least 2 pages (/ and /features), found ${pages.length}`);
+      assert.ok(
+        pages.length >= 2,
+        `Should have at least 2 pages (/ and /features), found ${pages.length}`
+      );
     });
   });
 
@@ -306,7 +322,11 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
 
       let tasks = generateTasks(pages, serverInfo.url, config);
 
-      assert.strictEqual(tasks.length, 4, 'Should generate 4 tasks (2 pages × 2 viewports)');
+      assert.strictEqual(
+        tasks.length,
+        4,
+        'Should generate 4 tasks (2 pages × 2 viewports)'
+      );
 
       // Verify task structure
       let firstTask = tasks[0];
@@ -351,7 +371,12 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
 
   describe('Multi-Page Screenshots', () => {
     it('captures all test-site pages', async () => {
-      let pages = ['index.html', 'features.html', 'pricing.html', 'contact.html'];
+      let pages = [
+        'index.html',
+        'features.html',
+        'pricing.html',
+        'contact.html',
+      ];
       let results = [];
 
       for (let pageName of pages) {
@@ -453,9 +478,19 @@ describe('Static-Site SDK (unit tests)', () => {
     let tasks = generateTasks(pages, 'http://localhost:3000', config);
 
     assert.strictEqual(tasks.length, 1);
-    assert.ok(tasks[0].page.path.includes('about'), 'Task page path should include page name');
-    assert.strictEqual(tasks[0].viewport.name, 'desktop', 'Task should have viewport');
-    assert.ok(tasks[0].url.includes('about'), 'Task URL should include page path');
+    assert.ok(
+      tasks[0].page.path.includes('about'),
+      'Task page path should include page name'
+    );
+    assert.strictEqual(
+      tasks[0].viewport.name,
+      'desktop',
+      'Task should have viewport'
+    );
+    assert.ok(
+      tasks[0].url.includes('about'),
+      'Task URL should include page path'
+    );
   });
 
   it('handles include patterns correctly', async () => {
@@ -472,7 +507,11 @@ describe('Static-Site SDK (unit tests)', () => {
     };
 
     let pages = await discoverPages(testSitePath, config);
-    assert.strictEqual(pages.length, 1, `Should find only index page, found ${pages.length}: ${pages.map(p => p.path).join(', ')}`);
+    assert.strictEqual(
+      pages.length,
+      1,
+      `Should find only index page, found ${pages.length}: ${pages.map(p => p.path).join(', ')}`
+    );
     assert.strictEqual(pages[0].path, '/');
   });
 });

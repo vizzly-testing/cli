@@ -58,10 +58,7 @@ export {
   compareImages,
   isDimensionMismatchError,
 } from './services/comparison-service.js';
-export {
-  downloadHotspots,
-  extractScreenshotNames,
-} from './services/hotspot-service.js';
+export { downloadHotspots } from './services/hotspot-service.js';
 export {
   buildResults,
   calculateSummary,

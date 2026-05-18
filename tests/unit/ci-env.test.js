@@ -308,6 +308,13 @@ describe('CI Environment Detection', () => {
       assert.strictEqual(getPullRequestNumber(), 999);
     });
 
+    it('should ignore malformed VIZZLY_PR_NUMBER values', () => {
+      process.env.VIZZLY_PR_NUMBER = '999abc';
+      process.env.CI_MERGE_REQUEST_ID = '123';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
     it('should return GitHub Actions PR number', () => {
       process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_EVENT_NAME = 'pull_request';
@@ -320,6 +327,12 @@ describe('CI Environment Detection', () => {
       process.env.CI_MERGE_REQUEST_ID = '789';
 
       assert.strictEqual(getPullRequestNumber(), 789);
+    });
+
+    it('should ignore decimal GitLab CI merge request IDs', () => {
+      process.env.CI_MERGE_REQUEST_ID = '789.5';
+
+      assert.strictEqual(getPullRequestNumber(), null);
     });
 
     it('should return CircleCI PR number from URL', () => {

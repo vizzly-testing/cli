@@ -1,60 +1,10 @@
 import assert from 'node:assert';
-import { EventEmitter } from 'node:events';
 import { describe, it } from 'node:test';
 import { createConfigRouter } from '../../../src/server/routers/config.js';
-
-/**
- * Creates a mock HTTP request with body support
- */
-function createMockRequest(method = 'GET', body = null) {
-  let emitter = new EventEmitter();
-  emitter.method = method;
-
-  if (body !== null) {
-    process.nextTick(() => {
-      emitter.emit('data', JSON.stringify(body));
-      emitter.emit('end');
-    });
-  }
-
-  return emitter;
-}
-
-/**
- * Creates a mock HTTP response with tracking
- */
-function createMockResponse() {
-  let headers = {};
-  let statusCode = null;
-  let body = null;
-
-  return {
-    get statusCode() {
-      return statusCode;
-    },
-    set statusCode(code) {
-      statusCode = code;
-    },
-    setHeader(name, value) {
-      headers[name] = value;
-    },
-    getHeader(name) {
-      return headers[name];
-    },
-    end(content) {
-      body = content;
-    },
-    get headers() {
-      return headers;
-    },
-    get body() {
-      return body;
-    },
-    getParsedBody() {
-      return body ? JSON.parse(body) : null;
-    },
-  };
-}
+import {
+  createMockRequest,
+  createMockResponse,
+} from '../../helpers/http-mocks.js';
 
 /**
  * Creates a mock config service

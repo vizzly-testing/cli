@@ -3,49 +3,10 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { createHealthRouter } from '../../../src/server/routers/health.js';
-
-/**
- * Creates a mock HTTP request
- */
-function createMockRequest(method = 'GET') {
-  return { method };
-}
-
-/**
- * Creates a mock HTTP response with tracking
- */
-function createMockResponse() {
-  let headers = {};
-  let statusCode = null;
-  let body = null;
-
-  return {
-    get statusCode() {
-      return statusCode;
-    },
-    set statusCode(code) {
-      statusCode = code;
-    },
-    setHeader(name, value) {
-      headers[name] = value;
-    },
-    getHeader(name) {
-      return headers[name];
-    },
-    end(content) {
-      body = content;
-    },
-    get headers() {
-      return headers;
-    },
-    get body() {
-      return body;
-    },
-    getParsedBody() {
-      return body ? JSON.parse(body) : null;
-    },
-  };
-}
+import {
+  createMockRequest,
+  createMockResponse,
+} from '../../helpers/http-mocks.js';
 
 describe('server/routers/health', () => {
   let testDir = join(process.cwd(), '.test-health-router');

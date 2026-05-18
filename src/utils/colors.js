@@ -31,13 +31,6 @@ export let brand = {
   textSecondary: '#9CA3AF', // Body text (--text-secondary)
   textTertiary: '#6B7280', // Captions, metadata (--text-tertiary)
   textMuted: '#4B5563', // Disabled, placeholders (--text-muted)
-
-  // Legacy aliases (for backward compatibility)
-  green: '#10B981',
-  red: '#EF4444',
-  cyan: '#06B6D4', // Still useful for links in terminals
-  slate: '#64748B',
-  dark: '#1E293B',
 };
 
 function supportsColorDefault() {
@@ -141,11 +134,6 @@ export function createColors(options = {}) {
         bgWarning: noop,
         bgDanger: noop,
         bgInfo: noop,
-        // Legacy aliases
-        green: noop,
-        red: noop,
-        cyan: noop,
-        slate: noop,
       },
     };
   }
@@ -201,11 +189,6 @@ export function createColors(options = {}) {
       bgWarning: colors.bgHex(brand.warning),
       bgDanger: colors.bgHex(brand.danger),
       bgInfo: colors.bgHex(brand.info),
-      // Legacy aliases (backward compatibility)
-      green: colors.hex(brand.green),
-      red: colors.hex(brand.red),
-      cyan: colors.hex(brand.cyan),
-      slate: colors.hex(brand.slate),
     },
   };
 }

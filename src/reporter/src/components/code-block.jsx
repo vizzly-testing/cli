@@ -1,14 +1,11 @@
-import { useEffect, useRef } from 'react';
-
 // Simple tokenizer for different languages
 function tokenize(code, language) {
-  const tokens = [];
+  let tokens = [];
 
   if (language === 'shell') {
-    code.split('\n').forEach((line, lineNum) => {
-      const lineStart =
-        code.split('\n').slice(0, lineNum).join('\n').length +
-        (lineNum > 0 ? 1 : 0);
+    let offset = 0;
+    for (let line of code.split('\n')) {
+      let lineStart = offset;
 
       if (line.trim().startsWith('#')) {
         tokens.push({
@@ -26,12 +23,13 @@ function tokenize(code, language) {
           end: lineStart + line.length,
         });
       }
-    });
+      offset += line.length + 1;
+    }
     return tokens;
   }
 
   // JavaScript/TypeScript
-  const patterns = [
+  let patterns = [
     // Comments
     { type: 'comment', regex: /\/\/.*$/gm },
     { type: 'comment', regex: /\/\*[\s\S]*?\*\//g },
@@ -67,7 +65,7 @@ function tokenize(code, language) {
   tokens.sort((a, b) => a.start - b.start);
 
   // Remove overlaps (keep first token at each position)
-  const filtered = [];
+  let filtered = [];
   let lastEnd = 0;
   tokens.forEach(token => {
     if (token.start >= lastEnd) {
@@ -79,69 +77,42 @@ function tokenize(code, language) {
   return filtered;
 }
 
+function renderCodeTokens(code, tokens) {
+  let parts = [];
+  let cursor = 0;
+
+  tokens.forEach((token, index) => {
+    if (token.start > cursor) {
+      parts.push(code.slice(cursor, token.start));
+    }
+
+    parts.push(
+      <span className={`code-token code-token--${token.type}`} key={index}>
+        {code.slice(token.start, token.end)}
+      </span>
+    );
+
+    cursor = token.end;
+  });
+
+  if (cursor < code.length) {
+    parts.push(code.slice(cursor));
+  }
+
+  return parts;
+}
+
 export default function CodeBlock({ code, language = 'javascript' }) {
-  const codeRef = useRef(null);
-  const isShell =
+  let isShell =
     language === 'shell' ||
     code.trim().startsWith('#') ||
     code.trim().startsWith('npm');
-
-  useEffect(() => {
-    // Check for browser support
-    if (
-      typeof window === 'undefined' ||
-      !window.CSS?.highlights ||
-      !codeRef.current
-    )
-      return;
-
-    const textNode = codeRef.current.firstChild;
-    if (!textNode || textNode.nodeType !== window.Node.TEXT_NODE) return;
-
-    // Tokenize code
-    const tokens = tokenize(code, isShell ? 'shell' : language);
-
-    // Create ranges for each token
-    const tokenRanges = tokens.map(token => {
-      const range = new window.Range();
-      range.setStart(textNode, token.start);
-      range.setEnd(textNode, token.end);
-      return { type: token.type, range };
-    });
-
-    // Group ranges by token type
-    const highlightsByType = new Map();
-    tokenRanges.forEach(({ type, range }) => {
-      if (!highlightsByType.has(type)) {
-        highlightsByType.set(type, []);
-      }
-      highlightsByType.get(type).push(range);
-    });
-
-    // Create highlights and register them
-    const createdHighlights = new Map();
-
-    for (const [type, ranges] of highlightsByType) {
-      const highlight = new window.Highlight(...ranges);
-      createdHighlights.set(type, highlight);
-      window.CSS.highlights.set(`code-${type}`, highlight);
-    }
-
-    // Cleanup function
-    return () => {
-      for (const [type] of createdHighlights) {
-        window.CSS.highlights.delete(`code-${type}`);
-      }
-    };
-  }, [code, language, isShell]);
+  let tokens = tokenize(code, isShell ? 'shell' : language);
 
   return (
     <pre className="bg-slate-950 rounded-lg p-4 overflow-x-auto text-sm">
-      <code
-        ref={codeRef}
-        className="font-mono text-slate-300 block whitespace-pre"
-      >
-        {code}
+      <code className="font-mono text-slate-300 block whitespace-pre">
+        {renderCodeTokens(code, tokens)}
       </code>
     </pre>
   );

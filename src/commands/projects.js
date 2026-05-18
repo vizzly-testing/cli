@@ -134,6 +134,24 @@ export async function projectsCommand(
  * @param {Object} _options - Command options
  * @returns {string[]} Validation errors
  */
-export function validateProjectsOptions(_options = {}) {
-  return [];
+export function validateProjectsOptions(options = {}) {
+  let errors = [];
+
+  if (
+    options.limit !== undefined &&
+    (!Number.isInteger(options.limit) ||
+      options.limit < 1 ||
+      options.limit > 250)
+  ) {
+    errors.push('--limit must be an integer between 1 and 250');
+  }
+
+  if (
+    options.offset !== undefined &&
+    (!Number.isInteger(options.offset) || options.offset < 0)
+  ) {
+    errors.push('--offset must be a non-negative integer');
+  }
+
+  return errors;
 }

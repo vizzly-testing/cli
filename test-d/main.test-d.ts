@@ -16,6 +16,7 @@ import {
   createUploader,
   createTDDService,
   createServices,
+  createPluginServices,
 
   // Utilities
   loadConfig,
@@ -39,7 +40,9 @@ import {
   VizzlyConfig,
   UploadResult,
   ComparisonResult,
+  ScreenshotResult,
   Services,
+  PluginServices,
   Uploader,
   TddService,
 } from '../src/types/index';
@@ -55,7 +58,9 @@ async function testCreateVizzlyType() {
 }
 
 // Client
-expectType<Promise<void>>(vizzlyScreenshot('test', Buffer.from('test')));
+expectType<Promise<ScreenshotResult | null>>(
+  vizzlyScreenshot('test', Buffer.from('test'))
+);
 configure({});
 setEnabled(true);
 
@@ -160,6 +165,12 @@ async function testUploadResult() {
 
 async function testComparisonResult() {
   let sdk = await createVizzly();
+  expectType<VizzlyConfig>(sdk.updateConfig({ wait: true }));
+  expectType<Promise<VizzlyConfig>>(sdk.init());
+  expectType<Uploader>(sdk.createUploader());
+  expectType<TddService>(sdk.createTDDService());
+  expectType<Promise<unknown>>(sdk.startTDD());
+
   let result = await sdk.compare('test', Buffer.from('test'));
 
   expectType<string>(result.id);
@@ -177,5 +188,16 @@ async function testComparisonResult() {
 // ============================================================================
 
 let services = createServices({});
-expectType<Uploader>(services.uploader);
-expectType<TddService>(services.tddService);
+expectType<Services>(services);
+expectType<Promise<void>>(services.serverManager.stop());
+expectType<Promise<void>>(services.testRunner.cancel());
+
+let pluginServices = createPluginServices(services);
+expectType<PluginServices>(pluginServices);
+expectType<Promise<{
+  branch: string;
+  commit: string | null;
+  message: string | null;
+  prNumber: number | null;
+  buildName: string;
+}>>(pluginServices.git.detect());

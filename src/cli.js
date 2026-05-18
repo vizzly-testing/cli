@@ -55,6 +55,7 @@ import {
   tddStartCommand,
   tddStatusCommand,
   tddStopCommand,
+  validateTddStartOptions,
 } from './commands/tdd-daemon.js';
 import { uploadCommand, validateUploadOptions } from './commands/upload.js';
 import { validateWhoamiOptions, whoamiCommand } from './commands/whoami.js';
@@ -65,6 +66,7 @@ import {
   generateStaticReport,
   getReportFileUrl,
 } from './services/static-report-generator.js';
+import { withTimeout } from './utils/async-utils.js';
 import { openBrowser } from './utils/browser.js';
 import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
@@ -376,24 +378,21 @@ let plugins = [];
 try {
   plugins = await loadPlugins(configPath, config);
 
-  for (const plugin of plugins) {
+  for (let plugin of plugins) {
     try {
       // Add timeout protection for plugin registration (5 seconds)
-      const registerPromise = plugin.register(program, {
+      let registerPromise = plugin.register(program, {
         config,
         services: pluginServices,
         output,
-        // Backwards compatibility alias for plugins using old API
-        logger: output,
       });
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error('Plugin registration timeout (5s)')),
-          5000
-        )
+
+      await withTimeout(
+        registerPromise,
+        5000,
+        'Plugin registration timeout (5s)'
       );
 
-      await Promise.race([registerPromise, timeoutPromise]);
       output.debug(`Registered plugin: ${plugin.name}`);
     } catch (error) {
       output.warn(`Failed to register plugin ${plugin.name}: ${error.message}`);
@@ -418,15 +417,13 @@ program
   .argument('<path>', 'Path to screenshots directory or file')
   .option('-b, --build-name <name>', 'Build name for grouping')
   .option('-m, --metadata <json>', 'Additional metadata as JSON')
-  .option('--batch-size <n>', 'Upload batch size', v => parseInt(v, 10))
-  .option('--upload-timeout <ms>', 'Upload timeout in milliseconds', v =>
-    parseInt(v, 10)
-  )
+  .option('--batch-size <n>', 'Upload batch size', Number)
+  .option('--upload-timeout <ms>', 'Upload timeout in milliseconds', Number)
   .option('--branch <branch>', 'Git branch')
   .option('--commit <sha>', 'Git commit SHA')
   .option('--message <msg>', 'Commit message')
   .option('--environment <env>', 'Environment name', 'test')
-  .option('--threshold <number>', 'Comparison threshold', parseFloat)
+  .option('--threshold <number>', 'Comparison threshold', Number)
   .option('--token <token>', 'API token override')
   .option('--wait', 'Wait for build completion')
   .option('--upload-all', 'Upload all screenshots without SHA deduplication')
@@ -461,7 +458,12 @@ tddCmd
   .option('--baseline-build <id>', 'Use specific build as baseline')
   .option('--baseline-comparison <id>', 'Use specific comparison as baseline')
   .option('--environment <env>', 'Environment name', 'test')
-  .option('--threshold <number>', 'Comparison threshold', parseFloat)
+  .option('--threshold <number>', 'Comparison threshold', Number)
+  .option(
+    '--min-cluster-size <pixels>',
+    'Minimum changed-pixel cluster size',
+    Number
+  )
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
   .option('--fail-on-diff', 'Fail tests when visual differences are detected')
   .option('--token <token>', 'API token override')
@@ -473,6 +475,15 @@ tddCmd
     if (options.daemonChild) {
       await runDaemonChild(options, globalOptions);
       return;
+    }
+
+    let validationErrors = validateTddStartOptions(options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
     }
 
     await tddStartCommand(options, globalOptions);
@@ -512,7 +523,12 @@ tddCmd
   .option('--port <port>', 'Port for TDD server', '47392')
   .option('--branch <branch>', 'Git branch override')
   .option('--environment <env>', 'Environment name', 'test')
-  .option('--threshold <number>', 'Comparison threshold', parseFloat)
+  .option('--threshold <number>', 'Comparison threshold', Number)
+  .option(
+    '--min-cluster-size <pixels>',
+    'Minimum changed-pixel cluster size',
+    Number
+  )
   .option('--token <token>', 'API token override')
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
   .option('--baseline-build <id>', 'Use specific build as baseline')
@@ -602,6 +618,14 @@ program
   .option('--commit <sha>', 'Git commit SHA')
   .option('--message <msg>', 'Commit message')
   .option('--environment <env>', 'Environment name', 'test')
+  .option('--threshold <number>', 'Comparison threshold', Number)
+  .option(
+    '--min-cluster-size <pixels>',
+    'Minimum changed-pixel cluster size',
+    Number
+  )
+  .option('--batch-size <n>', 'Upload batch size', Number)
+  .option('--upload-timeout <ms>', 'Upload timeout in milliseconds', Number)
   .option('--token <token>', 'API token override')
   .option('--wait', 'Wait for build completion')
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
@@ -664,13 +688,8 @@ program
   .option('--environment <env>', 'Filter by environment')
   .option('-p, --project <slug>', 'Filter by project slug')
   .option('--org <slug>', 'Filter by organization slug')
-  .option(
-    '--limit <n>',
-    'Maximum results to return (1-250)',
-    val => parseInt(val, 10),
-    20
-  )
-  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .option('--limit <n>', 'Maximum results to return (1-250)', Number, 20)
+  .option('--offset <n>', 'Skip first N results', Number, 0)
   .option('--comparisons', 'Include comparisons when fetching a specific build')
   .addHelpText(
     'after',
@@ -710,13 +729,8 @@ program
   .option('--name <pattern>', 'Search comparisons by name (supports wildcards)')
   .option('--status <status>', 'Filter by status (identical, new, changed)')
   .option('--branch <branch>', 'Filter by branch (for name search)')
-  .option(
-    '--limit <n>',
-    'Maximum results to return (1-250)',
-    val => parseInt(val, 10),
-    50
-  )
-  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .option('--limit <n>', 'Maximum results to return (1-250)', Number, 50)
+  .option('--offset <n>', 'Skip first N results', Number, 0)
   .option('-p, --project <slug>', 'Filter by project slug')
   .option('--org <slug>', 'Filter by organization slug')
   .addHelpText(
@@ -789,17 +803,17 @@ contextCmd
   .option(
     '--similar-limit <n>',
     'Maximum similar fingerprint matches to return (1-50)',
-    val => parseInt(val, 10)
+    Number
   )
   .option(
     '--recent-limit <n>',
     'Maximum recent same-name comparisons to return (1-50)',
-    val => parseInt(val, 10)
+    Number
   )
   .option(
     '--window-size <n>',
     'Historical hotspot analysis window size (1-50)',
-    val => parseInt(val, 10)
+    Number
   )
   .addHelpText(
     'after',
@@ -835,12 +849,12 @@ contextCmd
   .option(
     '--recent-limit <n>',
     'Maximum recent comparisons to return (1-50)',
-    val => parseInt(val, 10)
+    Number
   )
   .option(
     '--window-size <n>',
     'Historical hotspot analysis window size (1-50)',
-    val => parseInt(val, 10)
+    Number
   )
   .addHelpText(
     'after',
@@ -873,9 +887,7 @@ contextCmd
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
   .option('--org <slug>', 'Organization slug when project slug is ambiguous')
-  .option('--limit <n>', 'Maximum matches to return (1-50)', val =>
-    parseInt(val, 10)
-  )
+  .option('--limit <n>', 'Maximum matches to return (1-50)', Number)
   .addHelpText(
     'after',
     `
@@ -905,10 +917,8 @@ contextCmd
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
   .option('--org <slug>', 'Organization slug when project slug is ambiguous')
-  .option('--limit <n>', 'Maximum comparisons to return (1-100)', val =>
-    parseInt(val, 10)
-  )
-  .option('--offset <n>', 'Skip first N comparisons', val => parseInt(val, 10))
+  .option('--limit <n>', 'Maximum comparisons to return (1-100)', Number)
+  .option('--offset <n>', 'Skip first N comparisons', Number)
   .addHelpText(
     'after',
     `
@@ -1179,13 +1189,8 @@ program
   .command('projects')
   .description('List projects you have access to')
   .option('--org <slug>', 'Filter by organization slug')
-  .option(
-    '--limit <n>',
-    'Maximum results to return (1-250)',
-    val => parseInt(val, 10),
-    50
-  )
-  .option('--offset <n>', 'Skip first N results', val => parseInt(val, 10), 0)
+  .option('--limit <n>', 'Maximum results to return (1-250)', Number, 50)
+  .option('--offset <n>', 'Skip first N results', Number, 0)
   .addHelpText(
     'after',
     `
@@ -1240,7 +1245,6 @@ program
   .description('Upload static files as a preview for a build')
   .argument('[path]', 'Path to static files (dist/, build/, out/)')
   .option('-b, --build <id>', 'Build ID to attach preview to')
-  .option('-p, --parallel-id <id>', 'Look up build by parallel ID')
   .option('--base <path>', 'Override auto-detected base path')
   .option('--open', 'Open preview URL in browser after upload')
   .option('--dry-run', 'Show what would be uploaded without uploading')

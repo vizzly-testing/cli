@@ -4,15 +4,19 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { ServerRegistry } from '../../src/tdd/server-registry.js';
+import {
+  notifyServerRegistryChanged,
+  ServerRegistry,
+} from '../../src/tdd/server-registry.js';
 
 /**
  * Create an isolated registry using a temp directory
  */
 function createTestRegistry(testDir) {
-  let registry = new ServerRegistry();
-  registry.vizzlyHome = testDir;
-  registry.registryPath = join(testDir, 'servers.json');
+  let registry = new ServerRegistry({
+    vizzlyHome: testDir,
+    logger: { warn: () => {} },
+  });
   // Disable menubar notifications in tests
   registry.notifyMenubar = () => {};
   return registry;
@@ -78,6 +82,48 @@ describe('tdd/server-registry', () => {
     it('returns null when server not found', () => {
       let found = registry.find({ directory: '/nonexistent' });
       assert.strictEqual(found, undefined);
+    });
+
+    it('rejects malformed server registration ports and pids', () => {
+      assert.throws(
+        () =>
+          registry.register({
+            pid: '123abc',
+            port: 47392,
+            directory: '/projects/my-app',
+          }),
+        /must be positive integers/
+      );
+      assert.throws(
+        () =>
+          registry.register({
+            pid: 123,
+            port: '47392 ',
+            directory: '/projects/my-app',
+          }),
+        /must be positive integers/
+      );
+    });
+
+    it('rejects decimal server registration ports and pids', () => {
+      assert.throws(
+        () =>
+          registry.register({
+            pid: 123.5,
+            port: 47392,
+            directory: '/projects/my-app',
+          }),
+        /must be positive integers/
+      );
+      assert.throws(
+        () =>
+          registry.register({
+            pid: 123,
+            port: 47392.5,
+            directory: '/projects/my-app',
+          }),
+        /must be positive integers/
+      );
     });
   });
 
@@ -270,6 +316,53 @@ describe('tdd/server-registry', () => {
       let servers = registry.list();
       assert.strictEqual(servers.length, 1);
       assert.strictEqual(servers[0].directory, '/projects/app-b');
+    });
+  });
+
+  describe('notifyServerRegistryChanged', () => {
+    it('does not invoke notifyutil outside macOS', () => {
+      let called = false;
+
+      let result = notifyServerRegistryChanged({
+        platform: 'linux',
+        execFile: () => {
+          called = true;
+        },
+      });
+
+      assert.strictEqual(result, false);
+      assert.strictEqual(called, false);
+    });
+
+    it('uses argv-based notifyutil invocation on macOS', () => {
+      let calls = [];
+
+      let result = notifyServerRegistryChanged({
+        platform: 'darwin',
+        execFile: (...args) => {
+          calls.push(args);
+        },
+      });
+
+      assert.strictEqual(result, true);
+      assert.deepStrictEqual(calls, [
+        [
+          'notifyutil',
+          ['-p', 'dev.vizzly.serverChanged'],
+          { stdio: 'ignore', timeout: 500 },
+        ],
+      ]);
+    });
+
+    it('treats notifyutil failures as non-fatal', () => {
+      let result = notifyServerRegistryChanged({
+        platform: 'darwin',
+        execFile: () => {
+          throw new Error('notifyutil unavailable');
+        },
+      });
+
+      assert.strictEqual(result, false);
     });
   });
 });

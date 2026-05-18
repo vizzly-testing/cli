@@ -77,6 +77,16 @@ describe('services/config-service', () => {
       assert.strictEqual(config.server.timeout, 30000);
     });
 
+    it('does not share nested default objects between reads', async () => {
+      let service = createConfigService({ workingDir: tempDir });
+
+      let first = await service.getConfig('merged');
+      first.config.comparison.threshold = 99;
+
+      let second = await service.getConfig('merged');
+      assert.strictEqual(second.config.comparison.threshold, 2.0);
+    });
+
     it('merges project config over defaults', async () => {
       // Create a vizzly.config.js in temp dir
       writeFileSync(
@@ -88,7 +98,24 @@ describe('services/config-service', () => {
       let { config, sources } = await service.getConfig('merged');
 
       assert.strictEqual(config.comparison.threshold, 5.0);
-      assert.strictEqual(sources.threshold, 'project');
+      assert.strictEqual(sources.comparison, 'project');
+    });
+
+    it('tracks nested global config sources by dashboard section', async () => {
+      let vizzlyHome = join(tempDir, '.vizzly-home');
+      mkdirSync(vizzlyHome, { recursive: true });
+      process.env.VIZZLY_HOME = vizzlyHome;
+
+      writeFileSync(
+        join(vizzlyHome, 'config.json'),
+        JSON.stringify({ settings: { server: { timeout: 45000 } } })
+      );
+
+      let service = createConfigService({ workingDir: tempDir });
+      let { config, sources } = await service.getConfig('merged');
+
+      assert.strictEqual(config.server.timeout, 45000);
+      assert.strictEqual(sources.server, 'global');
     });
 
     it('applies VIZZLY_MIN_CLUSTER_SIZE env var override', async () => {
@@ -115,6 +142,33 @@ describe('services/config-service', () => {
       let { config } = await service.getConfig('merged');
 
       assert.strictEqual(config.comparison.minClusterSize, 8);
+    });
+
+    it('preserves invalid minClusterSize env values for validation', async () => {
+      process.env.VIZZLY_MIN_CLUSTER_SIZE = '2.5';
+
+      let service = createConfigService({ workingDir: tempDir });
+      let { config } = await service.getConfig('merged');
+      let result = await service.validateConfig(config);
+
+      assert.strictEqual(config.comparison.minClusterSize, 2.5);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('minClusterSize')));
+    });
+
+    it('preserves invalid numeric env values for validation', async () => {
+      process.env.VIZZLY_THRESHOLD = '2abc';
+      process.env.VIZZLY_PORT = '47392.5';
+
+      let service = createConfigService({ workingDir: tempDir });
+      let { config } = await service.getConfig('merged');
+      let result = await service.validateConfig(config);
+
+      assert.ok(Number.isNaN(config.comparison.threshold));
+      assert.strictEqual(config.server.port, 47392.5);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('threshold')));
+      assert.ok(result.errors.some(e => e.includes('port')));
     });
   });
 

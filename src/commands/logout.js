@@ -4,20 +4,35 @@
  */
 
 import {
-  createAuthClient,
-  createTokenStore,
-  getAuthTokens,
-  logout,
+  createAuthClient as defaultCreateAuthClient,
+  createTokenStore as defaultCreateTokenStore,
+  getAuthTokens as defaultGetAuthTokens,
+  logout as defaultLogout,
 } from '../auth/index.js';
-import { getApiUrl } from '../utils/environment-config.js';
-import * as output from '../utils/output.js';
+import { getApiUrl as defaultGetApiUrl } from '../utils/environment-config.js';
+import * as defaultOutput from '../utils/output.js';
 
 /**
  * Logout command implementation
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
  */
-export async function logoutCommand(options = {}, globalOptions = {}) {
+export async function logoutCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
+  let {
+    createAuthClient = defaultCreateAuthClient,
+    createTokenStore = defaultCreateTokenStore,
+    getApiUrl = defaultGetApiUrl,
+    getAuthTokens = defaultGetAuthTokens,
+    logout = defaultLogout,
+    output = defaultOutput,
+    exit = code => process.exit(code),
+  } = deps;
+
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -64,7 +79,8 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
   } catch (error) {
     output.stopSpinner();
     output.error('Logout failed', error);
-    process.exit(1);
+    output.cleanup();
+    exit(1);
   }
 }
 
@@ -73,7 +89,7 @@ export async function logoutCommand(options = {}, globalOptions = {}) {
  * @param {Object} options - Command options
  */
 export function validateLogoutOptions() {
-  const errors = [];
+  let errors = [];
 
   // No specific validation needed for logout command
 

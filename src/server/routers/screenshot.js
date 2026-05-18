@@ -1,6 +1,6 @@
 /**
  * Screenshot Router
- * Handles screenshot uploads and legacy baseline accept
+ * Handles screenshot uploads and flush requests.
  */
 
 import * as output from '../../utils/output.js';
@@ -77,31 +77,6 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
       } catch (error) {
         output.debug('Flush error:', { error: error.message });
         sendError(res, 500, 'Failed to flush');
-        return true;
-      }
-    }
-
-    // Legacy accept-baseline endpoint
-    if (pathname === '/accept-baseline') {
-      try {
-        const body = await parseJsonBody(req);
-        const { id } = body;
-
-        if (!id) {
-          sendError(res, 400, 'comparison ID is required');
-          return true;
-        }
-
-        if (screenshotHandler.acceptBaseline) {
-          const result = await screenshotHandler.acceptBaseline(id);
-          sendJson(res, 200, { success: true, ...result });
-        } else {
-          sendError(res, 501, 'Accept baseline not implemented');
-        }
-        return true;
-      } catch (error) {
-        output.debug('Accept baseline error:', { error: error.message });
-        sendError(res, 500, 'Failed to accept baseline');
         return true;
       }
     }

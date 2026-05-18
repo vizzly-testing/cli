@@ -13,13 +13,18 @@
 
 import assert from 'node:assert';
 import { execSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import { closeBrowser, launchBrowser, navigateToUrl } from '../src/browser.js';
-import { discoverStories, generateStoryUrl, readIndexJson } from '../src/crawler.js';
+import {
+  discoverStories,
+  generateStoryUrl,
+  readIndexJson,
+} from '../src/crawler.js';
 import { getBeforeScreenshotHook, getStoryConfig } from '../src/hooks.js';
 import { captureAndSendScreenshot } from '../src/screenshot.js';
 import { startStaticServer, stopStaticServer } from '../src/server.js';
@@ -41,6 +46,15 @@ async function prepareStoryPage(browser, url, viewport) {
   return page;
 }
 
+async function stopProcess(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  child.kill('SIGTERM');
+  await once(child, 'exit');
+}
+
 // Paths
 let testDir = join(tmpdir(), `vizzly-storybook-e2e-${Date.now()}`);
 let exampleStorybookPath = resolve(import.meta.dirname, '../example-storybook');
@@ -56,14 +70,6 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
   let tddServer = null;
   let serverInfo = null;
   let browser = null;
-
-  // Mock logger for tests (unused but kept for future use)
-  let _logger = {
-    info: () => {},
-    warn: () => {},
-    error: () => {},
-    debug: () => {},
-  };
 
   before(async () => {
     // Check if example-storybook is built, if not build it
@@ -134,11 +140,7 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
     if (serverInfo) await stopStaticServer(serverInfo);
 
     if (tddServer && !externalServer) {
-      tddServer.kill('SIGTERM');
-      await new Promise(resolve => {
-        tddServer.on('exit', resolve);
-        setTimeout(resolve, 2000);
-      });
+      await stopProcess(tddServer);
     }
 
     if (!externalServer) {

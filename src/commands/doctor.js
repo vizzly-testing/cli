@@ -1,24 +1,17 @@
 import { URL } from 'node:url';
-import { createApiClient, getBuilds } from '../api/index.js';
-import { ConfigError } from '../errors/vizzly-error.js';
-import { loadConfig } from '../utils/config-loader.js';
-import { getContext } from '../utils/context.js';
-import { getApiToken } from '../utils/environment-config.js';
-import * as output from '../utils/output.js';
+import {
+  createApiClient as defaultCreateApiClient,
+  getBuilds as defaultGetBuilds,
+} from '../api/index.js';
+import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
+import { getContext as defaultGetContext } from '../utils/context.js';
+import { getApiToken as defaultGetApiToken } from '../utils/environment-config.js';
+import * as defaultOutput from '../utils/output.js';
 
-/**
- * Doctor command implementation - Run diagnostics to check environment
- * @param {Object} options - Command options
- * @param {Object} globalOptions - Global CLI options
- */
-export async function doctorCommand(options = {}, globalOptions = {}) {
-  output.configure({
-    json: globalOptions.json,
-    verbose: globalOptions.verbose,
-    color: !globalOptions.noColor,
-  });
+export let MIN_NODE_MAJOR = 22;
 
-  let diagnostics = {
+export function createDoctorDiagnostics() {
+  return {
     environment: {
       nodeVersion: null,
       nodeVersionValid: null,
@@ -36,73 +29,144 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
       error: null,
     },
   };
+}
 
+export function getNodeVersionCheck(
+  nodeVersion = process.version,
+  minMajor = MIN_NODE_MAJOR
+) {
+  let nodeMajor = parseNodeMajorVersion(nodeVersion);
+  let ok = nodeMajor !== null && nodeMajor >= minMajor;
+  let value = ok
+    ? `${nodeVersion} (supported)`
+    : nodeMajor === null
+      ? `${nodeVersion} (unrecognized Node.js version)`
+      : `${nodeVersion} (requires >= ${minMajor})`;
+
+  return {
+    diagnostic: {
+      nodeVersion,
+      nodeVersionValid: ok,
+    },
+    check: {
+      name: 'Node.js',
+      value,
+      ok,
+    },
+  };
+}
+
+function parseNodeMajorVersion(nodeVersion) {
+  let match = /^v?(\d+)\.\d+\.\d+$/.exec(nodeVersion);
+  return match ? Number(match[1]) : null;
+}
+
+export function getApiUrlCheck(apiUrl) {
+  try {
+    let url = new URL(apiUrl);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('URL must use http or https');
+    }
+
+    return {
+      apiUrl,
+      apiUrlValid: true,
+      check: { name: 'API URL', value: apiUrl, ok: true },
+    };
+  } catch {
+    return {
+      apiUrl,
+      apiUrlValid: false,
+      check: {
+        name: 'API URL',
+        value: 'invalid (check VIZZLY_API_URL)',
+        ok: false,
+      },
+    };
+  }
+}
+
+export function getThresholdCheck(thresholdValue) {
+  let threshold = Number(thresholdValue);
+  // CIEDE2000 threshold: 0 = exact, 1 = JND, 2 = recommended, 3+ = permissive
+  let thresholdValid = Number.isFinite(threshold) && threshold >= 0;
+
+  return {
+    threshold,
+    thresholdValid,
+    check: thresholdValid
+      ? {
+          name: 'Threshold',
+          value: `${threshold} (CIEDE2000)`,
+          ok: true,
+        }
+      : { name: 'Threshold', value: 'invalid', ok: false },
+  };
+}
+
+/**
+ * Doctor command implementation - Run diagnostics to check environment
+ * @param {Object} options - Command options
+ * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
+ */
+export async function doctorCommand(
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
+  let {
+    createApiClient = defaultCreateApiClient,
+    getApiToken = defaultGetApiToken,
+    getBuilds = defaultGetBuilds,
+    getContext = defaultGetContext,
+    loadConfig = defaultLoadConfig,
+    nodeVersion = process.version,
+    output = defaultOutput,
+    exit = code => process.exit(code),
+  } = deps;
+
+  output.configure({
+    json: globalOptions.json,
+    verbose: globalOptions.verbose,
+    color: !globalOptions.noColor,
+  });
+
+  let diagnostics = createDoctorDiagnostics();
   let hasErrors = false;
   let checks = [];
 
   try {
     // Determine if we'll attempt remote checks (API connectivity)
-    let willCheckConnectivity = Boolean(options.api || getApiToken());
+    let hasApiToken = Boolean(getApiToken());
+    let willCheckConnectivity = Boolean(options.api || hasApiToken);
 
     // Show header
     output.header('doctor', willCheckConnectivity ? 'full' : 'local');
 
-    // Node.js version check (require >= 20)
-    let nodeVersion = process.version;
-    let nodeMajor = parseInt(nodeVersion.slice(1).split('.')[0], 10);
-    diagnostics.environment.nodeVersion = nodeVersion;
-    diagnostics.environment.nodeVersionValid = nodeMajor >= 20;
-    if (nodeMajor >= 20) {
-      checks.push({
-        name: 'Node.js',
-        value: `${nodeVersion} (supported)`,
-        ok: true,
-      });
-    } else {
-      checks.push({
-        name: 'Node.js',
-        value: `${nodeVersion} (requires >= 20)`,
-        ok: false,
-      });
+    let nodeCheck = getNodeVersionCheck(nodeVersion);
+    diagnostics.environment = nodeCheck.diagnostic;
+    checks.push(nodeCheck.check);
+    if (!nodeCheck.check.ok) {
       hasErrors = true;
     }
 
     // Load configuration (apply global CLI overrides like --config only)
     let config = await loadConfig(globalOptions.config);
 
-    // Validate apiUrl
-    diagnostics.configuration.apiUrl = config.apiUrl;
-    try {
-      let url = new URL(config.apiUrl);
-      if (!['http:', 'https:'].includes(url.protocol)) {
-        throw new ConfigError('URL must use http or https');
-      }
-      diagnostics.configuration.apiUrlValid = true;
-      checks.push({ name: 'API URL', value: config.apiUrl, ok: true });
-    } catch (_e) {
-      diagnostics.configuration.apiUrlValid = false;
-      checks.push({
-        name: 'API URL',
-        value: 'invalid (check VIZZLY_API_URL)',
-        ok: false,
-      });
+    let apiUrlCheck = getApiUrlCheck(config.apiUrl);
+    diagnostics.configuration.apiUrl = apiUrlCheck.apiUrl;
+    diagnostics.configuration.apiUrlValid = apiUrlCheck.apiUrlValid;
+    checks.push(apiUrlCheck.check);
+    if (!apiUrlCheck.check.ok) {
       hasErrors = true;
     }
 
-    // Validate threshold (0..1 inclusive)
-    let threshold = Number(config?.comparison?.threshold);
-    diagnostics.configuration.threshold = threshold;
-    // CIEDE2000 threshold: 0 = exact, 1 = JND, 2 = recommended, 3+ = permissive
-    let thresholdValid = Number.isFinite(threshold) && threshold >= 0;
-    diagnostics.configuration.thresholdValid = thresholdValid;
-    if (thresholdValid) {
-      checks.push({
-        name: 'Threshold',
-        value: `${threshold} (CIEDE2000)`,
-        ok: true,
-      });
-    } else {
-      checks.push({ name: 'Threshold', value: 'invalid', ok: false });
+    let thresholdCheck = getThresholdCheck(config?.comparison?.threshold);
+    diagnostics.configuration.threshold = thresholdCheck.threshold;
+    diagnostics.configuration.thresholdValid = thresholdCheck.thresholdValid;
+    checks.push(thresholdCheck.check);
+    if (!thresholdCheck.check.ok) {
       hasErrors = true;
     }
 
@@ -112,8 +176,7 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     checks.push({ name: 'Port', value: String(port), ok: true });
 
     // Optional: API connectivity check when --api is provided or VIZZLY_TOKEN is present
-    let autoApi = Boolean(getApiToken());
-    if (options.api || autoApi) {
+    if (willCheckConnectivity) {
       diagnostics.connectivity.checked = true;
       if (!config.apiKey) {
         diagnostics.connectivity.ok = false;
@@ -214,7 +277,7 @@ export async function doctorCommand(options = {}, globalOptions = {}) {
     output.error('Failed to run preflight', error);
   } finally {
     output.cleanup();
-    if (hasErrors) process.exit(1);
+    if (hasErrors) exit(1);
   }
 }
 

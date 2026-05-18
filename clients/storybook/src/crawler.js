@@ -129,7 +129,9 @@ export function filterStories(stories, config) {
     let storyConfig = extractStoryConfig(story);
     if (storyConfig?.skip) {
       if (verbose) {
-        console.error(`  [filter] Skipping ${story.id} (parameters.vizzly.skip)`);
+        console.error(
+          `  [filter] Skipping ${story.id} (parameters.vizzly.skip)`
+        );
       }
       return false;
     }

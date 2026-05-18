@@ -44,10 +44,10 @@ export default {
    * @param {import('commander').Command} program - Commander program instance
    * @param {Object} context - Plugin context
    * @param {Object} context.config - Vizzly configuration
-   * @param {Object} context.logger - Logger instance
+   * @param {Object} context.output - Output utilities
    * @param {Object} context.services - Service container
    */
-  register(program, { config, logger, services }) {
+  register(program, { config, output, services }) {
     program
       .command('static-site <path>')
       .description(
@@ -95,14 +95,14 @@ export default {
           let mergedOptions = { ...globalOptions, ...options };
 
           await run(path, mergedOptions, {
-            logger,
+            output,
             config,
             services,
           });
         } catch (error) {
           console.error('Failed to run Static Site plugin:', error);
-          if (logger?.error) {
-            logger.error('Failed to run Static Site plugin:', error.message);
+          if (output?.error) {
+            output.error('Failed to run Static Site plugin:', error);
           }
           process.exit(1);
         }

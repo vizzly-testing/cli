@@ -73,10 +73,10 @@
     "test:swift:e2e": "npm run build && node clients/swift/scripts/run-e2e.js",
     "test:tui": "node --test --test-reporter=spec tests/tui/*.test.js",
     "test:tui:docker": "./tests/tui/run-tui-tests.sh",
-    "lint": "biome check src tests",
-    "lint:fix": "biome check --write --unsafe src tests",
-    "format": "biome format --write src tests",
-    "format:check": "biome format src tests",
+    "lint": "biome check src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
+    "lint:fix": "biome check --write --unsafe src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
+    "format": "biome format --write src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
+    "format:check": "biome format src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
     "fix": "npm run format && npm run lint:fix"
   },
   "engines": {

@@ -25,7 +25,7 @@ beforeAll(async () => {
   document.head.appendChild(link);
 
   // Wait for CSS to load
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     link.onload = resolve;
     link.onerror = resolve;
   });

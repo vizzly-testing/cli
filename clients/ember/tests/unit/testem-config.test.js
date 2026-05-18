@@ -155,7 +155,10 @@ describe('testem-config', () => {
 
       configure({}, {});
 
-      assert.ok(!existsSync(configPath), 'should not write empty playwright.json');
+      assert.ok(
+        !existsSync(configPath),
+        'should not write empty playwright.json'
+      );
     });
 
     it('handles lowercase browser names', () => {

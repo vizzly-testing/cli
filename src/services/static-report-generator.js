@@ -15,7 +15,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 let __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -141,6 +141,14 @@ ${css}
 </html>`;
 }
 
+export async function loadStaticReportRenderer(
+  ssrModulePath = getSSRModulePath()
+) {
+  let moduleUrl = pathToFileURL(ssrModulePath).href;
+  let { renderStaticReport } = await import(moduleUrl);
+  return renderStaticReport;
+}
+
 /**
  * Generate a static report from the current TDD results
  *
@@ -179,17 +187,13 @@ export async function generateStaticReport(workingDir, options = {}) {
     // Transform image URLs to relative paths
     let transformedData = transformImageUrls(reportData);
 
-    // Load and use the SSR module
-    let ssrModulePath = getSSRModulePath();
-    let { renderStaticReport } = await import(ssrModulePath);
+    let renderStaticReport =
+      options.renderStaticReport || (await loadStaticReportRenderer());
     let renderedContent = renderStaticReport(transformedData);
 
-    // Get CSS
-    let reporterDistPath = getReporterDistPath();
-    let css = readFileSync(
-      join(reporterDistPath, 'reporter-bundle.css'),
-      'utf8'
-    );
+    let css =
+      options.css ??
+      readFileSync(join(getReporterDistPath(), 'reporter-bundle.css'), 'utf8');
 
     // Create output directory
     mkdirSync(outputDir, { recursive: true });
@@ -224,5 +228,5 @@ export async function generateStaticReport(workingDir, options = {}) {
  * Get the file:// URL for a report path
  */
 export function getReportFileUrl(reportPath) {
-  return `file://${reportPath}`;
+  return pathToFileURL(reportPath).href;
 }

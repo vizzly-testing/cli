@@ -5,10 +5,10 @@
  * The build is automatically detected from session file or environment.
  */
 
-import { exec, execSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, statSync } from 'node:fs';
-import { readFile, realpath, stat, unlink } from 'node:fs/promises';
+import { readdir, readFile, realpath, stat, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -21,26 +21,16 @@ import { openBrowser as defaultOpenBrowser } from '../utils/browser.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import { detectBranch as defaultDetectBranch } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
+import { createWildcardMatcher } from '../utils/patterns.js';
 import {
   formatSessionAge as defaultFormatSessionAge,
   readSession as defaultReadSession,
 } from '../utils/session.js';
 
-let execAsync = promisify(exec);
+let execFileAsync = promisify(execFile);
 
 // Maximum files to show in dry-run output (use --verbose for all)
 let DRY_RUN_FILE_LIMIT = 50;
-
-/**
- * Validate path for shell safety - prevents command injection
- * @param {string} path - Path to validate
- * @returns {boolean} true if path is safe for shell use
- */
-function isPathSafe(path) {
-  // Reject paths with shell metacharacters that could enable command injection
-  let dangerousChars = /[`$;&|<>(){}[\]\\!*?'"]/;
-  return !dangerousChars.test(path);
-}
 
 /**
  * Check if a command exists on the system
@@ -50,11 +40,15 @@ function isPathSafe(path) {
 function commandExists(command) {
   try {
     let checkCmd = process.platform === 'win32' ? 'where' : 'which';
-    execSync(`${checkCmd} ${command}`, { stdio: 'ignore' });
+    execFileSync(checkCmd, [command], { stdio: 'ignore' });
     return true;
   } catch {
     return false;
   }
+}
+
+function quotePowerShellString(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
 }
 
 /**
@@ -134,11 +128,8 @@ let DEFAULT_EXCLUDED_FILES = [
 function matchesPattern(filename, patterns) {
   for (let pattern of patterns) {
     if (pattern.includes('*')) {
-      // Simple glob matching - convert to regex
-      let regex = new RegExp(
-        `^${pattern.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`
-      );
-      if (regex.test(filename)) return true;
+      let matches = createWildcardMatcher(pattern, { anchored: true });
+      if (matches(filename)) return true;
     } else {
       if (filename === pattern) return true;
     }
@@ -165,68 +156,60 @@ async function createZipWithSystem(sourceDir, outputPath, exclusions = {}) {
     );
   }
 
-  // Validate paths to prevent command injection
-  // Note: outputPath is internally generated (tmpdir + random), so always safe
-  // sourceDir comes from user input, so we validate it
-  if (!isPathSafe(sourceDir)) {
-    throw new Error(
-      'Path contains unsupported characters. Please use a path without special shell characters.'
-    );
-  }
-
-  // Validate exclusion patterns to prevent command injection
-  // Only allow safe characters in patterns: alphanumeric, dots, asterisks, underscores, hyphens, slashes
-  let safePatternRegex = /^[a-zA-Z0-9.*_\-/]+$/;
-  for (let pattern of [...dirs, ...files]) {
-    if (!safePatternRegex.test(pattern)) {
-      throw new Error(
-        `Exclusion pattern contains unsafe characters: ${pattern}. Only alphanumeric, ., *, _, -, / are allowed.`
-      );
-    }
-  }
-
   if (command === 'zip') {
     // Standard zip command - create ZIP from directory contents
-    // Using cwd option is safe as it's not part of the command string
     // -r: recursive, -q: quiet, -x: exclude patterns
-    let excludeArgs = [
-      ...dirs.map(dir => `-x "${dir}/*"`),
-      ...files.map(pattern => `-x "${pattern}"`),
-    ].join(' ');
-    await execAsync(`zip -r -q "${outputPath}" . ${excludeArgs}`, {
+    let excludeArgs = [];
+    for (let dir of dirs) {
+      excludeArgs.push('-x', `${dir}/*`);
+    }
+    for (let pattern of files) {
+      excludeArgs.push('-x', pattern);
+    }
+
+    await execFileAsync('zip', ['-r', '-q', outputPath, '.', ...excludeArgs], {
       cwd: sourceDir,
       maxBuffer: 1024 * 1024 * 100, // 100MB buffer
     });
   } else if (command === 'powershell') {
     // Windows PowerShell - Compress-Archive doesn't support exclusions,
     // so we create a temp directory with only the files we want
-    let safeSrcDir = sourceDir.replace(/'/g, "''");
-    let safeOutPath = outputPath.replace(/'/g, "''");
+    let safeSrcDir = quotePowerShellString(sourceDir);
+    let safeOutPath = quotePowerShellString(outputPath);
 
     // Build exclusion filter for PowerShell
     // We use Get-ChildItem with -Exclude and pipe to Compress-Archive
-    let excludePatterns = [...dirs, ...files].map(p => `'${p}'`).join(',');
+    let excludePatterns = [...dirs, ...files]
+      .map(quotePowerShellString)
+      .join(',');
 
     if (excludePatterns) {
       // Use robocopy to copy files excluding patterns, then zip
       // This is more reliable than PowerShell's native filtering
-      await execAsync(
-        `powershell -Command "` +
-          `$src = '${safeSrcDir}'; ` +
-          `$dst = '${safeOutPath}'; ` +
-          `$exclude = @(${excludePatterns}); ` +
-          `$items = Get-ChildItem -Path $src -Recurse -File | Where-Object { ` +
-          `$rel = $_.FullName.Substring($src.Length + 1); ` +
-          `$dominated = $false; ` +
-          `foreach ($ex in $exclude) { if ($rel -like $ex -or $rel -like \\"$ex/*\\" -or $_.Name -like $ex) { $dominated = $true; break } }; ` +
-          `-not $dominated ` +
-          `}; ` +
-          `if ($items) { $items | Compress-Archive -DestinationPath $dst -Force }"`,
+      await execFileAsync(
+        'powershell',
+        [
+          '-Command',
+          `$src = ${safeSrcDir}; ` +
+            `$dst = ${safeOutPath}; ` +
+            `$exclude = @(${excludePatterns}); ` +
+            `$items = Get-ChildItem -Path $src -Recurse -File | Where-Object { ` +
+            `$rel = $_.FullName.Substring($src.Length + 1); ` +
+            `$dominated = $false; ` +
+            `foreach ($ex in $exclude) { if ($rel -like $ex -or $rel -like "$ex/*" -or $_.Name -like $ex) { $dominated = $true; break } }; ` +
+            `-not $dominated ` +
+            `}; ` +
+            `if ($items) { $items | Compress-Archive -DestinationPath $dst -Force }`,
+        ],
         { maxBuffer: 1024 * 1024 * 100 }
       );
     } else {
-      await execAsync(
-        `powershell -Command "Compress-Archive -LiteralPath '${safeSrcDir}\\*' -DestinationPath '${safeOutPath}' -Force"`,
+      await execFileAsync(
+        'powershell',
+        [
+          '-Command',
+          `Compress-Archive -LiteralPath ${quotePowerShellString(`${sourceDir}\\*`)} -DestinationPath ${safeOutPath} -Force`,
+        ],
         { maxBuffer: 1024 * 1024 * 100 }
       );
     }
@@ -244,7 +227,6 @@ async function createZipWithSystem(sourceDir, outputPath, exclusions = {}) {
  * @returns {Promise<{ count: number, totalSize: number, files?: Array<{path: string, size: number}> }>}
  */
 async function countFiles(dir, options = {}) {
-  let { readdir } = await import('node:fs/promises');
   let {
     collectPaths = false,
     excludedDirs = DEFAULT_EXCLUDED_DIRS,
@@ -384,15 +366,6 @@ export async function previewCommand(
     // Resolve build ID
     let buildId = options.build;
     let buildSource = 'flag';
-
-    if (!buildId && options.parallelId) {
-      // TODO: Look up build by parallel ID
-      output.error(
-        'Parallel ID lookup not yet implemented. Use --build to specify build ID directly.'
-      );
-      exit(1);
-      return { success: false, reason: 'parallel-id-not-implemented' };
-    }
 
     if (!buildId) {
       // Try to read from session
@@ -654,11 +627,10 @@ export async function previewCommand(
       await unlink(zipPath).catch(() => {});
     }
 
-    let compressionRatio = ((1 - zipBuffer.length / totalSize) * 100).toFixed(
-      0
-    );
+    let compressionRatio = 1 - zipBuffer.length / totalSize;
+    let compressionPercent = Math.round(compressionRatio * 100);
     output.updateSpinner(
-      `Compressed to ${formatBytes(zipBuffer.length)} (${compressionRatio}% smaller)`
+      `Compressed to ${formatBytes(zipBuffer.length)} (${compressionPercent}% smaller)`
     );
 
     // Upload (reuse client created earlier)
@@ -675,7 +647,7 @@ export async function previewCommand(
         files: result.uploaded || fileCount,
         bytes: totalSize,
         compressedBytes: zipBuffer.length,
-        compressionRatio: parseFloat(compressionRatio) / 100,
+        compressionRatio,
         newBytes: result.newBytes,
         reusedBlobs: result.reusedBlobs || 0,
         deduplicationRatio: result.deduplicationRatio,

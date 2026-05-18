@@ -18,8 +18,8 @@ import {
   startServer as startScreenshotServer,
   stopServer as stopScreenshotServer,
 } from '../screenshot-server/index.js';
-import { createUploader } from '../uploader/index.js';
 import { createTDDService } from '../tdd/tdd-service.js';
+import { createUploader } from '../uploader/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { resolveImageBuffer } from '../utils/file-helpers.js';
 import * as output from '../utils/output.js';
@@ -448,9 +448,9 @@ export class VizzlySDK extends EventEmitter {
   }
 }
 
+export { createTDDService } from '../tdd/tdd-service.js';
 // Export service creators for advanced usage
 export { createUploader } from '../uploader/index.js';
-export { createTDDService } from '../tdd/tdd-service.js';
 // Re-export key utilities and errors
 export { loadConfig } from '../utils/config-loader.js';
 export * as output from '../utils/output.js';

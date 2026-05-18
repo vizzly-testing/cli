@@ -210,6 +210,19 @@ describe('tdd/tdd-service', () => {
       ]);
     });
 
+    it('preserves exact-match threshold from config', () => {
+      let mockDeps = createMockDeps();
+      let service = new TddService(
+        { comparison: { threshold: 0 } },
+        '/test',
+        false,
+        null,
+        mockDeps
+      );
+
+      assert.strictEqual(service.threshold, 0);
+    });
+
     it('outputs baseline update mode message when setBaseline is true', () => {
       let mockDeps = createMockDeps();
       new TddService({}, '/test', true, null, mockDeps);
@@ -278,6 +291,28 @@ describe('tdd/tdd-service', () => {
       assert.strictEqual(service.baselineData, metadata);
       assert.strictEqual(service.threshold, 4.0);
       assert.deepStrictEqual(service.signatureProperties, ['device']);
+    });
+
+    it('preserves exact-match threshold from baseline metadata', async () => {
+      let metadata = {
+        buildId: 'build-123',
+        threshold: 0,
+        screenshots: [],
+      };
+      let mockDeps = createMockDeps({
+        metadata: { loadBaselineMetadata: () => metadata },
+      });
+      let service = new TddService(
+        { comparison: { threshold: 2.0 } },
+        '/test',
+        false,
+        null,
+        mockDeps
+      );
+
+      await service.loadBaseline();
+
+      assert.strictEqual(service.threshold, 0);
     });
   });
 

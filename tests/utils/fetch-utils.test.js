@@ -3,6 +3,49 @@ import http from 'node:http';
 import { after, before, describe, it } from 'node:test';
 import { fetchWithTimeout } from '../../src/utils/fetch-utils.js';
 
+function createManualTimers() {
+  let timers = new Map();
+  let nextId = 1;
+
+  return {
+    setTimeout(fn, ms) {
+      let id = nextId++;
+      timers.set(id, { fn, ms });
+      return id;
+    },
+    clearTimeout(id) {
+      timers.delete(id);
+    },
+    trigger(id) {
+      let timer = timers.get(id);
+      timers.delete(id);
+      timer?.fn();
+    },
+    get(id) {
+      return timers.get(id);
+    },
+  };
+}
+
+function createAbortableFetch() {
+  let calls = [];
+
+  return {
+    calls,
+    fetch(url, options) {
+      calls.push({ url, options });
+
+      return new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => {
+          let error = new Error('The operation was aborted');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      });
+    },
+  };
+}
+
 describe('utils/fetch-utils', () => {
   let server;
   let serverPort;
@@ -55,18 +98,26 @@ describe('utils/fetch-utils', () => {
       assert.strictEqual(response.status, 200);
     });
 
-    it('aborts on timeout', async () => {
-      await assert.rejects(
-        fetchWithTimeout(
-          `http://127.0.0.1:${serverPort}/slow`,
-          {},
-          50 // 50ms timeout
-        ),
-        error => {
-          // AbortError or similar
-          return error.name === 'AbortError' || error.message.includes('abort');
-        }
-      );
+    it('aborts on timeout without waiting on wall-clock time', async () => {
+      let timers = createManualTimers();
+      let abortableFetch = createAbortableFetch();
+
+      let request = fetchWithTimeout('/slow', {}, 50, {
+        fetch: abortableFetch.fetch,
+        timers,
+      });
+
+      assert.strictEqual(timers.get(1).ms, 50);
+      assert.strictEqual(abortableFetch.calls[0].url, '/slow');
+      assert.strictEqual(abortableFetch.calls[0].options.signal.aborted, false);
+
+      timers.trigger(1);
+
+      await assert.rejects(request, error => {
+        assert.strictEqual(error.name, 'AbortError');
+        return true;
+      });
+      assert.strictEqual(timers.get(1), undefined);
     });
 
     it('uses default timeout when not specified', async () => {

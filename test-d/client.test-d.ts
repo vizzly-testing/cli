@@ -3,26 +3,34 @@
  */
 import { expectType, expectError } from 'tsd';
 import {
+  autoDiscoverTddServer,
   vizzlyScreenshot,
   vizzlyFlush,
   isVizzlyReady,
   configure,
   setEnabled,
   getVizzlyInfo,
+  LOG_LEVELS,
+  shouldLogClient,
 } from '../src/types/client';
+import type { ScreenshotResult } from '../src/types/client';
 
 // ============================================================================
 // vizzlyScreenshot
 // ============================================================================
 
 // Should accept Buffer as second argument
-expectType<Promise<void>>(vizzlyScreenshot('test', Buffer.from('test')));
+expectType<Promise<ScreenshotResult | null>>(
+  vizzlyScreenshot('test', Buffer.from('test'))
+);
 
 // Should accept string (file path) as second argument
-expectType<Promise<void>>(vizzlyScreenshot('test', './path/to/image.png'));
+expectType<Promise<ScreenshotResult | null>>(
+  vizzlyScreenshot('test', './path/to/image.png')
+);
 
 // Should accept options object
-expectType<Promise<void>>(
+expectType<Promise<ScreenshotResult | null>>(
   vizzlyScreenshot('test', Buffer.from('test'), {
     properties: { browser: 'chrome' },
     threshold: 5,
@@ -30,8 +38,16 @@ expectType<Promise<void>>(
   })
 );
 
+// Should accept top-level screenshot properties
+expectType<Promise<ScreenshotResult | null>>(
+  vizzlyScreenshot('test', Buffer.from('test'), {
+    browser: 'chrome',
+    viewport: '1920x1080',
+  })
+);
+
 // Should accept partial options
-expectType<Promise<void>>(
+expectType<Promise<ScreenshotResult | null>>(
   vizzlyScreenshot('test', Buffer.from('test'), { threshold: 10 })
 );
 
@@ -100,3 +116,23 @@ expectType<boolean>(info.ready);
 expectType<string | null>(info.buildId);
 expectType<boolean>(info.tddMode);
 expectType<boolean>(info.disabled);
+
+// ============================================================================
+// Public helper exports
+// ============================================================================
+
+expectType<number>(LOG_LEVELS.debug);
+expectType<number>(LOG_LEVELS.info);
+expectType<number>(LOG_LEVELS.warn);
+expectType<number>(LOG_LEVELS.error);
+
+expectType<boolean>(shouldLogClient('error'));
+expectType<boolean>(shouldLogClient('debug', 'warn'));
+
+expectType<string | null>(autoDiscoverTddServer());
+expectType<string | null>(
+  autoDiscoverTddServer('/workspace/project', {
+    exists: path => path.endsWith('server.json'),
+    readFile: () => JSON.stringify({ port: 47392 }),
+  })
+);

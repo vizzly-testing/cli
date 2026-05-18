@@ -77,6 +77,7 @@ export interface ScreenshotOptions {
   minClusterSize?: number;
   fullPage?: boolean;
   buildId?: string;
+  [key: string]: unknown;
 }
 
 export interface ScreenshotResult {
@@ -84,6 +85,7 @@ export interface ScreenshotResult {
   status?: 'passed' | 'failed' | 'new';
   name?: string;
   diffPercentage?: number;
+  [key: string]: unknown;
 }
 
 // ============================================================================
@@ -262,6 +264,12 @@ export class ValidationError extends VizzlyError {
 export interface VizzlySDKInstance extends EventEmitter {
   config: VizzlyConfig;
 
+  /** Reload file config and re-apply current in-memory overrides */
+  init(): Promise<VizzlyConfig>;
+
+  /** Merge new config values into the active SDK config */
+  updateConfig(newConfig: Partial<VizzlyConfig>): VizzlyConfig;
+
   /** Start the Vizzly server */
   start(): Promise<{ port: number; url: string }>;
 
@@ -286,6 +294,28 @@ export interface VizzlySDKInstance extends EventEmitter {
     name: string,
     imageBuffer: Buffer | string
   ): Promise<ComparisonResult>;
+
+  /** Create an uploader using the SDK config */
+  createUploader(options?: {
+    upload?: UploadConfig;
+    signal?: AbortSignal;
+    batchSize?: number;
+    timeout?: number;
+  }): Uploader;
+
+  /** Create a local TDD service using the SDK config */
+  createTDDService(options?: {
+    workingDir?: string;
+    setBaseline?: boolean;
+    authService?: unknown;
+  }): TddService;
+
+  /** Start a local TDD service */
+  startTDD(options?: {
+    workingDir?: string;
+    setBaseline?: boolean;
+    authService?: unknown;
+  }): Promise<unknown>;
 }
 
 export class VizzlySDK extends EventEmitter implements VizzlySDKInstance {
@@ -293,6 +323,8 @@ export class VizzlySDK extends EventEmitter implements VizzlySDKInstance {
 
   constructor(config: VizzlyConfig, services: unknown);
 
+  init(): Promise<VizzlyConfig>;
+  updateConfig(newConfig: Partial<VizzlyConfig>): VizzlyConfig;
   start(): Promise<{ port: number; url: string }>;
   stop(): Promise<void>;
   getConfig(): VizzlyConfig;
@@ -306,6 +338,22 @@ export class VizzlySDK extends EventEmitter implements VizzlySDKInstance {
     name: string,
     imageBuffer: Buffer | string
   ): Promise<ComparisonResult>;
+  createUploader(options?: {
+    upload?: UploadConfig;
+    signal?: AbortSignal;
+    batchSize?: number;
+    timeout?: number;
+  }): Uploader;
+  createTDDService(options?: {
+    workingDir?: string;
+    setBaseline?: boolean;
+    authService?: unknown;
+  }): TddService;
+  startTDD(options?: {
+    workingDir?: string;
+    setBaseline?: boolean;
+    authService?: unknown;
+  }): Promise<unknown>;
 }
 
 // ============================================================================
@@ -344,15 +392,8 @@ export interface TddService {
 }
 
 export interface Services {
-  apiService: unknown;
-  authService: unknown;
-  configService: unknown;
-  projectService: unknown;
-  uploader: Uploader;
-  buildManager: unknown;
-  serverManager: unknown;
-  tddService: TddService;
-  testRunner: unknown;
+  serverManager: ServerManager;
+  testRunner: TestRunnerService;
 }
 
 // ============================================================================
@@ -393,10 +434,46 @@ export interface PluginServerManager {
 }
 
 /**
+ * Internal server manager returned by createServices().
+ */
+export interface ServerManager extends PluginServerManager {
+  /** Get current TDD results from the local server handler */
+  getTddResults(): Promise<TddResults | null>;
+  /** Current HTTP server facade, if running */
+  readonly server: unknown;
+}
+
+/**
+ * Internal TestRunner returned by createServices().
+ */
+export interface TestRunnerService extends PluginTestRunner {
+  /** Initialize daemon mode without running tests */
+  initialize(options: Record<string, unknown>): Promise<void>;
+  /** Run tests through the configured test command */
+  run(options: Record<string, unknown>): Promise<unknown>;
+  /** Cancel the active test process and stop the server */
+  cancel(): Promise<void>;
+}
+
+export interface PluginGitInfo {
+  branch: string;
+  commit: string | null;
+  message: string | null;
+  prNumber: number | null;
+  buildName: string;
+}
+
+export interface PluginGit {
+  /** Detect branch, commit, commit message, PR number, and build name */
+  detect(options?: { buildPrefix?: string }): Promise<PluginGitInfo>;
+}
+
+/**
  * Stable services interface for plugins.
  * This is the public API contract - internal services are NOT exposed.
  */
 export interface PluginServices {
+  git: PluginGit;
   testRunner: PluginTestRunner;
   serverManager: PluginServerManager;
 }
@@ -432,8 +509,6 @@ export interface PluginContext {
   services: PluginServices;
   /** Output utilities for logging */
   output: OutputUtils;
-  /** @deprecated Use output instead. Alias for backwards compatibility. */
-  logger: OutputUtils;
 }
 
 /** Create stable plugin services from internal services */
@@ -444,12 +519,31 @@ export function createPluginServices(services: Services): PluginServices;
 // ============================================================================
 
 export interface OutputUtils {
-  info(message: string): void;
-  warn(message: string): void;
-  error(message: string): void;
-  success(message: string): void;
-  debug(category: string, ...args: unknown[]): void;
-  configure(options: { verbose?: boolean }): void;
+  info(message: string, data?: Record<string, unknown>): void;
+  warn(message: string, data?: Record<string, unknown>): void;
+  error(
+    message: string,
+    error?: Error | null,
+    data?: Record<string, unknown>
+  ): void;
+  success(message: string, data?: Record<string, unknown>): void;
+  debug(
+    component: string,
+    message: string,
+    data?: Record<string, unknown>
+  ): void;
+  configure(options: OutputConfigureOptions): void;
+}
+
+export interface OutputConfigureOptions {
+  json?: boolean | string;
+  jsonFields?: string[] | null;
+  logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  verbose?: boolean;
+  color?: boolean;
+  silent?: boolean;
+  logFile?: string | null;
+  resetTimer?: boolean;
 }
 
 // ============================================================================
@@ -471,8 +565,9 @@ export function vizzlyScreenshot(
     threshold?: number;
     minClusterSize?: number;
     fullPage?: boolean;
+    [key: string]: unknown;
   }
-): Promise<void>;
+): Promise<ScreenshotResult | null>;
 
 /** Configure the Vizzly client */
 export function configure(config?: {
@@ -510,10 +605,7 @@ export function createTDDService(
 ): TddService;
 
 /** Create all services with dependencies */
-export function createServices(
-  config: VizzlyConfig,
-  command?: string
-): Services;
+export function createServices(config: VizzlyConfig): Services;
 
 /** Load configuration from file and environment */
 export function loadConfig(options?: { cwd?: string }): Promise<VizzlyConfig>;

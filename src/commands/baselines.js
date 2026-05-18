@@ -2,15 +2,20 @@
  * Baselines command - query local TDD baselines
  */
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import {
+  existsSync as defaultExistsSync,
+  readdirSync as defaultReaddirSync,
+  statSync as defaultStatSync,
+} from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { loadBaselineMetadata } from '../tdd/metadata/baseline-metadata.js';
+import { loadBaselineMetadata as defaultLoadBaselineMetadata } from '../tdd/metadata/baseline-metadata.js';
 import * as defaultOutput from '../utils/output.js';
+import { createWildcardMatcher } from '../utils/patterns.js';
 
 /**
  * Extract filename from a path
  */
-function getFilename(screenshot) {
+export function getFilename(screenshot) {
   if (screenshot.filename) return screenshot.filename;
   if (screenshot.path) return basename(screenshot.path);
   return null;
@@ -19,7 +24,7 @@ function getFilename(screenshot) {
 /**
  * Extract viewport from screenshot properties
  */
-function getViewport(screenshot) {
+export function getViewport(screenshot) {
   if (screenshot.viewport) return screenshot.viewport;
   if (
     screenshot.properties?.viewport_width &&
@@ -31,6 +36,72 @@ function getViewport(screenshot) {
     };
   }
   return null;
+}
+
+export function createBaselineNameMatcher(pattern) {
+  return createWildcardMatcher(pattern);
+}
+
+export function getBaselineFiles(baselinesDir, fs = {}) {
+  let {
+    existsSync = defaultExistsSync,
+    readdirSync = defaultReaddirSync,
+    statSync = defaultStatSync,
+  } = fs;
+
+  if (!existsSync(baselinesDir)) {
+    return [];
+  }
+
+  return readdirSync(baselinesDir)
+    .filter(filename => filename.endsWith('.png'))
+    .map(filename => {
+      let filePath = join(baselinesDir, filename);
+      try {
+        let stat = statSync(filePath);
+        return {
+          filename,
+          path: filePath,
+          size: stat.size,
+          modifiedAt: stat.mtime.toISOString(),
+        };
+      } catch {
+        // File was deleted between readdir and stat, skip it.
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+export function createBaselineList({
+  baselinesDir,
+  baselineFiles,
+  screenshots,
+}) {
+  return screenshots.map(screenshot => {
+    let filename = getFilename(screenshot);
+    let viewport = getViewport(screenshot);
+    let file = baselineFiles.find(candidate => candidate.filename === filename);
+
+    return {
+      name: screenshot.name,
+      signature: screenshot.signature,
+      filename,
+      path:
+        screenshot.path ||
+        file?.path ||
+        getFallbackPath(baselinesDir, filename),
+      sha256: screenshot.sha256,
+      viewport,
+      browser: screenshot.browser || null,
+      createdAt: screenshot.createdAt,
+      fileSize: file?.size,
+    };
+  });
+}
+
+function getFallbackPath(baselinesDir, filename) {
+  return filename ? join(baselinesDir, filename) : null;
 }
 
 /**
@@ -48,6 +119,10 @@ export async function baselinesCommand(
     output = defaultOutput,
     exit = code => process.exit(code),
     cwd = process.cwd,
+    existsSync = defaultExistsSync,
+    loadBaselineMetadata = defaultLoadBaselineMetadata,
+    readdirSync = defaultReaddirSync,
+    statSync = defaultStatSync,
   } = deps;
 
   output.configure({
@@ -82,36 +157,17 @@ export async function baselinesCommand(
     // Load metadata
     let metadata = loadBaselineMetadata(baselinesDir);
     let screenshots = metadata?.screenshots || [];
-
-    // Get actual baseline files
-    let baselineFiles = [];
-    if (existsSync(baselinesDir)) {
-      baselineFiles = readdirSync(baselinesDir)
-        .filter(f => f.endsWith('.png'))
-        .map(f => {
-          let filePath = join(baselinesDir, f);
-          try {
-            let stat = statSync(filePath);
-            return {
-              filename: f,
-              path: filePath,
-              size: stat.size,
-              modifiedAt: stat.mtime.toISOString(),
-            };
-          } catch {
-            // File was deleted between readdir and stat, skip it
-            return null;
-          }
-        })
-        .filter(Boolean);
-    }
+    let baselineFiles = getBaselineFiles(baselinesDir, {
+      existsSync,
+      readdirSync,
+      statSync,
+    });
 
     // Filter by name if provided
     if (options.name) {
-      let pattern = options.name.replace(/\*/g, '.*');
-      let regex = new RegExp(pattern, 'i');
-      screenshots = screenshots.filter(s => regex.test(s.name));
-      baselineFiles = baselineFiles.filter(f => regex.test(f.filename));
+      let matchesName = createBaselineNameMatcher(options.name);
+      screenshots = screenshots.filter(s => matchesName(s.name));
+      baselineFiles = baselineFiles.filter(f => matchesName(f.filename));
     }
 
     // Get specific baseline info
@@ -141,7 +197,10 @@ export async function baselinesCommand(
           name: screenshot.name,
           signature: screenshot.signature,
           filename,
-          path: screenshot.path || file?.path || join(baselinesDir, filename),
+          path:
+            screenshot.path ||
+            file?.path ||
+            getFallbackPath(baselinesDir, filename),
           sha256: screenshot.sha256,
           viewport,
           browser: screenshot.browser || null,
@@ -184,21 +243,10 @@ export async function baselinesCommand(
 
     // JSON output for list
     if (globalOptions.json) {
-      let baselines = screenshots.map(s => {
-        let filename = getFilename(s);
-        let viewport = getViewport(s);
-        let file = baselineFiles.find(f => f.filename === filename);
-        return {
-          name: s.name,
-          signature: s.signature,
-          filename,
-          path: s.path || file?.path || join(baselinesDir, filename),
-          sha256: s.sha256,
-          viewport,
-          browser: s.browser || null,
-          createdAt: s.createdAt,
-          fileSize: file?.size,
-        };
+      let baselines = createBaselineList({
+        baselinesDir,
+        baselineFiles,
+        screenshots,
       });
 
       output.data({
@@ -237,7 +285,7 @@ export async function baselinesCommand(
       if (metadata.branch && metadata.branch !== 'local') {
         output.labelValue('Branch', metadata.branch);
       }
-      output.labelValue('Threshold', `${metadata.threshold || 2.0}%`);
+      output.labelValue('Threshold', `${metadata.threshold ?? 2.0} CIEDE2000`);
       output.blank();
     }
 
@@ -296,7 +344,7 @@ export async function baselinesCommand(
 /**
  * Format bytes to human readable
  */
-function formatBytes(bytes) {
+export function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

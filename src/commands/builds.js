@@ -403,14 +403,19 @@ export function validateBuildsOptions(options = {}) {
   let errors = [];
 
   if (
-    options.limit &&
-    (Number.isNaN(options.limit) || options.limit < 1 || options.limit > 250)
+    options.limit !== undefined &&
+    (!Number.isInteger(options.limit) ||
+      options.limit < 1 ||
+      options.limit > 250)
   ) {
-    errors.push('--limit must be a number between 1 and 250');
+    errors.push('--limit must be an integer between 1 and 250');
   }
 
-  if (options.offset && (Number.isNaN(options.offset) || options.offset < 0)) {
-    errors.push('--offset must be a non-negative number');
+  if (
+    options.offset !== undefined &&
+    (!Number.isInteger(options.offset) || options.offset < 0)
+  ) {
+    errors.push('--offset must be a non-negative integer');
   }
 
   return errors;

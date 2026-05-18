@@ -4,6 +4,7 @@ import {
   getTokenContext as defaultGetTokenContext,
 } from '../api/index.js';
 import { createUploader as defaultCreateUploader } from '../services/uploader.js';
+import { getAppBaseUrl } from '../utils/api-url.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import {
   detectBranch as defaultDetectBranch,
@@ -38,7 +39,7 @@ export async function constructBuildUrl(buildId, apiUrl, apiToken, deps = {}) {
     });
 
     let tokenContext = await getTokenContext(client);
-    let baseUrl = apiUrl.replace(/\/api.*$/, '');
+    let baseUrl = getAppBaseUrl(apiUrl);
 
     if (tokenContext.organization?.slug && tokenContext.project?.slug) {
       return `${baseUrl}/${tokenContext.organization.slug}/${tokenContext.project.slug}/builds/${buildId}`;
@@ -51,7 +52,7 @@ export async function constructBuildUrl(buildId, apiUrl, apiToken, deps = {}) {
   }
 
   // Fallback URL construction
-  let baseUrl = apiUrl.replace(/\/api.*$/, '');
+  let baseUrl = getAppBaseUrl(apiUrl);
   return `${baseUrl}/builds/${buildId}`;
 }
 
@@ -422,8 +423,8 @@ export function validateUploadOptions(screenshotsPath, options) {
   }
 
   if (options.threshold !== undefined) {
-    const threshold = parseFloat(options.threshold);
-    if (Number.isNaN(threshold) || threshold < 0) {
+    let threshold = Number(options.threshold);
+    if (!Number.isFinite(threshold) || threshold < 0) {
       errors.push(
         'Threshold must be a non-negative number (CIEDE2000 Delta E)'
       );
@@ -431,15 +432,15 @@ export function validateUploadOptions(screenshotsPath, options) {
   }
 
   if (options.batchSize !== undefined) {
-    const n = parseInt(options.batchSize, 10);
-    if (!Number.isFinite(n) || n <= 0) {
+    let n = Number(options.batchSize);
+    if (!Number.isInteger(n) || n <= 0) {
       errors.push('Batch size must be a positive integer');
     }
   }
 
   if (options.uploadTimeout !== undefined) {
-    const n = parseInt(options.uploadTimeout, 10);
-    if (!Number.isFinite(n) || n <= 0) {
+    let n = Number(options.uploadTimeout);
+    if (!Number.isInteger(n) || n <= 0) {
       errors.push('Upload timeout must be a positive integer (milliseconds)');
     }
   }

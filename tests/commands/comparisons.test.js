@@ -48,12 +48,40 @@ describe('commands/comparisons', () => {
 
     it('returns error for invalid limit', () => {
       let errors = validateComparisonsOptions({ limit: 500 });
-      assert.ok(errors.includes('--limit must be a number between 1 and 250'));
+      assert.ok(
+        errors.includes('--limit must be an integer between 1 and 250')
+      );
+    });
+
+    it('returns error for malformed and decimal limits', () => {
+      assert.ok(
+        validateComparisonsOptions({ limit: Number('20abc') }).includes(
+          '--limit must be an integer between 1 and 250'
+        )
+      );
+      assert.ok(
+        validateComparisonsOptions({ limit: 20.5 }).includes(
+          '--limit must be an integer between 1 and 250'
+        )
+      );
     });
 
     it('returns error for negative offset', () => {
       let errors = validateComparisonsOptions({ offset: -1 });
-      assert.ok(errors.includes('--offset must be a non-negative number'));
+      assert.ok(errors.includes('--offset must be a non-negative integer'));
+    });
+
+    it('returns error for malformed and decimal offsets', () => {
+      assert.ok(
+        validateComparisonsOptions({ offset: Number('1abc') }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
+      assert.ok(
+        validateComparisonsOptions({ offset: 1.5 }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
     });
   });
 
@@ -226,6 +254,37 @@ describe('commands/comparisons', () => {
       assert.strictEqual(
         dataCall.args[0].comparisons[0].name,
         'button-secondary'
+      );
+    });
+
+    it('filters build comparisons with literal regex characters in names', async () => {
+      let output = createMockOutput();
+      let mockBuild = {
+        id: 'build-1',
+        name: 'Build 1',
+        comparisons: [
+          { id: 'comp-1', name: 'card[primary].png', status: 'changed' },
+          { id: 'comp-2', name: 'cardp.png', status: 'changed' },
+        ],
+      };
+
+      await comparisonsCommand(
+        { build: 'build-1', name: 'card[primary].png' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(c => c.method === 'data');
+      assert.ok(dataCall);
+      assert.deepStrictEqual(
+        dataCall.args[0].comparisons.map(comparison => comparison.name),
+        ['card[primary].png']
       );
     });
 

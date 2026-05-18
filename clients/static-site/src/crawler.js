@@ -3,6 +3,7 @@
  * Functions for finding and parsing HTML pages in static site builds
  */
 
+import { existsSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { filterByPattern } from './utils/patterns.js';
@@ -133,7 +134,6 @@ async function discoverPagesFromSitemap(buildPath, config) {
     let sitemapPath = join(buildPath, config.pageDiscovery.sitemapPath);
 
     // Check if custom sitemap exists, otherwise try to discover
-    let { existsSync } = await import('node:fs');
     if (!existsSync(sitemapPath)) {
       sitemapPath = await discoverSitemap(buildPath);
     }

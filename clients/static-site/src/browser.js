@@ -16,10 +16,11 @@ let browsers = { chromium, firefox, webkit };
  * @returns {Promise<Object>} Browser instance
  * @throws {Error} If browser type is invalid or browser is not installed
  */
-export async function launchBrowser(options = {}) {
+export async function launchBrowser(options = {}, dependencies = {}) {
   let { type = 'chromium', headless = true, args = [] } = options;
+  let browserTypes = dependencies.browsers ?? browsers;
 
-  let browserType = browsers[type];
+  let browserType = browserTypes[type];
   if (!browserType) {
     throw new Error(
       `Unknown browser type: ${type}. Supported browsers: chromium, firefox, webkit`

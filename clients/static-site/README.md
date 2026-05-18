@@ -40,7 +40,7 @@ await run('./dist', {
   viewports: 'mobile:375x667,desktop:1920x1080',
   concurrency: 3,
 }, {
-  logger: console,
+  output: console,
   config: vizzlyConfig,
   services: serviceContainer,
 });

@@ -36,7 +36,10 @@ export function createTabPool(browser, size, options = {}) {
   let createContextEntry = async () => {
     let contextOptions = {};
     if (viewport) {
-      contextOptions.viewport = { width: viewport.width, height: viewport.height };
+      contextOptions.viewport = {
+        width: viewport.width,
+        height: viewport.height,
+      };
     }
     let context = await browser.newContext(contextOptions);
     let page = await context.newPage();

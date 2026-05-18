@@ -181,7 +181,9 @@ function httpPost(url, data) {
 
         if (res.statusCode >= 400) {
           reject(
-            new Error(`Vizzly server error: ${res.statusCode} - ${responseBody}`)
+            new Error(
+              `Vizzly server error: ${res.statusCode} - ${responseBody}`
+            )
           );
           return;
         }

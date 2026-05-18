@@ -532,6 +532,37 @@ describe('previewCommand', () => {
     );
   });
 
+  it('treats regex syntax literally in --exclude patterns', async () => {
+    writeFileSync(
+      join(distDir, 'widget[primary]-main.js'),
+      'console.log("skip")'
+    );
+    writeFileSync(join(distDir, 'widgetp-main.js'), 'console.log("keep")');
+    let output = createMockOutput();
+
+    let result = await previewCommand(
+      distDir,
+      {
+        dryRun: true,
+        build: 'build-123',
+        exclude: ['widget[primary]*.js'],
+      },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let filePaths = result.files.map(f => f.path);
+    assert.ok(!filePaths.includes('widget[primary]-main.js'));
+    assert.ok(filePaths.includes('widgetp-main.js'));
+  });
+
   it('excludes directories matching --exclude patterns with trailing slash', async () => {
     let output = createMockOutput();
 
@@ -841,5 +872,45 @@ describe('previewCommand', () => {
 
     assert.strictEqual(uploadCalled, true, 'Should call upload');
     assert.strictEqual(result.success, true);
+  });
+
+  it('uploads previews from paths with spaces', async () => {
+    let spacedDir = join(testDir, 'dist with spaces');
+    mkdirSync(spacedDir, { recursive: true });
+    writeFileSync(join(spacedDir, 'index.html'), '<html></html>');
+
+    let output = createMockOutput();
+    let uploadedBytes = 0;
+
+    let result = await previewCommand(
+      spacedDir,
+      { build: 'build-123' },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        getBuild: async () => ({
+          id: 'build-123',
+          project: { id: 'proj-1', name: 'Test Project', isPublic: true },
+        }),
+        uploadPreviewZip: async (_client, _buildId, zipBuffer) => {
+          uploadedBytes = zipBuffer.length;
+          return {
+            previewUrl: 'https://preview.test',
+            uploaded: 1,
+            totalBytes: zipBuffer.length,
+            newBytes: zipBuffer.length,
+          };
+        },
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(result.success, true);
+    assert.ok(uploadedBytes > 0, 'Should upload a generated ZIP');
   });
 });

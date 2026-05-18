@@ -4,7 +4,7 @@
 
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
-import { generateTasks, processTask, processAllTasks } from '../src/tasks.js';
+import { generateTasks, processAllTasks, processTask } from '../src/tasks.js';
 
 describe('generateTasks', () => {
   it('generates tasks for each story × viewport combination', () => {
@@ -84,7 +84,9 @@ describe('generateTasks', () => {
     let tasks = generateTasks(stories, baseUrl, config, deps);
 
     // Tasks should be grouped by viewport
-    let viewportOrder = tasks.map(t => `${t.viewport.width}x${t.viewport.height}`);
+    let viewportOrder = tasks.map(
+      t => `${t.viewport.width}x${t.viewport.height}`
+    );
     // Same viewports should be adjacent
     let desktopIndices = viewportOrder
       .map((v, i) => (v === '1920x1080' ? i : -1))
@@ -95,11 +97,15 @@ describe('generateTasks', () => {
 
     // All desktop tasks should be contiguous (indices are consecutive)
     assert.ok(
-      desktopIndices.every((idx, i) => i === 0 || idx === desktopIndices[i - 1] + 1)
+      desktopIndices.every(
+        (idx, i) => i === 0 || idx === desktopIndices[i - 1] + 1
+      )
     );
     // All mobile tasks should be contiguous
     assert.ok(
-      mobileIndices.every((idx, i) => i === 0 || idx === mobileIndices[i - 1] + 1)
+      mobileIndices.every(
+        (idx, i) => i === 0 || idx === mobileIndices[i - 1] + 1
+      )
     );
   });
 

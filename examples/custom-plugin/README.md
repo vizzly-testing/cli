@@ -8,7 +8,7 @@ This example plugin adds several commands to demonstrate different plugin capabi
 
 - `vizzly hello` - Simple greeting command
 - `vizzly greet <name>` - Command with arguments and options
-- `vizzly check-api` - Command that accesses Vizzly services
+- `vizzly check-services` - Command that accesses Vizzly services
 - `vizzly list-screenshots` - Command with file system operations
 
 ## Installation
@@ -52,7 +52,7 @@ vizzly --help
 # Try the commands
 vizzly hello
 vizzly greet "World" --loud
-vizzly check-api
+vizzly check-services
 vizzly list-screenshots
 ```
 
@@ -87,7 +87,7 @@ let gitInfo = await git.detect({ buildPrefix: 'MyPlugin' });
 
 // Build lifecycle
 let buildId = await testRunner.createBuild(options);
-await testRunner.finalizeBuild(buildId, wait, success, executionTime);
+await testRunner.finalizeBuild(buildId, isTddMode, success, executionTime);
 
 // Server control
 await serverManager.start(buildId, tddMode, setBaseline);
@@ -97,14 +97,12 @@ await serverManager.stop();
 ## Creating Your Own Plugin
 
 1. Create a new directory for your plugin
-2. Create `package.json` with `vizzly.plugin` field:
+2. Create `package.json` with a `vizzlyPlugin` field:
 
 ```json
 {
   "name": "@vizzly-testing/my-plugin",
-  "vizzly": {
-    "plugin": "./plugin.js"
-  }
+  "vizzlyPlugin": "./plugin.js"
 }
 ```
 
@@ -114,12 +112,12 @@ await serverManager.stop();
 export default {
   name: 'my-plugin',
   version: '1.0.0',
-  register(program, { config, logger, services }) {
+  register(program, { config, output, services }) {
     program
       .command('my-command')
       .description('My custom command')
       .action(() => {
-        logger.info('Running my command!');
+        output.info('Running my command!');
       });
   }
 };

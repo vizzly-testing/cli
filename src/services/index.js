@@ -9,7 +9,7 @@
  * This factory is only used by cli.js to provide services to plugins.
  */
 
-import { ServerManager } from './server-manager.js';
+import { createServerManager } from '../server-manager/index.js';
 import { TestRunner } from './test-runner.js';
 
 /**
@@ -26,9 +26,7 @@ import { TestRunner } from './test-runner.js';
  * @returns {Object} Services object for plugins
  */
 export function createServices(config) {
-  let serverManager = new ServerManager(config, {
-    services: {},
-  });
+  let serverManager = createServerManager(config, {});
 
   let testRunner = new TestRunner(config, serverManager);
 

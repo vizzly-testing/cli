@@ -4,6 +4,8 @@
  * Uses a tab pool for efficient browser tab management
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, parse } from 'node:path';
 import { closeBrowser, launchBrowser } from './browser.js';
 import { loadConfig } from './config.js';
 import { discoverPages } from './crawler.js';
@@ -17,9 +19,6 @@ import { generateTasks, processAllTasks } from './tasks.js';
  * @returns {Promise<boolean>} True if TDD server is running
  */
 async function isTddModeAvailable(debug = () => {}) {
-  let { existsSync, readFileSync } = await import('node:fs');
-  let { join, parse, dirname } = await import('node:path');
-
   try {
     // Look for .vizzly/server.json
     let currentDir = process.cwd();
@@ -72,11 +71,17 @@ function hasApiToken(config) {
  * Uses a tab pool for efficient parallel screenshot capture
  * @param {string} buildPath - Path to static site build
  * @param {Object} options - CLI options
- * @param {Object} context - Plugin context (logger, config, services)
+ * @param {Object} context - Plugin context (output, config, services)
  * @returns {Promise<void>}
  */
 export async function run(buildPath, options = {}, context = {}) {
-  let { logger, config: vizzlyConfig, services } = context;
+  let {
+    output: providedOutput,
+    logger: legacyOutput,
+    config: vizzlyConfig,
+    services,
+  } = context;
+  let output = providedOutput || legacyOutput;
   let browser = null;
   let pool = null;
   let serverInfo = null;
@@ -85,8 +90,10 @@ export async function run(buildPath, options = {}, context = {}) {
   let buildId = null;
   let startTime = null;
 
-  if (!logger) {
-    throw new Error('Logger is required but was not provided in context');
+  if (!output) {
+    throw new Error(
+      'Output utilities are required but were not provided in context'
+    );
   }
 
   try {
@@ -96,12 +103,12 @@ export async function run(buildPath, options = {}, context = {}) {
     // Handle dry-run mode early - just discover and print pages
     if (options.dryRun) {
       let pages = await discoverPages(config.buildPath, config);
-      logger.info(
+      output.info(
         `🔍 Dry run: Found ${pages.length} pages in ${config.buildPath}\n`
       );
 
       if (pages.length === 0) {
-        logger.warn('   No pages found matching your configuration.');
+        output.warn('   No pages found matching your configuration.');
         return;
       }
 
@@ -110,43 +117,43 @@ export async function run(buildPath, options = {}, context = {}) {
       let htmlPages = pages.filter(p => p.source === 'html');
 
       if (sitemapPages.length > 0) {
-        logger.info(`   From sitemap (${sitemapPages.length}):`);
+        output.info(`   From sitemap (${sitemapPages.length}):`);
         for (let page of sitemapPages) {
-          logger.info(`     ${page.path}`);
+          output.info(`     ${page.path}`);
         }
       }
 
       if (htmlPages.length > 0) {
-        logger.info(`   From HTML scan (${htmlPages.length}):`);
+        output.info(`   From HTML scan (${htmlPages.length}):`);
         for (let page of htmlPages) {
-          logger.info(`     ${page.path}`);
+          output.info(`     ${page.path}`);
         }
       }
 
       // Show task count that would be generated
       let taskCount = pages.length * config.viewports.length;
-      logger.info('');
-      logger.info(`📸 Would capture ${taskCount} screenshots:`);
-      logger.info(
+      output.info('');
+      output.info(`📸 Would capture ${taskCount} screenshots:`);
+      output.info(
         `   ${pages.length} pages × ${config.viewports.length} viewports`
       );
-      logger.info(
+      output.info(
         `   Viewports: ${config.viewports.map(v => `${v.name} (${v.width}×${v.height})`).join(', ')}`
       );
-      logger.info(`   Concurrency: ${config.concurrency} tabs`);
+      output.info(`   Concurrency: ${config.concurrency} tabs`);
 
       return;
     }
 
     // Determine mode: TDD or Run
-    let debug = logger.debug?.bind(logger) || (() => {});
+    let debug = output.debug?.bind(output) || (() => {});
     let isTdd = await isTddModeAvailable(debug);
     let hasToken = hasApiToken(vizzlyConfig);
 
     if (isTdd) {
-      logger.info('📍 TDD mode: Using local server');
+      output.info('📍 TDD mode: Using local server');
     } else if (hasToken) {
-      logger.info('☁️  Run mode: Uploading to cloud');
+      output.info('☁️  Run mode: Uploading to cloud');
     }
 
     let buildUrl = null;
@@ -162,7 +169,7 @@ export async function run(buildPath, options = {}, context = {}) {
         testRunner.once('build-created', buildInfo => {
           if (buildInfo.url) {
             buildUrl = buildInfo.url;
-            logger.info(`🔗 ${buildInfo.url}`);
+            output.info(`🔗 ${buildInfo.url}`);
           }
         });
 
@@ -181,7 +188,7 @@ export async function run(buildPath, options = {}, context = {}) {
           pullRequestNumber = gitInfo.prNumber;
         } else {
           // Fallback for older CLI versions - use environment variables
-          logger.warn(
+          output.warn(
             '⚠️  Upgrade to @vizzly-testing/cli@>=0.25.0 for improved git detection'
           );
           branch = process.env.VIZZLY_BRANCH || 'main';
@@ -223,16 +230,16 @@ export async function run(buildPath, options = {}, context = {}) {
         process.env.VIZZLY_ENABLED = 'true';
       } catch (error) {
         // Log the error and continue without cloud mode
-        logger.error(`Failed to initialize cloud mode: ${error.message}`);
-        logger.warn('⚠️  Falling back to local-only mode');
-        logger.info('   Screenshots will not be uploaded to cloud');
+        output.error(`Failed to initialize cloud mode: ${error.message}`);
+        output.warn('⚠️  Falling back to local-only mode');
+        output.info('   Screenshots will not be uploaded to cloud');
         testRunner = null;
       }
     }
 
     if (!isTdd && !hasToken) {
       // Use output module methods for clean formatting
-      let out = logger.print ? logger : null;
+      let out = output.print ? output : null;
       if (out) {
         out.blank();
         out.warn('No TDD server or API token found');
@@ -248,8 +255,8 @@ export async function run(buildPath, options = {}, context = {}) {
         out.blank();
       } else {
         // Fallback for testing or when output module not available
-        logger.warn('No TDD server or API token found');
-        logger.info('Run "vizzly tdd start" first, or set VIZZLY_TOKEN');
+        output.warn('No TDD server or API token found');
+        output.info('Run "vizzly tdd start" first, or set VIZZLY_TOKEN');
       }
       return;
     }
@@ -259,10 +266,10 @@ export async function run(buildPath, options = {}, context = {}) {
 
     // Discover pages
     let pages = await discoverPages(config.buildPath, config);
-    logger.info(`🌐 Found ${pages.length} pages in ${config.buildPath}`);
+    output.info(`🌐 Found ${pages.length} pages in ${config.buildPath}`);
 
     if (pages.length === 0) {
-      logger.warn('⚠️  No pages found');
+      output.warn('⚠️  No pages found');
       return;
     }
 
@@ -272,21 +279,21 @@ export async function run(buildPath, options = {}, context = {}) {
 
     // Generate all tasks upfront (pages × viewports)
     let tasks = generateTasks(pages, serverInfo.url, config);
-    logger.info(
+    output.info(
       `📸 Processing ${tasks.length} screenshots (${config.concurrency} concurrent tabs)`
     );
 
     // Process all tasks through the tab pool
-    let errors = await processAllTasks(tasks, pool, config, logger);
+    let errors = await processAllTasks(tasks, pool, config, output);
 
     // Report summary
     if (errors.length > 0) {
-      logger.warn(`\n⚠️  ${errors.length} screenshot(s) failed:`);
+      output.warn(`\n⚠️  ${errors.length} screenshot(s) failed:`);
       errors.forEach(({ page, viewport, error }) => {
-        logger.error(`   ${page}@${viewport}: ${error}`);
+        output.error(`   ${page}@${viewport}: ${error}`);
       });
     } else {
-      logger.info(`\n✅ Captured ${tasks.length} screenshots successfully`);
+      output.info(`\n✅ Captured ${tasks.length} screenshots successfully`);
     }
 
     // Finalize build in run mode
@@ -295,11 +302,11 @@ export async function run(buildPath, options = {}, context = {}) {
       await testRunner.finalizeBuild(buildId, false, true, executionTime);
 
       if (buildUrl) {
-        logger.info(`🔗 View results: ${buildUrl}`);
+        output.info(`🔗 View results: ${buildUrl}`);
       }
     }
   } catch (error) {
-    logger.error('Failed to process pages:', error.message);
+    output.error('Failed to process pages:', error.message);
 
     // Mark build as failed if in run mode
     if (testRunner && buildId) {

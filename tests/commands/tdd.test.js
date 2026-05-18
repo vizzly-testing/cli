@@ -34,7 +34,7 @@ function createMockConfig(overrides = {}) {
     apiUrl: 'https://api.test',
     server: { port: 47392, timeout: 30000 },
     build: { environment: 'test' },
-    comparison: { threshold: 0.1 },
+    comparison: { threshold: 0.1, minClusterSize: 2 },
     ...overrides,
   };
 }
@@ -398,6 +398,37 @@ describe('commands/tdd', () => {
       assert.strictEqual(capturedRunOptions.commit, 'def456');
     });
 
+    it('passes comparison config through to the TDD run', async () => {
+      let output = createMockOutput();
+      let capturedRunOptions = null;
+
+      await tddCommand(
+        'npm test',
+        {},
+        {},
+        {
+          loadConfig: async () =>
+            createMockConfig({
+              comparison: { threshold: 0, minClusterSize: 6 },
+            }),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { screenshotsCaptured: 0, comparisons: [] };
+          },
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          output,
+        }
+      );
+
+      assert.strictEqual(capturedRunOptions.threshold, 0);
+      assert.strictEqual(capturedRunOptions.minClusterSize, 6);
+    });
+
     it('invokes onBuildCreated callback', async () => {
       let output = createMockOutput();
 
@@ -698,6 +729,13 @@ describe('commands/tdd', () => {
         );
       });
 
+      it('should fail with decimal port number', () => {
+        let errors = validateTddOptions('npm test', { port: '3000.5' });
+        assert.ok(
+          errors.includes('Port must be a valid number between 1 and 65535')
+        );
+      });
+
       it('should fail with port out of range (too low)', () => {
         let errors = validateTddOptions('npm test', { port: '0' });
         assert.ok(
@@ -721,6 +759,13 @@ describe('commands/tdd', () => {
 
       it('should fail with invalid timeout', () => {
         let errors = validateTddOptions('npm test', { timeout: 'invalid' });
+        assert.ok(
+          errors.includes('Timeout must be at least 1000 milliseconds')
+        );
+      });
+
+      it('should fail with decimal timeout', () => {
+        let errors = validateTddOptions('npm test', { timeout: '5000.5' });
         assert.ok(
           errors.includes('Timeout must be at least 1000 milliseconds')
         );
@@ -759,6 +804,15 @@ describe('commands/tdd', () => {
         );
       });
 
+      it('should fail when threshold has trailing text', () => {
+        let errors = validateTddOptions('npm test', { threshold: '2abc' });
+        assert.ok(
+          errors.includes(
+            'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+          )
+        );
+      });
+
       it('should fail with threshold below 0', () => {
         let errors = validateTddOptions('npm test', { threshold: '-0.1' });
         assert.ok(
@@ -771,6 +825,27 @@ describe('commands/tdd', () => {
       it('should pass with threshold above 1 (CIEDE2000 allows values > 1)', () => {
         let errors = validateTddOptions('npm test', { threshold: '2.0' });
         assert.strictEqual(errors.length, 0);
+      });
+    });
+
+    describe('min cluster size validation', () => {
+      it('should pass with a positive integer', () => {
+        let errors = validateTddOptions('npm test', { minClusterSize: '2' });
+        assert.strictEqual(errors.length, 0);
+      });
+
+      it('should fail with zero', () => {
+        let errors = validateTddOptions('npm test', { minClusterSize: '0' });
+        assert.ok(
+          errors.includes('Min cluster size must be a positive integer')
+        );
+      });
+
+      it('should fail with a decimal', () => {
+        let errors = validateTddOptions('npm test', { minClusterSize: '2.5' });
+        assert.ok(
+          errors.includes('Min cluster size must be a positive integer')
+        );
       });
     });
 

@@ -109,6 +109,51 @@ describe('navigateToStory', () => {
     assert.strictEqual(tab._poolEntry.currentStoryId, 'button--secondary');
   });
 
+  it('falls back to full navigation when Storybook never renders the story', async () => {
+    let originalWindow = globalThis.window;
+    let gotoCalls = [];
+    let listeners = new Map();
+
+    globalThis.window = {
+      __STORYBOOK_PREVIEW__: {
+        channel: {
+          on: (event, handler) => {
+            listeners.set(event, handler);
+          },
+          off: event => {
+            listeners.delete(event);
+          },
+          emit: () => {},
+        },
+      },
+    };
+
+    let tab = {
+      _poolEntry: {
+        storybookInitialized: true,
+        currentStoryId: 'button--primary',
+      },
+      goto: mock.fn(async url => {
+        gotoCalls.push(url);
+      }),
+      evaluate: mock.fn(async (fn, args) => fn(args)),
+    };
+
+    try {
+      await navigateToStory(tab, 'button--secondary', 'http://localhost:6006', {
+        timeout: 0,
+      });
+    } finally {
+      globalThis.window = originalWindow;
+    }
+
+    assert.strictEqual(tab.evaluate.mock.callCount(), 1);
+    assert.strictEqual(gotoCalls.length, 1);
+    assert.ok(gotoCalls[0].includes('button--secondary'));
+    assert.strictEqual(listeners.has('storyRendered'), false);
+    assert.strictEqual(tab._poolEntry.currentStoryId, 'button--secondary');
+  });
+
   it('falls back to domcontentloaded on timeout', async () => {
     let gotoCalls = [];
     let callCount = 0;

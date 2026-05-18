@@ -9,8 +9,375 @@ import {
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { getServerRegistry } from '../tdd/server-registry.js';
+import { withTimeout } from '../utils/async-utils.js';
 import * as output from '../utils/output.js';
 import { tddCommand } from './tdd.js';
+
+let defaultTimers = { setTimeout, clearTimeout };
+
+export function getLocalDaemonFiles(directory = process.cwd()) {
+  let vizzlyDir = join(directory, '.vizzly');
+  return {
+    vizzlyDir,
+    pidFile: join(vizzlyDir, 'server.pid'),
+    serverFile: join(vizzlyDir, 'server.json'),
+    logFile: join(vizzlyDir, 'server.log'),
+  };
+}
+
+export function removeFileIfExists(filePath, deps = {}) {
+  let fileExists = deps.existsSync || existsSync;
+  let unlinkFile = deps.unlinkSync || unlinkSync;
+
+  if (fileExists(filePath)) {
+    unlinkFile(filePath);
+    return true;
+  }
+
+  return false;
+}
+
+export function cleanupLocalDaemonFiles(directory = process.cwd(), deps = {}) {
+  let { pidFile, serverFile } = getLocalDaemonFiles(directory);
+  return {
+    pidFileRemoved: removeFileIfExists(pidFile, deps),
+    serverFileRemoved: removeFileIfExists(serverFile, deps),
+  };
+}
+
+export function buildLegacyServerInfo({ pid, port, now = Date.now }) {
+  return {
+    pid,
+    port: port.toString(),
+    startTime: now(),
+  };
+}
+
+export function writeLegacyGlobalServerFile(
+  { pid, port },
+  {
+    home = homedir,
+    exists = existsSync,
+    mkdir = mkdirSync,
+    writeFile = writeFileSync,
+    now = Date.now,
+  } = {}
+) {
+  let globalVizzlyDir = join(home(), '.vizzly');
+  if (!exists(globalVizzlyDir)) {
+    mkdir(globalVizzlyDir, { recursive: true });
+  }
+
+  let globalServerFile = join(globalVizzlyDir, 'server.json');
+  let serverInfo = buildLegacyServerInfo({ pid, port, now });
+  writeFile(globalServerFile, JSON.stringify(serverInfo, null, 2));
+  return { path: globalServerFile, serverInfo };
+}
+
+export function cleanupLegacyGlobalServerFile({
+  home = homedir,
+  exists = existsSync,
+  unlink = unlinkSync,
+} = {}) {
+  let globalServerFile = join(home(), '.vizzly', 'server.json');
+  return removeFileIfExists(globalServerFile, {
+    existsSync: exists,
+    unlinkSync: unlink,
+  });
+}
+
+export function unregisterDaemonServer({
+  port,
+  directory = process.cwd(),
+  registry = getServerRegistry(),
+}) {
+  registry.unregister({ port, directory });
+}
+
+export function cleanupDaemonState({
+  port,
+  directory = process.cwd(),
+  registry = getServerRegistry(),
+  localFileDeps = {},
+  legacyFileDeps = {},
+} = {}) {
+  let localFiles = cleanupLocalDaemonFiles(directory, localFileDeps);
+  let legacyGlobalServerFileRemoved =
+    cleanupLegacyGlobalServerFile(legacyFileDeps);
+
+  try {
+    if (port !== undefined) {
+      unregisterDaemonServer({ port, directory, registry });
+    } else {
+      registry.unregister({ directory });
+    }
+  } catch {
+    // Non-fatal; stale file cleanup is still useful on its own.
+  }
+
+  return {
+    ...localFiles,
+    legacyGlobalServerFileRemoved,
+  };
+}
+
+export function buildDashboardUrl(port = 47392) {
+  return `http://localhost:${port}`;
+}
+
+export function buildOpenDashboardCommand(url, platform = process.platform) {
+  if (platform === 'darwin') {
+    return { command: 'open', args: [url] };
+  }
+
+  if (platform === 'win32') {
+    return { command: 'cmd', args: ['/c', 'start', '', url] };
+  }
+
+  return { command: 'xdg-open', args: [url] };
+}
+
+function wait(ms, timers = defaultTimers) {
+  return new Promise(resolve => {
+    timers.setTimeout(resolve, ms);
+  });
+}
+
+function isProcessRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parsePositiveInteger(value) {
+  let text = String(value).trim();
+  if (!/^\d+$/.test(text)) {
+    return null;
+  }
+
+  let number = Number(text);
+  return Number.isSafeInteger(number) && number > 0 ? number : null;
+}
+
+export function readDaemonPidFile(pidFile, deps = {}) {
+  let fileExists = deps.existsSync || existsSync;
+  let readFile = deps.readFileSync || readFileSync;
+
+  if (!fileExists(pidFile)) {
+    return null;
+  }
+
+  try {
+    return parsePositiveInteger(readFile(pidFile, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+export async function findDaemonPidByPort(port, { spawnProcess = spawn } = {}) {
+  try {
+    let lsofProcess = spawnProcess('lsof', ['-ti', `:${port}`], {
+      stdio: 'pipe',
+    });
+
+    let lsofOutput = '';
+    lsofProcess.stdout.on('data', data => {
+      lsofOutput += data.toString();
+    });
+
+    return await new Promise(resolve => {
+      lsofProcess.on('close', code => {
+        if (code === 0 && lsofOutput.trim()) {
+          let foundPid = parsePositiveInteger(lsofOutput.trim().split('\n')[0]);
+          resolve(foundPid);
+          return;
+        }
+
+        resolve(null);
+      });
+
+      lsofProcess.on('error', () => {
+        resolve(null);
+      });
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveDaemonPid({
+  port,
+  pidFile = getLocalDaemonFiles().pidFile,
+  readPid = readDaemonPidFile,
+  findByPort = findDaemonPidByPort,
+  fileDeps = {},
+} = {}) {
+  let pid = readPid(pidFile, fileDeps);
+  if (pid) {
+    return pid;
+  }
+
+  return await findByPort(port);
+}
+
+export function buildDaemonChildArgs({
+  entrypoint = process.argv[1],
+  port,
+  options = {},
+  globalOptions = {},
+}) {
+  return [
+    entrypoint,
+    'tdd',
+    'start',
+    '--daemon-child',
+    '--port',
+    port.toString(),
+    ...(options.open ? ['--open'] : []),
+    ...(options.baselineBuild
+      ? ['--baseline-build', options.baselineBuild]
+      : []),
+    ...(options.baselineComparison
+      ? ['--baseline-comparison', options.baselineComparison]
+      : []),
+    ...(options.environment ? ['--environment', options.environment] : []),
+    ...(options.threshold !== undefined
+      ? ['--threshold', options.threshold.toString()]
+      : []),
+    ...(options.minClusterSize !== undefined
+      ? ['--min-cluster-size', options.minClusterSize.toString()]
+      : []),
+    ...(options.timeout ? ['--timeout', options.timeout] : []),
+    ...(options.failOnDiff ? ['--fail-on-diff'] : []),
+    ...(options.token ? ['--token', options.token] : []),
+    ...(globalOptions.json ? ['--json'] : []),
+    ...(globalOptions.verbose ? ['--verbose'] : []),
+    ...(globalOptions.noColor ? ['--no-color'] : []),
+  ];
+}
+
+export function validateTddStartOptions(options = {}) {
+  let errors = [];
+
+  if (options.port) {
+    let port = Number(options.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      errors.push('Port must be a valid number between 1 and 65535');
+    }
+  }
+
+  if (options.timeout) {
+    let timeout = Number(options.timeout);
+    if (!Number.isInteger(timeout) || timeout < 1000) {
+      errors.push('Timeout must be at least 1000 milliseconds');
+    }
+  }
+
+  if (options.threshold !== undefined) {
+    let threshold = Number(options.threshold);
+    if (!Number.isFinite(threshold) || threshold < 0) {
+      errors.push(
+        'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+      );
+    }
+  }
+
+  if (options.minClusterSize !== undefined) {
+    let minClusterSize = Number(options.minClusterSize);
+    if (!Number.isInteger(minClusterSize) || minClusterSize < 1) {
+      errors.push('Min cluster size must be a positive integer');
+    }
+  }
+
+  return errors;
+}
+
+export async function waitForDaemonChildInit(
+  child,
+  { timeoutMs = 30000, timers = defaultTimers } = {}
+) {
+  let cleanup = () => {};
+  let initPromise = new Promise(resolve => {
+    let handleDisconnect = () => {
+      cleanup();
+      resolve({ ok: true });
+    };
+
+    let handleExit = () => {
+      cleanup();
+      resolve({ ok: false, reason: 'exit' });
+    };
+
+    cleanup = () => {
+      child.off('disconnect', handleDisconnect);
+      child.off('exit', handleExit);
+    };
+
+    child.on('disconnect', handleDisconnect);
+    child.on('exit', handleExit);
+  });
+
+  try {
+    return await withTimeout(
+      initPromise,
+      timeoutMs,
+      'TDD server initialization timed out',
+      timers
+    );
+  } catch (error) {
+    cleanup();
+    return { ok: false, reason: 'timeout', error };
+  }
+}
+
+export async function waitForServerRunning(
+  port,
+  {
+    maxAttempts = 10,
+    delayMs = 200,
+    isRunning = isServerRunning,
+    timers = defaultTimers,
+  } = {}
+) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (await isRunning(port)) {
+      return true;
+    }
+
+    if (attempt < maxAttempts - 1) {
+      await wait(delayMs * (attempt + 1), timers);
+    }
+  }
+
+  return false;
+}
+
+export async function waitForProcessExit(
+  pid,
+  {
+    timeoutMs = 2000,
+    intervalMs = 100,
+    processRunning = isProcessRunning,
+    timers = defaultTimers,
+  } = {}
+) {
+  let elapsedMs = 0;
+
+  while (elapsedMs < timeoutMs) {
+    if (!processRunning(pid)) {
+      return true;
+    }
+
+    let nextDelay = Math.min(intervalMs, timeoutMs - elapsedMs);
+    await wait(nextDelay, timers);
+    elapsedMs += nextDelay;
+  }
+
+  return !processRunning(pid);
+}
 
 /**
  * Start TDD server in daemon mode
@@ -38,7 +405,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
           status: 'already_running',
           port: existingServer.port,
           pid: existingServer.pid,
-          dashboardUrl: `http://localhost:${existingServer.port}`,
+          dashboardUrl: buildDashboardUrl(existingServer.port),
         });
         return;
       }
@@ -62,13 +429,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       return;
     } else {
       // Stale entry - clean it up (registry and local files)
-      registry.unregister({ directory: process.cwd() });
-
-      let vizzlyDir = join(process.cwd(), '.vizzly');
-      let pidFile = join(vizzlyDir, 'server.pid');
-      let serverFile = join(vizzlyDir, 'server.json');
-      if (existsSync(pidFile)) unlinkSync(pidFile);
-      if (existsSync(serverFile)) unlinkSync(serverFile);
+      cleanupDaemonState({ directory: process.cwd(), registry });
     }
   }
 
@@ -102,7 +463,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
   try {
     // Ensure .vizzly directory exists
-    let vizzlyDir = join(process.cwd(), '.vizzly');
+    let { vizzlyDir } = getLocalDaemonFiles();
     if (!existsSync(vizzlyDir)) {
       mkdirSync(vizzlyDir, { recursive: true });
     }
@@ -118,33 +479,9 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     }
 
     // Spawn child process with stdio inherited during init for direct error visibility
-    const child = spawn(
+    let child = spawn(
       process.execPath,
-      [
-        process.argv[1], // CLI entry point
-        'tdd',
-        'start',
-        '--daemon-child', // Special flag for child process
-        '--port',
-        port.toString(),
-        ...(options.open ? ['--open'] : []),
-        ...(options.baselineBuild
-          ? ['--baseline-build', options.baselineBuild]
-          : []),
-        ...(options.baselineComparison
-          ? ['--baseline-comparison', options.baselineComparison]
-          : []),
-        ...(options.environment ? ['--environment', options.environment] : []),
-        ...(options.threshold !== undefined
-          ? ['--threshold', options.threshold.toString()]
-          : []),
-        ...(options.timeout ? ['--timeout', options.timeout] : []),
-        ...(options.failOnDiff ? ['--fail-on-diff'] : []),
-        ...(options.token ? ['--token', options.token] : []),
-        ...(globalOptions.json ? ['--json'] : []),
-        ...(globalOptions.verbose ? ['--verbose'] : []),
-        ...(globalOptions.noColor ? ['--no-color'] : []),
-      ],
+      buildDaemonChildArgs({ port, options, globalOptions }),
       {
         detached: true,
         stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
@@ -152,39 +489,9 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       }
     );
 
-    // Wait for child to signal successful init or exit with error
-    let initComplete = false;
-    let initFailed = false;
+    let initResult = await waitForDaemonChildInit(child);
 
-    await new Promise(resolve => {
-      // Child disconnects IPC when initialization succeeds
-      child.on('disconnect', () => {
-        initComplete = true;
-        resolve();
-      });
-
-      // Child exits before disconnecting = initialization failed
-      child.on('exit', () => {
-        if (!initComplete) {
-          initFailed = true;
-          resolve();
-        }
-      });
-
-      // Timeout after 30 seconds to prevent indefinite wait
-      const timeoutId = setTimeout(() => {
-        if (!initComplete && !initFailed) {
-          initFailed = true;
-          resolve();
-        }
-      }, 30000);
-
-      // Clear timeout if we resolve early
-      child.on('disconnect', () => clearTimeout(timeoutId));
-      child.on('exit', () => clearTimeout(timeoutId));
-    });
-
-    if (initFailed) {
+    if (!initResult.ok) {
       if (options.baselineBuild && !globalOptions.verbose) {
         output.stopSpinner();
       }
@@ -196,14 +503,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     child.unref();
 
     // Verify server started with retries
-    const maxRetries = 10;
-    const retryDelay = 200; // Start with 200ms
-    let running = false;
-
-    for (let i = 0; i < maxRetries && !running; i++) {
-      await new Promise(resolve => setTimeout(resolve, retryDelay * (i + 1)));
-      running = await isServerRunning(port);
-    }
+    let running = await waitForServerRunning(port);
 
     if (options.baselineBuild && !globalOptions.verbose) {
       output.stopSpinner();
@@ -224,14 +524,14 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       registry.cleanupStale();
 
       // Register this server with log file path for menubar to read
-      let serverLogFile = join(process.cwd(), '.vizzly', 'server.log');
+      let { logFile } = getLocalDaemonFiles();
       registry.register({
         pid: child.pid,
         port: port,
         directory: process.cwd(),
         name: basename(process.cwd()),
         startedAt: new Date().toISOString(),
-        logFile: serverLogFile,
+        logFile,
       });
     } catch {
       // Non-fatal
@@ -239,23 +539,13 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
     // Also write legacy server.json for SDK discovery (backwards compatibility)
     try {
-      const globalVizzlyDir = join(homedir(), '.vizzly');
-      if (!existsSync(globalVizzlyDir)) {
-        mkdirSync(globalVizzlyDir, { recursive: true });
-      }
-      const globalServerFile = join(globalVizzlyDir, 'server.json');
-      const serverInfo = {
-        pid: child.pid,
-        port: port.toString(),
-        startTime: Date.now(),
-      };
-      writeFileSync(globalServerFile, JSON.stringify(serverInfo, null, 2));
+      writeLegacyGlobalServerFile({ pid: child.pid, port });
     } catch {
       // Non-fatal, SDK can still use health check
     }
 
     // JSON output for successful start
-    let dashboardUrl = `http://localhost:${port}`;
+    let dashboardUrl = buildDashboardUrl(port);
     if (globalOptions.json) {
       output.data({
         status: 'started',
@@ -317,11 +607,8 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
  * @private
  */
 export async function runDaemonChild(options = {}, globalOptions = {}) {
-  const vizzlyDir = join(process.cwd(), '.vizzly');
-  const port = options.port || 47392;
-
-  // Set up log file for menubar app to read
-  const logFile = join(vizzlyDir, 'server.log');
+  let { pidFile, serverFile, logFile } = getLocalDaemonFiles();
+  let port = options.port || 47392;
 
   // Configure output to write JSON logs to file (before tddCommand configures it)
   output.configure({
@@ -333,7 +620,7 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
 
   try {
     // Use existing tddCommand but with daemon mode
-    const { cleanup } = await tddCommand(
+    let { cleanup } = await tddCommand(
       null, // No test command - server only
       {
         ...options,
@@ -348,44 +635,21 @@ export async function runDaemonChild(options = {}, globalOptions = {}) {
     }
 
     // Store our PID for the stop command
-    const pidFile = join(vizzlyDir, 'server.pid');
     writeFileSync(pidFile, process.pid.toString());
 
-    const serverInfo = {
+    let serverInfo = {
       pid: process.pid,
       port: port,
       startTime: Date.now(),
       failOnDiff: options.failOnDiff || false,
-      logFile: logFile,
+      logFile,
     };
-    writeFileSync(
-      join(vizzlyDir, 'server.json'),
-      JSON.stringify(serverInfo, null, 2)
-    );
+    writeFileSync(serverFile, JSON.stringify(serverInfo, null, 2));
 
     // Set up graceful shutdown
-    const handleShutdown = async () => {
+    let handleShutdown = async () => {
       try {
-        // Clean up PID files
-        if (existsSync(pidFile)) unlinkSync(pidFile);
-        const serverFile = join(vizzlyDir, 'server.json');
-        if (existsSync(serverFile)) unlinkSync(serverFile);
-
-        // Unregister from global registry (for menubar app)
-        try {
-          let registry = getServerRegistry();
-          registry.unregister({ port: port, directory: process.cwd() });
-        } catch {
-          // Non-fatal
-        }
-
-        // Clean up legacy global server file
-        try {
-          const globalServerFile = join(homedir(), '.vizzly', 'server.json');
-          if (existsSync(globalServerFile)) unlinkSync(globalServerFile);
-        } catch {
-          // Non-fatal
-        }
+        cleanupDaemonState({ port });
 
         // Use the cleanup function from tddCommand
         await cleanup();
@@ -421,51 +685,8 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
     color: !globalOptions.noColor,
   });
 
-  const vizzlyDir = join(process.cwd(), '.vizzly');
-  const pidFile = join(vizzlyDir, 'server.pid');
-  const serverFile = join(vizzlyDir, 'server.json');
-
-  // First try to find process by PID file
-  let pid = null;
-  if (existsSync(pidFile)) {
-    try {
-      pid = parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
-    } catch {
-      // Invalid PID file
-    }
-  }
-
-  // If no PID file or invalid, try to find by port using lsof
-  const port = options.port || 47392;
-  if (!pid) {
-    try {
-      const lsofProcess = spawn('lsof', ['-ti', `:${port}`], { stdio: 'pipe' });
-
-      let lsofOutput = '';
-      lsofProcess.stdout.on('data', data => {
-        lsofOutput += data.toString();
-      });
-
-      await new Promise(resolve => {
-        lsofProcess.on('close', code => {
-          if (code === 0 && lsofOutput.trim()) {
-            const foundPid = parseInt(lsofOutput.trim().split('\n')[0], 10);
-            if (foundPid && !Number.isNaN(foundPid)) {
-              pid = foundPid;
-            }
-          }
-          resolve();
-        });
-
-        lsofProcess.on('error', () => {
-          // lsof not available, that's ok
-          resolve();
-        });
-      });
-    } catch {
-      // lsof failed, that's ok too
-    }
-  }
+  let port = options.port || 47392;
+  let pid = await resolveDaemonPid({ port });
 
   if (!pid) {
     // JSON output for not running
@@ -479,45 +700,30 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
     }
 
     // Clean up any stale files
-    if (existsSync(pidFile)) unlinkSync(pidFile);
-    if (existsSync(serverFile)) unlinkSync(serverFile);
+    cleanupDaemonState({ port });
     return;
   }
 
   try {
-    let _colors = output.getColors();
-
     // Try to kill the process gracefully
     process.kill(pid, 'SIGTERM');
 
     output.startSpinner('Stopping TDD server...');
 
-    // Give it a moment to shut down gracefully
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    let exited = await waitForProcessExit(pid);
 
     // Check if it's still running
-    try {
-      process.kill(pid, 0); // Just check if process exists
-      // If we get here, process is still running, force kill it
+    if (!exited) {
       process.kill(pid, 'SIGKILL');
       output.stopSpinner();
       output.debug('tdd', 'Force killed process');
-    } catch {
+    } else {
       // Process is gone, which is what we want
       output.stopSpinner();
     }
 
     // Clean up files
-    if (existsSync(pidFile)) unlinkSync(pidFile);
-    if (existsSync(serverFile)) unlinkSync(serverFile);
-
-    // Unregister from global registry (for menubar app)
-    try {
-      let registry = getServerRegistry();
-      registry.unregister({ port: port, directory: process.cwd() });
-    } catch {
-      // Non-fatal
-    }
+    cleanupDaemonState({ port });
 
     // JSON output for successful stop
     if (globalOptions.json) {
@@ -534,16 +740,7 @@ export async function tddStopCommand(options = {}, globalOptions = {}) {
     if (error.code === 'ESRCH') {
       // Process not found - clean up stale files
       output.warn('TDD server was not running (cleaning up stale files)');
-      if (existsSync(pidFile)) unlinkSync(pidFile);
-      if (existsSync(serverFile)) unlinkSync(serverFile);
-
-      // Still unregister from registry
-      try {
-        let registry = getServerRegistry();
-        registry.unregister({ port: port, directory: process.cwd() });
-      } catch {
-        // Non-fatal
-      }
+      cleanupDaemonState({ port });
     } else {
       output.error('Error stopping TDD server', error);
     }
@@ -562,9 +759,7 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
     color: !globalOptions.noColor,
   });
 
-  const vizzlyDir = join(process.cwd(), '.vizzly');
-  const pidFile = join(vizzlyDir, 'server.pid');
-  const serverFile = join(vizzlyDir, 'server.json');
+  let { pidFile, serverFile } = getLocalDaemonFiles();
 
   if (!existsSync(pidFile)) {
     // JSON output for not running
@@ -580,7 +775,12 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
   }
 
   try {
-    const pid = parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
+    let pid = parsePositiveInteger(readFileSync(pidFile, 'utf8'));
+    if (!pid) {
+      output.warn('TDD server pid file is invalid (cleaning up stale files)');
+      cleanupDaemonState();
+      return;
+    }
 
     // Check if process is actually running
     process.kill(pid, 0); // Signal 0 just checks if process exists
@@ -591,7 +791,7 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
     }
 
     // Try to check health endpoint
-    const health = await checkServerHealth(serverInfo.port);
+    let health = await checkServerHealth(serverInfo.port);
 
     if (health.running) {
       // Calculate uptime
@@ -599,16 +799,16 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
       let uptimeStr = '';
       if (serverInfo.startTime) {
         uptimeMs = Date.now() - serverInfo.startTime;
-        const uptime = Math.floor(uptimeMs / 1000);
-        const hours = Math.floor(uptime / 3600);
-        const minutes = Math.floor((uptime % 3600) / 60);
-        const seconds = uptime % 60;
+        let uptime = Math.floor(uptimeMs / 1000);
+        let hours = Math.floor(uptime / 3600);
+        let minutes = Math.floor((uptime % 3600) / 60);
+        let seconds = uptime % 60;
         if (hours > 0) uptimeStr += `${hours}h `;
         if (minutes > 0 || hours > 0) uptimeStr += `${minutes}m `;
         uptimeStr += `${seconds}s`;
       }
 
-      let dashboardUrl = `http://localhost:${serverInfo.port}`;
+      let dashboardUrl = buildDashboardUrl(serverInfo.port);
 
       // JSON output for running status
       if (globalOptions.json) {
@@ -653,10 +853,7 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
   } catch (error) {
     if (error.code === 'ESRCH') {
       output.warn('TDD server process not found (cleaning up stale files)');
-      unlinkSync(pidFile);
-      if (existsSync(serverFile)) {
-        unlinkSync(serverFile);
-      }
+      cleanupDaemonState();
     } else {
       output.error('Error checking TDD server status', error);
     }
@@ -669,7 +866,7 @@ export async function tddStatusCommand(_options, globalOptions = {}) {
  */
 async function isServerRunning(port = 47392) {
   try {
-    const health = await checkServerHealth(port);
+    let health = await checkServerHealth(port);
     return health.running;
   } catch {
     return false;
@@ -682,8 +879,8 @@ async function isServerRunning(port = 47392) {
  */
 async function checkServerHealth(port = 47392) {
   try {
-    const response = await fetch(`http://localhost:${port}/health`);
-    const data = await response.json();
+    let response = await fetch(`http://localhost:${port}/health`);
+    let data = await response.json();
     return {
       running: response.ok,
       port: data.port,
@@ -699,19 +896,10 @@ async function checkServerHealth(port = 47392) {
  * @private
  */
 function openDashboard(port = 47392) {
-  const url = `http://localhost:${port}`;
+  let url = buildDashboardUrl(port);
+  let { command, args } = buildOpenDashboardCommand(url);
 
-  // Cross-platform open command
-  let openCmd;
-  if (process.platform === 'darwin') {
-    openCmd = 'open';
-  } else if (process.platform === 'win32') {
-    openCmd = 'start';
-  } else {
-    openCmd = 'xdg-open';
-  }
-
-  spawn(openCmd, [url], {
+  spawn(command, args, {
     detached: true,
     stdio: 'ignore',
   }).unref();

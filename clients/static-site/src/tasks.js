@@ -3,12 +3,12 @@
  * Functional approach: tasks are (page, viewport) tuples processed through a tab pool
  */
 
+import { navigateToUrl as defaultNavigateToUrl } from './browser.js';
 import { getPageConfig as defaultGetPageConfig } from './config.js';
 import { generatePageUrl as defaultGeneratePageUrl } from './crawler.js';
 import { getBeforeScreenshotHook as defaultGetBeforeScreenshotHook } from './hooks.js';
 import { captureAndSendScreenshot as defaultCaptureAndSendScreenshot } from './screenshot.js';
 import { setViewport as defaultSetViewport } from './utils/viewport.js';
-import { navigateToUrl as defaultNavigateToUrl } from './browser.js';
 
 /**
  * Default dependencies for task operations
@@ -173,14 +173,14 @@ function createOutputCoordinator() {
     /**
      * Queue an error message to be printed
      * @param {string} message - Error message
-     * @param {Object} logger - Logger instance
+     * @param {Object} output - Output utilities
      */
-    logError(message, logger) {
+    logError(message, output) {
       if (isInteractiveTTY()) {
         // Queue error to be printed before next progress update
         pendingErrors.push(message);
       }
-      logger.error(message);
+      output.error(message);
     },
 
     /**
@@ -204,18 +204,18 @@ function createOutputCoordinator() {
  * @param {Array<Object>} tasks - Array of task objects
  * @param {Object} pool - Tab pool { acquire, release }
  * @param {Object} config - Configuration object
- * @param {Object} logger - Logger instance
+ * @param {Object} output - Output utilities
  * @param {Object} [deps] - Optional dependencies for testing
  * @returns {Promise<Array>} Array of errors encountered
  */
-export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
+export async function processAllTasks(tasks, pool, config, output, deps = {}) {
   let errors = [];
   let completed = 0;
   let total = tasks.length;
   let startTime = Date.now();
   let taskTimes = [];
   let interactive = isInteractiveTTY();
-  let output = createOutputCoordinator();
+  let progressOutput = createOutputCoordinator();
 
   // Minimum samples before showing ETA (avoids wild estimates from cold start)
   let minSamplesForEta = Math.min(5, Math.ceil(total * 0.1));
@@ -300,12 +300,12 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
 
         if (interactive) {
           // Update single progress line
-          output.writeProgress(
+          progressOutput.writeProgress(
             `   📸 [${completed}/${total}] ${percent}% ${eta} - ${task.page.path}@${task.viewport.name}`
           );
         } else {
           // Non-interactive: log each completion
-          logger.info(
+          output.info(
             `   ✓ [${completed}/${total}] ${task.page.path}@${task.viewport.name} ${eta}`
           );
         }
@@ -322,9 +322,9 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
           error: result.error.message + retryNote,
         });
 
-        output.logError(
+        progressOutput.logError(
           `   ✗ ${task.page.path}@${task.viewport.name}: ${result.error.message}${retryNote}`,
-          logger
+          output
         );
 
         if (result.tab) {
@@ -336,16 +336,16 @@ export async function processAllTasks(tasks, pool, config, logger, deps = {}) {
   );
 
   // Flush any remaining output
-  output.flush();
+  progressOutput.flush();
 
   // Log total time
   let totalTime = Date.now() - startTime;
-  logger.info(
+  output.info(
     `   ✅ Completed ${total} screenshots in ${formatDuration(totalTime)}`
   );
 
   if (errors.length > 0) {
-    logger.warn(`   ⚠️  ${errors.length} failed`);
+    output.warn(`   ⚠️  ${errors.length} failed`);
   }
 
   return errors;

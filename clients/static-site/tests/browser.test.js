@@ -3,16 +3,47 @@
  */
 
 import assert from 'node:assert';
-import { describe, it, mock } from 'node:test';
+import { describe, it } from 'node:test';
+import { launchBrowser } from '../src/browser.js';
+
+function createBrowserTypes(overrides = {}) {
+  let calls = [];
+  let browser = { id: 'browser' };
+
+  function createBrowserType(name) {
+    return {
+      async launch(options) {
+        calls.push({ name, options });
+        return browser;
+      },
+    };
+  }
+
+  return {
+    browser,
+    calls,
+    browsers: {
+      chromium: createBrowserType('chromium'),
+      firefox: createBrowserType('firefox'),
+      webkit: createBrowserType('webkit'),
+      ...overrides,
+    },
+  };
+}
+
+function createMissingBrowserType(message) {
+  return {
+    async launch() {
+      throw new Error(message);
+    },
+  };
+}
 
 describe('browser', () => {
   describe('launchBrowser', () => {
     it('throws error for invalid browser type', async () => {
-      // Import fresh to avoid caching
-      let { launchBrowser } = await import('../src/browser.js');
-
       await assert.rejects(
-        () => launchBrowser({ type: 'invalid-browser' }),
+        () => launchBrowser({ type: 'invalid-browser' }, createBrowserTypes()),
         {
           message: /Unknown browser type: invalid-browser/,
         }
@@ -20,10 +51,8 @@ describe('browser', () => {
     });
 
     it('includes supported browsers in error message', async () => {
-      let { launchBrowser } = await import('../src/browser.js');
-
       await assert.rejects(
-        () => launchBrowser({ type: 'netscape' }),
+        () => launchBrowser({ type: 'netscape' }, createBrowserTypes()),
         {
           message: /chromium, firefox, webkit/,
         }
@@ -31,117 +60,107 @@ describe('browser', () => {
     });
 
     it('defaults to chromium when no type specified', async () => {
-      // This test verifies the default by checking that no error is thrown
-      // for missing type (actual browser launch would fail without installation)
-      let { launchBrowser } = await import('../src/browser.js');
+      let dependencies = createBrowserTypes();
 
-      // We expect this to fail with browser-not-installed, not invalid-type
-      try {
-        await launchBrowser({ type: undefined });
-      } catch (error) {
-        // Should NOT be an "Unknown browser type" error
-        assert.ok(
-          !error.message.includes('Unknown browser type'),
-          'Should default to chromium, not throw unknown browser error'
-        );
-      }
+      let browser = await launchBrowser(
+        { type: undefined, headless: false },
+        dependencies
+      );
+
+      assert.strictEqual(browser, dependencies.browser);
+      assert.strictEqual(dependencies.calls[0].name, 'chromium');
+      assert.strictEqual(dependencies.calls[0].options.headless, false);
     });
   });
 
   describe('browser-specific args', () => {
     it('chromium args include sandbox and memory flags', async () => {
-      // We can't easily test the actual args without mocking playwright-core
-      // but we can verify the function exists and accepts chromium type
-      let { launchBrowser } = await import('../src/browser.js');
+      let dependencies = createBrowserTypes();
 
-      try {
-        await launchBrowser({ type: 'chromium' });
-      } catch (error) {
-        // Expected to fail (no browser installed), but validates type is accepted
-        assert.ok(
-          !error.message.includes('Unknown browser type'),
-          'chromium should be a valid browser type'
-        );
-      }
+      await launchBrowser(
+        { type: 'chromium', args: ['--custom-flag'] },
+        dependencies
+      );
+
+      let launchArgs = dependencies.calls[0].options.args;
+      assert.ok(launchArgs.includes('--no-sandbox'));
+      assert.ok(launchArgs.includes('--disable-dev-shm-usage'));
+      assert.ok(launchArgs.includes('--custom-flag'));
     });
 
-    it('firefox is a valid browser type', async () => {
-      let { launchBrowser } = await import('../src/browser.js');
+    it('passes non-chromium browser args through unchanged', async () => {
+      let dependencies = createBrowserTypes();
 
-      try {
-        await launchBrowser({ type: 'firefox' });
-      } catch (error) {
-        assert.ok(
-          !error.message.includes('Unknown browser type'),
-          'firefox should be a valid browser type'
-        );
-      }
+      await launchBrowser(
+        { type: 'firefox', args: ['--custom-flag'] },
+        dependencies
+      );
+
+      assert.deepStrictEqual(dependencies.calls[0].options.args, [
+        '--custom-flag',
+      ]);
     });
 
     it('webkit is a valid browser type', async () => {
-      let { launchBrowser } = await import('../src/browser.js');
+      let dependencies = createBrowserTypes();
 
-      try {
-        await launchBrowser({ type: 'webkit' });
-      } catch (error) {
-        assert.ok(
-          !error.message.includes('Unknown browser type'),
-          'webkit should be a valid browser type'
-        );
-      }
+      await launchBrowser({ type: 'webkit' }, dependencies);
+
+      assert.strictEqual(dependencies.calls[0].name, 'webkit');
     });
   });
 
   describe('error messages', () => {
     it('browser-not-installed error includes install command', async () => {
-      let { launchBrowser } = await import('../src/browser.js');
+      let dependencies = createBrowserTypes({
+        chromium: createMissingBrowserType("Executable doesn't exist at /tmp"),
+      });
 
-      try {
-        await launchBrowser({ type: 'chromium' });
-        // If we get here, browser is installed - skip assertion
-      } catch (error) {
-        if (error.message.includes('is not installed')) {
-          assert.ok(
-            error.message.includes('npx playwright install chromium'),
-            'Should include chromium install command'
-          );
+      await assert.rejects(
+        () => launchBrowser({ type: 'chromium' }, dependencies),
+        {
+          message: /npx playwright install chromium/,
         }
-        // Otherwise it's a different error (browser is installed but failed for other reason)
-      }
+      );
     });
 
     it('browser-not-installed error includes CI guidance', async () => {
-      let { launchBrowser } = await import('../src/browser.js');
+      let dependencies = createBrowserTypes({
+        firefox: createMissingBrowserType('download new browsers'),
+      });
 
-      try {
-        await launchBrowser({ type: 'firefox' });
-      } catch (error) {
-        if (error.message.includes('is not installed')) {
-          assert.ok(
-            error.message.includes('--with-deps'),
-            'Should include --with-deps for CI environments'
-          );
-          assert.ok(
-            error.message.includes('playwright.dev/docs/ci'),
-            'Should link to Playwright CI docs'
-          );
+      await assert.rejects(
+        () => launchBrowser({ type: 'firefox' }, dependencies),
+        {
+          message: /--with-deps[\s\S]*playwright\.dev\/docs\/ci/,
         }
-      }
+      );
     });
 
     it('firefox install error suggests correct browser', async () => {
-      let { launchBrowser } = await import('../src/browser.js');
+      let dependencies = createBrowserTypes({
+        firefox: createMissingBrowserType('npx playwright install'),
+      });
 
-      try {
-        await launchBrowser({ type: 'firefox' });
-      } catch (error) {
-        if (error.message.includes('is not installed')) {
-          assert.ok(
-            error.message.includes('npx playwright install firefox'),
-            'Should suggest installing firefox, not chromium'
-          );
+      await assert.rejects(
+        () => launchBrowser({ type: 'firefox' }, dependencies),
+        {
+          message: /npx playwright install firefox/,
         }
-      }
+      );
+    });
+
+    it('rethrows non-install launch failures', async () => {
+      let dependencies = createBrowserTypes({
+        firefox: createMissingBrowserType('permission denied'),
+      });
+
+      await assert.rejects(
+        () => launchBrowser({ type: 'firefox' }, dependencies),
+        {
+          message: /permission denied/,
+        }
+      );
     });
   });
 });

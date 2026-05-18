@@ -5,9 +5,9 @@
 
 import assert from 'node:assert';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { describe, it, before, after, mock } from 'node:test';
+import { join } from 'node:path';
+import { after, before, describe, it } from 'node:test';
 import { run } from '../src/index.js';
 
 describe('dry-run mode', () => {

@@ -25,14 +25,8 @@ function getDeviceIcon(width) {
   return ComputerDesktopIcon;
 }
 
-/**
- * Get device label for viewport
- */
-function _getDeviceLabel(viewportStr) {
-  let width = parseInt(viewportStr.split('×')[0], 10);
-  if (width <= 480) return 'Mobile';
-  if (width <= 1024) return 'Tablet';
-  return 'Desktop';
+function getViewportWidth(viewport) {
+  return Number(viewport.split('×')[0]);
 }
 
 /**
@@ -299,7 +293,7 @@ export default function DashboardFilters({
 
   // Render viewport option with device icon
   let renderViewportOption = useCallback(viewport => {
-    let DeviceIcon = getDeviceIcon(parseInt(viewport.split('×')[0], 10));
+    let DeviceIcon = getDeviceIcon(getViewportWidth(viewport));
     return (
       <>
         <DeviceIcon className="w-4 h-4 text-slate-400" />
@@ -313,7 +307,7 @@ export default function DashboardFilters({
     if (value === 'all') {
       return <span className="text-slate-400">All viewports</span>;
     }
-    let DeviceIcon = getDeviceIcon(parseInt(value.split('×')[0], 10));
+    let DeviceIcon = getDeviceIcon(getViewportWidth(value));
     return (
       <span className="flex items-center gap-2">
         <DeviceIcon className="w-4 h-4 text-slate-400" />
@@ -553,7 +547,7 @@ export default function DashboardFilters({
           {selectedViewport !== 'all' && (
             <ActiveFilter
               label={selectedViewport}
-              icon={getDeviceIcon(parseInt(selectedViewport.split('×')[0], 10))}
+              icon={getDeviceIcon(getViewportWidth(selectedViewport))}
               onRemove={() => setSelectedViewport('all')}
             />
           )}

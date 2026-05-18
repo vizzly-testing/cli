@@ -191,7 +191,10 @@ describe('filterStories', () => {
     ];
     let filtered = filterStories(storiesWithBoth, config);
 
-    assert.equal(filtered.find(s => s.id === 'card--both-skipped'), undefined);
+    assert.equal(
+      filtered.find(s => s.id === 'card--both-skipped'),
+      undefined
+    );
   });
 
   it('should apply both include and skip filters', () => {

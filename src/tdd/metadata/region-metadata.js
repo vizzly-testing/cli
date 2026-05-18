@@ -56,38 +56,3 @@ export function saveRegionMetadata(workingDir, regionData, summary = {}) {
 
   writeFileSync(regionsPath, JSON.stringify(content, null, 2));
 }
-
-/**
- * Get regions for a specific screenshot with caching support
- *
- * This is a pure function that takes a cache object as parameter
- * for stateless operation. The cache is mutated if data needs to be loaded.
- *
- * @param {Object} cache - Cache object { data: Object|null, loaded: boolean }
- * @param {string} workingDir - Working directory
- * @param {string} screenshotName - Name of the screenshot
- * @returns {Object|null} Region data or null if not available
- */
-export function getRegionsForScreenshot(cache, workingDir, screenshotName) {
-  // Check cache first
-  if (cache.data?.[screenshotName]) {
-    return cache.data[screenshotName];
-  }
-
-  // Load from disk if not yet loaded
-  if (!cache.loaded) {
-    cache.data = loadRegionMetadata(workingDir);
-    cache.loaded = true;
-  }
-
-  return cache.data?.[screenshotName] || null;
-}
-
-/**
- * Create an empty region cache object
- *
- * @returns {{ data: null, loaded: boolean }}
- */
-export function createRegionCache() {
-  return { data: null, loaded: false };
-}

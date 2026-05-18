@@ -4,6 +4,8 @@
  * Uses a tab pool for efficient browser tab management
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, parse } from 'node:path';
 import { closeBrowser, launchBrowser } from './browser.js';
 import { loadConfig } from './config.js';
 import { discoverStories } from './crawler.js';
@@ -16,9 +18,6 @@ import { generateTasks, processAllTasks } from './tasks.js';
  * @returns {Promise<boolean>} True if TDD server is running
  */
 async function isTddModeAvailable() {
-  let { existsSync, readFileSync } = await import('node:fs');
-  let { join, parse, dirname } = await import('node:path');
-
   try {
     // Look for .vizzly/server.json
     let currentDir = process.cwd();
@@ -64,11 +63,17 @@ function hasApiToken(config) {
  * Uses a tab pool for efficient parallel screenshot capture
  * @param {string} storybookPath - Path to static Storybook build
  * @param {Object} options - CLI options
- * @param {Object} context - Plugin context (logger, config, services)
+ * @param {Object} context - Plugin context (output, config, services)
  * @returns {Promise<void>}
  */
 export async function run(storybookPath, options = {}, context = {}) {
-  let { logger, config: vizzlyConfig, services } = context;
+  let {
+    output: providedOutput,
+    logger: legacyOutput,
+    config: vizzlyConfig,
+    services,
+  } = context;
+  let output = providedOutput || legacyOutput;
   let browser = null;
   let pool = null;
   let serverInfo = null;
@@ -77,8 +82,10 @@ export async function run(storybookPath, options = {}, context = {}) {
   let buildId = null;
   let startTime = null;
 
-  if (!logger) {
-    throw new Error('Logger is required but was not provided in context');
+  if (!output) {
+    throw new Error(
+      'Output utilities are required but were not provided in context'
+    );
   }
 
   try {
@@ -90,9 +97,9 @@ export async function run(storybookPath, options = {}, context = {}) {
     let hasToken = hasApiToken(vizzlyConfig);
 
     if (isTdd) {
-      logger.info('📍 TDD mode: Using local server');
+      output.info('📍 TDD mode: Using local server');
     } else if (hasToken) {
-      logger.info('☁️  Run mode: Uploading to cloud');
+      output.info('☁️  Run mode: Uploading to cloud');
     }
 
     let buildUrl = null;
@@ -108,7 +115,7 @@ export async function run(storybookPath, options = {}, context = {}) {
         testRunner.once('build-created', buildInfo => {
           if (buildInfo.url) {
             buildUrl = buildInfo.url;
-            logger.info(`🔗 ${buildInfo.url}`);
+            output.info(`🔗 ${buildInfo.url}`);
           }
         });
 
@@ -125,7 +132,7 @@ export async function run(storybookPath, options = {}, context = {}) {
           pullRequestNumber = gitInfo.prNumber;
         } else {
           // Fallback for older CLI versions - use environment variables
-          logger.warn(
+          output.warn(
             '⚠️  Upgrade to @vizzly-testing/cli@>=0.25.0 for improved git detection'
           );
           branch = process.env.VIZZLY_BRANCH || 'main';
@@ -167,16 +174,16 @@ export async function run(storybookPath, options = {}, context = {}) {
         process.env.VIZZLY_ENABLED = 'true';
       } catch (error) {
         // Log the error and continue without cloud mode
-        logger.error(`Failed to initialize cloud mode: ${error.message}`);
-        logger.warn('⚠️  Falling back to local-only mode');
-        logger.info('   Screenshots will not be uploaded to cloud');
+        output.error(`Failed to initialize cloud mode: ${error.message}`);
+        output.warn('⚠️  Falling back to local-only mode');
+        output.info('   Screenshots will not be uploaded to cloud');
         testRunner = null;
       }
     }
 
     if (!isTdd && !hasToken) {
-      logger.warn('⚠️  No TDD server or API token found');
-      logger.info('   Run `vizzly tdd start` or set VIZZLY_TOKEN');
+      output.warn('⚠️  No TDD server or API token found');
+      output.info('   Run `vizzly tdd start` or set VIZZLY_TOKEN');
     }
 
     // Start HTTP server to serve Storybook static files
@@ -184,12 +191,12 @@ export async function run(storybookPath, options = {}, context = {}) {
 
     // Discover stories
     let stories = await discoverStories(config.storybookPath, config);
-    logger.info(
+    output.info(
       `📚 Found ${stories.length} stories in ${config.storybookPath}`
     );
 
     if (stories.length === 0) {
-      logger.warn('⚠️  No stories found');
+      output.warn('⚠️  No stories found');
       return;
     }
 
@@ -199,18 +206,18 @@ export async function run(storybookPath, options = {}, context = {}) {
 
     // Generate all tasks upfront (stories × viewports)
     let tasks = generateTasks(stories, serverInfo.url, config);
-    logger.info(
+    output.info(
       `📸 Processing ${tasks.length} screenshots (${config.concurrency} concurrent tabs)`
     );
 
     // Process all tasks through the tab pool
-    let errors = await processAllTasks(tasks, pool, config, logger);
+    let errors = await processAllTasks(tasks, pool, config, output);
 
     // Report summary
     if (errors.length > 0) {
-      logger.warn(`\n⚠️  ${errors.length} screenshot(s) failed:`);
+      output.warn(`\n⚠️  ${errors.length} screenshot(s) failed:`);
       errors.forEach(({ story, viewport, error }) => {
-        logger.error(`   ${story}@${viewport}: ${error}`);
+        output.error(`   ${story}@${viewport}: ${error}`);
       });
     }
 
@@ -220,11 +227,11 @@ export async function run(storybookPath, options = {}, context = {}) {
       await testRunner.finalizeBuild(buildId, false, true, executionTime);
 
       if (buildUrl) {
-        logger.info(`🔗 View results: ${buildUrl}`);
+        output.info(`🔗 View results: ${buildUrl}`);
       }
     }
   } catch (error) {
-    logger.error('Failed to process stories:', error.message);
+    output.error('Failed to process stories:', error.message);
 
     // Mark build as failed if in run mode
     if (testRunner && buildId) {

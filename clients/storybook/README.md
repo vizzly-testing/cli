@@ -54,7 +54,7 @@ await run('./storybook-static', {
   viewports: 'mobile:375x667,desktop:1920x1080',
   concurrency: 3,
 }, {
-  logger: console,
+  output: console,
 });
 ```
 

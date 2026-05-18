@@ -10,6 +10,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import {
+  generateStaticReport,
+  getReportFileUrl,
+  loadStaticReportRenderer,
+} from '../../src/services/static-report-generator.js';
 
 let __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -96,6 +101,23 @@ function setupMockVizzlyDir(workingDir, options = {}) {
   return vizzlyDir;
 }
 
+async function generateInjectedStaticReport(workingDir, options = {}) {
+  let capturedReportData;
+  let result = await generateStaticReport(workingDir, {
+    css: options.css ?? '.report { color: red; }',
+    outputDir: options.outputDir,
+    renderStaticReport: reportData => {
+      capturedReportData = reportData;
+      return (
+        options.renderedContent ||
+        `<main class="report">${JSON.stringify(reportData)}</main>`
+      );
+    },
+  });
+
+  return { result, capturedReportData };
+}
+
 describe('services/static-report-generator', () => {
   let tempDir;
 
@@ -109,10 +131,6 @@ describe('services/static-report-generator', () => {
 
   describe('generateStaticReport', () => {
     it('should return error when report data is missing', async () => {
-      let { generateStaticReport } = await import(
-        '../../src/services/static-report-generator.js'
-      );
-
       let result = await generateStaticReport(tempDir);
 
       assert.strictEqual(result.success, false);
@@ -120,20 +138,50 @@ describe('services/static-report-generator', () => {
       assert.ok(result.error.includes('No report data found'));
     });
 
-    it('should generate HTML report with correct structure', async t => {
-      // Skip if SSR build artifacts don't exist (CI runs tests before build)
-      if (!ssrBuildExists()) {
-        t.skip('SSR build not available - run npm run build first');
-        return;
-      }
-
+    it('generates an HTML report with injected renderer and CSS', async () => {
+      let capturedReportData;
       setupMockVizzlyDir(tempDir);
 
-      let { generateStaticReport } = await import(
-        '../../src/services/static-report-generator.js'
+      let result = await generateStaticReport(tempDir, {
+        css: '.report { color: red; }',
+        renderStaticReport: reportData => {
+          capturedReportData = reportData;
+          return '<main class="report">Rendered report</main>';
+        },
+      });
+
+      assert.strictEqual(result.success, true);
+      assert.ok(result.reportPath.endsWith('index.html'));
+      assert.ok(existsSync(result.reportPath));
+      assert.strictEqual(
+        capturedReportData.comparisons[0].baseline,
+        './images/baselines/test.png'
+      );
+      assert.strictEqual(
+        capturedReportData.comparisons[0].current,
+        './images/current/test.png'
+      );
+      assert.strictEqual(
+        capturedReportData.comparisons[0].diff,
+        './images/diffs/test.png'
       );
 
-      let result = await generateStaticReport(tempDir);
+      let html = readFileSync(result.reportPath, 'utf8');
+      assert.ok(html.includes('<style>\n.report { color: red; }'));
+      assert.ok(html.includes('<main class="report">Rendered report</main>'));
+
+      let reportDir = join(tempDir, '.vizzly', 'report');
+      assert.ok(existsSync(join(reportDir, 'images', 'baselines', 'test.png')));
+      assert.ok(existsSync(join(reportDir, 'images', 'current', 'test.png')));
+      assert.ok(existsSync(join(reportDir, 'images', 'diffs', 'test.png')));
+    });
+
+    it('should generate HTML report with correct structure', async () => {
+      setupMockVizzlyDir(tempDir);
+
+      let { result } = await generateInjectedStaticReport(tempDir, {
+        renderedContent: '<main class="report">Visual results</main>',
+      });
 
       assert.strictEqual(result.success, true);
       assert.ok(result.reportPath.endsWith('index.html'));
@@ -145,42 +193,31 @@ describe('services/static-report-generator', () => {
       assert.ok(html.includes('<style>'));
     });
 
-    it('should transform image URLs from absolute to relative paths', async t => {
-      if (!ssrBuildExists()) {
-        t.skip('SSR build not available - run npm run build first');
-        return;
-      }
-
+    it('should transform image URLs from absolute to relative paths', async () => {
       setupMockVizzlyDir(tempDir);
 
-      let { generateStaticReport } = await import(
-        '../../src/services/static-report-generator.js'
-      );
-
-      let result = await generateStaticReport(tempDir);
+      let { result, capturedReportData } =
+        await generateInjectedStaticReport(tempDir);
 
       assert.strictEqual(result.success, true);
-
-      let html = readFileSync(result.reportPath, 'utf8');
-      // URLs should be transformed from /images/... to ./images/...
-      assert.ok(
-        html.includes('./images/') || !html.includes('/images/baselines/')
+      assert.deepStrictEqual(
+        {
+          baseline: capturedReportData.comparisons[0].baseline,
+          current: capturedReportData.comparisons[0].current,
+          diff: capturedReportData.comparisons[0].diff,
+        },
+        {
+          baseline: './images/baselines/test.png',
+          current: './images/current/test.png',
+          diff: './images/diffs/test.png',
+        }
       );
     });
 
-    it('should copy image directories to report folder', async t => {
-      if (!ssrBuildExists()) {
-        t.skip('SSR build not available - run npm run build first');
-        return;
-      }
-
+    it('should copy image directories to report folder', async () => {
       setupMockVizzlyDir(tempDir);
 
-      let { generateStaticReport } = await import(
-        '../../src/services/static-report-generator.js'
-      );
-
-      let result = await generateStaticReport(tempDir);
+      let { result } = await generateInjectedStaticReport(tempDir);
 
       assert.strictEqual(result.success, true);
 
@@ -190,20 +227,11 @@ describe('services/static-report-generator', () => {
       assert.ok(existsSync(join(reportDir, 'images', 'diffs', 'test.png')));
     });
 
-    it('should use custom output directory when provided', async t => {
-      if (!ssrBuildExists()) {
-        t.skip('SSR build not available - run npm run build first');
-        return;
-      }
-
+    it('should use custom output directory when provided', async () => {
       setupMockVizzlyDir(tempDir);
       let customOutputDir = join(tempDir, 'custom-report');
 
-      let { generateStaticReport } = await import(
-        '../../src/services/static-report-generator.js'
-      );
-
-      let result = await generateStaticReport(tempDir, {
+      let { result } = await generateInjectedStaticReport(tempDir, {
         outputDir: customOutputDir,
       });
 
@@ -212,32 +240,20 @@ describe('services/static-report-generator', () => {
       assert.ok(existsSync(join(customOutputDir, 'index.html')));
     });
 
-    it('should handle empty comparisons array', async t => {
-      if (!ssrBuildExists()) {
-        t.skip('SSR build not available - run npm run build first');
-        return;
-      }
-
+    it('should handle empty comparisons array', async () => {
       setupMockVizzlyDir(tempDir, {
         reportData: { comparisons: [], timestamp: Date.now() },
       });
 
-      let { generateStaticReport } = await import(
-        '../../src/services/static-report-generator.js'
-      );
-
-      let result = await generateStaticReport(tempDir);
+      let { result, capturedReportData } =
+        await generateInjectedStaticReport(tempDir);
 
       assert.strictEqual(result.success, true);
       assert.ok(existsSync(result.reportPath));
+      assert.deepStrictEqual(capturedReportData.comparisons, []);
     });
 
-    it('should include baseline metadata when available', async t => {
-      if (!ssrBuildExists()) {
-        t.skip('SSR build not available - run npm run build first');
-        return;
-      }
-
+    it('should include baseline metadata when available', async () => {
       let vizzlyDir = setupMockVizzlyDir(tempDir);
 
       // Add baseline metadata
@@ -247,13 +263,14 @@ describe('services/static-report-generator', () => {
         JSON.stringify({ branch: 'main', commit: 'abc123' })
       );
 
-      let { generateStaticReport } = await import(
-        '../../src/services/static-report-generator.js'
-      );
-
-      let result = await generateStaticReport(tempDir);
+      let { result, capturedReportData } =
+        await generateInjectedStaticReport(tempDir);
 
       assert.strictEqual(result.success, true);
+      assert.deepStrictEqual(capturedReportData.baseline, {
+        branch: 'main',
+        commit: 'abc123',
+      });
     });
 
     it('should return error when SSR module is missing', async t => {
@@ -263,10 +280,6 @@ describe('services/static-report-generator', () => {
       }
 
       setupMockVizzlyDir(tempDir);
-
-      let { generateStaticReport } = await import(
-        '../../src/services/static-report-generator.js'
-      );
 
       let result = await generateStaticReport(tempDir);
 
@@ -278,14 +291,35 @@ describe('services/static-report-generator', () => {
   });
 
   describe('getReportFileUrl', () => {
-    it('should return file:// URL for report path', async () => {
-      let { getReportFileUrl } = await import(
-        '../../src/services/static-report-generator.js'
-      );
-
+    it('should return file:// URL for report path', () => {
       let url = getReportFileUrl('/path/to/report/index.html');
 
       assert.strictEqual(url, 'file:///path/to/report/index.html');
+    });
+
+    it('should encode paths with spaces', () => {
+      let url = getReportFileUrl('/path/to/report folder/index.html');
+
+      assert.strictEqual(url, 'file:///path/to/report%20folder/index.html');
+    });
+  });
+
+  describe('loadStaticReportRenderer', () => {
+    it('loads an SSR module from a path with spaces', async () => {
+      let moduleDir = join(tempDir, 'ssr module');
+      let modulePath = join(moduleDir, 'ssr-entry.js');
+      mkdirSync(moduleDir, { recursive: true });
+      writeFileSync(
+        modulePath,
+        "export function renderStaticReport(data) { return '<main>' + data.title + '</main>'; }"
+      );
+
+      let renderStaticReport = await loadStaticReportRenderer(modulePath);
+
+      assert.strictEqual(
+        renderStaticReport({ title: 'Report Ready' }),
+        '<main>Report Ready</main>'
+      );
     });
   });
 });

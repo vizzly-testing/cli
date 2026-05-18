@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import {
   getBranch as getCIBranch,
@@ -7,14 +7,16 @@ import {
   getPullRequestNumber,
 } from './ci-env.js';
 
-const execAsync = promisify(exec);
+let execFileAsync = promisify(execFile);
+
+async function runGit(args, cwd = process.cwd()) {
+  let { stdout } = await execFileAsync('git', args, { cwd });
+  return stdout.trim();
+}
 
 export async function getCommonAncestor(commit1, commit2, cwd = process.cwd()) {
   try {
-    const { stdout } = await execAsync(`git merge-base ${commit1} ${commit2}`, {
-      cwd,
-    });
-    return stdout.trim();
+    return await runGit(['merge-base', commit1, commit2], cwd);
   } catch {
     // If merge-base fails (e.g., no common ancestor), return null
     return null;
@@ -23,8 +25,7 @@ export async function getCommonAncestor(commit1, commit2, cwd = process.cwd()) {
 
 export async function getCurrentCommitSha(cwd = process.cwd()) {
   try {
-    const { stdout } = await execAsync('git rev-parse HEAD', { cwd });
-    return stdout.trim();
+    return await runGit(['rev-parse', 'HEAD'], cwd);
   } catch {
     return null;
   }
@@ -32,10 +33,7 @@ export async function getCurrentCommitSha(cwd = process.cwd()) {
 
 export async function getCurrentBranch(cwd = process.cwd()) {
   try {
-    const { stdout } = await execAsync('git rev-parse --abbrev-ref HEAD', {
-      cwd,
-    });
-    return stdout.trim();
+    return await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
   } catch {
     // Fallback strategy: use a simple, non-recursive approach
     // to avoid circular dependency with getDefaultBranch()
@@ -49,24 +47,22 @@ export async function getCurrentBranch(cwd = process.cwd()) {
  */
 async function getCurrentBranchFallback(cwd = process.cwd()) {
   // Try common default branches in order of likelihood
-  const commonBranches = ['main', 'master', 'develop', 'dev'];
+  let commonBranches = ['main', 'master', 'develop', 'dev'];
 
-  for (const branch of commonBranches) {
+  for (let branch of commonBranches) {
     try {
-      await execAsync(`git show-ref --verify --quiet refs/heads/${branch}`, {
-        cwd,
-      });
+      await runGit(
+        ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`],
+        cwd
+      );
       return branch;
     } catch {}
   }
 
   // If none of the common branches exist, try to get any local branch
   try {
-    const { stdout } = await execAsync(
-      'git branch --format="%(refname:short)"',
-      { cwd }
-    );
-    const branches = stdout
+    let stdout = await runGit(['branch', '--format=%(refname:short)'], cwd);
+    let branches = stdout
       .trim()
       .split('\n')
       .filter(b => b.trim());
@@ -85,33 +81,31 @@ async function getCurrentBranchFallback(cwd = process.cwd()) {
 export async function getDefaultBranch(cwd = process.cwd()) {
   try {
     // Try to get the default branch from remote origin
-    const { stdout } = await execAsync(
-      'git symbolic-ref refs/remotes/origin/HEAD',
-      { cwd }
+    let stdout = await runGit(
+      ['symbolic-ref', 'refs/remotes/origin/HEAD'],
+      cwd
     );
-    const defaultBranch = stdout.trim().replace('refs/remotes/origin/', '');
+    let defaultBranch = stdout.replace('refs/remotes/origin/', '');
     return defaultBranch;
   } catch {
     try {
       // Fallback: try to get default branch from git config
-      const { stdout } = await execAsync(
-        'git config --get init.defaultBranch',
-        { cwd }
-      );
-      return stdout.trim();
+      return await runGit(['config', '--get', 'init.defaultBranch'], cwd);
     } catch {
       try {
         // Fallback: check if main exists
-        await execAsync('git show-ref --verify --quiet refs/heads/main', {
-          cwd,
-        });
+        await runGit(
+          ['show-ref', '--verify', '--quiet', 'refs/heads/main'],
+          cwd
+        );
         return 'main';
       } catch {
         try {
           // Fallback: check if master exists
-          await execAsync('git show-ref --verify --quiet refs/heads/master', {
-            cwd,
-          });
+          await runGit(
+            ['show-ref', '--verify', '--quiet', 'refs/heads/master'],
+            cwd
+          );
           return 'master';
         } catch {
           // If we're not in a git repo or no branches exist, return null
@@ -124,7 +118,7 @@ export async function getDefaultBranch(cwd = process.cwd()) {
 }
 
 export function generateBuildName() {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  let timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   return `Build ${timestamp}`;
 }
 
@@ -135,8 +129,7 @@ export function generateBuildName() {
  */
 export async function getCommitMessage(cwd = process.cwd()) {
   try {
-    const { stdout } = await execAsync('git log -1 --pretty=%B', { cwd });
-    return stdout.trim();
+    return await runGit(['log', '-1', '--pretty=%B'], cwd);
   } catch {
     return null;
   }
@@ -155,7 +148,7 @@ export async function detectCommitMessage(
   if (override) return override;
 
   // Try CI environment variables first
-  const ciCommitMessage = getCICommitMessage();
+  let ciCommitMessage = getCICommitMessage();
   if (ciCommitMessage) return ciCommitMessage;
 
   // Fallback to regular git log
@@ -169,7 +162,7 @@ export async function detectCommitMessage(
  */
 export async function isGitRepository(cwd = process.cwd()) {
   try {
-    await execAsync('git rev-parse --git-dir', { cwd });
+    await runGit(['rev-parse', '--git-dir'], cwd);
     return true;
   } catch {
     return false;
@@ -183,8 +176,8 @@ export async function isGitRepository(cwd = process.cwd()) {
  */
 export async function getGitStatus(cwd = process.cwd()) {
   try {
-    const { stdout } = await execAsync('git status --porcelain', { cwd });
-    const changes = stdout
+    let stdout = await runGit(['status', '--porcelain'], cwd);
+    let changes = stdout
       .trim()
       .split('\n')
       .filter(line => line);
@@ -211,11 +204,11 @@ export async function detectBranch(override = null, cwd = process.cwd()) {
   if (override) return override;
 
   // Try CI environment variables first
-  const ciBranch = getCIBranch();
+  let ciBranch = getCIBranch();
   if (ciBranch) return ciBranch;
 
   // Fallback to git command when no CI environment variables
-  const currentBranch = await getCurrentBranch(cwd);
+  let currentBranch = await getCurrentBranch(cwd);
   return currentBranch || 'unknown';
 }
 
@@ -229,7 +222,7 @@ export async function detectCommit(override = null, cwd = process.cwd()) {
   if (override) return override;
 
   // Try CI environment variables first
-  const ciCommit = getCICommit();
+  let ciCommit = getCICommit();
   if (ciCommit) return ciCommit;
 
   // Fallback to git command when no CI environment variables
@@ -248,11 +241,11 @@ export async function generateBuildNameWithGit(
 ) {
   if (override) return override;
 
-  const branch = await getCurrentBranch(cwd);
-  const shortSha = await getCurrentCommitSha(cwd);
+  let branch = await getCurrentBranch(cwd);
+  let shortSha = await getCurrentCommitSha(cwd);
 
   if (branch && shortSha) {
-    const shortCommit = shortSha.substring(0, 7);
+    let shortCommit = shortSha.substring(0, 7);
     return `${branch}-${shortCommit}`;
   }
 

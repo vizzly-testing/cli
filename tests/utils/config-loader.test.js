@@ -116,6 +116,7 @@ describe('utils/config-loader', () => {
         token: 'cli-token',
         port: '5000',
         threshold: 0.5,
+        minClusterSize: '4',
         buildName: 'My Build',
         environment: 'production',
       });
@@ -123,6 +124,7 @@ describe('utils/config-loader', () => {
       assert.strictEqual(config.apiKey, 'cli-token');
       assert.strictEqual(config.server.port, 5000);
       assert.strictEqual(config.comparison.threshold, 0.5);
+      assert.strictEqual(config.comparison.minClusterSize, 4);
       assert.strictEqual(config.build.name, 'My Build');
       assert.strictEqual(config.build.environment, 'production');
     });

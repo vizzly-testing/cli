@@ -225,6 +225,19 @@ describe('utils/ci-env', () => {
       assert.strictEqual(getPullRequestNumber(), 42);
     });
 
+    it('returns null for malformed VIZZLY_PR_NUMBER override', () => {
+      process.env.VIZZLY_PR_NUMBER = '42abc';
+      process.env.CI_MERGE_REQUEST_ID = '99';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
+    it('returns null for zero PR numbers', () => {
+      process.env.VIZZLY_PR_NUMBER = '0';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
     it('extracts PR number from GitHub Actions GITHUB_REF', () => {
       process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_EVENT_NAME = 'pull_request';
@@ -245,6 +258,12 @@ describe('utils/ci-env', () => {
       process.env.CI_MERGE_REQUEST_ID = '456';
 
       assert.strictEqual(getPullRequestNumber(), 456);
+    });
+
+    it('returns null for malformed CI provider PR numbers', () => {
+      process.env.CI_MERGE_REQUEST_ID = '456.7';
+
+      assert.strictEqual(getPullRequestNumber(), null);
     });
 
     it('extracts PR number from CircleCI CIRCLE_PULL_REQUEST URL', () => {

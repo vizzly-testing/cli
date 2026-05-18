@@ -12,29 +12,9 @@ import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
+import { CONFIG_DEFAULTS } from '../config/core.js';
 import { loadGlobalConfig, saveGlobalConfig } from '../utils/global-config.js';
 import * as output from '../utils/output.js';
-
-/**
- * Default configuration values
- */
-let DEFAULT_CONFIG = {
-  comparison: {
-    threshold: 2.0,
-    minClusterSize: 2,
-  },
-  server: {
-    port: 47392,
-    timeout: 30000,
-  },
-  build: {
-    name: 'Build {timestamp}',
-    environment: 'test',
-  },
-  tdd: {
-    openReport: false,
-  },
-};
 
 /**
  * Create a config service instance
@@ -77,7 +57,7 @@ export function createConfigService({ workingDir }) {
    * Get merged configuration with source tracking
    */
   async function getMergedConfig() {
-    let config = { ...DEFAULT_CONFIG };
+    let config = cloneConfigValue(CONFIG_DEFAULTS);
     let sources = {};
 
     // Layer 1: Global config
@@ -102,18 +82,17 @@ export function createConfigService({ workingDir }) {
 
     // Layer 3: Environment variables
     if (process.env.VIZZLY_THRESHOLD) {
-      config.comparison.threshold = parseFloat(process.env.VIZZLY_THRESHOLD);
+      config.comparison.threshold = Number(process.env.VIZZLY_THRESHOLD);
       sources.comparison = 'env';
     }
     if (process.env.VIZZLY_MIN_CLUSTER_SIZE) {
-      config.comparison.minClusterSize = parseInt(
-        process.env.VIZZLY_MIN_CLUSTER_SIZE,
-        10
+      config.comparison.minClusterSize = Number(
+        process.env.VIZZLY_MIN_CLUSTER_SIZE
       );
       sources.comparison = 'env';
     }
     if (process.env.VIZZLY_PORT) {
-      config.server.port = parseInt(process.env.VIZZLY_PORT, 10);
+      config.server.port = Number(process.env.VIZZLY_PORT);
       sources.server = 'env';
     }
 
@@ -240,7 +219,11 @@ export default defineConfig(${JSON.stringify(newConfig, null, 2)});
     // Validate threshold
     if (config.comparison?.threshold !== undefined) {
       let threshold = config.comparison.threshold;
-      if (typeof threshold !== 'number' || threshold < 0) {
+      if (
+        typeof threshold !== 'number' ||
+        !Number.isFinite(threshold) ||
+        threshold < 0
+      ) {
         errors.push('comparison.threshold must be a non-negative number');
       } else if (threshold > 100) {
         warnings.push(
@@ -299,7 +282,7 @@ export default defineConfig(${JSON.stringify(newConfig, null, 2)});
  * Deep merge two objects
  */
 function mergeDeep(target, source) {
-  let result = { ...target };
+  let result = cloneConfigValue(target);
 
   for (let key in source) {
     if (
@@ -308,6 +291,8 @@ function mergeDeep(target, source) {
       !Array.isArray(source[key])
     ) {
       result[key] = mergeDeep(result[key] || {}, source[key]);
+    } else if (Array.isArray(source[key])) {
+      result[key] = [...source[key]];
     } else {
       result[key] = source[key];
     }
@@ -316,21 +301,45 @@ function mergeDeep(target, source) {
   return result;
 }
 
+function cloneConfigValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(cloneConfigValue);
+  }
+
+  if (value && typeof value === 'object') {
+    let clone = {};
+    for (let key in value) {
+      clone[key] = cloneConfigValue(value[key]);
+    }
+    return clone;
+  }
+
+  return value;
+}
+
 /**
  * Merge config with source tracking
  */
-function mergeWithTracking(target, source, sources, sourceName) {
+function mergeWithTracking(target, source, sources, sourceName, sectionName) {
   for (let key in source) {
+    let sourceSection = sectionName || key;
+
     if (
       source[key] &&
       typeof source[key] === 'object' &&
       !Array.isArray(source[key])
     ) {
       if (!target[key]) target[key] = {};
-      mergeWithTracking(target[key], source[key], sources, sourceName);
+      mergeWithTracking(
+        target[key],
+        source[key],
+        sources,
+        sourceName,
+        sourceSection
+      );
     } else {
       target[key] = source[key];
-      sources[key] = sourceName;
+      sources[sourceSection] = sourceName;
     }
   }
 }

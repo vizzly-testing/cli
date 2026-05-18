@@ -60,6 +60,42 @@ describe('commands/projects', () => {
       let errors = validateProjectsOptions({});
       assert.deepStrictEqual(errors, []);
     });
+
+    it('rejects malformed and out-of-range limits', () => {
+      assert.ok(
+        validateProjectsOptions({ limit: Number('20abc') }).includes(
+          '--limit must be an integer between 1 and 250'
+        )
+      );
+      assert.ok(
+        validateProjectsOptions({ limit: 251 }).includes(
+          '--limit must be an integer between 1 and 250'
+        )
+      );
+      assert.ok(
+        validateProjectsOptions({ limit: 1.5 }).includes(
+          '--limit must be an integer between 1 and 250'
+        )
+      );
+    });
+
+    it('rejects malformed and negative offsets', () => {
+      assert.ok(
+        validateProjectsOptions({ offset: Number('1abc') }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
+      assert.ok(
+        validateProjectsOptions({ offset: -1 }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
+      assert.ok(
+        validateProjectsOptions({ offset: 1.5 }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
+    });
   });
 
   describe('projectsCommand', () => {

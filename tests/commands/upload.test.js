@@ -111,6 +111,17 @@ describe('validateUploadOptions', () => {
       );
     });
 
+    it('should fail when threshold has trailing text', () => {
+      let errors = validateUploadOptions('./screenshots', {
+        threshold: '2abc',
+      });
+      assert.ok(
+        errors.includes(
+          'Threshold must be a non-negative number (CIEDE2000 Delta E)'
+        )
+      );
+    });
+
     it('should fail with threshold below 0', () => {
       let errors = validateUploadOptions('./screenshots', {
         threshold: '-0.1',
@@ -145,6 +156,13 @@ describe('validateUploadOptions', () => {
       assert.ok(errors.includes('Batch size must be a positive integer'));
     });
 
+    it('should fail with decimal batch size', () => {
+      let errors = validateUploadOptions('./screenshots', {
+        batchSize: '2.5',
+      });
+      assert.ok(errors.includes('Batch size must be a positive integer'));
+    });
+
     it('should fail with zero batch size', () => {
       let errors = validateUploadOptions('./screenshots', { batchSize: '0' });
       assert.ok(errors.includes('Batch size must be a positive integer'));
@@ -169,6 +187,17 @@ describe('validateUploadOptions', () => {
     it('should fail with invalid upload timeout', () => {
       let errors = validateUploadOptions('./screenshots', {
         uploadTimeout: 'invalid',
+      });
+      assert.ok(
+        errors.includes(
+          'Upload timeout must be a positive integer (milliseconds)'
+        )
+      );
+    });
+
+    it('should fail with decimal upload timeout', () => {
+      let errors = validateUploadOptions('./screenshots', {
+        uploadTimeout: '2500.5',
       });
       assert.ok(
         errors.includes(
@@ -286,6 +315,21 @@ describe('constructBuildUrl', () => {
     );
 
     assert.strictEqual(url, 'https://custom.example.com/builds/build-123');
+  });
+
+  it('does not strip api from hostnames when building fallback URLs', async () => {
+    let url = await constructBuildUrl(
+      'build-123',
+      'https://api.example.com/api/v1',
+      'test-token',
+      {
+        createApiClient: () => ({}),
+        getTokenContext: async () => ({}),
+        output: createMockOutput(),
+      }
+    );
+
+    assert.strictEqual(url, 'https://api.example.com/builds/build-123');
   });
 });
 

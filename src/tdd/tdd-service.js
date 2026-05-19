@@ -56,7 +56,11 @@ import {
   loadRegionMetadata as defaultLoadRegionMetadata,
   saveRegionMetadata as defaultSaveRegionMetadata,
 } from './metadata/region-metadata.js';
-
+import {
+  buildTddDependencyOps,
+  resolveTddPaths,
+  resolveTddWorkingDirectory,
+} from './runtime-context.js';
 import {
   baselineExists as defaultBaselineExists,
   clearBaselineData as defaultClearBaselineData,
@@ -110,124 +114,72 @@ export class TddService {
     authService = null,
     deps = {}
   ) {
-    // Grouped dependencies with defaults
-    let {
-      // Core utilities
-      output = defaultOutput,
-      colors = defaultColors,
-      validatePathSecurity = defaultValidatePathSecurity,
-      initializeDirectories = defaultInitializeDirectories,
-
-      // File system operations
-      fs = {},
-
-      // API operations
-      api = {},
-
-      // Baseline metadata operations
-      metadata = {},
-
-      // Baseline file management
-      baseline = {},
-
-      // Screenshot comparison
-      comparison = {},
-
-      // Signature generation and security
-      signature = {},
-
-      // Result building
-      results = {},
-
-      // Other
-      calculateHotspotCoverage = defaultCalculateHotspotCoverage,
-    } = deps;
-
-    // Merge grouped deps with defaults
-    let fsOps = {
-      existsSync: defaultExistsSync,
-      mkdirSync: defaultMkdirSync,
-      readFileSync: defaultReadFileSync,
-      writeFileSync: defaultWriteFileSync,
-      ...fs,
+    let defaults = {
+      output: defaultOutput,
+      colors: defaultColors,
+      validatePathSecurity: defaultValidatePathSecurity,
+      initializeDirectories: defaultInitializeDirectories,
+      calculateHotspotCoverage: defaultCalculateHotspotCoverage,
+      fs: {
+        existsSync: defaultExistsSync,
+        mkdirSync: defaultMkdirSync,
+        readFileSync: defaultReadFileSync,
+        writeFileSync: defaultWriteFileSync,
+      },
+      api: {
+        createApiClient: defaultCreateApiClient,
+        getTddBaselines: defaultGetTddBaselines,
+        getBuilds: defaultGetBuilds,
+        getComparison: defaultGetComparison,
+        getBatchHotspots: defaultGetBatchHotspots,
+        fetchWithTimeout: defaultFetchWithTimeout,
+        getDefaultBranch: defaultGetDefaultBranch,
+      },
+      metadata: {
+        loadBaselineMetadata: defaultLoadBaselineMetadata,
+        saveBaselineMetadata: defaultSaveBaselineMetadata,
+        createEmptyBaselineMetadata: defaultCreateEmptyBaselineMetadata,
+        upsertScreenshotInMetadata: defaultUpsertScreenshotInMetadata,
+        loadHotspotMetadata: defaultLoadHotspotMetadata,
+        saveHotspotMetadata: defaultSaveHotspotMetadata,
+        loadRegionMetadata: defaultLoadRegionMetadata,
+        saveRegionMetadata: defaultSaveRegionMetadata,
+      },
+      baseline: {
+        baselineExists: defaultBaselineExists,
+        clearBaselineData: defaultClearBaselineData,
+        getBaselinePath: defaultGetBaselinePath,
+        getCurrentPath: defaultGetCurrentPath,
+        getDiffPath: defaultGetDiffPath,
+        saveBaseline: defaultSaveBaseline,
+        saveCurrent: defaultSaveCurrent,
+      },
+      comparison: {
+        compareImages: defaultCompareImages,
+        buildPassedComparison: defaultBuildPassedComparison,
+        buildNewComparison: defaultBuildNewComparison,
+        buildFailedComparison: defaultBuildFailedComparison,
+        buildErrorComparison: defaultBuildErrorComparison,
+        isDimensionMismatchError: defaultIsDimensionMismatchError,
+      },
+      signature: {
+        generateScreenshotSignature: defaultGenerateScreenshotSignature,
+        generateBaselineFilename: defaultGenerateBaselineFilename,
+        generateComparisonId: defaultGenerateComparisonId,
+        sanitizeScreenshotName: defaultSanitizeScreenshotName,
+        validateScreenshotProperties: defaultValidateScreenshotProperties,
+        safePath: defaultSafePath,
+      },
+      results: {
+        buildResults: defaultBuildResults,
+        getFailedComparisons: defaultGetFailedComparisons,
+        getNewComparisons: defaultGetNewComparisons,
+      },
     };
+    let { runtimeDeps, apiOps } = buildTddDependencyOps(deps, defaults);
+    let { output, validatePathSecurity, initializeDirectories } = runtimeDeps;
 
-    let apiOps = {
-      createApiClient: defaultCreateApiClient,
-      getTddBaselines: defaultGetTddBaselines,
-      getBuilds: defaultGetBuilds,
-      getComparison: defaultGetComparison,
-      getBatchHotspots: defaultGetBatchHotspots,
-      fetchWithTimeout: defaultFetchWithTimeout,
-      getDefaultBranch: defaultGetDefaultBranch,
-      ...api,
-    };
-
-    let metadataOps = {
-      loadBaselineMetadata: defaultLoadBaselineMetadata,
-      saveBaselineMetadata: defaultSaveBaselineMetadata,
-      createEmptyBaselineMetadata: defaultCreateEmptyBaselineMetadata,
-      upsertScreenshotInMetadata: defaultUpsertScreenshotInMetadata,
-      loadHotspotMetadata: defaultLoadHotspotMetadata,
-      saveHotspotMetadata: defaultSaveHotspotMetadata,
-      loadRegionMetadata: defaultLoadRegionMetadata,
-      saveRegionMetadata: defaultSaveRegionMetadata,
-      ...metadata,
-    };
-
-    let baselineOps = {
-      baselineExists: defaultBaselineExists,
-      clearBaselineData: defaultClearBaselineData,
-      getBaselinePath: defaultGetBaselinePath,
-      getCurrentPath: defaultGetCurrentPath,
-      getDiffPath: defaultGetDiffPath,
-      saveBaseline: defaultSaveBaseline,
-      saveCurrent: defaultSaveCurrent,
-      ...baseline,
-    };
-
-    let comparisonOps = {
-      compareImages: defaultCompareImages,
-      buildPassedComparison: defaultBuildPassedComparison,
-      buildNewComparison: defaultBuildNewComparison,
-      buildFailedComparison: defaultBuildFailedComparison,
-      buildErrorComparison: defaultBuildErrorComparison,
-      isDimensionMismatchError: defaultIsDimensionMismatchError,
-      ...comparison,
-    };
-
-    let signatureOps = {
-      generateScreenshotSignature: defaultGenerateScreenshotSignature,
-      generateBaselineFilename: defaultGenerateBaselineFilename,
-      generateComparisonId: defaultGenerateComparisonId,
-      sanitizeScreenshotName: defaultSanitizeScreenshotName,
-      validateScreenshotProperties: defaultValidateScreenshotProperties,
-      safePath: defaultSafePath,
-      ...signature,
-    };
-
-    let resultsOps = {
-      buildResults: defaultBuildResults,
-      getFailedComparisons: defaultGetFailedComparisons,
-      getNewComparisons: defaultGetNewComparisons,
-      ...results,
-    };
-
-    // Store flattened dependencies for use in methods
-    this._deps = {
-      output,
-      colors,
-      validatePathSecurity,
-      initializeDirectories,
-      calculateHotspotCoverage,
-      ...fsOps,
-      ...apiOps,
-      ...metadataOps,
-      ...baselineOps,
-      ...comparisonOps,
-      ...signatureOps,
-      ...resultsOps,
-    };
+    this._deps = runtimeDeps;
 
     this.config = config;
     this.setBaseline = setBaseline;
@@ -240,15 +192,13 @@ export class TddService {
     });
 
     // Validate and secure the working directory
-    try {
-      this.workingDir = validatePathSecurity(workingDir, workingDir);
-    } catch (error) {
-      output.error(`Invalid working directory: ${error.message}`);
-      throw new Error(`Working directory validation failed: ${error.message}`);
-    }
+    this.workingDir = resolveTddWorkingDirectory(
+      workingDir,
+      validatePathSecurity,
+      output
+    );
 
-    // Initialize directories using extracted module
-    let paths = initializeDirectories(this.workingDir);
+    let paths = resolveTddPaths(this.workingDir, initializeDirectories);
     this.baselinePath = paths.baselinePath;
     this.currentPath = paths.currentPath;
     this.diffPath = paths.diffPath;

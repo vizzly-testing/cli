@@ -27,6 +27,36 @@ let swiftTestCommand = [
   'VizzlyE2ETests',
 ].join(' ');
 
+function cleanupAndExit(code = 1) {
+  rmSync(tempDir, { recursive: true, force: true });
+  process.exit(code);
+}
+
+function printLocalContext() {
+  let contextResult = spawnSync(
+    process.execPath,
+    [cliPath, 'context', 'build', 'current', '--source', 'local', '--agent'],
+    {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        VIZZLY_HOME: vizzlyHome,
+      },
+    }
+  );
+
+  if (contextResult.stdout) {
+    process.stdout.write(contextResult.stdout);
+  }
+
+  if (contextResult.stderr) {
+    process.stderr.write(contextResult.stderr);
+  }
+
+  return contextResult.status ?? 1;
+}
+
 let child = spawn(
   process.execPath,
   [cliPath, 'tdd', 'run', swiftTestCommand, '--no-color'],
@@ -42,40 +72,15 @@ let child = spawn(
 );
 
 child.on('exit', code => {
-  if (code === 0) {
-    let contextResult = spawnSync(
-      process.execPath,
-      [cliPath, 'context', 'build', 'current', '--source', 'local', '--agent'],
-      {
-        cwd: tempDir,
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          VIZZLY_HOME: vizzlyHome,
-        },
-      }
-    );
-
-    if (contextResult.stdout) {
-      process.stdout.write(contextResult.stdout);
-    }
-
-    if (contextResult.stderr) {
-      process.stderr.write(contextResult.stderr);
-    }
-
-    if (contextResult.status !== 0) {
-      rmSync(tempDir, { recursive: true, force: true });
-      process.exit(contextResult.status ?? 1);
-    }
+  if (code !== 0) {
+    cleanupAndExit(code ?? 1);
   }
 
-  rmSync(tempDir, { recursive: true, force: true });
-  process.exit(code ?? 1);
+  let contextStatus = printLocalContext();
+  cleanupAndExit(contextStatus);
 });
 
 child.on('error', error => {
-  rmSync(tempDir, { recursive: true, force: true });
   console.error(error);
-  process.exit(1);
+  cleanupAndExit(1);
 });

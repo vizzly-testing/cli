@@ -455,6 +455,55 @@ describe('commands/context', () => {
       assert.ok(agentOutput.includes('Dashboard: identical'));
       assert.ok(agentOutput.includes('Settings: identical'));
     });
+
+    it('includes status-only failed comparisons in agent evidence', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true },
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            resource: 'build_context',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'web' },
+            },
+            build: {
+              id: 'build-1',
+              name: 'build-1',
+              status: 'completed',
+            },
+            status: { needs_review: true, pending_comparisons: 1 },
+            comparisons: [
+              {
+                screenshot_name: 'Checkout',
+                status: 'failed',
+                needs_review: true,
+                diff_percentage: 0.8,
+              },
+            ],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let agentOutput = output.calls
+        .filter(call => call.method === 'print')
+        .map(call => call.args[0])
+        .join('\n');
+
+      assert.ok(agentOutput.includes('## Evidence To Inspect'));
+      assert.ok(agentOutput.includes('Checkout: failed'));
+      assert.ok(agentOutput.includes('0.8% diff'));
+    });
   });
 
   describe('contextComparisonCommand', () => {

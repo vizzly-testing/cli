@@ -247,6 +247,16 @@ function getComparisonDisplayState(comparison = {}) {
   return comparison.result || comparison.status || 'unknown';
 }
 
+function isChangedComparison(comparison = {}) {
+  return ['changed', 'failed', 'pending'].includes(
+    getComparisonDisplayState(comparison)
+  );
+}
+
+function isNewComparison(comparison = {}) {
+  return getComparisonDisplayState(comparison) === 'new';
+}
+
 function getComparisonName(comparison = {}) {
   return (
     comparison.screenshot_name ||
@@ -421,12 +431,8 @@ function displayBuildContext(output, context) {
 
 function formatAgentBuildContext(context) {
   let comparisons = context.comparisons || [];
-  let changed = comparisons.filter(
-    comparison => getComparisonDisplayState(comparison) === 'changed'
-  );
-  let fresh = comparisons.filter(
-    comparison => getComparisonDisplayState(comparison) === 'new'
-  );
+  let changed = comparisons.filter(isChangedComparison);
+  let fresh = comparisons.filter(isNewComparison);
   let needsReview = comparisons.filter(comparison => comparison.needs_review);
   let baseline = context.baseline?.selected;
   let lines = [

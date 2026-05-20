@@ -200,6 +200,18 @@ export const createTddHandler = (
   const reportPath = join(workingDir, '.vizzly', 'report-data.json');
   const detailsPath = join(workingDir, '.vizzly', 'comparison-details.json');
 
+  let clearJsonFile = path => {
+    if (existsSync(path)) {
+      unlinkSync(path);
+    }
+  };
+
+  let prepareRunArtifacts = () => {
+    clearJsonFile(reportPath);
+    clearJsonFile(detailsPath);
+    tddService.clearRunData?.();
+  };
+
   /**
    * Read heavy comparison details from comparison-details.json
    * Returns a map of comparison ID -> heavy fields
@@ -317,6 +329,7 @@ export const createTddHandler = (
 
   const initialize = async () => {
     output.debug('tdd', 'initializing local mode');
+    prepareRunArtifacts();
 
     // In baseline update mode, skip all baseline loading/downloading
     if (setBaseline) {

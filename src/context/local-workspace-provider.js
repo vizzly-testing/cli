@@ -1,12 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync as defaultExistsSync, readFileSync } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { normalizeReportData } from '../utils/report-data.js';
 
 let LOCAL_CONTEXT_SOURCE = 'local_workspace';
 let DEFAULT_LOCAL_REVIEW_QUEUE_LIMIT = 50;
 
 function readJsonIfExists(path) {
-  if (!existsSync(path)) {
+  if (!defaultExistsSync(path)) {
     return null;
   }
 
@@ -389,9 +390,20 @@ function createLocalWorkspaceError(message) {
   return error;
 }
 
+function createReportUrl(snapshot) {
+  let reportPath = join(snapshot.vizzlyDir, 'report', 'index.html');
+
+  if (!snapshot.existsSync(reportPath)) {
+    return null;
+  }
+
+  return pathToFileURL(reportPath).href;
+}
+
 export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
   let projectRoot = options.projectRoot || process.cwd();
   let readJson = deps.readJsonIfExists || readJsonIfExists;
+  let existsSync = deps.existsSync || defaultExistsSync;
   let snapshotCache = null;
 
   function loadSnapshot() {
@@ -403,6 +415,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
     snapshotCache = {
       projectRoot,
       vizzlyDir,
+      existsSync,
       serverInfo: readJson(join(vizzlyDir, 'server.json')),
       session: readJson(join(vizzlyDir, 'session.json')),
       reportData: normalizeReportData(
@@ -488,8 +501,10 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
   }
 
   function createBuildLinks(snapshot) {
+    let reportUrl = createReportUrl(snapshot);
+
     if (!snapshot.serverInfo?.port) {
-      return {};
+      return reportUrl ? { report_url: reportUrl } : {};
     }
 
     let buildId = buildBuildSnapshot(snapshot).id;
@@ -498,6 +513,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       build_url: `http://127.0.0.1:${snapshot.serverInfo.port}/builds`,
       comparison_url_prefix: `http://127.0.0.1:${snapshot.serverInfo.port}/comparison`,
       current_build_id: buildId,
+      ...(reportUrl ? { report_url: reportUrl } : {}),
     };
   }
 

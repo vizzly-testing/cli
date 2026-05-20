@@ -192,6 +192,50 @@ describe('context/local-workspace-provider', () => {
     assert.strictEqual(context.comparisons.length, 50);
   });
 
+  it('exposes the static report URL when a local report exists', () => {
+    let projectRoot = '/tmp/vizzly-local-report';
+    let paths = createWorkspacePaths(projectRoot);
+    let reportHtmlPath = join(projectRoot, '.vizzly', 'report', 'index.html');
+
+    let provider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      {
+        existsSync: path => path === reportHtmlPath,
+        readJsonIfExists: path => {
+          if (path === paths.report) {
+            return {
+              comparisons: [
+                {
+                  id: 'comp-1',
+                  name: 'Dashboard',
+                  originalName: 'Dashboard',
+                  status: 'passed',
+                  current: '/images/current/dashboard.png',
+                  baseline: '/images/baselines/dashboard.png',
+                  diff: null,
+                  properties: {},
+                },
+              ],
+            };
+          }
+
+          if (path === paths.comparisonDetails) {
+            return {};
+          }
+
+          return null;
+        },
+      }
+    );
+
+    let context = provider.getBuildContext('current');
+
+    assert.strictEqual(
+      context.links.report_url,
+      'file:///tmp/vizzly-local-report/.vizzly/report/index.html'
+    );
+  });
+
   it('exposes local baseline truth and review status in build context', () => {
     let projectRoot = '/tmp/vizzly-local-baseline-context';
     let paths = createWorkspacePaths(projectRoot);

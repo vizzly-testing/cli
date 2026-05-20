@@ -458,6 +458,10 @@ function formatAgentBuildContext(context) {
     lines.push(`Build URL: ${context.links.build_url}`);
   }
 
+  if (context.links?.report_url) {
+    lines.push(`Report: ${context.links.report_url}`);
+  }
+
   lines.push('');
   lines.push('## Diff Summary');
   lines.push(`- Total comparisons: ${comparisons.length}`);
@@ -480,6 +484,21 @@ function formatAgentBuildContext(context) {
       if (diffUrl) {
         lines.push(`  Diff: ${diffUrl}`);
       }
+    }
+  }
+
+  if (comparisons.length > 0 && changed.length === 0 && fresh.length === 0) {
+    lines.push('');
+    lines.push('## Reviewed Screenshots');
+
+    for (let comparison of comparisons.slice(0, 10)) {
+      lines.push(
+        `- ${getComparisonName(comparison)}: ${getComparisonDisplayState(comparison)}`
+      );
+    }
+
+    if (comparisons.length > 10) {
+      lines.push(`- ...${comparisons.length - 10} more`);
     }
   }
 

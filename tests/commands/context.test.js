@@ -361,6 +361,10 @@ describe('commands/context', () => {
                 },
               },
               status: { needs_review: true, pending_comparisons: 1 },
+              links: {
+                report_url:
+                  'file:///tmp/vizzly-local-workspace/.vizzly/report/index.html',
+              },
               comparisons: [
                 {
                   screenshot_name: 'Dashboard',
@@ -385,8 +389,71 @@ describe('commands/context', () => {
 
       assert.ok(agentOutput.includes('Vizzly Visual Context'));
       assert.ok(agentOutput.includes('Approved baseline: Approved Main'));
+      assert.ok(agentOutput.includes('Report: file:///tmp/vizzly-local'));
       assert.ok(agentOutput.includes('Dashboard: changed'));
       assert.ok(agentOutput.includes('approved baselines as visual truth'));
+    });
+
+    it('prints reviewed screenshot names for all-green agent context', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'current',
+        { source: 'local', agent: true },
+        {},
+        {
+          loadConfig: async () => ({
+            apiUrl: 'https://api.test',
+          }),
+          resolveContextSource: () => 'local',
+          createLocalWorkspaceContextProvider: () => ({
+            getBuildContext: async () => ({
+              resource: 'build_context',
+              source: 'local_workspace',
+              scope: {
+                organization: { slug: 'local' },
+                project: { slug: 'web' },
+              },
+              build: {
+                id: 'local-build',
+                name: 'local-build',
+                status: 'completed',
+              },
+              baseline: {
+                selected: {
+                  id: 'baseline-build',
+                  name: 'Approved Main',
+                  approval_status: 'approved',
+                },
+              },
+              status: { needs_review: false, pending_comparisons: 0 },
+              comparisons: [
+                {
+                  screenshot_name: 'Dashboard',
+                  result: 'identical',
+                  approval_status: 'approved',
+                },
+                {
+                  screenshot_name: 'Settings',
+                  result: 'identical',
+                  approval_status: 'approved',
+                },
+              ],
+            }),
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let agentOutput = output.calls
+        .filter(call => call.method === 'print')
+        .map(call => call.args[0])
+        .join('\n');
+
+      assert.ok(agentOutput.includes('## Reviewed Screenshots'));
+      assert.ok(agentOutput.includes('Dashboard: identical'));
+      assert.ok(agentOutput.includes('Settings: identical'));
     });
   });
 

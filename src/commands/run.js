@@ -64,6 +64,10 @@ export async function resolveBuildDisplayUrl({
   return undefined;
 }
 
+function buildContextCommand(buildId) {
+  return `vizzly context build ${buildId} --agent`;
+}
+
 /**
  * Run command implementation
  * @param {string} testCommand - Test command to execute
@@ -363,6 +367,9 @@ export async function runCommand(
             commit,
             message,
           },
+          contextCommand: result.buildId
+            ? buildContextCommand(result.buildId)
+            : null,
           exitCode: 0,
         };
 
@@ -397,6 +404,10 @@ export async function runCommand(
             `  ${colors.brand.textTertiary('Build')}        ${colors.dim(result.buildId)}`
           );
         }
+
+        output.print(
+          `  ${colors.brand.textTertiary('Context')}     ${colors.dim(buildContextCommand(result.buildId))}`
+        );
       }
     } catch (error) {
       // Test execution failed - build should already be finalized by test runner
@@ -493,6 +504,7 @@ export async function runCommand(
               identical: buildResult.identicalComparisons || 0,
             },
             approvalStatus: buildResult.approvalStatus || 'pending',
+            contextCommand: buildContextCommand(result.buildId),
             exitCode,
           };
 

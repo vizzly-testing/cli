@@ -27,6 +27,10 @@ import {
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
 
+function buildLocalContextCommand() {
+  return 'vizzly context build current --source local --agent';
+}
+
 /**
  * TDD command implementation
  * @param {string} testCommand - Test command to execute
@@ -258,8 +262,14 @@ export async function tddCommand(
         comparisons,
         summary,
         reportPath: runResult.reportPath || '.vizzly/report/index.html',
+        contextCommand: buildLocalContextCommand(),
       });
       output.cleanup();
+    }
+
+    if (!globalOptions.json && !options.daemon) {
+      output.blank?.();
+      output.print(`  Context      ${buildLocalContextCommand()}`);
     }
 
     return {

@@ -247,6 +247,71 @@ function getComparisonDisplayState(comparison = {}) {
   return comparison.result || comparison.status || 'unknown';
 }
 
+function getComparisonName(comparison = {}) {
+  return (
+    comparison.screenshot_name ||
+    comparison.screenshot?.name ||
+    comparison.name ||
+    comparison.id ||
+    'unknown screenshot'
+  );
+}
+
+function getComparisonDiffPercentage(comparison = {}) {
+  return comparison.diff?.percentage ?? comparison.diff_percentage ?? null;
+}
+
+function getComparisonFingerprint(comparison = {}) {
+  return (
+    comparison.diff?.fingerprint_hash ||
+    comparison.analysis?.fingerprint_hash ||
+    null
+  );
+}
+
+function getBuildCommentsCount(context = {}) {
+  if (Array.isArray(context.comments?.build)) {
+    return context.comments.build.length;
+  }
+
+  if (Array.isArray(context.review?.comments)) {
+    return context.review.comments.length;
+  }
+
+  return 0;
+}
+
+function getScreenshotCommentsCount(context = {}) {
+  if (Number.isInteger(context.comments?.screenshot_count)) {
+    return context.comments.screenshot_count;
+  }
+
+  return 0;
+}
+
+function getReviewAssignmentsCount(context = {}) {
+  if (Array.isArray(context.review?.assignments)) {
+    return context.review.assignments.length;
+  }
+
+  return 0;
+}
+
+function formatNeedsReview(status = {}) {
+  if (!status || status.needs_review == null) {
+    return null;
+  }
+
+  let pending = status.pending_comparisons || 0;
+  let unresolved = status.unresolved_comments || 0;
+
+  if (!status.needs_review) {
+    return 'no';
+  }
+
+  return `yes · ${pending} comparisons · ${unresolved} unresolved comments`;
+}
+
 function formatConfirmedRegionLabels(regions = []) {
   return regions
     .map(region => region.label)
@@ -261,17 +326,19 @@ function printComparisonList(output, comparisons = [], { limit = 5 } = {}) {
   for (let comparison of comparisons.slice(0, limit)) {
     let displayState = getComparisonDisplayState(comparison);
     let statusTone = getStatusTone(colors, displayState);
-    let screenshotName =
-      comparison.screenshot?.name || comparison.name || comparison.id;
+    let screenshotName = getComparisonName(comparison);
+    let rawDiffPercentage = getComparisonDiffPercentage(comparison);
     let diffPercentage =
-      comparison.diff_percentage == null
-        ? null
-        : `${comparison.diff_percentage}%`;
-    let fingerprint = comparison.analysis?.fingerprint_hash || null;
+      rawDiffPercentage == null ? null : `${rawDiffPercentage}%`;
+    let fingerprint = getComparisonFingerprint(comparison);
     let details = [];
 
     if (diffPercentage) {
       details.push(diffPercentage);
+    }
+
+    if (comparison.needs_review) {
+      details.push('needs review');
     }
 
     if (fingerprint) {
@@ -296,6 +363,12 @@ function displayBuildContext(output, context) {
 
   let colors = output.getColors();
   let buildTone = getStatusTone(colors, context.build.status);
+  let comparisons = context.comparisons || [];
+  let screenshots = context.screenshots || [];
+  let reviewSummary = context.summary?.review || {};
+  let commentsSummary = context.summary?.comments || {};
+  let needsReview = formatNeedsReview(context.status);
+  let baseline = context.baseline?.selected || null;
 
   output.print(
     `  ${colors.bold(context.build.name || context.build.id)} ${buildTone((context.build.status || 'unknown').toUpperCase())}`
@@ -305,20 +378,33 @@ function displayBuildContext(output, context) {
   );
   output.blank();
 
-  output.labelValue('Comparisons', String(context.comparisons.length));
+  output.labelValue('Comparisons', String(comparisons.length));
+  if (screenshots.length > 0) {
+    output.labelValue('Screenshots', String(screenshots.length));
+  }
+  if (baseline) {
+    output.labelValue(
+      'Baseline',
+      `${baseline.name || baseline.id || 'selected'}${context.baseline.selection_reason ? ` · ${context.baseline.selection_reason}` : ''}`
+    );
+  }
+  if (needsReview) {
+    output.labelValue('Needs Review', needsReview);
+  }
   output.labelValue(
     'Review',
-    `${context.summary.review.pending || 0} pending · ${context.summary.review.approved || 0} approved · ${context.summary.review.rejected || 0} rejected`
+    `${reviewSummary.pending || 0} pending · ${reviewSummary.approved || 0} approved · ${reviewSummary.rejected || 0} rejected`
   );
   output.labelValue(
     'Memory',
-    `${context.review.comments.length} build comments · ${context.review.assignments.length} assignments`
+    `${commentsSummary.build ?? getBuildCommentsCount(context)} build comments · ${commentsSummary.screenshot ?? getScreenshotCommentsCount(context)} screenshot comments · ${getReviewAssignmentsCount(context)} assignments`
   );
 
   if (context.preview) {
+    let previewUrl = context.preview.preview_url || context.preview.url;
     output.labelValue(
       'Preview',
-      `${context.preview.status}${context.preview.preview_url ? ' · available' : ''}`
+      `${context.preview.status || 'unknown'}${previewUrl ? ' · available' : ''}`
     );
   }
 
@@ -326,11 +412,83 @@ function displayBuildContext(output, context) {
     output.labelValue('Build URL', context.links.build_url);
   }
 
-  if (context.comparisons.length > 0) {
+  if (comparisons.length > 0) {
     output.blank();
     output.print('  Comparisons');
-    printComparisonList(output, context.comparisons);
+    printComparisonList(output, comparisons);
   }
+}
+
+function formatAgentBuildContext(context) {
+  let comparisons = context.comparisons || [];
+  let changed = comparisons.filter(
+    comparison => getComparisonDisplayState(comparison) === 'changed'
+  );
+  let fresh = comparisons.filter(
+    comparison => getComparisonDisplayState(comparison) === 'new'
+  );
+  let needsReview = comparisons.filter(comparison => comparison.needs_review);
+  let baseline = context.baseline?.selected;
+  let lines = [
+    `# Vizzly Visual Context: ${context.build?.name || context.build?.id || 'Build'}`,
+    '',
+    `Project: ${context.scope?.organization?.slug || 'unknown'}/${context.scope?.project?.slug || 'unknown'}`,
+    `Build: ${context.build?.id || 'unknown'} (${context.build?.status || 'unknown'})`,
+  ];
+
+  if (baseline) {
+    lines.push(
+      `Approved baseline: ${baseline.name || baseline.id || 'selected'} (${baseline.approval_status || 'unknown'})`
+    );
+  }
+
+  if (context.status) {
+    lines.push(
+      `Needs review: ${context.status.needs_review ? 'yes' : 'no'} (${context.status.pending_comparisons || 0} pending comparisons)`
+    );
+  }
+
+  if (context.preview?.url || context.preview?.preview_url) {
+    lines.push(
+      `Preview: ${context.preview.url || context.preview.preview_url}`
+    );
+  }
+
+  if (context.links?.build_url) {
+    lines.push(`Build URL: ${context.links.build_url}`);
+  }
+
+  lines.push('');
+  lines.push('## Diff Summary');
+  lines.push(`- Total comparisons: ${comparisons.length}`);
+  lines.push(`- Changed: ${changed.length}`);
+  lines.push(`- New: ${fresh.length}`);
+  lines.push(`- Needs review: ${needsReview.length}`);
+
+  if (changed.length > 0 || fresh.length > 0) {
+    lines.push('');
+    lines.push('## Evidence To Inspect');
+
+    for (let comparison of [...changed, ...fresh].slice(0, 10)) {
+      let diffPercentage = getComparisonDiffPercentage(comparison);
+      let detail = diffPercentage == null ? '' : ` · ${diffPercentage}% diff`;
+      let diffUrl =
+        comparison.diff?.image_url || comparison.analysis?.diff_image_url;
+      lines.push(
+        `- ${getComparisonName(comparison)}: ${getComparisonDisplayState(comparison)}${detail}`
+      );
+      if (diffUrl) {
+        lines.push(`  Diff: ${diffUrl}`);
+      }
+    }
+  }
+
+  lines.push('');
+  lines.push(
+    'Use this as reviewed UI context. Treat approved baselines as visual truth, inspect meaningful diffs, and leave approval decisions to humans.'
+  );
+
+  return lines.join('\n');
 }
 
 function countScreenshotCommentEntries(groups = []) {
@@ -511,6 +669,12 @@ export async function contextBuildCommand(
 
     if (globalOptions.json) {
       output.data(context);
+      output.cleanup();
+      return;
+    }
+
+    if (options.agent) {
+      output.print(formatAgentBuildContext(context));
       output.cleanup();
       return;
     }

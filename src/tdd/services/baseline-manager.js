@@ -53,6 +53,22 @@ export function clearBaselineData(paths) {
 }
 
 /**
+ * Clear per-run screenshot artifacts while preserving approved baselines.
+ *
+ * @param {{ currentPath: string, diffPath: string }} paths
+ */
+export function clearRunData(paths) {
+  let { currentPath, diffPath } = paths;
+
+  for (let dir of [currentPath, diffPath]) {
+    if (existsSync(dir)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+    mkdirSync(dir, { recursive: true });
+  }
+}
+
+/**
  * Save an image as baseline
  *
  * @param {string} baselinePath - Path to baselines directory

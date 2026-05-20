@@ -60,6 +60,7 @@ import {
 import {
   baselineExists as defaultBaselineExists,
   clearBaselineData as defaultClearBaselineData,
+  clearRunData as defaultClearRunData,
   getBaselinePath as defaultGetBaselinePath,
   getCurrentPath as defaultGetCurrentPath,
   getDiffPath as defaultGetDiffPath,
@@ -178,6 +179,7 @@ export class TddService {
     let baselineOps = {
       baselineExists: defaultBaselineExists,
       clearBaselineData: defaultClearBaselineData,
+      clearRunData: defaultClearRunData,
       getBaselinePath: defaultGetBaselinePath,
       getCurrentPath: defaultGetCurrentPath,
       getDiffPath: defaultGetDiffPath,
@@ -274,6 +276,13 @@ export class TddService {
         '[vizzly] Baseline update mode - will overwrite existing baselines with new ones'
       );
     }
+  }
+
+  clearRunData() {
+    this._deps.clearRunData({
+      currentPath: this.currentPath,
+      diffPath: this.diffPath,
+    });
   }
 
   /**

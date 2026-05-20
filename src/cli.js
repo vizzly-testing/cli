@@ -88,7 +88,7 @@ const formatHelp = (cmd, helper) => {
     // Cute grizzly bear mascot with square eyes (like the Vizzly logo!)
     lines.push(c.brand.amber('   ʕ□ᴥ□ʔ'));
     lines.push(`   ${c.brand.amber(c.bold('vizzly'))} ${c.dim(`v${version}`)}`);
-    lines.push(`   ${c.gray('Visual regression testing for UI teams')}`);
+    lines.push(`   ${c.gray('Reviewed UI context for people and agents')}`);
   } else {
     // Compact header for subcommands
     lines.push(`  ${c.brand.amber(c.bold('vizzly'))} ${c.white(cmd.name())}`);
@@ -229,7 +229,7 @@ const formatHelp = (cmd, helper) => {
   if (isRootCommand) {
     lines.push(`  ${c.brand.amber('▸')} ${c.bold('Quick Start')}`);
     lines.push('');
-    lines.push(`      ${c.dim('# Local visual testing')}`);
+    lines.push(`      ${c.dim('# Local UI context')}`);
     lines.push(`      ${c.gray('$')} ${c.white('vizzly tdd start')}`);
     lines.push('');
     lines.push(`      ${c.dim('# CI pipeline')}`);
@@ -328,7 +328,7 @@ function normalizeJsonArgv(argv, commandNames) {
 
 program
   .name('vizzly')
-  .description('Vizzly CLI for visual regression testing')
+  .description('Vizzly CLI for reviewed UI context')
   .version(getPackageVersion())
   .option('-c, --config <path>', 'Config file path')
   .option('--token <token>', 'Vizzly API token')
@@ -444,10 +444,10 @@ program
     await uploadCommand(path, options, globalOptions);
   });
 
-// TDD command with subcommands - Local visual testing with interactive dashboard
+// TDD command with subcommands - local reviewed UI context with an interactive dashboard
 const tddCmd = program
   .command('tdd')
-  .description('Run tests in TDD mode with local visual comparisons');
+  .description('Run tests in TDD mode with local UI context');
 
 // TDD Start - Background server
 tddCmd
@@ -519,7 +519,7 @@ tddCmd
 // TDD Run - One-off test run with ephemeral server (generates static report)
 tddCmd
   .command('run <command>')
-  .description('Run tests once in TDD mode with local visual comparisons')
+  .description('Run tests once in TDD mode with local UI context')
   .option('--port <port>', 'Port for TDD server', '47392')
   .option('--branch <branch>', 'Git branch override')
   .option('--environment <env>', 'Environment name', 'test')
@@ -764,19 +764,21 @@ Examples:
 
 let contextCmd = program
   .command('context')
-  .description('Fetch visual context bundles for agents and reviewers');
+  .description('Fetch reviewed UI context for agents and reviewers');
 
 contextCmd
   .command('build')
-  .description('Fetch a build context bundle')
+  .description('Fetch reviewed UI context for a build')
   .argument('<build-id>', 'Build ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
+  .option('--agent', 'Output compact Markdown context for LLM agents')
   .addHelpText(
     'after',
     `
 Examples:
   $ vizzly context build abc123
   $ vizzly context build current --source local
+  $ vizzly context build current --source local --agent
   $ vizzly context build abc123 --json
   $ vizzly context build abc123 --json build.id,summary.comparisons
 `

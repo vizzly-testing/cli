@@ -1,23 +1,23 @@
 # Vizzly CLI
 
-> Visual proof that your UI works
+> Reviewed UI context for people and LLM agents
 
 [![npm version](https://img.shields.io/npm/v/@vizzly-testing/cli.svg)](https://www.npmjs.com/package/@vizzly-testing/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Visual bugs slip through code review. They hide in pixel-perfect mockups, sneak past unit tests, and show up right when you're about to ship. Vizzly catches them first.
+Vizzly keeps the visual truth behind your UI: approved baselines, meaningful diffs, review state, comments, and preview links in one place. That makes it useful for humans reviewing product changes and for LLM agents that need to understand what the UI is supposed to look like before they edit it.
 
-Unlike tools that re-render components in isolation, Vizzly captures screenshots directly from your functional tests—the *real thing*. Whether you're validating AI-generated code or testing manual changes, you get visual proof before anything hits production.
+Unlike tools that re-render components in isolation, Vizzly captures screenshots directly from your functional tests: the real thing. Whether you're validating AI-generated code or testing manual changes, you get reviewed UI context before anything hits production.
 
 ## Why Vizzly?
 
-**Local TDD workflow.** See changes as you type, not after CI. The `vizzly tdd` command runs a local dashboard that compares screenshots instantly—no cloud roundtrip, no waiting.
+**Local TDD workflow.** See changes as you type, not after CI. The `vizzly tdd` command runs a local dashboard that compares screenshots instantly and exposes the current workspace as local context.
 
-**Smart diffing with Honeydiff.** Our Rust-based comparison engine is 12x faster than alternatives and ignores the noise: timestamps, ads, font rendering differences. It finds real changes.
+**Meaningful diff metadata.** Vizzly stores rich diff evidence: changed regions, cluster metadata, fingerprints, hotspots, confirmed regions, and image URLs. Agents can inspect what changed instead of guessing from a pass/fail label.
 
 **Any screenshot source.** Playwright, Cypress, Puppeteer, Selenium, native mobile apps, or even design mockups. If you can capture it, Vizzly can compare it.
 
-**Team-based pricing.** Pay for your team, not your screenshots. Test everything without budget anxiety.
+**Approved baselines as truth.** Cloud context carries human review state. Local context carries the downloaded or generated baseline metadata. That is the bridge between TDD locally and collaborative review in Vizzly.
 
 ## Quick Start
 
@@ -60,7 +60,7 @@ vizzly run "npm test" --wait
 
 ### Visual Context For Agents
 
-Use `vizzly context` when you want Vizzly to act more like visual context than a test runner.
+Use `vizzly context` when you want Vizzly to act like a visual context store, not just a test runner.
 
 This is especially useful for LLM agents, automation, and quick debugging loops. Instead of
 making a bunch of narrow API calls, you can ask for one build, comparison, screenshot, or review
@@ -73,11 +73,11 @@ vizzly context comparison def456 --json
 
 # Local workspace context from .vizzly/
 vizzly context build current --source local
+vizzly context build current --source local --agent
 vizzly context screenshot build-detail-screenshots --source local --json
 ```
 
-`--json` is the main automation path. Human-readable output is there for quick terminal use, but
-JSON is what you want for scripts, agents, and prompt assembly.
+`--json` is the durable automation path. `--agent` gives a compact Markdown handoff for prompt assembly and local dogfooding.
 
 Local context is read-only and file-backed. It reads your existing `.vizzly` workspace state from
 TDD runs, including screenshots, diffs, and any saved hotspot or region metadata.

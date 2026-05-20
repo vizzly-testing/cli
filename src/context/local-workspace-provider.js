@@ -89,7 +89,7 @@ function resolveAssetReference(assetPath, snapshot) {
     return null;
   }
 
-  if (/^https?:\/\//.test(assetPath) || isAbsolute(assetPath)) {
+  if (/^https?:\/\//.test(assetPath)) {
     return assetPath;
   }
 
@@ -99,6 +99,10 @@ function resolveAssetReference(assetPath, snapshot) {
     }
 
     return join(snapshot.vizzlyDir, assetPath.replace('/images/', ''));
+  }
+
+  if (isAbsolute(assetPath)) {
+    return assetPath;
   }
 
   return assetPath;
@@ -194,6 +198,82 @@ function buildBuildSnapshot(snapshot) {
   };
 }
 
+function buildBaselineSnapshot(snapshot) {
+  let metadata = snapshot.baselineMetadata;
+
+  if (!metadata) {
+    return {
+      selected: null,
+      selection_reason: 'no_local_baseline_metadata',
+      comparison_baseline_build_ids: [],
+    };
+  }
+
+  return {
+    selected: {
+      id: metadata.buildId || 'local-baseline',
+      name: metadata.buildName || metadata.buildId || 'Local TDD Baseline',
+      branch: metadata.branch || 'local',
+      commit_sha: metadata.buildInfo?.commitSha || null,
+      commit_message: metadata.buildInfo?.commitMessage || null,
+      approval_status: metadata.buildInfo?.approvalStatus || 'approved',
+      status: metadata.buildInfo?.completedAt ? 'completed' : 'local',
+      created_at: metadata.createdAt || null,
+      completed_at: metadata.buildInfo?.completedAt || null,
+    },
+    selection_reason: 'local_workspace_baseline_metadata',
+    comparison_baseline_build_ids: metadata.buildId ? [metadata.buildId] : [],
+  };
+}
+
+function buildReviewState(build, reviewSummary) {
+  let reasons = [];
+
+  if (build.approval_status === 'pending') {
+    reasons.push('build_pending_approval');
+  }
+
+  if (reviewSummary.pending > 0) {
+    reasons.push('comparisons_need_review');
+  }
+
+  return {
+    needs_review: reasons.length > 0,
+    reasons,
+    pending_comparisons: reviewSummary.pending,
+    unresolved_comments: 0,
+  };
+}
+
+function mapLocalScreenshot(snapshot, comparison) {
+  let mapped = mapLocalComparison(snapshot, comparison);
+  let baselineBuildId = snapshot.baselineMetadata?.buildId || null;
+
+  return {
+    id: mapped.screenshot.id,
+    name: mapped.screenshot.name,
+    browser: mapped.screenshot.browser,
+    viewport: {
+      width: mapped.screenshot.viewport_width,
+      height: mapped.screenshot.viewport_height,
+    },
+    url: mapped.screenshot.original_url,
+    baseline: mapped.baseline
+      ? {
+          id: mapped.baseline.id,
+          build_id: baselineBuildId,
+          name: mapped.baseline.name,
+          browser: mapped.baseline.browser,
+          viewport: {
+            width: mapped.baseline.viewport_width,
+            height: mapped.baseline.viewport_height,
+          },
+          url: mapped.baseline.original_url,
+        }
+      : null,
+  };
+}
+
 function mapLocalComparison(snapshot, comparison) {
   let details = snapshot.comparisonDetails[comparison.id] || {};
   let comparisonName = comparison.originalName || comparison.name;
@@ -205,13 +285,21 @@ function mapLocalComparison(snapshot, comparison) {
   let hotspotAnalysis = buildHotspotAnalysis(snapshot, comparisonName, details);
   let properties = comparison.properties || {};
   let buildSnapshot = buildBuildSnapshot(snapshot);
+  let result = mapComparisonResult(comparison.status);
+  let approvalStatus = mapApprovalStatus(comparison.status);
+  let baselineBuildId = snapshot.baselineMetadata?.buildId || null;
+  let diffImageUrl = resolveAssetReference(comparison.diff, snapshot);
+  let diffRegions = details.diffClusters || [];
 
   return {
     id: comparison.id,
     name: comparisonName,
+    screenshot_name: comparisonName,
     status: comparison.status,
-    result: mapComparisonResult(comparison.status),
-    approval_status: mapApprovalStatus(comparison.status),
+    result,
+    approval_status: approvalStatus,
+    needs_review:
+      approvalStatus === 'pending' && ['changed', 'new'].includes(result),
     build_id: buildSnapshot.id,
     build_name: buildSnapshot.name,
     build_branch: buildSnapshot.branch,
@@ -232,6 +320,7 @@ function mapLocalComparison(snapshot, comparison) {
     baseline: comparison.baseline
       ? {
           id: `${comparison.id}-baseline`,
+          build_id: baselineBuildId,
           name: comparisonName,
           browser: properties.browser ?? null,
           viewport_width: properties.viewport_width ?? null,
@@ -239,12 +328,29 @@ function mapLocalComparison(snapshot, comparison) {
           original_url: resolveAssetReference(comparison.baseline, snapshot),
         }
       : null,
-    analysis: {
-      diff_image_url: resolveAssetReference(comparison.diff, snapshot),
-      diff_regions: details.diffClusters || [],
-      cluster_metadata: details.diffClusters
+    diff: {
+      percentage: comparison.diffPercentage ?? null,
+      changed_pixels: comparison.diffCount ?? null,
+      total_pixels: comparison.totalPixels ?? null,
+      threshold: comparison.threshold ?? null,
+      image_url: diffImageUrl,
+      regions: diffRegions,
+      cluster_metadata: diffRegions.length
         ? {
-            clusterCount: details.diffClusters.length,
+            clusterCount: diffRegions.length,
+            local_workspace: true,
+          }
+        : null,
+      fingerprint_hash: null,
+      fingerprint_data: null,
+      diff_lines: [],
+    },
+    analysis: {
+      diff_image_url: diffImageUrl,
+      diff_regions: diffRegions,
+      cluster_metadata: diffRegions.length
+        ? {
+            clusterCount: diffRegions.length,
             local_workspace: true,
           }
         : null,
@@ -414,13 +520,19 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
     let mappedComparisons = snapshot.reportData.comparisons.map(comparison =>
       mapLocalComparison(snapshot, comparison)
     );
+    let mappedScreenshots = snapshot.reportData.comparisons.map(comparison =>
+      mapLocalScreenshot(snapshot, comparison)
+    );
     let reviewSummary = buildReviewSummary(snapshot.reportData.comparisons);
+    let reviewState = buildReviewState(resolvedBuild, reviewSummary);
 
     return {
       resource: 'build_context',
       source: LOCAL_CONTEXT_SOURCE,
       scope: createScope(),
       build: resolvedBuild,
+      baseline: buildBaselineSnapshot(snapshot),
+      status: reviewState,
       summary: {
         comparisons: {
           total: mappedComparisons.length,
@@ -432,12 +544,21 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
           ).length,
         },
         review: reviewSummary,
+        comments: {
+          build: 0,
+          screenshot: 0,
+        },
       },
       review: {
         comments: [],
         assignments: [],
       },
+      screenshots: mappedScreenshots,
       comparisons: mappedComparisons,
+      comments: {
+        build: [],
+        screenshot_count: 0,
+      },
       links: createBuildLinks(snapshot),
     };
   }

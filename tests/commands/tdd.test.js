@@ -232,7 +232,15 @@ describe('commands/tdd', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.exitCode, 0);
-      // Summary output is handled by printResults() in tdd-service.js
+      assert.ok(
+        output.calls.some(
+          c =>
+            c.method === 'print' &&
+            c.args[0].includes(
+              'vizzly context build current --source local --agent'
+            )
+        )
+      );
     });
 
     it('handles test run with failed comparisons', async () => {

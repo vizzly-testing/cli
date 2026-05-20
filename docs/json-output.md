@@ -193,8 +193,8 @@ vizzly tdd list --json
 ### `vizzly context`
 
 Use `vizzly context` when you want one machine-friendly bundle instead of several narrow calls.
-This is the best fit for automation, agents, and scripts that need visual evidence plus a little
-bit of memory.
+This is the best fit for automation, agents, and scripts that need approved baselines, visual
+evidence, review state, comments, preview links, and diff metadata in one place.
 
 Every context payload includes a `source` field. That tells you whether the bundle came from
 cloud data or your local `.vizzly` workspace.
@@ -204,7 +204,11 @@ cloud data or your local `.vizzly` workspace.
 ```bash
 vizzly context build abc123 --json
 vizzly context build current --source local --json
+vizzly context build current --source local --agent
 ```
+
+Use `--json` for durable automation. Use `--agent` when you want a compact Markdown handoff for
+prompt assembly.
 
 ```json
 {
@@ -219,6 +223,21 @@ vizzly context build current --source local --json
     "status": "completed",
     "approval_status": "pending"
   },
+  "baseline": {
+    "selected": {
+      "id": "baseline-build",
+      "name": "Approved Main",
+      "approval_status": "approved"
+    },
+    "selection_reason": "common_ancestor",
+    "comparison_baseline_build_ids": ["baseline-build"]
+  },
+  "status": {
+    "needs_review": true,
+    "reasons": ["comparisons_need_review"],
+    "pending_comparisons": 3,
+    "unresolved_comments": 0
+  },
   "summary": {
     "comparisons": {
       "total": 12,
@@ -231,14 +250,30 @@ vizzly context build current --source local --json
       "rejected": 0
     }
   },
+  "screenshots": [
+    {
+      "name": "Dashboard",
+      "url": "https://...",
+      "baseline": { "url": "https://..." }
+    }
+  ],
   "comparisons": [
     {
       "id": "cmp-1",
-      "name": "Dashboard",
+      "screenshot_name": "Dashboard",
       "result": "changed",
-      "diff_percentage": 0.42
+      "needs_review": true,
+      "diff": {
+        "percentage": 0.42,
+        "image_url": "https://...",
+        "regions": []
+      }
     }
-  ]
+  ],
+  "comments": {
+    "build": [],
+    "screenshot_count": 0
+  }
 }
 ```
 

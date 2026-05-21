@@ -16,7 +16,7 @@ import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 
 function buildAuthErrorMessage() {
-  return 'API token required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"';
+  return 'Authentication required. Use --token, set VIZZLY_TOKEN, run "vizzly login", or link a project.';
 }
 
 function buildSourceErrorMessage() {
@@ -72,7 +72,7 @@ function validateScopedProjectOptions(options = {}) {
 function createClient(config, createApiClient) {
   return createApiClient({
     baseUrl: config.apiUrl,
-    token: config.apiKey,
+    token: config.apiKey || config.userToken,
     command: 'context',
   });
 }
@@ -88,7 +88,7 @@ async function loadContextConfig(globalOptions, options, deps) {
   let allOptions = { ...globalOptions, ...options };
   let config = await loadConfig(globalOptions.config, allOptions);
 
-  if (requireApiKey && !config.apiKey) {
+  if (requireApiKey && !config.apiKey && !config.userToken) {
     output.error(buildAuthErrorMessage());
     output.cleanup();
     exit(1);
@@ -184,7 +184,7 @@ async function loadContextRuntime(
     }
   );
 
-  if (source === 'cloud' && !config.apiKey) {
+  if (source === 'cloud' && !config.apiKey && !config.userToken) {
     if (
       shouldExplainLocalSimilarityGap(requestedSource, command, localProvider)
     ) {

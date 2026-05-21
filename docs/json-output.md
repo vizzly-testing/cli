@@ -672,27 +672,19 @@ vizzly init --json
 }
 ```
 
-### `vizzly project:select`
+### `vizzly project link`
 
 ```bash
-vizzly project:select --json
+vizzly project link my-org/my-project --json
 ```
-
-Note: In JSON mode, the interactive prompts still appear because project selection requires user input.
 
 ```json
 {
-  "status": "configured",
-  "project": {
-    "name": "My Project",
-    "slug": "my-project"
-  },
-  "organization": {
-    "name": "My Org",
-    "slug": "my-org"
-  },
-  "directory": "/path/to/project",
-  "tokenCreated": true
+  "linked": true,
+  "organizationSlug": "my-org",
+  "projectSlug": "my-project",
+  "tokenPrefix": "vzt_abc",
+  "storage": "keychain"
 }
 ```
 

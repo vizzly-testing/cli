@@ -50,9 +50,10 @@ function createReviewHarness(response = {}) {
     },
     deps: {
       loadConfig: async () => ({
-        apiKey: 'token-123',
+        userToken: 'token-123',
         apiUrl: 'https://api.example.test',
       }),
+      getAccessToken: async () => null,
       createApiClient: config => {
         clientConfig = config;
         return {
@@ -299,6 +300,7 @@ describe('commands/review', () => {
         {},
         {
           loadConfig: async () => ({ apiUrl: 'https://api.example.test' }),
+          getAccessToken: async () => null,
           output,
           exit: code => {
             exitCode = code;
@@ -325,9 +327,10 @@ describe('commands/review', () => {
         { json: true },
         {
           loadConfig: async () => ({
-            apiKey: 'token-123',
+            userToken: 'token-123',
             apiUrl: 'https://api.example.test',
           }),
+          getAccessToken: async () => null,
           createApiClient: () => ({
             request: async () => {
               throw error;

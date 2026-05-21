@@ -49,6 +49,15 @@ describe('commands/context', () => {
       assert.ok(errors.includes('--source must be one of: auto, cloud, local'));
     });
 
+    it('rejects invalid compact agent include values', () => {
+      let errors = validateContextBuildOptions({ include: 'screenshots,logs' });
+      assert.ok(
+        errors.includes(
+          '--include must contain only: screenshots, diffs, comments'
+        )
+      );
+    });
+
     it('rejects out-of-range comparison context limits', () => {
       let errors = validateContextComparisonOptions({ similarLimit: 51 });
       assert.ok(
@@ -153,6 +162,232 @@ describe('commands/context', () => {
       assert.ok(dataCall);
       assert.strictEqual(dataCall.args[0].resource, 'build_context');
       assert.strictEqual(dataCall.args[0].build.id, 'build-1');
+    });
+
+    it('returns compact agent JSON by default instead of the full context payload', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            resource: 'build_context',
+            source: 'cloud',
+            scope: {
+              organization: { slug: 'acme', name: 'Acme' },
+              project: { slug: 'web', name: 'Web', visibility: 'private' },
+            },
+            build: {
+              id: 'build-1',
+              name: 'main-abc123',
+              status: 'completed',
+              approval_status: 'pending',
+            },
+            baseline: {
+              selected: {
+                id: 'baseline-1',
+                name: 'Approved Main',
+                approval_status: 'approved',
+              },
+              selection_reason: 'latest approved build',
+            },
+            status: {
+              needs_review: true,
+              reasons: ['comparisons_need_review'],
+              pending_comparisons: 2,
+              unresolved_comments: 0,
+            },
+            summary: {
+              comparisons: { total: 2, changed: 1, new: 1, identical: 0 },
+            },
+            screenshots: [{ id: 'ss-1', name: 'Dashboard' }],
+            comparisons: [
+              {
+                id: 'cmp-1',
+                screenshot_name: 'Dashboard',
+                result: 'changed',
+                needs_review: true,
+                diff: {
+                  percentage: 1.23,
+                  changed_pixels: 123,
+                  total_pixels: 10000,
+                  threshold: 2,
+                  image_url: 'https://cdn.test/diff.png',
+                  regions: [{ pixelCount: 50 }],
+                  fingerprint_hash: 'fp-dashboard',
+                },
+                screenshot: {
+                  id: 'ss-1',
+                  original_url: 'https://cdn.test/current.png',
+                },
+                baseline: {
+                  id: 'base-ss-1',
+                  build_id: 'baseline-1',
+                  original_url: 'https://cdn.test/baseline.png',
+                },
+              },
+              {
+                id: 'cmp-2',
+                screenshot_name: 'Settings',
+                result: 'new',
+                needs_review: true,
+              },
+            ],
+            comments: {
+              build: [{ id: 'comment-1', message: 'looks risky' }],
+            },
+            links: { build_url: 'https://app.test/acme/web/builds/build-1' },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(call => call.method === 'data');
+      let payload = dataCall.args[0];
+
+      assert.strictEqual(payload.resource, 'build_agent_context');
+      assert.strictEqual(payload.project.organization, 'acme');
+      assert.strictEqual(payload.build.id, 'build-1');
+      assert.strictEqual(payload.baseline.selected.name, 'Approved Main');
+      assert.strictEqual(payload.status.needs_review, true);
+      assert.strictEqual(payload.evidence.length, 2);
+      assert.strictEqual(payload.evidence[0].name, 'Dashboard');
+      assert.strictEqual(payload.evidence[0].diff.region_count, 1);
+      assert.ok(!payload.screenshots);
+      assert.ok(!payload.comments);
+      assert.ok(
+        payload.next_actions.some(action =>
+          action.includes('Inspect the changed and new comparisons')
+        )
+      );
+    });
+
+    it('allows compact agent JSON to include requested detail', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true, include: 'screenshots,diffs,comments' },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            resource: 'build_context',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'web' },
+            },
+            build: { id: 'build-1' },
+            status: { needs_review: true, pending_comparisons: 1 },
+            screenshots: [{ id: 'ss-1', name: 'Dashboard' }],
+            comparisons: [
+              {
+                id: 'cmp-1',
+                screenshot_name: 'Dashboard',
+                result: 'changed',
+                diff: {
+                  regions: [{ pixelCount: 50 }],
+                  cluster_metadata: { clusterCount: 1 },
+                },
+              },
+            ],
+            comments: { build: [{ id: 'comment-1' }] },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.deepStrictEqual(payload.screenshots, [
+        { id: 'ss-1', name: 'Dashboard' },
+      ]);
+      assert.deepStrictEqual(payload.comments, {
+        build: [{ id: 'comment-1' }],
+      });
+      assert.deepStrictEqual(payload.evidence[0].diff.regions, [
+        { pixelCount: 50 },
+      ]);
+      assert.deepStrictEqual(payload.evidence[0].diff.cluster_metadata, {
+        clusterCount: 1,
+      });
+    });
+
+    it('returns the full payload when agent JSON asks for full context', async () => {
+      let output = createMockOutput();
+      let context = {
+        resource: 'build_context',
+        build: { id: 'build-1' },
+        screenshots: [{ id: 'ss-1' }],
+      };
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true, full: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => context,
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.strictEqual(payload.resource, 'build_context');
+      assert.deepStrictEqual(payload.screenshots, [{ id: 'ss-1' }]);
+    });
+
+    it('resolves cloud current builds from the active run session', async () => {
+      let output = createMockOutput();
+      let capturedBuildId = null;
+
+      await contextBuildCommand(
+        'current',
+        { source: 'cloud', agent: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          readSession: () => ({
+            buildId: 'build-from-session',
+            source: 'session_file',
+          }),
+          getBuildContext: async (_client, buildId) => {
+            capturedBuildId = buildId;
+            return {
+              resource: 'build_context',
+              build: { id: buildId },
+              comparisons: [],
+            };
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedBuildId, 'build-from-session');
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.strictEqual(payload.build.id, 'build-from-session');
     });
 
     it('uses local workspace context without requiring authentication', async () => {
@@ -802,6 +1037,47 @@ describe('commands/context', () => {
   });
 
   describe('contextReviewQueueCommand', () => {
+    it('uses cloud in auto mode when project scope is explicit', async () => {
+      let output = createMockOutput();
+      let capturedRuntimeOptions = null;
+
+      await contextReviewQueueCommand(
+        { org: 'acme', project: 'storybook', limit: 5 },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          resolveContextSource: runtimeOptions => {
+            capturedRuntimeOptions = runtimeOptions;
+            return 'cloud';
+          },
+          createLocalWorkspaceContextProvider: () => ({
+            isAvailable: () => true,
+            canHandle: () => true,
+          }),
+          createApiClient: () => ({}),
+          getReviewQueueContext: async () => ({
+            resource: 'review_queue_context',
+            source: 'cloud',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'storybook' },
+            },
+            summary: { total: 0, changed: 0, new: 0, builds: 0 },
+            comparisons: [],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedRuntimeOptions.hasCloudScope, true);
+      let dataCall = output.calls.find(call => call.method === 'data');
+      assert.strictEqual(dataCall.args[0].source, 'cloud');
+    });
+
     it('passes review queue scope and pagination to the API helper', async () => {
       let output = createMockOutput();
       let capturedQuery = null;

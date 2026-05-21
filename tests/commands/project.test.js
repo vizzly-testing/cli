@@ -120,6 +120,20 @@ describe('commands/project', () => {
             call.args[0] === 'Linked vizzly/storybook'
         )
       );
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'hint' &&
+            call.args[0] === 'Active project: vizzly/storybook'
+        )
+      );
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'hint' &&
+            call.args[0] === 'Credential storage: keychain'
+        )
+      );
     });
 
     it('asks the user to login before linking', async () => {

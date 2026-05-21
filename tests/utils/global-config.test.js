@@ -6,11 +6,13 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   clearAuthTokens,
   clearGlobalConfig,
+  expandHomePath,
   getAccessToken,
   getAuthTokens,
   getGlobalConfigDir,
@@ -56,6 +58,30 @@ describe('utils/global-config', () => {
 
       // Restore
       process.env.VIZZLY_HOME = testDir;
+    });
+
+    it('expands shell-style home paths from dotenv files', () => {
+      process.env.VIZZLY_HOME = '$HOME/.vizzly.dev';
+      let dir = getGlobalConfigDir();
+
+      assert.strictEqual(dir.endsWith('/.vizzly.dev'), true);
+      assert.strictEqual(dir.includes('$HOME'), false);
+
+      process.env.VIZZLY_HOME = testDir;
+    });
+  });
+
+  describe('expandHomePath', () => {
+    it('expands tilde and HOME prefixes without changing other paths', () => {
+      assert.strictEqual(
+        expandHomePath('$HOME/.vizzly'),
+        join(homedir(), '.vizzly')
+      );
+      assert.strictEqual(
+        expandHomePath('~/.vizzly'),
+        join(homedir(), '.vizzly')
+      );
+      assert.strictEqual(expandHomePath('/tmp/vizzly'), '/tmp/vizzly');
     });
   });
 

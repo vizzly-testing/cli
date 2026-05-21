@@ -1,13 +1,13 @@
 # Vizzly CLI
 
-> Reviewed UI context for people and LLM agents
+> Visual review for agents and teams
 
 [![npm version](https://img.shields.io/npm/v/@vizzly-testing/cli.svg)](https://www.npmjs.com/package/@vizzly-testing/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Vizzly keeps the visual truth behind your UI: approved baselines, meaningful diffs, review state, comments, and preview links in one place. That makes it useful for humans reviewing product changes and for LLM agents that need to understand what the UI is supposed to look like before they edit it.
 
-Unlike tools that re-render components in isolation, Vizzly captures screenshots directly from your functional tests: the real thing. Whether you're validating AI-generated code or testing manual changes, you get reviewed UI context before anything hits production.
+Unlike tools that re-render components in isolation, Vizzly captures screenshots directly from your functional tests: the real thing. Whether you're validating AI-generated code or testing manual changes, you get reviewed visual evidence before anything hits production.
 
 ## Why Vizzly?
 
@@ -77,7 +77,7 @@ vizzly context build current --source local --agent
 vizzly context screenshot build-detail-screenshots --source local --json
 ```
 
-`--json` is the durable automation path. `--agent` gives a compact Markdown handoff for prompt assembly and local dogfooding.
+`--json` is the durable automation path. `--agent` gives a compact handoff for prompt assembly and local dogfooding. Add `--full` when an agent really needs the complete build context payload, or `--include screenshots,diffs,comments` when the compact JSON needs selected detail.
 
 Local context is read-only and file-backed. It reads your existing `.vizzly` workspace state from
 TDD runs, including screenshots, diffs, and any saved hotspot or region metadata.

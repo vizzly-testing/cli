@@ -9,13 +9,39 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as output from './output.js';
 
+export function expandHomePath(path) {
+  if (!path) {
+    return path;
+  }
+
+  let home = homedir();
+
+  if (path === '$HOME') {
+    return home;
+  }
+
+  if (path.startsWith('$HOME/')) {
+    return join(home, path.slice('$HOME/'.length));
+  }
+
+  if (path === '~') {
+    return home;
+  }
+
+  if (path.startsWith('~/')) {
+    return join(home, path.slice(2));
+  }
+
+  return path;
+}
+
 /**
  * Get the path to the global Vizzly directory
  * @returns {string} Path to VIZZLY_HOME or ~/.vizzly
  */
 export function getGlobalConfigDir() {
   if (process.env.VIZZLY_HOME) {
-    return process.env.VIZZLY_HOME;
+    return expandHomePath(process.env.VIZZLY_HOME);
   }
   return join(homedir(), '.vizzly');
 }

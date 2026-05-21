@@ -14,6 +14,7 @@ import { createLocalWorkspaceContextProvider as defaultCreateLocalWorkspaceConte
 import { resolveContextSource as defaultResolveContextSource } from '../context/provider-resolver.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
+import { readSession as defaultReadSession } from '../utils/session.js';
 
 function buildAuthErrorMessage() {
   return 'Authentication required. Use --token, set VIZZLY_TOKEN, run "vizzly login", or link a project.';
@@ -21,6 +22,10 @@ function buildAuthErrorMessage() {
 
 function buildSourceErrorMessage() {
   return '--source must be one of: auto, cloud, local';
+}
+
+function buildIncludeErrorMessage() {
+  return '--include must contain only: screenshots, diffs, comments';
 }
 
 function validateLimitRange(value, flagName, { min = 1, max }) {
@@ -59,6 +64,22 @@ function validateSourceOption(value) {
   return [];
 }
 
+function parseIncludeOption(value) {
+  if (!value) {
+    return [];
+  }
+
+  let rawItems = Array.isArray(value) ? value : String(value).split(',');
+  return rawItems.map(item => item.trim()).filter(Boolean);
+}
+
+function validateIncludeOption(value) {
+  let allowed = new Set(['screenshots', 'diffs', 'comments']);
+  let invalid = parseIncludeOption(value).filter(item => !allowed.has(item));
+
+  return invalid.length > 0 ? [buildIncludeErrorMessage()] : [];
+}
+
 function validateScopedProjectOptions(options = {}) {
   let errors = [];
 
@@ -67,6 +88,15 @@ function validateScopedProjectOptions(options = {}) {
   }
 
   return errors;
+}
+
+function hasExplicitCloudScope(options = {}, config = {}) {
+  return Boolean(
+    options.org ||
+      options.project ||
+      config.linkedProject?.organizationSlug ||
+      config.linkedProject?.projectSlug
+  );
 }
 
 function createClient(config, createApiClient) {
@@ -137,6 +167,26 @@ function buildLocalFingerprintCapabilityError() {
   return error;
 }
 
+function resolveBuildContextId(buildId, runtime, deps = {}) {
+  let { readSession = defaultReadSession } = deps;
+
+  if (buildId !== 'current' || runtime.source !== 'cloud') {
+    return buildId;
+  }
+
+  let session = readSession({ cwd: runtime.projectRoot });
+
+  if (session?.buildId && !session.expired) {
+    return session.buildId;
+  }
+
+  let error = new Error(
+    'No current cloud build found. Run "vizzly run" first, or pass a build ID.'
+  );
+  error.code = 'NO_CURRENT_CLOUD_BUILD';
+  throw error;
+}
+
 function shouldExplainLocalSimilarityGap(
   requestedSource,
   command,
@@ -178,6 +228,7 @@ async function loadContextRuntime(
       command,
       target,
       projectRoot,
+      hasCloudScope: hasExplicitCloudScope(options, config),
     },
     {
       createLocalWorkspaceContextProvider,
@@ -277,6 +328,175 @@ function getComparisonFingerprint(comparison = {}) {
     comparison.analysis?.fingerprint_hash ||
     null
   );
+}
+
+function getComparisonDiffImageUrl(comparison = {}) {
+  return (
+    comparison.diff?.image_url || comparison.analysis?.diff_image_url || null
+  );
+}
+
+function getComparisonRegionCount(comparison = {}) {
+  let regions = comparison.diff?.regions || comparison.analysis?.diff_regions;
+  return Array.isArray(regions) ? regions.length : 0;
+}
+
+function getComparisonScreenshot(comparison = {}) {
+  return comparison.screenshot || {};
+}
+
+function getComparisonBaseline(comparison = {}) {
+  return comparison.baseline || comparison.screenshot?.baseline || {};
+}
+
+function buildCompactDiff(comparison = {}, includeDiffs = false) {
+  let diff = comparison.diff || comparison.analysis || {};
+  let compact = {
+    percentage: getComparisonDiffPercentage(comparison),
+    changed_pixels: diff.changed_pixels ?? comparison.changed_pixels ?? null,
+    total_pixels: diff.total_pixels ?? comparison.total_pixels ?? null,
+    threshold: diff.threshold ?? comparison.threshold ?? null,
+    fingerprint_hash: getComparisonFingerprint(comparison),
+    region_count: getComparisonRegionCount(comparison),
+    image_url: getComparisonDiffImageUrl(comparison),
+  };
+
+  if (includeDiffs) {
+    compact.regions = diff.regions || diff.diff_regions || [];
+    compact.cluster_metadata = diff.cluster_metadata || null;
+    compact.ssim_score = diff.ssim_score ?? null;
+    compact.gmsd_score = diff.gmsd_score ?? null;
+    compact.diff_lines = diff.diff_lines || [];
+  }
+
+  return compact;
+}
+
+function buildCompactComparison(
+  comparison = {},
+  { includeDiffs = false } = {}
+) {
+  let screenshot = getComparisonScreenshot(comparison);
+  let baseline = getComparisonBaseline(comparison);
+
+  return {
+    id: comparison.id || null,
+    name: getComparisonName(comparison),
+    result: getComparisonDisplayState(comparison),
+    approval_status: comparison.approval_status || null,
+    needs_review: Boolean(comparison.needs_review),
+    is_flaky: Boolean(comparison.is_flaky),
+    screenshot: {
+      id: screenshot.id || null,
+      url: screenshot.url || screenshot.original_url || null,
+    },
+    baseline: {
+      id: baseline.id || null,
+      build_id: baseline.build_id || null,
+      url: baseline.url || baseline.original_url || null,
+    },
+    diff: buildCompactDiff(comparison, includeDiffs),
+  };
+}
+
+function summarizeComparisons(comparisons = []) {
+  return {
+    total: comparisons.length,
+    changed: comparisons.filter(isChangedComparison).length,
+    new: comparisons.filter(isNewComparison).length,
+    needs_review: comparisons.filter(comparison => comparison.needs_review)
+      .length,
+  };
+}
+
+function buildAgentNextActions(context = {}, comparisonSummary = {}) {
+  if (context.status?.needs_review) {
+    return [
+      'Inspect the changed and new comparisons before editing related UI.',
+      'Use approved baselines as the expected visual behavior.',
+      'Leave approval decisions to human reviewers.',
+    ];
+  }
+
+  if (comparisonSummary.total > 0) {
+    return [
+      'Use the approved baseline and reviewed screenshots as current visual truth.',
+      'Prefer targeted edits that preserve identical comparisons.',
+    ];
+  }
+
+  return [
+    'No comparisons were returned for this build context.',
+    'Open the build URL for more detail if this is unexpected.',
+  ];
+}
+
+function formatAgentStatus(status = {}) {
+  return {
+    needs_review: Boolean(status.needs_review),
+    reasons: status.reasons || [],
+    pending_comparisons: status.pending_comparisons || 0,
+    unresolved_comments: status.unresolved_comments || 0,
+  };
+}
+
+function formatAgentSummary(context = {}, comparisons = []) {
+  return {
+    comparisons:
+      context.summary?.comparisons || summarizeComparisons(comparisons),
+    review: context.summary?.review || {},
+    comments: context.summary?.comments || {
+      build: getBuildCommentsCount(context),
+      screenshot: getScreenshotCommentsCount(context),
+    },
+  };
+}
+
+function buildAgentBuildPayload(
+  context,
+  { source = null, include = [], evidenceLimit = 10 } = {}
+) {
+  let comparisons = context.comparisons || [];
+  let includeSet = new Set(include);
+  let includeDiffs = includeSet.has('diffs');
+  let changed = comparisons.filter(isChangedComparison);
+  let fresh = comparisons.filter(isNewComparison);
+  let evidence = [...changed, ...fresh]
+    .slice(0, evidenceLimit)
+    .map(comparison => buildCompactComparison(comparison, { includeDiffs }));
+  let comparisonSummary = summarizeComparisons(comparisons);
+  let payload = {
+    resource: 'build_agent_context',
+    source: context.source || source || 'cloud',
+    scope: context.scope || null,
+    project: {
+      organization: context.scope?.organization?.slug || null,
+      slug: context.scope?.project?.slug || null,
+      name: context.scope?.project?.name || null,
+      visibility: context.scope?.project?.visibility || null,
+    },
+    build: context.build || null,
+    baseline: {
+      selected: context.baseline?.selected || null,
+      selection_reason: context.baseline?.selection_reason || null,
+    },
+    status: formatAgentStatus(context.status),
+    summary: formatAgentSummary(context, comparisons),
+    evidence,
+    links: context.links || {},
+    preview: context.preview || null,
+    next_actions: buildAgentNextActions(context, comparisonSummary),
+  };
+
+  if (includeSet.has('screenshots')) {
+    payload.screenshots = context.screenshots || [];
+  }
+
+  if (includeSet.has('comments')) {
+    payload.comments = context.comments || {};
+  }
+
+  return payload;
 }
 
 function getBuildCommentsCount(context = {}) {
@@ -688,9 +908,22 @@ export async function contextBuildCommand(
       return;
     }
 
+    let resolvedBuildId = resolveBuildContextId(buildId, runtime, deps);
+
     output.startSpinner('Fetching build context...');
-    let context = await runtime.provider.getBuildContext(buildId);
+    let context = await runtime.provider.getBuildContext(resolvedBuildId);
     output.stopSpinner();
+
+    if (globalOptions.json && options.agent && !options.full) {
+      output.data(
+        buildAgentBuildPayload(context, {
+          source: runtime.source,
+          include: parseIncludeOption(options.include),
+        })
+      );
+      output.cleanup();
+      return;
+    }
 
     if (globalOptions.json) {
       output.data(context);
@@ -939,7 +1172,9 @@ export async function contextReviewQueueCommand(
 }
 
 export function validateContextBuildOptions(_options = {}) {
-  return validateSourceOption(_options.source);
+  let errors = validateSourceOption(_options.source);
+  errors.push(...validateIncludeOption(_options.include));
+  return errors;
 }
 
 export function validateContextComparisonOptions(options = {}) {

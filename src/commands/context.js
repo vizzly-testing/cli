@@ -730,7 +730,7 @@ function formatAgentBuildContext(context) {
 
   lines.push('');
   lines.push(
-    'Use this as reviewed UI context. Treat approved baselines as visual truth, inspect meaningful diffs, and leave approval decisions to humans.'
+    'Use this as reviewed visual evidence. Treat approved baselines as visual truth, inspect meaningful diffs, and leave approval decisions to humans.'
   );
 
   return lines.join('\n');

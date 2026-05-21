@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -140,6 +141,25 @@ function createWorkspaceFixture() {
   return cwd;
 }
 
+function listen(server) {
+  return new Promise(resolve => {
+    server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+  });
+}
+
+function closeServer(server) {
+  return new Promise((resolve, reject) => {
+    server.close(error => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
+
 describe('context CLI integration', () => {
   it('treats root-level --json as a flag before the context command', async () => {
     let result = await runCLI(['--json', 'context', 'build', 'build-123']);
@@ -246,6 +266,72 @@ describe('context CLI integration', () => {
     assert.strictEqual(parsed.data.summary.total, 2);
     assert.strictEqual(parsed.data.summary.changed, 1);
     assert.strictEqual(parsed.data.summary.new, 1);
+  });
+
+  it('uses cloud review queue when explicit project scope is present even with local data', async () => {
+    let cwd = createWorkspaceFixture();
+    let vizzlyHome = join(cwd, '.vizzly-home');
+    let requests = [];
+    mkdirSync(vizzlyHome, { recursive: true });
+
+    let server = createServer((req, res) => {
+      requests.push(req.url);
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          resource: 'review_queue_context',
+          source: 'cloud',
+          scope: {
+            organization: { slug: 'acme' },
+            project: { slug: 'storybook' },
+          },
+          summary: { total: 0, changed: 0, new: 0, builds: 0 },
+          comparisons: [],
+        })
+      );
+    });
+    let port = await listen(server);
+
+    try {
+      let result = await runCLI(
+        [
+          '--json',
+          'context',
+          'review-queue',
+          '--org',
+          'acme',
+          '--project',
+          'storybook',
+        ],
+        {
+          cwd,
+          env: {
+            VIZZLY_HOME: vizzlyHome,
+            VIZZLY_API_URL: `http://127.0.0.1:${port}`,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+
+      assert.strictEqual(result.code, 0);
+      let parsed = JSON.parse(result.stdout);
+      assert.strictEqual(parsed.status, 'data');
+      assert.strictEqual(parsed.data.source, 'cloud');
+      assert.strictEqual(parsed.data.summary.total, 0);
+      assert.ok(
+        requests.some(request =>
+          request.startsWith('/api/sdk/context/review-queue?')
+        )
+      );
+      assert.ok(
+        requests.some(request => request.includes('organization=acme'))
+      );
+      assert.ok(
+        requests.some(request => request.includes('project=storybook'))
+      );
+    } finally {
+      await closeServer(server);
+    }
   });
 
   it('fails clearly when local fingerprint similarity is requested', async () => {

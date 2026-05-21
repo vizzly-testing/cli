@@ -20,6 +20,21 @@ function readJson(text, label) {
   }
 }
 
+function readCliData(text, label) {
+  let messages = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => readJson(line, label));
+  let dataMessage = messages.find(message => message.status === 'data');
+
+  if (!dataMessage) {
+    throw new Error(`No data message found for ${label}:\n${text}`);
+  }
+
+  return dataMessage.data;
+}
+
 async function run(command, args, options = {}) {
   let { stdout, stderr } = await execFileAsync(command, args, {
     maxBuffer: 1024 * 1024 * 20,
@@ -33,17 +48,31 @@ async function run(command, args, options = {}) {
   return stdout;
 }
 
-async function runPackaged(binPath, args, env) {
-  let stdout = await run(process.execPath, [binPath, ...args], { env });
-  let parsed = readJson(stdout, `vizzly ${args.join(' ')}`);
+async function runPackaged(binPath, args, env, options = {}) {
+  let stdout = await run(process.execPath, [binPath, ...args], {
+    env,
+    cwd: options.cwd,
+  });
+  return readCliData(stdout, `vizzly ${args.join(' ')}`);
+}
 
-  if (parsed.status !== 'data') {
-    throw new Error(
-      `Unexpected CLI status for ${args.join(' ')}: ${parsed.status}`
-    );
-  }
+async function writeSmokeCaptureScript(projectDir) {
+  let pngBase64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mO8fPr0fwYGBgYGJgYAAH4RBAvbXq5rAAAAAElFTkSuQmCC';
+  let script = `
+import { vizzlyFlush, vizzlyScreenshot } from '@vizzly-testing/cli/client';
 
-  return parsed.data;
+let image = Buffer.from('${pngBase64}', 'base64');
+
+await vizzlyScreenshot('release-readiness-smoke', image, {
+  browser: 'node',
+  viewport: { width: 2, height: 2 }
+});
+
+await vizzlyFlush();
+`;
+
+  await writeFile(join(projectDir, 'smoke-capture.js'), script.trimStart());
 }
 
 async function loadAuth(sourceHome) {
@@ -152,6 +181,8 @@ async function main() {
       'bin',
       'vizzly.js'
     );
+    await writeSmokeCaptureScript(installDir);
+
     let auth = await loadAuth(sourceHome);
     await mkdir(smokeHome, { recursive: true });
     await writeFile(
@@ -213,7 +244,8 @@ async function main() {
     let builds = await runPackaged(
       binPath,
       ['builds', '--project', projectSlug, '--limit', '1', '--json'],
-      env
+      env,
+      { cwd: installDir }
     );
     let build = builds.builds?.[0];
 
@@ -227,7 +259,8 @@ async function main() {
     let context = await runPackaged(
       binPath,
       ['context', 'build', build.id, '--source', 'cloud', '--agent', '--json'],
-      env
+      env,
+      { cwd: installDir }
     );
 
     if (context.resource !== 'build_agent_context') {
@@ -245,6 +278,48 @@ async function main() {
       context.next_actions.length === 0
     ) {
       throw new Error('Compact agent context did not include next actions.');
+    }
+
+    log('creating a cloud build through packaged vizzly run');
+    let runResult = await runPackaged(
+      binPath,
+      [
+        '--json',
+        'run',
+        'node smoke-capture.js',
+        '--build-name',
+        `prod-smoke-run-${Date.now()}`,
+      ],
+      env,
+      { cwd: installDir }
+    );
+
+    if (!runResult.buildId) {
+      throw new Error('Packaged vizzly run did not create a build.');
+    }
+
+    if ((runResult.screenshotsCaptured || 0) < 1) {
+      throw new Error('Packaged vizzly run did not capture a screenshot.');
+    }
+
+    log(`fetching current compact agent context for ${runResult.buildId}`);
+    let currentContext = await runPackaged(
+      binPath,
+      ['context', 'build', 'current', '--source', 'cloud', '--agent', '--json'],
+      env,
+      { cwd: installDir }
+    );
+
+    if (currentContext.resource !== 'build_agent_context') {
+      throw new Error(
+        `Expected current build_agent_context, got ${currentContext.resource}`
+      );
+    }
+
+    if (currentContext.build?.id !== runResult.buildId) {
+      throw new Error(
+        `Current context resolved ${currentContext.build?.id}, expected ${runResult.buildId}`
+      );
     }
 
     log('revoking smoke token');

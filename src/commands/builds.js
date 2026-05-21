@@ -41,10 +41,12 @@ export async function buildsCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Validate API token
-    if (!config.apiKey) {
+    let token = config.apiKey || config.userToken;
+
+    // Validate cloud auth
+    if (!token) {
       output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+        'Authentication required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
       );
       exit(1);
       return;
@@ -52,7 +54,7 @@ export async function buildsCommand(
 
     let client = createApiClient({
       baseUrl: config.apiUrl,
-      token: config.apiKey,
+      token,
       command: 'builds',
     });
 

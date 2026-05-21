@@ -35,6 +35,10 @@ import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
 import { orgsCommand, validateOrgsOptions } from './commands/orgs.js';
 import { previewCommand, validatePreviewOptions } from './commands/preview.js';
 import {
+  projectLinkCommand,
+  validateProjectLinkOptions,
+} from './commands/project.js';
+import {
   projectsCommand,
   validateProjectsOptions,
 } from './commands/projects.js';
@@ -1220,6 +1224,43 @@ Workflow:
     }
 
     await projectsCommand(options, globalOptions);
+  });
+
+let projectCommand = program
+  .command('project')
+  .description('Manage the project linked to this local checkout');
+
+projectCommand
+  .command('link [selector]')
+  .description('Link a Vizzly project for cloud uploads')
+  .option('--org <slug>', 'Organization slug')
+  .option('--project <slug>', 'Project slug')
+  .option('--name <name>', 'Credential name shown in Vizzly')
+  .option('--expires-at <iso>', 'Optional token expiration timestamp')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ vizzly project link vizzly/storybook
+  $ vizzly project link --org vizzly --project storybook
+
+Note: run "vizzly login" first. The linked credential is project-scoped and is
+used for cloud uploads; your user login remains separate for review actions.
+`
+  )
+  .action(async (selector, options) => {
+    const globalOptions = program.opts();
+
+    const validationErrors = validateProjectLinkOptions(selector, options);
+    if (validationErrors.length > 0) {
+      output.error('Validation errors:');
+      for (let error of validationErrors) {
+        output.printErr(`  - ${error}`);
+      }
+      process.exit(1);
+    }
+
+    await projectLinkCommand(selector, options, globalOptions);
   });
 
 program

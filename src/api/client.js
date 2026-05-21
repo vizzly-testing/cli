@@ -23,6 +23,10 @@ import {
  */
 export const DEFAULT_API_URL = 'https://app.vizzly.dev';
 
+function isProjectToken(token) {
+  return typeof token === 'string' && token.startsWith('vzt_');
+}
+
 /**
  * Create an API client with the given configuration
  *
@@ -84,7 +88,7 @@ export function createApiClient(options = {}) {
         shouldRetryWithRefresh(
           response.status,
           isRetry,
-          await hasRefreshToken()
+          !isProjectToken(token) && (await hasRefreshToken())
         )
       ) {
         let refreshed = await attemptTokenRefresh();
@@ -97,7 +101,7 @@ export function createApiClient(options = {}) {
       // Auth error
       if (isAuthError(response.status)) {
         throw new AuthError(
-          'Invalid or expired API token. Link a project via "vizzly project:select" or set VIZZLY_TOKEN.'
+          'Invalid or expired API token. Run "vizzly project link <org>/<project>" or set VIZZLY_TOKEN.'
         );
       }
 
@@ -146,7 +150,9 @@ export function createApiClient(options = {}) {
       await saveAuthTokens({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
-        expiresAt: data.expiresAt,
+        expiresAt:
+          data.expiresAt ||
+          new Date(Date.now() + data.expiresIn * 1000).toISOString(),
         user: auth.user,
       });
 

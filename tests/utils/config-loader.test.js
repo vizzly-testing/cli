@@ -6,6 +6,7 @@ import {
   getScreenshotPaths,
   loadConfig,
 } from '../../src/utils/config-loader.js';
+import { saveGlobalConfig } from '../../src/utils/global-config.js';
 
 describe('utils/config-loader', () => {
   describe('getScreenshotPaths', () => {
@@ -137,6 +138,46 @@ describe('utils/config-loader', () => {
 
       assert.strictEqual(config.apiKey, 'env-token');
       assert.strictEqual(config.parallelId, 'parallel-123');
+    });
+
+    it('keeps user login separate from cloud upload credentials', async () => {
+      await saveGlobalConfig({
+        auth: {
+          accessToken: 'user-access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: '2999-01-01T00:00:00.000Z',
+        },
+      });
+
+      let config = await loadConfig();
+
+      assert.strictEqual(config.apiKey, undefined);
+      assert.strictEqual(config.userToken, 'user-access-token');
+    });
+
+    it('uses the active linked project token for cloud upload credentials', async () => {
+      await saveGlobalConfig({
+        projectLink: {
+          active: 'https://app.vizzly.dev|vizzly/storybook',
+          links: {
+            'https://app.vizzly.dev|vizzly/storybook': {
+              apiUrl: 'https://app.vizzly.dev',
+              organizationSlug: 'vizzly',
+              projectSlug: 'storybook',
+              tokenId: 'token-id',
+              tokenPrefix: 'vzt_lin',
+              storage: 'file',
+              token: 'vzt_linked_secret',
+            },
+          },
+        },
+      });
+
+      let config = await loadConfig();
+
+      assert.strictEqual(config.apiKey, 'vzt_linked_secret');
+      assert.strictEqual(config.linkedProject.organizationSlug, 'vizzly');
+      assert.strictEqual(config.linkedProject.projectSlug, 'storybook');
     });
 
     it('applies VIZZLY_BUILD_NAME environment variable', async () => {

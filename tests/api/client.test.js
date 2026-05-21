@@ -1,6 +1,10 @@
 import assert from 'node:assert';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it, mock } from 'node:test';
 import { createApiClient, DEFAULT_API_URL } from '../../src/api/client.js';
+import { saveAuthTokens } from '../../src/utils/global-config.js';
 
 describe('api/client', () => {
   describe('DEFAULT_API_URL', () => {
@@ -112,15 +116,26 @@ describe('api/client', () => {
   describe('request', () => {
     let originalFetch;
     let mockFetch;
+    let originalVizzlyHome;
+    let tempHome;
 
     beforeEach(() => {
       originalFetch = globalThis.fetch;
+      originalVizzlyHome = process.env.VIZZLY_HOME;
+      tempHome = mkdtempSync(join(tmpdir(), 'vizzly-api-client-test-'));
+      process.env.VIZZLY_HOME = tempHome;
       mockFetch = mock.fn();
       globalThis.fetch = mockFetch;
     });
 
     afterEach(() => {
       globalThis.fetch = originalFetch;
+      if (originalVizzlyHome) {
+        process.env.VIZZLY_HOME = originalVizzlyHome;
+      } else {
+        delete process.env.VIZZLY_HOME;
+      }
+      rmSync(tempHome, { recursive: true, force: true });
     });
 
     it('makes request to correct URL', async () => {
@@ -186,6 +201,31 @@ describe('api/client', () => {
           return true;
         }
       );
+    });
+
+    it('does not exchange user refresh tokens for failed project-token requests', async () => {
+      await saveAuthTokens({
+        accessToken: 'user-access-token',
+        refreshToken: 'user-refresh-token',
+        expiresAt: '2999-01-01T00:00:00.000Z',
+      });
+
+      let client = createApiClient({
+        token: 'vzt_project_token',
+        baseUrl: 'https://api.test',
+      });
+
+      mockFetch.mock.mockImplementation(async () => ({
+        ok: false,
+        status: 401,
+        headers: new Map(),
+        text: async () => 'Unauthorized',
+      }));
+
+      await assert.rejects(() => client.request('/api/sdk/builds'), {
+        name: 'AuthError',
+      });
+      assert.strictEqual(mockFetch.mock.calls.length, 1);
     });
 
     it('throws VizzlyError for server errors', async () => {

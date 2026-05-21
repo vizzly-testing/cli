@@ -82,14 +82,14 @@ describe('project/core', () => {
     it('builds tokens API URL without token ID', () => {
       assert.strictEqual(
         buildTokensUrl('my-org', 'my-project'),
-        '/api/cli/organizations/my-org/projects/my-project/tokens'
+        '/api/project/my-project/tokens'
       );
     });
 
     it('builds tokens API URL with token ID', () => {
       assert.strictEqual(
         buildTokensUrl('my-org', 'my-project', 'tok_123'),
-        '/api/cli/organizations/my-org/projects/my-project/tokens/tok_123'
+        '/api/project/my-project/tokens/tok_123'
       );
     });
   });

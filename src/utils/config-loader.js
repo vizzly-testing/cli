@@ -10,6 +10,7 @@ import {
 } from './environment-config.js';
 import { getAccessToken } from './global-config.js';
 import * as output from './output.js';
+import { getActiveProjectLink } from './project-link-store.js';
 
 export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 1. Load from config file using cosmiconfig
@@ -55,15 +56,32 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   applyCLIOverrides(config, cliOverrides);
 
-  // 5. Fall back to user auth token if no other token found
-  // This enables interactive commands (builds, comparisons, approve, etc.)
-  // to work without a project token when the user is logged in
+  // 5. Fall back to a linked project token for cloud upload commands.
   if (!config.apiKey) {
-    let userToken = await getAccessToken();
-    if (userToken) {
-      config.apiKey = userToken;
-      output.debug('config', 'using token from user login');
+    let linkedProject = await getActiveProjectLink({ apiUrl: config.apiUrl });
+    if (linkedProject?.token) {
+      config.apiKey = linkedProject.token;
+      config.linkedProject = {
+        account: linkedProject.account,
+        apiUrl: linkedProject.apiUrl,
+        organizationSlug: linkedProject.organizationSlug,
+        organizationName: linkedProject.organizationName,
+        projectSlug: linkedProject.projectSlug,
+        projectName: linkedProject.projectName,
+        tokenId: linkedProject.tokenId,
+        tokenPrefix: linkedProject.tokenPrefix,
+        expiresAt: linkedProject.expiresAt,
+        storage: linkedProject.storage,
+      };
+      output.debug('config', 'using linked project token');
     }
+  }
+
+  // 6. Keep user auth separate from upload credentials.
+  let userToken = await getAccessToken();
+  if (userToken) {
+    config.userToken = userToken;
+    output.debug('config', 'using user login for user-authenticated commands');
   }
 
   return config;

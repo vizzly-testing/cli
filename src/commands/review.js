@@ -4,12 +4,14 @@
 
 import { createApiClient as defaultCreateApiClient } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
+import { getAccessToken as defaultGetAccessToken } from '../utils/global-config.js';
 import * as defaultOutput from '../utils/output.js';
 
 function createReviewDeps(deps = {}) {
   return {
     loadConfig: deps.loadConfig || defaultLoadConfig,
     createApiClient: deps.createApiClient || defaultCreateApiClient,
+    getAccessToken: deps.getAccessToken || defaultGetAccessToken,
     output: deps.output || defaultOutput,
     exit: deps.exit || (code => process.exit(code)),
   };
@@ -28,10 +30,31 @@ async function loadReviewConfig({ loadConfig, options, globalOptions }) {
   return await loadConfig(globalOptions.config, allOptions);
 }
 
-function createReviewClient({ createApiClient, config, command }) {
+function isProjectToken(token) {
+  return typeof token === 'string' && token.startsWith('vzt_');
+}
+
+async function getReviewToken(config, getAccessToken) {
+  if (config.userToken) {
+    return config.userToken;
+  }
+
+  let userToken = await getAccessToken();
+  if (userToken) {
+    return userToken;
+  }
+
+  if (config.apiKey && !isProjectToken(config.apiKey)) {
+    return config.apiKey;
+  }
+
+  return null;
+}
+
+function createReviewClient({ createApiClient, config, command, token }) {
   return createApiClient({
     baseUrl: config.apiUrl,
-    token: config.apiKey,
+    token,
     command,
   });
 }
@@ -61,7 +84,8 @@ async function runReviewMutation({
   deps,
   configure = true,
 }) {
-  let { loadConfig, createApiClient, output, exit } = createReviewDeps(deps);
+  let { loadConfig, createApiClient, getAccessToken, output, exit } =
+    createReviewDeps(deps);
 
   if (configure) {
     configureOutput(output, globalOptions);
@@ -69,10 +93,11 @@ async function runReviewMutation({
 
   try {
     let config = await loadReviewConfig({ loadConfig, options, globalOptions });
+    let token = await getReviewToken(config, getAccessToken);
 
-    if (!config.apiKey) {
-      output.error('API token required');
-      output.hint('Use --token or set VIZZLY_TOKEN environment variable');
+    if (!token) {
+      output.error('User login required for review actions');
+      output.hint('Run "vizzly login" to approve, reject, or comment');
       output.cleanup();
       exit(1);
       return;
@@ -80,7 +105,12 @@ async function runReviewMutation({
 
     output.startSpinner(spinnerMessage);
 
-    let client = createReviewClient({ createApiClient, config, command });
+    let client = createReviewClient({
+      createApiClient,
+      config,
+      command,
+      token,
+    });
     let response = await client.request(endpoint, {
       method: 'POST',
       ...jsonBody(requestBody),

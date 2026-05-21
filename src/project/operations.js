@@ -330,7 +330,10 @@ export async function createProjectToken(
       buildTokensUrl(organizationSlug, projectSlug),
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...buildOrgHeader(organizationSlug),
+        },
         body: JSON.stringify(tokenData),
       }
     );
@@ -361,6 +364,7 @@ export async function listProjectTokens(
       buildTokensUrl(organizationSlug, projectSlug),
       {
         method: 'GET',
+        headers: buildOrgHeader(organizationSlug),
       }
     );
     return extractTokens(response);
@@ -392,6 +396,7 @@ export async function revokeProjectToken(
       buildTokensUrl(organizationSlug, projectSlug, tokenId),
       {
         method: 'DELETE',
+        headers: buildOrgHeader(organizationSlug),
       }
     );
   } catch (error) {

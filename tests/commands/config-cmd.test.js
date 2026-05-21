@@ -183,5 +183,43 @@ describe('commands/config', () => {
         !JSON.stringify(dataCall.args[0]).includes('supersecrettoken12345')
       );
     });
+
+    it('shows the active linked project without exposing the token', async () => {
+      let output = createMockOutput();
+
+      await configCommand(
+        null,
+        {},
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'vzt_supersecrettoken12345',
+            apiUrl: 'https://app.vizzly.dev',
+            server: { port: 47392 },
+            linkedProject: {
+              organizationSlug: 'vizzly',
+              projectSlug: 'frontend',
+              tokenPrefix: 'vzt_123',
+              storage: 'keychain',
+              expiresAt: null,
+            },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(c => c.method === 'data');
+      assert.deepStrictEqual(dataCall.args[0].config.linkedProject, {
+        organization: 'vizzly',
+        project: 'frontend',
+        tokenPrefix: 'vzt_123',
+        storage: 'keychain',
+        expiresAt: null,
+      });
+      assert.ok(
+        !JSON.stringify(dataCall.args[0]).includes('supersecrettoken12345')
+      );
+    });
   });
 });

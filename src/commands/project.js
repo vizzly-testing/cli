@@ -133,7 +133,13 @@ export async function projectLinkCommand(
     output.complete(
       `Linked ${linkedProject.organizationSlug}/${linkedProject.projectSlug}`
     );
-    output.hint(`Cloud uploads will use ${linkedProject.tokenPrefix}...`);
+    output.hint(
+      `Active project: ${linkedProject.organizationSlug}/${linkedProject.projectSlug}`
+    );
+    output.hint(
+      `Cloud uploads and project-scoped context will use ${linkedProject.tokenPrefix}...`
+    );
+    output.hint(`Credential storage: ${linkedProject.storage}`);
     output.cleanup();
   } catch (error) {
     output.stopSpinner();

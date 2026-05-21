@@ -6,6 +6,7 @@ export function resolveContextSource(options = {}, deps = {}) {
     command,
     target = null,
     projectRoot = process.cwd(),
+    hasCloudScope = false,
   } = options;
   let {
     createLocalWorkspaceContextProvider = defaultCreateLocalWorkspaceContextProvider,
@@ -35,6 +36,10 @@ export function resolveContextSource(options = {}, deps = {}) {
     }
 
     return 'local';
+  }
+
+  if (hasCloudScope) {
+    return 'cloud';
   }
 
   if (

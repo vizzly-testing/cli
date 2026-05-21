@@ -51,6 +51,25 @@ describe('context/provider-resolver', () => {
     assert.strictEqual(source, 'local');
   });
 
+  it('prefers cloud in auto mode when an explicit cloud scope is present', () => {
+    let source = resolveContextSource(
+      {
+        requestedSource: 'auto',
+        command: 'review-queue',
+        target: null,
+        hasCloudScope: true,
+      },
+      {
+        createLocalWorkspaceContextProvider: () => ({
+          isAvailable: () => true,
+          canHandle: () => true,
+        }),
+      }
+    );
+
+    assert.strictEqual(source, 'cloud');
+  });
+
   it('falls back to cloud in auto mode when the workspace cannot answer the query', () => {
     let source = resolveContextSource(
       { requestedSource: 'auto', command: 'similar', target: 'fp-dashboard' },

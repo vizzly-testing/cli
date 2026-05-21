@@ -203,12 +203,77 @@ cloud data or your local `.vizzly` workspace.
 
 ```bash
 vizzly context build abc123 --json
+vizzly context build abc123 --agent --json
+vizzly context build abc123 --agent --json --include diffs,comments
+vizzly context build abc123 --agent --json --full
 vizzly context build current --source local --json
 vizzly context build current --source local --agent
 ```
 
-Use `--json` for durable automation. Use `--agent` when you want a compact Markdown handoff for
-prompt assembly.
+Use `--json` for durable automation. Use `--agent --json` when you want the compact handoff that
+agents should read first. Add `--include screenshots,diffs,comments` for selected detail, or
+`--full` when you need the complete build context payload.
+
+Compact agent JSON:
+
+```json
+{
+  "resource": "build_agent_context",
+  "source": "cloud",
+  "project": {
+    "organization": "acme",
+    "slug": "storybook",
+    "name": "Storybook"
+  },
+  "build": {
+    "id": "abc123",
+    "status": "completed",
+    "approval_status": "pending"
+  },
+  "baseline": {
+    "selected": {
+      "id": "baseline-build",
+      "name": "Approved Main",
+      "approval_status": "approved"
+    },
+    "selection_reason": "latest approved build"
+  },
+  "status": {
+    "needs_review": true,
+    "reasons": ["comparisons_need_review"],
+    "pending_comparisons": 3,
+    "unresolved_comments": 0
+  },
+  "summary": {
+    "comparisons": {
+      "total": 12,
+      "changed": 2,
+      "new": 1
+    }
+  },
+  "evidence": [
+    {
+      "id": "cmp-1",
+      "name": "Dashboard",
+      "result": "changed",
+      "needs_review": true,
+      "diff": {
+        "percentage": 0.42,
+        "fingerprint_hash": "00000000001ec127",
+        "region_count": 12,
+        "image_url": "https://..."
+      }
+    }
+  ],
+  "next_actions": [
+    "Inspect the changed and new comparisons before editing related UI.",
+    "Use approved baselines as the expected visual behavior.",
+    "Leave approval decisions to human reviewers."
+  ]
+}
+```
+
+Full build context JSON:
 
 ```json
 {

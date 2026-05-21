@@ -57,6 +57,16 @@ export async function configCommand(
       };
     }
 
+    if (config.linkedProject) {
+      displayConfig.linkedProject = {
+        organization: config.linkedProject.organizationSlug,
+        project: config.linkedProject.projectSlug,
+        tokenPrefix: config.linkedProject.tokenPrefix,
+        storage: config.linkedProject.storage,
+        expiresAt: config.linkedProject.expiresAt || null,
+      };
+    }
+
     // If a specific key is requested, extract it
     if (key) {
       let value = getNestedValue(displayConfig, key);
@@ -115,6 +125,10 @@ export async function configCommand(
 
       if (displayConfig.api) {
         displaySection(output, 'API', displayConfig.api);
+      }
+
+      if (displayConfig.linkedProject) {
+        displaySection(output, 'Linked Project', displayConfig.linkedProject);
       }
     } else {
       output.hint('Use --verbose to see all configuration options');

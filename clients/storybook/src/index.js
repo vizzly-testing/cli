@@ -139,7 +139,8 @@ export async function run(storybookPath, options = {}, context = {}) {
           commit = process.env.VIZZLY_COMMIT_SHA || undefined;
           message = process.env.VIZZLY_COMMIT_MESSAGE || undefined;
           buildName =
-            vizzlyConfig?.build?.name || `Storybook ${new Date().toISOString()}`;
+            vizzlyConfig?.build?.name ||
+            `Storybook ${new Date().toISOString()}`;
           pullRequestNumber = process.env.VIZZLY_PR_NUMBER
             ? parseInt(process.env.VIZZLY_PR_NUMBER, 10)
             : undefined;

@@ -8,8 +8,14 @@ function createDeps(overrides = {}) {
       throw new Error('spawn should not be called in createBuild tests');
     },
     createApiClient: () => ({}),
-    createApiBuild: async () => ({ id: 'api-build-123' }),
-    getBuild: async () => ({ id: 'api-build-123' }),
+    createApiBuild: async () => ({
+      id: 'api-build-123',
+      url: 'https://app.vizzly.dev/org/project/builds/api-build-123',
+    }),
+    getBuild: async () => ({
+      id: 'api-build-123',
+      url: 'https://app.vizzly.dev/org/project/builds/api-build-123',
+    }),
     finalizeApiBuild: async () => {},
     output: {
       debug: () => {},
@@ -42,6 +48,10 @@ describe('services/test-runner', () => {
         {},
         { deps }
       );
+      let buildEvents = [];
+      testRunner.on('build-created', event => {
+        buildEvents.push(event);
+      });
 
       let buildId = await testRunner.createBuild(
         {
@@ -54,6 +64,12 @@ describe('services/test-runner', () => {
       );
 
       assert.strictEqual(buildId, 'api-build-123');
+      assert.deepStrictEqual(buildEvents, [
+        {
+          buildId: 'api-build-123',
+          url: 'https://app.vizzly.dev/org/project/builds/api-build-123',
+        },
+      ]);
       assert.deepStrictEqual(writtenSessions, [
         {
           buildId: 'api-build-123',

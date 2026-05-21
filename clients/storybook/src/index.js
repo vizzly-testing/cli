@@ -128,7 +128,7 @@ export async function run(storybookPath, options = {}, context = {}) {
           branch = gitInfo.branch;
           commit = gitInfo.commit;
           message = gitInfo.message;
-          buildName = gitInfo.buildName;
+          buildName = vizzlyConfig?.build?.name || gitInfo.buildName;
           pullRequestNumber = gitInfo.prNumber;
         } else {
           // Fallback for older CLI versions - use environment variables
@@ -138,7 +138,8 @@ export async function run(storybookPath, options = {}, context = {}) {
           branch = process.env.VIZZLY_BRANCH || 'main';
           commit = process.env.VIZZLY_COMMIT_SHA || undefined;
           message = process.env.VIZZLY_COMMIT_MESSAGE || undefined;
-          buildName = `Storybook ${new Date().toISOString()}`;
+          buildName =
+            vizzlyConfig?.build?.name || `Storybook ${new Date().toISOString()}`;
           pullRequestNumber = process.env.VIZZLY_PR_NUMBER
             ? parseInt(process.env.VIZZLY_PR_NUMBER, 10)
             : undefined;

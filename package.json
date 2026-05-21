@@ -1,11 +1,14 @@
 {
   "name": "@vizzly-testing/cli",
   "version": "0.30.0",
-  "description": "Visual review platform for UI developers and designers",
+  "description": "Reviewed UI context for people and LLM agents",
   "keywords": [
+    "llm-context",
+    "ui-context",
+    "visual-context",
+    "approved-baselines",
     "visual-testing",
     "screenshot-testing",
-    "visual-regression",
     "visual-review",
     "ui-testing",
     "collaboration",

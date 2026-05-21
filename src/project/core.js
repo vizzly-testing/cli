@@ -68,8 +68,8 @@ export function buildBuildsUrl(projectSlug, options = {}) {
  * @param {string} [tokenId] - Optional token ID for specific token operations
  * @returns {string} API URL path
  */
-export function buildTokensUrl(organizationSlug, projectSlug, tokenId) {
-  let base = `/api/cli/organizations/${organizationSlug}/projects/${projectSlug}/tokens`;
+export function buildTokensUrl(_organizationSlug, projectSlug, tokenId) {
+  let base = `/api/project/${projectSlug}/tokens`;
   return tokenId ? `${base}/${tokenId}` : base;
 }
 

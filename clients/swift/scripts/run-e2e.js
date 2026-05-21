@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -16,6 +16,7 @@ if (!existsSync(distCliPath)) {
 }
 
 let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-swift-e2e-'));
+let vizzlyHome = join(tempDir, '.vizzly-home');
 let swiftTestCommand = [
   'cd',
   JSON.stringify(swiftPackageDir),
@@ -26,6 +27,36 @@ let swiftTestCommand = [
   'VizzlyE2ETests',
 ].join(' ');
 
+function cleanupAndExit(code = 1) {
+  rmSync(tempDir, { recursive: true, force: true });
+  process.exit(code);
+}
+
+function printLocalContext() {
+  let contextResult = spawnSync(
+    process.execPath,
+    [cliPath, 'context', 'build', 'current', '--source', 'local', '--agent'],
+    {
+      cwd: tempDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        VIZZLY_HOME: vizzlyHome,
+      },
+    }
+  );
+
+  if (contextResult.stdout) {
+    process.stdout.write(contextResult.stdout);
+  }
+
+  if (contextResult.stderr) {
+    process.stderr.write(contextResult.stderr);
+  }
+
+  return contextResult.status ?? 1;
+}
+
 let child = spawn(
   process.execPath,
   [cliPath, 'tdd', 'run', swiftTestCommand, '--no-color'],
@@ -35,18 +66,21 @@ let child = spawn(
     env: {
       ...process.env,
       VIZZLY_E2E: '1',
-      VIZZLY_HOME: join(tempDir, '.vizzly-home'),
+      VIZZLY_HOME: vizzlyHome,
     },
   }
 );
 
 child.on('exit', code => {
-  rmSync(tempDir, { recursive: true, force: true });
-  process.exit(code ?? 1);
+  if (code !== 0) {
+    cleanupAndExit(code ?? 1);
+  }
+
+  let contextStatus = printLocalContext();
+  cleanupAndExit(contextStatus);
 });
 
 child.on('error', error => {
-  rmSync(tempDir, { recursive: true, force: true });
   console.error(error);
-  process.exit(1);
+  cleanupAndExit(1);
 });

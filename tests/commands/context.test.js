@@ -239,6 +239,271 @@ describe('commands/context', () => {
       assert.ok(printLines.some(line => line.includes('Dashboard CHANGED')));
       assert.ok(printLines.some(line => line.includes('Settings NEW')));
     });
+
+    it('renders canonical build context from the app without legacy review fields', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            resource: 'build_context',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'storybook' },
+            },
+            build: {
+              id: 'build-1',
+              name: 'Context Store Build',
+              status: 'completed',
+            },
+            baseline: {
+              selected: {
+                id: 'baseline-build',
+                name: 'Approved Main',
+                approval_status: 'approved',
+              },
+              selection_reason: 'common_ancestor',
+            },
+            status: {
+              needs_review: true,
+              pending_comparisons: 1,
+              unresolved_comments: 2,
+            },
+            summary: {
+              review: { pending: 1, approved: 4, rejected: 0 },
+              comments: { build: 1, screenshot: 2 },
+            },
+            preview: { status: 'ready', url: 'https://preview.test' },
+            screenshots: [{ id: 'ss-1', name: 'Dashboard' }],
+            comparisons: [
+              {
+                id: 'cmp-1',
+                screenshot_name: 'Dashboard',
+                result: 'changed',
+                needs_review: true,
+                diff: {
+                  percentage: 0.42,
+                  fingerprint_hash: 'fp-dashboard',
+                },
+              },
+            ],
+            comments: {
+              build: [{ id: 'comment-1' }],
+              screenshot_count: 2,
+            },
+            links: { build_url: 'https://app.test/acme/storybook/builds/1' },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let labels = output.calls.filter(call => call.method === 'labelValue');
+      assert.ok(
+        labels.some(
+          call =>
+            call.args[0] === 'Baseline' &&
+            call.args[1].includes('Approved Main')
+        )
+      );
+      assert.ok(
+        labels.some(
+          call =>
+            call.args[0] === 'Needs Review' && call.args[1].includes('yes')
+        )
+      );
+
+      let printLines = output.calls
+        .filter(call => call.method === 'print')
+        .map(call => call.args[0]);
+      assert.ok(printLines.some(line => line.includes('Dashboard CHANGED')));
+      assert.ok(printLines.some(line => line.includes('needs review')));
+    });
+
+    it('prints compact agent context for local and cloud build handoff', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'current',
+        { source: 'local', agent: true },
+        {},
+        {
+          loadConfig: async () => ({
+            apiUrl: 'https://api.test',
+          }),
+          resolveContextSource: () => 'local',
+          createLocalWorkspaceContextProvider: () => ({
+            getBuildContext: async () => ({
+              resource: 'build_context',
+              source: 'local_workspace',
+              scope: {
+                organization: { slug: 'local' },
+                project: { slug: 'web' },
+              },
+              build: {
+                id: 'local-build',
+                name: 'local-build',
+                status: 'completed',
+              },
+              baseline: {
+                selected: {
+                  id: 'baseline-build',
+                  name: 'Approved Main',
+                  approval_status: 'approved',
+                },
+              },
+              status: { needs_review: true, pending_comparisons: 1 },
+              links: {
+                report_url:
+                  'file:///tmp/vizzly-local-workspace/.vizzly/report/index.html',
+              },
+              comparisons: [
+                {
+                  screenshot_name: 'Dashboard',
+                  result: 'changed',
+                  diff: {
+                    percentage: 1.2,
+                    image_url: '/images/diffs/dashboard.png',
+                  },
+                },
+              ],
+            }),
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let agentOutput = output.calls
+        .filter(call => call.method === 'print')
+        .map(call => call.args[0])
+        .join('\n');
+
+      assert.ok(agentOutput.includes('Vizzly Visual Context'));
+      assert.ok(agentOutput.includes('Approved baseline: Approved Main'));
+      assert.ok(agentOutput.includes('Report: file:///tmp/vizzly-local'));
+      assert.ok(agentOutput.includes('Dashboard: changed'));
+      assert.ok(agentOutput.includes('approved baselines as visual truth'));
+    });
+
+    it('prints reviewed screenshot names for all-green agent context', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'current',
+        { source: 'local', agent: true },
+        {},
+        {
+          loadConfig: async () => ({
+            apiUrl: 'https://api.test',
+          }),
+          resolveContextSource: () => 'local',
+          createLocalWorkspaceContextProvider: () => ({
+            getBuildContext: async () => ({
+              resource: 'build_context',
+              source: 'local_workspace',
+              scope: {
+                organization: { slug: 'local' },
+                project: { slug: 'web' },
+              },
+              build: {
+                id: 'local-build',
+                name: 'local-build',
+                status: 'completed',
+              },
+              baseline: {
+                selected: {
+                  id: 'baseline-build',
+                  name: 'Approved Main',
+                  approval_status: 'approved',
+                },
+              },
+              status: { needs_review: false, pending_comparisons: 0 },
+              comparisons: [
+                {
+                  screenshot_name: 'Dashboard',
+                  result: 'identical',
+                  approval_status: 'approved',
+                },
+                {
+                  screenshot_name: 'Settings',
+                  result: 'identical',
+                  approval_status: 'approved',
+                },
+              ],
+            }),
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let agentOutput = output.calls
+        .filter(call => call.method === 'print')
+        .map(call => call.args[0])
+        .join('\n');
+
+      assert.ok(agentOutput.includes('## Reviewed Screenshots'));
+      assert.ok(agentOutput.includes('Dashboard: identical'));
+      assert.ok(agentOutput.includes('Settings: identical'));
+    });
+
+    it('includes status-only failed comparisons in agent evidence', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true },
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            resource: 'build_context',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'web' },
+            },
+            build: {
+              id: 'build-1',
+              name: 'build-1',
+              status: 'completed',
+            },
+            status: { needs_review: true, pending_comparisons: 1 },
+            comparisons: [
+              {
+                screenshot_name: 'Checkout',
+                status: 'failed',
+                needs_review: true,
+                diff_percentage: 0.8,
+              },
+            ],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let agentOutput = output.calls
+        .filter(call => call.method === 'print')
+        .map(call => call.args[0])
+        .join('\n');
+
+      assert.ok(agentOutput.includes('## Evidence To Inspect'));
+      assert.ok(agentOutput.includes('Checkout: failed'));
+      assert.ok(agentOutput.includes('0.8% diff'));
+    });
   });
 
   describe('contextComparisonCommand', () => {

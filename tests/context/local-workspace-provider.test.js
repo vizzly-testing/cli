@@ -61,6 +61,52 @@ describe('context/local-workspace-provider', () => {
     );
   });
 
+  it('resolves dashboard image URLs to local files when no server is running', () => {
+    let projectRoot = '/tmp/vizzly-local-files';
+    let paths = createWorkspacePaths(projectRoot);
+
+    let provider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      {
+        readJsonIfExists: path => {
+          if (path === paths.report) {
+            return {
+              comparisons: [
+                {
+                  id: 'comp-1',
+                  name: 'Dashboard',
+                  originalName: 'Dashboard',
+                  status: 'failed',
+                  current: '/images/current/dashboard.png',
+                  baseline: '/images/baselines/dashboard.png',
+                  diff: '/images/diffs/dashboard.png',
+                  properties: {},
+                },
+              ],
+            };
+          }
+
+          if (path === paths.comparisonDetails) {
+            return {};
+          }
+
+          return null;
+        },
+      }
+    );
+
+    let context = provider.getComparisonContext('comp-1');
+
+    assert.strictEqual(
+      context.comparison.diff.image_url,
+      join(projectRoot, '.vizzly', 'diffs', 'dashboard.png')
+    );
+    assert.strictEqual(
+      context.comparison.screenshot.original_url,
+      join(projectRoot, '.vizzly', 'current', 'dashboard.png')
+    );
+  });
+
   it('reuses one snapshot across availability and lookup calls', () => {
     let projectRoot = '/tmp/vizzly-local-cache';
     let paths = createWorkspacePaths(projectRoot);
@@ -144,5 +190,125 @@ describe('context/local-workspace-provider', () => {
 
     assert.strictEqual(context.summary.total, 80);
     assert.strictEqual(context.comparisons.length, 50);
+  });
+
+  it('exposes the static report URL when a local report exists', () => {
+    let projectRoot = '/tmp/vizzly-local-report';
+    let paths = createWorkspacePaths(projectRoot);
+    let reportHtmlPath = join(projectRoot, '.vizzly', 'report', 'index.html');
+
+    let provider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      {
+        existsSync: path => path === reportHtmlPath,
+        readJsonIfExists: path => {
+          if (path === paths.report) {
+            return {
+              comparisons: [
+                {
+                  id: 'comp-1',
+                  name: 'Dashboard',
+                  originalName: 'Dashboard',
+                  status: 'passed',
+                  current: '/images/current/dashboard.png',
+                  baseline: '/images/baselines/dashboard.png',
+                  diff: null,
+                  properties: {},
+                },
+              ],
+            };
+          }
+
+          if (path === paths.comparisonDetails) {
+            return {};
+          }
+
+          return null;
+        },
+      }
+    );
+
+    let context = provider.getBuildContext('current');
+
+    assert.strictEqual(
+      context.links.report_url,
+      'file:///tmp/vizzly-local-report/.vizzly/report/index.html'
+    );
+  });
+
+  it('exposes local baseline truth and review status in build context', () => {
+    let projectRoot = '/tmp/vizzly-local-baseline-context';
+    let paths = createWorkspacePaths(projectRoot);
+
+    let provider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      {
+        readJsonIfExists: path => {
+          if (path === paths.report) {
+            return {
+              comparisons: [
+                {
+                  id: 'comp-1',
+                  name: 'Dashboard',
+                  originalName: 'Dashboard',
+                  status: 'failed',
+                  current: '/images/current/dashboard.png',
+                  baseline: '/images/baselines/dashboard.png',
+                  diff: '/images/diffs/dashboard.png',
+                  diffPercentage: 1.2,
+                  properties: {
+                    browser: 'firefox',
+                    viewport_width: 1440,
+                    viewport_height: 900,
+                  },
+                },
+              ],
+            };
+          }
+
+          if (path === paths.baselineMetadata) {
+            return {
+              buildId: 'approved-main',
+              buildName: 'Approved Main',
+              branch: 'main',
+              createdAt: '2026-05-20T12:00:00Z',
+              buildInfo: {
+                commitSha: 'abc123',
+                approvalStatus: 'approved',
+                completedAt: '2026-05-20T12:01:00Z',
+              },
+            };
+          }
+
+          if (path === paths.comparisonDetails) {
+            return {
+              'comp-1': {
+                diffClusters: [
+                  {
+                    pixelCount: 42,
+                    boundingBox: { x: 10, y: 20, width: 30, height: 40 },
+                  },
+                ],
+              },
+            };
+          }
+
+          return null;
+        },
+      }
+    );
+
+    let context = provider.getBuildContext('current');
+
+    assert.strictEqual(context.baseline.selected.id, 'approved-main');
+    assert.strictEqual(context.baseline.selected.approval_status, 'approved');
+    assert.strictEqual(context.status.needs_review, true);
+    assert.strictEqual(context.status.pending_comparisons, 1);
+    assert.strictEqual(
+      context.screenshots[0].baseline.build_id,
+      'approved-main'
+    );
+    assert.strictEqual(context.comparisons[0].needs_review, true);
+    assert.strictEqual(context.comparisons[0].diff.regions.length, 1);
   });
 });

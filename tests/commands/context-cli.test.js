@@ -146,7 +146,7 @@ describe('context CLI integration', () => {
 
     assert.notStrictEqual(result.code, 0);
     assert.ok(!result.stderr.includes("unknown command 'build'"));
-    assert.ok(result.stderr.includes('API token required'));
+    assert.ok(result.stderr.includes('vizzly login'));
   });
 
   it('reads local build context without requiring an API token', async () => {

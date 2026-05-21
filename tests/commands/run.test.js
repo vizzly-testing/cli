@@ -294,6 +294,13 @@ describe('commands/run', () => {
       assert.ok(output.calls.some(c => c.method === 'complete'));
       // Now uses print for screenshot summary
       assert.ok(output.calls.some(c => c.method === 'print'));
+      assert.ok(
+        output.calls.some(
+          c =>
+            c.method === 'print' &&
+            c.args[0].includes('vizzly context build build-123 --agent')
+        )
+      );
     });
 
     it('handles test command failure with exit code', async () => {

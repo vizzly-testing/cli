@@ -65,6 +65,10 @@ function createMockTddService(overrides = {}) {
     async acceptBaseline(comparison) {
       return overrides.acceptBaseline?.(comparison) ?? { success: true };
     }
+
+    clearRunData() {
+      return overrides.clearRunData?.();
+    }
   };
 }
 
@@ -90,6 +94,11 @@ function createMockDeps(overrides = {}) {
       overrides.writeFileSync ??
       ((path, content) => {
         fileSystem[path] = content;
+      }),
+    unlinkSync:
+      overrides.unlinkSync ??
+      (path => {
+        delete fileSystem[path];
       }),
     join: overrides.join ?? ((...parts) => parts.join('/')),
     resolve: overrides.resolve ?? (path => path.replace('file://', '')),
@@ -521,6 +530,39 @@ describe('server/handlers/tdd-handler', () => {
         await handler.initialize();
 
         assert.strictEqual(loadCalled, true);
+      });
+
+      it('clears stale run artifacts before loading baselines', async () => {
+        let clearRunCalled = false;
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            clearRunData: () => {
+              clearRunCalled = true;
+            },
+            loadBaseline: () => ({ buildName: 'Local Build' }),
+          },
+        });
+        deps._fileSystem['/test/.vizzly/report-data.json'] = JSON.stringify({
+          comparisons: [{ id: 'stale-comparison' }],
+        });
+        deps._fileSystem['/test/.vizzly/comparison-details.json'] =
+          JSON.stringify({
+            'stale-comparison': { diffClusters: [{ x: 1 }] },
+          });
+
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        await handler.initialize();
+
+        assert.strictEqual(clearRunCalled, true);
+        assert.strictEqual(
+          deps._fileSystem['/test/.vizzly/report-data.json'],
+          undefined
+        );
+        assert.strictEqual(
+          deps._fileSystem['/test/.vizzly/comparison-details.json'],
+          undefined
+        );
       });
     });
 

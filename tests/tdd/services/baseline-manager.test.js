@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   baselineExists,
   clearBaselineData,
+  clearRunData,
   getBaselinePath,
   getCurrentPath,
   getDiffPath,
@@ -83,6 +84,24 @@ describe('tdd/services/baseline-manager', () => {
       assert.ok(!existsSync(join(paths.baselinePath, 'test.png')));
       assert.ok(!existsSync(join(paths.currentPath, 'test.png')));
       assert.ok(!existsSync(join(paths.diffPath, 'test.png')));
+    });
+  });
+
+  describe('clearRunData', () => {
+    it('removes current and diff artifacts without deleting baselines', () => {
+      let paths = initializeDirectories(testDir);
+
+      writeFileSync(join(paths.baselinePath, 'approved.png'), 'baseline');
+      writeFileSync(join(paths.currentPath, 'stale-current.png'), 'current');
+      writeFileSync(join(paths.diffPath, 'stale-diff.png'), 'diff');
+
+      clearRunData(paths);
+
+      assert.ok(existsSync(join(paths.baselinePath, 'approved.png')));
+      assert.ok(existsSync(paths.currentPath));
+      assert.ok(existsSync(paths.diffPath));
+      assert.ok(!existsSync(join(paths.currentPath, 'stale-current.png')));
+      assert.ok(!existsSync(join(paths.diffPath, 'stale-diff.png')));
     });
   });
 

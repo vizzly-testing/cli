@@ -261,7 +261,9 @@ export async function loginCommand(
     }
 
     output.blank();
-    output.hint('You can now use Vizzly CLI commands without VIZZLY_TOKEN');
+    output.hint(
+      'Run "vizzly project link <org>/<project>" to enable cloud uploads'
+    );
 
     output.cleanup();
   } catch (error) {

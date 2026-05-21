@@ -18,6 +18,7 @@ import { VizzlyError } from '../errors/vizzly-error.js';
 import {
   cancelTests,
   createBuild,
+  fetchBuildUrl,
   finalizeBuild,
   initializeDaemon,
   runTests,
@@ -95,6 +96,7 @@ export class TestRunner extends EventEmitter {
   }
 
   async createBuild(options, tdd) {
+    let createdApiBuild = null;
     let buildId = await createBuild({
       runOptions: options,
       tdd,
@@ -102,12 +104,27 @@ export class TestRunner extends EventEmitter {
       deps: {
         buildManager: this.buildManager,
         createApiClient: this.deps.createApiClient,
-        createApiBuild: this.deps.createApiBuild,
+        createApiBuild: async (client, payload) => {
+          createdApiBuild = await this.deps.createApiBuild(client, payload);
+          return createdApiBuild;
+        },
         output: this.deps.output,
       },
     });
 
     if (!tdd && buildId) {
+      let buildUrl =
+        createdApiBuild?.url ||
+        (await fetchBuildUrl({
+          buildId,
+          config: this.config,
+          deps: {
+            createApiClient: this.deps.createApiClient,
+            getBuild: this.deps.getBuild,
+            output: this.deps.output,
+          },
+        }));
+
       let writeSession = this.deps.writeSession || defaultWriteSession;
       writeSession({
         buildId,
@@ -115,6 +132,8 @@ export class TestRunner extends EventEmitter {
         commit: options?.commit,
         parallelId: options?.parallelId,
       });
+
+      this.emit('build-created', { buildId, url: buildUrl });
     }
 
     return buildId;

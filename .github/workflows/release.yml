@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       version_type:
-        description: 'Version bump type'
+        description: 'Version bump type, or current to publish the package.json version'
         required: true
         default: 'patch'
         type: choice
         options:
+          - current
           - patch
           - minor
           - major
@@ -48,13 +49,19 @@ jobs:
       - name: Bump version
         id: version
         run: |
-          npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
+          if [ "${{ github.event.inputs.version_type }}" != "current" ]; then
+            npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
+          fi
 
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          echo "new_version=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          NEW_VERSION="v$PACKAGE_VERSION"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
-          git add package.json package-lock.json
-          git commit -m "🔖 v$NEW_VERSION"
+          if [ "${{ github.event.inputs.version_type }}" != "current" ]; then
+            git add package.json package-lock.json
+            git commit -m "🔖 v$PACKAGE_VERSION"
+          fi
 
       - name: Get previous published version
         id: prev_version
@@ -87,6 +94,13 @@ jobs:
             echo "**Full Changelog**: $CHANGELOG_URL"
             echo 'RELEASE_EOF'
           } >> $GITHUB_OUTPUT
+
+      - name: Verify package version is unpublished
+        run: |
+          if npm view @vizzly-testing/cli@${{ steps.version.outputs.package_version }} version >/dev/null 2>&1; then
+            echo "@vizzly-testing/cli@${{ steps.version.outputs.package_version }} is already published"
+            exit 1
+          fi
 
       - name: Publish to NPM
         run: npm publish --provenance --access public

@@ -19,6 +19,7 @@ import {
   getBatchHotspots as defaultGetBatchHotspots,
   getBuilds as defaultGetBuilds,
   getComparison as defaultGetComparison,
+  getComparisonContext as defaultGetComparisonContext,
   getTddBaselines as defaultGetTddBaselines,
 } from '../api/index.js';
 import { NetworkError } from '../errors/vizzly-error.js';
@@ -132,6 +133,7 @@ export class TddService {
         getTddBaselines: defaultGetTddBaselines,
         getBuilds: defaultGetBuilds,
         getComparison: defaultGetComparison,
+        getComparisonContext: defaultGetComparisonContext,
         getBatchHotspots: defaultGetBatchHotspots,
         fetchWithTimeout: defaultFetchWithTimeout,
         getDefaultBranch: defaultGetDefaultBranch,
@@ -252,6 +254,7 @@ export class TddService {
       getTddBaselines,
       getBuilds,
       getComparison,
+      getComparisonContext,
       clearBaselineData,
       generateScreenshotSignature,
       generateBaselineFilename,
@@ -321,10 +324,25 @@ export class TddService {
         }
 
         baselineBuild.screenshots = apiResponse.screenshots;
+        this.saveDynamicMetadataFromBaselineResponse(apiResponse);
       } else if (comparisonId) {
         // Handle specific comparison download
         output.info(`Using comparison: ${comparisonId}`);
         let comparison = await getComparison(this.client, comparisonId);
+        let comparisonContext = null;
+        if (!comparison.dynamic_content && getComparisonContext) {
+          try {
+            comparisonContext = await getComparisonContext(
+              this.client,
+              comparisonId
+            );
+          } catch (error) {
+            output.debug(
+              'tdd',
+              `comparison context unavailable for ${comparisonId}: ${error.message}`
+            );
+          }
+        }
 
         if (!comparison.baseline_screenshot) {
           throw new Error(
@@ -370,6 +388,11 @@ export class TddService {
 
         let screenshotName =
           comparison.baseline_name || comparison.current_name;
+        let dynamicContent = comparison.dynamic_content || {
+          hotspot_analysis: comparisonContext?.history?.hotspot_analysis,
+          confirmed_regions: comparisonContext?.history?.confirmed_regions,
+        };
+        this.saveDynamicMetadataForScreenshot(screenshotName, dynamicContent);
         let signature = generateScreenshotSignature(
           screenshotName,
           screenshotProperties,
@@ -430,30 +453,7 @@ export class TddService {
 
         baselineBuild = apiResponse.build;
         baselineBuild.screenshots = apiResponse.screenshots;
-
-        // Store bundled hotspots and regions from API response
-        if (
-          apiResponse.hotspots &&
-          Object.keys(apiResponse.hotspots).length > 0
-        ) {
-          this.hotspotData = apiResponse.hotspots;
-          saveHotspotMetadata(
-            this.workingDir,
-            apiResponse.hotspots,
-            apiResponse.summary
-          );
-        }
-        if (
-          apiResponse.regions &&
-          Object.keys(apiResponse.regions).length > 0
-        ) {
-          this.regionData = apiResponse.regions;
-          saveRegionMetadata(
-            this.workingDir,
-            apiResponse.regions,
-            apiResponse.summary
-          );
-        }
+        this.saveDynamicMetadataFromBaselineResponse(apiResponse);
       }
 
       let buildDetails = baselineBuild;
@@ -684,6 +684,57 @@ export class TddService {
     }
   }
 
+  saveDynamicMetadataFromBaselineResponse(apiResponse = {}) {
+    let { saveHotspotMetadata, saveRegionMetadata } = this._deps;
+    let hasHotspots = Object.keys(apiResponse.hotspots || {}).length > 0;
+    let hasRegions = Object.keys(apiResponse.regions || {}).length > 0;
+
+    if (hasHotspots) {
+      this.hotspotData = apiResponse.hotspots;
+      saveHotspotMetadata(
+        this.workingDir,
+        apiResponse.hotspots,
+        apiResponse.summary
+      );
+    }
+
+    if (hasRegions) {
+      this.regionData = apiResponse.regions;
+      saveRegionMetadata(
+        this.workingDir,
+        apiResponse.regions,
+        apiResponse.summary
+      );
+    }
+  }
+
+  saveDynamicMetadataForScreenshot(screenshotName, dynamicContent = {}) {
+    if (!screenshotName) {
+      return;
+    }
+
+    let hotspotAnalysis = dynamicContent.hotspot_analysis;
+    let confirmedRegions = dynamicContent.confirmed_regions || [];
+    let hasHotspotAnalysis = hotspotAnalysis?.total_builds_analyzed > 0;
+    let hasConfirmedRegions = confirmedRegions.length > 0;
+    let summary = {
+      screenshots: 1,
+      hotspots: hasHotspotAnalysis ? 1 : 0,
+      regions: hasConfirmedRegions ? 1 : 0,
+      total_regions: confirmedRegions.length,
+    };
+
+    this.saveDynamicMetadataFromBaselineResponse({
+      hotspots: hasHotspotAnalysis ? { [screenshotName]: hotspotAnalysis } : {},
+      regions: hasConfirmedRegions
+        ? {
+            [screenshotName]: { confirmed: confirmedRegions, candidates: [] },
+          }
+        : {},
+      summary,
+    });
+  }
+
   /**
    * Process already-fetched baseline data (for use when caller handles auth)
    * This allows the baseline router to fetch with a project token and pass the response here
@@ -728,24 +779,7 @@ export class TddService {
 
     let baselineBuild = apiResponse.build;
 
-    // Store bundled hotspots and regions from API response
-    let { saveHotspotMetadata, saveRegionMetadata } = this._deps;
-    if (apiResponse.hotspots && Object.keys(apiResponse.hotspots).length > 0) {
-      this.hotspotData = apiResponse.hotspots;
-      saveHotspotMetadata(
-        this.workingDir,
-        apiResponse.hotspots,
-        apiResponse.summary
-      );
-    }
-    if (apiResponse.regions && Object.keys(apiResponse.regions).length > 0) {
-      this.regionData = apiResponse.regions;
-      saveRegionMetadata(
-        this.workingDir,
-        apiResponse.regions,
-        apiResponse.summary
-      );
-    }
+    this.saveDynamicMetadataFromBaselineResponse(apiResponse);
 
     if (baselineBuild.status === 'failed') {
       output.warn(

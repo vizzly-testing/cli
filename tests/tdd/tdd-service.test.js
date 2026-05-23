@@ -40,6 +40,7 @@ function createMockDeps(overrides = {}) {
     getTddBaselines: async () => null,
     getBuilds: async () => ({ data: [] }),
     getComparison: async () => null,
+    getComparisonContext: async () => null,
     getBatchHotspots: async () => ({ hotspots: {} }),
     fetchWithTimeout: async () => ({
       ok: true,
@@ -60,6 +61,8 @@ function createMockDeps(overrides = {}) {
     upsertScreenshotInMetadata: () => {},
     loadHotspotMetadata: () => null,
     saveHotspotMetadata: () => {},
+    loadRegionMetadata: () => null,
+    saveRegionMetadata: () => {},
   };
 
   let defaultBaseline = {
@@ -1233,6 +1236,185 @@ describe('tdd/tdd-service', () => {
       let tddCall = apiCalls.find(c => c.method === 'getTddBaselines');
       assert.ok(tddCall, 'Should call injected getTddBaselines');
       assert.strictEqual(tddCall.buildId, 'build-123');
+    });
+
+    it('saves bundled dynamic metadata when downloading by buildId', async () => {
+      let savedHotspots = null;
+      let savedRegions = null;
+      let mockDeps = createMockDeps({
+        api: {
+          getDefaultBranch: async () => 'main',
+          getTddBaselines: async () => ({
+            build: {
+              id: 'build-123',
+              name: 'Test Build',
+              status: 'completed',
+            },
+            screenshots: [],
+            signatureProperties: [],
+            hotspots: {
+              Dashboard: {
+                regions: [{ y1: 10, y2: 30 }],
+                confidence: 'high',
+              },
+            },
+            regions: {
+              Dashboard: {
+                confirmed: [{ id: 'region-1', x1: 0, y1: 0, x2: 100, y2: 30 }],
+                candidates: [],
+              },
+            },
+            summary: {
+              screenshots: 1,
+              hotspots: 1,
+              regions: 1,
+              total_regions: 1,
+            },
+          }),
+        },
+        baseline: {
+          clearBaselineData: () => {},
+        },
+        metadata: {
+          saveHotspotMetadata: (_dir, hotspots) => {
+            savedHotspots = hotspots;
+          },
+          saveRegionMetadata: (_dir, regions) => {
+            savedRegions = regions;
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      await service.downloadBaselines('test', null, 'build-123', null);
+
+      assert.deepStrictEqual(savedHotspots.Dashboard.regions, [
+        { y1: 10, y2: 30 },
+      ]);
+      assert.strictEqual(savedRegions.Dashboard.confirmed[0].id, 'region-1');
+      assert.strictEqual(service.hotspotData, savedHotspots);
+      assert.strictEqual(service.regionData, savedRegions);
+    });
+
+    it('saves dynamic metadata when downloading by comparisonId', async () => {
+      let savedHotspots = null;
+      let savedRegions = null;
+      let mockDeps = createMockDeps({
+        api: {
+          getDefaultBranch: async () => 'main',
+          getComparison: async () => ({
+            id: 'comparison-123',
+            current_name: 'Dashboard',
+            baseline_screenshot: {
+              id: 'screenshot-1',
+              build_id: 'build-123',
+              original_url: 'https://cdn.test/baseline.png',
+            },
+            current_viewport_width: 1280,
+            current_viewport_height: 720,
+            current_browser: 'chromium',
+            dynamic_content: {
+              hotspot_analysis: {
+                regions: [{ y1: 20, y2: 40 }],
+                total_builds_analyzed: 4,
+                confidence: 'high',
+              },
+              confirmed_regions: [
+                { id: 'region-1', x1: 0, y1: 20, x2: 200, y2: 40 },
+              ],
+            },
+          }),
+        },
+        baseline: {
+          clearBaselineData: () => {},
+        },
+        metadata: {
+          saveHotspotMetadata: (_dir, hotspots) => {
+            savedHotspots = hotspots;
+          },
+          saveRegionMetadata: (_dir, regions) => {
+            savedRegions = regions;
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      await service.downloadBaselines('test', null, null, 'comparison-123');
+
+      assert.deepStrictEqual(savedHotspots.Dashboard.regions, [
+        { y1: 20, y2: 40 },
+      ]);
+      assert.strictEqual(savedRegions.Dashboard.confirmed[0].id, 'region-1');
+      assert.strictEqual(service.baselineData.buildId, 'build-123');
+    });
+
+    it('falls back to comparison context dynamic metadata when comparison is older shape', async () => {
+      let savedHotspots = null;
+      let savedRegions = null;
+      let contextCalls = 0;
+      let mockDeps = createMockDeps({
+        api: {
+          getDefaultBranch: async () => 'main',
+          getComparison: async () => ({
+            id: 'comparison-123',
+            current_name: 'Dashboard',
+            baseline_screenshot: {
+              id: 'screenshot-1',
+              build_id: 'build-123',
+              original_url: 'https://cdn.test/baseline.png',
+            },
+            current_viewport_width: 1280,
+            current_viewport_height: 720,
+            current_browser: 'chromium',
+          }),
+          getComparisonContext: async (_client, comparisonId) => {
+            contextCalls++;
+            assert.strictEqual(comparisonId, 'comparison-123');
+            return {
+              history: {
+                hotspot_analysis: {
+                  regions: [{ y1: 32, y2: 48 }],
+                  total_builds_analyzed: 3,
+                  confidence: 'high',
+                },
+                confirmed_regions: [
+                  {
+                    id: 'region-from-context',
+                    x1: 10,
+                    y1: 32,
+                    x2: 220,
+                    y2: 48,
+                  },
+                ],
+              },
+            };
+          },
+        },
+        baseline: {
+          clearBaselineData: () => {},
+        },
+        metadata: {
+          saveHotspotMetadata: (_dir, hotspots) => {
+            savedHotspots = hotspots;
+          },
+          saveRegionMetadata: (_dir, regions) => {
+            savedRegions = regions;
+          },
+        },
+      });
+      let service = new TddService({}, '/test', false, null, mockDeps);
+
+      await service.downloadBaselines('test', null, null, 'comparison-123');
+
+      assert.strictEqual(contextCalls, 1);
+      assert.deepStrictEqual(savedHotspots.Dashboard.regions, [
+        { y1: 32, y2: 48 },
+      ]);
+      assert.strictEqual(
+        savedRegions.Dashboard.confirmed[0].id,
+        'region-from-context'
+      );
+      assert.strictEqual(service.baselineData.buildId, 'build-123');
     });
   });
 

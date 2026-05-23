@@ -38,6 +38,9 @@ export async function compareImages(
     diffPath,
     overwrite: true,
     includeClusters: true,
+    includeSSIM: true,
+    includeGMSD: true,
+    clusterMerge: true,
     minClusterSize,
   });
 }
@@ -144,6 +147,11 @@ export function buildFailedComparison(params) {
   } = params;
 
   let diffClusters = honeydiffResult.diffClusters || [];
+  let ssimScore =
+    honeydiffResult.perceptualScore ??
+    honeydiffResult.ssimScore ??
+    honeydiffResult.ssim_score ??
+    null;
   let isFiltered = false;
   let filterReason = 'pixel-diff';
 
@@ -155,7 +163,11 @@ export function buildFailedComparison(params) {
   if (confirmedRegions.length > 0 && diffClusters.length > 0) {
     regionCoverage = calculateRegionCoverage(diffClusters, confirmedRegions);
 
-    if (shouldAutoApproveFromRegions(confirmedRegions, regionCoverage)) {
+    if (
+      shouldAutoApproveFromRegions(confirmedRegions, regionCoverage, {
+        ssimScore,
+      })
+    ) {
       isRegionFiltered = true;
       isFiltered = true;
       filterReason = 'region-filtered';
@@ -210,8 +222,11 @@ export function buildFailedComparison(params) {
           coverage: regionCoverage.coverage,
           clustersInRegions: regionCoverage.clustersInRegions,
           totalClusters: regionCoverage.totalClusters,
+          pixelsInRegions: regionCoverage.pixelsInRegions,
+          totalPixels: regionCoverage.totalPixels,
           matchedRegions: regionCoverage.matchedRegions,
           confirmedCount: confirmedRegions.length,
+          ssimScore,
           isFiltered: isRegionFiltered,
         }
       : null,

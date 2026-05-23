@@ -104,6 +104,8 @@ describe('tdd/core/region-coverage', () => {
         clustersInRegions: 0,
         totalClusters: 0,
         matchedRegions: [],
+        pixelsInRegions: 0,
+        totalPixels: 0,
       });
     });
 
@@ -118,6 +120,8 @@ describe('tdd/core/region-coverage', () => {
         clustersInRegions: 0,
         totalClusters: 0,
         matchedRegions: [],
+        pixelsInRegions: 0,
+        totalPixels: 0,
       });
     });
 
@@ -141,13 +145,13 @@ describe('tdd/core/region-coverage', () => {
       assert.strictEqual(result.totalClusters, 1);
     });
 
-    it('calculates 100% coverage when all clusters in region', () => {
+    it('calculates 100% coverage when all clusters match confirmed region centers', () => {
       let result = calculateRegionCoverage(
         [
-          { boundingBox: { x: 10, y: 10, width: 5, height: 5 } },
-          { boundingBox: { x: 20, y: 20, width: 5, height: 5 } },
+          { boundingBox: { x: 45, y: 45, width: 10, height: 10 } },
+          { boundingBox: { x: 50, y: 45, width: 10, height: 10 } },
         ],
-        [{ x1: 0, y1: 0, x2: 100, y2: 100 }]
+        [{ x1: 45, y1: 45, x2: 55, y2: 55 }]
       );
 
       assert.strictEqual(result.coverage, 1);
@@ -155,7 +159,7 @@ describe('tdd/core/region-coverage', () => {
       assert.strictEqual(result.totalClusters, 2);
     });
 
-    it('calculates 0% coverage when no clusters in region', () => {
+    it('calculates 0% coverage when no clusters match confirmed region centers', () => {
       let result = calculateRegionCoverage(
         [
           { boundingBox: { x: 200, y: 200, width: 5, height: 5 } },
@@ -169,13 +173,24 @@ describe('tdd/core/region-coverage', () => {
       assert.strictEqual(result.totalClusters, 2);
     });
 
-    it('calculates 50% coverage when half clusters in region', () => {
+    it('calculates 0% coverage when a cluster intersects but center does not match', () => {
+      let result = calculateRegionCoverage(
+        [{ boundingBox: { x: 90, y: 90, width: 20, height: 20 } }],
+        [{ x1: 0, y1: 0, x2: 100, y2: 100 }]
+      );
+
+      assert.strictEqual(result.coverage, 0);
+      assert.strictEqual(result.clustersInRegions, 0);
+      assert.strictEqual(result.totalClusters, 1);
+    });
+
+    it('calculates 50% coverage when half the changed pixels match region centers', () => {
       let result = calculateRegionCoverage(
         [
-          { boundingBox: { x: 10, y: 10, width: 5, height: 5 } }, // Inside
-          { boundingBox: { x: 200, y: 200, width: 5, height: 5 } }, // Outside
+          { boundingBox: { x: 45, y: 45, width: 10, height: 10 } },
+          { boundingBox: { x: 200, y: 200, width: 10, height: 10 } },
         ],
-        [{ x1: 0, y1: 0, x2: 100, y2: 100 }]
+        [{ x1: 45, y1: 45, x2: 55, y2: 55 }]
       );
 
       assert.strictEqual(result.coverage, 0.5);
@@ -183,15 +198,37 @@ describe('tdd/core/region-coverage', () => {
       assert.strictEqual(result.totalClusters, 2);
     });
 
+    it('weights coverage by changed pixels instead of cluster count', () => {
+      let result = calculateRegionCoverage(
+        [
+          {
+            boundingBox: { x: 45, y: 45, width: 10, height: 10 },
+            pixelCount: 100,
+          },
+          {
+            boundingBox: { x: 200, y: 200, width: 100, height: 100 },
+            pixelCount: 900,
+          },
+        ],
+        [{ x1: 45, y1: 45, x2: 55, y2: 55 }]
+      );
+
+      assert.strictEqual(result.clustersInRegions, 1);
+      assert.strictEqual(result.totalClusters, 2);
+      assert.strictEqual(result.pixelsInRegions, 100);
+      assert.strictEqual(result.totalPixels, 1000);
+      assert.strictEqual(result.coverage, 0.1);
+    });
+
     it('handles multiple regions', () => {
       let result = calculateRegionCoverage(
         [
-          { boundingBox: { x: 10, y: 10, width: 5, height: 5 } }, // In region 1
-          { boundingBox: { x: 210, y: 210, width: 5, height: 5 } }, // In region 2
+          { boundingBox: { x: 45, y: 45, width: 10, height: 10 } },
+          { boundingBox: { x: 245, y: 245, width: 10, height: 10 } },
         ],
         [
-          { id: 'region-1', x1: 0, y1: 0, x2: 100, y2: 100 },
-          { id: 'region-2', x1: 200, y1: 200, x2: 300, y2: 300 },
+          { id: 'region-1', x1: 45, y1: 45, x2: 55, y2: 55 },
+          { id: 'region-2', x1: 245, y1: 245, x2: 255, y2: 255 },
         ]
       );
 
@@ -205,8 +242,8 @@ describe('tdd/core/region-coverage', () => {
 
     it('tracks matched region ids', () => {
       let result = calculateRegionCoverage(
-        [{ boundingBox: { x: 10, y: 10, width: 5, height: 5 } }],
-        [{ id: 'timestamp-region', x1: 0, y1: 0, x2: 100, y2: 100 }]
+        [{ boundingBox: { x: 45, y: 45, width: 10, height: 10 } }],
+        [{ id: 'timestamp-region', x1: 45, y1: 45, x2: 55, y2: 55 }]
       );
 
       assert.deepStrictEqual(result.matchedRegions, ['timestamp-region']);
@@ -214,8 +251,8 @@ describe('tdd/core/region-coverage', () => {
 
     it('tracks matched region labels when no id', () => {
       let result = calculateRegionCoverage(
-        [{ boundingBox: { x: 10, y: 10, width: 5, height: 5 } }],
-        [{ label: 'avatar', x1: 0, y1: 0, x2: 100, y2: 100 }]
+        [{ boundingBox: { x: 45, y: 45, width: 10, height: 10 } }],
+        [{ label: 'avatar', x1: 45, y1: 45, x2: 55, y2: 55 }]
       );
 
       assert.deepStrictEqual(result.matchedRegions, ['avatar']);
@@ -241,34 +278,55 @@ describe('tdd/core/region-coverage', () => {
       assert.strictEqual(result, false);
     });
 
-    it('returns false when coverage below 80%', () => {
+    it('returns false when coverage is below cloud threshold', () => {
       let result = shouldAutoApproveFromRegions(
         [{ x1: 0, y1: 0, x2: 100, y2: 100 }],
-        { coverage: 0.79 }
+        { coverage: 0.89 },
+        { ssimScore: 0.99 }
       );
       assert.strictEqual(result, false);
     });
 
-    it('returns true when coverage exactly 80%', () => {
+    it('returns false when SSIM is below cloud threshold', () => {
       let result = shouldAutoApproveFromRegions(
         [{ x1: 0, y1: 0, x2: 100, y2: 100 }],
-        { coverage: 0.8 }
+        { coverage: 1 },
+        { ssimScore: 0.94 }
+      );
+      assert.strictEqual(result, false);
+    });
+
+    it('returns false when SSIM is missing', () => {
+      let result = shouldAutoApproveFromRegions(
+        [{ x1: 0, y1: 0, x2: 100, y2: 100 }],
+        { coverage: 1 }
+      );
+      assert.strictEqual(result, false);
+    });
+
+    it('returns true when coverage and SSIM meet cloud thresholds', () => {
+      let result = shouldAutoApproveFromRegions(
+        [{ x1: 0, y1: 0, x2: 100, y2: 100 }],
+        { coverage: 0.9 },
+        { ssimScore: 0.95 }
       );
       assert.strictEqual(result, true);
     });
 
-    it('returns true when coverage above 80%', () => {
+    it('returns true when coverage and SSIM are above cloud thresholds', () => {
       let result = shouldAutoApproveFromRegions(
         [{ x1: 0, y1: 0, x2: 100, y2: 100 }],
-        { coverage: 0.95 }
+        { coverage: 0.95 },
+        { ssimScore: 0.99 }
       );
       assert.strictEqual(result, true);
     });
 
-    it('returns true when coverage is 100%', () => {
+    it('supports custom thresholds', () => {
       let result = shouldAutoApproveFromRegions(
         [{ x1: 0, y1: 0, x2: 100, y2: 100 }],
-        { coverage: 1.0 }
+        { coverage: 0.8 },
+        { ssimScore: 0.9, coverageThreshold: 0.8, ssimThreshold: 0.9 }
       );
       assert.strictEqual(result, true);
     });

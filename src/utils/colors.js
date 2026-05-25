@@ -5,7 +5,7 @@ import { Ansis } from 'ansis';
 
 // =============================================================================
 // Vizzly Observatory Design System Colors
-// Aligned with @vizzly-testing/observatory color tokens
+// Aligned with the reporter design system color tokens.
 // =============================================================================
 
 export let brand = {

@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
-@import '../../../node_modules/@vizzly-testing/observatory/src/styles.css';
-@source "../../../node_modules/@vizzly-testing/observatory/src";
+@import './components/design-system/styles.css';
+@source "./components/design-system";
 
 /* ============================================
    VIZZLY REPORTER - LOCAL STYLES

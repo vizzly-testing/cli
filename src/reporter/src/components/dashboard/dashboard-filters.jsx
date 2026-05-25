@@ -8,13 +8,13 @@ import {
   DeviceTabletIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { FILTER_TYPES, SORT_TYPES } from '../../utils/constants.js';
 import {
   BrowserIcon,
   FilterPill,
   SearchInput,
-} from '@vizzly-testing/observatory';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { FILTER_TYPES, SORT_TYPES } from '../../utils/constants.js';
+} from '../design-system/index.js';
 
 /**
  * Get device icon based on viewport width

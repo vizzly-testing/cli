@@ -21,6 +21,9 @@ import {
   ListBulletIcon,
   MapPinIcon,
 } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { VIEW_MODES } from '../../utils/constants.js';
+import { withImageVersion } from '../../utils/image-url.js';
 import {
   ApprovalButtonGroup,
   Badge,
@@ -42,10 +45,7 @@ import {
   VariantBreadcrumb,
   ViewModeToggle,
   ZoomControls,
-} from '@vizzly-testing/observatory';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { VIEW_MODES } from '../../utils/constants.js';
-import { withImageVersion } from '../../utils/image-url.js';
+} from '../design-system/index.js';
 import { ScreenshotDisplay } from './screenshot-display.jsx';
 
 /**

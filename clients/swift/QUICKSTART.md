@@ -5,7 +5,7 @@ Get visual regression testing in your iOS app in 5 minutes.
 ## 1. Install Vizzly CLI
 
 ```bash
-npm install -g @vizzly-testing/cli
+pnpm install -g @vizzly-testing/cli
 ```
 
 ## 2. Add Swift SDK to Xcode

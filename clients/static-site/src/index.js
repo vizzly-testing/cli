@@ -248,10 +248,12 @@ export async function run(buildPath, options = {}, context = {}) {
         out.blank();
         out.print('  1. Start TDD server first (recommended for local dev):');
         out.hint('     vizzly tdd start');
-        out.hint('     npx vizzly static-site ./dist');
+        out.hint('     pnpm exec vizzly static-site ./dist');
         out.blank();
         out.print('  2. Or set VIZZLY_TOKEN for cloud uploads:');
-        out.hint('     VIZZLY_TOKEN=your-token npx vizzly static-site ./dist');
+        out.hint(
+          '     VIZZLY_TOKEN=your-token pnpm exec vizzly static-site ./dist'
+        );
         out.blank();
       } else {
         // Fallback for testing or when output module not available

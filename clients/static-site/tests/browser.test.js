@@ -119,7 +119,7 @@ describe('browser', () => {
       await assert.rejects(
         () => launchBrowser({ type: 'chromium' }, dependencies),
         {
-          message: /npx playwright install chromium/,
+          message: /pnpm exec playwright install chromium/,
         }
       );
     });
@@ -139,13 +139,13 @@ describe('browser', () => {
 
     it('firefox install error suggests correct browser', async () => {
       let dependencies = createBrowserTypes({
-        firefox: createMissingBrowserType('npx playwright install'),
+        firefox: createMissingBrowserType('playwright install'),
       });
 
       await assert.rejects(
         () => launchBrowser({ type: 'firefox' }, dependencies),
         {
-          message: /npx playwright install firefox/,
+          message: /pnpm exec playwright install firefox/,
         }
       );
     });

@@ -85,16 +85,16 @@ export async function launchBrowser(options = {}) {
     // on message patterns. These patterns cover known Playwright error messages:
     // - "Executable doesn't exist at <path>" (missing browser binary)
     // - "browserType.launch: ..." (launch failure context)
-    // - "npx playwright install" (Playwright's own suggestion in the error)
+    // - "playwright install" (Playwright's own suggestion in the error)
     // - "download new browsers" (alternative phrasing in some versions)
     let isBrowserMissing =
       error.message.includes("Executable doesn't exist") ||
       error.message.includes('browserType.launch') ||
-      error.message.includes('npx playwright install') ||
+      error.message.includes('playwright install') ||
       error.message.includes('download new browsers');
 
     if (isBrowserMissing) {
-      let installCmd = `npx playwright install ${type}`;
+      let installCmd = `pnpm exec playwright install ${type}`;
 
       throw new Error(
         `Browser "${type}" is not installed.\n\n` +

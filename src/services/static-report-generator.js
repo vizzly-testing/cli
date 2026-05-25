@@ -36,7 +36,7 @@ function getReporterDistPath() {
   }
 
   throw new Error(
-    'Reporter bundle not found. Run "npm run build:reporter" first.'
+    'Reporter bundle not found. Run "pnpm run build:reporter" first.'
   );
 }
 
@@ -57,7 +57,7 @@ function getSSRModulePath() {
   }
 
   throw new Error(
-    'SSR module not found. Run "npm run build:reporter-ssr" first.'
+    'SSR module not found. Run "pnpm run build:reporter-ssr" first.'
   );
 }
 

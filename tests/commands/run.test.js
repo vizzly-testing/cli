@@ -137,7 +137,7 @@ describe('commands/run', () => {
       let exitCode = null;
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -162,7 +162,7 @@ describe('commands/run', () => {
       let runTestsCalled = false;
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -199,7 +199,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         { json: true, verbose: true, noColor: true },
         {
@@ -222,7 +222,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         { verbose: true },
         {
@@ -259,7 +259,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -310,7 +310,7 @@ describe('commands/run', () => {
       error.code = 'TEST_COMMAND_FAILED';
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -343,7 +343,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -377,7 +377,7 @@ describe('commands/run', () => {
       let waitForBuildCalled = false;
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         { wait: true },
         {},
         {
@@ -422,7 +422,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         { wait: true },
         {},
         {
@@ -469,7 +469,7 @@ describe('commands/run', () => {
       let removedEvents = [];
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -496,7 +496,7 @@ describe('commands/run', () => {
       let exitCode = null;
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -523,7 +523,7 @@ describe('commands/run', () => {
       let capturedRunOptions = null;
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -565,7 +565,7 @@ describe('commands/run', () => {
       let capturedRunOptions = null;
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {
           branch: 'feature-branch',
           commit: 'def456',
@@ -606,7 +606,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -636,7 +636,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         { verbose: true },
         {
@@ -682,7 +682,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         { verbose: true },
         {
@@ -719,7 +719,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -762,7 +762,7 @@ describe('commands/run', () => {
       error.code = 'TEST_COMMAND_INTERRUPTED';
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -795,7 +795,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -821,7 +821,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -847,7 +847,7 @@ describe('commands/run', () => {
       let output = createMockOutput();
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -878,7 +878,7 @@ describe('commands/run', () => {
       apiError.context = { status: 530 };
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -917,7 +917,7 @@ describe('commands/run', () => {
       apiError.context = { status: 500 };
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -945,7 +945,7 @@ describe('commands/run', () => {
       apiError.context = { status: 400 };
 
       let result = await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -973,7 +973,7 @@ describe('commands/run', () => {
 
       // Start a run that will hang on runTests
       let runPromise = runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -1018,7 +1018,7 @@ describe('commands/run', () => {
       let handlers = {};
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -1057,7 +1057,7 @@ describe('commands/run', () => {
       let processKilled = false;
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -1104,7 +1104,7 @@ describe('commands/run', () => {
       let finalizeCalled = false;
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -1147,7 +1147,7 @@ describe('commands/run', () => {
 
       // Should not throw even when finalizeBuild fails
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -1188,7 +1188,7 @@ describe('commands/run', () => {
       let handlers = {};
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -1228,7 +1228,7 @@ describe('commands/run', () => {
       let capturedOptions = null;
 
       await runCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -1271,7 +1271,7 @@ describe('commands/run', () => {
   describe('validateRunOptions', () => {
     describe('test command validation', () => {
       it('should pass with valid test command', () => {
-        let errors = validateRunOptions('npm test', {});
+        let errors = validateRunOptions('pnpm test', {});
         assert.strictEqual(errors.length, 0);
       });
 
@@ -1293,33 +1293,33 @@ describe('commands/run', () => {
 
     describe('port validation', () => {
       it('should pass with valid port', () => {
-        let errors = validateRunOptions('npm test', { port: '3000' });
+        let errors = validateRunOptions('pnpm test', { port: '3000' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should fail with invalid port number', () => {
-        let errors = validateRunOptions('npm test', { port: 'invalid' });
+        let errors = validateRunOptions('pnpm test', { port: 'invalid' });
         assert.ok(
           errors.includes('Port must be a valid number between 1 and 65535')
         );
       });
 
       it('should fail with decimal port number', () => {
-        let errors = validateRunOptions('npm test', { port: '3000.5' });
+        let errors = validateRunOptions('pnpm test', { port: '3000.5' });
         assert.ok(
           errors.includes('Port must be a valid number between 1 and 65535')
         );
       });
 
       it('should fail with port out of range (too low)', () => {
-        let errors = validateRunOptions('npm test', { port: '0' });
+        let errors = validateRunOptions('pnpm test', { port: '0' });
         assert.ok(
           errors.includes('Port must be a valid number between 1 and 65535')
         );
       });
 
       it('should fail with port out of range (too high)', () => {
-        let errors = validateRunOptions('npm test', { port: '65536' });
+        let errors = validateRunOptions('pnpm test', { port: '65536' });
         assert.ok(
           errors.includes('Port must be a valid number between 1 and 65535')
         );
@@ -1328,26 +1328,26 @@ describe('commands/run', () => {
 
     describe('timeout validation', () => {
       it('should pass with valid timeout', () => {
-        let errors = validateRunOptions('npm test', { timeout: '5000' });
+        let errors = validateRunOptions('pnpm test', { timeout: '5000' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should fail with invalid timeout', () => {
-        let errors = validateRunOptions('npm test', { timeout: 'invalid' });
+        let errors = validateRunOptions('pnpm test', { timeout: 'invalid' });
         assert.ok(
           errors.includes('Timeout must be at least 1000 milliseconds')
         );
       });
 
       it('should fail with decimal timeout', () => {
-        let errors = validateRunOptions('npm test', { timeout: '5000.5' });
+        let errors = validateRunOptions('pnpm test', { timeout: '5000.5' });
         assert.ok(
           errors.includes('Timeout must be at least 1000 milliseconds')
         );
       });
 
       it('should fail with timeout too low', () => {
-        let errors = validateRunOptions('npm test', { timeout: '500' });
+        let errors = validateRunOptions('pnpm test', { timeout: '500' });
         assert.ok(
           errors.includes('Timeout must be at least 1000 milliseconds')
         );
@@ -1356,39 +1356,41 @@ describe('commands/run', () => {
 
     describe('batch size validation', () => {
       it('should pass with valid batch size', () => {
-        let errors = validateRunOptions('npm test', { batchSize: '10' });
+        let errors = validateRunOptions('pnpm test', { batchSize: '10' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should fail with invalid batch size', () => {
-        let errors = validateRunOptions('npm test', { batchSize: 'invalid' });
+        let errors = validateRunOptions('pnpm test', { batchSize: 'invalid' });
         assert.ok(errors.includes('Batch size must be a positive integer'));
       });
 
       it('should fail with decimal batch size', () => {
-        let errors = validateRunOptions('npm test', { batchSize: '2.5' });
+        let errors = validateRunOptions('pnpm test', { batchSize: '2.5' });
         assert.ok(errors.includes('Batch size must be a positive integer'));
       });
 
       it('should fail with zero batch size', () => {
-        let errors = validateRunOptions('npm test', { batchSize: '0' });
+        let errors = validateRunOptions('pnpm test', { batchSize: '0' });
         assert.ok(errors.includes('Batch size must be a positive integer'));
       });
 
       it('should fail with negative batch size', () => {
-        let errors = validateRunOptions('npm test', { batchSize: '-5' });
+        let errors = validateRunOptions('pnpm test', { batchSize: '-5' });
         assert.ok(errors.includes('Batch size must be a positive integer'));
       });
     });
 
     describe('upload timeout validation', () => {
       it('should pass with valid upload timeout', () => {
-        let errors = validateRunOptions('npm test', { uploadTimeout: '30000' });
+        let errors = validateRunOptions('pnpm test', {
+          uploadTimeout: '30000',
+        });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should fail with invalid upload timeout', () => {
-        let errors = validateRunOptions('npm test', {
+        let errors = validateRunOptions('pnpm test', {
           uploadTimeout: 'invalid',
         });
         assert.ok(
@@ -1399,7 +1401,7 @@ describe('commands/run', () => {
       });
 
       it('should fail with decimal upload timeout', () => {
-        let errors = validateRunOptions('npm test', {
+        let errors = validateRunOptions('pnpm test', {
           uploadTimeout: '2500.5',
         });
         assert.ok(
@@ -1410,7 +1412,7 @@ describe('commands/run', () => {
       });
 
       it('should fail with zero upload timeout', () => {
-        let errors = validateRunOptions('npm test', { uploadTimeout: '0' });
+        let errors = validateRunOptions('pnpm test', { uploadTimeout: '0' });
         assert.ok(
           errors.includes(
             'Upload timeout must be a positive integer (milliseconds)'
@@ -1421,7 +1423,7 @@ describe('commands/run', () => {
 
     describe('comparison validation', () => {
       it('should pass with exact-match threshold and min cluster size', () => {
-        let errors = validateRunOptions('npm test', {
+        let errors = validateRunOptions('pnpm test', {
           threshold: '0',
           minClusterSize: '1',
         });
@@ -1430,7 +1432,7 @@ describe('commands/run', () => {
       });
 
       it('should fail with invalid threshold', () => {
-        let errors = validateRunOptions('npm test', {
+        let errors = validateRunOptions('pnpm test', {
           threshold: 'invalid',
         });
 
@@ -1442,7 +1444,7 @@ describe('commands/run', () => {
       });
 
       it('should fail when threshold has trailing text', () => {
-        let errors = validateRunOptions('npm test', {
+        let errors = validateRunOptions('pnpm test', {
           threshold: '2abc',
         });
 
@@ -1454,7 +1456,7 @@ describe('commands/run', () => {
       });
 
       it('should fail with non-integer min cluster size', () => {
-        let errors = validateRunOptions('npm test', {
+        let errors = validateRunOptions('pnpm test', {
           minClusterSize: '2.5',
         });
 
@@ -1464,7 +1466,7 @@ describe('commands/run', () => {
       });
 
       it('should fail with zero min cluster size', () => {
-        let errors = validateRunOptions('npm test', {
+        let errors = validateRunOptions('pnpm test', {
           minClusterSize: '0',
         });
 

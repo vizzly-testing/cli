@@ -214,8 +214,8 @@ function showNextSteps(output) {
   output.labelValue('Next steps', '');
   output.list([
     'Set your API token: export VIZZLY_TOKEN="your-api-key"',
-    'Run your tests with Vizzly: npx vizzly run "npm test"',
-    'Upload screenshots: npx vizzly upload ./screenshots',
+    'Run your tests with Vizzly: pnpm exec vizzly run "pnpm test"',
+    'Upload screenshots: pnpm exec vizzly upload ./screenshots',
   ]);
 }
 

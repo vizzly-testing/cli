@@ -238,7 +238,7 @@ const formatHelp = (cmd, helper) => {
     lines.push('');
     lines.push(`      ${c.dim('# CI pipeline')}`);
     lines.push(
-      `      ${c.gray('$')} ${c.white('vizzly run "npm test" --wait')}`
+      `      ${c.gray('$')} ${c.white('vizzly run "pnpm test" --wait')}`
     );
     lines.push('');
   }
@@ -1421,7 +1421,7 @@ program
   });
 
 // Save user's PATH for menubar app (non-blocking, runs in background)
-// This auto-configures the menubar app so it can find npx/node
+// This auto-configures the menubar app so it can find package runners/node
 saveUserPath().catch(() => {});
 
 let commandNames = new Set(program.commands.map(command => command.name()));

@@ -4,7 +4,7 @@
  * Uses the shared test-site (FluffyCloud) to verify the full screenshot
  * capture flow: page discovery → browser launch → screenshot capture → TDD server.
  *
- * Run with: VIZZLY_E2E=1 npm test -- e2e.test.js
+ * Run with: VIZZLY_E2E=1 pnpm test -- e2e.test.js
  *
  * Requires:
  * - TDD server running: `vizzly tdd start`
@@ -37,6 +37,7 @@ async function stopProcess(child) {
 
 // Paths
 let testDir = join(tmpdir(), `vizzly-static-site-e2e-${Date.now()}`);
+let cliPath = resolve(import.meta.dirname, '../../../bin/vizzly.js');
 let testSitePath = resolve(import.meta.dirname, '../../../test-site');
 
 // Skip E2E tests unless explicitly enabled
@@ -71,7 +72,7 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
       // Create temp directory
       mkdirSync(testDir, { recursive: true });
 
-      tddServer = spawn('npx', ['vizzly', 'tdd', 'start'], {
+      tddServer = spawn('node', [cliPath, 'tdd', 'start'], {
         cwd: testDir,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env, VIZZLY_HOME: testDir },

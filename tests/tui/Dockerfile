@@ -33,7 +33,7 @@ COPY test-site/package.json ./test-site/package.json
 
 # Install dependencies (cached unless package.json/pnpm-lock.yaml changes)
 # Note: tui-driver will be mounted at runtime for local dev
-RUN npm install -g pnpm@11.3.0 && pnpm install --frozen-lockfile
+RUN corepack enable && corepack prepare pnpm@11.3.0 --activate && pnpm install --frozen-lockfile
 
 # Copy build config files
 COPY babel.config.json ./

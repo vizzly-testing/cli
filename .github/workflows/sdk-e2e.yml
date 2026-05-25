@@ -22,7 +22,7 @@ jobs:
           node-version: 22
 
       - name: Install pnpm
-        run: npm install -g pnpm@11.3.0
+        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
 
       - name: Install CLI dependencies
         run: pnpm install --frozen-lockfile
@@ -80,7 +80,7 @@ jobs:
           node-version: 22
 
       - name: Install pnpm
-        run: npm install -g pnpm@11.3.0
+        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
 
       - name: Install CLI dependencies
         run: pnpm install --frozen-lockfile
@@ -139,7 +139,7 @@ jobs:
           node-version: 22
 
       - name: Install pnpm
-        run: npm install -g pnpm@11.3.0
+        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
 
       - name: Install CLI dependencies
         run: pnpm install --frozen-lockfile
@@ -215,7 +215,7 @@ jobs:
           node-version: 22
 
       - name: Install pnpm
-        run: npm install -g pnpm@11.3.0
+        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
 
       - name: Install CLI dependencies
         run: pnpm install --frozen-lockfile
@@ -284,7 +284,7 @@ jobs:
           node-version: 22
 
       - name: Install pnpm
-        run: npm install -g pnpm@11.3.0
+        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
 
       - name: Install CLI dependencies
         run: pnpm install --frozen-lockfile
@@ -349,7 +349,7 @@ jobs:
           node-version: 22
 
       - name: Install pnpm
-        run: npm install -g pnpm@11.3.0
+        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
 
       - name: Install CLI dependencies
         run: pnpm install --frozen-lockfile
@@ -403,7 +403,7 @@ jobs:
           node-version: 22
 
       - name: Install pnpm
-        run: npm install -g pnpm@11.3.0
+        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
 
       - name: Install CLI dependencies
         run: pnpm install --frozen-lockfile

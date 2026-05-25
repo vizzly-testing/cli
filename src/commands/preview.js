@@ -400,7 +400,7 @@ export async function previewCommand(
       output.blank();
       output.print('  Run visual tests first, then upload your preview:');
       output.blank();
-      output.print('    vizzly run "npm test"');
+      output.print('    vizzly run "pnpm test"');
       output.print('    vizzly preview ./dist');
       output.blank();
       output.print('  Or specify a build explicitly:');

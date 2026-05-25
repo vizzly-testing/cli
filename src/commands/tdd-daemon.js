@@ -482,7 +482,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       output.blank();
       output.print(`  ${colors.brand.textTertiary('Next steps')}`);
       output.print(
-        `    ${colors.brand.textMuted('1.')} Run tests in watch mode ${colors.brand.textMuted('(npm test -- --watch)')}`
+        `    ${colors.brand.textMuted('1.')} Run tests in watch mode ${colors.brand.textMuted('(pnpm test -- --watch)')}`
       );
       output.print(
         `    ${colors.brand.textMuted('2.')} Review visual changes in the dashboard`

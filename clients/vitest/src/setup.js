@@ -17,7 +17,7 @@ async function toMatchScreenshot(element, name, options = {}) {
     return {
       pass: true,
       message: () =>
-        'Vizzly not available. Run `vizzly tdd start` or `vizzly run "npm test"` to enable visual testing.',
+        'Vizzly not available. Run `vizzly tdd start` or `vizzly run "pnpm test"` to enable visual testing.',
     };
   }
 
@@ -135,7 +135,7 @@ async function toMatchScreenshot(element, name, options = {}) {
     let errorMessage;
 
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      errorMessage = `Vizzly server not reachable at ${serverUrl}. Is the TDD server running? Run 'vizzly tdd start' or 'vizzly run "npm test"'.`;
+      errorMessage = `Vizzly server not reachable at ${serverUrl}. Is the TDD server running? Run 'vizzly tdd start' or 'vizzly run "pnpm test"'.`;
     } else if (
       error.message.includes('HTTP 500') ||
       error.message.includes('HTTP 502') ||

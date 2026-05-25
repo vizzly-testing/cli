@@ -403,7 +403,7 @@ jobs:
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
         run: |
-          npx vizzly run -- xcodebuild test \
+          pnpm exec vizzly run -- xcodebuild test \
             -scheme MyApp \
             -destination 'platform=iOS Simulator,name=iPhone 15' \
             -resultBundlePath TestResults
@@ -413,7 +413,7 @@ jobs:
 
 ```ruby
 lane :visual_tests do
-  sh "npx vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15'"
+  sh "pnpm exec vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15'"
 end
 ```
 

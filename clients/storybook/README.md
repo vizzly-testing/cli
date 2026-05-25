@@ -7,7 +7,7 @@ changes with position-based comments and review rules.
 ## Installation
 
 ```bash
-npm install @vizzly-testing/storybook
+pnpm install @vizzly-testing/storybook
 ```
 
 The plugin is automatically discovered by the Vizzly CLI via the `@vizzly-testing/*` scope.
@@ -287,7 +287,7 @@ No need to wrap with `vizzly run` - the plugin handles everything!
 
 1. Build your Storybook:
    ```bash
-   npm run build-storybook
+   pnpm run build-storybook
    ```
 
 2. Capture screenshots with Vizzly:

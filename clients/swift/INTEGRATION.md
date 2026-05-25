@@ -9,7 +9,7 @@ Complete guide for adding Vizzly to your iOS app's UI tests.
 The CLI provides the TDD server and cloud upload capabilities.
 
 ```bash
-npm install -g @vizzly-testing/cli
+pnpm install -g @vizzly-testing/cli
 ```
 
 ### 2. Add Swift SDK to Your Project
@@ -306,13 +306,13 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_15.0.app
 
       - name: Install Vizzly CLI
-        run: npm install -g @vizzly-testing/cli
+        run: pnpm install -g @vizzly-testing/cli
 
       - name: Run UI Tests with Vizzly
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
         run: |
-          npx vizzly run -- xcodebuild test \
+          pnpm exec vizzly run -- xcodebuild test \
             -scheme MyApp \
             -destination 'platform=iOS Simulator,name=iPhone 15' \
             -only-testing:MyAppUITests
@@ -324,7 +324,7 @@ Add to your `Fastfile`:
 
 ```ruby
 lane :visual_tests do
-  sh("npx vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15' only_testing:MyAppUITests")
+  sh("pnpm exec vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15' only_testing:MyAppUITests")
 end
 ```
 

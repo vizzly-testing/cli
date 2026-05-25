@@ -9,14 +9,14 @@ Framework integrations and SDK clients live in `clients/` (`storybook`, `static-
 Reference docs are in `docs/`, examples in `examples/`, and built artifacts output to `dist/`.
 
 ## Build, Test, and Development Commands
-- `npm run build`: clean and compile CLI + reporter bundles into `dist/`.
-- `npm test`: run Node test runner suites with coverage enabled.
-- `npm run test:watch`: watch mode for fast local iteration.
-- `npm run test:reporter`: run Playwright reporter workflow tests.
-- `npm run test:types`: validate published type definitions with `tsd`.
-- `npm run lint` / `npm run format:check`: enforce Biome lint/format rules.
-- `npm run fix`: run formatter + safe lint fixes.
-- `npm run cli -- <args>`: run local CLI entrypoint (example: `npm run cli -- status`).
+- `pnpm run build`: clean and compile CLI + reporter bundles into `dist/`.
+- `pnpm test`: run Node test runner suites with coverage enabled.
+- `pnpm run test:watch`: watch mode for fast local iteration.
+- `pnpm run test:reporter`: run Playwright reporter workflow tests.
+- `pnpm run test:types`: validate published type definitions with `tsd`.
+- `pnpm run lint` / `pnpm run format:check`: enforce Biome lint/format rules.
+- `pnpm run fix`: run formatter + safe lint fixes.
+- `pnpm run cli -- <args>`: run local CLI entrypoint (example: `pnpm run cli -- status`).
 
 ## Coding Style & Naming Conventions
 Use ESM JavaScript with top-level imports. Prefer functional modules and explicit inputs/outputs over class-heavy designs.  

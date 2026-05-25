@@ -5,10 +5,10 @@ Visual testing SDK for Ember.js projects using Testem. Capture screenshots from 
 ## Installation
 
 ```bash
-npm install -D @vizzly-testing/ember
+pnpm install -D @vizzly-testing/ember
 
 # Install a Playwright browser
-npx playwright install chromium
+pnpm exec playwright install chromium
 ```
 
 ## Setup
@@ -79,10 +79,10 @@ module('Acceptance | Dashboard', function(hooks) {
 vizzly tdd start
 
 # Build with development mode (includes test files)
-npm run build -- --mode development
+pnpm run build -- --mode development
 
 # Run your tests via Testem
-npx testem ci --file testem.cjs
+pnpm exec testem ci --file testem.cjs
 
 # Or use ember test (which handles the build)
 ember test
@@ -229,9 +229,9 @@ if (isVizzlyAvailable()) {
 Install browsers with:
 
 ```bash
-npx playwright install chromium
-npx playwright install firefox
-npx playwright install webkit
+pnpm exec playwright install chromium
+pnpm exec playwright install firefox
+pnpm exec playwright install webkit
 ```
 
 ## How It Works
@@ -246,13 +246,13 @@ npx playwright install webkit
 
 For CI environments, ensure:
 
-1. Browsers are installed: `npx playwright install chromium`
+1. Browsers are installed: `pnpm exec playwright install chromium`
 2. Vizzly token is set: `VIZZLY_TOKEN=your-token`
 
 ```yaml
 # GitHub Actions example
 - name: Install Playwright
-  run: npx playwright install chromium
+  run: pnpm exec playwright install chromium
 
 - name: Run Tests
   env:
@@ -295,13 +295,13 @@ vizzly tdd start
 Install the required browser:
 
 ```bash
-npx playwright install chromium
+pnpm exec playwright install chromium
 ```
 
 For CI environments, you may need additional dependencies:
 
 ```bash
-npx playwright install-deps chromium
+pnpm exec playwright install-deps chromium
 ```
 
 ## License

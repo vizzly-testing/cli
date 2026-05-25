@@ -5,7 +5,7 @@ Seamlessly integrate your static sites (Gatsby, Astro, Jekyll, Next.js static ex
 ## Installation
 
 ```bash
-npm install @vizzly-testing/static-site
+pnpm install @vizzly-testing/static-site
 ```
 
 The plugin is automatically discovered by the Vizzly CLI via the `@vizzly-testing/*` scope.
@@ -321,7 +321,7 @@ No need to wrap with `vizzly run` - the plugin handles everything!
 
 ```bash
 # Build Gatsby site
-npm run build
+pnpm run build
 
 # Capture screenshots
 vizzly static-site ./public
@@ -331,7 +331,7 @@ vizzly static-site ./public
 
 ```bash
 # Build Astro site
-npm run build
+pnpm run build
 
 # Capture screenshots with custom viewports
 vizzly static-site ./dist --viewports "mobile:375x667,desktop:1920x1080"
@@ -341,7 +341,7 @@ vizzly static-site ./dist --viewports "mobile:375x667,desktop:1920x1080"
 
 ```bash
 # Build and export Next.js site
-npm run build
+pnpm run build
 
 # Capture screenshots
 vizzly static-site ./out
@@ -373,11 +373,11 @@ jobs:
       - uses: actions/setup-node@v3
 
       # Build your static site
-      - run: npm install
-      - run: npm run build
+      - run: pnpm install
+      - run: pnpm run build
 
       # Run visual tests
-      - run: npx @vizzly-testing/cli static-site ./dist
+      - run: pnpm exec vizzly static-site ./dist
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
 ```

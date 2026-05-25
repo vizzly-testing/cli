@@ -317,7 +317,7 @@ jobs:
         working-directory: ./clients/ember/test-app
         run: |
           pnpm install --frozen-lockfile
-          pnpm run build -- --mode development
+          pnpm run build --mode development
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./clients/ember/test-app

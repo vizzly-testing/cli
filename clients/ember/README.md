@@ -79,7 +79,7 @@ module('Acceptance | Dashboard', function(hooks) {
 vizzly tdd start
 
 # Build with development mode (includes test files)
-pnpm run build -- --mode development
+pnpm run build --mode development
 
 # Run your tests via Testem
 pnpm exec testem ci --file testem.cjs

@@ -397,7 +397,7 @@ export async function runCommand(
 
         if (displayUrl) {
           output.print(
-            `  ${colors.brand.textTertiary('Results')}      ${colors.cyan(colors.underline(displayUrl))}`
+            `  ${colors.brand.textTertiary('Results')}      ${colors.info(colors.underline(displayUrl))}`
           );
         } else {
           output.print(

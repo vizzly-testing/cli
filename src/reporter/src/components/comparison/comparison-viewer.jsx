@@ -57,7 +57,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
     return (
       <div className="comparison-viewer new-baseline">
         <div className="text-center py-8">
-          <p className="text-slate-400 text-sm mb-4">
+          <p className="text-[var(--text-tertiary)] text-sm mb-4">
             First screenshot - creating new baseline
           </p>
           <img
@@ -114,7 +114,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
         {viewMode === VIEW_MODES.SIDE_BY_SIDE && (
           <div className="flex gap-4 max-w-full overflow-auto">
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400 mb-2 text-center">
+              <div className="text-xs text-[var(--text-tertiary)] mb-2 text-center">
                 Baseline
               </div>
               <img
@@ -124,7 +124,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
               />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400 mb-2 text-center">
+              <div className="text-xs text-[var(--text-tertiary)] mb-2 text-center">
                 Current
               </div>
               <img

@@ -98,24 +98,24 @@ export default function WaitingForScreenshots() {
       <div className="max-w-2xl w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-5">
-            <ClockIcon className="w-8 h-8 text-amber-400" />
+          <div className="w-16 h-16 rounded-2xl bg-[var(--accent-warning-muted)] flex items-center justify-center mx-auto mb-5">
+            <ClockIcon className="w-8 h-8 text-[var(--accent-warning)]" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
             Waiting for Screenshots
           </h1>
-          <p className="text-slate-400">
+          <p className="text-[var(--text-tertiary)]">
             Run your tests to start capturing visual comparisons
           </p>
-          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-500">
-            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[var(--text-muted)]">
+            <div className="w-2 h-2 rounded-full bg-[var(--accent-brand)] animate-pulse" />
             Listening for screenshots...
           </div>
         </div>
 
         {/* Framework Tabs */}
         <div className="vz-card overflow-hidden">
-          <div className="border-b border-slate-700/50 px-4 pt-4">
+          <div className="border-b border-[var(--vz-border-subtle)] px-4 pt-4">
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide -mb-px">
               {frameworks.map(framework => (
                 <button
@@ -124,8 +124,8 @@ export default function WaitingForScreenshots() {
                   onClick={() => setActiveFramework(framework.id)}
                   className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                     activeFramework === framework.id
-                      ? 'bg-slate-800 text-white border-t border-x border-slate-700/50'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                      ? 'bg-[var(--vz-raised)] text-[var(--text-primary)] border-t border-x border-[var(--vz-border-subtle)]'
+                      : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)]'
                   }`}
                 >
                   {framework.name}
@@ -145,7 +145,7 @@ export default function WaitingForScreenshots() {
             href="https://docs.vizzly.dev/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-amber-400 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-[var(--text-tertiary)] hover:text-[var(--accent-warning)] transition-colors"
           >
             <BookOpenIcon className="w-4 h-4" />
             View full documentation

@@ -9,7 +9,7 @@ import Header from './header.jsx';
 
 export default function Layout({ children, currentView, onNavigate, loading }) {
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
+    <div className="min-h-screen bg-[var(--vz-bg)] flex flex-col">
       <Header
         currentView={currentView}
         onNavigate={onNavigate}

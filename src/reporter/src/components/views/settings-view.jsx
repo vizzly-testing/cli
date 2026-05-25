@@ -70,7 +70,7 @@ function SourceBadge({ source }) {
   let variants = {
     default: 'default',
     project: 'info',
-    global: 'purple',
+    global: 'info',
     env: 'success',
     cli: 'warning',
   };
@@ -94,12 +94,14 @@ function SettingSection({ title, source, description, children, noSource }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <h3 className="text-sm font-semibold text-white uppercase tracking-wide">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wide">
           {title}
         </h3>
         {!noSource && <SourceBadge source={source || 'default'} />}
       </div>
-      {description && <p className="text-sm text-slate-400">{description}</p>}
+      {description && (
+        <p className="text-sm text-[var(--text-tertiary)]">{description}</p>
+      )}
       <div className="space-y-4">{children}</div>
     </div>
   );
@@ -175,7 +177,7 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
                 min="0"
               />
               {validationErrors.threshold && (
-                <p className="-mt-2 text-xs text-red-400">
+                <p className="-mt-2 text-xs text-[var(--accent-danger)]">
                   {validationErrors.threshold}
                 </p>
               )}
@@ -199,7 +201,7 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
                 hint="Default: 47392"
               />
               {validationErrors.port && (
-                <p className="-mt-2 text-xs text-red-400">
+                <p className="-mt-2 text-xs text-[var(--accent-danger)]">
                   {validationErrors.port}
                 </p>
               )}
@@ -211,7 +213,7 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
                 hint="Request timeout in milliseconds"
               />
               {validationErrors.timeout && (
-                <p className="-mt-2 text-xs text-red-400">
+                <p className="-mt-2 text-xs text-[var(--accent-danger)]">
                   {validationErrors.timeout}
                 </p>
               )}
@@ -277,13 +279,15 @@ function SettingsForm({ config, sources, onSave, isSaving }) {
       <div className="lg:col-span-2">
         <Card hover={false}>
           <CardBody className="flex items-center justify-between">
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-[var(--text-tertiary)]">
               {hasValidationErrors ? (
-                <span className="text-red-400">
+                <span className="text-[var(--accent-danger)]">
                   Fix validation errors before saving
                 </span>
               ) : hasChanges ? (
-                <span className="text-amber-400">You have unsaved changes</span>
+                <span className="text-[var(--accent-warning)]">
+                  You have unsaved changes
+                </span>
               ) : (
                 <span>Settings saved to project config</span>
               )}
@@ -379,8 +383,10 @@ export default function SettingsView() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Settings</h1>
-          <p className="text-slate-400 mt-1">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+            Settings
+          </h1>
+          <p className="text-[var(--text-tertiary)] mt-1">
             Configure your Vizzly local development server
           </p>
         </div>
@@ -408,8 +414,10 @@ export default function SettingsView() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-slate-400 mt-1">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+          Settings
+        </h1>
+        <p className="text-[var(--text-tertiary)] mt-1">
           Configure your Vizzly local development server
         </p>
       </div>

@@ -398,13 +398,13 @@ function FullscreenViewerInner({
 
   if (!comparison) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="text-center text-slate-400">
+      <div className="min-h-screen bg-[var(--vz-bg)] flex items-center justify-center">
+        <div className="text-center text-[var(--text-tertiary)]">
           <div className="text-lg mb-2">Comparison not found</div>
           <button
             type="button"
             onClick={onClose}
-            className="text-blue-400 hover:text-blue-300"
+            className="text-[var(--accent-info)] hover:text-[var(--text-primary)]"
           >
             Return to list
           </button>
@@ -440,18 +440,18 @@ function FullscreenViewerInner({
 
   return (
     <div
-      className="h-screen bg-slate-950 flex flex-col overflow-hidden"
+      className="h-screen bg-[var(--vz-bg)] flex flex-col overflow-hidden"
       data-testid="fullscreen-viewer"
     >
       {/* Header */}
-      <header className="flex-shrink-0 bg-slate-900 border-b border-slate-800/60 z-30">
+      <header className="flex-shrink-0 bg-[var(--vz-bg)] border-b border-[var(--vz-border-subtle)] z-30">
         {/* Primary row */}
         <div className="px-2 sm:px-4 py-2 flex items-center gap-1 sm:gap-3">
           <CloseButton onClick={onClose} />
 
           {/* Title area */}
           <div className="flex-1 min-w-0 flex items-center gap-2">
-            <h1 className="text-sm font-medium text-white truncate">
+            <h1 className="text-sm font-medium text-[var(--text-primary)] truncate">
               {comparison.name || comparison.originalName || 'Unknown'}
             </h1>
             {resultBadge && (
@@ -482,26 +482,26 @@ function FullscreenViewerInner({
               type="button"
               onClick={handlePrevious}
               disabled={!canNavigate.prev}
-              className="p-2 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-md hover:bg-slate-800/60 transition-colors"
+              className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-85 disabled:cursor-not-allowed rounded-md hover:bg-[var(--vz-raised)] transition-colors"
               aria-label="Previous"
             >
               <ChevronLeftIcon className="w-5 h-5" />
             </button>
-            <span className="hidden sm:block text-xs text-slate-500 font-medium tabular-nums px-1 min-w-[3rem] text-center">
+            <span className="hidden sm:block text-xs text-[var(--text-muted)] font-medium tabular-nums px-1 min-w-[3rem] text-center">
               {currentFilteredIndex + 1}/{filteredQueueItems.length}
             </span>
             <button
               type="button"
               onClick={handleNext}
               disabled={!canNavigate.next}
-              className="p-2 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-md hover:bg-slate-800/60 transition-colors"
+              className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-85 disabled:cursor-not-allowed rounded-md hover:bg-[var(--vz-raised)] transition-colors"
               aria-label="Next"
             >
               <ChevronRightIcon className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="hidden sm:block h-5 w-px bg-slate-700/60" />
+          <div className="hidden sm:block h-5 w-px bg-[var(--vz-border-subtle)]" />
 
           {/* Approval buttons - desktop */}
           <div className="hidden sm:flex items-center gap-2">
@@ -509,7 +509,7 @@ function FullscreenViewerInner({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-600/20 rounded-md transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-[var(--accent-danger)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-danger-muted)] rounded-md transition-colors"
                 data-testid="btn-delete"
               >
                 Delete
@@ -528,7 +528,7 @@ function FullscreenViewerInner({
             <button
               type="button"
               onClick={() => setShowQueue(!showQueue)}
-              className={`flex items-center justify-center p-2 rounded-md transition-colors ${showQueue ? 'bg-amber-500/15 text-amber-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+              className={`flex items-center justify-center p-2 rounded-md transition-colors ${showQueue ? 'bg-[var(--accent-brand-muted)] text-[var(--accent-brand)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)]'}`}
               title="Queue"
               aria-label="Toggle queue"
               data-testid="toggle-queue-btn"
@@ -542,7 +542,7 @@ function FullscreenViewerInner({
               <button
                 type="button"
                 onClick={() => setShowRegions(!showRegions)}
-                className={`p-2 rounded-md transition-colors ${showRegions ? 'bg-emerald-500/15 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                className={`p-2 rounded-md transition-colors ${showRegions ? 'bg-[var(--accent-success-muted)] text-[var(--accent-success)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)]'}`}
                 title="Show Regions (G)"
                 aria-label="Toggle regions"
                 data-testid="toggle-regions-btn"
@@ -554,7 +554,7 @@ function FullscreenViewerInner({
             <button
               type="button"
               onClick={toggleInspector}
-              className={`p-2 rounded-md transition-colors ${showInspector ? 'bg-blue-500/15 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+              className={`p-2 rounded-md transition-colors ${showInspector ? 'bg-[var(--accent-info-muted)] text-[var(--accent-info)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)]'}`}
               title="Details (I)"
               aria-label="Screenshot details"
               data-testid="toggle-inspector-btn"
@@ -565,7 +565,7 @@ function FullscreenViewerInner({
         </div>
 
         {/* Secondary row: Variant selector + View mode + Zoom */}
-        <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-t border-slate-800/40 flex items-center gap-2 sm:gap-3">
+        <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-t border-[var(--vz-border-subtle)] flex items-center gap-2 sm:gap-3">
           {/* Variant breadcrumb - shows viewport/browser info, allows switching when multiple variants */}
           {currentGroup && currentGroup.comparisons.length > 0 && (
             <VariantBreadcrumb
@@ -652,7 +652,7 @@ function FullscreenViewerInner({
               );
             })}
             {filteredQueueItems.length === 0 && (
-              <div className="text-center py-8 text-slate-600 text-xs">
+              <div className="text-center py-8 text-[var(--text-muted)] text-xs">
                 {queueFilter === 'needs-review'
                   ? 'All screenshots reviewed!'
                   : 'No items match this filter'}
@@ -661,20 +661,33 @@ function FullscreenViewerInner({
           </DrawerContent>
 
           <DrawerFooter className="hidden sm:flex flex-col items-center gap-1.5">
-            <p className="text-xs text-slate-500 text-center">
-              <span className="text-slate-400">↑↓</span> navigate{' · '}
-              <span className="text-slate-400">Space</span>{' '}
+            <p className="text-xs text-[var(--text-muted)] text-center">
+              <span className="text-[var(--text-tertiary)]">↑↓</span> navigate
+              {' · '}
+              <span className="text-[var(--text-tertiary)]">Space</span>{' '}
               {isReviewMode ? 'exit' : 'review mode'}
             </p>
             {isReviewMode && (
-              <p className="text-xs text-slate-500 text-center">
-                <span className="text-emerald-500 font-medium">A</span> approve
+              <p className="text-xs text-[var(--text-muted)] text-center">
+                <span className="text-[var(--accent-success)] font-medium">
+                  A
+                </span>{' '}
+                approve
                 {' · '}
-                <span className="text-red-500 font-medium">R</span> reject
+                <span className="text-[var(--accent-danger)] font-medium">
+                  R
+                </span>{' '}
+                reject
                 {' · '}
-                <span className="text-slate-400 font-medium">D</span> diff
+                <span className="text-[var(--text-tertiary)] font-medium">
+                  D
+                </span>{' '}
+                diff
                 {' · '}
-                <span className="text-slate-400 font-medium">T</span> view
+                <span className="text-[var(--text-tertiary)] font-medium">
+                  T
+                </span>{' '}
+                view
               </p>
             )}
           </DrawerFooter>
@@ -797,7 +810,7 @@ function FullscreenViewerInner({
       </div>
 
       {/* Mobile Bottom Bar */}
-      <div className="sm:hidden flex-shrink-0 bg-slate-900/98 backdrop-blur-sm border-t border-slate-700/50 safe-area-pb">
+      <div className="sm:hidden flex-shrink-0 bg-[var(--vz-bg)] border-t border-[var(--vz-border-subtle)] safe-area-pb">
         {/* Approval buttons */}
         <MobileApprovalBar
           status={approvalStatus}
@@ -806,11 +819,11 @@ function FullscreenViewerInner({
         />
 
         {/* Secondary tools row */}
-        <div className="px-3 py-2 flex items-center gap-1 border-t border-slate-800/40">
+        <div className="px-3 py-2 flex items-center gap-1 border-t border-[var(--vz-border-subtle)]">
           <button
             type="button"
             onClick={() => setShowQueue(!showQueue)}
-            className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showQueue ? 'bg-amber-500/15 text-amber-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60 active:bg-slate-700/60'}`}
+            className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showQueue ? 'bg-[var(--accent-brand-muted)] text-[var(--accent-brand)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)] active:bg-[var(--vz-elevated)]'}`}
             aria-label="Queue"
             data-testid="mobile-toggle-queue-btn"
           >
@@ -820,7 +833,7 @@ function FullscreenViewerInner({
           <button
             type="button"
             onClick={toggleInspector}
-            className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showInspector ? 'bg-blue-500/15 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60 active:bg-slate-700/60'}`}
+            className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showInspector ? 'bg-[var(--accent-info-muted)] text-[var(--accent-info)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)] active:bg-[var(--vz-elevated)]'}`}
             aria-label="Screenshot details"
             data-testid="mobile-toggle-inspector-btn"
           >
@@ -833,7 +846,7 @@ function FullscreenViewerInner({
             <button
               type="button"
               onClick={() => setShowRegions(!showRegions)}
-              className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showRegions ? 'bg-emerald-500/15 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/60 active:bg-slate-700/60'}`}
+              className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showRegions ? 'bg-[var(--accent-success-muted)] text-[var(--accent-success)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)] active:bg-[var(--vz-elevated)]'}`}
               aria-label="Toggle regions"
               data-testid="mobile-toggle-regions-btn"
             >
@@ -845,7 +858,7 @@ function FullscreenViewerInner({
             <button
               type="button"
               onClick={handleDelete}
-              className="flex items-center justify-center p-2.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-600/20 active:bg-red-600/30 transition-colors"
+              className="flex items-center justify-center p-2.5 rounded-lg text-[var(--accent-danger)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-danger-muted)] active:bg-[var(--accent-danger-muted)] transition-colors"
               aria-label="Delete"
               data-testid="mobile-delete-btn"
             >
@@ -856,7 +869,7 @@ function FullscreenViewerInner({
           <div className="flex-1" />
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 tabular-nums">
+            <span className="text-xs text-[var(--text-muted)] tabular-nums">
               {currentFilteredIndex + 1} / {filteredQueueItems.length}
             </span>
             {resultBadge && (

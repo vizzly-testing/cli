@@ -591,7 +591,7 @@ tddCmd
       if (reportResult.success) {
         const reportUrl = getReportFileUrl(reportResult.reportPath);
         output.print(
-          `  ${colors.brand.textTertiary('→')} Report: ${colors.blue(reportUrl)}`
+          `  ${colors.brand.textTertiary('→')} Report: ${colors.info(reportUrl)}`
         );
         output.blank();
 

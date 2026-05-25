@@ -291,7 +291,7 @@ export function success(message, data = {}) {
     console.log(JSON.stringify({ status: 'success', message, ...data }));
   } else {
     console.error('');
-    console.error(colors.green('✓'), message);
+    console.error(colors.success('✓'), message);
   }
 }
 
@@ -309,7 +309,7 @@ export function result(message) {
   } else {
     console.error('');
     console.error(
-      colors.green('✓'),
+      colors.success('✓'),
       `${message} ${colors.dim(`· ${elapsed}`)}`
     );
   }
@@ -325,7 +325,7 @@ export function info(message, data = {}) {
   if (config.json) {
     console.log(JSON.stringify({ status: 'info', message, ...data }));
   } else {
-    console.log(colors.cyan('ℹ'), message);
+    console.log(colors.info('ℹ'), message);
   }
 }
 
@@ -369,7 +369,7 @@ export function error(message, err = null, data = {}) {
     }
     console.error(JSON.stringify(errorData));
   } else {
-    console.error(colors.red('✖'), message);
+    console.error(colors.error('✖'), message);
 
     // Show error details
     if (err instanceof Error) {

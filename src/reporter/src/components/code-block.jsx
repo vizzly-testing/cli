@@ -118,8 +118,8 @@ export default function CodeBlock({ code, language = 'javascript' }) {
   let highlightedCode = renderTokenizedCode(code, isShell ? 'shell' : language);
 
   return (
-    <pre className="bg-slate-950 rounded-lg p-4 overflow-x-auto text-sm">
-      <code className="font-mono text-slate-300 block whitespace-pre">
+    <pre className="bg-[var(--vz-surface)] rounded-lg p-4 overflow-x-auto text-sm">
+      <code className="font-mono text-[var(--text-secondary)] block whitespace-pre">
         {highlightedCode}
       </code>
     </pre>

@@ -74,14 +74,14 @@ function BuildCard({ build, project, onDownload, downloading }) {
     <div className="flex items-center justify-between p-4 vz-card">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3">
-          <h4 className="text-sm font-medium text-white truncate">
+          <h4 className="text-sm font-medium text-[var(--text-primary)] truncate">
             {build.name || 'Unnamed build'}
           </h4>
           <StatusBadge status={build.status} />
         </div>
-        <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
+        <div className="flex items-center gap-4 mt-2 text-xs text-[var(--text-tertiary)]">
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--vz-border-strong)]" />
             {build.branch || 'main'}
           </span>
           <span>{timeAgo}</span>
@@ -110,12 +110,12 @@ function ProjectCard({
   downloadingBuildId,
 }) {
   // Fetch builds for this project when expanded
-  const { data: buildsData, isLoading: loadingBuilds } = useBuilds(
+  let { data: buildsData, isLoading: loadingBuilds } = useBuilds(
     expanded ? project.organizationSlug : null,
     expanded ? project.slug : null
   );
 
-  const builds = buildsData?.builds || [];
+  let builds = buildsData?.builds || [];
 
   return (
     <Card hover={false}>
@@ -125,24 +125,26 @@ function ProjectCard({
         className="w-full flex items-center justify-between p-5 text-left hover:bg-white/[0.02] transition-colors"
       >
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-            <FolderIcon className="w-5 h-5 text-amber-400" />
+          <div className="w-10 h-10 rounded-lg bg-[var(--accent-brand-muted)] flex items-center justify-center">
+            <FolderIcon className="w-5 h-5 text-[var(--accent-brand)]" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-white">
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">
               {project.name || project.slug}
             </h3>
-            <p className="text-sm text-slate-400 mt-0.5">
+            <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
               {project.organizationSlug} / {project.slug}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {loadingBuilds && <Spinner size="sm" className="text-amber-400" />}
+          {loadingBuilds && (
+            <Spinner size="sm" className="text-[var(--accent-brand)]" />
+          )}
           {expanded ? (
-            <ChevronDownIcon className="w-5 h-5 text-slate-400" />
+            <ChevronDownIcon className="w-5 h-5 text-[var(--text-tertiary)]" />
           ) : (
-            <ChevronRightIcon className="w-5 h-5 text-slate-400" />
+            <ChevronRightIcon className="w-5 h-5 text-[var(--text-tertiary)]" />
           )}
         </div>
       </button>
@@ -150,12 +152,14 @@ function ProjectCard({
       {expanded && (
         <CardBody
           padding="p-4"
-          className="bg-slate-900/30 border-t border-slate-700/50"
+          className="bg-black/20 border-t border-[var(--vz-border-subtle)]"
         >
           {loadingBuilds ? (
             <div className="flex flex-col items-center justify-center py-8">
-              <Spinner size="md" className="text-amber-400 mb-3" />
-              <p className="text-sm text-slate-400">Loading builds...</p>
+              <Spinner size="md" className="text-[var(--accent-brand)] mb-3" />
+              <p className="text-sm text-[var(--text-tertiary)]">
+                Loading builds...
+              </p>
             </div>
           ) : builds && builds.length > 0 ? (
             <div className="space-y-3">
@@ -175,8 +179,9 @@ function ProjectCard({
               title="No builds yet"
               description={
                 <>
-                  Run <code className="text-amber-400">vizzly run</code> to
-                  create your first build
+                  Run{' '}
+                  <code className="text-[var(--accent-brand)]">vizzly run</code>{' '}
+                  to create your first build
                 </>
               }
             />
@@ -197,10 +202,12 @@ function OrganizationSection({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-slate-700/50 flex items-center justify-center">
-          <BuildingOfficeIcon className="w-4 h-4 text-slate-400" />
+        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+          <BuildingOfficeIcon className="w-4 h-4 text-[var(--text-tertiary)]" />
         </div>
-        <h2 className="text-lg font-semibold text-white">{org.name}</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+          {org.name}
+        </h2>
         <Badge variant="default">
           {org.projects.length} project{org.projects.length !== 1 ? 's' : ''}
         </Badge>
@@ -225,17 +232,17 @@ function OrganizationSection({
 }
 
 function DeviceFlowLogin({ onComplete }) {
-  const [deviceFlow, setDeviceFlow] = useState(null);
-  const [error, setError] = useState(null);
+  let [deviceFlow, setDeviceFlow] = useState(null);
+  let [error, setError] = useState(null);
 
-  const initiateLoginMutation = useInitiateLogin();
-  const pollMutation = usePollAuthorization();
-  const { addToast } = useToast();
+  let initiateLoginMutation = useInitiateLogin();
+  let pollMutation = usePollAuthorization();
+  let { addToast } = useToast();
 
   useEffect(() => {
     async function startDeviceFlow() {
       try {
-        const flow = await initiateLoginMutation.mutateAsync();
+        let flow = await initiateLoginMutation.mutateAsync();
         setDeviceFlow(flow);
       } catch (err) {
         setError(err.message);
@@ -253,7 +260,7 @@ function DeviceFlowLogin({ onComplete }) {
     setError(null);
 
     try {
-      const result = await pollMutation.mutateAsync(deviceFlow.deviceCode);
+      let result = await pollMutation.mutateAsync(deviceFlow.deviceCode);
 
       if (result.status === 'complete') {
         addToast('Login successful!', 'success');
@@ -280,8 +287,8 @@ function DeviceFlowLogin({ onComplete }) {
   if (!deviceFlow) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Spinner size="lg" className="text-amber-400 mb-4" />
-        <p className="text-slate-400">Starting login flow...</p>
+        <Spinner size="lg" className="text-[var(--accent-brand)] mb-4" />
+        <p className="text-[var(--text-tertiary)]">Starting login flow...</p>
       </div>
     );
   }
@@ -289,12 +296,12 @@ function DeviceFlowLogin({ onComplete }) {
   return (
     <Card hover={false}>
       <CardBody className="text-center py-8">
-        <h3 className="text-xl font-semibold text-white mb-6">
+        <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-6">
           Sign in to Vizzly
         </h3>
 
-        <div className="bg-slate-900/50 rounded-xl p-6 mb-6 border border-slate-700/50 max-w-sm mx-auto">
-          <p className="text-sm text-slate-400 mb-4">
+        <div className="bg-black/20 rounded-xl p-6 mb-6 border border-[var(--vz-border-subtle)] max-w-sm mx-auto">
+          <p className="text-sm text-[var(--text-tertiary)] mb-4">
             Click below to authorize:
           </p>
           <a
@@ -303,21 +310,21 @@ function DeviceFlowLogin({ onComplete }) {
             }
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium rounded-lg transition-colors mb-4"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--accent-brand)] hover:bg-[var(--accent-brand-hover)] text-[var(--vz-bg)] font-medium rounded-lg transition-colors mb-4"
           >
             Open Authorization Page
           </a>
-          <div className="mt-4 pt-4 border-t border-slate-700/50">
-            <p className="text-xs text-slate-500 mb-2">
+          <div className="mt-4 pt-4 border-t border-[var(--vz-border-subtle)]">
+            <p className="text-xs text-[var(--text-muted)] mb-2">
               Or enter this code manually:
             </p>
-            <div className="text-2xl font-mono font-bold text-amber-400 tracking-wider">
+            <div className="text-2xl font-mono font-bold text-[var(--accent-brand)] tracking-wider">
               {deviceFlow.userCode}
             </div>
           </div>
         </div>
 
-        <p className="text-sm text-slate-400 mb-4">
+        <p className="text-sm text-[var(--text-tertiary)] mb-4">
           After authorizing in your browser, click the button below to complete
           sign in.
         </p>
@@ -364,13 +371,13 @@ function LoginPrompt() {
   return (
     <Card hover={false}>
       <CardBody className="text-center py-12">
-        <div className="w-16 h-16 rounded-2xl bg-slate-700/50 flex items-center justify-center mx-auto mb-4">
-          <UserCircleIcon className="w-8 h-8 text-slate-400" />
+        <div className="w-16 h-16 rounded-2xl bg-[var(--vz-border-subtle)] flex items-center justify-center mx-auto mb-4">
+          <UserCircleIcon className="w-8 h-8 text-[var(--text-tertiary)]" />
         </div>
-        <h3 className="text-xl font-semibold text-white mb-2">
+        <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
           Sign in required
         </h3>
-        <p className="text-slate-400 mb-6 max-w-md mx-auto">
+        <p className="text-[var(--text-tertiary)] mb-6 max-w-md mx-auto">
           Sign in to your Vizzly account to browse your projects and download
           baselines from cloud builds.
         </p>
@@ -475,8 +482,10 @@ export default function BuildsView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Remote Builds</h1>
-          <p className="text-slate-400 mt-1">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+            Remote Builds
+          </h1>
+          <p className="text-[var(--text-tertiary)] mt-1">
             Browse your cloud builds and download baselines for local TDD
           </p>
         </div>

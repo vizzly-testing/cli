@@ -21,7 +21,6 @@ export { BrowserIcon, getBrowserColor } from './browser-icon.jsx';
 // Form components
 export { Button } from './button.jsx';
 export { Card, CardBody, CardFooter, CardHeader } from './card.jsx';
-export { Combobox } from './combobox.jsx';
 export { ConfirmationDialog } from './confirmation-dialog.jsx';
 // Data table (advanced)
 export { ColumnSettings, DataTable } from './data-table.jsx';

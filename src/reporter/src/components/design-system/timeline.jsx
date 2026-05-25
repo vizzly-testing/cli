@@ -1,6 +1,6 @@
 /**
  * Timeline Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Build status timeline visualization
  */

@@ -241,7 +241,7 @@ export function isVerbose() {
 
 /**
  * Show command header with distinctive branding
- * Uses Observatory's signature amber color for "vizzly"
+ * Uses BearDen's signature amber color for "vizzly"
  * Only shows once per command execution
  * @param {string} command - Command name (e.g., 'tdd', 'run')
  * @param {string} [mode] - Optional mode (e.g., 'local', 'cloud')
@@ -252,7 +252,7 @@ export function header(command, mode = null) {
 
   let parts = [];
 
-  // Brand "vizzly" with Observatory's signature amber
+  // Brand "vizzly" with BearDen's signature amber
   parts.push(colors.brand.amber(colors.bold('vizzly')));
 
   // Command in info blue (processing, active)
@@ -445,7 +445,7 @@ export function getJsonFields() {
 
 /**
  * Start a spinner with message
- * Uses Observatory amber for the spinner animation
+ * Uses BearDen amber for the spinner animation
  */
 export function startSpinner(message) {
   if (config.json || config.silent || !process.stderr.isTTY) return;
@@ -576,12 +576,12 @@ function formatData(data) {
  */
 /**
  * Get a distinctive color for a component name
- * Uses Observatory design system colors for consistent styling
+ * Uses BearDen design system colors for consistent styling
  * @param {string} component - Component name
  * @returns {Function} Color function
  */
 function getComponentColor(component) {
-  // Map components to Observatory semantic colors
+  // Map components to BearDen semantic colors
   let componentColors = {
     // Server/infrastructure - success green (active, running)
     server: colors.brand.success,
@@ -699,7 +699,7 @@ function writeLog(level, message, data = {}) {
 /**
  * Generate a visual diff bar with color coding
  * Shows percentage as a filled/empty bar with color based on severity
- * Uses Observatory semantic colors (success → warning → danger)
+ * Uses BearDen semantic colors (success → warning → danger)
  * @param {number} percentage - Diff percentage (0-100)
  * @param {number} [width=10] - Bar width in characters
  * @returns {string} Colored diff bar string
@@ -717,7 +717,7 @@ export function diffBar(percentage, width = 10) {
   if (percentage > 0 && filled === 0) filled = 1;
   let empty = width - filled;
 
-  // Color based on severity using Observatory semantic colors
+  // Color based on severity using BearDen semantic colors
   let barColor;
   if (percentage < 1) {
     barColor = colors.brand.success; // Green - minimal change
@@ -736,7 +736,7 @@ export function diffBar(percentage, width = 10) {
 /**
  * Generate a gradient progress bar
  * Creates a visually appealing progress indicator with color gradient
- * Default gradient uses Observatory amber → amber-light (signature brand gradient)
+ * Default gradient uses BearDen amber → amber-light (signature brand gradient)
  * @param {number} current - Current progress value
  * @param {number} total - Total value
  * @param {number} [width=20] - Bar width in characters
@@ -748,7 +748,7 @@ export function diffBar(percentage, width = 10) {
 export function progressBar(current, total, width = 20, options = {}) {
   if (config.json || config.silent) return '';
 
-  // Default to Observatory's signature amber gradient
+  // Default to BearDen's signature amber gradient
   let { from = '#F59E0B', to = '#FBBF24' } = options;
 
   let percent = Math.min(100, Math.max(0, (current / total) * 100));
@@ -792,7 +792,7 @@ function hexToRgb(hex) {
 
 /**
  * Create a colored badge/pill for status indicators
- * Uses Observatory semantic colors for consistent meaning
+ * Uses BearDen semantic colors for consistent meaning
  * @param {string} text - Badge text
  * @param {string} [type='info'] - Badge type: 'success', 'warning', 'error', 'info'
  * @returns {string} Formatted badge string
@@ -830,7 +830,7 @@ export function badge(text, type = 'info') {
 
 /**
  * Create a colored status dot
- * Uses Observatory semantic colors for consistent meaning
+ * Uses BearDen semantic colors for consistent meaning
  * @param {string} [status='info'] - Status type: 'success', 'warning', 'error', 'info'
  * @returns {string} Colored dot character
  */
@@ -1029,7 +1029,7 @@ export function box(content, options = {}) {
     innerWidth = Math.max(innerWidth, titleWidth);
   }
 
-  // Border styling - use Observatory amber for 'branded' style
+  // Border styling - use BearDen amber for 'branded' style
   let border =
     borderColor || (style === 'branded' ? colors.brand.amber : colors.dim);
   let titleColor = style === 'branded' ? colors.bold : s => s;

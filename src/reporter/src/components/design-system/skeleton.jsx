@@ -1,6 +1,6 @@
 /**
  * Skeleton Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Loading placeholder with shimmer effect
  */

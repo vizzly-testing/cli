@@ -1,6 +1,6 @@
 /**
  * Fullscreen Comparison Viewer
- * Matches Observatory/Cloud product review UI patterns
+ * Matches BearDen/Cloud product review UI patterns
  *
  * Features:
  * - Clean, focused layout prioritizing the screenshot
@@ -56,7 +56,7 @@ function getComparisonId(comparison) {
 }
 
 /**
- * Map CLI status to Observatory result type
+ * Map CLI status to BearDen result type
  */
 function mapStatusToResult(status) {
   switch (status) {
@@ -117,14 +117,14 @@ function FullscreenViewerInner({
   }, []);
 
   // Transform comparisons for queue display
-  // Map CLI status to Observatory result format
+  // Map CLI status to BearDen result format
   // QueueItem expects: name, result, approval_status, diff_percentage, status
   let queueItems = useMemo(() => {
     return comparisons.map(comp => ({
       ...comp,
       // Ensure name is set
       name: comp.name || comp.originalName || 'Unknown',
-      // Set result for Observatory (changed, new, unchanged)
+      // Set result for BearDen (changed, new, unchanged)
       result: mapStatusToResult(comp.status),
       // Keep original status so QueueItem can check both formats
       status: comp.status,
@@ -137,7 +137,7 @@ function FullscreenViewerInner({
             : comp.status === 'passed'
               ? 'approved'
               : 'pending',
-      // Ensure diff_percentage is available (Observatory format)
+      // Ensure diff_percentage is available (BearDen format)
       diff_percentage: comp.diffPercentage ?? comp.diff_percentage,
       // Pass through diffClusters for change description
       diffClusters: comp.diffClusters || [],

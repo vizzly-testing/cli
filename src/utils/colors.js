@@ -4,7 +4,7 @@
 import { Ansis } from 'ansis';
 
 // =============================================================================
-// Vizzly Observatory Design System Colors
+// Vizzly BearDen Design System Colors
 // Aligned with the reporter design system color tokens.
 // =============================================================================
 
@@ -113,7 +113,7 @@ export function createColors(options = {}) {
       hex: () => noop,
       bgRgb: () => noop,
       bgHex: () => noop,
-      // Observatory brand colors (noop versions)
+      // BearDen brand colors (noop versions)
       brand: {
         // Primary
         amber: noop,
@@ -168,7 +168,7 @@ export function createColors(options = {}) {
     hex: colors.hex.bind(colors),
     bgRgb: colors.bgRgb.bind(colors),
     bgHex: colors.bgHex.bind(colors),
-    // Observatory brand colors (Truecolor) - aligned with design system
+    // BearDen brand colors (Truecolor) - aligned with design system
     brand: {
       // Primary brand color
       amber: colors.hex(brand.amber),

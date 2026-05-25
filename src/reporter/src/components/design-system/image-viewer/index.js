@@ -1,6 +1,6 @@
 /**
  * Image Viewer Components
- * Observatory Design System
+ * BearDen Design System
  *
  * Components for viewing, zooming, and comparing images
  */

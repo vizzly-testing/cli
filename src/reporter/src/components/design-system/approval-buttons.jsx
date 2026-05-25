@@ -1,6 +1,6 @@
 /**
  * ApprovalButtons Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Approve/Reject buttons for visual review workflows.
  * Mobile-first with compact and full variants.

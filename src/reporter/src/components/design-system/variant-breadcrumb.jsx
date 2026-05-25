@@ -1,6 +1,6 @@
 /**
  * VariantBreadcrumb Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A responsive dimension navigator for screenshot variants.
  *

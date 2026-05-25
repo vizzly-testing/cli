@@ -1,6 +1,6 @@
 /**
  * Status Dot Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Small status indicator dot
  */

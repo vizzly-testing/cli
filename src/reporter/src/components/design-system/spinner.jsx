@@ -1,6 +1,6 @@
 /**
  * Spinner Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Loading indicator
  */

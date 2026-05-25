@@ -1,6 +1,6 @@
 /**
  * Tabs Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Tab navigation component
  */

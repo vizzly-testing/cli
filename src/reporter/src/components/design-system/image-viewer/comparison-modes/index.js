@@ -1,6 +1,6 @@
 /**
  * Comparison Mode Components
- * Observatory Design System
+ * BearDen Design System
  *
  * Components for comparing baseline and current screenshots
  */

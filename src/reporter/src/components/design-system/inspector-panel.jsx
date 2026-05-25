@@ -1,6 +1,6 @@
 /**
  * InspectorPanel Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A non-invasive slide-out inspector panel for detailed metadata display.
  * Designed to overlay content rather than push it, reducing visual disruption

@@ -1,6 +1,6 @@
 /**
  * QueueItem Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A list item for review queues showing screenshot thumbnails with status indicators.
  * Used in fullscreen comparison views to navigate between screenshots.

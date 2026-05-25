@@ -1,6 +1,6 @@
 /**
  * Button Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Variants: primary, secondary, ghost, danger, warning, success
  * Sizes: sm, md, lg

@@ -1,5 +1,5 @@
 /**
- * Observatory Design System
+ * BearDen Design System
  * A React component library for Vizzly applications
  */
 

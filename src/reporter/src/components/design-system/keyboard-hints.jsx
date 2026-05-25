@@ -1,6 +1,6 @@
 /**
  * KeyboardHints Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Displays available keyboard shortcuts in a subtle, non-intrusive way.
  * Designed for power users who want faster workflows.

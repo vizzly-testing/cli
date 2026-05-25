@@ -1,6 +1,6 @@
 /**
  * ConfirmationDialog Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A specialized modal for confirmation actions (delete, dangerous operations, etc.)
  * Variants: danger, warning, info

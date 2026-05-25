@@ -1,6 +1,6 @@
 /**
  * Zoomable Image Component
- * Observatory Design System - Image Viewer
+ * BearDen Design System - Image Viewer
  *
  * Provides pan and zoom functionality for image viewing
  * Supports overlays, loading states, and device detection

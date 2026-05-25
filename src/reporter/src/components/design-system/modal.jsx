@@ -1,6 +1,6 @@
 /**
  * Modal Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Dialog/Modal component with variants
  */

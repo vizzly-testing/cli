@@ -92,6 +92,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
+    "@vizzly-testing/bear-den": "^0.1.1",
     "@vizzly-testing/honeydiff": "^0.10.3",
     "ansis": "^4.2.0",
     "commander": "^14.0.0",

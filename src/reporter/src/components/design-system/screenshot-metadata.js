@@ -1,6 +1,6 @@
 /**
  * Screenshot Metadata Utilities
- * Observatory Design System
+ * BearDen Design System
  *
  * Handles extraction and normalization of metadata from screenshot/comparison objects.
  * This module provides a consistent interface for accessing screenshot properties

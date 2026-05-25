@@ -1,6 +1,6 @@
 /**
  * DataTable Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A responsive data table with mobile-first design, sorting, column visibility, and URL persistence.
  *

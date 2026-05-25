@@ -1,47 +1,21 @@
 @import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import '@vizzly-testing/bear-den/styles';
 @import './components/design-system/styles.css';
+@source "../../../node_modules/@vizzly-testing/bear-den/src";
 @source "./components/design-system";
 
-/* Keep the reporter aligned with the product palette even when the local
-   package lock points at an older Observatory release. */
 :root {
-  --vz-bg: #07080a;
-  --vz-surface: #101216;
-  --vz-elevated: #111318;
-  --vz-raised: #191c22;
-  --vz-border: #30343b;
-  --vz-border-subtle: #252930;
-  --vz-border-strong: #41464f;
   --vz-checkerboard-bg: #111827;
   --vz-checkerboard-tile: #1f2937;
   --vz-mascot-stage: #2b2e35;
   --vz-mascot-stage-border: #464b55;
   --vz-mascot-glow: rgba(214, 154, 53, 0.14);
-
-  --accent-brand: #d69a35;
-  --accent-brand-hover: #e0ad55;
-  --accent-brand-contrast: #07080a;
-  --accent-brand-muted: #1a1610;
-  --accent-success: #7fd990;
-  --accent-success-muted: #102719;
-  --accent-warning: #dcad5f;
-  --accent-warning-muted: #20190f;
-  --accent-danger: #d77782;
-  --accent-danger-muted: #2a171b;
-  --accent-info: #b7bdc6;
-  --accent-info-muted: #22262d;
-  --accent-media: #a8afb9;
-  --accent-media-muted: #22262d;
-  --text-primary: #f4f6f8;
-  --text-secondary: #c8cdd3;
-  --text-tertiary: #a0a6af;
-  --text-muted: #7a828d;
 }
 
 /* ============================================
    VIZZLY REPORTER - LOCAL STYLES
-   Styles specific to the reporter that extend Observatory
+   Styles specific to the CLI reporter that extend BearDen
    ============================================ */
 
 .code-token--keyword {

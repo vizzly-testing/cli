@@ -1,6 +1,6 @@
 /**
  * Card Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Container component with semantic variants that do not add outer rails
  * Variants: default, success, warning, danger, info, media

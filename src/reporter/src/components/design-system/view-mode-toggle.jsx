@@ -1,6 +1,6 @@
 /**
  * ViewModeToggle Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Toggle between different comparison view modes (overlay, toggle, slide).
  * Mobile-first with icon-only compact variant.

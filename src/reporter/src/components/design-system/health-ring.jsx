@@ -1,6 +1,6 @@
 /**
  * Health Ring Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Radial progress indicator for health scores
  */

@@ -79,7 +79,7 @@ import { saveUserPath } from './utils/global-config.js';
 import * as output from './utils/output.js';
 import { getPackageVersion } from './utils/package-info.js';
 
-// Custom help formatting with Observatory design system
+// Custom help formatting with BearDen design system
 const formatHelp = (cmd, helper) => {
   let c = colors;
   let lines = [];

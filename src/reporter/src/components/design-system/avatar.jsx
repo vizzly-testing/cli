@@ -1,6 +1,6 @@
 /**
  * Avatar Component
- * Observatory Design System
+ * BearDen Design System
  *
  * User avatar with fallback initials
  */

@@ -1,6 +1,6 @@
 /**
  * BrowserIcon Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Displays browser logos using the browser-logos CDN.
  * Falls back to a generic globe icon for unknown browsers.

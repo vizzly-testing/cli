@@ -1,6 +1,6 @@
 /**
  * Alert Component
- * Observatory Design System
+ * BearDen Design System
  *
  * For feedback messages and notifications
  * Variants: success, warning, danger, info

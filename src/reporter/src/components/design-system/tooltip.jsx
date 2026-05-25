@@ -1,6 +1,6 @@
 /**
  * Tooltip Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Hover tooltip for additional context
  */

@@ -1,6 +1,6 @@
 /**
  * ReviewMode Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Provides a "review mode" for keyboard-driven screenshot review workflows.
  * When active, enables keyboard shortcuts for approval, rejection, and view manipulation.

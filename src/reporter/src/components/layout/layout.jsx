@@ -1,6 +1,6 @@
 /**
  * Layout Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Main application layout with header and content area
  */

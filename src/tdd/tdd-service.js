@@ -1499,7 +1499,7 @@ export class TddService {
     );
     output.blank();
 
-    // Passed section - use Observatory success color
+    // Passed section - use BearDen success color
     if (results.passed > 0) {
       let successColor = colors.brand?.success || colors.success;
       if (output.isVerbose()) {
@@ -1516,7 +1516,7 @@ export class TddService {
       output.blank();
     }
 
-    // Failed comparisons with diff bars - use Observatory warning/danger colors
+    // Failed comparisons with diff bars - use BearDen warning/danger colors
     if (failedComparisons.length > 0) {
       let warningColor = colors.brand?.warning || colors.yellow;
       let dangerColor = colors.brand?.danger || colors.error;
@@ -1544,7 +1544,7 @@ export class TddService {
       output.blank();
     }
 
-    // New screenshots - use Observatory info color
+    // New screenshots - use BearDen info color
     if (newComparisons.length > 0) {
       let infoColor = colors.brand?.info || colors.info;
       let textMuted = colors.brand?.textMuted || colors.dim;
@@ -1557,7 +1557,7 @@ export class TddService {
       output.blank();
     }
 
-    // Errors - use Observatory danger color
+    // Errors - use BearDen danger color
     if (results.errors > 0) {
       let dangerColor = colors.brand?.danger || colors.error;
       let errorComparisons = this.comparisons.filter(c => c.status === 'error');

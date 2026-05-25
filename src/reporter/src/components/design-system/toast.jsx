@@ -1,6 +1,6 @@
 /**
  * Toast Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A notification banner/toast for temporary messages
  * Variants: success, warning, error, info

@@ -1,6 +1,6 @@
 /**
  * Badge Component
- * Observatory Design System
+ * BearDen Design System
  *
  * For status indicators, labels, and counts
  * Variants: default, success, warning, danger, info, media, purple

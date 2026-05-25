@@ -1,6 +1,6 @@
 /**
  * VariantPills Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A compact, visually rich display of variant metadata for screenshot groups.
  * Used in tables, cards, and anywhere a summary of variants is needed.

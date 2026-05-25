@@ -1,6 +1,6 @@
 /**
  * Zoom Controls Component
- * Observatory Design System - Image Viewer
+ * BearDen Design System - Image Viewer
  *
  * Provides zoom level management for image viewing
  * Supports keyboard shortcuts and touch-friendly mobile variant

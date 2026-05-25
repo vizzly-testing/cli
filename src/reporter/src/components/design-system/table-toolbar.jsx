@@ -6,7 +6,7 @@ import { SearchInput } from './search-input.jsx';
 
 /**
  * TableToolbar - Integrated toolbar for tables with search, filters, and summary
- * Observatory Design System
+ * BearDen Design System
  */
 export function TableToolbar({
   // Search

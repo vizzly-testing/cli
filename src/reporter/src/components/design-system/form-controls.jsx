@@ -1,6 +1,6 @@
 /**
  * Form Controls
- * Observatory Design System
+ * BearDen Design System
  *
  * Input, Textarea, Select, Checkbox, Toggle
  */

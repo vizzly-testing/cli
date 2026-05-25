@@ -1,6 +1,6 @@
 /**
  * Table Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Styled data table with sorting and row actions
  */

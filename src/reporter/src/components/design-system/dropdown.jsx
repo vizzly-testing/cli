@@ -1,6 +1,6 @@
 /**
  * Dropdown Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A simple dropdown menu with trigger button
  */

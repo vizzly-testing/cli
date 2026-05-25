@@ -1,6 +1,6 @@
 /**
  * Empty State Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Placeholder for empty content areas
  */

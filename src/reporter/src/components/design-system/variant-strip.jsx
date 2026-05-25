@@ -1,6 +1,6 @@
 /**
  * VariantStrip Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A clean, dimension-grouped variant selector for screenshot comparisons.
  * Focuses purely on navigation between variants - status is shown elsewhere.

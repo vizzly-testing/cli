@@ -1,6 +1,6 @@
 /**
  * MobileDrawer Component
- * Observatory Design System
+ * BearDen Design System
  *
  * A responsive drawer/sidebar component that:
  * - On mobile: Slides up from bottom as a sheet (or from side)

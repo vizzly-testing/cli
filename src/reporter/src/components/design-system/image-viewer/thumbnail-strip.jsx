@@ -1,6 +1,6 @@
 /**
  * Thumbnail Strip Component
- * Observatory Design System - Image Viewer
+ * BearDen Design System - Image Viewer
  *
  * A horizontal thumbnail navigation strip for image galleries
  * Supports lazy loading, auto-scroll to active, and collapsible state

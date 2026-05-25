@@ -1,6 +1,6 @@
 /**
  * Header Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Main navigation header with responsive mobile menu
  */

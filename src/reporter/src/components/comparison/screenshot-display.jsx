@@ -21,7 +21,7 @@ let checkerboardBackground = {
 };
 
 /**
- * Unified Screenshot Display Component - matches Observatory architecture
+ * Unified Screenshot Display Component - matches BearDen architecture
  * Handles zoom calculations and renders the appropriate comparison mode
  * inside a zoom wrapper so all modes scale together
  */

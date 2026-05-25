@@ -92,7 +92,7 @@ const formatHelp = (cmd, helper) => {
     // Cute grizzly bear mascot with square eyes (like the Vizzly logo!)
     lines.push(c.brand.amber('   ʕ□ᴥ□ʔ'));
     lines.push(`   ${c.brand.amber(c.bold('vizzly'))} ${c.dim(`v${version}`)}`);
-    lines.push(`   ${c.gray('Visual review for agents and teams')}`);
+    lines.push(`   ${c.gray('Visual regression testing from your terminal')}`);
   } else {
     // Compact header for subcommands
     lines.push(`  ${c.brand.amber(c.bold('vizzly'))} ${c.white(cmd.name())}`);
@@ -332,7 +332,7 @@ function normalizeJsonArgv(argv, commandNames) {
 
 program
   .name('vizzly')
-  .description('Vizzly CLI for visual review')
+  .description('Vizzly CLI for visual regression testing')
   .version(getPackageVersion())
   .option('-c, --config <path>', 'Config file path')
   .option('--token <token>', 'Vizzly API token')
@@ -768,11 +768,11 @@ Examples:
 
 let contextCmd = program
   .command('context')
-  .description('Fetch build context for agents and reviewers');
+  .description('Fetch build and diff context');
 
 contextCmd
   .command('build')
-  .description('Fetch build context for agents and reviewers')
+  .description('Fetch build context')
   .argument('<build-id>', 'Build ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option('--agent', 'Output compact context for LLM agents')

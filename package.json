@@ -1,7 +1,7 @@
 {
   "name": "@vizzly-testing/cli",
   "version": "0.32.0",
-  "description": "Visual review for agents and teams",
+  "description": "Visual regression testing from your terminal",
   "keywords": [
     "llm-context",
     "visual-context",
@@ -54,6 +54,7 @@
   "files": [
     "bin",
     "dist",
+    "docs/assets",
     "README.md",
     "LICENSE"
   ],

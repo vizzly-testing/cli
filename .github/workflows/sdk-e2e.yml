@@ -20,21 +20,23 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install CLI dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: npm run build
+        run: pnpm run build
 
       - name: Install test-site dependencies
         working-directory: ./test-site
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Get Playwright version
         id: playwright-version
-        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+        run: echo "version=$(pnpm exec playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
@@ -46,17 +48,17 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./test-site
-        run: npx playwright install firefox --with-deps
+        run: pnpm exec playwright install firefox --with-deps
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./test-site
-        run: node ../bin/vizzly.js tdd run "npm test"
+        run: node ../bin/vizzly.js tdd run "pnpm test"
         env:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./test-site
-        run: node ../bin/vizzly.js run "npm test"
+        run: node ../bin/vizzly.js run "pnpm test"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
@@ -76,22 +78,24 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install CLI dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: npm run build
+        run: pnpm run build
 
       - name: Install Vitest client dependencies
         working-directory: ./clients/vitest
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Get Playwright version
         working-directory: ./clients/vitest
         id: playwright-version
-        run: echo "version=$(npx playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+        run: echo "version=$(pnpm exec playwright --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
@@ -103,17 +107,17 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/vitest
-        run: npx playwright install chromium --with-deps
+        run: pnpm exec playwright install chromium --with-deps
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./clients/vitest
-        run: ../../bin/vizzly.js tdd run "npm run test:e2e"
+        run: ../../bin/vizzly.js tdd run "pnpm run test:e2e"
         env:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/vitest
-        run: ../../bin/vizzly.js run "npm run test:e2e"
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
@@ -133,21 +137,23 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install CLI dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: npm run build
+        run: pnpm run build
 
       - name: Install Storybook client dependencies
         working-directory: ./clients/storybook
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build Storybook client
         working-directory: ./clients/storybook
-        run: npm run build
+        run: pnpm run build
 
       - name: Get Playwright version
         working-directory: ./clients/storybook
@@ -164,22 +170,22 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/storybook
-        run: npx playwright-core install chromium --with-deps
+        run: pnpm exec playwright-core install chromium --with-deps
 
       - name: Build example-storybook
         working-directory: ./clients/storybook/example-storybook
-        run: npm install && npm run build-storybook
+        run: pnpm install --frozen-lockfile && pnpm run build-storybook
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./clients/storybook
-        run: ../../bin/vizzly.js tdd run "npm run test:e2e"
+        run: ../../bin/vizzly.js tdd run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_LOG_LEVEL: debug
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/storybook
-        run: ../../bin/vizzly.js run "npm run test:e2e"
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_LOG_LEVEL: debug
@@ -207,21 +213,23 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install CLI dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: npm run build
+        run: pnpm run build
 
       - name: Install Static-Site client dependencies
         working-directory: ./clients/static-site
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build Static-Site client
         working-directory: ./clients/static-site
-        run: npm run build
+        run: pnpm run build
 
       - name: Get Playwright version
         working-directory: ./clients/static-site
@@ -238,17 +246,17 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/static-site
-        run: npx playwright-core install chromium --with-deps
+        run: pnpm exec playwright-core install chromium --with-deps
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./clients/static-site
-        run: ../../bin/vizzly.js tdd run "npm run test:e2e"
+        run: ../../bin/vizzly.js tdd run "pnpm run test:e2e"
         env:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/static-site
-        run: ../../bin/vizzly.js run "npm run test:e2e"
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
@@ -274,22 +282,24 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install CLI dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: npm run build
+        run: pnpm run build
 
       - name: Install Ember client dependencies
         working-directory: ./clients/ember
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Get Playwright version
         working-directory: ./clients/ember
         id: playwright-version
-        run: echo "version=$(npx playwright-core --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+        run: echo "version=$(pnpm exec playwright-core --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
@@ -301,23 +311,23 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/ember
-        run: npx playwright-core install chromium --with-deps
+        run: pnpm exec playwright-core install chromium --with-deps
 
       - name: Build Ember test app
         working-directory: ./clients/ember/test-app
         run: |
-          npm install
-          npm run build -- --mode development
+          pnpm install --frozen-lockfile
+          pnpm run build -- --mode development
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./clients/ember/test-app
-        run: ../../../bin/vizzly.js tdd run "npx testem ci --file testem.cjs"
+        run: ../../../bin/vizzly.js tdd run "pnpm exec testem ci --file testem.cjs"
         env:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/ember/test-app
-        run: ../../../bin/vizzly.js run "npx testem ci --file testem.cjs"
+        run: ../../../bin/vizzly.js run "pnpm exec testem ci --file testem.cjs"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_EMBER_CLIENT_TOKEN }}
@@ -337,13 +347,15 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install CLI dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: npm run build
+        run: pnpm run build
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@97ecb7b512899eb71ab1bf2310a624c6f1589ac6 # v1
@@ -389,13 +401,15 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install CLI dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build CLI
-        run: npm run build
+        run: pnpm run build
 
       - name: Build Swift package
         working-directory: ./clients/swift

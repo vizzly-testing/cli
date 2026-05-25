@@ -18,16 +18,18 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run linter
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Check formatting
-        run: npm run format:check
+        run: pnpm run format:check
 
   test:
     name: Test (Node ${{ matrix.node-version }})
@@ -46,21 +48,23 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: npm test
+        run: pnpm test
         env:
           CI: true
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Run type tests
-        run: npm run test:types
+        run: pnpm run test:types
 
   check:
     name: CI Status

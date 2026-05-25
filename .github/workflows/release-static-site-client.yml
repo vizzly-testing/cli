@@ -36,6 +36,9 @@ jobs:
       - name: Upgrade npm for Trusted Publishers
         run: npm install -g npm@11.5.1
 
+      - name: Install pnpm
+        run: npm install -g pnpm@11.3.0
+
       - name: Configure git
         run: |
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
@@ -102,15 +105,15 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./clients/static-site
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Run tests
         working-directory: ./clients/static-site
-        run: npm test
+        run: pnpm test
 
       - name: Run linter
         working-directory: ./clients/static-site
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Update CHANGELOG.md
         working-directory: ./clients/static-site
@@ -160,7 +163,7 @@ jobs:
 
       - name: Build package
         working-directory: ./clients/static-site
-        run: npm run build
+        run: pnpm run build
 
       - name: Reconfigure git auth
         run: |

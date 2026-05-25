@@ -23,6 +23,7 @@
   "license": "MIT",
   "author": "Stubborn Mule Software <support@vizzly.dev>",
   "type": "module",
+  "packageManager": "pnpm@11.3.0",
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
@@ -59,7 +60,7 @@
   "scripts": {
     "cli": "source .envrc && node bin/vizzly.js",
     "start": "node src/index.js",
-    "build": "npm run clean && npm run compile && npm run build:reporter && npm run build:reporter-ssr && npm run copy-types",
+    "build": "pnpm run clean && pnpm run compile && pnpm run build:reporter && pnpm run build:reporter-ssr && pnpm run copy-types",
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",
     "copy-types": "mkdir -p dist/types && cp src/types/*.d.ts dist/types/",
@@ -67,12 +68,12 @@
     "build:reporter-ssr": "cd src/reporter && vite build --config vite.ssr.config.js",
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",
     "test:types": "tsd",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "pnpm run build",
     "test": "node --experimental-test-coverage --test --test-concurrency=1 --test-reporter=spec $(find tests -name '*.test.js')",
     "test:watch": "node --test --test-reporter=spec --watch $(find tests -name '*.test.js')",
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",
-    "test:reporter:visual": "node bin/vizzly.js run \"npm run test:reporter\"",
-    "test:swift:e2e": "npm run build && node clients/swift/scripts/run-e2e.js",
+    "test:reporter:visual": "node bin/vizzly.js run \"pnpm run test:reporter\"",
+    "test:swift:e2e": "pnpm run build && node clients/swift/scripts/run-e2e.js",
     "test:tui": "node --test --test-reporter=spec tests/tui/*.test.js",
     "test:tui:docker": "./tests/tui/run-tui-tests.sh",
     "smoke:prod:pack": "node scripts/smoke-prod-pack.js",
@@ -80,7 +81,7 @@
     "lint:fix": "biome check --write --unsafe src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
     "format": "biome format --write src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
     "format:check": "biome format src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
-    "fix": "npm run format && npm run lint:fix"
+    "fix": "pnpm run format && pnpm run lint:fix"
   },
   "engines": {
     "node": ">=22.0.0"

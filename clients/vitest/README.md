@@ -254,9 +254,9 @@ The E2E tests serve as both validation and a working example. Run them with:
 
 ```bash
 # From clients/vitest directory
-npm install
-npm run test:unit    # Run unit tests
-npm run test:e2e     # Run E2E tests (requires vizzly dev start)
+pnpm install
+pnpm run test:unit    # Run unit tests
+pnpm run test:e2e     # Run E2E tests (requires vizzly dev start)
 npm test             # Run all tests
 ```
 

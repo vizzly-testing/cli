@@ -20,5 +20,9 @@ updates:
         update-types:
           - "major"
     open-pull-requests-limit: 10
+    cooldown:
+      semver-major-days: 30
+      semver-minor-days: 14
+      semver-patch-days: 3
     reviewers:
       - "@dependabot"

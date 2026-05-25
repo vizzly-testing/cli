@@ -11,7 +11,7 @@ These tests verify the Vitest plugin integration with Vizzly and serve as real-w
 npx vizzly tdd start
 
 # Run tests in another terminal (or in watch mode)
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 This provides:

@@ -464,7 +464,7 @@ The Swift SDK has an end-to-end test path that runs against a real local
 Vizzly TDD server and uploads real PNG bytes through `VizzlyClient`:
 
 ```bash
-npm run test:swift:e2e
+pnpm run test:swift:e2e
 ```
 
 This command builds the CLI, starts an isolated TDD run in a temp directory,

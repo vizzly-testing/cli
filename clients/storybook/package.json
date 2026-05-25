@@ -35,10 +35,10 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "npm run clean && npm run compile",
+    "build": "pnpm run clean && pnpm run compile",
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",
-    "prepublishOnly": "npm run lint && npm run build",
+    "prepublishOnly": "pnpm run lint && pnpm run build",
     "test": "node --test --test-reporter=spec $(find tests -name '*.test.js' ! -name 'sdk-integration.test.js')",
     "test:sdk-integration": "VIZZLY_E2E=1 node --test --test-reporter=spec tests/sdk-integration.test.js",
     "test:e2e": "../../bin/vizzly.js storybook ./example-storybook/dist",

@@ -76,7 +76,7 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
     if (!existsSync(storybookBuildPath)) {
       console.log('Building example-storybook...');
       try {
-        execSync('npm install && npm run build-storybook', {
+        execSync('pnpm install --frozen-lockfile && pnpm run build-storybook', {
           cwd: exampleStorybookPath,
           stdio: 'pipe',
         });

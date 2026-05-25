@@ -1,12 +1,12 @@
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { withImageVersion } from '../../utils/image-url.js';
 import {
   HotSpotOverlay,
   OnionSkinMode,
   OverlayMode,
   ToggleMode,
-} from '@vizzly-testing/observatory';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { withImageVersion } from '../../utils/image-url.js';
+} from '../design-system/index.js';
 
 /**
  * Unified Screenshot Display Component - matches Observatory architecture

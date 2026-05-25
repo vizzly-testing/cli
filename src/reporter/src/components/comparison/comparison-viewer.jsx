@@ -1,11 +1,11 @@
+import { useCallback, useMemo, useState } from 'react';
+import { VIEW_MODES } from '../../utils/constants.js';
+import { withImageVersion } from '../../utils/image-url.js';
 import {
   OnionSkinMode,
   OverlayMode,
   ToggleView,
-} from '@vizzly-testing/observatory';
-import { useCallback, useMemo, useState } from 'react';
-import { VIEW_MODES } from '../../utils/constants.js';
-import { withImageVersion } from '../../utils/image-url.js';
+} from '../design-system/index.js';
 
 /**
  * Comparison Viewer for inline card display

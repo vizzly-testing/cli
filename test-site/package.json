@@ -7,8 +7,8 @@
     "test": "../node_modules/.bin/playwright test",
     "test:headed": "../node_modules/.bin/playwright test --headed",
     "serve": "python3 -m http.server 3030",
-    "vizzly:capture": "node ../bin/vizzly.js run \"npm run test\" --build-name \"FluffyCloud Test Suite\"",
-    "vizzly:tdd": "node ../bin/vizzly.js tdd \"npm run test\""
+    "vizzly:capture": "node ../bin/vizzly.js run \"pnpm run test\" --build-name \"FluffyCloud Test Suite\"",
+    "vizzly:tdd": "node ../bin/vizzly.js tdd \"pnpm run test\""
   },
   "devDependencies": {
     "tailwindcss": "^3.4.17"

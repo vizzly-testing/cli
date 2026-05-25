@@ -2,7 +2,7 @@
 
 > Visual review for agents and teams
 
-[![npm version](https://img.shields.io/npm/v/@vizzly-testing/cli.svg)](https://www.npmjs.com/package/@vizzly-testing/cli)
+[![package version](https://img.shields.io/npm/v/@vizzly-testing/cli.svg)](https://www.npmjs.com/package/@vizzly-testing/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Vizzly keeps the visual truth behind your UI: approved baselines, meaningful diffs, review state, comments, and preview links in one place. That makes it useful for humans reviewing product changes and for LLM agents that need to understand what the UI is supposed to look like before they edit it.
@@ -24,7 +24,7 @@ Unlike tools that re-render components in isolation, Vizzly captures screenshots
 Requires Node.js 22+.
 
 ```bash
-npm install -g @vizzly-testing/cli
+pnpm install -g @vizzly-testing/cli
 
 vizzly init
 ```
@@ -35,7 +35,7 @@ Start the TDD server, run your tests in watch mode, and see visual diffs instant
 
 ```bash
 vizzly tdd start
-npm test -- --watch
+pnpm test -- --watch
 ```
 
 The dashboard shows diffs in real-time. Accept or reject changes right from the UI.
@@ -46,7 +46,7 @@ For team collaboration and CI pipelines:
 
 ```bash
 vizzly login
-vizzly run "npm test" --wait
+vizzly run "pnpm test" --wait
 ```
 
 The `--wait` flag polls for results and exits with code 1 if visual differences are detected.
@@ -55,7 +55,7 @@ For CI environments, set your project token:
 
 ```bash
 export VIZZLY_TOKEN=your-project-token
-vizzly run "npm test" --wait
+vizzly run "pnpm test" --wait
 ```
 
 ### Visual Context For Agents

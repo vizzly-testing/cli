@@ -54,7 +54,7 @@ Errors look like this:
 ### `vizzly run`
 
 ```bash
-vizzly run "npm test" --json
+vizzly run "pnpm test" --json
 ```
 
 ```json
@@ -93,7 +93,7 @@ With `--wait`, includes comparison results:
 ### `vizzly tdd run`
 
 ```bash
-vizzly tdd run "npm test" --json
+vizzly tdd run "pnpm test" --json
 ```
 
 ```json
@@ -827,7 +827,7 @@ In JSON mode, skips confirmation and removes immediately:
 ### Check for visual changes in CI
 
 ```bash
-result=$(vizzly run "npm test" --wait --json)
+result=$(vizzly run "pnpm test" --wait --json)
 changed=$(echo "$result" | jq '.data.comparisons.changed')
 
 if [ "$changed" -gt 0 ]; then

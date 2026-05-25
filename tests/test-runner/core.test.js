@@ -308,7 +308,7 @@ describe('test-runner/core', () => {
 
   describe('validateTestCommand', () => {
     it('returns valid for non-empty command', () => {
-      let result = validateTestCommand('npm test');
+      let result = validateTestCommand('pnpm test');
 
       assert.strictEqual(result.valid, true);
       assert.strictEqual(result.error, null);

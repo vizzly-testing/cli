@@ -5,11 +5,11 @@
  *
  *   Print a file's calculated configuration
  *
- *     npx eslint --print-config path/to/file.js
+ *     pnpm exec eslint --print-config path/to/file.js
  *
  *   Inspecting the config
  *
- *     npx eslint --inspect-config
+ *     pnpm exec eslint --inspect-config
  *
  */
 import globals from 'globals';

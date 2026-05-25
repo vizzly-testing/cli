@@ -340,12 +340,12 @@ describe('test-runner/operations', () => {
       };
 
       let result = await executeTestCommand({
-        command: 'npm test',
+        command: 'pnpm test',
         env: { NODE_ENV: 'test' },
         deps,
       });
 
-      assert.strictEqual(spawnedCommand, 'npm test');
+      assert.strictEqual(spawnedCommand, 'pnpm test');
       assert.ok(result.process);
     });
 
@@ -370,7 +370,7 @@ describe('test-runner/operations', () => {
       await assert.rejects(
         () =>
           executeTestCommand({
-            command: 'npm test',
+            command: 'pnpm test',
             env: {},
             deps,
           }),
@@ -403,7 +403,7 @@ describe('test-runner/operations', () => {
       await assert.rejects(
         () =>
           executeTestCommand({
-            command: 'npm test',
+            command: 'pnpm test',
             env: {},
             deps,
           }),

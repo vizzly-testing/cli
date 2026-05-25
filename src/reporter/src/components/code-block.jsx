@@ -15,8 +15,8 @@ function tokenize(code, language) {
           end: lineStart + line.length,
         });
       } else if (
-        line.trim().startsWith('npm') ||
-        line.trim().startsWith('npx')
+        line.trim().startsWith('pnpm') ||
+        line.trim().startsWith('vizzly')
       ) {
         tokens.push({
           type: 'command',
@@ -113,7 +113,8 @@ export default function CodeBlock({ code, language = 'javascript' }) {
   let isShell =
     language === 'shell' ||
     code.trim().startsWith('#') ||
-    code.trim().startsWith('npm');
+    code.trim().startsWith('pnpm') ||
+    code.trim().startsWith('vizzly');
   let highlightedCode = renderTokenizedCode(code, isShell ? 'shell' : language);
 
   return (

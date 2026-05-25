@@ -2,7 +2,7 @@
 
 > Drop-in replacement for Vitest visual testing - powered by Vizzly
 
-[![npm version](https://img.shields.io/npm/v/@vizzly-testing/vitest.svg)](https://www.npmjs.com/package/@vizzly-testing/vitest)
+[![package version](https://img.shields.io/npm/v/@vizzly-testing/vitest.svg)](https://www.npmjs.com/package/@vizzly-testing/vitest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
@@ -25,7 +25,7 @@ standard `toMatchScreenshot` API - no code changes required!
 ## Installation
 
 ```bash
-npm install -D @vizzly-testing/vitest @vizzly-testing/cli
+pnpm install -D @vizzly-testing/vitest @vizzly-testing/cli
 ```
 
 ## Quick Start
@@ -87,10 +87,10 @@ test('homepage looks correct', async () => {
 
 ```bash
 # Terminal 1: Start Vizzly TDD server
-npx vizzly dev start
+pnpm exec vizzly dev start
 
 # Terminal 2: Run tests
-npx vitest
+pnpm exec vitest
 
 # Open dashboard at http://localhost:47392
 ```
@@ -102,7 +102,7 @@ baseline.
 **Cloud Mode** (CI/CD with team collaboration):
 
 ```bash
-npx vizzly run "npx vitest" --wait
+pnpm exec vizzly run "pnpm exec vitest" --wait
 ```
 
 ## API Reference
@@ -254,10 +254,10 @@ The E2E tests serve as both validation and a working example. Run them with:
 
 ```bash
 # From clients/vitest directory
-npm install
-npm run test:unit    # Run unit tests
-npm run test:e2e     # Run E2E tests (requires vizzly dev start)
-npm test             # Run all tests
+pnpm install
+pnpm run test:unit    # Run unit tests
+pnpm run test:e2e     # Run E2E tests (requires vizzly dev start)
+pnpm test            # Run all tests
 ```
 
 ## Troubleshooting
@@ -266,12 +266,12 @@ npm test             # Run all tests
 
 Make sure you're running tests with either:
 - `vizzly dev start` (TDD mode)
-- `vizzly run "npx vitest"` (cloud mode)
+- `vizzly run "pnpm exec vitest"` (cloud mode)
 
 ### Screenshots not appearing in dashboard
 
 1. Check `vizzly status` for TDD, make sure `VIZZLY_TOKEN` is set for cloud capture
-2. Verify API token is set: `npx vizzly whoami`
+2. Verify API token is set: `pnpm exec vizzly whoami`
 3. Check console for error messages
 
 ## License

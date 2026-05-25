@@ -84,8 +84,8 @@ class VisualTests: XCTestCase {
     code: `# No code changes needed!
 # Just run the CLI against your Storybook build:
 
-npm run build-storybook
-npx vizzly storybook ./storybook-static`,
+pnpm run build-storybook
+pnpm exec vizzly storybook ./storybook-static`,
   },
 ];
 

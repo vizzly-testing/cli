@@ -127,7 +127,7 @@ export async function clearGlobalConfig() {
 
 /**
  * Save user's PATH for menubar app to use
- * This auto-configures the menubar app so it can find npx/node
+ * This auto-configures the menubar app so it can find package runners/node
  * @returns {Promise<void>}
  */
 export async function saveUserPath() {

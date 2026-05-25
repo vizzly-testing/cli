@@ -32,14 +32,16 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '22'
-          cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Upgrade npm for Trusted Publishers
         run: npm install -g npm@11.5.1
 
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
+
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Configure git
         run: |
@@ -59,7 +61,7 @@ jobs:
           echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
           if [ "${{ github.event.inputs.version_type }}" != "current" ]; then
-            git add package.json package-lock.json
+            git add package.json pnpm-lock.yaml
             git commit -m "🔖 v$PACKAGE_VERSION"
           fi
 

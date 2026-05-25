@@ -35,7 +35,7 @@ docker run --rm \
   -e VIZZLY_SERVER_URL="http://host.docker.internal:47392" \
   -e VIZZLY_LOG_LEVEL="${VIZZLY_LOG_LEVEL:-info}" \
   vizzly-tui-tests \
-  npm run test:tui
+  pnpm run test:tui
 
 echo ""
 echo "TUI tests complete. Check http://localhost:47392 for results."

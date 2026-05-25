@@ -11,7 +11,7 @@ let cliPath = join(repoRoot, 'bin/vizzly.js');
 let distCliPath = join(repoRoot, 'dist/cli.js');
 
 if (!existsSync(distCliPath)) {
-  console.error('Build the CLI first: npm run build');
+  console.error('Build the CLI first: pnpm run build');
   process.exit(1);
 }
 

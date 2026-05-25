@@ -44,7 +44,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run serve',
+    command: 'pnpm run serve',
     url: 'http://localhost:3030',
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',

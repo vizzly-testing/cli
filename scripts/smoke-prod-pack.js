@@ -108,12 +108,12 @@ async function main() {
   let smokeHome = join(tmpRoot, 'home');
   let packDir = join(tmpRoot, 'pack');
   let installDir = join(tmpRoot, 'install');
-  let cacheDir = join(tmpRoot, 'npm-cache');
+  let cacheDir = join(tmpRoot, 'package-cache');
   let tokenId = null;
 
   try {
     log('building CLI');
-    await run('npm', ['run', 'build'], { cwd: workspace });
+    await run('pnpm', ['run', 'build'], { cwd: workspace });
 
     log('packing CLI');
     await mkdir(packDir, { recursive: true });

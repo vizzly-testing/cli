@@ -4,11 +4,11 @@
  * Uses the example-storybook to verify the full screenshot capture flow:
  * story discovery → browser launch → screenshot capture → TDD server.
  *
- * Run with: VIZZLY_E2E=1 npm test -- e2e.test.js
+ * Run with: VIZZLY_E2E=1 pnpm test -- e2e.test.js
  *
  * Requires:
  * - TDD server running: `vizzly tdd start`
- * - example-storybook built: `cd example-storybook && npm run build`
+ * - example-storybook built: `cd example-storybook && pnpm run build`
  */
 
 import assert from 'node:assert';
@@ -57,6 +57,7 @@ async function stopProcess(child) {
 
 // Paths
 let testDir = join(tmpdir(), `vizzly-storybook-e2e-${Date.now()}`);
+let cliPath = resolve(import.meta.dirname, '../../../bin/vizzly.js');
 let exampleStorybookPath = resolve(import.meta.dirname, '../example-storybook');
 let storybookBuildPath = join(exampleStorybookPath, 'dist');
 
@@ -76,14 +77,14 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
     if (!existsSync(storybookBuildPath)) {
       console.log('Building example-storybook...');
       try {
-        execSync('npm install && npm run build-storybook', {
+        execSync('pnpm install --frozen-lockfile && pnpm run build-storybook', {
           cwd: exampleStorybookPath,
           stdio: 'pipe',
         });
       } catch (error) {
         console.error('Failed to build example-storybook:', error.message);
         throw new Error(
-          'example-storybook build required. Run: cd example-storybook && npm run build-storybook'
+          'example-storybook build required. Run: cd example-storybook && pnpm run build-storybook'
         );
       }
     }
@@ -98,7 +99,7 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
       // Create temp directory
       mkdirSync(testDir, { recursive: true });
 
-      tddServer = spawn('npx', ['vizzly', 'tdd', 'start'], {
+      tddServer = spawn('node', [cliPath, 'tdd', 'start'], {
         cwd: testDir,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env, VIZZLY_HOME: testDir },

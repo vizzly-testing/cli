@@ -8,10 +8,10 @@ These tests verify the Vitest plugin integration with Vizzly and serve as real-w
 
 ```bash
 # Start TDD server in one terminal
-npx vizzly tdd start
+pnpm exec vizzly tdd start
 
 # Run tests in another terminal (or in watch mode)
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 This provides:
@@ -24,7 +24,7 @@ This provides:
 
 ```bash
 # Run tests with Vizzly cloud upload
-npx vizzly run "npm run test:e2e"
+pnpm exec vizzly run "pnpm run test:e2e"
 ```
 
 This:

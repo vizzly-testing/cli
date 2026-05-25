@@ -1,0 +1,27 @@
+packages:
+  - clients/*
+  - clients/ember/test-app
+  - clients/storybook/example-storybook
+  - examples/custom-plugin
+  - test-site
+
+overrides:
+  '@babel/runtime': ^7.29.2
+  uuid: ^11.1.1
+  ws: ^8.20.1
+
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+minimumReleaseAgeExclude:
+  - '@vizzly-testing/honeydiff@0.10.3'
+onlyBuiltDependencies:
+  - canvas
+  - esbuild
+  - node-pty
+  - odiff-bin
+allowBuilds:
+  canvas: true
+  esbuild: true
+  node-pty: true
+  odiff-bin: true

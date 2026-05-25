@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!node_modules", "!dist", "!build", "!coverage", "!*.min.js", "!*.bundle.js", "!package-lock.json", "!**/*.css"]
+    "includes": ["**", "!node_modules", "!dist", "!build", "!coverage", "!*.min.js", "!*.bundle.js", "!pnpm-lock.yaml", "!**/*.css"]
   },
   "formatter": {
     "enabled": true,

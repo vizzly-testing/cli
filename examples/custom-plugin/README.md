@@ -31,11 +31,11 @@ export default {
 
 ```bash
 # From the vizzly-cli root
-npm link
+pnpm link --global
 
 # Create symlink for the plugin
 cd examples/custom-plugin
-npm link @vizzly-testing/cli
+pnpm link --global @vizzly-testing/cli
 cd ../..
 mkdir -p node_modules/@vizzly-testing
 ln -s ../../examples/custom-plugin node_modules/@vizzly-testing/example-plugin

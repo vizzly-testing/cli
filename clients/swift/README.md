@@ -403,7 +403,7 @@ jobs:
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
         run: |
-          npx vizzly run -- xcodebuild test \
+          pnpm exec vizzly run -- xcodebuild test \
             -scheme MyApp \
             -destination 'platform=iOS Simulator,name=iPhone 15' \
             -resultBundlePath TestResults
@@ -413,7 +413,7 @@ jobs:
 
 ```ruby
 lane :visual_tests do
-  sh "npx vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15'"
+  sh "pnpm exec vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15'"
 end
 ```
 
@@ -464,7 +464,7 @@ The Swift SDK has an end-to-end test path that runs against a real local
 Vizzly TDD server and uploads real PNG bytes through `VizzlyClient`:
 
 ```bash
-npm run test:swift:e2e
+pnpm run test:swift:e2e
 ```
 
 This command builds the CLI, starts an isolated TDD run in a temp directory,

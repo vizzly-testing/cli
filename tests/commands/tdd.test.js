@@ -46,7 +46,7 @@ describe('commands/tdd', () => {
       let runTestsCalled = false;
 
       let { result, cleanup } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -74,7 +74,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       let { result } = await tddCommand(
-        'npm test',
+        'pnpm test',
         { baselineBuild: 'build-123' },
         {},
         {
@@ -91,7 +91,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       let { result } = await tddCommand(
-        'npm test',
+        'pnpm test',
         { baselineComparison: 'comp-123' },
         {},
         {
@@ -108,7 +108,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         { json: true, verbose: true, noColor: true },
         {
@@ -135,7 +135,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -158,7 +158,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         { daemon: true },
         {},
         {
@@ -181,7 +181,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       let { result, cleanup } = await tddCommand(
-        'npm test',
+        'pnpm test',
         { daemon: true },
         {},
         {
@@ -207,7 +207,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       let { result } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -247,7 +247,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       let { result } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -279,7 +279,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       let { result } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -299,7 +299,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       let { result } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -326,7 +326,7 @@ describe('commands/tdd', () => {
       let serverStopped = false;
 
       let { cleanup } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -353,7 +353,7 @@ describe('commands/tdd', () => {
       let stopCount = 0;
 
       let { cleanup } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -383,7 +383,7 @@ describe('commands/tdd', () => {
       let capturedRunOptions = null;
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         { branch: 'feature', commit: 'def456' },
         {},
         {
@@ -411,7 +411,7 @@ describe('commands/tdd', () => {
       let capturedRunOptions = null;
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -441,7 +441,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -475,7 +475,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -509,7 +509,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -539,7 +539,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         { daemon: true },
         {},
         {
@@ -574,7 +574,7 @@ describe('commands/tdd', () => {
       let output = createMockOutput();
 
       let { result } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -603,7 +603,7 @@ describe('commands/tdd', () => {
       let processKilled = false;
 
       let { cleanup } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -639,7 +639,7 @@ describe('commands/tdd', () => {
       let killCalled = false;
 
       let { cleanup } = await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -673,7 +673,7 @@ describe('commands/tdd', () => {
       let createBuildCalled = false;
 
       await tddCommand(
-        'npm test',
+        'pnpm test',
         {},
         {},
         {
@@ -704,7 +704,7 @@ describe('commands/tdd', () => {
   describe('validateTddOptions', () => {
     describe('test command validation', () => {
       it('should pass with valid test command', () => {
-        let errors = validateTddOptions('npm test', {});
+        let errors = validateTddOptions('pnpm test', {});
         assert.strictEqual(errors.length, 0);
       });
 
@@ -726,33 +726,33 @@ describe('commands/tdd', () => {
 
     describe('port validation', () => {
       it('should pass with valid port', () => {
-        let errors = validateTddOptions('npm test', { port: '3000' });
+        let errors = validateTddOptions('pnpm test', { port: '3000' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should fail with invalid port number', () => {
-        let errors = validateTddOptions('npm test', { port: 'invalid' });
+        let errors = validateTddOptions('pnpm test', { port: 'invalid' });
         assert.ok(
           errors.includes('Port must be a valid number between 1 and 65535')
         );
       });
 
       it('should fail with decimal port number', () => {
-        let errors = validateTddOptions('npm test', { port: '3000.5' });
+        let errors = validateTddOptions('pnpm test', { port: '3000.5' });
         assert.ok(
           errors.includes('Port must be a valid number between 1 and 65535')
         );
       });
 
       it('should fail with port out of range (too low)', () => {
-        let errors = validateTddOptions('npm test', { port: '0' });
+        let errors = validateTddOptions('pnpm test', { port: '0' });
         assert.ok(
           errors.includes('Port must be a valid number between 1 and 65535')
         );
       });
 
       it('should fail with port out of range (too high)', () => {
-        let errors = validateTddOptions('npm test', { port: '65536' });
+        let errors = validateTddOptions('pnpm test', { port: '65536' });
         assert.ok(
           errors.includes('Port must be a valid number between 1 and 65535')
         );
@@ -761,26 +761,26 @@ describe('commands/tdd', () => {
 
     describe('timeout validation', () => {
       it('should pass with valid timeout', () => {
-        let errors = validateTddOptions('npm test', { timeout: '5000' });
+        let errors = validateTddOptions('pnpm test', { timeout: '5000' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should fail with invalid timeout', () => {
-        let errors = validateTddOptions('npm test', { timeout: 'invalid' });
+        let errors = validateTddOptions('pnpm test', { timeout: 'invalid' });
         assert.ok(
           errors.includes('Timeout must be at least 1000 milliseconds')
         );
       });
 
       it('should fail with decimal timeout', () => {
-        let errors = validateTddOptions('npm test', { timeout: '5000.5' });
+        let errors = validateTddOptions('pnpm test', { timeout: '5000.5' });
         assert.ok(
           errors.includes('Timeout must be at least 1000 milliseconds')
         );
       });
 
       it('should fail with timeout too low', () => {
-        let errors = validateTddOptions('npm test', { timeout: '500' });
+        let errors = validateTddOptions('pnpm test', { timeout: '500' });
         assert.ok(
           errors.includes('Timeout must be at least 1000 milliseconds')
         );
@@ -789,22 +789,22 @@ describe('commands/tdd', () => {
 
     describe('threshold validation', () => {
       it('should pass with valid threshold', () => {
-        let errors = validateTddOptions('npm test', { threshold: '0.1' });
+        let errors = validateTddOptions('pnpm test', { threshold: '0.1' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should pass with threshold of 0', () => {
-        let errors = validateTddOptions('npm test', { threshold: '0' });
+        let errors = validateTddOptions('pnpm test', { threshold: '0' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should pass with threshold of 1', () => {
-        let errors = validateTddOptions('npm test', { threshold: '1' });
+        let errors = validateTddOptions('pnpm test', { threshold: '1' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should fail with invalid threshold', () => {
-        let errors = validateTddOptions('npm test', { threshold: 'invalid' });
+        let errors = validateTddOptions('pnpm test', { threshold: 'invalid' });
         assert.ok(
           errors.includes(
             'Threshold must be a non-negative number (CIEDE2000 Delta E)'
@@ -813,7 +813,7 @@ describe('commands/tdd', () => {
       });
 
       it('should fail when threshold has trailing text', () => {
-        let errors = validateTddOptions('npm test', { threshold: '2abc' });
+        let errors = validateTddOptions('pnpm test', { threshold: '2abc' });
         assert.ok(
           errors.includes(
             'Threshold must be a non-negative number (CIEDE2000 Delta E)'
@@ -822,7 +822,7 @@ describe('commands/tdd', () => {
       });
 
       it('should fail with threshold below 0', () => {
-        let errors = validateTddOptions('npm test', { threshold: '-0.1' });
+        let errors = validateTddOptions('pnpm test', { threshold: '-0.1' });
         assert.ok(
           errors.includes(
             'Threshold must be a non-negative number (CIEDE2000 Delta E)'
@@ -831,26 +831,26 @@ describe('commands/tdd', () => {
       });
 
       it('should pass with threshold above 1 (CIEDE2000 allows values > 1)', () => {
-        let errors = validateTddOptions('npm test', { threshold: '2.0' });
+        let errors = validateTddOptions('pnpm test', { threshold: '2.0' });
         assert.strictEqual(errors.length, 0);
       });
     });
 
     describe('min cluster size validation', () => {
       it('should pass with a positive integer', () => {
-        let errors = validateTddOptions('npm test', { minClusterSize: '2' });
+        let errors = validateTddOptions('pnpm test', { minClusterSize: '2' });
         assert.strictEqual(errors.length, 0);
       });
 
       it('should fail with zero', () => {
-        let errors = validateTddOptions('npm test', { minClusterSize: '0' });
+        let errors = validateTddOptions('pnpm test', { minClusterSize: '0' });
         assert.ok(
           errors.includes('Min cluster size must be a positive integer')
         );
       });
 
       it('should fail with a decimal', () => {
-        let errors = validateTddOptions('npm test', { minClusterSize: '2.5' });
+        let errors = validateTddOptions('pnpm test', { minClusterSize: '2.5' });
         assert.ok(
           errors.includes('Min cluster size must be a positive integer')
         );

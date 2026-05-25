@@ -8,38 +8,38 @@ A short introduction of this app could easily go here.
 You will need the following things properly installed on your computer.
 
 - [Git](https://git-scm.com/)
-- [Node.js](https://nodejs.org/) (with npm)
+- [Node.js](https://nodejs.org/) (with pnpm)
 - [Google Chrome](https://google.com/chrome/)
 
 ## Installation
 
 - `git clone <repository-url>` this repository
 - `cd test-ember-app`
-- `npm install`
+- `pnpm install`
 
 ## Running / Development
 
-- `npm run start`
+- `pnpm run start`
 - Visit your app at [http://localhost:4200](http://localhost:4200).
 - Visit your tests at [http://localhost:4200/tests](http://localhost:4200/tests).
 
 ### Code Generators
 
-Make use of the many generators for code, try `npm exec ember help generate` for more details
+Make use of the many generators for code, try `pnpm exec ember help generate` for more details
 
 ### Running Tests
 
-- `npm run test`
+- `pnpm run test`
 
 ### Linting
 
-- `npm run lint`
-- `npm run lint:fix`
+- `pnpm run lint`
+- `pnpm run lint:fix`
 
 ### Building
 
-- `npm exec vite build --mode development` (development)
-- `npm run build` (production)
+- `pnpm exec vite build --mode development` (development)
+- `pnpm run build` (production)
 
 ### Deploying
 

@@ -11,7 +11,7 @@
     "vizzly:tdd": "node ../bin/vizzly.js tdd \"pnpm run test\""
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^4.2.4"
   },
   "keywords": [
     "vizzly",

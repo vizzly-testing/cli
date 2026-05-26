@@ -21,12 +21,9 @@ import {
   ListBulletIcon,
   MapPinIcon,
 } from '@heroicons/react/24/outline';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { VIEW_MODES } from '../../utils/constants.js';
-import { withImageVersion } from '../../utils/image-url.js';
+import { Badge } from '@vizzly-testing/bear-den';
 import {
   ApprovalButtonGroup,
-  Badge,
   BrowserIcon,
   CloseButton,
   DrawerContent,
@@ -45,7 +42,10 @@ import {
   VariantBreadcrumb,
   ViewModeToggle,
   ZoomControls,
-} from '../design-system/index.js';
+} from '@vizzly-testing/bear-den/review';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { VIEW_MODES } from '../../utils/constants.js';
+import { withImageVersion } from '../../utils/image-url.js';
 import { ScreenshotDisplay } from './screenshot-display.jsx';
 
 /**

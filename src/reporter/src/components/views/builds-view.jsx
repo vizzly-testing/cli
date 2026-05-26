@@ -12,6 +12,17 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  EmptyState,
+  Skeleton,
+  SkeletonCard,
+  Spinner,
+} from '@vizzly-testing/bear-den';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   useAuthStatus,
@@ -24,21 +35,10 @@ import {
   useProjects,
 } from '../../hooks/queries/use-cloud-queries.js';
 import { queryKeys } from '../../lib/query-keys.js';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  CardBody,
-  EmptyState,
-  Skeleton,
-  SkeletonCard,
-  Spinner,
-} from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
 
 function StatusBadge({ status }) {
-  const variants = {
+  let variants = {
     passed: { variant: 'success', icon: CheckCircleIcon },
     completed: { variant: 'success', icon: CheckCircleIcon },
     failed: { variant: 'danger', icon: XCircleIcon },
@@ -46,7 +46,7 @@ function StatusBadge({ status }) {
     processing: { variant: 'info', icon: ArrowPathIcon },
   };
 
-  const config = variants[status] || variants.pending;
+  let config = variants[status] || variants.pending;
 
   return (
     <Badge variant={config.variant} dot pulseDot={status === 'processing'}>
@@ -56,7 +56,7 @@ function StatusBadge({ status }) {
 }
 
 function getTimeAgo(date) {
-  const seconds = Math.floor((Date.now() - date) / 1000);
+  let seconds = Math.floor((Date.now() - date) / 1000);
 
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -67,8 +67,8 @@ function getTimeAgo(date) {
 }
 
 function BuildCard({ build, project, onDownload, downloading }) {
-  const createdAt = new Date(build.createdAt || build.created_at);
-  const timeAgo = getTimeAgo(createdAt);
+  let createdAt = new Date(build.createdAt || build.created_at);
+  let timeAgo = getTimeAgo(createdAt);
 
   return (
     <div className="flex items-center justify-between p-4 vz-card">

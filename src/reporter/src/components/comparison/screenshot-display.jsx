@@ -1,12 +1,12 @@
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { withImageVersion } from '../../utils/image-url.js';
 import {
   HotSpotOverlay,
   OnionSkinMode,
   OverlayMode,
   ToggleMode,
-} from '../design-system/index.js';
+} from '@vizzly-testing/bear-den/review';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { withImageVersion } from '../../utils/image-url.js';
 
 let checkerboardBackground = {
   backgroundImage: `

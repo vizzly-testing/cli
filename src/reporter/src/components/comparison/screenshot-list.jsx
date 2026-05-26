@@ -6,9 +6,9 @@ import {
   DeviceTabletIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { Badge, Button } from '@vizzly-testing/bear-den';
 import { useMemo } from 'react';
 import { withImageVersion } from '../../utils/image-url.js';
-import { Badge, Button } from '../design-system/index.js';
 import SmartImage from '../ui/smart-image.jsx';
 
 function getComparisonId(comparison) {

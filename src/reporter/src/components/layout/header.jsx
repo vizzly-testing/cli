@@ -13,8 +13,8 @@ import {
   PhotoIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { Spinner } from '@vizzly-testing/bear-den';
 import { useState } from 'react';
-import { Spinner } from '../design-system/index.js';
 
 let navItems = [
   { key: 'comparisons', label: 'Comparisons', icon: PhotoIcon },

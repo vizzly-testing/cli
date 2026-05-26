@@ -5,6 +5,7 @@ import {
   FunnelIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
+import { Button, Card, CardBody, EmptyState } from '@vizzly-testing/bear-den';
 import { useCallback, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
@@ -20,7 +21,6 @@ import {
 } from '../../utils/status-utils.js';
 import ScreenshotList from '../comparison/screenshot-list.jsx';
 import DashboardFilters from '../dashboard/dashboard-filters.jsx';
-import { Button, Card, CardBody, EmptyState } from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
 
 function asIdList(value) {

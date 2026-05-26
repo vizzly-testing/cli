@@ -68,6 +68,7 @@ let DEFAULT_SCREENSHOT_TIMEOUT = 45_000;
  * @param {boolean} [options.fullPage=true] - Capture full page
  * @param {boolean} [options.omitBackground=false] - Omit background (transparent)
  * @param {number} [options.timeout=45000] - Screenshot timeout in ms
+ * @param {number} [options.requestTimeout] - Vizzly request timeout in ms
  * @returns {Promise<Buffer>} Screenshot buffer
  */
 export async function captureScreenshot(page, options = {}) {
@@ -75,6 +76,7 @@ export async function captureScreenshot(page, options = {}) {
     fullPage = true,
     omitBackground = false,
     timeout = DEFAULT_SCREENSHOT_TIMEOUT,
+    requestTimeout: _requestTimeout,
   } = options;
 
   // Playwright has built-in timeout support
@@ -105,6 +107,10 @@ export async function captureAndSendScreenshot(
   let properties = generateScreenshotProperties(viewport);
   properties.url = page.url();
   let screenshot = await captureScreenshot(page, screenshotOptions);
+  let requestTimeout =
+    screenshotOptions.requestTimeout ||
+    screenshotOptions.timeout ||
+    DEFAULT_SCREENSHOT_TIMEOUT;
 
-  await vizzlyScreenshot(name, screenshot, { properties });
+  await vizzlyScreenshot(name, screenshot, { properties, requestTimeout });
 }

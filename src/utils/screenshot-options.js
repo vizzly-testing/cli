@@ -6,6 +6,7 @@ export function createScreenshotProperties(options = {}) {
   let {
     buildId: _buildId,
     properties = {},
+    requestTimeout: _requestTimeout,
     threshold,
     minClusterSize,
     fullPage,

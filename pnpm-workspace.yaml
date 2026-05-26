@@ -14,7 +14,7 @@ minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 minimumReleaseAgeExclude:
-  - '@vizzly-testing/bear-den@0.1.1'
+  - '@vizzly-testing/bear-den@0.1.2'
   - '@vizzly-testing/honeydiff@0.10.3'
 onlyBuiltDependencies:
   - canvas

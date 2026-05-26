@@ -46,6 +46,7 @@ let screenshotSchema = z.object({
   fullPage: z.boolean().default(true),
   omitBackground: z.boolean().default(false),
   timeout: z.number().int().positive().default(45_000), // 45 seconds
+  requestTimeout: z.number().int().positive().optional(),
 });
 
 /**

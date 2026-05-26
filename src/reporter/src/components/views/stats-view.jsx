@@ -6,6 +6,15 @@ import {
   PhotoIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  HealthRing,
+} from '@vizzly-testing/bear-den';
 import { useCallback } from 'react';
 import {
   useAcceptAllBaselines,
@@ -16,15 +25,6 @@ import {
   isNewComparisonStatus,
   needsReviewComparisonStatus,
 } from '../../utils/status-utils.js';
-import {
-  Badge,
-  Button,
-  Card,
-  CardBody,
-  CardFooter,
-  CardHeader,
-  HealthRing,
-} from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
 
 function StatCard({ icon: Icon, label, value, subvalue, variant, iconColor }) {
@@ -80,8 +80,8 @@ export default function StatsView() {
     needsReviewComparisonStatus(c.status)
   );
 
-  const handleAcceptAll = useCallback(async () => {
-    const confirmed = await confirm(
+  let handleAcceptAll = useCallback(async () => {
+    let confirmed = await confirm(
       'This will update all failed and new screenshots.',
       'Accept all changes as new baselines?'
     );
@@ -99,8 +99,8 @@ export default function StatsView() {
     });
   }, [acceptAllMutation, addToast, confirm]);
 
-  const handleReset = useCallback(async () => {
-    const confirmed = await confirm(
+  let handleReset = useCallback(async () => {
+    let confirmed = await confirm(
       'This will delete all baseline images and clear comparison history.',
       'Reset all baselines?'
     );

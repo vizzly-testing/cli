@@ -1,7 +1,7 @@
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { EmptyState, Spinner } from '@vizzly-testing/bear-den';
 import { Route, Switch, useLocation } from 'wouter';
 import { useReportData } from '../hooks/queries/use-tdd-queries.js';
-import { EmptyState, Spinner } from './design-system/index.js';
 import { Layout } from './layout/index.js';
 import BuildsView from './views/builds-view.jsx';
 import ComparisonDetailView from './views/comparison-detail-view.jsx';

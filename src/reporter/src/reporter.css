@@ -1,9 +1,7 @@
 @import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import '@vizzly-testing/bear-den/styles';
-@import './components/design-system/styles.css';
 @source "../../../node_modules/@vizzly-testing/bear-den/src";
-@source "./components/design-system";
 
 :root {
   --vz-checkerboard-bg: #111827;

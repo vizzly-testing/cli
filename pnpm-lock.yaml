@@ -14,8 +14,8 @@ importers:
   .:
     dependencies:
       '@vizzly-testing/bear-den':
-        specifier: ^0.1.1
-        version: 0.1.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.0)
+        specifier: 0.1.2
+        version: 0.1.2(@heroicons/react@2.2.0(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.0)
       '@vizzly-testing/honeydiff':
         specifier: ^0.10.3
         version: 0.10.3
@@ -2838,12 +2838,22 @@ packages:
   '@vitest/utils@4.1.6':
     resolution: {integrity: sha512-FxIY+U81R3LGKCxaHHFRQ5+g6/iRgGLmeHWdp2Amj4ljQRrEIWHmZyDfDYBRZlpyqA7qKxtS9DD1dhk8RnRIVQ==}
 
-  '@vizzly-testing/bear-den@0.1.1':
-    resolution: {integrity: sha512-RunuRFoioBteKnhb5WmGzU8b2fwzV7+ZutK4f0YtHDVkHoHHDBhF5FDb/tsCeuYPkNPbgUv8Ju/RKjHFcLo9xg==}
+  '@vizzly-testing/bear-den@0.1.2':
+    resolution: {integrity: sha512-esOZgjA9fqyembrDIC9dI/CytjDWOK9+7GupIVQ+DoxJLwplIMBkMw40jE0/0dmUV62CKVHaDXOK1cfpDQSj9g==}
     peerDependencies:
+      '@heroicons/react': ^2.0.0
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
       tailwindcss: ^4.0.0
+    peerDependenciesMeta:
+      '@heroicons/react':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      tailwindcss:
+        optional: true
 
   '@vizzly-testing/cli@0.30.0':
     resolution: {integrity: sha512-vtF2ncb8NatRMBtY+0KKs8PFY7h5B86bymaWzyWWffIqzTcOC0ZCVI6ZMJ8qit6zx8Jh/EKdGHcieKJ5qrYa4A==}
@@ -10586,8 +10596,9 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@vizzly-testing/bear-den@0.1.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.0)':
-    dependencies:
+  '@vizzly-testing/bear-den@0.1.2(@heroicons/react@2.2.0(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.0)':
+    optionalDependencies:
+      '@heroicons/react': 2.2.0(react@19.2.6)
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
       tailwindcss: 4.3.0

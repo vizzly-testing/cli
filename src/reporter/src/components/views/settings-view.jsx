@@ -1,8 +1,3 @@
-import { useCallback, useMemo, useState } from 'react';
-import {
-  useConfig,
-  useUpdateProjectConfig,
-} from '../../hooks/queries/use-config-queries.js';
 import {
   Alert,
   Badge,
@@ -13,7 +8,12 @@ import {
   Select,
   Skeleton,
   Toggle,
-} from '../design-system/index.js';
+} from '@vizzly-testing/bear-den';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  useConfig,
+  useUpdateProjectConfig,
+} from '../../hooks/queries/use-config-queries.js';
 import { useToast } from '../ui/toast.jsx';
 
 function getInitialFormData(config) {

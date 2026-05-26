@@ -56,10 +56,17 @@ describe('utils/colors', () => {
     it('provides semantic aliases', () => {
       let c = createColors({ useColor: true });
 
-      assert.strictEqual(c.success, c.green);
-      assert.strictEqual(c.error, c.red);
-      assert.strictEqual(c.warning, c.yellow);
-      assert.strictEqual(c.info, c.blue);
+      assert.strictEqual(c.success('ok'), '\x1b[38;2;127;217;144mok\x1b[39m');
+      assert.strictEqual(c.error('bad'), '\x1b[38;2;215;119;130mbad\x1b[39m');
+      assert.strictEqual(
+        c.warning('wait'),
+        '\x1b[38;2;220;173;95mwait\x1b[39m'
+      );
+      assert.strictEqual(c.info('note'), '\x1b[38;2;183;189;198mnote\x1b[39m');
+      assert.strictEqual(
+        c.brand.error('bad'),
+        '\x1b[38;2;215;119;130mbad\x1b[39m'
+      );
     });
 
     it('provides all expected style functions', () => {

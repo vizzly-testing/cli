@@ -122,6 +122,7 @@ export function createColors(options = {}) {
         success: noop,
         warning: noop,
         danger: noop,
+        error: noop,
         info: noop,
         // Text hierarchy
         textPrimary: noop,
@@ -177,6 +178,7 @@ export function createColors(options = {}) {
       success: colors.hex(brand.success),
       warning: colors.hex(brand.warning),
       danger: colors.hex(brand.danger),
+      error: colors.hex(brand.danger),
       info: colors.hex(brand.info),
       // Text hierarchy
       textPrimary: colors.hex(brand.textPrimary),

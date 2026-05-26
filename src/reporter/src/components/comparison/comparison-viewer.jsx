@@ -1,35 +1,35 @@
-import { useCallback, useMemo, useState } from 'react';
-import { VIEW_MODES } from '../../utils/constants.js';
-import { withImageVersion } from '../../utils/image-url.js';
 import {
   OnionSkinMode,
   OverlayMode,
   ToggleView,
-} from '../design-system/index.js';
+} from '@vizzly-testing/bear-den/review';
+import { useCallback, useMemo, useState } from 'react';
+import { VIEW_MODES } from '../../utils/constants.js';
+import { withImageVersion } from '../../utils/image-url.js';
 
 /**
  * Comparison Viewer for inline card display
  * Simpler than ScreenshotDisplay - no zoom, just renders comparison modes
  */
 export default function ComparisonViewer({ comparison, viewMode }) {
-  const [showDiffOverlay, setShowDiffOverlay] = useState(true);
-  const [onionSkinPosition, setOnionSkinPosition] = useState(50);
-  const [imageErrors, setImageErrors] = useState(new Set());
+  let [showDiffOverlay, setShowDiffOverlay] = useState(true);
+  let [onionSkinPosition, setOnionSkinPosition] = useState(50);
+  let [imageErrors, setImageErrors] = useState(new Set());
 
-  const handleImageError = useCallback(imageKey => {
+  let handleImageError = useCallback(imageKey => {
     setImageErrors(prev => new Set([...prev, imageKey]));
   }, []);
 
-  const handleImageLoad = useCallback(() => {
+  let handleImageLoad = useCallback(() => {
     // No-op for now, could track load states if needed
   }, []);
 
-  const handleDiffToggle = useCallback(() => {
+  let handleDiffToggle = useCallback(() => {
     setShowDiffOverlay(prev => !prev);
   }, []);
 
   // Create a screenshot-like object for the comparison modes
-  const screenshot = useMemo(
+  let screenshot = useMemo(
     () => ({
       id: comparison.id || comparison.signature || 'unknown',
       name: comparison.name || comparison.originalName || 'Screenshot',
@@ -38,7 +38,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
   );
 
   // Build image URLs once per comparison update.
-  const imageUrls = useMemo(
+  let imageUrls = useMemo(
     () => ({
       current: withImageVersion(comparison.current, comparison.timestamp),
       baseline: withImageVersion(comparison.baseline, comparison.timestamp),
@@ -57,7 +57,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
     return (
       <div className="comparison-viewer new-baseline">
         <div className="text-center py-8">
-          <p className="text-slate-400 text-sm mb-4">
+          <p className="text-[var(--text-tertiary)] text-sm mb-4">
             First screenshot - creating new baseline
           </p>
           <img
@@ -114,7 +114,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
         {viewMode === VIEW_MODES.SIDE_BY_SIDE && (
           <div className="flex gap-4 max-w-full overflow-auto">
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400 mb-2 text-center">
+              <div className="text-xs text-[var(--text-tertiary)] mb-2 text-center">
                 Baseline
               </div>
               <img
@@ -124,7 +124,7 @@ export default function ComparisonViewer({ comparison, viewMode }) {
               />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400 mb-2 text-center">
+              <div className="text-xs text-[var(--text-tertiary)] mb-2 text-center">
                 Current
               </div>
               <img

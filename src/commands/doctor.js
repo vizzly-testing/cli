@@ -242,15 +242,15 @@ export async function doctorCommand(
         for (let item of contextItems) {
           if (item.type === 'success') {
             output.printErr(
-              `  ${colors.green('✓')} ${colors.gray(item.label)}  ${colors.white(item.value)}`
+              `  ${colors.success('✓')} ${colors.brand.textMuted(item.label)}  ${colors.white(item.value)}`
             );
           } else if (item.type === 'warning') {
             output.printErr(
-              `  ${colors.yellow('!')} ${colors.gray(item.label)}  ${colors.yellow(item.value)}`
+              `  ${colors.yellow('!')} ${colors.brand.textMuted(item.label)}  ${colors.yellow(item.value)}`
             );
           } else {
             output.printErr(
-              `  ${colors.dim('○')} ${colors.gray(item.label)}  ${colors.dim(item.value)}`
+              `  ${colors.dim('○')} ${colors.brand.textMuted(item.label)}  ${colors.dim(item.value)}`
             );
           }
         }
@@ -260,7 +260,7 @@ export async function doctorCommand(
       output.printErr('');
       output.printErr(`  ${colors.dim('─'.repeat(52))}`);
       output.printErr(
-        `  ${colors.dim('Docs')} ${colors.cyan(colors.underline('docs.vizzly.dev'))}  ${colors.dim('GitHub')} ${colors.cyan(colors.underline('github.com/vizzly-testing/cli'))}`
+        `  ${colors.dim('Docs')} ${colors.info(colors.underline('docs.vizzly.dev'))}  ${colors.dim('GitHub')} ${colors.info(colors.underline('github.com/vizzly-testing/cli'))}`
       );
 
       // Emit structured data in verbose mode (in addition to visual output)

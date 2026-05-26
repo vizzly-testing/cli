@@ -199,6 +199,7 @@ function createSimpleClient(serverUrl) {
         let isFilePath = typeof imageBuffer === 'string';
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
+        let requestTimeout = options.requestTimeout || DEFAULT_TIMEOUT_MS;
 
         let properties = createScreenshotProperties(options);
 
@@ -212,7 +213,7 @@ function createSimpleClient(serverUrl) {
             type,
             properties,
           },
-          DEFAULT_TIMEOUT_MS
+          requestTimeout
         );
         let httpMs = Date.now() - httpStart;
 

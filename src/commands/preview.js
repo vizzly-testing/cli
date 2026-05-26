@@ -668,7 +668,7 @@ export async function previewCommand(
       if (result.reusedBlobs > 0) {
         let savedBytes = result.totalBytes - result.newBytes;
         output.print(
-          `  ${colors.brand.textTertiary('Deduped')}     ${colors.green(result.reusedBlobs)} files (saved ${formatBytes(savedBytes)})`
+          `  ${colors.brand.textTertiary('Deduped')}     ${colors.success(result.reusedBlobs)} files (saved ${formatBytes(savedBytes)})`
         );
       }
 
@@ -680,7 +680,7 @@ export async function previewCommand(
 
       output.blank();
       output.print(
-        `  ${colors.brand.textTertiary('Preview')}     ${colors.cyan(colors.underline(result.previewUrl))}`
+        `  ${colors.brand.textTertiary('Preview')}     ${colors.info(colors.underline(result.previewUrl))}`
       );
 
       // Open in browser if requested

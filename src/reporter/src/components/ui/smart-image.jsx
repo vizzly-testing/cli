@@ -18,10 +18,10 @@ export default function SmartImage({ src, alt, className, style, onClick }) {
   if (status === 'missing') {
     return (
       <div
-        className="flex items-center justify-center bg-gray-700 border border-gray-600 rounded min-h-[200px]"
+        className="flex items-center justify-center bg-[var(--vz-raised)] border border-[var(--vz-border)] rounded min-h-[200px]"
         style={style}
       >
-        <div className="text-gray-400 text-center">
+        <div className="text-[var(--text-tertiary)] text-center">
           <PhotoIcon className="w-12 h-12 mx-auto mb-3" />
           <div className="text-sm">No {alt.toLowerCase()} available</div>
         </div>
@@ -32,13 +32,13 @@ export default function SmartImage({ src, alt, className, style, onClick }) {
   if (status === 'error') {
     return (
       <div
-        className="flex items-center justify-center bg-gray-700 border border-red-500 rounded min-h-[200px]"
+        className="flex items-center justify-center bg-[var(--accent-danger-muted)] border border-[color-mix(in_srgb,var(--accent-danger)_28%,transparent)] rounded min-h-[200px]"
         style={style}
       >
-        <div className="text-red-400 text-center">
+        <div className="text-[var(--accent-danger)] text-center">
           <ExclamationTriangleIcon className="w-12 h-12 mx-auto mb-3" />
           <div className="text-sm">Failed to load {alt.toLowerCase()}</div>
-          <div className="text-xs text-gray-500 mt-1 font-mono break-all px-4">
+          <div className="text-xs text-[var(--text-muted)] mt-1 font-mono break-all px-4">
             {src}
           </div>
         </div>

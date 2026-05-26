@@ -36,9 +36,17 @@ function createMockOutput() {
     getColors: () => ({
       brand: {
         textTertiary: s => s,
+        success: s => s,
+        warning: s => s,
+        danger: s => s,
+        error: s => s,
+        info: s => s,
+        textMuted: s => s,
       },
       white: s => s,
       cyan: s => s,
+      success: s => s,
+      info: s => s,
       dim: s => s,
       underline: s => s,
     }),

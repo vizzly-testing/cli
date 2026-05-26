@@ -107,18 +107,18 @@ export default function ComparisonDetailView() {
   // If no comparison found, show not found state
   if (!comparison) {
     return (
-      <div className="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-[var(--vz-bg)] z-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg text-white font-medium mb-2">
+          <div className="text-lg text-[var(--text-primary)] font-medium mb-2">
             Comparison not found
           </div>
-          <p className="text-sm text-gray-400 mb-4">
+          <p className="text-sm text-[var(--text-tertiary)] mb-4">
             ID: {params?.id || 'none'}
           </p>
           <button
             type="button"
             onClick={handleClose}
-            className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+            className="text-[var(--accent-media)] hover:text-[var(--accent-media)] font-medium transition-colors"
           >
             Return to list
           </button>

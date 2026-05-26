@@ -4,40 +4,33 @@
 import { Ansis } from 'ansis';
 
 // =============================================================================
-// Vizzly Observatory Design System Colors
+// Vizzly BearDen Design System Colors
 // Aligned with the reporter design system color tokens.
 // =============================================================================
 
 export let brand = {
-  // Primary brand color - Amber is Observatory's signature
-  amber: '#F59E0B', // Primary brand, actions, highlights
-  amberLight: '#FBBF24', // Hover states, emphasis
+  // Primary brand color - restrained brass on graphite
+  amber: '#D69A35', // Primary brand, actions, highlights
+  amberLight: '#E0AD55', // Hover states, emphasis
 
   // Accent colors (semantic)
-  success: '#10B981', // Approved, passed, active (--accent-success)
-  warning: '#F59E0B', // Pending, attention (--accent-warning)
-  danger: '#EF4444', // Rejected, failed, errors (--accent-danger)
-  info: '#3B82F6', // Processing, informational (--accent-info)
+  success: '#7FD990', // Approved, passed, active (--accent-success)
+  warning: '#DCAD5F', // Pending, attention (--accent-warning)
+  danger: '#D77782', // Rejected, failed, errors (--accent-danger)
+  info: '#B7BDC6', // Processing, informational (--accent-info)
 
   // Surface colors (dark theme)
-  bg: '#0F172A', // Page background (--vz-bg)
-  surface: '#1A2332', // Cards, panels (--vz-surface)
-  elevated: '#1E293B', // Dropdowns, modals (--vz-elevated)
-  border: '#374151', // Primary borders (--vz-border)
-  borderSubtle: '#2D3748', // Subtle dividers (--vz-border-subtle)
+  bg: '#07080A', // Page background (--vz-bg)
+  surface: '#101216', // Cards, panels (--vz-surface)
+  elevated: '#111318', // Dropdowns, modals (--vz-elevated)
+  border: '#30343B', // Primary borders (--vz-border)
+  borderSubtle: '#252930', // Subtle dividers (--vz-border-subtle)
 
   // Text hierarchy
-  textPrimary: '#FFFFFF', // Headings, important (--text-primary)
-  textSecondary: '#9CA3AF', // Body text (--text-secondary)
-  textTertiary: '#6B7280', // Captions, metadata (--text-tertiary)
-  textMuted: '#4B5563', // Disabled, placeholders (--text-muted)
-
-  // Legacy aliases (for backward compatibility)
-  green: '#10B981',
-  red: '#EF4444',
-  cyan: '#06B6D4', // Still useful for links in terminals
-  slate: '#64748B',
-  dark: '#1E293B',
+  textPrimary: '#F4F6F8', // Headings, important (--text-primary)
+  textSecondary: '#C8CDD3', // Body text (--text-secondary)
+  textTertiary: '#A0A6AF', // Captions, metadata (--text-tertiary)
+  textMuted: '#7A828D', // Disabled, placeholders (--text-muted)
 };
 
 function supportsColorDefault() {
@@ -120,7 +113,7 @@ export function createColors(options = {}) {
       hex: () => noop,
       bgRgb: () => noop,
       bgHex: () => noop,
-      // Observatory brand colors (noop versions)
+      // BearDen brand colors (noop versions)
       brand: {
         // Primary
         amber: noop,
@@ -129,6 +122,7 @@ export function createColors(options = {}) {
         success: noop,
         warning: noop,
         danger: noop,
+        error: noop,
         info: noop,
         // Text hierarchy
         textPrimary: noop,
@@ -141,11 +135,6 @@ export function createColors(options = {}) {
         bgWarning: noop,
         bgDanger: noop,
         bgInfo: noop,
-        // Legacy aliases
-        green: noop,
-        red: noop,
-        cyan: noop,
-        slate: noop,
       },
     };
   }
@@ -171,16 +160,16 @@ export function createColors(options = {}) {
     gray: colors.gray,
     black: colors.black,
     // Semantic aliases (basic)
-    success: colors.green,
-    error: colors.red,
-    warning: colors.yellow,
-    info: colors.blue,
+    success: colors.hex(brand.success),
+    error: colors.hex(brand.danger),
+    warning: colors.hex(brand.warning),
+    info: colors.hex(brand.info),
     // Extended colors for rich styling
     rgb: colors.rgb.bind(colors),
     hex: colors.hex.bind(colors),
     bgRgb: colors.bgRgb.bind(colors),
     bgHex: colors.bgHex.bind(colors),
-    // Observatory brand colors (Truecolor) - aligned with design system
+    // BearDen brand colors (Truecolor) - aligned with design system
     brand: {
       // Primary brand color
       amber: colors.hex(brand.amber),
@@ -189,6 +178,7 @@ export function createColors(options = {}) {
       success: colors.hex(brand.success),
       warning: colors.hex(brand.warning),
       danger: colors.hex(brand.danger),
+      error: colors.hex(brand.danger),
       info: colors.hex(brand.info),
       // Text hierarchy
       textPrimary: colors.hex(brand.textPrimary),
@@ -201,11 +191,6 @@ export function createColors(options = {}) {
       bgWarning: colors.bgHex(brand.warning),
       bgDanger: colors.bgHex(brand.danger),
       bgInfo: colors.bgHex(brand.info),
-      // Legacy aliases (backward compatibility)
-      green: colors.hex(brand.green),
-      red: colors.hex(brand.red),
-      cyan: colors.hex(brand.cyan),
-      slate: colors.hex(brand.slate),
     },
   };
 }

@@ -1,7 +1,7 @@
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { EmptyState, Spinner } from '@vizzly-testing/bear-den';
 import { Route, Switch, useLocation } from 'wouter';
 import { useReportData } from '../hooks/queries/use-tdd-queries.js';
-import { EmptyState, Spinner } from './design-system/index.js';
 import { Layout } from './layout/index.js';
 import BuildsView from './views/builds-view.jsx';
 import ComparisonDetailView from './views/comparison-detail-view.jsx';
@@ -13,8 +13,10 @@ import WaitingForScreenshots from './waiting-for-screenshots.jsx';
 function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center py-32">
-      <Spinner size="lg" className="text-amber-400 mb-4" />
-      <p className="text-slate-400 text-sm">Loading report data...</p>
+      <Spinner size="lg" className="text-[var(--accent-brand)] mb-4" />
+      <p className="text-[var(--text-tertiary)] text-sm">
+        Loading report data...
+      </p>
     </div>
   );
 }
@@ -31,7 +33,7 @@ function ErrorState({ error, onRetry }) {
         <button
           type="button"
           onClick={onRetry}
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium rounded-lg transition-colors"
+          className="px-4 py-2 bg-[var(--accent-brand)] hover:bg-[var(--accent-brand-hover)] text-[var(--vz-bg)] font-medium rounded-lg transition-colors"
         >
           Try Again
         </button>

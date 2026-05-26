@@ -9,36 +9,40 @@
 import { isNewComparisonStatus } from '../utils/status-utils.js';
 
 // Status configuration
-const statusConfig = {
+let statusConfig = {
   failed: {
     label: 'Changed',
-    borderClass: 'border-l-red-500',
-    badgeClass: 'bg-red-500/15 text-red-400 ring-red-500/30',
-    dotClass: 'bg-red-500',
+    borderClass: 'border-l-[var(--accent-danger)]',
+    badgeClass:
+      'bg-[var(--accent-danger-muted)] text-[var(--accent-danger)] ring-[color-mix(in_srgb,var(--accent-danger)_30%,transparent)]',
+    dotClass: 'bg-[var(--accent-danger)]',
     sectionTitle: 'Visual Changes',
     sectionIcon: '◐',
   },
   new: {
     label: 'New',
-    borderClass: 'border-l-blue-500',
-    badgeClass: 'bg-blue-500/15 text-blue-400 ring-blue-500/30',
-    dotClass: 'bg-blue-500',
+    borderClass: 'border-l-[var(--accent-media)]',
+    badgeClass:
+      'bg-[var(--accent-media-muted)] text-[var(--accent-media)] ring-[color-mix(in_srgb,var(--accent-media)_30%,transparent)]',
+    dotClass: 'bg-[var(--accent-media)]',
     sectionTitle: 'New Screenshots',
     sectionIcon: '+',
   },
   passed: {
     label: 'Passed',
-    borderClass: 'border-l-emerald-500',
-    badgeClass: 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30',
-    dotClass: 'bg-emerald-500',
+    borderClass: 'border-l-[var(--accent-success)]',
+    badgeClass:
+      'bg-[var(--accent-success-muted)] text-[var(--accent-success)] ring-[color-mix(in_srgb,var(--accent-success)_30%,transparent)]',
+    dotClass: 'bg-[var(--accent-success)]',
     sectionTitle: 'Passed',
     sectionIcon: '✓',
   },
   error: {
     label: 'Error',
-    borderClass: 'border-l-orange-500',
-    badgeClass: 'bg-orange-500/15 text-orange-400 ring-orange-500/30',
-    dotClass: 'bg-orange-500',
+    borderClass: 'border-l-[var(--accent-warning)]',
+    badgeClass:
+      'bg-[var(--accent-warning-muted)] text-[var(--accent-warning)] ring-[color-mix(in_srgb,var(--accent-warning)_30%,transparent)]',
+    dotClass: 'bg-[var(--accent-warning)]',
     sectionTitle: 'Errors',
     sectionIcon: '!',
   },
@@ -60,7 +64,7 @@ function DiffBadge({ percentage }) {
   if (percentage === undefined || percentage === null || percentage === 0)
     return null;
   return (
-    <span className="font-mono text-xs text-red-400/80 tabular-nums">
+    <span className="font-mono text-xs text-[var(--accent-danger)] tabular-nums">
       {percentage.toFixed(2)}%
     </span>
   );
@@ -71,7 +75,7 @@ function MetaInfo({ properties }) {
   let { viewport_width, viewport_height, browser } = properties;
 
   return (
-    <div className="flex items-center gap-2 text-xs text-slate-500">
+    <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
       {viewport_width && viewport_height && (
         <span className="font-mono tabular-nums">
           {viewport_width}×{viewport_height}
@@ -79,7 +83,7 @@ function MetaInfo({ properties }) {
       )}
       {browser && (
         <>
-          <span className="text-slate-600">·</span>
+          <span className="text-[var(--text-muted)]">·</span>
           <span className="capitalize">{browser}</span>
         </>
       )}
@@ -101,16 +105,16 @@ function FailedComparison({ comparison, isEven }) {
       <summary
         className={`
           flex items-center gap-4 p-4 cursor-pointer
-          ${isEven ? 'bg-slate-800/30' : 'bg-slate-800/50'}
-          hover:bg-slate-700/50
+          ${isEven ? 'bg-[var(--vz-surface)]' : 'bg-[var(--vz-elevated)]'}
+          hover:bg-[var(--vz-raised)]
           border-l-4 ${config.borderClass}
           rounded-r-lg transition-all duration-150
           list-none [&::-webkit-details-marker]:hidden
-          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-brand)_50%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vz-bg)]
         `}
       >
         {/* Thumbnail */}
-        <div className="relative w-16 h-10 flex-shrink-0 rounded overflow-hidden bg-slate-900">
+        <div className="relative w-16 h-10 flex-shrink-0 rounded overflow-hidden bg-[var(--vz-bg)]">
           {(current || baseline) && (
             <img
               src={current || baseline}
@@ -119,8 +123,8 @@ function FailedComparison({ comparison, isEven }) {
             />
           )}
           {diff && (
-            <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            <div className="absolute inset-0 bg-[color-mix(in_srgb,var(--accent-danger)_20%,transparent)] flex items-center justify-center">
+              <span className="w-2 h-2 bg-[var(--accent-danger)] rounded-full animate-pulse" />
             </div>
           )}
         </div>
@@ -128,7 +132,9 @@ function FailedComparison({ comparison, isEven }) {
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-white truncate">{name}</span>
+            <span className="font-medium text-[var(--text-primary)] truncate">
+              {name}
+            </span>
             <DiffBadge percentage={diffPercentage} />
           </div>
           <MetaInfo properties={properties} />
@@ -137,7 +143,7 @@ function FailedComparison({ comparison, isEven }) {
         {/* Expand indicator */}
         <div className="flex items-center gap-3">
           <StatusBadge status={status} />
-          <div className="flex items-center gap-1.5 text-slate-500 group-hover:text-slate-400 transition-colors">
+          <div className="flex items-center gap-1.5 text-[var(--text-muted)] group-hover:text-[var(--text-tertiary)] transition-colors">
             <span className="text-xs hidden sm:inline opacity-0 group-hover:opacity-100 transition-opacity">
               Details
             </span>
@@ -160,22 +166,24 @@ function FailedComparison({ comparison, isEven }) {
       </summary>
 
       {/* Expanded content: side-by-side comparison */}
-      <div className="mt-1 p-4 bg-slate-800/20 rounded-lg border border-slate-700/30 animate-[fadeIn_150ms_ease-out]">
+      <div className="mt-1 p-4 bg-[var(--vz-surface)] rounded-lg border border-[var(--vz-border-subtle)] animate-[fadeIn_150ms_ease-out]">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Baseline */}
           {baseline && (
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <span className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider">
                   Baseline
                 </span>
-                <span className="text-xs text-slate-600">Expected</span>
+                <span className="text-xs text-[var(--text-muted)]">
+                  Expected
+                </span>
               </div>
               <a
                 href={baseline}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block rounded-lg overflow-hidden border border-slate-700/50 hover:border-slate-600 transition-colors"
+                className="block rounded-lg overflow-hidden border border-[var(--vz-border-subtle)] hover:border-[var(--vz-border-strong)] transition-colors"
               >
                 <img
                   src={baseline}
@@ -190,16 +198,16 @@ function FailedComparison({ comparison, isEven }) {
           {current && (
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <span className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider">
                   Current
                 </span>
-                <span className="text-xs text-slate-600">Actual</span>
+                <span className="text-xs text-[var(--text-muted)]">Actual</span>
               </div>
               <a
                 href={current}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block rounded-lg overflow-hidden border border-slate-700/50 hover:border-slate-600 transition-colors"
+                className="block rounded-lg overflow-hidden border border-[var(--vz-border-subtle)] hover:border-[var(--vz-border-strong)] transition-colors"
               >
                 <img src={current} alt={`${name} current`} className="w-full" />
               </a>
@@ -209,13 +217,13 @@ function FailedComparison({ comparison, isEven }) {
 
         {/* Diff image */}
         {diff && (
-          <div className="mt-4 pt-4 border-t border-slate-700/30">
+          <div className="mt-4 pt-4 border-t border-[var(--vz-border-subtle)]">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-medium text-red-400 uppercase tracking-wider">
+              <span className="text-xs font-medium text-[var(--accent-danger)] uppercase tracking-wider">
                 Difference
               </span>
               {diffPercentage > 0 && (
-                <span className="text-xs text-red-400/60 font-mono">
+                <span className="text-xs text-[color-mix(in_srgb,var(--accent-danger)_70%,transparent)] font-mono">
                   {diffPercentage.toFixed(2)}% of pixels changed
                 </span>
               )}
@@ -224,7 +232,7 @@ function FailedComparison({ comparison, isEven }) {
               href={diff}
               target="_blank"
               rel="noopener noreferrer"
-              className="block rounded-lg overflow-hidden border border-red-500/30 hover:border-red-500/50 transition-colors max-w-2xl"
+              className="block rounded-lg overflow-hidden border border-[color-mix(in_srgb,var(--accent-danger)_32%,transparent)] hover:border-[color-mix(in_srgb,var(--accent-danger)_52%,transparent)] transition-colors max-w-2xl"
             >
               <img src={diff} alt={`${name} diff`} className="w-full" />
             </a>
@@ -248,16 +256,16 @@ function NewComparison({ comparison, isEven }) {
       <summary
         className={`
           flex items-center gap-4 p-4 cursor-pointer
-          ${isEven ? 'bg-slate-800/30' : 'bg-slate-800/50'}
-          hover:bg-slate-700/50
-          border-l-4 border-l-blue-500
+          ${isEven ? 'bg-[var(--vz-surface)]' : 'bg-[var(--vz-elevated)]'}
+          hover:bg-[var(--vz-raised)]
+          border-l-4 border-l-[var(--accent-media)]
           rounded-r-lg transition-all duration-150
           list-none [&::-webkit-details-marker]:hidden
-          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-brand)_50%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vz-bg)]
         `}
       >
         {/* Thumbnail */}
-        <div className="w-16 h-10 flex-shrink-0 rounded overflow-hidden bg-slate-900">
+        <div className="w-16 h-10 flex-shrink-0 rounded overflow-hidden bg-[var(--vz-bg)]">
           {imageSrc && (
             <img
               src={imageSrc}
@@ -269,14 +277,16 @@ function NewComparison({ comparison, isEven }) {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <span className="font-medium text-white truncate block">{name}</span>
+          <span className="font-medium text-[var(--text-primary)] truncate block">
+            {name}
+          </span>
           <MetaInfo properties={properties} />
         </div>
 
         {/* Expand indicator */}
         <div className="flex items-center gap-3">
           <StatusBadge status="new" />
-          <div className="flex items-center gap-1.5 text-slate-500 group-hover:text-slate-400 transition-colors">
+          <div className="flex items-center gap-1.5 text-[var(--text-muted)] group-hover:text-[var(--text-tertiary)] transition-colors">
             <span className="text-xs hidden sm:inline opacity-0 group-hover:opacity-100 transition-opacity">
               Preview
             </span>
@@ -299,19 +309,21 @@ function NewComparison({ comparison, isEven }) {
       </summary>
 
       {/* Expanded: show the new screenshot */}
-      <div className="mt-1 p-4 bg-slate-800/20 rounded-lg border border-slate-700/30 animate-[fadeIn_150ms_ease-out]">
+      <div className="mt-1 p-4 bg-[var(--vz-surface)] rounded-lg border border-[var(--vz-border-subtle)] animate-[fadeIn_150ms_ease-out]">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-medium text-blue-400 uppercase tracking-wider">
+          <span className="text-xs font-medium text-[var(--accent-media)] uppercase tracking-wider">
             New Screenshot
           </span>
-          <span className="text-xs text-slate-600">No baseline to compare</span>
+          <span className="text-xs text-[var(--text-muted)]">
+            No baseline to compare
+          </span>
         </div>
         {imageSrc && (
           <a
             href={imageSrc}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-lg overflow-hidden border border-blue-500/30 hover:border-blue-500/50 transition-colors max-w-2xl"
+            className="block rounded-lg overflow-hidden border border-[color-mix(in_srgb,var(--accent-media)_32%,transparent)] hover:border-[color-mix(in_srgb,var(--accent-media)_52%,transparent)] transition-colors max-w-2xl"
           >
             <img src={imageSrc} alt={name} className="w-full" />
           </a>
@@ -331,15 +343,15 @@ function PassedComparison({ comparison }) {
     <div
       className={`
         flex items-center gap-3 px-4 py-2.5
-        bg-slate-800/20 hover:bg-slate-800/30
-        border-l-4 border-l-emerald-500/50
+        bg-[var(--vz-surface)] hover:bg-[var(--vz-raised)]
+        border-l-4 border-l-[color-mix(in_srgb,var(--accent-success)_50%,transparent)]
         rounded-r-lg transition-colors
       `}
     >
       {/* Checkmark */}
-      <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+      <div className="w-5 h-5 rounded-full bg-[var(--accent-success-muted)] flex items-center justify-center flex-shrink-0">
         <svg
-          className="w-3 h-3 text-emerald-400"
+          className="w-3 h-3 text-[var(--accent-success)]"
           fill="currentColor"
           viewBox="0 0 20 20"
           aria-hidden="true"
@@ -353,7 +365,9 @@ function PassedComparison({ comparison }) {
       </div>
 
       {/* Name */}
-      <span className="flex-1 text-sm text-slate-300 truncate">{name}</span>
+      <span className="flex-1 text-sm text-[var(--text-secondary)] truncate">
+        {name}
+      </span>
 
       {/* Meta */}
       <MetaInfo properties={properties} />
@@ -370,10 +384,12 @@ function SectionHeader({ title, count, icon, colorClass }) {
   return (
     <div className="flex items-center gap-3 mb-3">
       <span className={`text-lg font-mono ${colorClass}`}>{icon}</span>
-      <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
         {title}
       </h3>
-      <span className="text-sm text-slate-500 font-mono">({count})</span>
+      <span className="text-sm text-[var(--text-muted)] font-mono">
+        ({count})
+      </span>
     </div>
   );
 }
@@ -388,28 +404,30 @@ function SummaryBar({ stats }) {
     <div
       className={`
         flex flex-wrap items-center gap-6 p-4 rounded-xl mb-8
-        ${hasIssues ? 'bg-slate-800/60 border border-slate-700/50' : 'bg-emerald-500/10 border border-emerald-500/20'}
+        ${hasIssues ? 'bg-[var(--vz-surface)] border border-[var(--vz-border)]' : 'bg-[var(--accent-success-muted)] border border-[color-mix(in_srgb,var(--accent-success)_24%,transparent)]'}
       `}
     >
       {/* Status indicator */}
       <div className="flex items-center gap-3">
         {hasIssues ? (
           <>
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-              <span className="text-amber-400 text-lg">◐</span>
+            <div className="w-10 h-10 rounded-full bg-[var(--accent-warning-muted)] flex items-center justify-center">
+              <span className="text-[var(--accent-warning)] text-lg">◐</span>
             </div>
             <div>
-              <div className="text-white font-semibold">Review Required</div>
-              <div className="text-sm text-slate-400">
+              <div className="text-[var(--text-primary)] font-semibold">
+                Review Required
+              </div>
+              <div className="text-sm text-[var(--text-tertiary)]">
                 {stats.failed + (stats.new || 0)} items need attention
               </div>
             </div>
           </>
         ) : (
           <>
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-[var(--accent-success-muted)] flex items-center justify-center">
               <svg
-                className="w-5 h-5 text-emerald-400"
+                className="w-5 h-5 text-[var(--accent-success)]"
                 fill="currentColor"
                 viewBox="0 0 20 20"
                 aria-hidden="true"
@@ -422,8 +440,10 @@ function SummaryBar({ stats }) {
               </svg>
             </div>
             <div>
-              <div className="text-white font-semibold">All Tests Passed</div>
-              <div className="text-sm text-slate-400">
+              <div className="text-[var(--text-primary)] font-semibold">
+                All Tests Passed
+              </div>
+              <div className="text-sm text-[var(--text-tertiary)]">
                 No visual changes detected
               </div>
             </div>
@@ -434,37 +454,37 @@ function SummaryBar({ stats }) {
       {/* Stats */}
       <div className="flex items-center gap-6 ml-auto">
         <div className="text-center">
-          <div className="text-2xl font-bold text-white tabular-nums">
+          <div className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">
             {stats.total}
           </div>
-          <div className="text-xs text-slate-500 uppercase tracking-wider">
+          <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider">
             Total
           </div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-emerald-400 tabular-nums">
+          <div className="text-2xl font-bold text-[var(--accent-success)] tabular-nums">
             {stats.passed}
           </div>
-          <div className="text-xs text-slate-500 uppercase tracking-wider">
+          <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider">
             Passed
           </div>
         </div>
         {stats.failed > 0 && (
           <div className="text-center">
-            <div className="text-2xl font-bold text-red-400 tabular-nums">
+            <div className="text-2xl font-bold text-[var(--accent-danger)] tabular-nums">
               {stats.failed}
             </div>
-            <div className="text-xs text-slate-500 uppercase tracking-wider">
+            <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider">
               Changed
             </div>
           </div>
         )}
         {(stats.new || 0) > 0 && (
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-400 tabular-nums">
+            <div className="text-2xl font-bold text-[var(--accent-media)] tabular-nums">
               {stats.new}
             </div>
-            <div className="text-xs text-slate-500 uppercase tracking-wider">
+            <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider">
               New
             </div>
           </div>
@@ -488,13 +508,13 @@ function formatTimestamp(timestamp) {
 
 function Header({ timestamp }) {
   return (
-    <header className="bg-slate-950/80 backdrop-blur-sm border-b border-slate-800/60 sticky top-0 z-10">
+    <header className="bg-[var(--vz-bg)] border-b border-[var(--vz-border-subtle)] sticky top-0 z-10">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center shadow-lg shadow-amber-500/20">
+          <div className="w-9 h-9 bg-[var(--accent-brand)] rounded-lg flex items-center justify-center">
             <svg
-              className="w-5 h-5 text-slate-900"
+              className="w-5 h-5 text-[var(--vz-bg)]"
               viewBox="0 0 24 24"
               fill="currentColor"
               aria-hidden="true"
@@ -504,16 +524,18 @@ function Header({ timestamp }) {
             </svg>
           </div>
           <div>
-            <div className="text-lg font-semibold text-white tracking-tight">
+            <div className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">
               Vizzly
             </div>
-            <div className="text-xs text-slate-500">Visual Test Report</div>
+            <div className="text-xs text-[var(--text-muted)]">
+              Visual Test Report
+            </div>
           </div>
         </div>
 
         {/* Timestamp */}
         {timestamp && (
-          <div className="text-xs text-slate-500 tabular-nums">
+          <div className="text-xs text-[var(--text-muted)] tabular-nums">
             {formatTimestamp(timestamp)}
           </div>
         )}
@@ -525,10 +547,10 @@ function Header({ timestamp }) {
 export default function StaticReportView({ reportData }) {
   if (!reportData?.comparisons) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--vz-bg)] text-[var(--text-primary)] flex items-center justify-center">
         <div className="text-center">
           <div className="text-xl font-medium mb-2">No Report Data</div>
-          <p className="text-slate-400">
+          <p className="text-[var(--text-tertiary)]">
             No comparison data available for this report.
           </p>
         </div>
@@ -554,7 +576,7 @@ export default function StaticReportView({ reportData }) {
   let errors = comparisons.filter(c => c.status === 'error');
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-[var(--vz-bg)] text-[var(--text-primary)]">
       <Header timestamp={reportData.timestamp} />
 
       <main className="max-w-6xl mx-auto px-6 py-8">
@@ -568,7 +590,7 @@ export default function StaticReportView({ reportData }) {
               title="Visual Changes"
               count={failed.length}
               icon="◐"
-              colorClass="text-red-400"
+              colorClass="text-[var(--accent-danger)]"
             />
             <div className="space-y-2">
               {failed.map((comparison, index) => (
@@ -591,7 +613,7 @@ export default function StaticReportView({ reportData }) {
               title="New Screenshots"
               count={newItems.length}
               icon="+"
-              colorClass="text-blue-400"
+              colorClass="text-[var(--accent-media)]"
             />
             <div className="space-y-2">
               {newItems.map((comparison, index) => (
@@ -612,7 +634,7 @@ export default function StaticReportView({ reportData }) {
               title="Errors"
               count={errors.length}
               icon="!"
-              colorClass="text-orange-400"
+              colorClass="text-[var(--accent-warning)]"
             />
             <div className="space-y-2">
               {errors.map((comparison, index) => (
@@ -634,15 +656,17 @@ export default function StaticReportView({ reportData }) {
             <details className="group">
               <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-lg font-mono text-emerald-400">✓</span>
-                  <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
+                  <span className="text-lg font-mono text-[var(--accent-success)]">
+                    ✓
+                  </span>
+                  <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
                     Passed
                   </h3>
-                  <span className="text-sm text-slate-500 font-mono">
+                  <span className="text-sm text-[var(--text-muted)] font-mono">
                     ({passed.length})
                   </span>
                   <svg
-                    className="w-4 h-4 text-slate-500 transition-transform group-open:rotate-180 ml-auto"
+                    className="w-4 h-4 text-[var(--text-muted)] transition-transform group-open:rotate-180 ml-auto"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -672,12 +696,12 @@ export default function StaticReportView({ reportData }) {
         )}
 
         {/* Footer */}
-        <footer className="mt-12 pt-6 border-t border-slate-800/60 text-center">
-          <p className="text-sm text-slate-500">
+        <footer className="mt-12 pt-6 border-t border-[var(--vz-border-subtle)] text-center">
+          <p className="text-sm text-[var(--text-muted)]">
             Visual regression report generated by{' '}
             <a
               href="https://vizzly.dev"
-              className="text-amber-400 hover:text-amber-300 transition-colors"
+              className="text-[var(--accent-brand)] hover:text-[var(--accent-brand-hover)] transition-colors"
             >
               Vizzly
             </a>

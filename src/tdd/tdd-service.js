@@ -464,10 +464,10 @@ export class TddService {
       }
 
       output.info(
-        `Using baseline from build: ${colors.cyan(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
+        `Using baseline from build: ${colors.info(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
       );
       output.info(
-        `Checking ${colors.cyan(buildDetails.screenshots.length)} baseline screenshots...`
+        `Checking ${colors.info(buildDetails.screenshots.length)} baseline screenshots...`
       );
 
       // Check existing baseline metadata for SHA comparison
@@ -802,10 +802,10 @@ export class TddService {
     }
 
     output.info(
-      `Using baseline from build: ${colors.cyan(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
+      `Using baseline from build: ${colors.info(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
     );
     output.info(
-      `Checking ${colors.cyan(buildDetails.screenshots.length)} baseline screenshots...`
+      `Checking ${colors.info(buildDetails.screenshots.length)} baseline screenshots...`
     );
 
     // Check existing baseline metadata for SHA comparison
@@ -1168,7 +1168,7 @@ export class TddService {
       return null;
     } else {
       output.info(
-        `Using existing baseline: ${colors.cyan(baseline.buildName)}`
+        `Using existing baseline: ${colors.info(baseline.buildName)}`
       );
       return baseline;
     }
@@ -1499,9 +1499,9 @@ export class TddService {
     );
     output.blank();
 
-    // Passed section - use Observatory success color
+    // Passed section - use BearDen success color
     if (results.passed > 0) {
-      let successColor = colors.brand?.success || colors.green;
+      let successColor = colors.brand?.success || colors.success;
       if (output.isVerbose()) {
         // Verbose mode: show each screenshot
         for (let comp of passedComparisons) {
@@ -1516,10 +1516,10 @@ export class TddService {
       output.blank();
     }
 
-    // Failed comparisons with diff bars - use Observatory warning/danger colors
+    // Failed comparisons with diff bars - use BearDen warning/danger colors
     if (failedComparisons.length > 0) {
       let warningColor = colors.brand?.warning || colors.yellow;
-      let dangerColor = colors.brand?.danger || colors.red;
+      let dangerColor = colors.brand?.danger || colors.error;
 
       output.print(
         `  ${warningColor('◐')} ${warningColor(failedComparisons.length)} visual change${failedComparisons.length !== 1 ? 's' : ''} detected`
@@ -1544,9 +1544,9 @@ export class TddService {
       output.blank();
     }
 
-    // New screenshots - use Observatory info color
+    // New screenshots - use BearDen info color
     if (newComparisons.length > 0) {
-      let infoColor = colors.brand?.info || colors.cyan;
+      let infoColor = colors.brand?.info || colors.info;
       let textMuted = colors.brand?.textMuted || colors.dim;
       output.print(
         `  ${infoColor('+')} ${infoColor(newComparisons.length)} new screenshot${newComparisons.length !== 1 ? 's' : ''}`
@@ -1557,9 +1557,9 @@ export class TddService {
       output.blank();
     }
 
-    // Errors - use Observatory danger color
+    // Errors - use BearDen danger color
     if (results.errors > 0) {
-      let dangerColor = colors.brand?.danger || colors.red;
+      let dangerColor = colors.brand?.danger || colors.error;
       let errorComparisons = this.comparisons.filter(c => c.status === 'error');
       output.print(
         `  ${dangerColor('!')} ${dangerColor(results.errors)} error${results.errors !== 1 ? 's' : ''}`
@@ -1572,7 +1572,7 @@ export class TddService {
 
     // Dashboard link with prominent styling - detect if server is running
     if (hasChanges) {
-      let infoColor = colors.brand?.info || colors.cyan;
+      let infoColor = colors.brand?.info || colors.info;
       let textTertiary = colors.brand?.textTertiary || colors.dim;
 
       // Check if TDD server is already running

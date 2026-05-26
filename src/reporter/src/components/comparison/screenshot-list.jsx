@@ -6,9 +6,9 @@ import {
   DeviceTabletIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
+import { Badge, Button } from '@vizzly-testing/bear-den';
 import { useMemo } from 'react';
 import { withImageVersion } from '../../utils/image-url.js';
-import { Badge, Button } from '../design-system/index.js';
 import SmartImage from '../ui/smart-image.jsx';
 
 function getComparisonId(comparison) {
@@ -177,7 +177,7 @@ function VariantChips({ group, maxVisible = 4 }) {
     let browser = group.browsers[0];
 
     return (
-      <div className="flex items-center gap-2 text-xs text-slate-400">
+      <div className="flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
         {viewport && (
           <span className="inline-flex items-center gap-1">
             <DeviceIcon width={viewport.width} className="w-3 h-3" />
@@ -202,10 +202,10 @@ function VariantChips({ group, maxVisible = 4 }) {
             inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium
             ${
               vp.status === 'failed'
-                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                ? 'bg-[var(--accent-danger-muted)] text-[var(--accent-danger)] border border-[color-mix(in_srgb,var(--accent-danger)_32%,transparent)]'
                 : vp.status === 'new' || vp.status === 'baseline-created'
-                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                  : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
+                  ? 'bg-[var(--accent-media-muted)] text-[var(--accent-media)] border border-[color-mix(in_srgb,var(--accent-media)_30%,transparent)]'
+                  : 'bg-[var(--vz-raised)] text-[var(--text-tertiary)] border border-[var(--vz-border)]'
             }
           `}
         >
@@ -214,12 +214,12 @@ function VariantChips({ group, maxVisible = 4 }) {
         </span>
       ))}
       {remainingCount > 0 && (
-        <span className="text-[10px] text-slate-500">
+        <span className="text-[10px] text-[var(--text-muted)]">
           +{remainingCount} more
         </span>
       )}
       {group.browsers.length > 0 && (
-        <span className="text-[10px] text-slate-500 ml-1">
+        <span className="text-[10px] text-[var(--text-muted)] ml-1">
           · {group.browsers.join(', ')}
         </span>
       )}
@@ -249,17 +249,17 @@ function ScreenshotGroupRow({
 
   // Border color based on status
   let borderClass = hasChanges
-    ? 'border-red-500/40 hover:border-red-500/60'
+    ? 'border-[color-mix(in_srgb,var(--accent-danger)_40%,transparent)] hover:border-[color-mix(in_srgb,var(--accent-danger)_60%,transparent)]'
     : hasNew
-      ? 'border-blue-500/40 hover:border-blue-500/60'
-      : 'border-slate-700/50 hover:border-slate-600';
+      ? 'border-[color-mix(in_srgb,var(--accent-media)_40%,transparent)] hover:border-[color-mix(in_srgb,var(--accent-media)_60%,transparent)]'
+      : 'border-[var(--vz-border-subtle)] hover:border-[var(--vz-border-strong)]';
 
   return (
     <div
       data-testid={testId}
       className={`
         group flex items-center gap-3 p-3
-        bg-slate-800/30 hover:bg-slate-800/50
+        bg-[var(--vz-surface)] hover:bg-[var(--vz-raised)]
         border rounded-lg transition-all
         ${borderClass}
       `}
@@ -268,7 +268,7 @@ function ScreenshotGroupRow({
       <button
         type="button"
         onClick={() => onSelect(primary)}
-        className="relative w-16 h-11 rounded-md overflow-hidden flex-shrink-0 bg-slate-900 hover:ring-2 hover:ring-amber-500/50 transition-all"
+        className="relative w-16 h-11 rounded-md overflow-hidden flex-shrink-0 bg-[var(--vz-bg)] hover:ring-2 hover:ring-[color-mix(in_srgb,var(--accent-brand)_50%,transparent)] transition-all"
       >
         {thumbnailSrc ? (
           <SmartImage
@@ -277,22 +277,22 @@ function ScreenshotGroupRow({
             className="w-full h-full object-cover object-top"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-600">
+          <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
             <ComputerDesktopIcon className="w-5 h-5" />
           </div>
         )}
         {/* Overlay for failed/new */}
         {hasChanges && (
-          <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <div className="absolute inset-0 bg-[color-mix(in_srgb,var(--accent-danger)_20%,transparent)] flex items-center justify-center">
+            <div className="w-2 h-2 bg-[var(--accent-danger)] rounded-full animate-pulse" />
           </div>
         )}
         {!hasChanges && hasNew && (
-          <div className="absolute inset-0 bg-blue-500/10" />
+          <div className="absolute inset-0 bg-[color-mix(in_srgb,var(--accent-media)_12%,transparent)]" />
         )}
         {/* Variant count badge */}
         {group.comparisons.length > 1 && (
-          <div className="absolute bottom-0.5 right-0.5 px-1 py-0.5 text-[9px] font-bold bg-slate-900/90 text-slate-300 rounded">
+          <div className="absolute bottom-0.5 right-0.5 px-1 py-0.5 text-[9px] font-bold bg-[var(--vz-bg)] text-[var(--text-secondary)] rounded">
             {group.comparisons.length}
           </div>
         )}
@@ -305,11 +305,11 @@ function ScreenshotGroupRow({
         className="flex-1 min-w-0 text-left"
       >
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-white truncate">
+          <h3 className="text-sm font-medium text-[var(--text-primary)] truncate">
             {group.name}
           </h3>
           {maxDiff > 0 && (
-            <span className="text-xs font-mono text-red-400">
+            <span className="text-xs font-mono text-[var(--accent-danger)]">
               {maxDiff.toFixed(1)}%
             </span>
           )}
@@ -336,7 +336,7 @@ function ScreenshotGroupRow({
                 onAcceptGroup(group);
               }}
               disabled={isAccepting}
-              className="!p-1.5 text-emerald-400 hover:bg-emerald-500/20"
+              className="!p-1.5 text-[var(--accent-success)] hover:bg-[var(--accent-success-muted)]"
               title={`Accept ${group.comparisons.length > 1 ? `all ${group.comparisons.length} variants` : ''}`}
             >
               <CheckCircleIcon className="w-4 h-4" />
@@ -349,7 +349,7 @@ function ScreenshotGroupRow({
                 onRejectGroup(group);
               }}
               disabled={isAccepting}
-              className="!p-1.5 text-red-400 hover:bg-red-500/20"
+              className="!p-1.5 text-[var(--accent-danger)] hover:bg-[var(--accent-danger-muted)]"
               title="Reject"
             >
               <XCircleIcon className="w-4 h-4" />
@@ -358,7 +358,7 @@ function ScreenshotGroupRow({
         )}
 
         {/* Chevron */}
-        <ChevronRightIcon className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+        <ChevronRightIcon className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--text-secondary)] transition-colors" />
       </div>
     </div>
   );
@@ -385,7 +385,7 @@ export default function ScreenshotList({
 
   if (groups.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-400">
+      <div className="text-center py-12 text-[var(--text-tertiary)]">
         No screenshots to display
       </div>
     );

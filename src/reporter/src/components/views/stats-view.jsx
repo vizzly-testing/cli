@@ -6,6 +6,15 @@ import {
   PhotoIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  HealthRing,
+} from '@vizzly-testing/bear-den';
 import { useCallback } from 'react';
 import {
   useAcceptAllBaselines,
@@ -16,15 +25,6 @@ import {
   isNewComparisonStatus,
   needsReviewComparisonStatus,
 } from '../../utils/status-utils.js';
-import {
-  Badge,
-  Button,
-  Card,
-  CardBody,
-  CardFooter,
-  CardHeader,
-  HealthRing,
-} from '../design-system/index.js';
 import { useToast } from '../ui/toast.jsx';
 
 function StatCard({ icon: Icon, label, value, subvalue, variant, iconColor }) {
@@ -33,14 +33,16 @@ function StatCard({ icon: Icon, label, value, subvalue, variant, iconColor }) {
       <CardBody padding="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+            <p className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide mb-1">
               {label}
             </p>
-            <p className="text-2xl font-semibold font-mono text-white">
+            <p className="text-2xl font-semibold font-mono text-[var(--text-primary)]">
               {value}
             </p>
             {subvalue && (
-              <p className="text-xs text-slate-400 mt-1">{subvalue}</p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                {subvalue}
+              </p>
             )}
           </div>
           <div
@@ -55,31 +57,31 @@ function StatCard({ icon: Icon, label, value, subvalue, variant, iconColor }) {
 }
 
 export default function StatsView() {
-  const { addToast, confirm } = useToast();
+  let { addToast, confirm } = useToast();
 
   // Use TanStack Query for data
-  const { data: reportData, isLoading, refetch } = useReportData();
-  const acceptAllMutation = useAcceptAllBaselines();
-  const resetMutation = useResetBaselines();
+  let { data: reportData, isLoading, refetch } = useReportData();
+  let acceptAllMutation = useAcceptAllBaselines();
+  let resetMutation = useResetBaselines();
 
-  const comparisons = reportData?.comparisons;
-  const baseline = reportData?.baseline;
+  let comparisons = reportData?.comparisons;
+  let baseline = reportData?.baseline;
 
   // Calculate stats
-  const total = comparisons?.length || 0;
-  const passed = comparisons?.filter(c => c.status === 'passed').length || 0;
-  const failed = comparisons?.filter(c => c.status === 'failed').length || 0;
-  const newCount =
+  let total = comparisons?.length || 0;
+  let passed = comparisons?.filter(c => c.status === 'passed').length || 0;
+  let failed = comparisons?.filter(c => c.status === 'failed').length || 0;
+  let newCount =
     comparisons?.filter(c => isNewComparisonStatus(c.status)).length || 0;
-  const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+  let passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 
   // Check if there are any changes to accept
-  const hasChanges = comparisons?.some(c =>
+  let hasChanges = comparisons?.some(c =>
     needsReviewComparisonStatus(c.status)
   );
 
-  const handleAcceptAll = useCallback(async () => {
-    const confirmed = await confirm(
+  let handleAcceptAll = useCallback(async () => {
+    let confirmed = await confirm(
       'This will update all failed and new screenshots.',
       'Accept all changes as new baselines?'
     );
@@ -97,8 +99,8 @@ export default function StatsView() {
     });
   }, [acceptAllMutation, addToast, confirm]);
 
-  const handleReset = useCallback(async () => {
-    const confirmed = await confirm(
+  let handleReset = useCallback(async () => {
+    let confirmed = await confirm(
       'This will delete all baseline images and clear comparison history.',
       'Reset all baselines?'
     );
@@ -120,8 +122,10 @@ export default function StatsView() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Statistics</h1>
-        <p className="text-slate-400 mt-1">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+          Statistics
+        </h1>
+        <p className="text-[var(--text-tertiary)] mt-1">
           Visual regression testing overview
         </p>
       </div>
@@ -132,7 +136,7 @@ export default function StatsView() {
         <Card hover={false}>
           <CardBody className="flex flex-col items-center justify-center py-8">
             <HealthRing value={passRate} label="Pass Rate" />
-            <p className="text-sm text-slate-400 mt-4">
+            <p className="text-sm text-[var(--text-tertiary)] mt-4">
               {passed} of {total} screenshots passing
             </p>
           </CardBody>
@@ -144,28 +148,28 @@ export default function StatsView() {
             icon={PhotoIcon}
             label="Total Screenshots"
             value={total}
-            iconColor="bg-slate-700/50 text-slate-400"
+            iconColor="bg-white/5 text-[var(--text-tertiary)]"
           />
           <StatCard
             icon={CheckIcon}
             label="Passed"
             value={passed}
             variant="success"
-            iconColor="bg-emerald-500/10 text-emerald-400"
+            iconColor="bg-[var(--accent-success-muted)] text-[var(--accent-success)]"
           />
           <StatCard
             icon={ExclamationTriangleIcon}
             label="Failed"
             value={failed}
             variant={failed > 0 ? 'danger' : undefined}
-            iconColor="bg-red-500/10 text-red-400"
+            iconColor="bg-[var(--accent-danger-muted)] text-[var(--accent-danger)]"
           />
           <StatCard
             icon={SparklesIcon}
             label="New"
             value={newCount}
             variant={newCount > 0 ? 'info' : undefined}
-            iconColor="bg-blue-500/10 text-blue-400"
+            iconColor="bg-[var(--accent-media-muted)] text-[var(--accent-media)]"
           />
         </div>
       </div>
@@ -176,7 +180,7 @@ export default function StatsView() {
           <CardHeader
             icon={ClockIcon}
             title="Current Baseline"
-            iconColor="bg-amber-500/10 text-amber-400"
+            iconColor="bg-[var(--accent-warning-muted)] text-[var(--accent-warning)]"
             actions={
               newCount > 0 && (
                 <Badge variant="warning" dot>
@@ -188,18 +192,18 @@ export default function StatsView() {
           <CardBody>
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                <p className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide mb-1">
                   Build Name
                 </p>
-                <p className="text-white font-medium">
+                <p className="text-[var(--text-primary)] font-medium">
                   {baseline.buildName || 'default'}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
+                <p className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide mb-1">
                   Created
                 </p>
-                <p className="text-white font-medium">
+                <p className="text-[var(--text-primary)] font-medium">
                   {baseline.createdAt
                     ? new Date(baseline.createdAt).toLocaleString()
                     : 'Unknown'}

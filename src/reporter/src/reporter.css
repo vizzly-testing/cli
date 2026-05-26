@@ -1,37 +1,45 @@
 @import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
-@import './components/design-system/styles.css';
-@source "./components/design-system";
+@import '@vizzly-testing/bear-den/styles';
+@source "../../../node_modules/@vizzly-testing/bear-den/src";
+
+:root {
+  --vz-checkerboard-bg: #111827;
+  --vz-checkerboard-tile: #1f2937;
+  --vz-mascot-stage: #2b2e35;
+  --vz-mascot-stage-border: #464b55;
+  --vz-mascot-glow: rgba(214, 154, 53, 0.14);
+}
 
 /* ============================================
    VIZZLY REPORTER - LOCAL STYLES
-   Styles specific to the reporter that extend Observatory
+   Styles specific to the CLI reporter that extend BearDen
    ============================================ */
 
 .code-token--keyword {
-  color: #c792ea;
+  color: var(--accent-media);
   font-weight: 500;
 }
 
 .code-token--string {
-  color: #c3e88d;
+  color: var(--accent-success);
 }
 
 .code-token--comment {
-  color: #64748b;
+  color: var(--text-muted);
   font-style: italic;
 }
 
 .code-token--number {
-  color: #f78c6c;
+  color: var(--accent-danger);
 }
 
 .code-token--function {
-  color: #82aaff;
+  color: var(--accent-info);
 }
 
 .code-token--command {
-  color: #f59e0b;
+  color: var(--accent-brand);
 }
 
 /* ============================================
@@ -272,9 +280,9 @@ body {
   color: var(--text-secondary);
 }
 
-.stat-pill--purple {
-  background: var(--accent-purple-muted);
-  color: var(--accent-purple);
+.stat-pill--media {
+  background: var(--accent-media-muted);
+  color: var(--accent-media);
 }
 
 /* ============================================
@@ -339,7 +347,7 @@ body {
 
 /* Glass header for comparison viewer */
 .glass-header {
-  background: rgba(30, 41, 59, 0.95);
+  background: color-mix(in srgb, var(--vz-elevated) 95%, transparent);
   backdrop-filter: blur(12px);
 }
 
@@ -356,11 +364,11 @@ body {
 }
 
 .vz-form-section__title {
-  @apply text-lg font-semibold text-white;
+  @apply text-lg font-semibold text-[var(--text-primary)];
 }
 
 .vz-form-section__description {
-  @apply text-sm text-slate-400 mt-1;
+  @apply text-sm text-[var(--text-tertiary)] mt-1;
 }
 
 .vz-form-group {
@@ -368,7 +376,7 @@ body {
 }
 
 .vz-form-actions {
-  @apply flex items-center justify-end gap-3 pt-4 border-t border-slate-700/50;
+  @apply flex items-center justify-end gap-3 pt-4 border-t border-[var(--vz-border-subtle)];
 }
 
 /* ============================================
@@ -381,5 +389,5 @@ body {
 
 /* Focus visible for accessibility */
 .focus-ring {
-  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900;
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-brand)_50%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vz-bg)];
 }

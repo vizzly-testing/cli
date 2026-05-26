@@ -8,13 +8,9 @@ import {
   DeviceTabletIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { BrowserIcon, FilterPill, SearchInput } from '@vizzly-testing/bear-den';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { FILTER_TYPES, SORT_TYPES } from '../../utils/constants.js';
-import {
-  BrowserIcon,
-  FilterPill,
-  SearchInput,
-} from '../design-system/index.js';
 
 /**
  * Get device icon based on viewport width
@@ -71,32 +67,32 @@ function IconDropdown({
           bg-transparent border transition-all
           ${
             isOpen
-              ? 'border-amber-500/50 ring-1 ring-amber-500/20'
-              : 'border-slate-700/50 hover:border-slate-600'
+              ? 'border-[var(--accent-brand)] ring-1 ring-[var(--accent-brand-muted)]'
+              : 'border-[var(--vz-border-subtle)] hover:border-[var(--vz-border-strong)]'
           }
         `}
       >
         {renderValue ? (
           renderValue(value)
         ) : (
-          <span className="text-slate-300">
+          <span className="text-[var(--text-secondary)]">
             {value === 'all' ? placeholder : value}
           </span>
         )}
         <ChevronDownIcon
-          className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] bg-slate-800 border border-slate-700/50 rounded-lg shadow-xl overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] bg-[var(--vz-raised)] border border-[var(--vz-border-subtle)] rounded-lg shadow-xl overflow-hidden">
           <div className="py-1 max-h-60 overflow-y-auto">
             <button
               type="button"
               onClick={() => handleSelect('all')}
               className={`
                 w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors
-                ${value === 'all' ? 'bg-amber-500/10 text-amber-400' : 'text-slate-300 hover:bg-slate-700/50'}
+                ${value === 'all' ? 'bg-[var(--accent-warning-muted)] text-[var(--accent-warning)]' : 'text-[var(--text-secondary)] hover:bg-[var(--vz-border-subtle)]'}
               `}
             >
               <span className="w-4 h-4" />
@@ -109,7 +105,7 @@ function IconDropdown({
                 onClick={() => handleSelect(option)}
                 className={`
                   w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors
-                  ${value === option ? 'bg-amber-500/10 text-amber-400' : 'text-slate-300 hover:bg-slate-700/50'}
+                  ${value === option ? 'bg-[var(--accent-warning-muted)] text-[var(--accent-warning)]' : 'text-[var(--text-secondary)] hover:bg-[var(--vz-border-subtle)]'}
                 `}
               >
                 {renderOption(option)}
@@ -152,15 +148,17 @@ function SortDropdown({ value, onChange }) {
           bg-transparent border transition-all
           ${
             isOpen
-              ? 'border-amber-500/50 ring-1 ring-amber-500/20'
-              : 'border-slate-700/50 hover:border-slate-600'
+              ? 'border-[var(--accent-brand)] ring-1 ring-[var(--accent-brand-muted)]'
+              : 'border-[var(--vz-border-subtle)] hover:border-[var(--vz-border-strong)]'
           }
         `}
       >
-        <ArrowsUpDownIcon className="w-3.5 h-3.5 text-slate-500" />
-        <span className="text-slate-300">{currentOption.label}</span>
+        <ArrowsUpDownIcon className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+        <span className="text-[var(--text-secondary)]">
+          {currentOption.label}
+        </span>
         <ChevronDownIcon
-          className={`w-3 h-3 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-3 h-3 text-[var(--text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -172,7 +170,7 @@ function SortDropdown({ value, onChange }) {
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute top-full right-0 mt-1 z-50 w-48 bg-slate-800 border border-slate-700/50 rounded-lg shadow-xl overflow-hidden">
+          <div className="absolute top-full right-0 mt-1 z-50 w-48 bg-[var(--vz-raised)] border border-[var(--vz-border-subtle)] rounded-lg shadow-xl overflow-hidden">
             <div className="py-1">
               {sortOptions.map(option => (
                 <button
@@ -184,19 +182,19 @@ function SortDropdown({ value, onChange }) {
                   }}
                   className={`
                     w-full flex flex-col items-start px-3 py-2 text-left transition-colors
-                    ${value === option.value ? 'bg-amber-500/10' : 'hover:bg-slate-700/50'}
+                    ${value === option.value ? 'bg-[var(--accent-warning-muted)]' : 'hover:bg-[var(--vz-border-subtle)]'}
                   `}
                 >
                   <span
                     className={
                       value === option.value
-                        ? 'text-amber-400 font-medium'
-                        : 'text-slate-300'
+                        ? 'text-[var(--accent-warning)] font-medium'
+                        : 'text-[var(--text-secondary)]'
                     }
                   >
                     {option.label}
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-[var(--text-muted)]">
                     {option.description}
                   </span>
                 </button>
@@ -214,13 +212,13 @@ function SortDropdown({ value, onChange }) {
  */
 function ActiveFilter({ label, icon: Icon, onRemove }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-md text-xs text-amber-400">
+    <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-[var(--accent-warning-muted)] border border-[var(--accent-warning-muted)] rounded-md text-xs text-[var(--accent-warning)]">
       {Icon && <Icon className="w-3 h-3" />}
       <span>{label}</span>
       <button
         type="button"
         onClick={onRemove}
-        className="ml-0.5 hover:text-amber-200 transition-colors"
+        className="ml-0.5 hover:text-[var(--accent-warning)] transition-colors"
       >
         <XMarkIcon className="w-3 h-3" />
       </button>
@@ -281,12 +279,12 @@ export default function DashboardFilters({
   // Render browser value
   let renderBrowserValue = useCallback(value => {
     if (value === 'all') {
-      return <span className="text-slate-400">All browsers</span>;
+      return <span className="text-[var(--text-tertiary)]">All browsers</span>;
     }
     return (
       <span className="flex items-center gap-2">
         <BrowserIcon browser={value} className="w-4 h-4" />
-        <span className="text-slate-300 capitalize">{value}</span>
+        <span className="text-[var(--text-secondary)] capitalize">{value}</span>
       </span>
     );
   }, []);
@@ -296,7 +294,7 @@ export default function DashboardFilters({
     let DeviceIcon = getDeviceIcon(getViewportWidth(viewport));
     return (
       <>
-        <DeviceIcon className="w-4 h-4 text-slate-400" />
+        <DeviceIcon className="w-4 h-4 text-[var(--text-tertiary)]" />
         <span className="font-mono text-xs">{viewport}</span>
       </>
     );
@@ -305,13 +303,15 @@ export default function DashboardFilters({
   // Render viewport value
   let renderViewportValue = useCallback(value => {
     if (value === 'all') {
-      return <span className="text-slate-400">All viewports</span>;
+      return <span className="text-[var(--text-tertiary)]">All viewports</span>;
     }
     let DeviceIcon = getDeviceIcon(getViewportWidth(value));
     return (
       <span className="flex items-center gap-2">
-        <DeviceIcon className="w-4 h-4 text-slate-400" />
-        <span className="text-slate-300 font-mono text-xs">{value}</span>
+        <DeviceIcon className="w-4 h-4 text-[var(--text-tertiary)]" />
+        <span className="text-[var(--text-secondary)] font-mono text-xs">
+          {value}
+        </span>
       </span>
     );
   }, []);
@@ -319,14 +319,14 @@ export default function DashboardFilters({
   return (
     <div className="space-y-3">
       {/* Main Filter Bar */}
-      <div className="flex flex-col gap-3 p-3 bg-slate-800/30 border border-slate-700/40 rounded-xl">
+      <div className="flex flex-col gap-3 p-3 bg-[var(--vz-raised)] border border-[var(--vz-border-subtle)] rounded-xl">
         {/* Top Row: Search + Actions */}
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="flex-1">
             <SearchInput
               value={searchQuery}
-              onChange={setSearchQuery}
+              onValueChange={setSearchQuery}
               placeholder="Search screenshots..."
               className="w-full"
             />
@@ -341,14 +341,14 @@ export default function DashboardFilters({
                 relative md:hidden inline-flex items-center justify-center w-8 h-8 rounded-md transition-all
                 ${
                   showMobileFilters || activeFilterCount > 0
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                    : 'text-slate-400 border border-slate-700/50 hover:border-slate-600'
+                    ? 'bg-[var(--accent-warning-muted)] text-[var(--accent-warning)] border border-[var(--accent-warning-muted)]'
+                    : 'text-[var(--text-tertiary)] border border-[var(--vz-border-subtle)] hover:border-[var(--vz-border-strong)]'
                 }
               `}
             >
               <AdjustmentsHorizontalIcon className="w-4 h-4" />
               {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-slate-900 text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--accent-brand)] text-[var(--accent-brand-contrast)] text-[10px] font-bold rounded-full flex items-center justify-center">
                   {activeFilterCount}
                 </span>
               )}
@@ -365,7 +365,7 @@ export default function DashboardFilters({
             type="button"
             onClick={onRefresh}
             disabled={loading}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600 transition-all disabled:opacity-50"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-[var(--vz-border-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:border-[var(--vz-border-strong)] transition-all disabled:opacity-50"
             title="Refresh"
           >
             <ArrowPathIcon
@@ -381,7 +381,7 @@ export default function DashboardFilters({
             <FilterPill
               label="All"
               count={counts.all}
-              color="gray"
+              color="neutral"
               active={filter === FILTER_TYPES.ALL}
               onClick={() => setFilter(FILTER_TYPES.ALL)}
               testId="filter-status-all"
@@ -397,7 +397,7 @@ export default function DashboardFilters({
             <FilterPill
               label="New"
               count={counts.new}
-              color="blue"
+              color="media"
               active={filter === FILTER_TYPES.NEW}
               onClick={() => setFilter(FILTER_TYPES.NEW)}
               testId="filter-status-new"
@@ -413,7 +413,9 @@ export default function DashboardFilters({
           </div>
 
           {/* Divider */}
-          {hasAdvancedFilters && <div className="w-px h-6 bg-slate-700/50" />}
+          {hasAdvancedFilters && (
+            <div className="w-px h-6 bg-[var(--vz-border-subtle)]" />
+          )}
 
           {/* Browser Filter */}
           {availableFilters.browsers.length > 1 && (
@@ -447,7 +449,7 @@ export default function DashboardFilters({
           <FilterPill
             label="All"
             count={counts.all}
-            color="gray"
+            color="neutral"
             active={filter === FILTER_TYPES.ALL}
             onClick={() => setFilter(FILTER_TYPES.ALL)}
             testId="mobile-filter-status-all"
@@ -463,7 +465,7 @@ export default function DashboardFilters({
           <FilterPill
             label="New"
             count={counts.new}
-            color="blue"
+            color="media"
             active={filter === FILTER_TYPES.NEW}
             onClick={() => setFilter(FILTER_TYPES.NEW)}
             testId="mobile-filter-status-new"
@@ -480,17 +482,21 @@ export default function DashboardFilters({
 
         {/* Mobile: Expanded Filter Panel */}
         {showMobileFilters && hasAdvancedFilters && (
-          <div className="md:hidden space-y-3 pt-2 border-t border-slate-700/30">
+          <div className="md:hidden space-y-3 pt-2 border-t border-[var(--vz-border-subtle)]">
             {/* Sort */}
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-400">Sort by</span>
+              <span className="text-sm text-[var(--text-tertiary)]">
+                Sort by
+              </span>
               <SortDropdown value={sortBy} onChange={setSortBy} />
             </div>
 
             {/* Browser */}
             {availableFilters.browsers.length > 1 && (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Browser</span>
+                <span className="text-sm text-[var(--text-tertiary)]">
+                  Browser
+                </span>
                 <IconDropdown
                   value={selectedBrowser}
                   onChange={setSelectedBrowser}
@@ -506,7 +512,9 @@ export default function DashboardFilters({
             {/* Viewport */}
             {availableFilters.viewports.length > 1 && (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Viewport</span>
+                <span className="text-sm text-[var(--text-tertiary)]">
+                  Viewport
+                </span>
                 <IconDropdown
                   value={selectedViewport}
                   onChange={setSelectedViewport}
@@ -525,7 +533,7 @@ export default function DashboardFilters({
       {/* Active Filters Bar (shown when filters are active) */}
       {activeFilterCount > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-slate-500">Filters:</span>
+          <span className="text-xs text-[var(--text-muted)]">Filters:</span>
 
           {filter !== FILTER_TYPES.ALL && (
             <ActiveFilter
@@ -562,7 +570,7 @@ export default function DashboardFilters({
           <button
             type="button"
             onClick={clearAllFilters}
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors ml-2"
+            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors ml-2"
           >
             Clear all
           </button>

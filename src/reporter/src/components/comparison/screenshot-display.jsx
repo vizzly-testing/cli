@@ -1,15 +1,27 @@
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { withImageVersion } from '../../utils/image-url.js';
 import {
   HotSpotOverlay,
   OnionSkinMode,
   OverlayMode,
   ToggleMode,
-} from '../design-system/index.js';
+} from '@vizzly-testing/bear-den/review';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { withImageVersion } from '../../utils/image-url.js';
+
+let checkerboardBackground = {
+  backgroundImage: `
+    linear-gradient(45deg, var(--vz-checkerboard-tile) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--vz-checkerboard-tile) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--vz-checkerboard-tile) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--vz-checkerboard-tile) 75%)
+  `,
+  backgroundSize: '16px 16px',
+  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+  backgroundColor: 'var(--vz-checkerboard-bg)',
+};
 
 /**
- * Unified Screenshot Display Component - matches Observatory architecture
+ * Unified Screenshot Display Component - matches BearDen architecture
  * Handles zoom calculations and renders the appropriate comparison mode
  * inside a zoom wrapper so all modes scale together
  */
@@ -175,19 +187,8 @@ export function ScreenshotDisplay({
       <div className={`h-full ${className}`}>
         <div
           ref={screenshotContainerRef}
-          className={`bg-gray-800 relative h-full ${zoomSettings.containerClass}`}
-          style={{
-            // Checkerboard background for transparency
-            backgroundImage: `
-              linear-gradient(45deg, #1f2937 25%, transparent 25%),
-              linear-gradient(-45deg, #1f2937 25%, transparent 25%),
-              linear-gradient(45deg, transparent 75%, #1f2937 75%),
-              linear-gradient(-45deg, transparent 75%, #1f2937 75%)
-            `,
-            backgroundSize: '16px 16px',
-            backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-            backgroundColor: '#111827',
-          }}
+          className={`bg-[var(--vz-elevated)] relative h-full ${zoomSettings.containerClass}`}
+          style={checkerboardBackground}
         >
           {/* Zoom wrapper - uses transform:scale for overflow scrolling at high zoom */}
           <div
@@ -235,14 +236,14 @@ export function ScreenshotDisplay({
           {!disableLoadingOverlay &&
             comparison &&
             !imageLoadStates.has(`current-${screenshot?.id}`) && (
-              <div className="absolute inset-0 bg-gray-700 animate-pulse flex items-center justify-center">
-                <div className="text-gray-400">Loading...</div>
+              <div className="absolute inset-0 bg-[var(--vz-raised)] animate-pulse flex items-center justify-center">
+                <div className="text-[var(--text-tertiary)]">Loading...</div>
               </div>
             )}
 
           {comparison && imageErrors.has(`current-${screenshot?.id}`) && (
-            <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
-              <div className="text-center text-gray-400">
+            <div className="absolute inset-0 bg-[var(--vz-raised)] flex items-center justify-center">
+              <div className="text-center text-[var(--text-tertiary)]">
                 <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2" />
                 <div className="text-sm">Failed to load image</div>
               </div>
@@ -258,19 +259,8 @@ export function ScreenshotDisplay({
     <div className={`h-full ${className}`}>
       <div
         ref={screenshotContainerRef}
-        className={`bg-gray-800 relative unified-screenshot-container h-full ${zoomSettings.containerClass}`}
-        style={{
-          // Checkerboard background for transparency
-          backgroundImage: `
-            linear-gradient(45deg, #1f2937 25%, transparent 25%),
-            linear-gradient(-45deg, #1f2937 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, #1f2937 75%),
-            linear-gradient(-45deg, transparent 75%, #1f2937 75%)
-          `,
-          backgroundSize: '16px 16px',
-          backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-          backgroundColor: '#111827',
-        }}
+        className={`bg-[var(--vz-elevated)] relative unified-screenshot-container h-full ${zoomSettings.containerClass}`}
+        style={checkerboardBackground}
       >
         {/* Zoom wrapper - contains images so they scale together */}
         {/* When zoomed beyond fit, use transform:scale with explicit wrapper sizing for overflow */}
@@ -367,14 +357,14 @@ export function ScreenshotDisplay({
         {/* Global Loading/Error States */}
         {!disableLoadingOverlay &&
           !imageLoadStates.has(`current-${screenshot?.id}`) && (
-            <div className="absolute inset-0 bg-gray-700 animate-pulse flex items-center justify-center">
-              <div className="text-gray-400">Loading...</div>
+            <div className="absolute inset-0 bg-[var(--vz-raised)] animate-pulse flex items-center justify-center">
+              <div className="text-[var(--text-tertiary)]">Loading...</div>
             </div>
           )}
 
         {imageErrors.has(`current-${screenshot?.id}`) && (
-          <div className="absolute inset-0 bg-gray-700 flex items-center justify-center">
-            <div className="text-center text-gray-400">
+          <div className="absolute inset-0 bg-[var(--vz-raised)] flex items-center justify-center">
+            <div className="text-center text-[var(--text-tertiary)]">
               <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2" />
               <div className="text-sm">Failed to load image</div>
             </div>

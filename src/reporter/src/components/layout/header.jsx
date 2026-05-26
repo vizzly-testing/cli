@@ -1,6 +1,6 @@
 /**
  * Header Component
- * Observatory Design System
+ * BearDen Design System
  *
  * Main navigation header with responsive mobile menu
  */
@@ -13,10 +13,10 @@ import {
   PhotoIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { Spinner } from '@vizzly-testing/bear-den';
 import { useState } from 'react';
-import { Spinner } from '../design-system/index.js';
 
-const navItems = [
+let navItems = [
   { key: 'comparisons', label: 'Comparisons', icon: PhotoIcon },
   { key: 'stats', label: 'Stats', icon: ChartBarIcon },
   { key: 'builds', label: 'Builds', icon: CloudIcon },
@@ -24,15 +24,15 @@ const navItems = [
 ];
 
 export default function Header({ currentView, onNavigate, loading }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  let [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleNavigate = view => {
+  let handleNavigate = view => {
     onNavigate?.(view);
     setMobileMenuOpen(false);
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50">
+    <header className="sticky top-0 z-40 bg-[var(--vz-bg)] backdrop-blur-sm border-b border-[var(--vz-border-subtle)]">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -41,9 +41,9 @@ export default function Header({ currentView, onNavigate, loading }) {
             onClick={() => handleNavigate('comparisons')}
             className="flex items-center gap-2 group touch-manipulation"
           >
-            <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[var(--accent-brand)] flex items-center justify-center">
               <svg
-                className="w-5 h-5 text-slate-900"
+                className="w-5 h-5 text-[var(--vz-bg)]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -62,10 +62,10 @@ export default function Header({ currentView, onNavigate, loading }) {
                 />
               </svg>
             </div>
-            <span className="text-lg font-semibold text-white group-hover:text-amber-400 transition-colors">
+            <span className="text-lg font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-brand)] transition-colors">
               Vizzly
             </span>
-            <span className="text-xs font-medium text-slate-500 bg-slate-800 px-2 py-0.5 rounded">
+            <span className="text-xs font-medium text-[var(--text-muted)] bg-[var(--vz-raised)] px-2 py-0.5 rounded">
               TDD
             </span>
           </button>
@@ -74,7 +74,7 @@ export default function Header({ currentView, onNavigate, loading }) {
           {onNavigate && (
             <div className="hidden md:flex items-center gap-1">
               {navItems.map(item => {
-                const isActive = currentView === item.key;
+                let isActive = currentView === item.key;
                 return (
                   <button
                     type="button"
@@ -82,8 +82,8 @@ export default function Header({ currentView, onNavigate, loading }) {
                     onClick={() => handleNavigate(item.key)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-amber-500/10 text-amber-400'
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        ? 'bg-[var(--accent-brand-muted)] text-[var(--accent-brand)]'
+                        : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-white/5'
                     }`}
                   >
                     <item.icon className="w-4 h-4" />
@@ -97,7 +97,7 @@ export default function Header({ currentView, onNavigate, loading }) {
           {/* Right side: Loading + Mobile Menu Toggle */}
           <div className="flex items-center gap-3">
             {loading && (
-              <div className="flex items-center gap-2 text-amber-400">
+              <div className="flex items-center gap-2 text-[var(--accent-brand)]">
                 <Spinner size="sm" />
                 <span className="hidden sm:inline text-sm">Syncing...</span>
               </div>
@@ -108,7 +108,7 @@ export default function Header({ currentView, onNavigate, loading }) {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors touch-manipulation"
+                className="md:hidden p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-white/5 transition-colors touch-manipulation"
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? (
@@ -123,10 +123,10 @@ export default function Header({ currentView, onNavigate, loading }) {
 
         {/* Mobile Navigation Menu */}
         {onNavigate && mobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-700/50 py-3 animate-slide-down">
+          <div className="md:hidden border-t border-[var(--vz-border-subtle)] py-3 animate-slide-down">
             <div className="flex flex-col gap-1">
               {navItems.map(item => {
-                const isActive = currentView === item.key;
+                let isActive = currentView === item.key;
                 return (
                   <button
                     type="button"
@@ -134,8 +134,8 @@ export default function Header({ currentView, onNavigate, loading }) {
                     onClick={() => handleNavigate(item.key)}
                     className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-base font-medium transition-colors touch-manipulation ${
                       isActive
-                        ? 'bg-amber-500/10 text-amber-400'
-                        : 'text-slate-300 hover:text-white hover:bg-white/5'
+                        ? 'bg-[var(--accent-brand-muted)] text-[var(--accent-brand)]'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'
                     }`}
                   >
                     <item.icon className="w-5 h-5" />

@@ -24,7 +24,10 @@ jobs:
         uses: vizzly-testing/tui-driver@f21ea93489f2160eccf4d58844e456a9b38a0491 # main
 
       - name: Install pnpm
-        run: corepack enable && corepack prepare pnpm@11.3.0 --activate
+        run: |
+          npm install -g corepack@latest
+          corepack enable
+          corepack prepare pnpm@11.3.0 --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

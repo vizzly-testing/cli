@@ -93,5 +93,8 @@ jobs:
           draft: false
           prerelease: true
 
+      - name: Build package
+        run: pnpm run build
+
       - name: Publish to NPM
-        run: npm publish --provenance --access public --tag ${{ github.event.inputs.prerelease_id }}
+        run: npm publish --provenance --access public --tag ${{ github.event.inputs.prerelease_id }} --ignore-scripts

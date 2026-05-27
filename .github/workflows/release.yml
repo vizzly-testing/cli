@@ -162,8 +162,11 @@ jobs:
             exit 1
           fi
 
+      - name: Build package
+        run: pnpm run build
+
       - name: Publish to NPM
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --ignore-scripts
 
       - name: Push version and tag
         run: |

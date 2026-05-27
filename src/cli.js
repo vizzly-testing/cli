@@ -410,8 +410,14 @@ program
   .command('init')
   .description('Initialize Vizzly in your project')
   .option('--force', 'Overwrite existing configuration')
+  .option('--agent-skill', 'Install the repo-local Vizzly agent skill')
+  .option(
+    '--agent-guidance',
+    'Add Vizzly guidance to this project AGENTS.md and install the agent skill'
+  )
+  .option('--skip-agent-skill', 'Skip the Vizzly agent skill prompt')
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = program.opts();
     await init({ ...globalOptions, ...options, plugins });
   });
 

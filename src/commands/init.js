@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { createInterface } from 'node:readline/promises';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { loadPlugins } from '../plugin-loader.js';
 import { loadConfig } from '../utils/config-loader.js';
 import * as output from '../utils/output.js';
+
+let commandDir = path.dirname(fileURLToPath(import.meta.url));
 
 let configValueSchema = z.lazy(() =>
   z.union([
@@ -22,10 +26,18 @@ let configSchemaValidator = z.record(z.string(), configValueSchema);
 function createInitDeps(deps = {}) {
   return {
     access: deps.access || fs.access,
+    copy: deps.copy || fs.cp,
     cwd: deps.cwd || (() => process.cwd()),
+    isInteractive:
+      deps.isInteractive ||
+      (() => Boolean(process.stdin.isTTY && process.stdout.isTTY)),
     loadConfig: deps.loadConfig || loadConfig,
     loadPlugins: deps.loadPlugins || loadPlugins,
+    mkdir: deps.mkdir || fs.mkdir,
     output: deps.output || output,
+    promptAgentSkill: deps.promptAgentSkill || promptAgentSkill,
+    readFile: deps.readFile || fs.readFile,
+    skillSourcePath: deps.skillSourcePath || getPackagedAgentSkillPath(),
     writeFile: deps.writeFile || fs.writeFile,
   };
 }
@@ -40,6 +52,18 @@ function configureOutput(output, options) {
 
 export function getInitConfigPath(cwd = process.cwd()) {
   return path.join(cwd, 'vizzly.config.js');
+}
+
+export function getPackagedAgentSkillPath(baseDir = commandDir) {
+  return path.resolve(baseDir, '..', '..', 'skills', 'vizzly');
+}
+
+export function getProjectAgentSkillPath(cwd = process.cwd()) {
+  return path.join(cwd, '.agents', 'skills', 'vizzly');
+}
+
+export function getProjectAgentsPath(cwd = process.cwd()) {
+  return path.join(cwd, 'AGENTS.md');
 }
 
 export async function fileExists(filePath, access = fs.access) {
@@ -219,6 +243,196 @@ function showNextSteps(output) {
   ]);
 }
 
+async function promptAgentSkill({
+  stdin = process.stdin,
+  stdout = process.stdout,
+} = {}) {
+  let rl = createInterface({ input: stdin, output: stdout });
+
+  try {
+    let answer = await rl.question(
+      'Add the Vizzly agent skill to this repo? [Y/n] '
+    );
+    return !['n', 'no'].includes(answer.trim().toLowerCase());
+  } finally {
+    rl.close();
+  }
+}
+
+async function shouldInstallAgentSkill(options, deps) {
+  if (options.agentGuidance) {
+    return true;
+  }
+
+  if (options.skipAgentSkill) {
+    return false;
+  }
+
+  if (options.agentSkill) {
+    return true;
+  }
+
+  if (options.json || !deps.isInteractive()) {
+    return false;
+  }
+
+  return await deps.promptAgentSkill();
+}
+
+let agentGuidanceStart = '<!-- vizzly-agent-guidance -->';
+let agentGuidanceEnd = '<!-- /vizzly-agent-guidance -->';
+
+export function createAgentGuidanceContent() {
+  return `${agentGuidanceStart}
+## Visual Testing With Vizzly
+
+Use Vizzly for user-facing UI changes when this repo has Vizzly configured.
+
+- Read visual history before changing UI: \`npx vizzly context build current --source local --agent\`
+- Inspect named screenshot history when useful: \`npx vizzly context screenshot "<screenshot-name>" --source local --json\`
+- Verify visual changes through the existing user workflow that owns the surface: \`npx vizzly tdd run "<test command>" --no-open\`
+
+Prefer existing E2E/user journeys over narrow screenshot-only specs. Treat Vizzly diffs as review evidence; do not approve or reject changes unless asked.
+${agentGuidanceEnd}
+`;
+}
+
+function appendSection(content, section) {
+  if (!content.trim()) {
+    return section;
+  }
+
+  return `${content.replace(/\s*$/, '')}\n\n${section}`;
+}
+
+export async function upsertProjectAgentGuidance({
+  cwd,
+  access = fs.access,
+  readFile = fs.readFile,
+  writeFile = fs.writeFile,
+}) {
+  let agentsPath = getProjectAgentsPath(cwd);
+  let guidance = createAgentGuidanceContent();
+
+  if (!(await fileExists(agentsPath, access))) {
+    await writeFile(agentsPath, guidance, 'utf8');
+    return {
+      status: 'created',
+      agentsPath,
+    };
+  }
+
+  let existingContent = await readFile(agentsPath, 'utf8');
+  if (existingContent.includes(agentGuidanceStart)) {
+    return {
+      status: 'exists',
+      agentsPath,
+    };
+  }
+
+  await writeFile(agentsPath, appendSection(existingContent, guidance), 'utf8');
+  return {
+    status: 'updated',
+    agentsPath,
+  };
+}
+
+export async function installProjectAgentSkill({
+  cwd,
+  sourcePath,
+  access = fs.access,
+  copy = fs.cp,
+  mkdir = fs.mkdir,
+}) {
+  let targetPath = getProjectAgentSkillPath(cwd);
+
+  if (!(await fileExists(path.join(sourcePath, 'SKILL.md'), access))) {
+    return {
+      status: 'missing-source',
+      sourcePath,
+      targetPath,
+    };
+  }
+
+  if (await fileExists(targetPath, access)) {
+    return {
+      status: 'exists',
+      sourcePath,
+      targetPath,
+    };
+  }
+
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await copy(sourcePath, targetPath, {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+  });
+
+  return {
+    status: 'installed',
+    sourcePath,
+    targetPath,
+  };
+}
+
+function writeAgentSkillOutput(output, result) {
+  if (!result) {
+    return;
+  }
+
+  if (result.status === 'installed') {
+    output.complete('Added Vizzly agent skill');
+    output.hint(`Installed at ${result.targetPath}`);
+    return;
+  }
+
+  if (result.status === 'exists') {
+    output.hint('Vizzly agent skill already exists in this repo');
+    return;
+  }
+
+  if (result.status === 'missing-source') {
+    output.warn('Vizzly agent skill was not found in this CLI package');
+  }
+}
+
+function writeAgentGuidanceOutput(output, result) {
+  if (!result) {
+    return;
+  }
+
+  if (result.status === 'created') {
+    output.complete('Created AGENTS.md with Vizzly guidance');
+    output.hint(`Wrote ${result.agentsPath}`);
+    return;
+  }
+
+  if (result.status === 'updated') {
+    output.complete('Added Vizzly guidance to AGENTS.md');
+    output.hint(`Updated ${result.agentsPath}`);
+    return;
+  }
+
+  if (result.status === 'exists') {
+    output.hint('Vizzly guidance already exists in AGENTS.md');
+  }
+}
+
+function withAgentSetupResults(
+  payload,
+  { agentSkillResult, agentGuidanceResult }
+) {
+  if (agentSkillResult) {
+    payload.agentSkill = agentSkillResult;
+  }
+  if (agentGuidanceResult) {
+    payload.agentGuidance = agentGuidanceResult;
+  }
+
+  return payload;
+}
+
 async function writeConfigFile({
   configPath,
   plugins,
@@ -261,22 +475,49 @@ export async function init(options = {}, deps = {}) {
   let plugins = await loadInitPlugins(options, resolvedDeps);
   let configPath = getInitConfigPath(resolvedDeps.cwd());
   let hasConfig = await fileExists(configPath, resolvedDeps.access);
+  let agentSkillResult = null;
+  let agentGuidanceResult = null;
+
+  if (await shouldInstallAgentSkill(options, resolvedDeps)) {
+    agentSkillResult = await installProjectAgentSkill({
+      cwd: resolvedDeps.cwd(),
+      sourcePath: resolvedDeps.skillSourcePath,
+      access: resolvedDeps.access,
+      copy: resolvedDeps.copy,
+      mkdir: resolvedDeps.mkdir,
+    });
+  }
+
+  if (options.agentGuidance) {
+    agentGuidanceResult = await upsertProjectAgentGuidance({
+      cwd: resolvedDeps.cwd(),
+      access: resolvedDeps.access,
+      readFile: resolvedDeps.readFile,
+      writeFile: resolvedDeps.writeFile,
+    });
+  }
 
   if (hasConfig && !options.force) {
     if (options.json) {
-      resolvedDeps.output.data({
-        status: 'skipped',
-        reason: 'config_exists',
-        configPath,
-        message:
-          'A vizzly.config.js file already exists. Use --force to overwrite.',
-      });
+      let payload = withAgentSetupResults(
+        {
+          status: 'skipped',
+          reason: 'config_exists',
+          configPath,
+          message:
+            'A vizzly.config.js file already exists. Use --force to overwrite.',
+        },
+        { agentSkillResult, agentGuidanceResult }
+      );
+      resolvedDeps.output.data(payload);
       return { status: 'skipped', configPath };
     }
 
     resolvedDeps.output.header('init');
     resolvedDeps.output.warn('A vizzly.config.js file already exists');
     resolvedDeps.output.hint('Use --force to overwrite');
+    writeAgentSkillOutput(resolvedDeps.output, agentSkillResult);
+    writeAgentGuidanceOutput(resolvedDeps.output, agentGuidanceResult);
     return { status: 'skipped', configPath };
   }
 
@@ -292,15 +533,21 @@ export async function init(options = {}, deps = {}) {
     let pluginNames = getPluginConfigNames(plugins);
 
     if (options.json) {
-      resolvedDeps.output.data({
-        status: 'created',
-        configPath,
-        plugins: pluginNames,
-      });
+      let payload = withAgentSetupResults(
+        {
+          status: 'created',
+          configPath,
+          plugins: pluginNames,
+        },
+        { agentSkillResult, agentGuidanceResult }
+      );
+      resolvedDeps.output.data(payload);
       return { status: 'created', configPath, plugins: pluginNames };
     }
 
     showNextSteps(resolvedDeps.output);
+    writeAgentSkillOutput(resolvedDeps.output, agentSkillResult);
+    writeAgentGuidanceOutput(resolvedDeps.output, agentGuidanceResult);
 
     resolvedDeps.output.blank();
     resolvedDeps.output.complete('Vizzly CLI setup complete');

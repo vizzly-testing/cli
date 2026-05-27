@@ -55,6 +55,7 @@
     "bin",
     "dist",
     "docs/assets",
+    "skills",
     "README.md",
     "LICENSE"
   ],

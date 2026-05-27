@@ -28,6 +28,13 @@ pnpm install -g @vizzly-testing/cli
 vizzly init
 ```
 
+For agent-friendly repos, install the Vizzly skill and add a short project
+`AGENTS.md` note:
+
+```bash
+vizzly init --agent-guidance
+```
+
 ### Start Local TDD
 
 Start the TDD server, run your tests, and open the dashboard at
@@ -138,6 +145,13 @@ Generate a config file:
 
 ```bash
 vizzly init
+```
+
+To teach project agents about Vizzly screenshot memory and the local visual TDD
+loop, add the repo-local skill and AGENTS.md guidance:
+
+```bash
+vizzly init --agent-guidance
 ```
 
 Or create `vizzly.config.js` manually:

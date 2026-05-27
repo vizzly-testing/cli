@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -10,7 +10,10 @@ import {
   formatPluginConfig,
   formatValue,
   getInitConfigPath,
+  getProjectAgentSkillPath,
+  getProjectAgentsPath,
   init,
+  installProjectAgentSkill,
 } from '../../src/commands/init.js';
 
 let execFileAsync = promisify(execFile);
@@ -207,6 +210,49 @@ describe('commands/init', () => {
       );
     });
 
+    it('can add the agent skill when config already exists', async () => {
+      let cwd = await createTempProject();
+      let configPath = getInitConfigPath(cwd);
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let output = createMockOutput();
+
+      await writeFile(configPath, 'export default { existing: true };\n');
+      await mkdir(skillSourcePath, { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
+      );
+
+      let result = await init(
+        {
+          agentSkill: true,
+          plugins: [],
+        },
+        {
+          cwd: () => cwd,
+          output,
+          skillSourcePath,
+        }
+      );
+
+      let config = await readFile(configPath, 'utf8');
+      let installedSkill = await readFile(
+        path.join(getProjectAgentSkillPath(cwd), 'SKILL.md'),
+        'utf8'
+      );
+
+      assert.deepStrictEqual(result, { status: 'skipped', configPath });
+      assert.strictEqual(config, 'export default { existing: true };\n');
+      assert.match(installedSkill, /name: vizzly/);
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'complete' &&
+            call.args[0] === 'Added Vizzly agent skill'
+        )
+      );
+    });
+
     it('overwrites an existing config when forced', async () => {
       let cwd = await createTempProject();
       let configPath = getInitConfigPath(cwd);
@@ -263,6 +309,240 @@ describe('commands/init', () => {
         defaults: {},
       });
       assert.deepStrictEqual(dataCall.args[0].plugins, ['loaded']);
+    });
+
+    it('installs the repo-local agent skill when requested', async () => {
+      let cwd = await createTempProject();
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let output = createMockOutput();
+
+      await mkdir(skillSourcePath, { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
+      );
+
+      let result = await init(
+        {
+          agentSkill: true,
+          plugins: [],
+        },
+        {
+          cwd: () => cwd,
+          output,
+          skillSourcePath,
+        }
+      );
+
+      let installedSkill = await readFile(
+        path.join(getProjectAgentSkillPath(cwd), 'SKILL.md'),
+        'utf8'
+      );
+
+      assert.strictEqual(result.status, 'created');
+      assert.match(installedSkill, /name: vizzly/);
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'complete' &&
+            call.args[0] === 'Added Vizzly agent skill'
+        )
+      );
+    });
+
+    it('adds project AGENTS.md guidance when requested', async () => {
+      let cwd = await createTempProject();
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let output = createMockOutput();
+
+      await mkdir(skillSourcePath, { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
+      );
+
+      let result = await init(
+        {
+          agentGuidance: true,
+          plugins: [],
+        },
+        {
+          cwd: () => cwd,
+          output,
+          skillSourcePath,
+        }
+      );
+
+      let installedSkill = await readFile(
+        path.join(getProjectAgentSkillPath(cwd), 'SKILL.md'),
+        'utf8'
+      );
+      let agentsContent = await readFile(getProjectAgentsPath(cwd), 'utf8');
+
+      assert.strictEqual(result.status, 'created');
+      assert.match(installedSkill, /name: vizzly/);
+      assert.match(agentsContent, /Visual Testing With Vizzly/);
+      assert.match(
+        agentsContent,
+        /npx vizzly context build current --source local --agent/
+      );
+      assert.match(
+        agentsContent,
+        /npx vizzly tdd run "<test command>" --no-open/
+      );
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'complete' &&
+            call.args[0] === 'Created AGENTS.md with Vizzly guidance'
+        )
+      );
+    });
+
+    it('appends project AGENTS.md guidance without duplicating it', async () => {
+      let cwd = await createTempProject();
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let agentsPath = getProjectAgentsPath(cwd);
+
+      await mkdir(skillSourcePath, { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
+      );
+      await writeFile(agentsPath, '# Repo Guidance\n\nKeep existing notes.\n');
+
+      await init(
+        {
+          agentGuidance: true,
+          plugins: [],
+        },
+        {
+          cwd: () => cwd,
+          output: createMockOutput(),
+          skillSourcePath,
+        }
+      );
+      await init(
+        {
+          agentGuidance: true,
+          force: true,
+          plugins: [],
+        },
+        {
+          cwd: () => cwd,
+          output: createMockOutput(),
+          skillSourcePath,
+        }
+      );
+
+      let agentsContent = await readFile(agentsPath, 'utf8');
+      let guidanceCount =
+        agentsContent.split('Visual Testing With Vizzly').length - 1;
+
+      assert.match(agentsContent, /# Repo Guidance/);
+      assert.match(agentsContent, /Keep existing notes/);
+      assert.strictEqual(guidanceCount, 1);
+    });
+
+    it('can add AGENTS.md guidance when config already exists', async () => {
+      let cwd = await createTempProject();
+      let configPath = getInitConfigPath(cwd);
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let output = createMockOutput();
+
+      await writeFile(configPath, 'export default { existing: true };\n');
+      await mkdir(skillSourcePath, { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
+      );
+
+      let result = await init(
+        {
+          agentGuidance: true,
+          plugins: [],
+        },
+        {
+          cwd: () => cwd,
+          output,
+          skillSourcePath,
+        }
+      );
+
+      let config = await readFile(configPath, 'utf8');
+      let agentsContent = await readFile(getProjectAgentsPath(cwd), 'utf8');
+
+      assert.deepStrictEqual(result, { status: 'skipped', configPath });
+      assert.strictEqual(config, 'export default { existing: true };\n');
+      assert.match(agentsContent, /Visual Testing With Vizzly/);
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'complete' &&
+            call.args[0] === 'Created AGENTS.md with Vizzly guidance'
+        )
+      );
+    });
+
+    it('prompts for the agent skill in interactive init', async () => {
+      let cwd = await createTempProject();
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let prompted = false;
+
+      await mkdir(skillSourcePath, { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
+      );
+
+      await init(
+        {
+          plugins: [],
+        },
+        {
+          cwd: () => cwd,
+          output: createMockOutput(),
+          skillSourcePath,
+          isInteractive: () => true,
+          promptAgentSkill: async () => {
+            prompted = true;
+            return true;
+          },
+        }
+      );
+
+      assert.strictEqual(prompted, true);
+      let installedSkill = await readFile(
+        path.join(getProjectAgentSkillPath(cwd), 'SKILL.md'),
+        'utf8'
+      );
+      assert.match(installedSkill, /name: vizzly/);
+    });
+
+    it('does not overwrite an existing repo-local agent skill', async () => {
+      let cwd = await createTempProject();
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let targetPath = getProjectAgentSkillPath(cwd);
+
+      await mkdir(skillSourcePath, { recursive: true });
+      await mkdir(targetPath, { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Packaged.\n---\n'
+      );
+      await writeFile(path.join(targetPath, 'SKILL.md'), 'local skill\n');
+
+      let result = await installProjectAgentSkill({
+        cwd,
+        sourcePath: skillSourcePath,
+      });
+      let existingSkill = await readFile(
+        path.join(targetPath, 'SKILL.md'),
+        'utf8'
+      );
+
+      assert.strictEqual(result.status, 'exists');
+      assert.strictEqual(existingSkill, 'local skill\n');
     });
   });
 });

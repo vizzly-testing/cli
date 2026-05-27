@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vizzly"
+  short_description: "Use Vizzly visual context while changing UI."
+  default_prompt: "Use Vizzly to inspect visual context before and after UI changes."

@@ -737,6 +737,29 @@ vizzly init --json
 }
 ```
 
+With project agent setup:
+
+```bash
+vizzly init --agent-guidance --json
+```
+
+```json
+{
+  "status": "created",
+  "configPath": "/path/to/vizzly.config.js",
+  "plugins": [],
+  "agentSkill": {
+    "status": "installed",
+    "sourcePath": "/path/to/cli/skills/vizzly",
+    "targetPath": "/path/to/project/.agents/skills/vizzly"
+  },
+  "agentGuidance": {
+    "status": "created",
+    "agentsPath": "/path/to/project/AGENTS.md"
+  }
+}
+```
+
 ### `vizzly project link`
 
 ```bash

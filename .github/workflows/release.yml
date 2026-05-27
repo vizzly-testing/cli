@@ -155,6 +155,19 @@ jobs:
             echo 'RELEASE_EOF'
           } >> "$GITHUB_OUTPUT"
 
+      - name: Restore Node.js for publishing
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '22.13.1'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Restore npm and pnpm for publishing
+        run: |
+          npm install -g npm@11.5.1
+          npm install -g corepack@latest
+          corepack enable
+          corepack prepare pnpm@11.3.0 --activate
+
       - name: Verify package version is unpublished
         run: |
           if npm view @vizzly-testing/cli@${{ steps.version.outputs.package_version }} version >/dev/null 2>&1; then

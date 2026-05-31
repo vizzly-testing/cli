@@ -22,15 +22,17 @@ Select specific fields using comma-separated names:
 # Top-level fields
 vizzly status <id> --json buildId,status,branch
 
-# Nested fields with dot notation
-vizzly status <id> --json buildId,comparisons.total,comparisons.changed
+# Preview fields with dot notation
+vizzly status <id> --json buildId,status,preview.url
 ```
 
-Field selection works on all commands. If a field doesn't exist, it's omitted from the output.
+Field selection works on the command payload before it is wrapped in the
+standard `{ status, data }` envelope. If a field doesn't exist, it's omitted
+from the output.
 
 ## Output Format
 
-All JSON output follows this structure:
+Successful command payloads are wrapped in this structure:
 
 ```json
 {
@@ -39,7 +41,7 @@ All JSON output follows this structure:
 }
 ```
 
-Errors look like this:
+Errors emitted through `output.error(...)` look like this:
 
 ```json
 {
@@ -49,7 +51,13 @@ Errors look like this:
 }
 ```
 
+Some commands return a `data` envelope with their own payload `status`
+(`completed`, `failed`, or `skipped`) instead of using the error envelope.
+
 ## Command Reference
+
+The shorter command examples below show the full `--json` envelope. Very large
+context examples show the command-specific payload that appears inside `data`.
 
 ### `vizzly run`
 
@@ -59,17 +67,20 @@ vizzly run "pnpm test" --json
 
 ```json
 {
-  "buildId": "abc123-def456",
-  "status": "completed",
-  "url": "https://app.vizzly.dev/org/project/builds/abc123",
-  "screenshotsCaptured": 15,
-  "executionTimeMs": 4500,
-  "git": {
-    "branch": "main",
-    "commit": "abc1234",
-    "message": "Add new feature"
-  },
-  "exitCode": 0
+  "status": "data",
+  "data": {
+    "buildId": "abc123-def456",
+    "status": "completed",
+    "contextCommand": "vizzly context build abc123-def456 --agent",
+    "screenshotsCaptured": 15,
+    "executionTimeMs": 4821,
+    "git": {
+      "branch": "main",
+      "commit": "abc1234",
+      "message": "Add feature"
+    },
+    "exitCode": 0
+  }
 }
 ```
 
@@ -77,16 +88,27 @@ With `--wait`, includes comparison results:
 
 ```json
 {
-  "buildId": "abc123-def456",
-  "status": "completed",
-  "comparisons": {
-    "total": 15,
-    "new": 2,
-    "changed": 1,
-    "identical": 12
-  },
-  "approvalStatus": "pending",
-  "exitCode": 1
+  "status": "data",
+  "data": {
+    "buildId": "abc123-def456",
+    "status": "failed",
+    "screenshotsCaptured": 15,
+    "executionTimeMs": 9876,
+    "git": {
+      "branch": "main",
+      "commit": "abc1234",
+      "message": "Add feature"
+    },
+    "comparisons": {
+      "total": 15,
+      "new": 2,
+      "changed": 1,
+      "identical": 12
+    },
+    "approvalStatus": "pending",
+    "contextCommand": "vizzly context build abc123-def456 --agent",
+    "exitCode": 1
+  }
 }
 ```
 
@@ -98,31 +120,35 @@ vizzly tdd run "pnpm test" --json
 
 ```json
 {
-  "status": "completed",
-  "exitCode": 0,
-  "comparisons": [
-    {
-      "name": "button-primary",
-      "status": "failed",
-      "signature": "button-primary|1920|chromium",
-      "diffPercentage": 4.2,
-      "threshold": 2.0,
-      "paths": {
-        "baseline": ".vizzly/baselines/button-primary_abc123.png",
-        "current": ".vizzly/current/button-primary_abc123.png",
-        "diff": ".vizzly/diffs/button-primary_abc123.png"
-      },
-      "viewport": { "width": 1920, "height": 1080 },
-      "browser": "chromium"
-    }
-  ],
-  "summary": {
-    "total": 10,
-    "passed": 8,
-    "failed": 1,
-    "new": 1
-  },
-  "reportPath": ".vizzly/report/index.html"
+  "status": "data",
+  "data": {
+    "status": "failed",
+    "exitCode": 1,
+    "comparisons": [
+      {
+        "name": "button-primary",
+        "status": "failed",
+        "signature": "button-primary|1920|chromium",
+        "diffPercentage": 4.2,
+        "threshold": 2.0,
+        "paths": {
+          "baseline": ".vizzly/baselines/button-primary.png",
+          "current": ".vizzly/current/button-primary.png",
+          "diff": ".vizzly/diff/button-primary.png"
+        },
+        "viewport": { "width": 1920, "height": 1080 },
+        "browser": "chromium"
+      }
+    ],
+    "summary": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "new": 0
+    },
+    "reportPath": ".vizzly/report/index.html",
+    "contextCommand": "vizzly context build current --source local --agent"
+  }
 }
 ```
 
@@ -134,10 +160,13 @@ vizzly tdd start --json
 
 ```json
 {
-  "status": "started",
-  "port": 47392,
-  "pid": 12345,
-  "dashboardUrl": "http://localhost:47392"
+  "status": "data",
+  "data": {
+    "status": "started",
+    "port": 47392,
+    "pid": 12345,
+    "dashboardUrl": "http://localhost:47392"
+  }
 }
 ```
 
@@ -149,8 +178,11 @@ vizzly tdd stop --json
 
 ```json
 {
-  "status": "stopped",
-  "pid": 12345
+  "status": "data",
+  "data": {
+    "status": "stopped",
+    "pid": 12345
+  }
 }
 ```
 
@@ -162,12 +194,15 @@ vizzly tdd status --json
 
 ```json
 {
-  "running": true,
-  "port": 47392,
-  "pid": 12345,
-  "uptimeMs": 5025000,
-  "uptime": "1h 23m 45s",
-  "dashboardUrl": "http://localhost:47392"
+  "status": "data",
+  "data": {
+    "running": true,
+    "port": 47392,
+    "pid": 12345,
+    "uptimeMs": 5025000,
+    "uptime": "1h 23m 45s",
+    "dashboardUrl": "http://localhost:47392"
+  }
 }
 ```
 
@@ -179,14 +214,17 @@ vizzly tdd list --json
 
 ```json
 {
-  "servers": [
-    {
-      "directory": "/path/to/project",
-      "port": 47392,
-      "pid": 12345,
-      "isCurrent": true
-    }
-  ]
+  "status": "data",
+  "data": {
+    "servers": [
+      {
+        "directory": "/path/to/project",
+        "port": 47392,
+        "pid": 12345,
+        "isCurrent": true
+      }
+    ]
+  }
 }
 ```
 
@@ -461,32 +499,35 @@ vizzly builds --branch main --status completed --limit 10 --json
 
 ```json
 {
-  "builds": [
-    {
-      "id": "abc123-def456",
-      "name": "Build #123",
-      "status": "completed",
-      "branch": "main",
-      "commit": "abc1234",
-      "commitMessage": "Add feature",
-      "environment": "test",
-      "screenshotCount": 15,
-      "comparisons": {
-        "total": 15,
-        "new": 2,
-        "changed": 1,
-        "identical": 12
-      },
-      "approvalStatus": "approved",
-      "createdAt": "2025-01-15T10:30:00Z",
-      "completedAt": "2025-01-15T10:32:00Z"
+  "status": "data",
+  "data": {
+    "builds": [
+      {
+        "id": "abc123-def456",
+        "name": "Build #123",
+        "status": "completed",
+        "branch": "main",
+        "commit": "abc1234",
+        "commitMessage": "Add feature",
+        "environment": "test",
+        "screenshotCount": 15,
+        "comparisons": {
+          "total": 15,
+          "new": 2,
+          "changed": 1,
+          "identical": 12
+        },
+        "approvalStatus": "approved",
+        "createdAt": "2025-01-15T10:30:00Z",
+        "completedAt": "2025-01-15T10:32:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 100,
+      "limit": 20,
+      "offset": 0,
+      "hasMore": true
     }
-  ],
-  "pagination": {
-    "total": 100,
-    "limit": 20,
-    "offset": 0,
-    "hasMore": true
   }
 }
 ```
@@ -509,29 +550,32 @@ vizzly comparisons --build <id> --status changed --json
 
 ```json
 {
-  "buildId": "abc123-def456",
-  "buildName": "Build #123",
-  "comparisons": [
-    {
-      "id": "comp-uuid",
-      "name": "button-primary",
-      "status": "changed",
-      "diffPercentage": 0.042,
-      "approvalStatus": "pending",
-      "viewport": { "width": 1920, "height": 1080 },
-      "browser": "chromium",
-      "urls": {
-        "baseline": "https://...",
-        "current": "https://...",
-        "diff": "https://..."
+  "status": "data",
+  "data": {
+    "buildId": "abc123-def456",
+    "buildName": "Build #123",
+    "comparisons": [
+      {
+        "id": "comp-uuid",
+        "name": "button-primary",
+        "status": "changed",
+        "diffPercentage": 0.042,
+        "approvalStatus": "pending",
+        "viewport": { "width": 1920, "height": 1080 },
+        "browser": "chromium",
+        "urls": {
+          "baseline": "https://...",
+          "current": "https://...",
+          "diff": "https://..."
+        }
       }
+    ],
+    "summary": {
+      "total": 15,
+      "passed": 12,
+      "failed": 2,
+      "new": 1
     }
-  ],
-  "summary": {
-    "total": 15,
-    "passed": 12,
-    "failed": 2,
-    "new": 1
   }
 }
 ```
@@ -557,21 +601,28 @@ vizzly config --json
 
 ```json
 {
-  "configFile": "/path/to/vizzly.config.js",
-  "config": {
-    "server": { "port": 47392, "timeout": 30000 },
-    "comparison": { "threshold": 2.0, "minClusterSize": 2 },
-    "tdd": { "openReport": false },
-    "api": {
-      "url": "https://app.vizzly.dev",
-      "tokenConfigured": true,
-      "tokenPrefix": "vzt_abc1..."
+  "status": "data",
+  "data": {
+    "configFile": "/path/to/vizzly.config.js",
+    "config": {
+      "server": { "port": 47392, "timeout": 30000 },
+      "build": {},
+      "upload": {},
+      "comparison": { "threshold": 2.0, "minClusterSize": 2 },
+      "tdd": { "openReport": false },
+      "api": {
+        "url": "https://app.vizzly.dev",
+        "tokenConfigured": true,
+        "tokenPrefix": "vzt_abc1..."
+      },
+      "linkedProject": {
+        "organization": "my-org",
+        "project": "my-project",
+        "tokenPrefix": "vzt_abc",
+        "storage": "keychain",
+        "expiresAt": null
+      }
     }
-  },
-  "project": {
-    "name": "My Project",
-    "slug": "my-project",
-    "organization": "my-org"
   }
 }
 ```
@@ -584,8 +635,11 @@ vizzly config comparison.threshold --json
 
 ```json
 {
-  "key": "comparison.threshold",
-  "value": 2.0
+  "status": "data",
+  "data": {
+    "key": "comparison.threshold",
+    "value": 2.0
+  }
 }
 ```
 
@@ -599,26 +653,29 @@ vizzly baselines --json
 
 ```json
 {
-  "baselines": [
-    {
-      "name": "button-primary",
-      "signature": "button-primary|1920|chromium",
-      "filename": "button-primary_abc123.png",
-      "path": "/path/to/.vizzly/baselines/button-primary_abc123.png",
-      "sha256": "abc123...",
-      "viewport": { "width": 1920, "height": 1080 },
-      "browser": "chromium",
-      "createdAt": "2025-01-15T10:00:00Z",
-      "fileSize": 45678
+  "status": "data",
+  "data": {
+    "baselines": [
+      {
+        "name": "button-primary",
+        "signature": "button-primary|1920|chromium",
+        "filename": "button-primary_abc123.png",
+        "path": "/path/to/.vizzly/baselines/button-primary_abc123.png",
+        "sha256": "abc123...",
+        "viewport": { "width": 1920, "height": 1080 },
+        "browser": "chromium",
+        "createdAt": "2025-01-15T10:00:00Z",
+        "fileSize": 45678
+      }
+    ],
+    "count": 45,
+    "metadata": {
+      "buildId": "local-baseline",
+      "buildName": "Local TDD Baseline",
+      "branch": "local",
+      "threshold": 2.0,
+      "createdAt": "2025-01-15T10:00:00Z"
     }
-  ],
-  "count": 45,
-  "metadata": {
-    "buildId": "local-baseline",
-    "buildName": "Local TDD Baseline",
-    "branch": "local",
-    "threshold": 2.0,
-    "createdAt": "2025-01-15T10:00:00Z"
   }
 }
 ```
@@ -643,9 +700,12 @@ vizzly api /sdk/builds -q limit=10 -q branch=main --json
 
 ```json
 {
-  "endpoint": "/api/sdk/builds",
-  "method": "GET",
-  "response": { /* raw API response */ }
+  "status": "data",
+  "data": {
+    "endpoint": "/api/sdk/builds",
+    "method": "GET",
+    "response": { /* raw API response */ }
+  }
 }
 ```
 
@@ -657,17 +717,22 @@ vizzly upload ./screenshots --json
 
 ```json
 {
-  "buildId": "abc123-def456",
-  "url": "https://app.vizzly.dev/...",
-  "stats": {
-    "total": 20,
-    "uploaded": 15,
-    "skipped": 5,
-    "bytes": 2500000
-  },
-  "git": {
-    "branch": "main",
-    "commit": "abc1234"
+  "status": "data",
+  "data": {
+    "buildId": "abc123-def456",
+    "url": "https://app.vizzly.dev/...",
+    "stats": {
+      "total": 20,
+      "uploaded": 15,
+      "skipped": 5,
+      "bytes": 2500000
+    },
+    "git": {
+      "branch": "main",
+      "commit": "abc1234",
+      "message": "Add feature"
+    },
+    "executionTimeMs": 6241
   }
 }
 ```
@@ -680,14 +745,21 @@ vizzly preview ./dist --json
 
 ```json
 {
-  "success": true,
-  "buildId": "abc123-def456",
-  "previewUrl": "https://preview.vizzly.dev/abc123",
-  "files": 150,
-  "bytes": 5000000,
-  "compressedBytes": 1200000,
-  "compressionRatio": "76%",
-  "expiresAt": "2025-03-01T00:00:00Z"
+  "status": "data",
+  "data": {
+    "success": true,
+    "buildId": "abc123-def456",
+    "previewUrl": "https://preview.vizzly.dev/abc123",
+    "files": 150,
+    "bytes": 5000000,
+    "compressedBytes": 1200000,
+    "compressionRatio": "76%",
+    "newBytes": 320000,
+    "reusedBlobs": 12,
+    "deduplicationRatio": 0.42,
+    "basePath": null,
+    "expiresAt": "2025-03-01T00:00:00Z"
+  }
 }
 ```
 
@@ -699,27 +771,30 @@ vizzly status <build-id> --json
 
 ```json
 {
-  "buildId": "abc123-def456",
-  "status": "completed",
-  "name": "Build #123",
-  "createdAt": "2025-01-15T10:30:00Z",
-  "completedAt": "2025-01-15T10:32:00Z",
-  "environment": "test",
-  "branch": "main",
-  "commit": "abc1234",
-  "commitMessage": "Add feature",
-  "screenshotsTotal": 15,
-  "comparisonsTotal": 15,
-  "newComparisons": 2,
-  "changedComparisons": 1,
-  "identicalComparisons": 12,
-  "approvalStatus": "pending",
-  "executionTime": 4500,
-  "preview": {
-    "url": "https://preview.vizzly.dev/...",
-    "status": "ready",
-    "fileCount": 150,
-    "expiresAt": "2025-03-01T00:00:00Z"
+  "status": "data",
+  "data": {
+    "buildId": "abc123-def456",
+    "status": "completed",
+    "name": "Build #123",
+    "createdAt": "2025-01-15T10:30:00Z",
+    "completedAt": "2025-01-15T10:32:00Z",
+    "environment": "test",
+    "branch": "main",
+    "commit": "abc1234",
+    "commitMessage": "Add feature",
+    "screenshotsTotal": 15,
+    "comparisonsTotal": 15,
+    "newComparisons": 2,
+    "changedComparisons": 1,
+    "identicalComparisons": 12,
+    "approvalStatus": "pending",
+    "executionTime": 4500,
+    "preview": {
+      "url": "https://preview.vizzly.dev/...",
+      "status": "ready",
+      "fileCount": 150,
+      "expiresAt": "2025-03-01T00:00:00Z"
+    }
   }
 }
 ```
@@ -732,8 +807,11 @@ vizzly init --json
 
 ```json
 {
-  "status": "created",
-  "configPath": "/path/to/vizzly.config.js"
+  "status": "data",
+  "data": {
+    "status": "created",
+    "configPath": "/path/to/vizzly.config.js"
+  }
 }
 ```
 
@@ -745,17 +823,20 @@ vizzly init --agent-guidance --json
 
 ```json
 {
-  "status": "created",
-  "configPath": "/path/to/vizzly.config.js",
-  "plugins": [],
-  "agentSkill": {
-    "status": "installed",
-    "sourcePath": "/path/to/cli/skills/vizzly",
-    "targetPath": "/path/to/project/.agents/skills/vizzly"
-  },
-  "agentGuidance": {
+  "status": "data",
+  "data": {
     "status": "created",
-    "agentsPath": "/path/to/project/AGENTS.md"
+    "configPath": "/path/to/vizzly.config.js",
+    "plugins": [],
+    "agentSkill": {
+      "status": "installed",
+      "sourcePath": "/path/to/cli/skills/vizzly",
+      "targetPath": "/path/to/project/.agents/skills/vizzly"
+    },
+    "agentGuidance": {
+      "status": "created",
+      "agentsPath": "/path/to/project/AGENTS.md"
+    }
   }
 }
 ```
@@ -768,81 +849,51 @@ vizzly project link my-org/my-project --json
 
 ```json
 {
-  "linked": true,
-  "organizationSlug": "my-org",
-  "projectSlug": "my-project",
-  "tokenPrefix": "vzt_abc",
-  "storage": "keychain"
-}
-```
-
-### `vizzly project:list`
-
-```bash
-vizzly project:list --json
-```
-
-```json
-{
-  "projects": [
-    {
-      "directory": "/path/to/project",
-      "isCurrent": true,
-      "project": {
-        "name": "My Project",
-        "slug": "my-project"
-      },
-      "organization": "my-org",
-      "createdAt": "2025-01-15T10:00:00Z"
-    }
-  ],
-  "current": {
-    "directory": "/path/to/project",
-    "isCurrent": true,
-    "project": { "name": "My Project", "slug": "my-project" },
-    "organization": "my-org",
-    "createdAt": "2025-01-15T10:00:00Z"
+  "status": "data",
+  "data": {
+    "linked": true,
+    "organizationSlug": "my-org",
+    "projectSlug": "my-project",
+    "tokenPrefix": "vzt_abc",
+    "storage": "keychain"
   }
 }
 ```
 
-### `vizzly project:token`
+### `vizzly projects`
 
 ```bash
-vizzly project:token --json
+vizzly projects --json
 ```
 
 ```json
 {
-  "token": "vzt_abc123...",
-  "directory": "/path/to/project",
-  "project": {
-    "name": "My Project",
-    "slug": "my-project"
-  },
-  "organization": "my-org",
-  "createdAt": "2025-01-15T10:00:00Z"
+  "status": "data",
+  "data": {
+    "projects": [
+      {
+        "id": "project-123",
+        "name": "My Project",
+        "slug": "my-project",
+        "organizationName": "My Org",
+        "organizationSlug": "my-org",
+        "buildCount": 42,
+        "createdAt": "2025-01-15T10:00:00Z",
+        "updatedAt": "2025-01-20T10:00:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 1,
+      "hasMore": false
+    }
+  }
 }
 ```
 
-### `vizzly project:remove`
+Filter by organization:
 
 ```bash
-vizzly project:remove --json
-```
-
-In JSON mode, skips confirmation and removes immediately:
-
-```json
-{
-  "removed": true,
-  "directory": "/path/to/project",
-  "project": {
-    "name": "My Project",
-    "slug": "my-project"
-  },
-  "organization": "my-org"
-}
+vizzly projects --org my-org --json
 ```
 
 ## Scripting Examples

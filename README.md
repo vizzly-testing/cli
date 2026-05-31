@@ -35,6 +35,9 @@ For agent-friendly repos, install the Vizzly skill and add a short project
 vizzly init --agent-guidance
 ```
 
+Use `vizzly init --agent-skill` to install only the local skill, or
+`vizzly init --skip-agent-skill` when you want config without the agent prompt.
+
 ### Start Local TDD
 
 Start the TDD server, run your tests, and open the dashboard at
@@ -54,8 +57,13 @@ Use cloud builds when you want shared baselines, team review, and CI status:
 
 ```bash
 vizzly login
+vizzly project link your-org/your-project
 vizzly run "pnpm test" --wait
 ```
+
+`vizzly login` authenticates your user account. `vizzly project link` creates a
+project-scoped upload credential for this checkout, which `vizzly run` uses for
+cloud uploads.
 
 `--wait` blocks until Vizzly finishes processing the build. It exits with code
 `1` when visual differences need review.
@@ -111,11 +119,22 @@ test('homepage looks correct', async ({ page }) => {
 
   let screenshot = await page.screenshot();
   await vizzlyScreenshot('homepage', screenshot, {
-    browser: 'chrome',
-    viewport: '1920x1080'
+    fullPage: true,
+    requestTimeout: 5000,
+    properties: {
+      browser: 'chrome',
+      viewport: { width: 1920, height: 1080 },
+    },
   });
 });
 ```
+
+`properties` is your metadata bag for baseline grouping, filtering, and
+debugging. SDK options such as `threshold`, `minClusterSize`, `fullPage`,
+`requestTimeout`, and `buildId` stay at the top level. If one of those reserved
+SDK options is accidentally placed inside `properties`, Vizzly removes it from
+metadata, applies it as an option when possible, and warns so the call site can
+be cleaned up.
 
 The client SDK is lightweight. It posts screenshots to the local Vizzly server
 or the cloud build wrapper. It works with any test runner.
@@ -136,8 +155,25 @@ await vizzlyScreenshot('homepage', './screenshots/homepage.png');
 Or upload an existing folder of screenshots:
 
 ```bash
-vizzly upload ./screenshots
+vizzly upload ./screenshots --threshold 2 --min-cluster-size 4 --batch-size 10 --upload-timeout 60000
 ```
+
+`--batch-size` controls how many screenshots are uploaded per request.
+`--upload-timeout` controls the upload client's timeout, including how long
+`--wait` polls for build processing.
+
+CI workflows can force every screenshot through even when the SHA cache says it
+already uploaded. Parallel jobs should use the same stable ID, then finalize
+that ID after every shard completes:
+
+```bash
+vizzly run "pnpm test" --upload-all --parallel-id "$GITHUB_RUN_ID"
+vizzly finalize "$GITHUB_RUN_ID"
+```
+
+For smoke jobs where cloud credentials are intentionally unavailable, add
+`--allow-no-token` to `vizzly run` and Vizzly will keep the local screenshot
+server path working without creating a cloud build.
 
 ## Configuration
 

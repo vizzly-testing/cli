@@ -158,15 +158,17 @@ Or upload an existing folder of screenshots:
 vizzly upload ./screenshots --threshold 2 --min-cluster-size 4 --batch-size 10 --upload-timeout 60000
 ```
 
-`--batch-size` controls how many screenshots are uploaded per request, and
-`--upload-timeout` controls how long `vizzly upload --wait` waits for build
-processing.
+`--batch-size` controls how many screenshots are uploaded per request.
+`--upload-timeout` controls the upload client's timeout, including how long
+`--wait` polls for build processing.
 
 CI workflows can force every screenshot through even when the SHA cache says it
-already uploaded, and parallel jobs can share a build with a stable ID:
+already uploaded. Parallel jobs should use the same stable ID, then finalize
+that ID after every shard completes:
 
 ```bash
-vizzly run "pnpm test" --wait --upload-all --parallel-id "$CI_NODE_INDEX"
+vizzly run "pnpm test" --upload-all --parallel-id "$GITHUB_RUN_ID"
+vizzly finalize "$GITHUB_RUN_ID"
 ```
 
 For smoke jobs where cloud credentials are intentionally unavailable, add

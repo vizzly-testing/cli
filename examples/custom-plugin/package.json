@@ -4,7 +4,9 @@
   "description": "Example Vizzly CLI plugin demonstrating the plugin API",
   "main": "plugin.js",
   "type": "module",
-  "vizzlyPlugin": "./plugin.js",
+  "vizzly": {
+    "plugin": "./plugin.js"
+  },
   "keywords": [
     "vizzly",
     "vizzly-plugin",
@@ -12,10 +14,7 @@
   ],
   "author": "Vizzly Team",
   "license": "MIT",
-  "dependencies": {
-    "glob": "^13.0.0"
-  },
   "peerDependencies": {
-    "@vizzly-testing/cli": ">=0.24.0"
+    "@vizzly-testing/cli": "^0.9.0"
   }
 }

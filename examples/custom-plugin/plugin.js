@@ -26,9 +26,7 @@ export default {
       .description('Say hello from the example plugin')
       .action(() => {
         output.info('Hello from the example plugin!');
-        output.info(
-          `Config environment: ${config.build?.environment || 'not set'}`
-        );
+        output.info(`Config environment: ${config.build?.environment || 'not set'}`);
       });
 
     // Example 2: Command with arguments and options
@@ -62,9 +60,7 @@ export default {
             output.success('git.detect is available');
             let gitInfo = await git.detect({ buildPrefix: 'Example' });
             output.info(`  Branch: ${gitInfo.branch}`);
-            output.info(
-              `  Commit: ${gitInfo.commit?.slice(0, 7) || 'unknown'}`
-            );
+            output.info(`  Commit: ${gitInfo.commit?.slice(0, 7) || 'unknown'}`);
             output.info(`  PR: ${gitInfo.prNumber || 'none'}`);
           } else {
             output.warn('git.detect not available (requires CLI v0.25.0+)');
@@ -89,9 +85,7 @@ export default {
           }
 
           output.info(`API URL: ${config.apiUrl || 'https://app.vizzly.dev'}`);
-          output.info(
-            `API Token: ${config.apiKey ? `***${config.apiKey.slice(-4)}` : 'Not set'}`
-          );
+          output.info(`API Token: ${config.apiKey ? '***' + config.apiKey.slice(-4) : 'Not set'}`);
         } catch (error) {
           output.error(`Failed to access services: ${error.message}`);
           process.exit(1);
@@ -105,33 +99,20 @@ export default {
       .action(async () => {
         try {
           let { glob } = await import('glob');
-          let screenshotsDirs = Array.isArray(config.upload?.screenshotsDir)
-            ? config.upload.screenshotsDir
-            : [config.upload?.screenshotsDir || './screenshots'];
+          let screenshotsDir = config.upload?.screenshotsDir || './screenshots';
 
-          output.info(
-            `Looking for screenshots in: ${screenshotsDirs.join(', ')}`
-          );
+          output.info(`Looking for screenshots in: ${screenshotsDir}`);
 
-          let fileGroups = await Promise.all(
-            screenshotsDirs.map(async screenshotsDir => {
-              let files = await glob('**/*.{png,jpg,jpeg}', {
-                cwd: screenshotsDir,
-                absolute: false,
-              });
-
-              return files.map(file => `${screenshotsDir}/${file}`);
-            })
-          );
-          let files = fileGroups.flat();
+          let files = await glob('**/*.{png,jpg,jpeg}', {
+            cwd: screenshotsDir,
+            absolute: false,
+          });
 
           if (files.length === 0) {
             output.warn('No screenshot files found');
           } else {
             output.info(`Found ${files.length} screenshot(s):`);
-            for (let file of files) {
-              output.info(`  - ${file}`);
-            }
+            files.forEach(file => output.info(`  - ${file}`));
           }
         } catch (error) {
           output.error(`Failed to list screenshots: ${error.message}`);

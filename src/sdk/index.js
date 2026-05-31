@@ -23,7 +23,7 @@ import { createUploader } from '../uploader/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { resolveImageBuffer } from '../utils/file-helpers.js';
 import * as output from '../utils/output.js';
-import { createScreenshotProperties } from '../utils/screenshot-options.js';
+import { normalizeScreenshotOptions } from '../utils/screenshot-options.js';
 
 /**
  * Create a new Vizzly instance with custom configuration
@@ -319,8 +319,16 @@ export class VizzlySDK extends EventEmitter {
     // Resolve Buffer or file path using shared utility
     let buffer = resolveImageBuffer(imageBuffer, 'screenshot');
 
+    let normalizedOptions = normalizeScreenshotOptions(options);
+    for (let warning of normalizedOptions.warnings) {
+      output.warn(warning.message, {
+        code: warning.code,
+        option: warning.option,
+      });
+    }
+
     // Generate or use provided build ID
-    let buildId = options.buildId || this.currentBuildId || 'default';
+    let buildId = normalizedOptions.buildId || this.currentBuildId || 'default';
     this.currentBuildId = buildId;
 
     // Convert Buffer to base64 for JSON transport
@@ -331,8 +339,11 @@ export class VizzlySDK extends EventEmitter {
       name,
       image: imageBase64,
       type: 'base64',
-      properties: createScreenshotProperties(options),
+      properties: normalizedOptions.properties,
     };
+    if (normalizedOptions.warnings.length > 0) {
+      screenshotData.warnings = normalizedOptions.warnings;
+    }
 
     // POST to the local screenshot server
     let serverUrl = `http://localhost:${this.config.server?.port || 3000}`;
@@ -392,13 +403,18 @@ export class VizzlySDK extends EventEmitter {
 
     let uploadOptions = {
       screenshotsDir,
-      buildName: options.buildName || this.config.buildName,
-      branch: options.branch || this.config.branch,
-      commit: options.commit || this.config.commit,
-      message: options.message || this.config.message,
+      buildName: options.buildName || this.config.build?.name,
+      branch: options.branch || this.config.build?.branch,
+      commit: options.commit || this.config.build?.commit,
+      message: options.message || this.config.build?.message,
       environment:
-        options.environment || this.config.environment || 'production',
-      threshold: options.threshold ?? this.config.threshold,
+        options.environment || this.config.build?.environment || 'production',
+      threshold: options.threshold ?? this.config.comparison?.threshold,
+      minClusterSize:
+        options.minClusterSize ?? this.config.comparison?.minClusterSize,
+      metadata: options.metadata || {},
+      pullRequestNumber: options.pullRequestNumber,
+      parallelId: options.parallelId || this.config.parallelId,
       onProgress: progress => {
         this.emit('upload:progress', progress);
         if (options.onProgress) {

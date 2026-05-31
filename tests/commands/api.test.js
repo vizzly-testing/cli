@@ -174,6 +174,14 @@ describe('commands/api', () => {
           'Method DELETE not allowed. Use GET for queries or POST for approve/reject/comment.',
         ]
       );
+      assert.deepStrictEqual(
+        validateApiRequest({
+          endpoint: '/api/sdk/builds',
+          method: 'GET',
+          hasData: true,
+        }),
+        ['Request data requires --method POST.']
+      );
     });
   });
 
@@ -195,6 +203,10 @@ describe('commands/api', () => {
         [
           'Method PATCH not allowed. Use GET for queries or POST for approve/reject/comment.',
         ]
+      );
+      assert.deepStrictEqual(
+        validateApiOptions('/api/sdk/builds', { data: '{"ignored":true}' }),
+        ['Request data requires --method POST.']
       );
     });
   });
@@ -311,6 +323,42 @@ describe('commands/api', () => {
       assert.strictEqual(createdClient, false);
       assert.ok(output.calls.some(call => call.method === 'error'));
       assert.ok(output.calls.some(call => call.method === 'cleanup'));
+    });
+
+    it('blocks request data on GET before creating a client', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+      let createdClient = false;
+
+      await apiCommand(
+        '/api/sdk/builds',
+        { data: '{"silently":"dropped"}' },
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'token-123',
+            apiUrl: 'https://api.example.test',
+          }),
+          createApiClient: () => {
+            createdClient = true;
+            return {};
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(exitCode, 1);
+      assert.strictEqual(createdClient, false);
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'error' &&
+            call.args[0] === 'Request data requires --method POST.'
+        )
+      );
     });
 
     it('returns JSON failure details using normalized endpoint and method', async () => {

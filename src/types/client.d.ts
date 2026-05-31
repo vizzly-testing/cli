@@ -24,6 +24,7 @@ export function autoDiscoverTddServer(
   deps?: {
     exists?: (path: string) => boolean;
     readFile?: (path: string, encoding: BufferEncoding) => string | Buffer;
+    env?: Record<string, string | undefined>;
   }
 ): string | null;
 
@@ -32,7 +33,14 @@ export function autoDiscoverTddServer(
  */
 export interface ScreenshotResult {
   success: boolean;
-  status?: 'passed' | 'failed' | 'new';
+  status?:
+    | 'passed'
+    | 'failed'
+    | 'new'
+    | 'match'
+    | 'diff'
+    | 'baseline-updated'
+    | 'error';
   name?: string;
   diffPercentage?: number;
   [key: string]: unknown;
@@ -59,10 +67,16 @@ export interface ScreenshotResult {
  * @example
  * // With properties and comparison settings
  * await vizzlyScreenshot('checkout-form', screenshot, {
- *   properties: { browser: 'chrome', viewport: '1920x1080' },
+ *   properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } },
  *   threshold: 5,
- *   minClusterSize: 10
+ *   minClusterSize: 10,
+ *   fullPage: true,
+ *   requestTimeout: 5000
  * });
+ *
+ * `properties` is the user metadata bag. Comparison options are normalized
+ * into the server metadata payload, while `requestTimeout` stays on the
+ * client request and `buildId` only routes the screenshot to a build.
  */
 export function vizzlyScreenshot(
   name: string,
@@ -72,7 +86,10 @@ export function vizzlyScreenshot(
     threshold?: number;
     minClusterSize?: number;
     fullPage?: boolean;
-    [key: string]: unknown;
+    /** Transport-only build ID used to route the request. */
+    buildId?: string;
+    /** Client-side HTTP timeout in milliseconds; not stored as metadata. */
+    requestTimeout?: number;
   }
 ): Promise<ScreenshotResult | null>;
 
@@ -81,7 +98,15 @@ export function vizzlyScreenshot(
  */
 export interface FlushResult {
   success: boolean;
-  summary: {
+  uploaded?: number;
+  flushed?: boolean;
+  total?: number;
+  passed?: number;
+  failed?: number;
+  new?: number;
+  errors?: number;
+  message?: string;
+  summary?: {
     total: number;
     passed: number;
     failed: number;
@@ -124,6 +149,7 @@ export function isVizzlyReady(): boolean;
 export function configure(config?: {
   serverUrl?: string;
   enabled?: boolean;
+  failOnDiff?: boolean;
 }): void;
 
 /**
@@ -145,4 +171,5 @@ export function getVizzlyInfo(): {
   buildId: string | null;
   tddMode: boolean;
   disabled: boolean;
+  failOnDiff: boolean;
 };

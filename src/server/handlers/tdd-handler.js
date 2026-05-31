@@ -377,7 +377,8 @@ export const createTddHandler = (
     name,
     image,
     properties = {},
-    type
+    type,
+    warnings = []
   ) => {
     let handlerStart = Date.now();
     output.debug('tdd', `${name} received`);
@@ -532,6 +533,7 @@ export const createTddHandler = (
       aaPercentage: comparison.aaPercentage,
       heightDiff: comparison.heightDiff,
       error: comparison.error,
+      warnings,
       originalName: name,
       timestamp: Date.now(),
       // Boolean hints so UI can show toggle buttons without fetching heavy data
@@ -575,6 +577,7 @@ export const createTddHandler = (
           diff: comparison.diff,
           diffPercentage: comparison.diffPercentage,
           threshold: comparison.threshold,
+          warnings,
           tddMode: true,
         },
       };
@@ -589,6 +592,7 @@ export const createTddHandler = (
           message: `Baseline updated for '${name}'`,
           baseline: comparison.baseline,
           current: comparison.current,
+          warnings,
           tddMode: true,
         },
       };
@@ -618,6 +622,7 @@ export const createTddHandler = (
         name: comparison.name,
         baseline: comparison.baseline,
         current: comparison.current,
+        warnings,
         tddMode: true,
       },
     };

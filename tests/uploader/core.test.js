@@ -177,6 +177,11 @@ describe('uploader/core', () => {
         message: 'Test commit',
         environment: 'staging',
         threshold: 0.05,
+        minClusterSize: 4,
+        metadata: {
+          ci: 'github',
+          comparison: { threshold: 9 },
+        },
         pullRequestNumber: 42,
         parallelId: 'parallel-1',
       };
@@ -190,6 +195,13 @@ describe('uploader/core', () => {
         commit_message: 'Test commit',
         environment: 'staging',
         threshold: 0.05,
+        metadata: {
+          ci: 'github',
+          comparison: {
+            threshold: 0.05,
+            minClusterSize: 4,
+          },
+        },
         github_pull_request_number: 42,
         parallel_id: 'parallel-1',
       });
@@ -393,8 +405,12 @@ describe('uploader/core', () => {
         status: 'completed',
         build,
         comparisons: 10,
+        totalComparisons: 10,
         passedComparisons: 8,
         failedComparisons: 2,
+        newComparisons: 0,
+        identicalComparisons: 8,
+        approvalStatus: 'pending',
         url: 'https://example.com/builds/123',
       });
     });
@@ -405,7 +421,34 @@ describe('uploader/core', () => {
 
       assert.strictEqual(result.passedComparisons, 0);
       assert.strictEqual(result.failedComparisons, 0);
+      assert.strictEqual(result.totalComparisons, 0);
+      assert.strictEqual(result.newComparisons, 0);
       assert.strictEqual(result.comparisons, undefined);
+    });
+
+    it('supports snake_case comparison fields from the API', () => {
+      let build = {
+        id: 'build-123',
+        status: 'completed',
+        total_comparisons: 4,
+        passed_comparisons: 1,
+        changed_comparisons: 2,
+        new_comparisons: 1,
+        identical_comparisons: 1,
+        approval_status: 'approved',
+        url: 'https://example.com/builds/123',
+      };
+
+      let result = buildWaitResult(build);
+
+      assert.strictEqual(result.comparisons, 4);
+      assert.strictEqual(result.totalComparisons, 4);
+      assert.strictEqual(result.passedComparisons, 1);
+      assert.strictEqual(result.failedComparisons, 2);
+      assert.strictEqual(result.newComparisons, 1);
+      assert.strictEqual(result.identicalComparisons, 1);
+      assert.strictEqual(result.approvalStatus, 'approved');
+      assert.strictEqual(result.url, 'https://example.com/builds/123');
     });
 
     it('handles missing URL', () => {

@@ -7,8 +7,10 @@ import {
   getBuildId,
   getBuildName,
   getLogLevel,
+  getMinClusterSize,
   getParallelId,
   getServerUrl,
+  getThreshold,
   getUserAgent,
   getVizzlyHome,
   isTddMode,
@@ -33,6 +35,8 @@ describe('utils/environment-config', () => {
       'VIZZLY_BUILD_ID',
       'VIZZLY_BUILD_NAME',
       'VIZZLY_PARALLEL_ID',
+      'VIZZLY_THRESHOLD',
+      'VIZZLY_MIN_CLUSTER_SIZE',
       'VIZZLY_TDD',
     ];
     for (let v of vizzlyVars) {
@@ -170,6 +174,30 @@ describe('utils/environment-config', () => {
     });
   });
 
+  describe('getThreshold', () => {
+    it('returns undefined when not set', () => {
+      assert.strictEqual(getThreshold(), undefined);
+    });
+
+    it('returns VIZZLY_THRESHOLD as a number when set', () => {
+      process.env.VIZZLY_THRESHOLD = '0';
+
+      assert.strictEqual(getThreshold(), 0);
+    });
+  });
+
+  describe('getMinClusterSize', () => {
+    it('returns undefined when not set', () => {
+      assert.strictEqual(getMinClusterSize(), undefined);
+    });
+
+    it('returns VIZZLY_MIN_CLUSTER_SIZE as a number when set', () => {
+      process.env.VIZZLY_MIN_CLUSTER_SIZE = '3';
+
+      assert.strictEqual(getMinClusterSize(), 3);
+    });
+  });
+
   describe('isTddMode', () => {
     it('returns false when not set', () => {
       assert.strictEqual(isTddMode(), false);
@@ -229,6 +257,8 @@ describe('utils/environment-config', () => {
         buildId: undefined,
         buildName: undefined,
         parallelId: undefined,
+        threshold: undefined,
+        minClusterSize: undefined,
         tddMode: false,
       });
     });
@@ -244,6 +274,8 @@ describe('utils/environment-config', () => {
       process.env.VIZZLY_BUILD_ID = 'build';
       process.env.VIZZLY_BUILD_NAME = 'My Build';
       process.env.VIZZLY_PARALLEL_ID = 'parallel';
+      process.env.VIZZLY_THRESHOLD = '1.5';
+      process.env.VIZZLY_MIN_CLUSTER_SIZE = '4';
       process.env.VIZZLY_TDD = 'true';
 
       let config = getAllEnvironmentConfig();
@@ -259,6 +291,8 @@ describe('utils/environment-config', () => {
         buildId: 'build',
         buildName: 'My Build',
         parallelId: 'parallel',
+        threshold: 1.5,
+        minClusterSize: 4,
         tddMode: true,
       });
     });

@@ -693,6 +693,59 @@ describe('server/handlers/tdd-handler', () => {
         assert.strictEqual(result.body.tddMode, true);
       });
 
+      it('passes comparison metadata through to screenshot comparison', async () => {
+        let capturedProperties = null;
+        let deps = createMockDeps({
+          tddServiceOverrides: {
+            compareScreenshot: (_name, _imageBuffer, properties) => {
+              capturedProperties = properties;
+              return {
+                id: 'comp-dashboard',
+                name: 'dashboard',
+                status: 'passed',
+                baseline: '/baselines/dashboard.png',
+                current: '/current/dashboard.png',
+                diff: null,
+                threshold: properties.threshold,
+                minClusterSize: properties.minClusterSize,
+              };
+            },
+          },
+        });
+        let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+        let result = await handler.handleScreenshot(
+          'build-1',
+          'dashboard',
+          'base64imagedata',
+          {
+            browser: 'firefox',
+            viewport: { width: 1280, height: 720 },
+            fullPage: false,
+            threshold: 0,
+            minClusterSize: 2,
+          }
+        );
+
+        assert.strictEqual(result.statusCode, 200);
+        assert.deepStrictEqual(capturedProperties, {
+          browser: 'firefox',
+          viewport: { width: 1280, height: 720 },
+          fullPage: false,
+          threshold: 0,
+          minClusterSize: 2,
+          viewport_width: 1280,
+          viewport_height: 720,
+          metadata: {
+            browser: 'firefox',
+            viewport: { width: 1280, height: 720 },
+            fullPage: false,
+            threshold: 0,
+            minClusterSize: 2,
+          },
+        });
+      });
+
       it('returns 400 for invalid screenshot name', async () => {
         let deps = createMockDeps({
           sanitizeScreenshotName: () => {

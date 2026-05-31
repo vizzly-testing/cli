@@ -275,6 +275,45 @@ describe('commands/tdd', () => {
       // Summary output is handled by printResults() in tdd-service.js
     });
 
+    it('prints failed JSON when TDD comparisons fail', async () => {
+      let output = createMockOutput();
+
+      let { result } = await tddCommand(
+        'pnpm test',
+        {},
+        { json: true },
+        {
+          loadConfig: async () => createMockConfig(),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          runTests: async () => ({
+            screenshotsCaptured: 1,
+            comparisons: [
+              {
+                name: 'button-primary',
+                status: 'failed',
+                signature: 'button-primary|1920|chromium',
+                diffPercentage: 4.2,
+              },
+            ],
+          }),
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc',
+          output,
+        }
+      );
+
+      let dataCall = output.calls.find(call => call.method === 'data');
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.exitCode, 1);
+      assert.strictEqual(dataCall.args[0].status, 'failed');
+      assert.strictEqual(dataCall.args[0].exitCode, 1);
+      assert.strictEqual(dataCall.args[0].summary.failed, 1);
+    });
+
     it('handles config loading error', async () => {
       let output = createMockOutput();
 
@@ -406,6 +445,143 @@ describe('commands/tdd', () => {
       assert.strictEqual(capturedRunOptions.commit, 'def456');
     });
 
+    it('falls back to build metadata from config', async () => {
+      let output = createMockOutput();
+      let capturedBranchArg = null;
+      let capturedCommitArg = null;
+      let capturedRunOptions = null;
+
+      await tddCommand(
+        'pnpm test',
+        {},
+        {},
+        {
+          loadConfig: async () =>
+            createMockConfig({
+              build: {
+                branch: 'config-branch',
+                commit: 'config-commit',
+                environment: 'test',
+              },
+            }),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { screenshotsCaptured: 0, comparisons: [] };
+          },
+          detectBranch: async branch => {
+            capturedBranchArg = branch;
+            return branch;
+          },
+          detectCommit: async commit => {
+            capturedCommitArg = commit;
+            return commit;
+          },
+          output,
+        }
+      );
+
+      assert.strictEqual(capturedBranchArg, 'config-branch');
+      assert.strictEqual(capturedCommitArg, 'config-commit');
+      assert.strictEqual(capturedRunOptions.branch, 'config-branch');
+      assert.strictEqual(capturedRunOptions.commit, 'config-commit');
+    });
+
+    it('passes build metadata and parallel id through to the TDD run', async () => {
+      let output = createMockOutput();
+      let capturedRunOptions = null;
+
+      await tddCommand(
+        'pnpm test',
+        {},
+        {},
+        {
+          loadConfig: async () =>
+            createMockConfig({
+              build: {
+                name: 'Local TDD Build',
+                environment: 'staging',
+                message: 'Config message',
+              },
+              comparison: { threshold: 2.5, minClusterSize: 7 },
+              parallelId: 'local-parallel',
+            }),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { screenshotsCaptured: 0, comparisons: [] };
+          },
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          detectPullRequestNumber: () => 42,
+          output,
+        }
+      );
+
+      assert.strictEqual(capturedRunOptions.name, 'Local TDD Build');
+      assert.strictEqual(capturedRunOptions.buildName, 'Local TDD Build');
+      assert.strictEqual(capturedRunOptions.message, 'Config message');
+      assert.strictEqual(capturedRunOptions.environment, 'staging');
+      assert.strictEqual(capturedRunOptions.pullRequestNumber, 42);
+      assert.strictEqual(capturedRunOptions.parallelId, 'local-parallel');
+      assert.deepStrictEqual(capturedRunOptions.metadata, {
+        comparison: {
+          threshold: 2.5,
+          minClusterSize: 7,
+        },
+      });
+    });
+
+    it('derives build names when config still has the default placeholder', async () => {
+      let output = createMockOutput();
+      let capturedRunOptions = null;
+      let capturedBuildNameOverride = 'not-called';
+
+      await tddCommand(
+        'pnpm test',
+        {},
+        {},
+        {
+          loadConfig: async () => createMockConfig(),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { screenshotsCaptured: 0, comparisons: [] };
+          },
+          detectBranch: async () => 'feature/default-name',
+          detectCommit: async () => 'abc123',
+          detectCommitMessage: async () => 'Detected commit message',
+          detectPullRequestNumber: () => 77,
+          generateBuildNameWithGit: async override => {
+            capturedBuildNameOverride = override;
+            return 'feature-default-name-abc1234';
+          },
+          output,
+        }
+      );
+
+      assert.strictEqual(capturedBuildNameOverride, undefined);
+      assert.strictEqual(
+        capturedRunOptions.buildName,
+        'feature-default-name-abc1234'
+      );
+      assert.strictEqual(
+        capturedRunOptions.name,
+        'feature-default-name-abc1234'
+      );
+      assert.strictEqual(capturedRunOptions.message, 'Detected commit message');
+      assert.strictEqual(capturedRunOptions.pullRequestNumber, 77);
+    });
+
     it('passes comparison config through to the TDD run', async () => {
       let output = createMockOutput();
       let capturedRunOptions = null;
@@ -435,6 +611,33 @@ describe('commands/tdd', () => {
 
       assert.strictEqual(capturedRunOptions.threshold, 0);
       assert.strictEqual(capturedRunOptions.minClusterSize, 6);
+    });
+
+    it('passes failOnDiff through to the TDD run', async () => {
+      let output = createMockOutput();
+      let capturedRunOptions = null;
+
+      await tddCommand(
+        'pnpm test',
+        { failOnDiff: true },
+        {},
+        {
+          loadConfig: async () => createMockConfig(),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { screenshotsCaptured: 0, comparisons: [] };
+          },
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          output,
+        }
+      );
+
+      assert.strictEqual(capturedRunOptions.failOnDiff, true);
     });
 
     it('invokes onBuildCreated callback', async () => {

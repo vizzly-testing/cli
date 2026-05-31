@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { createScreenshotProperties } from '../../src/utils/screenshot-options.js';
+import {
+  createScreenshotProperties,
+  normalizeScreenshotOptions,
+} from '../../src/utils/screenshot-options.js';
 
 describe('createScreenshotProperties', () => {
   it('normalizes comparison options into the server properties payload', () => {
@@ -14,7 +17,6 @@ describe('createScreenshotProperties', () => {
     });
 
     assert.deepStrictEqual(properties, {
-      browser: 'chromium',
       url: '/checkout',
       threshold: 0,
       minClusterSize: 3,
@@ -23,7 +25,7 @@ describe('createScreenshotProperties', () => {
   });
 
   it('lets dedicated comparison options override nested properties', () => {
-    let properties = createScreenshotProperties({
+    let normalized = normalizeScreenshotOptions({
       threshold: 1,
       minClusterSize: 2,
       properties: {
@@ -32,9 +34,60 @@ describe('createScreenshotProperties', () => {
       },
     });
 
-    assert.deepStrictEqual(properties, {
+    assert.deepStrictEqual(normalized.properties, {
       threshold: 1,
       minClusterSize: 2,
+    });
+    assert.deepStrictEqual(
+      normalized.warnings.map(warning => warning.option),
+      ['threshold', 'minClusterSize']
+    );
+  });
+
+  it('promotes reserved property options when top-level options are absent', () => {
+    let normalized = normalizeScreenshotOptions({
+      properties: {
+        theme: 'dark',
+        threshold: 0.2,
+        minClusterSize: 5,
+        fullPage: true,
+        buildId: 'build-from-properties',
+        requestTimeout: 60_000,
+      },
+    });
+
+    assert.deepStrictEqual(normalized.properties, {
+      theme: 'dark',
+      threshold: 0.2,
+      minClusterSize: 5,
+      fullPage: true,
+    });
+    assert.strictEqual(normalized.buildId, 'build-from-properties');
+    assert.strictEqual(normalized.requestTimeout, 60_000);
+    assert.deepStrictEqual(
+      normalized.warnings.map(warning => warning.option),
+      ['threshold', 'minClusterSize', 'fullPage', 'buildId', 'requestTimeout']
+    );
+  });
+
+  it('ignores arbitrary top-level metadata outside the user properties bag', () => {
+    let properties = createScreenshotProperties({
+      browser: 'chromium',
+      url: 'http://localhost:3000/current',
+      viewport: { width: 1440, height: 900 },
+      properties: {
+        browser: 'firefox',
+        url: 'http://stale.example',
+        viewport: { width: 375, height: 667 },
+        theme: 'dark',
+      },
+    });
+
+    assert.deepStrictEqual(properties, {
+      browser: 'firefox',
+      url: 'http://stale.example',
+      viewport: { width: 375, height: 667 },
+      theme: 'dark',
     });
   });
 });

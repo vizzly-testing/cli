@@ -12,6 +12,48 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+function getGlobalConfigPath() {
+  return join(
+    process.env.VIZZLY_HOME || join(homedir(), '.vizzly'),
+    'config.json'
+  );
+}
+
+function readJsonFile(path) {
+  try {
+    if (existsSync(path)) {
+      return JSON.parse(readFileSync(path, 'utf8'));
+    }
+  } catch {
+    // Optional context should never block the command that is rendering it.
+  }
+
+  return null;
+}
+
+function readGlobalConfig() {
+  return readJsonFile(getGlobalConfigPath()) || {};
+}
+
+function readBaselineInfo(cwd) {
+  let path = join(cwd, '.vizzly', 'baselines');
+  let metadata = readJsonFile(join(path, 'metadata.json'));
+
+  return {
+    count: metadata?.screenshots?.length || 0,
+    path: metadata ? path : null,
+  };
+}
+
+function readServerInfo(cwd) {
+  let serverInfo = readJsonFile(join(cwd, '.vizzly', 'server.json'));
+
+  return {
+    running: !!serverInfo,
+    port: serverInfo ? serverInfo.port : null,
+  };
+}
+
 /**
  * Get dynamic context about the current Vizzly state
  * Returns an array of context items with type, label, and value
@@ -23,49 +65,13 @@ export function getContext() {
 
   try {
     let cwd = process.cwd();
-    let globalConfigPath = join(
-      process.env.VIZZLY_HOME || join(homedir(), '.vizzly'),
-      'config.json'
-    );
-
-    // Load global config once
-    let globalConfig = {};
-    try {
-      if (existsSync(globalConfigPath)) {
-        globalConfig = JSON.parse(readFileSync(globalConfigPath, 'utf8'));
-      }
-    } catch {
-      // Ignore
-    }
+    let globalConfig = readGlobalConfig();
 
     // Check for vizzly.config.js (project config)
     let hasProjectConfig = existsSync(join(cwd, 'vizzly.config.js'));
 
-    // Check for .vizzly directory (TDD baselines)
-    let baselineCount = 0;
-    try {
-      let metaPath = join(cwd, '.vizzly', 'baselines', 'metadata.json');
-      if (existsSync(metaPath)) {
-        let meta = JSON.parse(readFileSync(metaPath, 'utf8'));
-        baselineCount = meta.screenshots?.length || 0;
-      }
-    } catch {
-      // Ignore
-    }
-
-    // Check for TDD server running
-    let serverRunning = false;
-    let serverPort = null;
-    try {
-      let serverFile = join(cwd, '.vizzly', 'server.json');
-      if (existsSync(serverFile)) {
-        let serverInfo = JSON.parse(readFileSync(serverFile, 'utf8'));
-        serverPort = serverInfo.port;
-        serverRunning = true;
-      }
-    } catch {
-      // Ignore
-    }
+    let baselineInfo = readBaselineInfo(cwd);
+    let serverInfo = readServerInfo(cwd);
 
     // Check for OAuth login (from vizzly login)
     let isLoggedIn = !!globalConfig.auth?.accessToken;
@@ -76,11 +82,11 @@ export function getContext() {
     let hasEnvToken = !!process.env.VIZZLY_TOKEN;
 
     // Build context items - prioritize most useful info
-    if (serverRunning) {
+    if (serverInfo.running) {
       items.push({
         type: 'success',
         label: 'TDD Server',
-        value: `running on :${serverPort}`,
+        value: `running on :${serverInfo.port}`,
       });
     }
 
@@ -100,15 +106,15 @@ export function getContext() {
       });
     }
 
-    if (baselineCount > 0) {
+    if (baselineInfo.count > 0) {
       items.push({
         type: 'success',
         label: 'Baselines',
-        value: `${baselineCount} screenshots`,
+        value: `${baselineInfo.count} screenshots`,
       });
     }
 
-    if (!hasProjectConfig && !serverRunning && baselineCount === 0) {
+    if (!hasProjectConfig && !serverInfo.running && baselineInfo.count === 0) {
       // Only show "no config" hint if there's nothing else useful
       items.push({
         type: 'info',
@@ -131,10 +137,6 @@ export function getContext() {
  */
 export function getDetailedContext() {
   let cwd = process.cwd();
-  let globalConfigPath = join(
-    process.env.VIZZLY_HOME || join(homedir(), '.vizzly'),
-    'config.json'
-  );
 
   let context = {
     tddServer: {
@@ -156,42 +158,18 @@ export function getDetailedContext() {
   };
 
   try {
-    // Load global config
-    let globalConfig = {};
-    try {
-      if (existsSync(globalConfigPath)) {
-        globalConfig = JSON.parse(readFileSync(globalConfigPath, 'utf8'));
-      }
-    } catch {
-      // Ignore
-    }
+    let globalConfig = readGlobalConfig();
 
     // Check for vizzly.config.js
     context.project.hasConfig = existsSync(join(cwd, 'vizzly.config.js'));
 
-    // Check for baselines
-    try {
-      let metaPath = join(cwd, '.vizzly', 'baselines', 'metadata.json');
-      if (existsSync(metaPath)) {
-        let meta = JSON.parse(readFileSync(metaPath, 'utf8'));
-        context.baselines.count = meta.screenshots?.length || 0;
-        context.baselines.path = join(cwd, '.vizzly', 'baselines');
-      }
-    } catch {
-      // Ignore
-    }
+    let baselineInfo = readBaselineInfo(cwd);
+    context.baselines.count = baselineInfo.count;
+    context.baselines.path = baselineInfo.path;
 
-    // Check for TDD server
-    try {
-      let serverFile = join(cwd, '.vizzly', 'server.json');
-      if (existsSync(serverFile)) {
-        let serverInfo = JSON.parse(readFileSync(serverFile, 'utf8'));
-        context.tddServer.running = true;
-        context.tddServer.port = serverInfo.port;
-      }
-    } catch {
-      // Ignore
-    }
+    let serverInfo = readServerInfo(cwd);
+    context.tddServer.running = serverInfo.running;
+    context.tddServer.port = serverInfo.port;
 
     // Check auth status
     context.auth.loggedIn = !!globalConfig.auth?.accessToken;

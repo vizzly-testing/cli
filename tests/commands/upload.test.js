@@ -19,6 +19,7 @@ function createMockOutput() {
     error: (msg, err) => calls.push({ method: 'error', args: [msg, err] }),
     success: msg => calls.push({ method: 'success', args: [msg] }),
     warn: msg => calls.push({ method: 'warn', args: [msg] }),
+    data: value => calls.push({ method: 'data', args: [value] }),
     progress: (msg, cur, tot) =>
       calls.push({ method: 'progress', args: [msg, cur, tot] }),
     startSpinner: msg => calls.push({ method: 'startSpinner', args: [msg] }),
@@ -141,6 +142,29 @@ describe('validateUploadOptions', () => {
     });
   });
 
+  describe('min cluster size validation', () => {
+    it('should pass with valid min cluster size', () => {
+      let errors = validateUploadOptions('./screenshots', {
+        minClusterSize: '2',
+      });
+      assert.strictEqual(errors.length, 0);
+    });
+
+    it('should fail with decimal min cluster size', () => {
+      let errors = validateUploadOptions('./screenshots', {
+        minClusterSize: '2.5',
+      });
+      assert.ok(errors.includes('Min cluster size must be a positive integer'));
+    });
+
+    it('should fail with zero min cluster size', () => {
+      let errors = validateUploadOptions('./screenshots', {
+        minClusterSize: '0',
+      });
+      assert.ok(errors.includes('Min cluster size must be a positive integer'));
+    });
+  });
+
   describe('batch size validation', () => {
     it('should pass with valid batch size', () => {
       let errors = validateUploadOptions('./screenshots', {
@@ -223,11 +247,12 @@ describe('validateUploadOptions', () => {
       let errors = validateUploadOptions(null, {
         metadata: 'invalid-json',
         threshold: '-1',
+        minClusterSize: '0',
         batchSize: '-1',
         uploadTimeout: '0',
       });
 
-      assert.strictEqual(errors.length, 5);
+      assert.strictEqual(errors.length, 6);
       assert.ok(errors.includes('Screenshots path is required'));
       assert.ok(errors.includes('Invalid JSON in --metadata option'));
       assert.ok(
@@ -236,6 +261,7 @@ describe('validateUploadOptions', () => {
         )
       );
       assert.ok(errors.includes('Batch size must be a positive integer'));
+      assert.ok(errors.includes('Min cluster size must be a positive integer'));
       assert.ok(
         errors.includes(
           'Upload timeout must be a positive integer (milliseconds)'
@@ -364,6 +390,7 @@ describe('uploadCommand', () => {
   it('uploads screenshots and finalizes build', async () => {
     let output = createMockOutput();
     let uploadCalled = false;
+    let capturedUploadOptions = null;
     let finalizeCalled = false;
     let finalizeSuccess = null;
 
@@ -376,7 +403,7 @@ describe('uploadCommand', () => {
           apiKey: 'test-token',
           apiUrl: 'https://api.test',
           build: { environment: 'test' },
-          comparison: { threshold: 2.0 },
+          comparison: { threshold: 2.0, minClusterSize: 3 },
         }),
         detectBranch: async () => 'main',
         detectCommit: async () => 'abc123',
@@ -384,8 +411,9 @@ describe('uploadCommand', () => {
         detectPullRequestNumber: () => null,
         generateBuildNameWithGit: async () => 'Test Build',
         createUploader: () => ({
-          upload: async () => {
+          upload: async uploadOptions => {
             uploadCalled = true;
+            capturedUploadOptions = uploadOptions;
             return {
               buildId: 'build-123',
               stats: { uploaded: 5, total: 5 },
@@ -406,10 +434,192 @@ describe('uploadCommand', () => {
 
     assert.strictEqual(result.success, true);
     assert.strictEqual(uploadCalled, true);
+    assert.strictEqual(capturedUploadOptions.threshold, 2.0);
+    assert.strictEqual(capturedUploadOptions.minClusterSize, 3);
     assert.strictEqual(finalizeCalled, true);
     assert.strictEqual(finalizeSuccess, true);
     // Now uses output.complete() instead of output.success()
     assert.ok(output.calls.some(c => c.method === 'complete'));
+  });
+
+  it('passes upload flags, metadata, and session fields through', async () => {
+    let output = createMockOutput();
+    let capturedUploadOptions = null;
+    let capturedSession = null;
+
+    await uploadCommand(
+      './screenshots',
+      {
+        uploadAll: true,
+        metadata: '{"suite":"visual","browser":"chrome"}',
+      },
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'preview' },
+          comparison: { threshold: 1.5, minClusterSize: 4 },
+          parallelId: 'parallel-123',
+        }),
+        detectBranch: async () => 'feature/upload',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Upload snapshots',
+        detectPullRequestNumber: () => 42,
+        generateBuildNameWithGit: async () => 'Upload Build',
+        createUploader: () => ({
+          upload: async uploadOptions => {
+            capturedUploadOptions = uploadOptions;
+            return {
+              buildId: 'build-123',
+              stats: { uploaded: 2, total: 2 },
+            };
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        buildUrlConstructor: async () =>
+          'https://app.vizzly.dev/builds/build-123',
+        writeSession: session => {
+          capturedSession = session;
+        },
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(capturedUploadOptions.uploadAll, true);
+    assert.strictEqual(capturedUploadOptions.branch, 'feature/upload');
+    assert.strictEqual(capturedUploadOptions.commit, 'abc123');
+    assert.strictEqual(capturedUploadOptions.message, 'Upload snapshots');
+    assert.strictEqual(capturedUploadOptions.environment, 'preview');
+    assert.strictEqual(capturedUploadOptions.threshold, 1.5);
+    assert.strictEqual(capturedUploadOptions.minClusterSize, 4);
+    assert.strictEqual(capturedUploadOptions.pullRequestNumber, 42);
+    assert.strictEqual(capturedUploadOptions.parallelId, 'parallel-123');
+    assert.deepStrictEqual(capturedUploadOptions.metadata, {
+      suite: 'visual',
+      browser: 'chrome',
+    });
+    assert.deepStrictEqual(capturedSession, {
+      buildId: 'build-123',
+      branch: 'feature/upload',
+      commit: 'abc123',
+      parallelId: 'parallel-123',
+    });
+  });
+
+  it('passes resolved upload config to the uploader factory', async () => {
+    let output = createMockOutput();
+    let capturedLoadOptions = null;
+    let capturedUploaderConfig = null;
+
+    await uploadCommand(
+      './screenshots',
+      {
+        batchSize: 7,
+        uploadTimeout: 45_000,
+      },
+      {},
+      {
+        loadConfig: async (_configPath, allOptions) => {
+          capturedLoadOptions = allOptions;
+          return {
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+            build: { environment: 'test' },
+            comparison: { threshold: 2, minClusterSize: 4 },
+            upload: {
+              batchSize: allOptions.batchSize,
+              timeout: allOptions.uploadTimeout,
+            },
+          };
+        },
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Upload snapshots',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Upload Build',
+        createUploader: config => {
+          capturedUploaderConfig = config;
+          return {
+            upload: async () => ({
+              buildId: 'build-123',
+              stats: { uploaded: 2, total: 2 },
+            }),
+          };
+        },
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        buildUrlConstructor: async () =>
+          'https://app.vizzly.dev/builds/build-123',
+        writeSession: () => {},
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(capturedLoadOptions.batchSize, 7);
+    assert.strictEqual(capturedLoadOptions.uploadTimeout, 45_000);
+    assert.deepStrictEqual(capturedUploaderConfig.upload, {
+      batchSize: 7,
+      timeout: 45_000,
+    });
+    assert.strictEqual(capturedUploaderConfig.command, 'upload');
+  });
+
+  it('uses configured build metadata when CLI overrides are absent', async () => {
+    let output = createMockOutput();
+    let capturedUploadOptions = null;
+
+    await uploadCommand(
+      './screenshots',
+      {},
+      {},
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: {
+            name: 'Configured Upload',
+            branch: 'config-branch',
+            commit: 'config-sha',
+            message: 'Config upload message',
+            environment: 'preview',
+          },
+          comparison: { threshold: 2, minClusterSize: 4 },
+        }),
+        detectBranch: async branch => branch,
+        detectCommit: async commit => commit,
+        detectCommitMessage: async () => {
+          throw new Error('should not detect message');
+        },
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async name => name,
+        createUploader: () => ({
+          upload: async uploadOptions => {
+            capturedUploadOptions = uploadOptions;
+            return {
+              buildId: 'build-123',
+              stats: { uploaded: 2, total: 2 },
+            };
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        buildUrlConstructor: async () =>
+          'https://app.vizzly.dev/builds/build-123',
+        writeSession: () => {},
+        output,
+        exit: () => {},
+      }
+    );
+
+    assert.strictEqual(capturedUploadOptions.branch, 'config-branch');
+    assert.strictEqual(capturedUploadOptions.commit, 'config-sha');
+    assert.strictEqual(capturedUploadOptions.message, 'Config upload message');
+    assert.strictEqual(capturedUploadOptions.buildName, 'Configured Upload');
+    assert.strictEqual(capturedUploadOptions.environment, 'preview');
   });
 
   it('handles upload errors and marks build as failed', async () => {
@@ -504,7 +714,7 @@ describe('uploadCommand', () => {
   it('shows warning when wait returns failed comparisons', async () => {
     let output = createMockOutput();
 
-    await uploadCommand(
+    let result = await uploadCommand(
       './screenshots',
       { wait: true },
       {},
@@ -545,6 +755,8 @@ describe('uploadCommand', () => {
         c => c.method === 'print' && c.args[0].includes('failed')
       )
     );
+    assert.strictEqual(result.success, false);
+    assert.strictEqual(result.exitCode, 1);
   });
 
   it('handles finalize error gracefully', async () => {
@@ -716,5 +928,62 @@ describe('uploadCommand', () => {
         c => c.method === 'warn' && c.args[0].includes('API unavailable')
       )
     );
+  });
+
+  it('emits a JSON skip payload when API returns 5xx error', async () => {
+    let output = createMockOutput();
+    let exitCode = null;
+
+    let apiError = new Error('API request failed: 503 - Service Unavailable');
+    apiError.context = { status: 503 };
+
+    let result = await uploadCommand(
+      './screenshots',
+      {},
+      { json: true },
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+          build: { environment: 'test' },
+          comparison: { threshold: 2.0 },
+        }),
+        detectBranch: async () => 'main',
+        detectCommit: async () => 'abc123',
+        detectCommitMessage: async () => 'Test commit',
+        detectPullRequestNumber: () => null,
+        generateBuildNameWithGit: async () => 'Test Build',
+        createUploader: () => ({
+          upload: async () => {
+            throw apiError;
+          },
+        }),
+        createApiClient: () => ({}),
+        finalizeBuild: async () => {},
+        output,
+        exit: code => {
+          exitCode = code;
+        },
+      }
+    );
+
+    let dataCall = output.calls.find(c => c.method === 'data');
+
+    assert.deepStrictEqual(
+      {
+        buildId: dataCall.args[0].buildId,
+        status: dataCall.args[0].status,
+        message: dataCall.args[0].message,
+      },
+      {
+        buildId: null,
+        status: 'skipped',
+        message: 'Vizzly API unavailable - upload skipped',
+      }
+    );
+    assert.strictEqual(typeof dataCall.args[0].executionTimeMs, 'number');
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.result.skipped, true);
+    assert.strictEqual(exitCode, null);
   });
 });

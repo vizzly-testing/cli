@@ -78,6 +78,26 @@ describe('utils/project-link-store', () => {
     assert.strictEqual(activeLink.projectSlug, 'storybook');
   });
 
+  it('round-trips linked project token expiration', async () => {
+    let store = createConfigStore();
+
+    await saveProjectLink(
+      createLink({ expiresAt: '2026-06-01T00:00:00.000Z' }),
+      {
+        loadConfig: store.loadConfig,
+        saveConfig: store.saveConfig,
+        saveSecret: async () => false,
+      }
+    );
+
+    let activeLink = await getActiveProjectLink(
+      { apiUrl: 'https://app.vizzly.dev' },
+      { loadConfig: store.loadConfig }
+    );
+
+    assert.strictEqual(activeLink.expiresAt, '2026-06-01T00:00:00.000Z');
+  });
+
   it('keeps linked project tokens out of config when the secure store is available', async () => {
     let store = createConfigStore();
     let secrets = new Map();

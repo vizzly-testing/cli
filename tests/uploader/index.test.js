@@ -108,6 +108,7 @@ describe('uploader/createUploader', () => {
           buildName: 'Release screenshots',
           branch: 'feature/reports',
           environment: 'staging',
+          minClusterSize: 2,
           onProgress: event => progress.push(event),
         });
 
@@ -128,6 +129,11 @@ describe('uploader/createUploader', () => {
           commit_message: undefined,
           environment: 'staging',
           threshold: undefined,
+          metadata: {
+            comparison: {
+              minClusterSize: 2,
+            },
+          },
           github_pull_request_number: undefined,
           parallel_id: undefined,
         });
@@ -187,6 +193,53 @@ describe('uploader/createUploader', () => {
           total: 2,
           uploaded: 1,
           skipped: 1,
+        });
+      }
+    );
+  });
+
+  it('uploads every screenshot without SHA dedupe when uploadAll is enabled', async () => {
+    await withScreenshots(
+      {
+        'home-chrome.png': Buffer.from('home'),
+        'settings-firefox.png': Buffer.from('settings'),
+      },
+      async screenshotsDir => {
+        let files = [
+          join(screenshotsDir, 'home-chrome.png'),
+          join(screenshotsDir, 'settings-firefox.png'),
+        ];
+        let checkShasCalled = false;
+        let uploadedFiles;
+        let client = {
+          request: async (_path, options) => {
+            uploadedFiles = options.body.getAll('screenshots');
+            return { url: 'https://app.test/builds/build-123' };
+          },
+        };
+        let uploader = createTestUploader(
+          {},
+          {
+            client,
+            glob: async () => files,
+            checkShas: async () => {
+              checkShasCalled = true;
+              return { existing: [] };
+            },
+          }
+        );
+
+        let result = await uploader.upload({
+          screenshotsDir,
+          uploadAll: true,
+        });
+
+        assert.equal(checkShasCalled, false);
+        assert.equal(uploadedFiles.length, 2);
+        assert.deepEqual(result.stats, {
+          total: 2,
+          uploaded: 2,
+          skipped: 0,
         });
       }
     );

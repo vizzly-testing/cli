@@ -6,7 +6,9 @@ import {
   getApiToken,
   getApiUrl,
   getBuildName,
+  getMinClusterSize,
   getParallelId,
+  getThreshold,
 } from './environment-config.js';
 import { getAccessToken } from './global-config.js';
 import * as output from './output.js';
@@ -33,10 +35,12 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   mergeConfig(config, validatedFileConfig);
 
   // 3. Override with environment variables (higher priority than fallbacks)
-  const envApiKey = getApiToken();
-  const envApiUrl = getApiUrl();
-  const envBuildName = getBuildName();
-  const envParallelId = getParallelId();
+  let envApiKey = getApiToken();
+  let envApiUrl = getApiUrl();
+  let envBuildName = getBuildName();
+  let envParallelId = getParallelId();
+  let envThreshold = getThreshold();
+  let envMinClusterSize = getMinClusterSize();
 
   if (envApiKey) {
     config.apiKey = envApiKey;
@@ -48,6 +52,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     output.debug('config', 'using build name from environment');
   }
   if (envParallelId) config.parallelId = envParallelId;
+  if (envThreshold !== undefined) config.comparison.threshold = envThreshold;
+  if (envMinClusterSize !== undefined) {
+    config.comparison.minClusterSize = envMinClusterSize;
+  }
 
   // 4. Apply CLI overrides (highest priority)
   if (cliOverrides.token) {
@@ -120,7 +128,7 @@ function applyCLIOverrides(config, cliOverrides = {}) {
 
   // Comparison overrides
   if (cliOverrides.threshold !== undefined)
-    config.comparison.threshold = cliOverrides.threshold;
+    config.comparison.threshold = Number(cliOverrides.threshold);
   if (cliOverrides.minClusterSize !== undefined) {
     config.comparison.minClusterSize = Number(cliOverrides.minClusterSize);
   }

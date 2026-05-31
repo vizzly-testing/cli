@@ -24,7 +24,9 @@ export interface BuildConfig {
 
 export interface UploadConfig {
   screenshotsDir?: string | string[];
+  /** Batch size used when uploading screenshots. */
   batchSize?: number;
+  /** Timeout in milliseconds for waiting on build processing after upload. */
   timeout?: number;
 }
 
@@ -76,13 +78,22 @@ export interface ScreenshotOptions {
   threshold?: number;
   minClusterSize?: number;
   fullPage?: boolean;
+  /** Transport-only build ID used to route the request. */
   buildId?: string;
-  [key: string]: unknown;
+  /** Client-side HTTP timeout in milliseconds; not stored as metadata. */
+  requestTimeout?: number;
 }
 
 export interface ScreenshotResult {
   success: boolean;
-  status?: 'passed' | 'failed' | 'new';
+  status?:
+    | 'passed'
+    | 'failed'
+    | 'new'
+    | 'match'
+    | 'diff'
+    | 'baseline-updated'
+    | 'error';
   name?: string;
   diffPercentage?: number;
   [key: string]: unknown;
@@ -95,7 +106,13 @@ export interface ScreenshotResult {
 export interface ComparisonResult {
   id: string;
   name: string;
-  status: 'passed' | 'failed' | 'new' | 'error' | 'baseline-updated';
+  status:
+    | 'passed'
+    | 'failed'
+    | 'new'
+    | 'error'
+    | 'baseline-created'
+    | 'baseline-updated';
   baseline: string;
   current: string;
   diff: string | null;
@@ -150,7 +167,9 @@ export interface UploadOptions {
   message?: string;
   environment?: string;
   threshold?: number;
-  pullRequestNumber?: string;
+  minClusterSize?: number;
+  metadata?: Record<string, unknown>;
+  pullRequestNumber?: string | number;
   parallelId?: string;
   onProgress?: (progress: UploadProgress) => void;
 }
@@ -186,8 +205,10 @@ export interface BuildResult {
   status: 'completed' | 'failed' | 'pending';
   build: unknown;
   comparisons?: number;
+  totalComparisons: number;
   passedComparisons?: number;
   failedComparisons?: number;
+  newComparisons: number;
   url?: string;
 }
 
@@ -487,15 +508,19 @@ export interface BuildOptions {
   buildName?: string;
   branch?: string;
   commit?: string;
+  commit_sha?: string;
   message?: string;
+  commit_message?: string;
   environment?: string;
   threshold?: number;
   eager?: boolean;
   allowNoToken?: boolean;
   wait?: boolean;
   uploadAll?: boolean;
-  pullRequestNumber?: string;
+  pullRequestNumber?: string | number;
+  github_pull_request_number?: string | number;
   parallelId?: string;
+  parallel_id?: string;
 }
 
 /**
@@ -565,6 +590,8 @@ export function vizzlyScreenshot(
     threshold?: number;
     minClusterSize?: number;
     fullPage?: boolean;
+    requestTimeout?: number;
+    buildId?: string;
     [key: string]: unknown;
   }
 ): Promise<ScreenshotResult | null>;
@@ -573,6 +600,7 @@ export function vizzlyScreenshot(
 export function configure(config?: {
   serverUrl?: string;
   enabled?: boolean;
+  failOnDiff?: boolean;
 }): void;
 
 /** Enable or disable screenshot capture */

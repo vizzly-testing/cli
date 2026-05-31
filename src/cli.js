@@ -279,6 +279,7 @@ const formatHelp = (cmd, helper) => {
 
 function extractGlobalOptionsFromArgv(argv, commandNames = null) {
   let configPath = null;
+  let tokenArg = null;
   let verboseMode = false;
   let logLevelArg = null;
   let jsonArg = null;
@@ -286,6 +287,12 @@ function extractGlobalOptionsFromArgv(argv, commandNames = null) {
   for (let i = 0; i < argv.length; i++) {
     if ((argv[i] === '-c' || argv[i] === '--config') && argv[i + 1]) {
       configPath = argv[i + 1];
+    }
+
+    if (argv[i] === '--token' && argv[i + 1]) {
+      tokenArg = argv[i + 1];
+    } else if (argv[i].startsWith('--token=')) {
+      tokenArg = argv[i].substring('--token='.length);
     }
 
     if (argv[i] === '-v' || argv[i] === '--verbose') {
@@ -310,7 +317,7 @@ function extractGlobalOptionsFromArgv(argv, commandNames = null) {
     }
   }
 
-  return { configPath, verboseMode, logLevelArg, jsonArg };
+  return { configPath, tokenArg, verboseMode, logLevelArg, jsonArg };
 }
 
 function normalizeJsonArgv(argv, commandNames) {
@@ -355,7 +362,7 @@ program
 
 // Load plugins before defining commands
 // We need to manually parse to get the config option early
-let { configPath, verboseMode, logLevelArg, jsonArg } =
+let { configPath, tokenArg, verboseMode, logLevelArg, jsonArg } =
   extractGlobalOptionsFromArgv(process.argv);
 
 // Configure output early
@@ -374,9 +381,9 @@ output.configure({
   json: jsonArg,
 });
 
-const config = await loadConfig(configPath, {});
-const services = createServices(config);
-const pluginServices = createPluginServices(services);
+let config = await loadConfig(configPath, { token: tokenArg });
+let services = createServices(config);
+let pluginServices = createPluginServices(services);
 
 let plugins = [];
 try {
@@ -424,7 +431,7 @@ program
 program
   .command('upload')
   .description('Upload screenshots to Vizzly')
-  .argument('<path>', 'Path to screenshots directory or file')
+  .argument('<path>', 'Path to screenshots directory')
   .option('-b, --build-name <name>', 'Build name for grouping')
   .option('-m, --metadata <json>', 'Additional metadata as JSON')
   .option('--batch-size <n>', 'Upload batch size', Number)
@@ -434,12 +441,17 @@ program
   .option('--message <msg>', 'Commit message')
   .option('--environment <env>', 'Environment name', 'test')
   .option('--threshold <number>', 'Comparison threshold', Number)
+  .option(
+    '--min-cluster-size <pixels>',
+    'Minimum changed-pixel cluster size',
+    Number
+  )
   .option('--token <token>', 'API token override')
   .option('--wait', 'Wait for build completion')
   .option('--upload-all', 'Upload all screenshots without SHA deduplication')
   .option('--parallel-id <id>', 'Unique identifier for parallel test execution')
   .action(async (path, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = program.opts();
 
     // Validate options
     const validationErrors = validateUploadOptions(path, options);
@@ -451,7 +463,10 @@ program
       process.exit(1);
     }
 
-    await uploadCommand(path, options, globalOptions);
+    let result = await uploadCommand(path, options, globalOptions);
+    if (result?.exitCode) {
+      process.exit(result.exitCode);
+    }
   });
 
 // TDD command with subcommands - local visual review with an interactive dashboard

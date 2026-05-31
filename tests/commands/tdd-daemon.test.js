@@ -138,7 +138,7 @@ describe('commands/tdd-daemon helpers', () => {
       let writes = [];
 
       let result = writeLegacyGlobalServerFile(
-        { pid: 1234, port: 47400 },
+        { pid: 1234, port: 47400, failOnDiff: true },
         {
           home: () => '/home/test',
           exists: () => false,
@@ -162,6 +162,7 @@ describe('commands/tdd-daemon helpers', () => {
             pid: 1234,
             port: '47400',
             startTime: 987654321,
+            failOnDiff: true,
           },
         },
       ]);
@@ -170,6 +171,7 @@ describe('commands/tdd-daemon helpers', () => {
         serverInfo: buildLegacyServerInfo({
           pid: 1234,
           port: 47400,
+          failOnDiff: true,
           now: () => 987654321,
         }),
       });

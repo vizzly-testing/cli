@@ -16,6 +16,33 @@ import {
 // Store original env vars
 let originalEnv;
 
+function restoreProcessEnv(snapshot) {
+  for (let key of Object.keys(process.env)) {
+    if (!(key in snapshot)) {
+      delete process.env[key];
+    }
+  }
+
+  for (let [key, value] of Object.entries(snapshot)) {
+    process.env[key] = value;
+  }
+}
+
+function startServer(server, port = 0) {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => {
+      server.off('error', reject);
+      resolve(server.address().port);
+    });
+  });
+}
+
+async function closeServer(server) {
+  server.closeAllConnections();
+  await new Promise(resolve => server.close(resolve));
+}
+
 describe('client/index', () => {
   beforeEach(() => {
     // Save originals
@@ -26,6 +53,7 @@ describe('client/index', () => {
     delete process.env.VIZZLY_ENABLED;
     delete process.env.VIZZLY_CLIENT_LOG_LEVEL;
     delete process.env.VIZZLY_BUILD_ID;
+    delete process.env.VIZZLY_FAIL_ON_DIFF;
 
     // Re-enable for each test (reset internal state)
     configure({ enabled: true, serverUrl: null });
@@ -33,7 +61,7 @@ describe('client/index', () => {
 
   afterEach(() => {
     // Restore originals
-    process.env = originalEnv;
+    restoreProcessEnv(originalEnv);
     mock.reset();
   });
 
@@ -88,9 +116,20 @@ describe('client/index', () => {
       assert.strictEqual(LOG_LEVELS.warn, 2);
       assert.strictEqual(LOG_LEVELS.error, 3);
     });
+
+    it('cannot be mutated by consumers', () => {
+      assert.throws(() => {
+        LOG_LEVELS.debug = 99;
+      }, TypeError);
+      assert.strictEqual(LOG_LEVELS.debug, 0);
+    });
   });
 
   describe('autoDiscoverTddServer (pure function with DI)', () => {
+    afterEach(() => {
+      delete process.env.VIZZLY_FAIL_ON_DIFF;
+    });
+
     it('returns null when no server.json exists', () => {
       let mockExists = () => false;
       let mockReadFile = () => {
@@ -115,6 +154,36 @@ describe('client/index', () => {
       });
 
       assert.strictEqual(result, 'http://localhost:47392');
+    });
+
+    it('lets VIZZLY_FAIL_ON_DIFF override server.json defaults', () => {
+      let mockExists = path => path === '/project/.vizzly/server.json';
+      let mockReadFile = () =>
+        JSON.stringify({ port: 12345, failOnDiff: false });
+
+      let result = autoDiscoverTddServer('/project/tests/unit', {
+        exists: mockExists,
+        readFile: mockReadFile,
+        env: { VIZZLY_FAIL_ON_DIFF: 'true' },
+      });
+
+      assert.strictEqual(result, 'http://localhost:12345');
+    });
+
+    it('lets explicit configure failOnDiff false override discovered server config', async () => {
+      let mockExists = path => path === '/project/.vizzly/server.json';
+      let mockReadFile = () =>
+        JSON.stringify({ port: 12345, failOnDiff: true });
+
+      let result = autoDiscoverTddServer('/project/tests/unit', {
+        exists: mockExists,
+        readFile: mockReadFile,
+      });
+
+      configure({ serverUrl: result, failOnDiff: false });
+
+      let info = getVizzlyInfo();
+      assert.strictEqual(info.failOnDiff, false);
     });
 
     it('finds server.json in parent directory', () => {
@@ -226,6 +295,14 @@ describe('client/index', () => {
       assert.strictEqual(info.buildId, 'test-build-123');
     });
 
+    it('reports the configured serverUrl from configure()', () => {
+      configure({ serverUrl: 'http://localhost:9999' });
+
+      let info = getVizzlyInfo();
+
+      assert.strictEqual(info.serverUrl, 'http://localhost:9999');
+    });
+
     it('shows disabled state', () => {
       configure({ enabled: false });
 
@@ -233,6 +310,13 @@ describe('client/index', () => {
 
       assert.strictEqual(info.enabled, false);
       assert.strictEqual(info.disabled, true);
+    });
+
+    it('normalizes missing optional values to null', () => {
+      let info = getVizzlyInfo();
+
+      assert.strictEqual(info.serverUrl, null);
+      assert.strictEqual(info.buildId, null);
     });
   });
 
@@ -281,9 +365,16 @@ describe('client/index httpPost integration tests', () => {
   let server;
   let serverPort;
   let requests = [];
+  let originalConsoleWarn;
+  let consoleWarnings = [];
 
   beforeEach(async () => {
     requests = [];
+    consoleWarnings = [];
+    originalConsoleWarn = console.warn;
+    console.warn = (...args) => {
+      consoleWarnings.push(args.join(' '));
+    };
 
     // Create a real HTTP server to test the httpPost function
     server = createServer((req, res) => {
@@ -333,31 +424,26 @@ describe('client/index httpPost integration tests', () => {
     });
 
     // Start server on random available port
-    await new Promise(resolve => {
-      server.listen(0, () => {
-        serverPort = server.address().port;
-        resolve();
-      });
-    });
+    serverPort = await startServer(server);
 
     // Clear env vars and reset state
     delete process.env.VIZZLY_SERVER_URL;
     delete process.env.VIZZLY_ENABLED;
-    configure({ enabled: true, serverUrl: `http://localhost:${serverPort}` });
+    configure({ enabled: true, serverUrl: `http://127.0.0.1:${serverPort}` });
   });
 
   afterEach(async () => {
     // Close all keep-alive connections before closing server
-    server.closeAllConnections();
-    await new Promise(resolve => server.close(resolve));
+    await closeServer(server);
     configure({ enabled: false });
+    console.warn = originalConsoleWarn;
   });
 
   it('makes HTTP POST request to screenshot endpoint', async () => {
     let result = await vizzlyScreenshot(
       'integration-test',
       Buffer.from('fake-png-data'),
-      { browser: 'chrome' }
+      { properties: { browser: 'chrome' } }
     );
 
     assert.strictEqual(result.success, true);
@@ -402,7 +488,6 @@ describe('client/index httpPost integration tests', () => {
     assert.strictEqual(threshold, undefined);
     assert.strictEqual(minClusterSize, undefined);
     assert.deepStrictEqual(properties, {
-      browser: 'firefox',
       url: 'http://localhost:3000',
       threshold: 0.1,
       minClusterSize: 4,
@@ -425,6 +510,86 @@ describe('client/index httpPost integration tests', () => {
       threshold: 0,
       minClusterSize: 2,
     });
+    assert.deepStrictEqual(
+      requests[0].body.warnings.map(warning => warning.option),
+      ['threshold', 'minClusterSize']
+    );
+    assert.ok(
+      consoleWarnings.some(warning =>
+        warning.includes('Move "threshold" out of properties')
+      )
+    );
+  });
+
+  it('promotes reserved property options and returns warnings', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      properties: {
+        theme: 'dark',
+        buildId: 'build-from-properties',
+        requestTimeout: 30_000,
+        threshold: 1,
+      },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.strictEqual(requests[0].body.buildId, 'build-from-properties');
+    assert.deepStrictEqual(requests[0].body.properties, {
+      theme: 'dark',
+      threshold: 1,
+    });
+    assert.deepStrictEqual(
+      requests[0].body.warnings.map(warning => warning.option),
+      ['buildId', 'requestTimeout', 'threshold']
+    );
+  });
+
+  it('ignores arbitrary top-level metadata outside the user properties bag', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      browser: 'chromium',
+      url: 'http://localhost:3000/current',
+      viewport: { width: 1440, height: 900 },
+      properties: {
+        browser: 'firefox',
+        url: 'http://stale.example',
+        viewport: { width: 375, height: 667 },
+        theme: 'dark',
+      },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.deepStrictEqual(requests[0].body.properties, {
+      browser: 'firefox',
+      url: 'http://stale.example',
+      viewport: { width: 375, height: 667 },
+      theme: 'dark',
+    });
+  });
+
+  it('sends per-call buildId outside screenshot properties', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      buildId: 'build-from-call',
+      properties: { url: 'http://localhost:3000' },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.strictEqual(requests[0].body.buildId, 'build-from-call');
+    assert.deepStrictEqual(requests[0].body.properties, {
+      url: 'http://localhost:3000',
+    });
+  });
+
+  it('uses requestTimeout for transport without serializing it', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      requestTimeout: 30_000,
+      properties: { url: 'http://localhost:3000' },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.strictEqual(requests[0].body.requestTimeout, undefined);
+    assert.strictEqual(requests[0].body.properties.requestTimeout, undefined);
+    assert.deepStrictEqual(requests[0].body.properties, {
+      url: 'http://localhost:3000',
+    });
   });
 
   it('sends Connection: close header to disable keep-alive', async () => {
@@ -445,7 +610,7 @@ describe('client/index httpPost integration tests', () => {
     // Point to the TDD diff endpoint
     configure({
       enabled: true,
-      serverUrl: `http://localhost:${serverPort}/screenshot-tdd-diff`.replace(
+      serverUrl: `http://127.0.0.1:${serverPort}/screenshot-tdd-diff`.replace(
         '/screenshot',
         ''
       ),
@@ -453,8 +618,7 @@ describe('client/index httpPost integration tests', () => {
 
     // Need to reconfigure to actually hit the different endpoint
     // Actually, let's use a different approach - modify what endpoint we hit
-    server.closeAllConnections();
-    await new Promise(resolve => server.close(resolve));
+    await closeServer(server);
     requests = [];
 
     server = createServer((req, res) => {
@@ -482,11 +646,9 @@ describe('client/index httpPost integration tests', () => {
       });
     });
 
-    await new Promise(resolve => {
-      server.listen(serverPort, () => resolve());
-    });
+    await startServer(server, serverPort);
 
-    configure({ enabled: true, serverUrl: `http://localhost:${serverPort}` });
+    configure({ enabled: true, serverUrl: `http://127.0.0.1:${serverPort}` });
 
     let result = await vizzlyScreenshot('homepage', Buffer.from('png-data'));
 
@@ -497,9 +659,154 @@ describe('client/index httpPost integration tests', () => {
     assert.strictEqual(result.diffPercentage, 5.2);
   });
 
+  it('throws on TDD visual diffs when failOnDiff is enabled', async () => {
+    await closeServer(server);
+    requests = [];
+
+    server = createServer((req, res) => {
+      req.on('data', () => {});
+      req.on('end', () => {
+        requests.push({ method: req.method, url: req.url });
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 422;
+        res.end(
+          JSON.stringify({
+            tddMode: true,
+            comparison: {
+              name: 'homepage',
+              diffPercentage: 5.2,
+            },
+          })
+        );
+      });
+    });
+
+    await startServer(server, serverPort);
+
+    configure({
+      enabled: true,
+      serverUrl: `http://127.0.0.1:${serverPort}`,
+      failOnDiff: true,
+    });
+
+    await assert.rejects(
+      () => vizzlyScreenshot('homepage', Buffer.from('png-data')),
+      /Visual diff detected/
+    );
+  });
+
+  it('throws on current 200 TDD diff responses when failOnDiff is enabled', async () => {
+    await closeServer(server);
+    requests = [];
+
+    server = createServer((req, res) => {
+      req.on('data', () => {});
+      req.on('end', () => {
+        requests.push({ method: req.method, url: req.url });
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify({
+            success: true,
+            tddMode: true,
+            status: 'diff',
+            name: 'homepage',
+            diffPercentage: 5.2,
+          })
+        );
+      });
+    });
+
+    await startServer(server, serverPort);
+
+    configure({
+      enabled: true,
+      serverUrl: `http://127.0.0.1:${serverPort}`,
+      failOnDiff: true,
+    });
+
+    await assert.rejects(
+      () => vizzlyScreenshot('homepage', Buffer.from('png-data')),
+      /Visual diff detected/
+    );
+  });
+
+  it('returns current 200 TDD diff responses when failOnDiff is disabled', async () => {
+    await closeServer(server);
+    requests = [];
+
+    server = createServer((req, res) => {
+      req.on('data', () => {});
+      req.on('end', () => {
+        requests.push({ method: req.method, url: req.url });
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify({
+            success: true,
+            tddMode: true,
+            status: 'diff',
+            name: 'homepage',
+            diffPercentage: 5.2,
+          })
+        );
+      });
+    });
+
+    await startServer(server, serverPort);
+
+    configure({
+      enabled: true,
+      serverUrl: `http://127.0.0.1:${serverPort}`,
+      failOnDiff: false,
+    });
+
+    let result = await vizzlyScreenshot('homepage', Buffer.from('png-data'));
+
+    assert.strictEqual(result.status, 'diff');
+    assert.strictEqual(result.diffPercentage, 5.2);
+  });
+
+  it('applies failOnDiff changes to an already configured client', async () => {
+    await closeServer(server);
+    requests = [];
+
+    server = createServer((req, res) => {
+      req.on('data', () => {});
+      req.on('end', () => {
+        requests.push({ method: req.method, url: req.url });
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify({
+            success: true,
+            tddMode: true,
+            status: 'diff',
+            name: 'homepage',
+            diffPercentage: 5.2,
+          })
+        );
+      });
+    });
+
+    await startServer(server, serverPort);
+
+    configure({
+      enabled: true,
+      serverUrl: `http://127.0.0.1:${serverPort}`,
+      failOnDiff: false,
+    });
+    configure({ failOnDiff: true });
+
+    assert.strictEqual(getVizzlyInfo().failOnDiff, true);
+    await assert.rejects(
+      () => vizzlyScreenshot('homepage', Buffer.from('png-data')),
+      /Visual diff detected/
+    );
+  });
+
   it('handles server error and disables SDK', async () => {
-    server.closeAllConnections();
-    await new Promise(resolve => server.close(resolve));
+    await closeServer(server);
     requests = [];
 
     server = createServer((req, res) => {
@@ -512,11 +819,9 @@ describe('client/index httpPost integration tests', () => {
       });
     });
 
-    await new Promise(resolve => {
-      server.listen(serverPort, () => resolve());
-    });
+    await startServer(server, serverPort);
 
-    configure({ enabled: true, serverUrl: `http://localhost:${serverPort}` });
+    configure({ enabled: true, serverUrl: `http://127.0.0.1:${serverPort}` });
     assert.strictEqual(isVizzlyReady(), true);
 
     let result = await vizzlyScreenshot('test', Buffer.from('data'));
@@ -527,8 +832,7 @@ describe('client/index httpPost integration tests', () => {
   });
 
   it('handles invalid JSON response gracefully', async () => {
-    server.closeAllConnections();
-    await new Promise(resolve => server.close(resolve));
+    await closeServer(server);
     requests = [];
 
     server = createServer((req, res) => {
@@ -541,11 +845,9 @@ describe('client/index httpPost integration tests', () => {
       });
     });
 
-    await new Promise(resolve => {
-      server.listen(serverPort, () => resolve());
-    });
+    await startServer(server, serverPort);
 
-    configure({ enabled: true, serverUrl: `http://localhost:${serverPort}` });
+    configure({ enabled: true, serverUrl: `http://127.0.0.1:${serverPort}` });
 
     // Should not throw - httpPost handles invalid JSON gracefully
     let result = await vizzlyScreenshot('test', Buffer.from('data'));
@@ -557,10 +859,9 @@ describe('client/index httpPost integration tests', () => {
 
   it('handles connection refused error', async () => {
     // Close the server to simulate connection refused
-    server.closeAllConnections();
-    await new Promise(resolve => server.close(resolve));
+    await closeServer(server);
 
-    configure({ enabled: true, serverUrl: 'http://localhost:59999' }); // Unlikely port
+    configure({ enabled: true, serverUrl: 'http://127.0.0.1:59999' }); // Unlikely port
     assert.strictEqual(isVizzlyReady(), true);
 
     let result = await vizzlyScreenshot('test', Buffer.from('data'));
@@ -571,7 +872,31 @@ describe('client/index httpPost integration tests', () => {
 
     // Restart server for cleanup
     server = createServer(() => {});
-    await new Promise(resolve => server.listen(serverPort, resolve));
+    await startServer(server, serverPort);
+  });
+
+  it('uses per-screenshot requestTimeout for SDK transport timeouts', async () => {
+    await closeServer(server);
+    requests = [];
+
+    server = createServer((req, _res) => {
+      req.on('data', () => {});
+      req.on('end', () => {
+        requests.push({ method: req.method, url: req.url });
+      });
+    });
+
+    await startServer(server, serverPort);
+
+    configure({ enabled: true, serverUrl: `http://127.0.0.1:${serverPort}` });
+    assert.strictEqual(isVizzlyReady(), true);
+
+    let result = await vizzlyScreenshot('test', Buffer.from('data'), {
+      requestTimeout: 25,
+    });
+
+    assert.strictEqual(result, null);
+    assert.strictEqual(isVizzlyReady(), false);
   });
 
   it('makes HTTP request to flush endpoint', async () => {
@@ -583,5 +908,46 @@ describe('client/index httpPost integration tests', () => {
     let req = requests[0];
     assert.strictEqual(req.method, 'POST');
     assert.strictEqual(req.url, '/flush');
+  });
+
+  it('returns summary-shaped flush responses', async () => {
+    await closeServer(server);
+    requests = [];
+
+    server = createServer((req, res) => {
+      req.on('data', () => {});
+      req.on('end', () => {
+        requests.push({ method: req.method, url: req.url });
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify({
+            success: true,
+            summary: {
+              total: 2,
+              passed: 1,
+              failed: 0,
+              new: 1,
+              errors: 0,
+            },
+          })
+        );
+      });
+    });
+
+    await startServer(server, serverPort);
+
+    configure({ enabled: true, serverUrl: `http://127.0.0.1:${serverPort}` });
+
+    let result = await vizzlyFlush();
+
+    assert.strictEqual(result.success, true);
+    assert.deepStrictEqual(result.summary, {
+      total: 2,
+      passed: 1,
+      failed: 0,
+      new: 1,
+      errors: 0,
+    });
   });
 });

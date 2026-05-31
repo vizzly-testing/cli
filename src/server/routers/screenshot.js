@@ -24,7 +24,7 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
     if (pathname === '/screenshot') {
       try {
         const body = await parseJsonBody(req);
-        const { buildId, name, properties, image, type } = body;
+        const { buildId, name, properties, image, type, warnings } = body;
 
         if (!name || !image) {
           sendError(res, 400, 'name and image are required');
@@ -39,7 +39,8 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
           name,
           image,
           properties,
-          type
+          type,
+          warnings
         );
 
         sendJson(res, result.statusCode, result.body);
@@ -57,9 +58,15 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
     // Flush endpoint - signals test completion and prints summary
     if (pathname === '/flush') {
       try {
-        if (screenshotHandler.getResults) {
+        if (screenshotHandler.flush) {
+          let stats = await screenshotHandler.flush();
+          sendJson(res, 200, {
+            success: true,
+            ...stats,
+          });
+        } else if (screenshotHandler.getResults) {
           // This triggers printResults() which outputs the summary
-          const results = await screenshotHandler.getResults();
+          let results = await screenshotHandler.getResults();
           sendJson(res, 200, {
             success: true,
             summary: {

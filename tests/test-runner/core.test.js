@@ -32,6 +32,7 @@ describe('test-runner/core', () => {
         VIZZLY_BUILD_ID: 'build-123',
         VIZZLY_ENABLED: 'true',
         VIZZLY_SET_BASELINE: 'false',
+        VIZZLY_FAIL_ON_DIFF: 'false',
       });
     });
 
@@ -44,6 +45,17 @@ describe('test-runner/core', () => {
       });
 
       assert.strictEqual(env.VIZZLY_SET_BASELINE, 'true');
+    });
+
+    it('sets VIZZLY_FAIL_ON_DIFF when failOnDiff is true', () => {
+      let env = buildTestEnv({
+        port: 3000,
+        buildId: 'build-abc',
+        failOnDiff: true,
+        baseEnv: {},
+      });
+
+      assert.strictEqual(env.VIZZLY_FAIL_ON_DIFF, 'true');
     });
 
     it('preserves existing environment variables', () => {
@@ -66,6 +78,7 @@ describe('test-runner/core', () => {
       });
 
       assert.strictEqual(env.VIZZLY_SET_BASELINE, 'false');
+      assert.strictEqual(env.VIZZLY_FAIL_ON_DIFF, 'false');
     });
   });
 

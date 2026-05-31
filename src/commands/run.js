@@ -11,6 +11,7 @@ import {
   getBuild as defaultGetBuild,
   getTokenContext as defaultGetTokenContext,
 } from '../api/index.js';
+import { CONFIG_DEFAULTS } from '../config/core.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
 import { createBuildObject as defaultCreateBuildObject } from '../services/build-manager.js';
@@ -212,10 +213,17 @@ export async function runCommand(
     }
 
     // Collect git metadata and build info
-    let branch = await detectBranch(options.branch);
-    let commit = await detectCommit(options.commit);
-    let message = options.message || (await detectCommitMessage());
-    let buildName = await generateBuildNameWithGit(options.buildName);
+    let configuredBuildName =
+      config.build.name && config.build.name !== CONFIG_DEFAULTS.build.name
+        ? config.build.name
+        : undefined;
+    let branch = await detectBranch(options.branch || config.build.branch);
+    let commit = await detectCommit(options.commit || config.build.commit);
+    let message =
+      options.message || config.build.message || (await detectCommitMessage());
+    let buildName = await generateBuildNameWithGit(
+      options.buildName || configuredBuildName
+    );
     let pullRequestNumber = detectPullRequestNumber();
 
     if (globalOptions.verbose) {
@@ -347,7 +355,7 @@ export async function runCommand(
       }
 
       // JSON output mode - output structured data and exit
-      if (globalOptions.json) {
+      if (globalOptions.json && !runOptions.wait) {
         let executionTimeMs = Date.now() - startTime;
         let displayUrl = await resolveBuildDisplayUrl({
           result,
@@ -533,9 +541,19 @@ export async function runCommand(
     // Don't fail CI for Vizzly infrastructure issues (5xx errors)
     let status = error.context?.status;
     if (status >= 500) {
-      output.warn(
-        'Vizzly API unavailable - visual tests skipped. Your tests still ran.'
-      );
+      if (globalOptions.json) {
+        output.data({
+          buildId: null,
+          status: 'skipped',
+          message: 'Vizzly API unavailable - visual tests skipped',
+          executionTimeMs: Date.now() - (startTime || Date.now()),
+        });
+      } else {
+        output.warn(
+          'Vizzly API unavailable - visual tests skipped. Your tests still ran.'
+        );
+      }
+      output.cleanup();
       output.debug('api', 'API error details:', { error: error.message });
       return { success: true, result: { skipped: true } };
     }

@@ -97,12 +97,13 @@ describe('Output - TUI Helpers', () => {
       assert.ok(lastCall.arguments.join(' ').includes('Operation completed'));
     });
 
-    it('outputs JSON in json mode', () => {
+    it('outputs JSON status to stderr in json mode', () => {
       configure({ json: true });
       success('Done', { extra: 'data' });
 
-      assert.strictEqual(consoleLogMock.mock.calls.length, 1);
-      let output = JSON.parse(consoleLogMock.mock.calls[0].arguments[0]);
+      assert.strictEqual(consoleLogMock.mock.calls.length, 0);
+      assert.strictEqual(consoleErrorMock.mock.calls.length, 1);
+      let output = JSON.parse(consoleErrorMock.mock.calls[0].arguments[0]);
       assert.strictEqual(output.status, 'success');
       assert.strictEqual(output.message, 'Done');
       assert.strictEqual(output.extra, 'data');
@@ -130,11 +131,13 @@ describe('Output - TUI Helpers', () => {
       assert.ok(output.includes('·'));
     });
 
-    it('outputs JSON in json mode', () => {
+    it('outputs JSON status to stderr in json mode', () => {
       configure({ json: true });
       result('Done');
 
-      let output = JSON.parse(consoleLogMock.mock.calls[0].arguments[0]);
+      assert.strictEqual(consoleLogMock.mock.calls.length, 0);
+      assert.strictEqual(consoleErrorMock.mock.calls.length, 1);
+      let output = JSON.parse(consoleErrorMock.mock.calls[0].arguments[0]);
       assert.strictEqual(output.status, 'complete');
       assert.strictEqual(output.message, 'Done');
       assert.ok(output.elapsed);
@@ -453,11 +456,13 @@ describe('Output - TUI Helpers', () => {
       assert.ok(output.includes('in 2.3s'));
     });
 
-    it('outputs JSON in json mode', () => {
+    it('outputs JSON status to stderr in json mode', () => {
       configure({ json: true });
       complete('Done', { detail: 'extra' });
 
-      let output = JSON.parse(consoleLogMock.mock.calls[0].arguments[0]);
+      assert.strictEqual(consoleLogMock.mock.calls.length, 0);
+      assert.strictEqual(consoleErrorMock.mock.calls.length, 1);
+      let output = JSON.parse(consoleErrorMock.mock.calls[0].arguments[0]);
       assert.strictEqual(output.status, 'complete');
       assert.strictEqual(output.message, 'Done');
       assert.strictEqual(output.detail, 'extra');

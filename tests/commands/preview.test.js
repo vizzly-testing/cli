@@ -423,6 +423,40 @@ describe('previewCommand', () => {
     assert.strictEqual(dataCall.args[0].buildId, 'build-123');
   });
 
+  it('reports zero uploaded files in JSON when the API returns uploaded: 0', async () => {
+    let output = createMockOutput();
+
+    await previewCommand(
+      distDir,
+      { build: 'build-123' },
+      { json: true },
+      {
+        loadConfig: async () => ({
+          apiKey: 'test-token',
+          apiUrl: 'https://api.test',
+        }),
+        createApiClient: () => ({}),
+        getBuild: async () => ({ project: { isPublic: true } }),
+        createZipWithSystem: async (_sourceDir, outputPath) => {
+          writeFileSync(outputPath, 'zip');
+        },
+        uploadPreviewZip: async () => ({
+          previewUrl: 'https://preview.test',
+          uploaded: 0,
+          totalBytes: 3,
+          newBytes: 0,
+          deduplicationRatio: 1,
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let dataCall = output.calls.find(c => c.method === 'data');
+    assert.strictEqual(dataCall.args[0].files, 0);
+    assert.match(dataCall.args[0].compressionRatio, /^\d+%$/);
+  });
+
   it('opens browser when --open flag is set', async () => {
     let output = createMockOutput();
     let openedUrl = null;
@@ -507,6 +541,34 @@ describe('previewCommand', () => {
     assert.ok(dataCall.args[0].files.length > 0);
     assert.ok(Array.isArray(dataCall.args[0].excludedDirs));
     assert.ok(Array.isArray(dataCall.args[0].excludedFiles));
+  });
+
+  it('uses --base as the upload root in dry-run mode', async () => {
+    mkdirSync(join(distDir, 'public'));
+    writeFileSync(join(distDir, 'public', 'index.html'), '<html></html>');
+    let output = createMockOutput();
+
+    let result = await previewCommand(
+      distDir,
+      { dryRun: true, build: 'build-123', base: 'public' },
+      { json: true },
+      {
+        loadConfig: async () => ({
+          apiKey: null,
+          apiUrl: 'https://api.test',
+        }),
+        output,
+        exit: () => {},
+      }
+    );
+
+    let dataCall = output.calls.find(c => c.method === 'data');
+    assert.strictEqual(result.fileCount, 1);
+    assert.strictEqual(dataCall.args[0].path, join(distDir, 'public'));
+    assert.deepStrictEqual(
+      dataCall.args[0].files.map(file => file.path),
+      ['index.html']
+    );
   });
 
   it('excludes files matching --exclude patterns', async () => {

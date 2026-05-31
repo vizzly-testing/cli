@@ -86,6 +86,24 @@ export function getBuildName() {
 }
 
 /**
+ * Get comparison threshold from environment
+ * @returns {number|undefined} Threshold value when set
+ */
+export function getThreshold() {
+  if (process.env.VIZZLY_THRESHOLD === undefined) return undefined;
+  return Number(process.env.VIZZLY_THRESHOLD);
+}
+
+/**
+ * Get minimum changed cluster size from environment
+ * @returns {number|undefined} Minimum cluster size when set
+ */
+export function getMinClusterSize() {
+  if (process.env.VIZZLY_MIN_CLUSTER_SIZE === undefined) return undefined;
+  return Number(process.env.VIZZLY_MIN_CLUSTER_SIZE);
+}
+
+/**
  * Check if TDD mode is enabled
  * @returns {boolean} Whether TDD mode is enabled
  */
@@ -117,6 +135,8 @@ export function getAllEnvironmentConfig() {
     buildId: getBuildId(),
     buildName: getBuildName(),
     parallelId: getParallelId(),
+    threshold: getThreshold(),
+    minClusterSize: getMinClusterSize(),
     tddMode: isTddMode(),
   };
 }

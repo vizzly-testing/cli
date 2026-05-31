@@ -66,13 +66,7 @@ describe('createScreenshotProperties', () => {
     assert.strictEqual(normalized.requestTimeout, 60_000);
     assert.deepStrictEqual(
       normalized.warnings.map(warning => warning.option),
-      [
-        'threshold',
-        'minClusterSize',
-        'fullPage',
-        'buildId',
-        'requestTimeout',
-      ]
+      ['threshold', 'minClusterSize', 'fullPage', 'buildId', 'requestTimeout']
     );
   });
 

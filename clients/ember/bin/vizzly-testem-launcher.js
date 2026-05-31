@@ -34,7 +34,7 @@ let browserType = args[0];
 let testUrl = args[args.length - 1];
 
 // Validate arguments
-if (!browserType || !testUrl || !testUrl.startsWith('http')) {
+if (!browserType || !testUrl?.startsWith('http')) {
   console.error('Usage: vizzly-testem-launcher <browser> <url>');
   console.error('  browser: chromium | firefox | webkit');
   console.error('  url: Test page URL (provided by Testem)');

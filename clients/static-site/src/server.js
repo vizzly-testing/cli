@@ -56,7 +56,7 @@ export async function startStaticServer(rootDir, port = 0) {
  * @returns {Promise<void>}
  */
 export async function stopStaticServer(serverInfo) {
-  if (!serverInfo || !serverInfo.server) {
+  if (!serverInfo?.server) {
     return;
   }
 

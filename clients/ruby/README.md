@@ -66,7 +66,9 @@ client.screenshot('login-form', image_data)
 strict_client = Vizzly::Client.new(fail_on_diff: true)
 
 # Attach screenshots to a known build and tune request timeout in milliseconds
-build_client = Vizzly::Client.new(
+client.screenshot(
+  'checkout',
+  image_data,
   build_id: 'build_123',
   request_timeout: 60_000
 )

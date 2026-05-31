@@ -60,46 +60,21 @@ module Vizzly
 
       image_base64 = Base64.strict_encode64(image_data)
       options = normalize_options(options)
+      normalized = normalize_screenshot_options(options)
 
-      request_timeout = option_value(options, :request_timeout, :requestTimeout)
+      normalized[:warnings].each { |warning| warn warning[:message] }
+
+      request_timeout = normalized[:request_timeout]
       request_timeout_seconds = request_timeout ? request_timeout.to_f / 1000.0 : 30
-      build_id = option_value(options, :build_id, :buildId) ||
-                 ENV.fetch('VIZZLY_BUILD_ID', nil)
-      min_cluster_size = option_value(
-        options,
-        :min_cluster_size,
-        :minClusterSize
-      )
-      full_page = options.key?(:full_page) ? options[:full_page] : options[:fullPage]
-
-      reserved_keys = %i[
-        properties
-        threshold
-        min_cluster_size
-        minClusterSize
-        full_page
-        fullPage
-        build_id
-        buildId
-        request_timeout
-        requestTimeout
-      ]
-      top_level_properties = options.reject { |key, _value| reserved_keys.include?(key) }
-
-      # Build properties hash - comparison options merged with user properties
-      # Server extracts threshold/minClusterSize from properties, not top-level
-      properties = top_level_properties.merge(options[:properties] || {}).merge(
-        threshold: options[:threshold],
-        minClusterSize: min_cluster_size,
-        fullPage: full_page
-      ).compact
+      build_id = normalized[:build_id] || ENV.fetch('VIZZLY_BUILD_ID', nil)
 
       payload = {
         name: name,
         image: image_base64,
         type: 'base64',
         buildId: build_id,
-        properties: properties
+        properties: normalized[:properties],
+        warnings: normalized[:warnings]
       }.compact
 
       uri = URI("#{@server_url}/screenshot")
@@ -266,6 +241,58 @@ module Vizzly
       end
 
       nil
+    end
+
+    def normalize_screenshot_options(options)
+      threshold = options[:threshold]
+      min_cluster_size = option_value(options, :min_cluster_size, :minClusterSize)
+      full_page = options.key?(:full_page) ? options[:full_page] : options[:fullPage]
+      build_id = option_value(options, :build_id, :buildId)
+      request_timeout = option_value(options, :request_timeout, :requestTimeout)
+      properties = {}
+      warnings = []
+
+      (options[:properties] || {}).each do |key, value|
+        option = key.to_s
+        case option
+        when 'threshold'
+          threshold = value if threshold.nil?
+        when 'min_cluster_size', 'minClusterSize'
+          min_cluster_size = value if min_cluster_size.nil?
+        when 'full_page', 'fullPage'
+          full_page = value if full_page.nil?
+        when 'build_id', 'buildId'
+          build_id = value if build_id.nil?
+        when 'request_timeout', 'requestTimeout'
+          request_timeout = value if request_timeout.nil?
+        else
+          properties[key] = value
+          next
+        end
+
+        warnings << reserved_property_warning(option)
+      end
+
+      properties = properties.merge(
+        threshold: threshold,
+        minClusterSize: min_cluster_size,
+        fullPage: full_page
+      ).compact
+
+      {
+        build_id: build_id,
+        request_timeout: request_timeout,
+        properties: properties,
+        warnings: warnings
+      }
+    end
+
+    def reserved_property_warning(option)
+      {
+        code: 'reserved-property-option',
+        option: option,
+        message: "Move \"#{option}\" out of properties; properties is only for user metadata."
+      }
     end
 
     def warn_once(message)

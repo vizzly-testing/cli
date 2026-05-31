@@ -282,8 +282,8 @@ class VizzlyTest < Minitest::Test
     assert_equal 'chrome', captured_body['properties']['browser']
     assert_equal 1920, captured_body['properties']['viewport']['width']
     assert_equal 1080, captured_body['properties']['viewport']['height']
-    ensure
-      Net::HTTP.define_singleton_method(:start, original_start)
+  ensure
+    Net::HTTP.define_singleton_method(:start, original_start)
   end
 
   def test_screenshot_accepts_string_keys_and_preserves_zero_values
@@ -325,6 +325,46 @@ class VizzlyTest < Minitest::Test
     assert_equal 1920, properties['viewport']['width']
     assert_equal 1080, properties['viewport']['height']
     refute_includes properties, 'buildId'
+  ensure
+    Net::HTTP.define_singleton_method(:start, original_start)
+  end
+
+  def test_screenshot_promotes_reserved_options_from_properties_with_warnings
+    captured_body = nil
+    original_start = Net::HTTP.method(:start)
+    response = Net::HTTPOK.new('1.1', '200', 'OK')
+    response.define_singleton_method(:body) { JSON.generate(status: 'match') }
+    fake_http = Object.new
+    fake_http.define_singleton_method(:request) do |request|
+      captured_body = JSON.parse(request.body)
+      response
+    end
+    Net::HTTP.define_singleton_method(:start) do |_host, _port, **_options, &block|
+      block.call(fake_http)
+    end
+
+    client = Vizzly::Client.new(server_url: 'http://localhost:47392')
+    result = capture_io do
+      client.screenshot(
+        'reserved-properties',
+        'fake_image_data',
+        properties: {
+          theme: 'dark',
+          threshold: 1.5,
+          minClusterSize: 3,
+          buildId: 'build-from-properties'
+        }
+      )
+    end
+
+    assert_match(/Move "threshold" out of properties/, result[1])
+    assert_equal 'build-from-properties', captured_body['buildId']
+    assert_equal 'dark', captured_body['properties']['theme']
+    assert_equal 1.5, captured_body['properties']['threshold']
+    assert_equal 3, captured_body['properties']['minClusterSize']
+    refute_includes captured_body['properties'], 'buildId'
+    assert_equal %w[threshold minClusterSize buildId],
+                 captured_body['warnings'].map { |warning| warning['option'] }
   ensure
     Net::HTTP.define_singleton_method(:start, original_start)
   end

@@ -41,13 +41,17 @@ export function generateTasks(pages, baseUrl, config, deps = {}) {
     let pageConfig = getPageConfig(config, page);
     let url = generatePageUrl(baseUrl, page);
     let hook = getBeforeScreenshotHook(page, config);
+    let screenshotOptions = {
+      ...(config.browser?.type ? { browser: config.browser.type } : {}),
+      ...(pageConfig.screenshot || {}),
+    };
 
     return pageConfig.viewports.map(viewport => ({
       page,
       viewport,
       hook,
       url,
-      screenshotOptions: pageConfig.screenshot || {},
+      screenshotOptions,
     }));
   });
 }

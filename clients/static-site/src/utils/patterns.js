@@ -36,7 +36,21 @@ export function matchPattern(str, pattern) {
  */
 function matchAnyPattern(path, patterns) {
   let patternList = Array.isArray(patterns) ? patterns : [patterns];
-  return patternList.some(pattern => matchPattern(path, pattern));
+  let candidates = buildPathCandidates(path);
+  return patternList.some(pattern =>
+    candidates.some(candidate => matchPattern(candidate, pattern))
+  );
+}
+
+function buildPathCandidates(path) {
+  if (!path) return [];
+
+  let value = String(path);
+  if (value === '/') return ['/'];
+
+  let withSlash = value.startsWith('/') ? value : `/${value}`;
+  let withoutSlash = withSlash.slice(1);
+  return [...new Set([value, withSlash, withoutSlash])];
 }
 
 /**
@@ -84,7 +98,7 @@ export function findMatchingHook(page, interactions) {
   }
 
   for (let [pattern, hook] of Object.entries(interactions)) {
-    if (matchPattern(path, pattern)) {
+    if (matchAnyPattern(path, pattern)) {
       return hook;
     }
   }

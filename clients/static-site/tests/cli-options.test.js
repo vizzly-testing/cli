@@ -5,7 +5,25 @@
 
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
+import { Command } from 'commander';
+import packageJson from '../package.json' with { type: 'json' };
 import { mergeConfigs, parseCliOptions } from '../src/config.js';
+import plugin from '../src/plugin.js';
+
+function getStaticSiteOptionNames() {
+  let program = new Command();
+  plugin.register(program, {
+    config: {},
+    output: {},
+    services: {},
+  });
+
+  let command = program.commands.find(
+    candidate => candidate.name() === 'static-site'
+  );
+
+  return command.options.map(option => option.long);
+}
 
 describe('CLI Options', () => {
   it('does not include fullPage in parsed options when not set', () => {
@@ -61,5 +79,27 @@ describe('CLI Options', () => {
     let result = mergeConfigs(defaultConfig, userConfig, parsedCli);
 
     assert.strictEqual(result.screenshot.fullPage, false);
+  });
+
+  it('registers --no-headless so users can override headless config', () => {
+    let optionNames = getStaticSiteOptionNames();
+
+    assert.ok(optionNames.includes('--no-headless'));
+  });
+
+  it('registers --no-use-sitemap so users can disable sitemap discovery', () => {
+    let optionNames = getStaticSiteOptionNames();
+
+    assert.ok(optionNames.includes('--no-use-sitemap'));
+  });
+
+  it('registers --request-timeout so users can tune the Vizzly transport', () => {
+    let optionNames = getStaticSiteOptionNames();
+
+    assert.ok(optionNames.includes('--request-timeout'));
+  });
+
+  it('keeps plugin version aligned with package metadata', () => {
+    assert.strictEqual(plugin.version, packageJson.version);
   });
 });

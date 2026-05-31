@@ -4,9 +4,32 @@
 
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { getPageConfig, mergeConfigs, parseCliOptions } from '../src/config.js';
+import packageJson from '../package.json' with { type: 'json' };
+import {
+  defaultConfig,
+  getPageConfig,
+  mergeConfigs,
+  parseCliOptions,
+} from '../src/config.js';
+import { getDefaultConcurrency } from '../src/config-schema.js';
+import plugin from '../src/plugin.js';
 
 describe('config', () => {
+  describe('defaultConfig', () => {
+    it('uses the same CPU-aware concurrency default as the schema', () => {
+      assert.strictEqual(defaultConfig.concurrency, getDefaultConcurrency());
+    });
+
+    it('publishes a CLI-discoverable plugin entrypoint', () => {
+      assert.strictEqual(packageJson.vizzlyPlugin, './dist/plugin.js');
+      assert.deepStrictEqual(packageJson.exports['./plugin'], {
+        import: './dist/plugin.js',
+      });
+      assert.ok(packageJson.files.includes('dist'));
+      assert.ok(packageJson.files.includes('LICENSE'));
+    });
+  });
+
   describe('parseCliOptions', () => {
     it('parses viewport option', () => {
       let options = { viewports: 'mobile:375x667,desktop:1920x1080' };
@@ -30,6 +53,17 @@ describe('config', () => {
       let config = parseCliOptions(options);
 
       assert.strictEqual(config.concurrency, 5);
+    });
+
+    it('rejects invalid concurrency', () => {
+      assert.throws(
+        () => parseCliOptions({ concurrency: 0 }),
+        /concurrency must be a positive integer/
+      );
+      assert.throws(
+        () => parseCliOptions({ concurrency: Number.NaN }),
+        /concurrency must be a positive integer/
+      );
     });
 
     it('parses include/exclude patterns', () => {
@@ -62,10 +96,16 @@ describe('config', () => {
     });
 
     it('parses screenshot options', () => {
-      let options = { fullPage: true };
+      let options = {
+        fullPage: true,
+        timeout: 30_000,
+        requestTimeout: 60_000,
+      };
       let config = parseCliOptions(options);
 
       assert.strictEqual(config.screenshot.fullPage, true);
+      assert.strictEqual(config.screenshot.timeout, 30_000);
+      assert.strictEqual(config.screenshot.requestTimeout, 60_000);
     });
 
     it('parses page discovery options', () => {
@@ -77,6 +117,12 @@ describe('config', () => {
         config.pageDiscovery.sitemapPath,
         'custom-sitemap.xml'
       );
+    });
+
+    it('parses disabled sitemap discovery from CLI options', () => {
+      let config = parseCliOptions({ useSitemap: false });
+
+      assert.strictEqual(config.pageDiscovery.useSitemap, false);
     });
   });
 
@@ -120,6 +166,29 @@ describe('config', () => {
       assert.strictEqual(Object.keys(merged.interactions).length, 2);
       assert.ok(merged.interactions['blog/*']);
       assert.ok(merged.interactions['products/*']);
+    });
+
+    it('preserves page overrides when interactions config only provides hooks', () => {
+      let mainConfig = {
+        pages: {
+          '/pricing': {
+            screenshot: { fullPage: false },
+          },
+        },
+      };
+      let interactionsConfig = {
+        interactions: {
+          '/pricing': { beforeScreenshot: 'preparePricing' },
+        },
+      };
+
+      let merged = mergeConfigs(mainConfig, interactionsConfig);
+
+      assert.deepStrictEqual(merged.pages, mainConfig.pages);
+      assert.deepStrictEqual(
+        merged.interactions,
+        interactionsConfig.interactions
+      );
     });
   });
 
@@ -175,6 +244,26 @@ describe('config', () => {
       assert.strictEqual(config.viewports[0].name, 'mobile');
     });
 
+    it('applies docs-style page patterns to crawler paths', () => {
+      let globalConfig = {
+        viewports: [
+          { name: 'mobile', width: 375, height: 667 },
+          { name: 'desktop', width: 1920, height: 1080 },
+        ],
+        pages: {
+          'blog/*': {
+            viewports: ['mobile'],
+          },
+        },
+      };
+      let page = { path: '/blog/post-1' };
+
+      let config = getPageConfig(globalConfig, page);
+
+      assert.strictEqual(config.viewports.length, 1);
+      assert.strictEqual(config.viewports[0].name, 'mobile');
+    });
+
     it('filters viewports by name', () => {
       let globalConfig = {
         viewports: [
@@ -216,7 +305,11 @@ describe('config', () => {
 
     it('merges screenshot options', () => {
       let globalConfig = {
-        screenshot: { fullPage: false, omitBackground: false },
+        screenshot: {
+          fullPage: false,
+          omitBackground: false,
+          requestTimeout: 120000,
+        },
         pages: {
           '/pricing': {
             screenshot: { fullPage: true },
@@ -229,6 +322,20 @@ describe('config', () => {
 
       assert.strictEqual(config.screenshot.fullPage, true);
       assert.strictEqual(config.screenshot.omitBackground, false);
+      assert.strictEqual(config.screenshot.requestTimeout, 120000);
+    });
+  });
+
+  describe('plugin config schema', () => {
+    it('advertises screenshot timeout settings for init templates', () => {
+      assert.strictEqual(
+        plugin.configSchema.staticSite.screenshot.timeout,
+        45_000
+      );
+      assert.strictEqual(
+        plugin.configSchema.staticSite.screenshot.requestTimeout,
+        45_000
+      );
     });
   });
 });

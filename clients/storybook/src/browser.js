@@ -16,10 +16,11 @@ let browsers = { chromium, firefox, webkit };
  * @returns {Promise<Object>} Browser instance
  * @throws {Error} If browser type is invalid or browser is not installed
  */
-export async function launchBrowser(options = {}) {
+export async function launchBrowser(options = {}, dependencies = {}) {
   let { type = 'chromium', headless = true, args = [] } = options;
+  let browserTypes = dependencies.browsers ?? browsers;
 
-  let browserType = browsers[type];
+  let browserType = browserTypes[type];
   if (!browserType) {
     throw new Error(
       `Unknown browser type: ${type}. Supported browsers: chromium, firefox, webkit`
@@ -84,12 +85,10 @@ export async function launchBrowser(options = {}) {
     // Playwright throws plain Error objects without error codes, so we must match
     // on message patterns. These patterns cover known Playwright error messages:
     // - "Executable doesn't exist at <path>" (missing browser binary)
-    // - "browserType.launch: ..." (launch failure context)
     // - "playwright install" (Playwright's own suggestion in the error)
     // - "download new browsers" (alternative phrasing in some versions)
     let isBrowserMissing =
       error.message.includes("Executable doesn't exist") ||
-      error.message.includes('browserType.launch') ||
       error.message.includes('playwright install') ||
       error.message.includes('download new browsers');
 

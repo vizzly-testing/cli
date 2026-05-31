@@ -45,10 +45,17 @@ export async function loadInteractionsFile(filePath) {
       throw new Error('Interactions file must export an object');
     }
 
-    return {
-      interactions: config.interactions || {},
-      pages: config.pages || {},
-    };
+    let result = {};
+
+    if (config.interactions) {
+      result.interactions = config.interactions;
+    }
+
+    if (config.pages) {
+      result.pages = config.pages;
+    }
+
+    return result;
   } catch (error) {
     throw new Error(`Failed to load interactions file: ${error.message}`);
   }

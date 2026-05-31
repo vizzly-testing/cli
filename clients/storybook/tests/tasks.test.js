@@ -131,6 +131,30 @@ describe('generateTasks', () => {
     assert.strictEqual(tasks[0].baseUrl, 'http://localhost:6006');
   });
 
+  it('adds configured browser metadata to screenshot options', () => {
+    let stories = [{ id: 'card--default', title: 'Card', name: 'Default' }];
+    let baseUrl = 'http://localhost:6006';
+    let config = {
+      browser: { type: 'webkit' },
+      viewports: [{ name: 'desktop', width: 1920, height: 1080 }],
+    };
+
+    let deps = {
+      getStoryConfig: (_story, cfg) => ({
+        viewports: cfg.viewports,
+        screenshot: { fullPage: false },
+      }),
+      getBeforeScreenshotHook: () => null,
+    };
+
+    let tasks = generateTasks(stories, baseUrl, config, deps);
+
+    assert.deepStrictEqual(tasks[0].screenshotOptions, {
+      browser: 'webkit',
+      fullPage: false,
+    });
+  });
+
   it('handles empty stories array', () => {
     let stories = [];
     let baseUrl = 'http://localhost:6006';

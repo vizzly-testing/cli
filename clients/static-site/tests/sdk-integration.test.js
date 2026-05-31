@@ -21,6 +21,11 @@ import { after, before, describe, it } from 'node:test';
 
 import { closeBrowser, launchBrowser } from '../src/browser.js';
 import { discoverPages } from '../src/crawler.js';
+import {
+  buildCloudRunOptions,
+  buildFinalizeSuccess,
+  run as runStaticSite,
+} from '../src/index.js';
 import { createTabPool } from '../src/pool.js';
 import { captureScreenshot } from '../src/screenshot.js';
 import { startStaticServer, stopStaticServer } from '../src/server.js';
@@ -453,6 +458,102 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
 // ===========================================================================
 
 describe('Static-Site SDK (unit tests)', () => {
+  it('finalizes an empty cloud run instead of leaving the build open', async () => {
+    let emptySitePath = join(
+      tmpdir(),
+      `vizzly-empty-static-site-${Date.now()}`
+    );
+    mkdirSync(emptySitePath, { recursive: true });
+    let finalizeCalls = [];
+    let output = {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    };
+
+    try {
+      await runStaticSite(
+        emptySitePath,
+        {},
+        {
+          output,
+          config: { apiKey: 'test-token' },
+          services: {
+            git: {
+              detect: async () => ({
+                branch: 'main',
+                buildName: 'Empty Static Site',
+              }),
+            },
+            testRunner: {
+              once: () => {},
+              createBuild: async () => 'build-empty',
+              finalizeBuild: async (...args) => {
+                finalizeCalls.push(args);
+              },
+            },
+            serverManager: {
+              start: async () => {},
+              stop: async () => {},
+            },
+          },
+        }
+      );
+    } finally {
+      rmSync(emptySitePath, { recursive: true, force: true });
+    }
+
+    assert.strictEqual(finalizeCalls.length, 1);
+    assert.strictEqual(finalizeCalls[0][0], 'build-empty');
+    assert.strictEqual(finalizeCalls[0][2], true);
+  });
+
+  it('builds cloud run options from user config and git metadata', () => {
+    let runOptions = buildCloudRunOptions(
+      {
+        server: { port: 48999, timeout: 45000 },
+        build: { name: 'Configured Static Build', environment: 'preview' },
+        comparison: { threshold: 0, minClusterSize: 5 },
+        eager: true,
+        parallelId: 'parallel-static',
+      },
+      {
+        branch: 'feature/static',
+        commit: 'abc123',
+        message: 'Static screenshots',
+        buildName: 'Git Static Build',
+        prNumber: 42,
+      }
+    );
+
+    assert.deepStrictEqual(runOptions, {
+      port: 48999,
+      timeout: 45000,
+      buildName: 'Configured Static Build',
+      branch: 'feature/static',
+      commit: 'abc123',
+      message: 'Static screenshots',
+      environment: 'preview',
+      threshold: 0,
+      minClusterSize: 5,
+      eager: true,
+      allowNoToken: false,
+      wait: false,
+      uploadAll: false,
+      pullRequestNumber: 42,
+      parallelId: 'parallel-static',
+    });
+  });
+
+  it('marks cloud builds failed when screenshot tasks fail', () => {
+    assert.strictEqual(buildFinalizeSuccess([]), true);
+    assert.strictEqual(
+      buildFinalizeSuccess([{ page: '/home', error: 'capture failed' }]),
+      false
+    );
+  });
+
   it('discovers pages from test-site directory', async () => {
     let config = {
       buildPath: testSitePath,

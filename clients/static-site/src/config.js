@@ -4,7 +4,10 @@
  * Reads from config.staticSite section of main vizzly.config.js
  */
 
-import { validateStaticSiteConfigWithDefaults } from './config-schema.js';
+import {
+  getDefaultConcurrency,
+  validateStaticSiteConfigWithDefaults,
+} from './config-schema.js';
 import { loadInteractions } from './utils/interactions-loader.js';
 import { parseViewport } from './utils/viewport.js';
 
@@ -23,7 +26,7 @@ export let defaultConfig = {
     fullPage: true,
     omitBackground: false,
   },
-  concurrency: 3,
+  concurrency: getDefaultConcurrency(),
   include: null,
   exclude: null,
   pageDiscovery: {
@@ -50,6 +53,9 @@ export function parseCliOptions(options) {
   }
 
   if (options.concurrency !== undefined) {
+    if (!Number.isInteger(options.concurrency) || options.concurrency < 1) {
+      throw new Error('concurrency must be a positive integer');
+    }
     config.concurrency = options.concurrency;
   }
 
@@ -80,6 +86,13 @@ export function parseCliOptions(options) {
 
   if (options.timeout !== undefined) {
     config.screenshot = { ...config.screenshot, timeout: options.timeout };
+  }
+
+  if (options.requestTimeout !== undefined) {
+    config.screenshot = {
+      ...config.screenshot,
+      requestTimeout: options.requestTimeout,
+    };
   }
 
   if (options.useSitemap !== undefined) {
@@ -130,6 +143,10 @@ export function mergeConfigs(...configs) {
         ...merged.interactions,
         ...config.interactions,
       },
+      pages: {
+        ...merged.pages,
+        ...config.pages,
+      },
       viewports: config.viewports || merged.viewports,
     };
   }, {});
@@ -151,8 +168,7 @@ export function getPageConfig(globalConfig, page) {
   // Find matching page config by pattern
   let pageOverrides = null;
   for (let [pattern, config] of Object.entries(globalConfig.pages)) {
-    // Simple pattern matching - exact match or wildcard
-    if (pattern === page.path || matchPattern(pattern, page.path)) {
+    if (matchesPagePattern(pattern, page.path)) {
       pageOverrides = config;
       break;
     }
@@ -200,6 +216,18 @@ function matchPattern(pattern, path) {
 
   let regex = new RegExp(`^${regexPattern}$`);
   return regex.test(path);
+}
+
+function matchesPagePattern(pattern, path) {
+  if (pattern === path) return true;
+  if (!path) return false;
+
+  let value = String(path);
+  let withSlash = value.startsWith('/') ? value : `/${value}`;
+  let withoutSlash = withSlash === '/' ? '/' : withSlash.slice(1);
+  let candidates = [...new Set([value, withSlash, withoutSlash])];
+
+  return candidates.some(candidate => matchPattern(pattern, candidate));
 }
 
 /**

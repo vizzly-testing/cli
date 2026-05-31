@@ -38,7 +38,7 @@ import { run } from '@vizzly-testing/static-site';
 
 await run('./dist', {
   viewports: 'mobile:375x667,desktop:1920x1080',
-  concurrency: 3,
+  concurrency: 4,
 }, {
   output: console,
   config: vizzlyConfig,
@@ -58,6 +58,10 @@ export default {
   // Standard Vizzly config
   server: { port: 47392 },
   build: { environment: 'test' },
+  comparison: {
+    threshold: 0.1,
+    minClusterSize: 2,
+  },
 
   // Static Site plugin config
   staticSite: {
@@ -68,6 +72,7 @@ export default {
     ],
 
     browser: {
+      type: 'chromium',
       headless: true,
       args: ['--no-sandbox'],
     },
@@ -75,6 +80,8 @@ export default {
     screenshot: {
       fullPage: true,
       omitBackground: false,
+      timeout: 45000,
+      requestTimeout: 60000,
     },
 
     // Concurrency auto-detected from CPU cores (min 2, max 8)
@@ -93,6 +100,10 @@ export default {
   },
 };
 ```
+
+The shared top-level `comparison` section controls cloud/run thresholds. The
+`staticSite` section stays focused on page discovery, browser settings,
+viewports, and screenshot capture.
 
 ### Interactions File (Optional)
 
@@ -117,6 +128,7 @@ export default {
       viewports: ['mobile', 'desktop'],
     },
     '/pricing': {
+      interaction: 'products/*',
       screenshot: { fullPage: true },
     },
   },
@@ -136,15 +148,18 @@ Configuration is merged in this order (later overrides earlier):
 
 - `--viewports <list>` - Comma-separated viewport definitions (format: `name:WxH`)
 - `--concurrency <n>` - Number of parallel browser tabs (default: auto-detected based on CPU cores, min 2, max 8)
+- `--browser <type>` - Browser engine to use: `chromium`, `firefox`, or `webkit`
 - `--include <pattern>` - Include page pattern (glob)
 - `--exclude <pattern>` - Exclude page pattern (glob)
-- `--browser-args <args>` - Additional Puppeteer browser arguments
+- `--browser-args <args>` - Additional Playwright browser arguments
 - `--headless` - Run browser in headless mode (default: true)
+- `--no-headless` - Run browser with a visible window
 - `--full-page` - Capture full page screenshots (default: true)
 - `--no-full-page` - Capture viewport-only screenshots
 - `--timeout <ms>` - Screenshot timeout in milliseconds (default: 45000)
 - `--dry-run` - Print discovered pages and task count without capturing screenshots
 - `--use-sitemap` - Use sitemap.xml for page discovery (default: true)
+- `--no-use-sitemap` - Disable sitemap.xml page discovery
 - `--sitemap-path <path>` - Path to sitemap.xml relative to build directory
 
 ## Page Discovery
@@ -234,16 +249,21 @@ Patterns support glob-like syntax:
 
 ## Screenshot Naming
 
-Screenshots are named based on the page path, with viewport information stored as properties for better grouping:
+Screenshots are named based on the page path. The plugin records browser,
+viewport, viewport dimensions, page URL, and capture mode metadata
+automatically. You can add custom screenshot `properties` from config when you
+need extra signature dimensions such as theme, locale, or auth state:
 
 **Name format:** `path-to-page` (slashes replaced with hyphens)
 
-**Properties:** Viewport metadata (`viewport`, `viewportWidth`, `viewportHeight`)
+**Properties:** Browser, viewport, URL, capture-mode metadata, and any custom
+properties (`browser`, `viewport`, `viewport_width`, `viewport_height`, `url`,
+`fullPage`, plus user-defined fields)
 
 Examples:
-- Name: `index`, Properties: `{ viewport: 'mobile', viewportWidth: 375, viewportHeight: 667 }`
-- Name: `blog-post-1`, Properties: `{ viewport: 'desktop', viewportWidth: 1920, viewportHeight: 1080 }`
-- Name: `docs-getting-started`, Properties: `{ viewport: 'tablet', viewportWidth: 768, viewportHeight: 1024 }`
+- Name: `index`, Properties: `{ browser: 'chromium', viewport: 'mobile', viewport_width: 375, viewport_height: 667, url: 'http://localhost:3000/' }`
+- Name: `blog-post-1`, Properties: `{ browser: 'chromium', viewport: 'desktop', viewport_width: 1920, viewport_height: 1080, url: 'http://localhost:3000/blog/post-1' }`
+- Name: `docs-getting-started`, Properties: `{ browser: 'webkit', viewport: 'tablet', viewport_width: 768, viewport_height: 1024, url: 'http://localhost:3000/docs/getting-started' }`
 
 This approach allows Vizzly to group screenshots by viewport while keeping names clean and compatible with file system restrictions.
 

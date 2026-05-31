@@ -3,9 +3,11 @@
  * Registers the `vizzly storybook` command
  */
 
+import packageJson from '../package.json' with { type: 'json' };
+
 export default {
   name: 'storybook',
-  version: '1.0.0',
+  version: packageJson.version,
 
   /**
    * Default configuration schema for init command
@@ -25,8 +27,9 @@ export default {
       screenshot: {
         fullPage: true,
         omitBackground: false,
+        timeout: 45_000,
+        requestTimeout: 45_000,
       },
-      concurrency: 3,
       include: null,
       exclude: null,
       interactions: {},
@@ -52,8 +55,7 @@ export default {
       .option(
         '--concurrency <n>',
         'Number of parallel stories to process',
-        parseInt,
-        3
+        parseInt
       )
       .option('--include <pattern>', 'Include story pattern (glob)')
       .option('--exclude <pattern>', 'Exclude story pattern (glob)')
@@ -62,13 +64,20 @@ export default {
         'Browser to use: chromium, firefox, webkit (default: chromium)'
       )
       .option('--browser-args <args>', 'Additional browser arguments')
-      .option(
-        '--headless',
-        'Run browser in headless mode (default: true)',
-        true
-      )
+      .option('--headless', 'Run browser in headless mode')
+      .option('--no-headless', 'Run browser with a visible window')
       .option('--full-page', 'Capture full page screenshots')
       .option('--no-full-page', 'Capture viewport-only screenshots')
+      .option(
+        '--timeout <ms>',
+        'Screenshot capture timeout in milliseconds',
+        parseInt
+      )
+      .option(
+        '--request-timeout <ms>',
+        'Vizzly screenshot request timeout in milliseconds',
+        parseInt
+      )
       .action(async (path, options) => {
         try {
           let { run } = await import('./index.js');

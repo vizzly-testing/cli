@@ -15,6 +15,11 @@ try {
   vizzlyScreenshot = async () => {};
 }
 
+/** @internal Replace vizzlyScreenshot for testing */
+export function _setVizzlyScreenshot(fn) {
+  vizzlyScreenshot = fn;
+}
+
 /**
  * Generate screenshot name from page path
  * Viewport info goes in properties for grouping
@@ -47,12 +52,30 @@ export function generateScreenshotName(page) {
  * @param {Object} viewport - Viewport object with name, width, height
  * @returns {Object} Screenshot properties
  */
-export function generateScreenshotProperties(viewport) {
-  return {
+export function generateScreenshotProperties(viewport, options = {}) {
+  let properties = {
     viewport: viewport.name,
-    viewportWidth: viewport.width,
-    viewportHeight: viewport.height,
+    viewport_width: viewport.width,
+    viewport_height: viewport.height,
   };
+
+  if (options.browser) {
+    properties.browser = options.browser;
+  }
+
+  if (options.fullPage !== undefined) {
+    properties.fullPage = options.fullPage;
+  }
+
+  if (options.url !== undefined) {
+    properties.url = options.url;
+  }
+
+  if (options.properties) {
+    properties = { ...properties, ...options.properties };
+  }
+
+  return properties;
 }
 
 /**
@@ -68,7 +91,6 @@ let DEFAULT_SCREENSHOT_TIMEOUT = 45_000;
  * @param {boolean} [options.fullPage=true] - Capture full page
  * @param {boolean} [options.omitBackground=false] - Omit background (transparent)
  * @param {number} [options.timeout=45000] - Screenshot timeout in ms
- * @param {number} [options.requestTimeout] - Vizzly request timeout in ms
  * @returns {Promise<Buffer>} Screenshot buffer
  */
 export async function captureScreenshot(page, options = {}) {
@@ -76,7 +98,6 @@ export async function captureScreenshot(page, options = {}) {
     fullPage = true,
     omitBackground = false,
     timeout = DEFAULT_SCREENSHOT_TIMEOUT,
-    requestTimeout: _requestTimeout,
   } = options;
 
   // Playwright has built-in timeout support
@@ -104,8 +125,10 @@ export async function captureAndSendScreenshot(
   screenshotOptions = {}
 ) {
   let name = generateScreenshotName(pageObj);
-  let properties = generateScreenshotProperties(viewport);
-  properties.url = page.url();
+  let properties = generateScreenshotProperties(viewport, {
+    ...screenshotOptions,
+    url: page.url(),
+  });
   let screenshot = await captureScreenshot(page, screenshotOptions);
   let requestTimeout =
     screenshotOptions.requestTimeout ||

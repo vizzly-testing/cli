@@ -85,12 +85,10 @@ export async function launchBrowser(options = {}, dependencies = {}) {
     // Playwright throws plain Error objects without error codes, so we must match
     // on message patterns. These patterns cover known Playwright error messages:
     // - "Executable doesn't exist at <path>" (missing browser binary)
-    // - "browserType.launch: ..." (launch failure context)
     // - "playwright install" (Playwright's own suggestion in the error)
     // - "download new browsers" (alternative phrasing in some versions)
     let isBrowserMissing =
       error.message.includes("Executable doesn't exist") ||
-      error.message.includes('browserType.launch') ||
       error.message.includes('playwright install') ||
       error.message.includes('download new browsers');
 

@@ -22,8 +22,10 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js"
+    },
+    "./plugin": {
+      "import": "./dist/plugin.js"
     }
   },
   "main": "./dist/index.js",

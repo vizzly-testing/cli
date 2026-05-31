@@ -4,6 +4,8 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { Command } from 'commander';
+import packageJson from '../package.json' with { type: 'json' };
 import {
   defaultConfig,
   loadConfig,
@@ -11,6 +13,7 @@ import {
   mergeStoryConfig,
   parseCliOptions,
 } from '../src/config.js';
+import plugin from '../src/plugin.js';
 
 describe('parseCliOptions', () => {
   it('should parse viewports option', () => {
@@ -37,6 +40,17 @@ describe('parseCliOptions', () => {
     let config = parseCliOptions(options);
 
     assert.equal(config.concurrency, 5);
+  });
+
+  it('should reject invalid concurrency', () => {
+    assert.throws(
+      () => parseCliOptions({ concurrency: 0 }),
+      /positive integer/
+    );
+    assert.throws(
+      () => parseCliOptions({ concurrency: Number.NaN }),
+      /positive integer/
+    );
   });
 
   it('should parse include and exclude', () => {
@@ -66,10 +80,16 @@ describe('parseCliOptions', () => {
   });
 
   it('should parse screenshot options', () => {
-    let options = { fullPage: true };
+    let options = {
+      fullPage: true,
+      timeout: 30_000,
+      requestTimeout: 60_000,
+    };
     let config = parseCliOptions(options);
 
     assert.equal(config.screenshot.fullPage, true);
+    assert.equal(config.screenshot.timeout, 30_000);
+    assert.equal(config.screenshot.requestTimeout, 60_000);
   });
 
   it('should parse fullPage false for --no-full-page', () => {
@@ -77,6 +97,44 @@ describe('parseCliOptions', () => {
     let config = parseCliOptions(options);
 
     assert.equal(config.screenshot.fullPage, false);
+  });
+
+  it('registers --no-headless so users can override headless config', () => {
+    let program = new Command();
+    plugin.register(program, {
+      config: {},
+      output: {},
+      services: {},
+    });
+
+    let command = program.commands.find(
+      candidate => candidate.name() === 'storybook'
+    );
+    let optionNames = command.options.map(option => option.long);
+
+    assert.ok(optionNames.includes('--no-headless'));
+    assert.ok(optionNames.includes('--timeout'));
+    assert.ok(optionNames.includes('--request-timeout'));
+  });
+
+  it('keeps plugin version aligned with package metadata', () => {
+    assert.equal(plugin.version, packageJson.version);
+  });
+
+  it('publishes a CLI-discoverable plugin entrypoint', () => {
+    assert.equal(packageJson.vizzlyPlugin, './dist/plugin.js');
+    assert.deepEqual(packageJson.exports['./plugin'], {
+      import: './dist/plugin.js',
+    });
+    assert.ok(packageJson.files.includes('dist'));
+    assert.ok(packageJson.files.includes('LICENSE'));
+  });
+
+  it('includes requestTimeout in the init config template', () => {
+    assert.equal(
+      plugin.configSchema.storybook.screenshot.requestTimeout,
+      45_000
+    );
   });
 });
 
@@ -220,7 +278,7 @@ describe('loadConfig', () => {
       storybook: {
         browser: {
           headless: false,
-          args: ['--disable-gpu'],
+          args: ['--custom-flag'],
         },
       },
     };
@@ -228,7 +286,7 @@ describe('loadConfig', () => {
     let config = await loadConfig('./storybook-static', {}, vizzlyConfig);
 
     assert.equal(config.browser.headless, false);
-    assert.deepEqual(config.browser.args, ['--disable-gpu']);
+    assert.deepEqual(config.browser.args, ['--custom-flag']);
   });
 
   it('should set storybookPath from argument', async () => {

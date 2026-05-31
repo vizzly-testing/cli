@@ -14,7 +14,7 @@
 import assert from 'node:assert';
 import { execSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
@@ -26,6 +26,11 @@ import {
   readIndexJson,
 } from '../src/crawler.js';
 import { getBeforeScreenshotHook, getStoryConfig } from '../src/hooks.js';
+import {
+  buildCloudRunOptions,
+  buildFinalizeSuccess,
+  run as runStorybook,
+} from '../src/index.js';
 import { captureAndSendScreenshot } from '../src/screenshot.js';
 import { startStaticServer, stopStaticServer } from '../src/server.js';
 import { setViewport } from '../src/utils/viewport.js';
@@ -405,6 +410,51 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
   // ===========================================================================
 
   describe('Story Configuration', () => {
+    it('builds cloud run options from user config and git metadata', () => {
+      let runOptions = buildCloudRunOptions(
+        {
+          server: { port: 48998, timeout: 45000 },
+          build: { name: 'Configured Storybook Build', environment: 'preview' },
+          comparison: { threshold: 0, minClusterSize: 6 },
+          eager: true,
+          parallelId: 'parallel-storybook',
+        },
+        {
+          branch: 'feature/storybook',
+          commit: 'abc123',
+          message: 'Storybook screenshots',
+          buildName: 'Git Storybook Build',
+          prNumber: 43,
+        }
+      );
+
+      assert.deepStrictEqual(runOptions, {
+        port: 48998,
+        timeout: 45000,
+        buildName: 'Configured Storybook Build',
+        branch: 'feature/storybook',
+        commit: 'abc123',
+        message: 'Storybook screenshots',
+        environment: 'preview',
+        threshold: 0,
+        minClusterSize: 6,
+        eager: true,
+        allowNoToken: false,
+        wait: false,
+        uploadAll: false,
+        pullRequestNumber: 43,
+        parallelId: 'parallel-storybook',
+      });
+    });
+
+    it('marks cloud builds failed when screenshot tasks fail', () => {
+      assert.strictEqual(buildFinalizeSuccess([]), true);
+      assert.strictEqual(
+        buildFinalizeSuccess([{ story: 'Button', error: 'capture failed' }]),
+        false
+      );
+    });
+
     it('generates correct story URLs', () => {
       let baseUrl = 'http://localhost:6006';
       let storyId = 'example-button--primary';
@@ -474,6 +524,61 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
 // ===========================================================================
 
 describe('Storybook SDK (unit tests)', () => {
+  it('finalizes an empty cloud run instead of leaving the build open', async () => {
+    let emptyStorybookPath = join(
+      tmpdir(),
+      `vizzly-empty-storybook-${Date.now()}`
+    );
+    mkdirSync(emptyStorybookPath, { recursive: true });
+    writeFileSync(
+      join(emptyStorybookPath, 'index.json'),
+      JSON.stringify({ v: 5, entries: {} })
+    );
+    let finalizeCalls = [];
+    let output = {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    };
+
+    try {
+      await runStorybook(
+        emptyStorybookPath,
+        {},
+        {
+          output,
+          config: { apiKey: 'test-token' },
+          services: {
+            git: {
+              detect: async () => ({
+                branch: 'main',
+                buildName: 'Empty Storybook',
+              }),
+            },
+            testRunner: {
+              once: () => {},
+              createBuild: async () => 'build-empty',
+              finalizeBuild: async (...args) => {
+                finalizeCalls.push(args);
+              },
+            },
+            serverManager: {
+              start: async () => {},
+              stop: async () => {},
+            },
+          },
+        }
+      );
+    } finally {
+      rmSync(emptyStorybookPath, { recursive: true, force: true });
+    }
+
+    assert.strictEqual(finalizeCalls.length, 1);
+    assert.strictEqual(finalizeCalls[0][0], 'build-empty');
+    assert.strictEqual(finalizeCalls[0][2], true);
+  });
+
   it('generates correct iframe URL for story', () => {
     let baseUrl = 'http://localhost:6006';
     let storyId = 'components-button--primary';

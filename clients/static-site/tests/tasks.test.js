@@ -69,6 +69,50 @@ describe('generateTasks', () => {
     assert.strictEqual(tasks[0].url, 'http://localhost:3000/');
   });
 
+  it('adds browser type to screenshot metadata options', () => {
+    let pages = [{ path: '/home' }];
+    let config = {
+      browser: { type: 'firefox' },
+      viewports: [{ name: 'desktop', width: 1920, height: 1080 }],
+      screenshot: { fullPage: true },
+    };
+
+    let tasks = generateTasks(pages, 'http://localhost:3000', config, {
+      getPageConfig: cfg => ({
+        viewports: cfg.viewports,
+        screenshot: cfg.screenshot,
+      }),
+      generatePageUrl: (base, page) => `${base}${page.path}`,
+      getBeforeScreenshotHook: () => null,
+    });
+
+    assert.deepStrictEqual(tasks[0].screenshotOptions, {
+      fullPage: true,
+      browser: 'firefox',
+    });
+  });
+
+  it('lets page screenshot browser override configured browser metadata', () => {
+    let pages = [{ path: '/home' }];
+    let config = {
+      browser: { type: 'chromium' },
+      viewports: [{ name: 'desktop', width: 1920, height: 1080 }],
+    };
+
+    let tasks = generateTasks(pages, 'http://localhost:3000', config, {
+      getPageConfig: cfg => ({
+        viewports: cfg.viewports,
+        screenshot: { browser: 'firefox' },
+      }),
+      generatePageUrl: (base, page) => `${base}${page.path}`,
+      getBeforeScreenshotHook: () => null,
+    });
+
+    assert.deepStrictEqual(tasks[0].screenshotOptions, {
+      browser: 'firefox',
+    });
+  });
+
   it('handles empty pages array', () => {
     let pages = [];
     let baseUrl = 'http://localhost:3000';
@@ -112,7 +156,7 @@ describe('processTask', () => {
       viewport: { name: 'desktop', width: 1920, height: 1080 },
       hook: null,
       url: 'http://localhost:3000/test',
-      screenshotOptions: { fullPage: true },
+      screenshotOptions: { fullPage: true, requestTimeout: 120000 },
     };
 
     await processTask(tab, task, deps);
@@ -125,7 +169,10 @@ describe('processTask', () => {
     assert.strictEqual(navigateCalls[0].url, task.url);
 
     assert.strictEqual(screenshotCalls.length, 1);
-    assert.deepStrictEqual(screenshotCalls[0].opts, { fullPage: true });
+    assert.deepStrictEqual(screenshotCalls[0].opts, {
+      fullPage: true,
+      requestTimeout: 120000,
+    });
   });
 
   it('runs hook if provided', async () => {

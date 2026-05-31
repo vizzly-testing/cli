@@ -19,6 +19,7 @@ export default {
 
   comparison: {
     threshold: 0.1,
+    minClusterSize: 2,
   },
 
   // Static Site plugin configuration
@@ -48,8 +49,8 @@ export default {
       omitBackground: false, // Include page background
     },
 
-    // Parallel processing
-    concurrency: 3, // Number of pages to process simultaneously
+    // Parallel processing defaults to CPU-aware concurrency (min 2, max 8)
+    // concurrency: 4,
 
     // Page filtering
     include: null, // Optional: Only process pages matching this pattern
@@ -70,6 +71,6 @@ export default {
   // Storybook plugin configuration (if also using Storybook)
   storybook: {
     viewports: [{ name: 'default', width: 1920, height: 1080 }],
-    concurrency: 3,
+    // concurrency: 4,
   },
 };

@@ -250,6 +250,10 @@ export function generatePageUrl(baseUrl, page) {
     path = path.slice(0, -1);
   }
 
+  if (path.endsWith('.html')) {
+    return `${baseUrl}${path}`;
+  }
+
   // Try /path.html first (most common convention)
   return `${baseUrl}${path}.html`;
 }

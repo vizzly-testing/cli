@@ -75,10 +75,14 @@ export let Interactive = {
       beforeScreenshot: async page => {
         // Click the button to show active state
         await page.click('button');
-        await page.waitForTimeout(300); // Wait for animation
+        await page.waitForSelector('button');
       },
       screenshot: {
         omitBackground: true, // Transparent background
+        properties: { variant: 'interactive' },
+        threshold: 5,
+        minClusterSize: 3,
+        requestTimeout: 60000,
       },
     },
   },

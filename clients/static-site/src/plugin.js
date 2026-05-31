@@ -3,11 +3,12 @@
  * Registers the `vizzly static-site` command
  */
 
+import packageJson from '../package.json' with { type: 'json' };
 import { getDefaultConcurrency } from './config-schema.js';
 
 export default {
   name: 'static-site',
-  version: '0.1.0',
+  version: packageJson.version,
 
   /**
    * Default configuration schema for init command
@@ -27,6 +28,8 @@ export default {
       screenshot: {
         fullPage: true,
         omitBackground: false,
+        timeout: 45_000,
+        requestTimeout: 45_000,
       },
       concurrency: getDefaultConcurrency(),
       include: null,
@@ -70,6 +73,7 @@ export default {
       )
       .option('--browser-args <args>', 'Additional browser arguments')
       .option('--headless', 'Run browser in headless mode')
+      .option('--no-headless', 'Run browser with a visible window')
       .option('--full-page', 'Capture full page screenshots')
       .option('--no-full-page', 'Capture viewport-only screenshots')
       .option(
@@ -78,10 +82,16 @@ export default {
         parseInt
       )
       .option(
+        '--request-timeout <ms>',
+        'Vizzly screenshot request timeout in milliseconds',
+        parseInt
+      )
+      .option(
         '--dry-run',
         'Print discovered pages without capturing screenshots'
       )
       .option('--use-sitemap', 'Use sitemap.xml for page discovery')
+      .option('--no-use-sitemap', 'Disable sitemap.xml page discovery')
       .option(
         '--sitemap-path <path>',
         'Path to sitemap.xml relative to build directory'

@@ -11,6 +11,7 @@ module Vizzly
   # Default port for local TDD server
   DEFAULT_TDD_PORT = 47392
 
+  # rubocop:disable Metrics/ClassLength
   class Client
     attr_reader :server_url, :disabled
 
@@ -48,7 +49,7 @@ module Vizzly
     #     properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } },
     #     threshold: 5
     #   )
-    # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+    # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
     def screenshot(name, image_data, options = {})
       return nil if disabled?
 
@@ -176,7 +177,7 @@ module Vizzly
         nil
       end
     end
-    # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
+    # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
     # Wait for all queued screenshots to be processed
     # (Simple client doesn't need explicit flushing)
@@ -230,9 +231,7 @@ module Vizzly
     private
 
     def normalize_options(options)
-      options.each_with_object({}) do |(key, value), normalized|
-        normalized[key.is_a?(String) ? key.to_sym : key] = value
-      end
+      options.transform_keys { |key| key.is_a?(String) ? key.to_sym : key }
     end
 
     def option_value(options, *keys)
@@ -345,6 +344,7 @@ module Vizzly
       nil
     end
   end
+  # rubocop:enable Metrics/ClassLength
 
   class << self
     # Get or create the shared client instance

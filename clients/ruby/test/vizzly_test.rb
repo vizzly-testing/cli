@@ -6,6 +6,7 @@ require 'fileutils'
 require 'tmpdir'
 require_relative '../lib/vizzly'
 
+# rubocop:disable Metrics/ClassLength
 class VizzlyTest < Minitest::Test
   def setup
     Vizzly.reset!
@@ -363,9 +364,12 @@ class VizzlyTest < Minitest::Test
     assert_equal 1.5, captured_body['properties']['threshold']
     assert_equal 3, captured_body['properties']['minClusterSize']
     refute_includes captured_body['properties'], 'buildId'
-    assert_equal %w[threshold minClusterSize buildId],
-                 captured_body['warnings'].map { |warning| warning['option'] }
+    assert_equal(
+      %w[threshold minClusterSize buildId],
+      captured_body['warnings'].map { |warning| warning['option'] }
+    )
   ensure
     Net::HTTP.define_singleton_method(:start, original_start)
   end
 end
+# rubocop:enable Metrics/ClassLength

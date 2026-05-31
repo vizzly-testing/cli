@@ -26,8 +26,10 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js"
+    },
+    "./plugin": {
+      "import": "./dist/plugin.js"
     }
   },
   "main": "./dist/index.js",
@@ -35,8 +37,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "pnpm run clean && pnpm run compile",

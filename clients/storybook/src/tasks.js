@@ -50,7 +50,10 @@ export function generateTasks(stories, baseUrl, config, deps = {}) {
       hook,
       storyId: story.id,
       baseUrl,
-      screenshotOptions: storyConfig.screenshot || {},
+      screenshotOptions: {
+        ...(config.browser?.type ? { browser: config.browser.type } : {}),
+        ...(storyConfig.screenshot || {}),
+      },
     }));
   });
 

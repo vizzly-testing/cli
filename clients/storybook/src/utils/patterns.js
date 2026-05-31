@@ -37,15 +37,15 @@ export function matchPattern(str, pattern) {
  */
 export function filterByPattern(stories, includePattern, excludePattern) {
   return stories.filter(story => {
-    let id = story.id || story.title;
+    let candidates = buildStoryPatternCandidates(story);
 
     // Check include pattern
-    if (includePattern && !matchPattern(id, includePattern)) {
+    if (includePattern && !matchesAnyCandidate(candidates, includePattern)) {
       return false;
     }
 
     // Check exclude pattern
-    if (excludePattern && matchPattern(id, excludePattern)) {
+    if (excludePattern && matchesAnyCandidate(candidates, excludePattern)) {
       return false;
     }
 
@@ -65,12 +65,12 @@ export function findMatchingHook(story, interactions) {
     return null;
   }
 
-  let id = story.id || story.title;
+  let candidates = buildStoryPatternCandidates(story);
 
   // Handle patterns array format: { patterns: [{ match, beforeScreenshot }] }
   if (interactions.patterns && Array.isArray(interactions.patterns)) {
     for (let pattern of interactions.patterns) {
-      if (matchPattern(id, pattern.match)) {
+      if (matchesAnyCandidate(candidates, pattern.match)) {
         return pattern.beforeScreenshot;
       }
     }
@@ -83,10 +83,27 @@ export function findMatchingHook(story, interactions) {
   }
 
   for (let [pattern, hook] of Object.entries(interactions)) {
-    if (matchPattern(id, pattern)) {
+    if (matchesAnyCandidate(candidates, pattern)) {
       return hook;
     }
   }
 
   return null;
+}
+
+function matchesAnyCandidate(candidates, pattern) {
+  return candidates.some(candidate => matchPattern(candidate, pattern));
+}
+
+function buildStoryPatternCandidates(story) {
+  let title = story.title || '';
+  let name = story.name || story.storyName || '';
+  let titleName = title && name ? `${title}/${name}` : '';
+  let candidates = [story.id, titleName, title, name, story.importPath].filter(
+    Boolean
+  );
+
+  return [
+    ...new Set(candidates.flatMap(value => [value, value.toLowerCase()])),
+  ];
 }

@@ -22,8 +22,7 @@ export default {
       let loadMoreBtn = await page.$('.load-more');
       if (loadMoreBtn) {
         await loadMoreBtn.click();
-        // Wait for content to load
-        await page.waitForTimeout(1000);
+        await page.waitForSelector('.portfolio-item');
       }
     },
 

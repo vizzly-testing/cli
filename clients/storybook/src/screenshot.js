@@ -38,6 +38,41 @@ export function generateScreenshotName(story, viewport) {
   return `${sanitizedTitle}-${name}@${viewportName}`;
 }
 
+export function generateScreenshotProperties(
+  story,
+  viewport,
+  url,
+  screenshotOptions = {}
+) {
+  let properties = {
+    storyId: story.id,
+    storyTitle: story.title,
+    storyName: story.name,
+    viewport: viewport.name,
+    viewport_width: viewport.width,
+    viewport_height: viewport.height,
+    ...(screenshotOptions.browser !== undefined
+      ? { browser: screenshotOptions.browser }
+      : {}),
+    url,
+    ...(screenshotOptions.properties || {}),
+  };
+
+  if (screenshotOptions.threshold !== undefined) {
+    properties.threshold = screenshotOptions.threshold;
+  }
+
+  if (screenshotOptions.minClusterSize !== undefined) {
+    properties.minClusterSize = screenshotOptions.minClusterSize;
+  }
+
+  if (screenshotOptions.fullPage !== undefined) {
+    properties.fullPage = screenshotOptions.fullPage;
+  }
+
+  return properties;
+}
+
 /**
  * Default timeout for screenshot capture (45 seconds)
  * Normal screenshots take 25-150ms; this matches static-site SDK
@@ -50,16 +85,21 @@ const SCREENSHOT_TIMEOUT_MS = 45_000;
  * @param {Object} options - Screenshot options
  * @param {boolean} [options.fullPage=true] - Capture full page
  * @param {boolean} [options.omitBackground=false] - Omit background (transparent)
+ * @param {number} [options.timeout=45000] - Playwright screenshot timeout in ms
  * @returns {Promise<Buffer>} Screenshot buffer
  */
 export async function captureScreenshot(page, options = {}) {
-  let { fullPage = true, omitBackground = false } = options;
+  let {
+    fullPage = true,
+    omitBackground = false,
+    timeout = SCREENSHOT_TIMEOUT_MS,
+  } = options;
 
   // Playwright has built-in timeout support
   let screenshot = await page.screenshot({
     fullPage,
     omitBackground,
-    timeout: SCREENSHOT_TIMEOUT_MS,
+    timeout,
   });
 
   return screenshot;
@@ -87,7 +127,20 @@ export async function captureAndSendScreenshot(
   let captureTime = Date.now() - t0;
 
   let t1 = Date.now();
-  await vizzlyScreenshot(name, screenshot, { properties: { url: page.url() } });
+  let vizzlyOptions = {
+    properties: generateScreenshotProperties(
+      story,
+      viewport,
+      page.url(),
+      screenshotOptions
+    ),
+  };
+
+  if (screenshotOptions.requestTimeout !== undefined) {
+    vizzlyOptions.requestTimeout = screenshotOptions.requestTimeout;
+  }
+
+  await vizzlyScreenshot(name, screenshot, vizzlyOptions);
   let sendTime = Date.now() - t1;
 
   if (verbose) {

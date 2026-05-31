@@ -9,6 +9,7 @@ import {
   captureAndSendScreenshot,
   captureScreenshot,
   generateScreenshotName,
+  generateScreenshotProperties,
 } from '../src/screenshot.js';
 
 describe('generateScreenshotName', () => {
@@ -23,7 +24,7 @@ describe('generateScreenshotName', () => {
 
   it('should handle complex component names', () => {
     let story = { title: 'Components/Atoms/Button', name: 'WithIcon' };
-    let viewport = { name: 'desktop' };
+    let viewport = { name: 'desktop', width: 1920, height: 1080 };
 
     let name = generateScreenshotName(story, viewport);
 
@@ -37,6 +38,54 @@ describe('generateScreenshotName', () => {
     let name = generateScreenshotName(story, viewport);
 
     assert.equal(name, 'Form-Input Field-With Label & Error@tablet');
+  });
+});
+
+describe('generateScreenshotProperties', () => {
+  it('builds cloud-compatible story and viewport metadata', () => {
+    let story = { id: 'button--primary', title: 'Button', name: 'Primary' };
+    let viewport = { name: 'mobile', width: 375, height: 667 };
+    let properties = generateScreenshotProperties(
+      story,
+      viewport,
+      'http://localhost:6006/iframe.html?id=button--primary',
+      {
+        browser: 'webkit',
+        threshold: 0,
+        minClusterSize: 4,
+        fullPage: false,
+      }
+    );
+
+    assert.deepEqual(properties, {
+      storyId: 'button--primary',
+      storyTitle: 'Button',
+      storyName: 'Primary',
+      viewport: 'mobile',
+      viewport_width: 375,
+      viewport_height: 667,
+      url: 'http://localhost:6006/iframe.html?id=button--primary',
+      browser: 'webkit',
+      threshold: 0,
+      minClusterSize: 4,
+      fullPage: false,
+    });
+  });
+
+  it('lets explicit screenshot properties override configured browser metadata', () => {
+    let story = { id: 'button--primary', title: 'Button', name: 'Primary' };
+    let viewport = { name: 'desktop', width: 1920, height: 1080 };
+    let properties = generateScreenshotProperties(
+      story,
+      viewport,
+      'http://localhost:6006/iframe.html?id=button--primary',
+      {
+        browser: 'webkit',
+        properties: { browser: 'firefox' },
+      }
+    );
+
+    assert.equal(properties.browser, 'firefox');
   });
 });
 
@@ -84,10 +133,24 @@ describe('captureScreenshot', () => {
       timeout: 45000,
     });
   });
+
+  it('uses caller-provided screenshot timeout', async () => {
+    let mockBuffer = Buffer.from('fake-screenshot');
+    let mockScreenshot = mock.fn(() => mockBuffer);
+    let mockPage = { screenshot: mockScreenshot };
+
+    await captureScreenshot(mockPage, { timeout: 30_000 });
+
+    assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
+      fullPage: true,
+      omitBackground: false,
+      timeout: 30_000,
+    });
+  });
 });
 
 describe('captureAndSendScreenshot', () => {
-  it('should send the iframe URL for isolated story preview', async () => {
+  it('should send story and viewport metadata for isolated story preview', async () => {
     let mockVizzly = mock.fn(async () => {});
     _setVizzlyScreenshot(mockVizzly);
 
@@ -99,14 +162,22 @@ describe('captureAndSendScreenshot', () => {
       url: () => iframeUrl,
     };
     let story = { id: 'button--primary', title: 'Button', name: 'Primary' };
-    let viewport = { name: 'desktop' };
+    let viewport = { name: 'desktop', width: 1920, height: 1080 };
 
     await captureAndSendScreenshot(mockPage, story, viewport);
 
     assert.equal(mockVizzly.mock.calls.length, 1);
     let [name, , options] = mockVizzly.mock.calls[0].arguments;
     assert.equal(name, 'Button-Primary@desktop');
-    assert.equal(options.properties.url, iframeUrl);
+    assert.deepEqual(options.properties, {
+      storyId: 'button--primary',
+      storyTitle: 'Button',
+      storyName: 'Primary',
+      viewport: 'desktop',
+      viewport_width: 1920,
+      viewport_height: 1080,
+      url: iframeUrl,
+    });
   });
 
   it('should pass screenshot options through', async () => {
@@ -132,5 +203,35 @@ describe('captureAndSendScreenshot', () => {
       omitBackground: false,
       timeout: 45000,
     });
+  });
+
+  it('passes request timeout to the Vizzly client transport', async () => {
+    let mockVizzly = mock.fn(async () => {});
+    _setVizzlyScreenshot(mockVizzly);
+
+    let mockBuffer = Buffer.from('fake-screenshot');
+    let mockScreenshot = mock.fn(() => mockBuffer);
+    let mockPage = {
+      screenshot: mockScreenshot,
+      url: () =>
+        'http://localhost:6006/iframe.html?id=card--default&viewMode=story',
+    };
+    let story = { id: 'card--default', title: 'Card', name: 'Default' };
+    let viewport = { name: 'desktop', width: 1920, height: 1080 };
+
+    await captureAndSendScreenshot(mockPage, story, viewport, {
+      timeout: 30_000,
+      requestTimeout: 60_000,
+    });
+
+    assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
+      fullPage: true,
+      omitBackground: false,
+      timeout: 30_000,
+    });
+
+    let [, , options] = mockVizzly.mock.calls[0].arguments;
+    assert.equal(options.requestTimeout, 60_000);
+    assert.equal(options.properties.requestTimeout, undefined);
   });
 });

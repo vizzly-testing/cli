@@ -50,6 +50,7 @@ describe('parseViewport', () => {
 
   it('should return null for invalid format', () => {
     assert.equal(parseViewport('invalid'), null);
+    assert.equal(parseViewport('mobile-375x667'), null);
     assert.equal(parseViewport('mobile:375'), null);
     assert.equal(parseViewport('mobile:375x'), null);
     assert.equal(parseViewport(':375x667'), null);

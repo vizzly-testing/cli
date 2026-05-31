@@ -30,6 +30,15 @@ describe('patterns', () => {
       assert.ok(filtered.every(p => p.path.startsWith('/blog/')));
     });
 
+    it('matches docs-style patterns against crawler paths with leading slash', () => {
+      let pages = [{ path: '/blog/post-1' }, { path: '/products/widget' }];
+
+      let filtered = filterByPattern(pages, 'blog/*', null);
+
+      assert.strictEqual(filtered.length, 1);
+      assert.strictEqual(filtered[0].path, '/blog/post-1');
+    });
+
     it('filters by exclude pattern', () => {
       let pages = [
         { path: '/' },
@@ -102,6 +111,16 @@ describe('patterns', () => {
       let mockHook = () => {};
       let page = { path: '/blog/post-1' };
       let hooks = { '/blog/*': mockHook };
+
+      let hook = findMatchingHook(page, hooks);
+
+      assert.strictEqual(hook, mockHook);
+    });
+
+    it('matches hooks without requiring a leading slash', () => {
+      let mockHook = () => {};
+      let page = { path: '/products/widget' };
+      let hooks = { 'products/*': mockHook };
 
       let hook = findMatchingHook(page, hooks);
 

@@ -58,6 +58,41 @@ function hasApiToken(config) {
   return !!(config?.apiKey || process.env.VIZZLY_TOKEN);
 }
 
+export function buildCloudRunOptions(vizzlyConfig = {}, gitInfo = {}) {
+  let runOptions = {
+    port: vizzlyConfig?.server?.port || 47392,
+    timeout: vizzlyConfig?.server?.timeout || 30000,
+    buildName:
+      vizzlyConfig?.build?.name ||
+      gitInfo.buildName ||
+      `Storybook ${new Date().toISOString()}`,
+    branch: gitInfo.branch || 'main',
+    commit: gitInfo.commit,
+    message: gitInfo.message,
+    environment: vizzlyConfig?.build?.environment,
+    eager: vizzlyConfig?.eager || false,
+    allowNoToken: false,
+    wait: false,
+    uploadAll: false,
+    pullRequestNumber: gitInfo.prNumber,
+    parallelId: vizzlyConfig?.parallelId,
+  };
+
+  if (vizzlyConfig?.comparison?.threshold != null) {
+    runOptions.threshold = vizzlyConfig.comparison.threshold;
+  }
+
+  if (vizzlyConfig?.comparison?.minClusterSize != null) {
+    runOptions.minClusterSize = vizzlyConfig.comparison.minClusterSize;
+  }
+
+  return runOptions;
+}
+
+export function buildFinalizeSuccess(errors = []) {
+  return errors.length === 0;
+}
+
 /**
  * Main run function - orchestrates the entire screenshot capture process
  * Uses a tab pool for efficient parallel screenshot capture
@@ -120,49 +155,29 @@ export async function run(storybookPath, options = {}, context = {}) {
         });
 
         // Detect git info using CLI's plugin API (preferred) or fallback to env vars
-        let branch, commit, message, buildName, pullRequestNumber;
+        let gitInfo;
 
         if (services.git?.detect) {
           // Use CLI's git detection (correct handling of CI environments)
-          let gitInfo = await services.git.detect({ buildPrefix: 'Storybook' });
-          branch = gitInfo.branch;
-          commit = gitInfo.commit;
-          message = gitInfo.message;
-          buildName = vizzlyConfig?.build?.name || gitInfo.buildName;
-          pullRequestNumber = gitInfo.prNumber;
+          gitInfo = await services.git.detect({ buildPrefix: 'Storybook' });
         } else {
           // Fallback for older CLI versions - use environment variables
           output.warn(
             '⚠️  Upgrade to @vizzly-testing/cli@>=0.25.0 for improved git detection'
           );
-          branch = process.env.VIZZLY_BRANCH || 'main';
-          commit = process.env.VIZZLY_COMMIT_SHA || undefined;
-          message = process.env.VIZZLY_COMMIT_MESSAGE || undefined;
-          buildName =
-            vizzlyConfig?.build?.name ||
-            `Storybook ${new Date().toISOString()}`;
-          pullRequestNumber = process.env.VIZZLY_PR_NUMBER
-            ? parseInt(process.env.VIZZLY_PR_NUMBER, 10)
-            : undefined;
+          gitInfo = {
+            branch: process.env.VIZZLY_BRANCH || 'main',
+            commit: process.env.VIZZLY_COMMIT_SHA || undefined,
+            message: process.env.VIZZLY_COMMIT_MESSAGE || undefined,
+            buildName: `Storybook ${new Date().toISOString()}`,
+            prNumber: process.env.VIZZLY_PR_NUMBER
+              ? parseInt(process.env.VIZZLY_PR_NUMBER, 10)
+              : undefined,
+          };
         }
 
         // Build options for API
-        let runOptions = {
-          port: vizzlyConfig?.server?.port || 47392,
-          timeout: vizzlyConfig?.server?.timeout || 30000,
-          buildName,
-          branch,
-          commit,
-          message,
-          environment: vizzlyConfig?.build?.environment,
-          threshold: vizzlyConfig?.comparison?.threshold || 0,
-          eager: vizzlyConfig?.eager || false,
-          allowNoToken: false,
-          wait: false,
-          uploadAll: false,
-          pullRequestNumber,
-          parallelId: vizzlyConfig?.parallelId,
-        };
+        let runOptions = buildCloudRunOptions(vizzlyConfig, gitInfo);
 
         // Create build via API
         buildId = await testRunner.createBuild(runOptions, false);
@@ -199,6 +214,10 @@ export async function run(storybookPath, options = {}, context = {}) {
 
     if (stories.length === 0) {
       output.warn('⚠️  No stories found');
+      if (testRunner && buildId) {
+        let executionTime = Date.now() - startTime;
+        await testRunner.finalizeBuild(buildId, false, true, executionTime);
+      }
       return;
     }
 
@@ -226,7 +245,12 @@ export async function run(storybookPath, options = {}, context = {}) {
     // Finalize build in run mode
     if (testRunner && buildId) {
       let executionTime = Date.now() - startTime;
-      await testRunner.finalizeBuild(buildId, false, true, executionTime);
+      await testRunner.finalizeBuild(
+        buildId,
+        false,
+        buildFinalizeSuccess(errors),
+        executionTime
+      );
 
       if (buildUrl) {
         output.info(`🔗 View results: ${buildUrl}`);

@@ -118,6 +118,15 @@ describe('crawler', () => {
       assert.strictEqual(url, 'http://localhost:3000/about.html');
     });
 
+    it('preserves explicit html paths from sitemaps', () => {
+      let baseUrl = 'http://localhost:3000';
+      let page = { path: '/about.html' };
+
+      let url = generatePageUrl(baseUrl, page);
+
+      assert.strictEqual(url, 'http://localhost:3000/about.html');
+    });
+
     it('handles trailing slash', () => {
       let baseUrl = 'http://localhost:3000';
       let page = { path: '/blog/' };

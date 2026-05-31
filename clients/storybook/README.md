@@ -52,7 +52,7 @@ import { run } from '@vizzly-testing/storybook';
 
 await run('./storybook-static', {
   viewports: 'mobile:375x667,desktop:1920x1080',
-  concurrency: 3,
+  concurrency: 4,
 }, {
   output: console,
 });
@@ -67,6 +67,11 @@ Add a `storybook` section to your `vizzly.config.js` file:
 ```javascript
 // vizzly.config.js
 export default {
+  comparison: {
+    threshold: 0.1,
+    minClusterSize: 2,
+  },
+
   storybook: {
     viewports: [
       { name: 'mobile', width: 375, height: 667 },
@@ -75,6 +80,7 @@ export default {
     ],
 
     browser: {
+      type: 'chromium',
       headless: true,
       args: ['--no-sandbox'],
     },
@@ -82,9 +88,12 @@ export default {
     screenshot: {
       fullPage: true,
       omitBackground: false,
+      timeout: 45000,
+      requestTimeout: 60000,
     },
 
-    concurrency: 3,
+    // Concurrency auto-detected from CPU cores (min 2, max 8)
+    // concurrency: 4,
 
     include: 'components/**',
     exclude: '**/*.test',
@@ -102,12 +111,19 @@ export default {
 };
 ```
 
+The shared top-level `comparison` section controls cloud/run thresholds. The
+`storybook` section handles capture behavior, browser settings, viewports, and
+per-story metadata.
+
 Run `vizzly init` to generate a config file with sensible defaults.
 
 ### Per-Story Configuration
 
 You can configure specific stories by adding tags and `vizzly` parameters in your story files.
-Use `tags: ['vizzly-skip']` as the primary way to skip screenshot capture:
+Use `tags: ['vizzly-skip']` as the primary way to skip screenshot capture. The
+`parameters.vizzly.screenshot` object can also carry custom `properties`, plus
+`threshold`, `minClusterSize`, `fullPage`, `omitBackground`, `timeout`, and
+`requestTimeout` when you need per-story overrides:
 
 ```javascript
 // Button.stories.js
@@ -145,14 +161,18 @@ Configuration is merged in this order (later overrides earlier):
 ## CLI Options
 
 - `--viewports <list>` - Comma-separated viewport definitions (format: `name:WxH`)
-- `--concurrency <n>` - Number of parallel stories to process (default: 3)
+- `--concurrency <n>` - Number of parallel stories to process (default: auto-detected based on CPU cores, min 2, max 8)
+- `--browser <type>` - Browser engine to use: `chromium`, `firefox`, or `webkit`
 - `--include <pattern>` - Include story pattern (glob)
 - `--exclude <pattern>` - Exclude story pattern (glob)
 - `--config <path>` - Path to custom config file
 - `--browser-args <args>` - Additional Playwright browser arguments
 - `--headless` - Run browser in headless mode (default: true)
+- `--no-headless` - Run browser with a visible window
 - `--full-page` - Capture full page screenshots (default: true)
 - `--no-full-page` - Capture viewport-only screenshots
+- `--timeout <ms>` - Screenshot capture timeout in milliseconds (default: 45000)
+- `--request-timeout <ms>` - Vizzly screenshot request timeout in milliseconds
 
 ## Interaction Hooks
 
@@ -213,13 +233,13 @@ Patterns support glob-like syntax:
 Screenshots are named using the format:
 
 ```
-ComponentName/StoryName@viewportName
+ComponentName-StoryName@viewportName
 ```
 
 Examples:
-- `Button/Primary@mobile`
-- `Card/WithImage@desktop`
-- `Components/Atoms/Input/Default@tablet`
+- `Button-Primary@mobile`
+- `Card-WithImage@desktop`
+- `Components-Atoms-Input-Default@tablet`
 
 ## Visual Development Workflow
 
@@ -279,9 +299,7 @@ No need to wrap with `vizzly run` - the plugin handles everything!
 
 ## Supported Storybook Versions
 
-- Storybook v6.x
-- Storybook v7.x
-- Storybook v8.x
+- Storybook v6.x through v10.x
 
 ## Example Workflow
 

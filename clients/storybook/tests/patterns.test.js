@@ -20,9 +20,14 @@ describe('matchPattern', () => {
     assert.ok(matchPattern('button--secondary', 'button*'));
   });
 
+  it('should not match across path segments with a single wildcard', () => {
+    assert.ok(!matchPattern('components/button', 'components*button'));
+  });
+
   it('should match with double wildcard', () => {
     assert.ok(matchPattern('components/atoms/button', 'components/**'));
     assert.ok(matchPattern('components/atoms/button/primary', 'components/**'));
+    assert.ok(matchPattern('components/atoms/button', '**/button'));
   });
 
   it('should not match different strings', () => {
@@ -32,11 +37,13 @@ describe('matchPattern', () => {
   it('should return true for empty pattern', () => {
     assert.ok(matchPattern('anything', ''));
     assert.ok(matchPattern('anything', null));
+    assert.ok(matchPattern('anything', undefined));
   });
 
   it('should return false for empty string', () => {
     assert.ok(!matchPattern('', 'pattern'));
     assert.ok(!matchPattern(null, 'pattern'));
+    assert.ok(!matchPattern(undefined, 'pattern'));
   });
 });
 
@@ -52,6 +59,22 @@ describe('filterByPattern', () => {
 
     assert.equal(filtered.length, 2);
     assert.ok(filtered.every(s => s.id.startsWith('button')));
+  });
+
+  it('should match docs-style title/name globs against Storybook ids', () => {
+    let titleStories = [
+      {
+        id: 'components-button--primary',
+        title: 'Components/Button',
+        name: 'Primary',
+      },
+      { id: 'forms-input--basic', title: 'Forms/Input', name: 'Basic' },
+    ];
+
+    let filtered = filterByPattern(titleStories, 'components/**', null);
+
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].id, 'components-button--primary');
   });
 
   it('should filter by exclude pattern', () => {
@@ -91,6 +114,22 @@ describe('findMatchingHook', () => {
       'button*': hook,
     };
     let story = { id: 'button--primary' };
+
+    let result = findMatchingHook(story, interactions);
+
+    assert.equal(result, hook);
+  });
+
+  it('should find hooks from title/name patterns', () => {
+    let hook = () => {};
+    let interactions = {
+      'Button/*': hook,
+    };
+    let story = {
+      id: 'components-button--primary',
+      title: 'Button',
+      name: 'Primary',
+    };
 
     let result = findMatchingHook(story, interactions);
 

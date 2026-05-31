@@ -34,6 +34,7 @@ export let defaultConfig = {
   screenshot: {
     fullPage: true,
     omitBackground: false,
+    timeout: 45_000,
   },
   concurrency: getDefaultConcurrency(),
   include: null,
@@ -57,6 +58,9 @@ export function parseCliOptions(options) {
   }
 
   if (options.concurrency !== undefined) {
+    if (!Number.isInteger(options.concurrency) || options.concurrency < 1) {
+      throw new Error('concurrency must be a positive integer');
+    }
     config.concurrency = options.concurrency;
   }
 
@@ -83,6 +87,17 @@ export function parseCliOptions(options) {
 
   if (options.fullPage !== undefined) {
     config.screenshot = { ...config.screenshot, fullPage: options.fullPage };
+  }
+
+  if (options.timeout !== undefined) {
+    config.screenshot = { ...config.screenshot, timeout: options.timeout };
+  }
+
+  if (options.requestTimeout !== undefined) {
+    config.screenshot = {
+      ...config.screenshot,
+      requestTimeout: options.requestTimeout,
+    };
   }
 
   return config;

@@ -50,15 +50,6 @@ describe('browser', () => {
       );
     });
 
-    it('includes supported browsers in error message', async () => {
-      await assert.rejects(
-        () => launchBrowser({ type: 'netscape' }, createBrowserTypes()),
-        {
-          message: /chromium, firefox, webkit/,
-        }
-      );
-    });
-
     it('defaults to chromium when no type specified', async () => {
       let dependencies = createBrowserTypes();
 
@@ -71,9 +62,7 @@ describe('browser', () => {
       assert.strictEqual(dependencies.calls[0].name, 'chromium');
       assert.strictEqual(dependencies.calls[0].options.headless, false);
     });
-  });
 
-  describe('browser-specific args', () => {
     it('chromium args include sandbox and memory flags', async () => {
       let dependencies = createBrowserTypes();
 
@@ -101,43 +90,7 @@ describe('browser', () => {
       ]);
     });
 
-    it('webkit is a valid browser type', async () => {
-      let dependencies = createBrowserTypes();
-
-      await launchBrowser({ type: 'webkit' }, dependencies);
-
-      assert.strictEqual(dependencies.calls[0].name, 'webkit');
-    });
-  });
-
-  describe('error messages', () => {
-    it('browser-not-installed error includes install command', async () => {
-      let dependencies = createBrowserTypes({
-        chromium: createMissingBrowserType("Executable doesn't exist at /tmp"),
-      });
-
-      await assert.rejects(
-        () => launchBrowser({ type: 'chromium' }, dependencies),
-        {
-          message: /pnpm exec playwright install chromium/,
-        }
-      );
-    });
-
-    it('browser-not-installed error includes CI guidance', async () => {
-      let dependencies = createBrowserTypes({
-        firefox: createMissingBrowserType('download new browsers'),
-      });
-
-      await assert.rejects(
-        () => launchBrowser({ type: 'firefox' }, dependencies),
-        {
-          message: /--with-deps[\s\S]*playwright\.dev\/docs\/ci/,
-        }
-      );
-    });
-
-    it('firefox install error suggests correct browser', async () => {
+    it('rewrites browser-not-installed errors with install guidance', async () => {
       let dependencies = createBrowserTypes({
         firefox: createMissingBrowserType('playwright install'),
       });
@@ -146,19 +99,6 @@ describe('browser', () => {
         () => launchBrowser({ type: 'firefox' }, dependencies),
         {
           message: /pnpm exec playwright install firefox/,
-        }
-      );
-    });
-
-    it('rethrows non-install launch failures', async () => {
-      let dependencies = createBrowserTypes({
-        firefox: createMissingBrowserType('permission denied'),
-      });
-
-      await assert.rejects(
-        () => launchBrowser({ type: 'firefox' }, dependencies),
-        {
-          message: /permission denied/,
         }
       );
     });

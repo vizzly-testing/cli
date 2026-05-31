@@ -232,7 +232,7 @@ describe('server/routers/screenshot', () => {
         assert.strictEqual(capturedType, undefined);
       });
 
-      it('forwards build id, image, properties, and type unchanged', async () => {
+      it('forwards build id, image, properties, type, and warnings unchanged', async () => {
         let capturedArgs = null;
         let screenshotHandler = {
           handleScreenshot: async (...args) => {
@@ -259,6 +259,7 @@ describe('server/routers/screenshot', () => {
           image: 'base64data',
           properties,
           type: 'base64',
+          warnings: [{ code: 'reserved-property-option', option: 'threshold' }],
         });
         let res = createMockResponse();
 
@@ -270,6 +271,7 @@ describe('server/routers/screenshot', () => {
           'base64data',
           properties,
           'base64',
+          [{ code: 'reserved-property-option', option: 'threshold' }],
         ]);
       });
 

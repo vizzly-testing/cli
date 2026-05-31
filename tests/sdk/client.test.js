@@ -365,9 +365,16 @@ describe('client/index httpPost integration tests', () => {
   let server;
   let serverPort;
   let requests = [];
+  let originalConsoleWarn;
+  let consoleWarnings = [];
 
   beforeEach(async () => {
     requests = [];
+    consoleWarnings = [];
+    originalConsoleWarn = console.warn;
+    console.warn = (...args) => {
+      consoleWarnings.push(args.join(' '));
+    };
 
     // Create a real HTTP server to test the httpPost function
     server = createServer((req, res) => {
@@ -429,13 +436,14 @@ describe('client/index httpPost integration tests', () => {
     // Close all keep-alive connections before closing server
     await closeServer(server);
     configure({ enabled: false });
+    console.warn = originalConsoleWarn;
   });
 
   it('makes HTTP POST request to screenshot endpoint', async () => {
     let result = await vizzlyScreenshot(
       'integration-test',
       Buffer.from('fake-png-data'),
-      { browser: 'chrome' }
+      { properties: { browser: 'chrome' } }
     );
 
     assert.strictEqual(result.success, true);
@@ -480,7 +488,6 @@ describe('client/index httpPost integration tests', () => {
     assert.strictEqual(threshold, undefined);
     assert.strictEqual(minClusterSize, undefined);
     assert.deepStrictEqual(properties, {
-      browser: 'firefox',
       url: 'http://localhost:3000',
       threshold: 0.1,
       minClusterSize: 4,
@@ -503,9 +510,40 @@ describe('client/index httpPost integration tests', () => {
       threshold: 0,
       minClusterSize: 2,
     });
+    assert.deepStrictEqual(
+      requests[0].body.warnings.map(warning => warning.option),
+      ['threshold', 'minClusterSize']
+    );
+    assert.ok(
+      consoleWarnings.some(warning =>
+        warning.includes('Move "threshold" out of properties')
+      )
+    );
   });
 
-  it('lets explicit top-level metadata override nested properties', async () => {
+  it('promotes reserved property options and returns warnings', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      properties: {
+        theme: 'dark',
+        buildId: 'build-from-properties',
+        requestTimeout: 30_000,
+        threshold: 1,
+      },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.strictEqual(requests[0].body.buildId, 'build-from-properties');
+    assert.deepStrictEqual(requests[0].body.properties, {
+      theme: 'dark',
+      threshold: 1,
+    });
+    assert.deepStrictEqual(
+      requests[0].body.warnings.map(warning => warning.option),
+      ['buildId', 'requestTimeout', 'threshold']
+    );
+  });
+
+  it('ignores arbitrary top-level metadata outside the user properties bag', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'), {
       browser: 'chromium',
       url: 'http://localhost:3000/current',
@@ -520,9 +558,9 @@ describe('client/index httpPost integration tests', () => {
 
     assert.strictEqual(requests.length, 1);
     assert.deepStrictEqual(requests[0].body.properties, {
-      browser: 'chromium',
-      url: 'http://localhost:3000/current',
-      viewport: { width: 1440, height: 900 },
+      browser: 'firefox',
+      url: 'http://stale.example',
+      viewport: { width: 375, height: 667 },
       theme: 'dark',
     });
   });

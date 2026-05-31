@@ -47,14 +47,6 @@ expectType<Promise<ScreenshotResult | null>>(
   })
 );
 
-// Should accept top-level screenshot properties
-expectType<Promise<ScreenshotResult | null>>(
-  vizzlyScreenshot('test', Buffer.from('test'), {
-    browser: 'chrome',
-    viewport: { width: 1920, height: 1080 },
-  })
-);
-
 // Should accept partial options
 expectType<Promise<ScreenshotResult | null>>(
   vizzlyScreenshot('test', Buffer.from('test'), { threshold: 10 })
@@ -70,6 +62,9 @@ expectError(vizzlyScreenshot('test', 123));
 expectError(vizzlyScreenshot('test', Buffer.from('test'), { threshold: 'high' }));
 expectError(
   vizzlyScreenshot('test', Buffer.from('test'), { requestTimeout: 'fast' })
+);
+expectError(
+  vizzlyScreenshot('test', Buffer.from('test'), { browser: 'chrome' })
 );
 
 // ============================================================================

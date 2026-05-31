@@ -82,7 +82,6 @@ export interface ScreenshotOptions {
   buildId?: string;
   /** Client-side HTTP timeout in milliseconds; not stored as metadata. */
   requestTimeout?: number;
-  [key: string]: unknown;
 }
 
 export interface ScreenshotResult {

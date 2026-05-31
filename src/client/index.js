@@ -13,7 +13,7 @@ import {
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
-import { createScreenshotProperties } from '../utils/screenshot-options.js';
+import { normalizeScreenshotOptions } from '../utils/screenshot-options.js';
 
 // Internal client state
 let currentClient = null;
@@ -212,7 +212,13 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
 
   return {
     async screenshot(name, imageBuffer, options = {}) {
-      let requestTimeout = options.requestTimeout || DEFAULT_TIMEOUT_MS;
+      let normalizedOptions = normalizeScreenshotOptions(options);
+      let requestTimeout =
+        normalizedOptions.requestTimeout || DEFAULT_TIMEOUT_MS;
+
+      for (let warning of normalizedOptions.warnings) {
+        console.warn(`[vizzly] ${warning.message}`);
+      }
 
       try {
         // If it's a string, assume it's a file path and send directly
@@ -221,17 +227,16 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
 
-        let properties = createScreenshotProperties(options);
-
         let httpStart = Date.now();
         let { status, json } = await httpPost(
           `${serverUrl}/screenshot`,
           {
-            buildId: options.buildId ?? getBuildId(),
+            buildId: normalizedOptions.buildId ?? getBuildId(),
             name,
             image,
             type,
-            properties,
+            properties: normalizedOptions.properties,
+            warnings: normalizedOptions.warnings,
           },
           requestTimeout
         );

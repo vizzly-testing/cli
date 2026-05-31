@@ -54,7 +54,8 @@ export const createApiHandler = (
     name,
     image,
     properties = {},
-    type
+    type,
+    warnings = []
   ) => {
     let handlerStart = Date.now();
     output.debug('upload', `${name} received`, {
@@ -187,6 +188,7 @@ export const createApiHandler = (
         success: true,
         name,
         count: screenshotCount,
+        warnings,
       },
     };
   };

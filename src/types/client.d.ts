@@ -74,9 +74,9 @@ export interface ScreenshotResult {
  *   requestTimeout: 5000
  * });
  *
- * Top-level `browser`, `viewport`, `threshold`, `minClusterSize`, and
- * `fullPage` values are normalized into screenshot metadata. `requestTimeout`
- * stays on the client request, and `buildId` only tags the upload request.
+ * `properties` is the user metadata bag. Comparison options are normalized
+ * into the server metadata payload, while `requestTimeout` stays on the
+ * client request and `buildId` only routes the screenshot to a build.
  */
 export function vizzlyScreenshot(
   name: string,
@@ -90,7 +90,6 @@ export function vizzlyScreenshot(
     buildId?: string;
     /** Client-side HTTP timeout in milliseconds; not stored as metadata. */
     requestTimeout?: number;
-    [key: string]: unknown;
   }
 ): Promise<ScreenshotResult | null>;
 

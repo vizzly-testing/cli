@@ -17,6 +17,7 @@ import {
   ComputerDesktopIcon,
   CubeTransparentIcon,
   DocumentMagnifyingGlassIcon,
+  ExclamationTriangleIcon,
   InformationCircleIcon,
   ListBulletIcon,
   MapPinIcon,
@@ -742,6 +743,21 @@ function FullscreenViewerInner({
               </Badge>
             </div>
           </InspectorPanel.Section>
+
+          {comparison.warnings?.length > 0 && (
+            <InspectorPanel.Section
+              title="Warnings"
+              icon={ExclamationTriangleIcon}
+            >
+              {comparison.warnings.map(warning => (
+                <InspectorPanel.Row
+                  key={`${warning.code}-${warning.option}`}
+                  label={warning.option || 'Warning'}
+                  value={warning.message}
+                />
+              ))}
+            </InspectorPanel.Section>
+          )}
 
           {/* Screenshot details */}
           <InspectorPanel.Section title="Screenshot" icon={ComputerDesktopIcon}>

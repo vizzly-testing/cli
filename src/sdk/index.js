@@ -23,7 +23,7 @@ import { createUploader } from '../uploader/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { resolveImageBuffer } from '../utils/file-helpers.js';
 import * as output from '../utils/output.js';
-import { createScreenshotProperties } from '../utils/screenshot-options.js';
+import { normalizeScreenshotOptions } from '../utils/screenshot-options.js';
 
 /**
  * Create a new Vizzly instance with custom configuration
@@ -319,8 +319,16 @@ export class VizzlySDK extends EventEmitter {
     // Resolve Buffer or file path using shared utility
     let buffer = resolveImageBuffer(imageBuffer, 'screenshot');
 
+    let normalizedOptions = normalizeScreenshotOptions(options);
+    for (let warning of normalizedOptions.warnings) {
+      output.warn(warning.message, {
+        code: warning.code,
+        option: warning.option,
+      });
+    }
+
     // Generate or use provided build ID
-    let buildId = options.buildId || this.currentBuildId || 'default';
+    let buildId = normalizedOptions.buildId || this.currentBuildId || 'default';
     this.currentBuildId = buildId;
 
     // Convert Buffer to base64 for JSON transport
@@ -331,7 +339,8 @@ export class VizzlySDK extends EventEmitter {
       name,
       image: imageBase64,
       type: 'base64',
-      properties: createScreenshotProperties(options),
+      properties: normalizedOptions.properties,
+      warnings: normalizedOptions.warnings,
     };
 
     // POST to the local screenshot server

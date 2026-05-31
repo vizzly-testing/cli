@@ -35,6 +35,9 @@ For agent-friendly repos, install the Vizzly skill and add a short project
 vizzly init --agent-guidance
 ```
 
+Use `vizzly init --agent-skill` to install only the local skill, or
+`vizzly init --skip-agent-skill` when you want config without the agent prompt.
+
 ### Start Local TDD
 
 Start the TDD server, run your tests, and open the dashboard at
@@ -54,8 +57,13 @@ Use cloud builds when you want shared baselines, team review, and CI status:
 
 ```bash
 vizzly login
+vizzly project link your-org/your-project
 vizzly run "pnpm test" --wait
 ```
+
+`vizzly login` authenticates your user account. `vizzly project link` creates a
+project-scoped upload credential for this checkout, which `vizzly run` uses for
+cloud uploads.
 
 `--wait` blocks until Vizzly finishes processing the build. It exits with code
 `1` when visual differences need review.
@@ -112,10 +120,18 @@ test('homepage looks correct', async ({ page }) => {
   let screenshot = await page.screenshot();
   await vizzlyScreenshot('homepage', screenshot, {
     browser: 'chrome',
-    viewport: '1920x1080'
+    viewport: { width: 1920, height: 1080 },
+    fullPage: true,
+    requestTimeout: 5000,
   });
 });
 ```
+
+Top-level screenshot options that are not transport-specific are normalized
+into Vizzly metadata, so `browser`, `viewport`, `threshold`,
+`minClusterSize`, and `fullPage` are equivalent to passing them inside
+`properties`. `requestTimeout` stays on the client request, and `buildId`
+is sent with the screenshot request to group it with the correct build.
 
 The client SDK is lightweight. It posts screenshots to the local Vizzly server
 or the cloud build wrapper. It works with any test runner.
@@ -136,8 +152,23 @@ await vizzlyScreenshot('homepage', './screenshots/homepage.png');
 Or upload an existing folder of screenshots:
 
 ```bash
-vizzly upload ./screenshots
+vizzly upload ./screenshots --threshold 2 --min-cluster-size 4 --batch-size 10 --upload-timeout 60000
 ```
+
+`--batch-size` controls how many screenshots are uploaded per request, and
+`--upload-timeout` controls how long `vizzly upload --wait` waits for build
+processing.
+
+CI workflows can force every screenshot through even when the SHA cache says it
+already uploaded, and parallel jobs can share a build with a stable ID:
+
+```bash
+vizzly run "pnpm test" --wait --upload-all --parallel-id "$CI_NODE_INDEX"
+```
+
+For smoke jobs where cloud credentials are intentionally unavailable, add
+`--allow-no-token` to `vizzly run` and Vizzly will keep the local screenshot
+server path working without creating a cloud build.
 
 ## Configuration
 

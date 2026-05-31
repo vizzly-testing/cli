@@ -1,6 +1,7 @@
 # Chrome Browser Flags
 
 This document covers the Chrome command-line flags used by the Storybook and Static-Site SDKs when launching browsers via Playwright.
+The Ember launcher also uses the same sandbox and CI stability subset.
 
 ## Why Playwright?
 
@@ -23,6 +24,7 @@ When auditing or updating flags, always check these sources. Flags get deprecate
 Located in:
 - `clients/storybook/src/browser.js`
 - `clients/static-site/src/browser.js`
+- `clients/ember/src/launcher/browser.js`
 
 ### Container/CI Requirements
 
@@ -31,6 +33,9 @@ Located in:
 | `--no-sandbox` | Required for running in containers without root |
 | `--disable-setuid-sandbox` | Disable setuid sandbox (Linux only) |
 | `--disable-dev-shm-usage` | Use /tmp instead of /dev/shm (often too small in Docker) |
+
+Ember uses this smaller subset plus `--disable-extensions` in CI because Testem
+owns the rest of the browser lifecycle.
 
 ### Disable Unnecessary Features
 

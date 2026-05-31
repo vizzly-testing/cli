@@ -171,6 +171,56 @@ describe('sdk/index', () => {
       assert.strictEqual(capturedUploadOptions.threshold, 0);
     });
 
+    it('uses nested config defaults and forwards upload tracking options', async () => {
+      let capturedUploadOptions = null;
+      let sdk = new VizzlySDK(
+        {
+          build: {
+            name: 'Config Build',
+            branch: 'feature/config',
+            commit: 'abc123',
+            message: 'Config message',
+            environment: 'staging',
+          },
+          comparison: {
+            threshold: 2,
+            minClusterSize: 4,
+          },
+          parallelId: 'config-parallel',
+          upload: { screenshotsDir: './configured-screenshots' },
+        },
+        {
+          createUploader: () => ({
+            upload: async uploadOptions => {
+              capturedUploadOptions = uploadOptions;
+              return { buildId: 'build-123' };
+            },
+          }),
+        }
+      );
+
+      await sdk.upload({
+        metadata: { ci: 'github' },
+        pullRequestNumber: 42,
+      });
+
+      assert.deepStrictEqual(capturedUploadOptions, {
+        screenshotsDir: './configured-screenshots',
+        buildName: 'Config Build',
+        branch: 'feature/config',
+        commit: 'abc123',
+        message: 'Config message',
+        environment: 'staging',
+        threshold: 2,
+        minClusterSize: 4,
+        metadata: { ci: 'github' },
+        pullRequestNumber: 42,
+        parallelId: 'config-parallel',
+        onProgress: capturedUploadOptions.onProgress,
+      });
+      assert.strictEqual(typeof capturedUploadOptions.onProgress, 'function');
+    });
+
     it('starts once, captures screenshots through the local server, and stops', async () => {
       let running = false;
       let stopped = false;

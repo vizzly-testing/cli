@@ -10,6 +10,8 @@ describe('services/build-manager', () => {
           name: 'Test Build',
           branch: 'main',
           commit: 'abc123',
+          message: 'Test commit',
+          parallelId: 'parallel-1',
           metadata: { ci: true },
         },
         {
@@ -23,7 +25,9 @@ describe('services/build-manager', () => {
         name: 'Test Build',
         branch: 'main',
         commit: 'abc123',
+        message: 'Test commit',
         environment: 'test',
+        parallelId: 'parallel-1',
         metadata: { ci: true },
         status: 'pending',
         createdAt: '2026-05-18T12:00:00.000Z',
@@ -46,6 +50,18 @@ describe('services/build-manager', () => {
       assert.strictEqual(build.branch, 'main');
       assert.strictEqual(build.environment, 'test');
       assert.deepStrictEqual(build.metadata, {});
+    });
+
+    it('uses buildName as the name fallback', () => {
+      let build = createBuildObject(
+        { buildName: 'Fallback Build' },
+        {
+          randomId: () => 'fallback-id',
+          now: () => '2026-05-18T12:00:00.000Z',
+        }
+      );
+
+      assert.strictEqual(build.name, 'Fallback Build');
     });
   });
 });

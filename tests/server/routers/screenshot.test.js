@@ -232,6 +232,47 @@ describe('server/routers/screenshot', () => {
         assert.strictEqual(capturedType, undefined);
       });
 
+      it('forwards build id, image, properties, and type unchanged', async () => {
+        let capturedArgs = null;
+        let screenshotHandler = {
+          handleScreenshot: async (...args) => {
+            capturedArgs = args;
+            return { statusCode: 200, body: { success: true } };
+          },
+        };
+        let properties = {
+          browser: 'firefox',
+          viewport_width: 1280,
+          viewport_height: 720,
+          threshold: 0,
+          minClusterSize: 2,
+          fullPage: false,
+        };
+
+        let handler = createScreenshotRouter({
+          screenshotHandler,
+          defaultBuildId: 'default-build',
+        });
+        let req = createMockRequest('POST', {
+          buildId: 'build-from-sdk',
+          name: 'dashboard',
+          image: 'base64data',
+          properties,
+          type: 'base64',
+        });
+        let res = createMockResponse();
+
+        await handler(req, res, '/screenshot');
+
+        assert.deepStrictEqual(capturedArgs, [
+          'build-from-sdk',
+          'dashboard',
+          'base64data',
+          properties,
+          'base64',
+        ]);
+      });
+
       it('returns 400 when name is missing', async () => {
         let handler = createScreenshotRouter({
           screenshotHandler: createMockScreenshotHandler(),
@@ -281,6 +322,37 @@ describe('server/routers/screenshot', () => {
     });
 
     describe('/flush endpoint', () => {
+      it('flushes API-mode handlers before returning success', async () => {
+        let screenshotHandler = {
+          handleScreenshot: async () => ({
+            statusCode: 200,
+            body: { success: true },
+          }),
+          flush: async () => ({
+            uploaded: 2,
+            failed: 1,
+            total: 3,
+          }),
+        };
+        let handler = createScreenshotRouter({
+          screenshotHandler,
+          defaultBuildId: 'build-1',
+        });
+        let req = createMockRequest('POST', {});
+        let res = createMockResponse();
+
+        let result = await handler(req, res, '/flush');
+
+        assert.strictEqual(result, true);
+        assert.strictEqual(res.statusCode, 200);
+        assert.deepStrictEqual(res.getParsedBody(), {
+          success: true,
+          uploaded: 2,
+          failed: 1,
+          total: 3,
+        });
+      });
+
       it('returns summary when getResults is available', async () => {
         let handler = createScreenshotRouter({
           screenshotHandler: createMockScreenshotHandler({

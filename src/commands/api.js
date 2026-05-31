@@ -84,7 +84,7 @@ export function appendApiQuery(endpoint, queryOption) {
   return endpoint + (endpoint.includes('?') ? '&' : '?') + queryString;
 }
 
-export function validateApiRequest({ endpoint, method }) {
+export function validateApiRequest({ endpoint, method, hasData = false }) {
   let errors = [];
 
   if (method !== 'GET' && method !== 'POST') {
@@ -100,13 +100,21 @@ export function validateApiRequest({ endpoint, method }) {
     );
   }
 
+  if (hasData && method !== 'POST') {
+    errors.push('Request data requires --method POST.');
+  }
+
   return errors;
 }
 
 export function buildApiRequest({ endpoint, options = {} }) {
   let normalizedEndpoint = normalizeApiEndpoint(endpoint);
   let method = normalizeApiMethod(options.method || 'GET');
-  let errors = validateApiRequest({ endpoint: normalizedEndpoint, method });
+  let errors = validateApiRequest({
+    endpoint: normalizedEndpoint,
+    method,
+    hasData: options.data !== undefined,
+  });
 
   if (errors.length > 0) {
     return { errors, method, normalizedEndpoint, requestOptions: null };
@@ -265,7 +273,13 @@ export function validateApiOptions(endpoint, options = {}) {
 
   let normalizedEndpoint = normalizeApiEndpoint(endpoint);
   let method = normalizeApiMethod(options.method || 'GET');
-  errors.push(...validateApiRequest({ endpoint: normalizedEndpoint, method }));
+  errors.push(
+    ...validateApiRequest({
+      endpoint: normalizedEndpoint,
+      method,
+      hasData: options.data !== undefined,
+    })
+  );
 
   return errors;
 }

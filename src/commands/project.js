@@ -72,7 +72,8 @@ export async function projectLinkCommand(
 
   try {
     let config = await loadConfig(globalOptions.config, globalOptions);
-    let userToken = config.userToken || (await getAccessToken());
+    let userToken =
+      config.userToken || globalOptions.token || (await getAccessToken());
 
     if (!userToken) {
       output.error('Login required before linking a project');

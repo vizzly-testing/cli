@@ -37,4 +37,25 @@ describe('createScreenshotProperties', () => {
       minClusterSize: 2,
     });
   });
+
+  it('lets explicit top-level metadata override nested properties', () => {
+    let properties = createScreenshotProperties({
+      browser: 'chromium',
+      url: 'http://localhost:3000/current',
+      viewport: { width: 1440, height: 900 },
+      properties: {
+        browser: 'firefox',
+        url: 'http://stale.example',
+        viewport: { width: 375, height: 667 },
+        theme: 'dark',
+      },
+    });
+
+    assert.deepStrictEqual(properties, {
+      browser: 'chromium',
+      url: 'http://localhost:3000/current',
+      viewport: { width: 1440, height: 900 },
+      theme: 'dark',
+    });
+  });
 });

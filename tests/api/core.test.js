@@ -425,6 +425,7 @@ describe('api/core', () => {
         browser: 'chrome',
         viewport_width: 1920,
         viewport_height: 1080,
+        properties: {},
       });
     });
 
@@ -437,6 +438,10 @@ describe('api/core', () => {
       assert.strictEqual(result.browser, 'firefox');
       assert.strictEqual(result.viewport_width, 1280);
       assert.strictEqual(result.viewport_height, 720);
+      assert.deepStrictEqual(result.properties, {
+        browser: 'firefox',
+        viewport: { width: 1280, height: 720 },
+      });
     });
 
     it('uses flat viewport_width/height from metadata', () => {
@@ -453,6 +458,7 @@ describe('api/core', () => {
       let result = buildScreenshotCheckObject('sha123', 'homepage', null);
 
       assert.strictEqual(result.browser, 'chrome');
+      assert.deepStrictEqual(result.properties, {});
     });
   });
 

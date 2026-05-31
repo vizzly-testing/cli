@@ -136,6 +136,95 @@ describe('commands/project', () => {
       );
     });
 
+    it('passes expiresAt through to the project link API', async () => {
+      let output = createOutput();
+      let capturedRequest = null;
+
+      await projectLinkCommand(
+        'vizzly/storybook',
+        {
+          name: 'Expiring Link',
+          expiresAt: '2026-06-01T00:00:00.000Z',
+        },
+        {},
+        {
+          output,
+          loadConfig: async () => ({
+            apiUrl: 'https://app.vizzly.dev',
+            userToken: 'user-jwt',
+          }),
+          createApiClient: () => ({
+            request: async (endpoint, options) => {
+              capturedRequest = { endpoint, options };
+              return {
+                organization: { slug: 'vizzly', name: 'Vizzly' },
+                project: { slug: 'storybook', name: 'Storybook' },
+                token: {
+                  id: 'token-id',
+                  token: 'vzt_secret',
+                  token_prefix: 'vzt_sec',
+                  created_at: '2026-05-20T12:00:00.000Z',
+                  expires_at: '2026-06-01T00:00:00.000Z',
+                },
+              };
+            },
+          }),
+          saveProjectLink: async link => ({
+            ...link,
+            storage: 'keychain',
+          }),
+        }
+      );
+
+      assert.deepStrictEqual(JSON.parse(capturedRequest.options.body), {
+        name: 'Expiring Link',
+        expiresAt: '2026-06-01T00:00:00.000Z',
+      });
+    });
+
+    it('uses the global token override for project link requests', async () => {
+      let output = createOutput();
+      let capturedToken = null;
+
+      await projectLinkCommand(
+        'vizzly/storybook',
+        {},
+        { token: 'cli-token' },
+        {
+          output,
+          loadConfig: async (_configPath, cliOverrides) => {
+            assert.strictEqual(cliOverrides.token, 'cli-token');
+            return { apiUrl: 'https://app.vizzly.dev' };
+          },
+          getAccessToken: async () => {
+            throw new Error('CLI token should be used before saved login');
+          },
+          createApiClient: ({ token }) => ({
+            request: async () => {
+              capturedToken = token;
+              return {
+                organization: { slug: 'vizzly', name: 'Vizzly' },
+                project: { slug: 'storybook', name: 'Storybook' },
+                token: {
+                  id: 'token-id',
+                  token: 'vzt_secret',
+                  token_prefix: 'vzt_sec',
+                  created_at: '2026-05-20T12:00:00.000Z',
+                  expires_at: null,
+                },
+              };
+            },
+          }),
+          saveProjectLink: async link => ({
+            ...link,
+            storage: 'keychain',
+          }),
+        }
+      );
+
+      assert.strictEqual(capturedToken, 'cli-token');
+    });
+
     it('asks the user to login before linking', async () => {
       let output = createOutput();
       let exitCode = null;

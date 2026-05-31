@@ -392,13 +392,18 @@ export class VizzlySDK extends EventEmitter {
 
     let uploadOptions = {
       screenshotsDir,
-      buildName: options.buildName || this.config.buildName,
-      branch: options.branch || this.config.branch,
-      commit: options.commit || this.config.commit,
-      message: options.message || this.config.message,
+      buildName: options.buildName || this.config.build?.name,
+      branch: options.branch || this.config.build?.branch,
+      commit: options.commit || this.config.build?.commit,
+      message: options.message || this.config.build?.message,
       environment:
-        options.environment || this.config.environment || 'production',
-      threshold: options.threshold ?? this.config.threshold,
+        options.environment || this.config.build?.environment || 'production',
+      threshold: options.threshold ?? this.config.comparison?.threshold,
+      minClusterSize:
+        options.minClusterSize ?? this.config.comparison?.minClusterSize,
+      metadata: options.metadata || {},
+      pullRequestNumber: options.pullRequestNumber,
+      parallelId: options.parallelId || this.config.parallelId,
       onProgress: progress => {
         this.emit('upload:progress', progress);
         if (options.onProgress) {

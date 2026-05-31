@@ -403,14 +403,22 @@ export async function upload({
     let build = await createBuild(client, buildInfo);
     let buildId = build.id;
 
-    // Check existing files
-    let { toUpload, existing, screenshots } = await checkExistingFiles({
-      fileMetadata,
-      client,
-      signal,
-      buildId,
-      deps: { checkShas, createError, output },
-    });
+    let toUpload = fileMetadata;
+    let existing = [];
+    let screenshots = [];
+
+    if (!uploadOptions.uploadAll) {
+      let existingResult = await checkExistingFiles({
+        fileMetadata,
+        client,
+        signal,
+        buildId,
+        deps: { checkShas, createError, output },
+      });
+      toUpload = existingResult.toUpload;
+      existing = existingResult.existing;
+      screenshots = existingResult.screenshots;
+    }
 
     onProgress(
       buildDeduplicationProgress(toUpload.length, existing.length, files.length)

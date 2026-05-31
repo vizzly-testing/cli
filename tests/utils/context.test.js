@@ -1,6 +1,13 @@
 import assert from 'node:assert';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { getContext, getDetailedContext } from '../../src/utils/context.js';
@@ -9,16 +16,13 @@ describe('utils/context', () => {
   let testDir;
   let originalCwd;
   let originalEnv;
-  let originalVizzlyHome;
 
   beforeEach(() => {
     originalCwd = process.cwd();
     originalEnv = { ...process.env };
-    originalVizzlyHome = process.env.VIZZLY_HOME;
 
-    // Create a temp directory for testing
-    testDir = join(homedir(), `.vizzly-test-context-${Date.now()}`);
-    mkdirSync(testDir, { recursive: true });
+    // Create a unique temp directory for testing.
+    testDir = realpathSync(mkdtempSync(join(tmpdir(), 'vizzly-test-context-')));
 
     // Set VIZZLY_HOME to our test dir to isolate from real config
     process.env.VIZZLY_HOME = join(testDir, 'vizzly-home');
@@ -28,9 +32,6 @@ describe('utils/context', () => {
   afterEach(() => {
     process.chdir(originalCwd);
     process.env = originalEnv;
-    if (originalVizzlyHome) {
-      process.env.VIZZLY_HOME = originalVizzlyHome;
-    }
 
     // Clean up test directory
     if (testDir && existsSync(testDir)) {

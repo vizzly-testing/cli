@@ -17,13 +17,19 @@ import { createScreenshotProperties } from '../utils/screenshot-options.js';
 
 // Internal client state
 let currentClient = null;
+let currentServerUrl = null;
 let isDisabled = false;
+let currentFailOnDiff = false;
 
 // Default timeout for screenshot requests (30 seconds)
 let DEFAULT_TIMEOUT_MS = 30000;
 
 // Log levels for client SDK output control
-export let LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+export let LOG_LEVELS = Object.freeze({ debug: 0, info: 1, warn: 2, error: 3 });
+
+function getEnvFailOnDiff(env = process.env) {
+  return env.VIZZLY_FAIL_ON_DIFF === 'true' || env.VIZZLY_FAIL_ON_DIFF === '1';
+}
 
 /**
  * Check if client should log at the given level
@@ -59,6 +65,7 @@ function isVizzlyDisabled() {
 function disableVizzly() {
   isDisabled = true;
   currentClient = null;
+  currentServerUrl = null;
 }
 
 /**
@@ -68,7 +75,11 @@ function disableVizzly() {
  * @returns {string|null} Server URL if found
  */
 export function autoDiscoverTddServer(startDir, deps = {}) {
-  let { exists = existsSync, readFile = readFileSync } = deps;
+  let {
+    exists = existsSync,
+    readFile = readFileSync,
+    env = process.env,
+  } = deps;
   try {
     // Look for .vizzly/server.json in current directory and parent directories
     let currentDir = startDir || process.cwd();
@@ -82,6 +93,8 @@ export function autoDiscoverTddServer(startDir, deps = {}) {
           let serverInfo = JSON.parse(readFile(serverJsonPath, 'utf8'));
           if (serverInfo.port) {
             let url = `http://localhost:${serverInfo.port}`;
+            currentFailOnDiff =
+              getEnvFailOnDiff(env) || Boolean(serverInfo.failOnDiff);
             return url;
           }
         } catch {
@@ -108,6 +121,7 @@ function getClient() {
 
   if (!currentClient) {
     let serverUrl = getServerUrl();
+    currentFailOnDiff = getEnvFailOnDiff();
 
     // Auto-detect local TDD server and enable Vizzly if TDD server is found
     if (!serverUrl) {
@@ -120,7 +134,10 @@ function getClient() {
 
     // If we have a server URL, create the client (regardless of initial enabled state)
     if (serverUrl) {
-      currentClient = createSimpleClient(serverUrl);
+      currentServerUrl = serverUrl;
+      currentClient = createSimpleClient(serverUrl, {
+        failOnDiff: currentFailOnDiff,
+      });
     }
   }
   return currentClient;
@@ -190,16 +207,19 @@ function httpPost(url, body, timeoutMs) {
  * Create a simple HTTP client for screenshots
  * @private
  */
-function createSimpleClient(serverUrl) {
+function createSimpleClient(serverUrl, clientOptions = {}) {
+  let { failOnDiff = false } = clientOptions;
+
   return {
     async screenshot(name, imageBuffer, options = {}) {
+      let requestTimeout = options.requestTimeout || DEFAULT_TIMEOUT_MS;
+
       try {
         // If it's a string, assume it's a file path and send directly
         // Otherwise it's a Buffer, so convert to base64
         let isFilePath = typeof imageBuffer === 'string';
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
-        let requestTimeout = options.requestTimeout || DEFAULT_TIMEOUT_MS;
 
         let properties = createScreenshotProperties(options);
 
@@ -207,7 +227,7 @@ function createSimpleClient(serverUrl) {
         let { status, json } = await httpPost(
           `${serverUrl}/screenshot`,
           {
-            buildId: getBuildId(),
+            buildId: options.buildId ?? getBuildId(),
             name,
             image,
             type,
@@ -230,6 +250,12 @@ function createSimpleClient(serverUrl) {
           if (status === 422 && json.tddMode && json.comparison) {
             let comp = json.comparison;
 
+            if (failOnDiff) {
+              throw new Error(
+                `Visual diff detected for "${comp.name}" (${comp.diffPercentage ?? 0}% difference)`
+              );
+            }
+
             // Return success so test continues and captures remaining screenshots
             // Visual diff details will be shown in the summary after tests complete
             return {
@@ -245,13 +271,23 @@ function createSimpleClient(serverUrl) {
           );
         }
 
+        if (
+          failOnDiff &&
+          json?.tddMode &&
+          ['diff', 'failed'].includes(json.status)
+        ) {
+          throw new Error(
+            `Visual diff detected for "${json.name || name}" (${json.diffPercentage ?? 0}% difference)`
+          );
+        }
+
         return json;
       } catch (error) {
         // Handle timeout
         if (error.message === 'Request timeout') {
           if (shouldLogClient('error')) {
             console.error(
-              `[vizzly] Screenshot timed out for "${name}" after ${DEFAULT_TIMEOUT_MS / 1000}s`
+              `[vizzly] Screenshot timed out for "${name}" after ${requestTimeout / 1000}s`
             );
           }
           disableVizzly();
@@ -339,7 +375,7 @@ function createSimpleClient(serverUrl) {
  * await vizzlyScreenshot('checkout-form', screenshot, {
  *   properties: {
  *     browser: 'chrome',
- *     viewport: '1920x1080'
+ *     viewport: { width: 1920, height: 1080 }
  *   },
  *   threshold: 5
  * });
@@ -398,10 +434,23 @@ export function isVizzlyReady() {
  * @param {boolean} [config.enabled] - Enable/disable screenshots
  */
 export function configure(config = {}) {
+  if ('failOnDiff' in config) {
+    currentFailOnDiff = config.failOnDiff === true;
+  } else if ('serverUrl' in config) {
+    currentFailOnDiff = getEnvFailOnDiff();
+  }
+
   if ('serverUrl' in config) {
+    currentServerUrl = config.serverUrl || null;
     currentClient = config.serverUrl
-      ? createSimpleClient(config.serverUrl)
+      ? createSimpleClient(config.serverUrl, {
+          failOnDiff: currentFailOnDiff,
+        })
       : null;
+  } else if ('failOnDiff' in config && currentClient && currentServerUrl) {
+    currentClient = createSimpleClient(currentServerUrl, {
+      failOnDiff: currentFailOnDiff,
+    });
   }
 
   if (typeof config.enabled === 'boolean') {
@@ -430,10 +479,11 @@ export function getVizzlyInfo() {
   let client = getClient();
   return {
     enabled: !isVizzlyDisabled(),
-    serverUrl: getServerUrl(),
+    serverUrl: currentServerUrl || getServerUrl() || null,
     ready: !isVizzlyDisabled() && client !== null,
-    buildId: getBuildId(),
+    buildId: getBuildId() || null,
     tddMode: isTddMode(),
     disabled: isVizzlyDisabled(),
+    failOnDiff: currentFailOnDiff,
   };
 }

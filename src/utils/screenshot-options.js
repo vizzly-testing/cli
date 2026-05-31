@@ -14,8 +14,8 @@ export function createScreenshotProperties(options = {}) {
   } = options;
 
   let normalizedProperties = {
-    ...topLevelProperties,
     ...properties,
+    ...topLevelProperties,
   };
 
   if (threshold !== undefined) {

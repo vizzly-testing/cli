@@ -1,7 +1,7 @@
 /**
  * Type tests for @vizzly-testing/cli (main entry point)
  */
-import { expectType, expectError } from 'tsd';
+import { expectAssignable, expectType, expectError } from 'tsd';
 import {
   // SDK
   createVizzly,
@@ -45,6 +45,7 @@ import {
   PluginServices,
   Uploader,
   TddService,
+  BuildOptions,
 } from '../src/types/index';
 
 // ============================================================================
@@ -61,6 +62,10 @@ async function testCreateVizzlyType() {
 expectType<Promise<ScreenshotResult | null>>(
   vizzlyScreenshot('test', Buffer.from('test'))
 );
+expectAssignable<ScreenshotResult>({
+  success: true,
+  status: 'baseline-updated',
+});
 configure({});
 setEnabled(true);
 
@@ -175,12 +180,32 @@ async function testComparisonResult() {
 
   expectType<string>(result.id);
   expectType<string>(result.name);
-  expectType<'passed' | 'failed' | 'new' | 'error' | 'baseline-updated'>(result.status);
+  expectType<
+    | 'passed'
+    | 'failed'
+    | 'new'
+    | 'error'
+    | 'baseline-created'
+    | 'baseline-updated'
+  >(result.status);
   expectType<string>(result.baseline);
   expectType<string>(result.current);
   expectType<string | null>(result.diff);
   expectType<Record<string, unknown>>(result.properties);
   expectType<string>(result.signature);
+}
+
+function testBuildOptionAliases() {
+  let options: BuildOptions = {
+    buildName: 'Build',
+    branch: 'main',
+    commit_sha: 'abc123',
+    commit_message: 'Message',
+    github_pull_request_number: 42,
+    parallel_id: 'parallel-1',
+  };
+
+  expectType<BuildOptions>(options);
 }
 
 // ============================================================================

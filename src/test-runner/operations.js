@@ -313,6 +313,7 @@ export async function runTests({ runOptions, config, deps }) {
       port: config.server?.port,
       buildId,
       setBaseline,
+      failOnDiff: runOptions.failOnDiff || false,
     });
 
     try {

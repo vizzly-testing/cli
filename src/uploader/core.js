@@ -101,6 +101,25 @@ export function extractBrowserFromFilename(filename) {
 // Build Info Construction
 // ============================================================================
 
+function buildUploadMetadata(options) {
+  let metadata = { ...(options.metadata || {}) };
+  let comparison = { ...(metadata.comparison || {}) };
+
+  if (options.threshold !== undefined) {
+    comparison.threshold = options.threshold;
+  }
+
+  if (options.minClusterSize !== undefined) {
+    comparison.minClusterSize = options.minClusterSize;
+  }
+
+  if (Object.keys(comparison).length > 0) {
+    metadata.comparison = comparison;
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
 /**
  * Build API build info payload
  * @param {Object} options - Upload options
@@ -108,7 +127,7 @@ export function extractBrowserFromFilename(filename) {
  * @returns {Object} Build info payload
  */
 export function buildBuildInfo(options, defaultBranch = 'main') {
-  return {
+  let buildInfo = {
     name: options.buildName || `Upload ${new Date().toISOString()}`,
     branch: options.branch || defaultBranch || 'main',
     commit_sha: options.commit,
@@ -118,6 +137,13 @@ export function buildBuildInfo(options, defaultBranch = 'main') {
     github_pull_request_number: options.pullRequestNumber,
     parallel_id: options.parallelId,
   };
+
+  let metadata = buildUploadMetadata(options);
+  if (metadata) {
+    buildInfo.metadata = metadata;
+  }
+
+  return buildInfo;
 }
 
 // ============================================================================
@@ -288,18 +314,52 @@ export function buildUploadResult({ buildId, url, total, uploaded, skipped }) {
  * @returns {Object} Wait result
  */
 export function buildWaitResult(build) {
+  let totalComparisons = build.comparisonsTotal ?? build.total_comparisons ?? 0;
+  let passedComparisons =
+    build.comparisonsPassed ??
+    build.passed_comparisons ??
+    build.identicalComparisons ??
+    build.identical_comparisons ??
+    0;
+  let failedComparisons =
+    build.comparisonsFailed ??
+    build.failed_comparisons ??
+    build.changedComparisons ??
+    build.changed_comparisons ??
+    0;
+  let newComparisons =
+    build.comparisonsNew ?? build.newComparisons ?? build.new_comparisons ?? 0;
+  let identicalComparisons =
+    build.identicalComparisons ??
+    build.identical_comparisons ??
+    passedComparisons;
+  let approvalStatus =
+    build.approvalStatus ?? build.approval_status ?? 'pending';
+  let hasComparisonCounts =
+    build.comparisonsTotal !== undefined ||
+    build.total_comparisons !== undefined ||
+    build.comparisonsPassed !== undefined ||
+    build.passed_comparisons !== undefined ||
+    build.comparisonsFailed !== undefined ||
+    build.failed_comparisons !== undefined ||
+    build.comparisonsNew !== undefined ||
+    build.new_comparisons !== undefined ||
+    build.identicalComparisons !== undefined ||
+    build.identical_comparisons !== undefined;
+
   let result = {
     status: 'completed',
     build,
+    passedComparisons,
+    failedComparisons,
+    newComparisons,
+    identicalComparisons,
+    approvalStatus,
+    totalComparisons,
   };
 
-  if (typeof build.comparisonsTotal === 'number') {
-    result.comparisons = build.comparisonsTotal;
-    result.passedComparisons = build.comparisonsPassed || 0;
-    result.failedComparisons = build.comparisonsFailed || 0;
-  } else {
-    result.passedComparisons = 0;
-    result.failedComparisons = 0;
+  if (hasComparisonCounts) {
+    result.comparisons = totalComparisons;
   }
 
   if (build.url) {

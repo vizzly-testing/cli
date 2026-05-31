@@ -57,9 +57,15 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
     // Flush endpoint - signals test completion and prints summary
     if (pathname === '/flush') {
       try {
-        if (screenshotHandler.getResults) {
+        if (screenshotHandler.flush) {
+          let stats = await screenshotHandler.flush();
+          sendJson(res, 200, {
+            success: true,
+            ...stats,
+          });
+        } else if (screenshotHandler.getResults) {
           // This triggers printResults() which outputs the summary
-          const results = await screenshotHandler.getResults();
+          let results = await screenshotHandler.getResults();
           sendJson(res, 200, {
             success: true,
             summary: {

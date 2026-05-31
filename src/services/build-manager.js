@@ -20,9 +20,12 @@ import { randomUUID } from 'node:crypto';
 export function createBuildObject(buildOptions, deps = {}) {
   let {
     name,
+    buildName,
     branch,
     commit,
+    message,
     environment = 'test',
+    parallelId,
     metadata = {},
   } = buildOptions;
   let randomId = deps.randomId || randomUUID;
@@ -31,10 +34,12 @@ export function createBuildObject(buildOptions, deps = {}) {
 
   return {
     id: `build-${randomId()}`,
-    name: name || `build-${timestamp()}`,
+    name: name || buildName || `build-${timestamp()}`,
     branch,
     commit,
+    message,
     environment,
+    parallelId,
     metadata,
     status: 'pending',
     createdAt: now(),

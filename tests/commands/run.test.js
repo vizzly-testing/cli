@@ -610,6 +610,112 @@ describe('commands/run', () => {
       assert.strictEqual(capturedRunOptions.buildName, 'custom-build');
     });
 
+    it('uses configured build metadata when CLI overrides are absent', async () => {
+      let output = createMockOutput();
+      let capturedRunOptions = null;
+
+      await runCommand(
+        'pnpm test',
+        {},
+        {},
+        {
+          loadConfig: async () =>
+            createMockConfig({
+              build: {
+                name: 'Configured Run',
+                branch: 'config-branch',
+                commit: 'config-sha',
+                message: 'Config message',
+                environment: 'preview',
+              },
+            }),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          createUploader: () => ({}),
+          runTests: async ({ runOptions }) => {
+            capturedRunOptions = runOptions;
+            return { buildId: null, screenshotsCaptured: 0 };
+          },
+          detectBranch: async branch => branch,
+          detectCommit: async commit => commit,
+          detectCommitMessage: async () => {
+            throw new Error('should not detect message');
+          },
+          detectPullRequestNumber: () => null,
+          generateBuildNameWithGit: async name => name,
+          output,
+          exit: () => {},
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.strictEqual(capturedRunOptions.branch, 'config-branch');
+      assert.strictEqual(capturedRunOptions.commit, 'config-sha');
+      assert.strictEqual(capturedRunOptions.message, 'Config message');
+      assert.strictEqual(capturedRunOptions.buildName, 'Configured Run');
+      assert.strictEqual(capturedRunOptions.environment, 'preview');
+    });
+
+    it('waits before emitting JSON when --wait and --json are combined', async () => {
+      let output = createMockOutput();
+
+      let result = await runCommand(
+        'pnpm test',
+        { wait: true },
+        { json: true },
+        {
+          loadConfig: async () => createMockConfig(),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          createUploader: () => ({
+            waitForBuild: async buildId => {
+              assert.strictEqual(buildId, 'build-123');
+              return {
+                totalComparisons: 3,
+                newComparisons: 1,
+                failedComparisons: 2,
+                identicalComparisons: 0,
+                approvalStatus: 'pending',
+              };
+            },
+          }),
+          runTests: async () => ({
+            buildId: 'build-123',
+            screenshotsCaptured: 3,
+            url: 'https://app.test/builds/build-123',
+          }),
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          detectCommitMessage: async () => 'test',
+          detectPullRequestNumber: () => null,
+          generateBuildNameWithGit: async () => 'test-build',
+          output,
+          exit: () => {},
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      let dataCalls = output.calls.filter(c => c.method === 'data');
+
+      assert.strictEqual(dataCalls.length, 1);
+      assert.strictEqual(dataCalls[0].args[0].status, 'failed');
+      assert.deepStrictEqual(dataCalls[0].args[0].comparisons, {
+        total: 3,
+        new: 1,
+        changed: 2,
+        identical: 0,
+      });
+      assert.strictEqual(dataCalls[0].args[0].exitCode, 1);
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.exitCode, 1);
+    });
+
     it('always calls cleanup', async () => {
       let output = createMockOutput();
 
@@ -913,6 +1019,50 @@ describe('commands/run', () => {
           c => c.method === 'warn' && c.args[0].includes('API unavailable')
         )
       );
+    });
+
+    it('emits a JSON skip payload when API returns 5xx error', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 503');
+      apiError.context = { status: 503 };
+
+      let result = await runCommand(
+        'pnpm test',
+        {},
+        { json: true },
+        {
+          loadConfig: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      let dataCall = output.calls.find(c => c.method === 'data');
+
+      assert.deepStrictEqual(
+        {
+          buildId: dataCall.args[0].buildId,
+          status: dataCall.args[0].status,
+          message: dataCall.args[0].message,
+        },
+        {
+          buildId: null,
+          status: 'skipped',
+          message: 'Vizzly API unavailable - visual tests skipped',
+        }
+      );
+      assert.strictEqual(typeof dataCall.args[0].executionTimeMs, 'number');
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(exitCode, null);
     });
 
     it('does not fail CI when API returns 500 error', async () => {

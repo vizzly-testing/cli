@@ -3,6 +3,7 @@ import {
   finalizeBuild as defaultFinalizeBuild,
   getTokenContext as defaultGetTokenContext,
 } from '../api/index.js';
+import { CONFIG_DEFAULTS } from '../config/core.js';
 import { createUploader as defaultCreateUploader } from '../uploader/index.js';
 import { getAppBaseUrl } from '../utils/api-url.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
@@ -93,13 +94,13 @@ export async function uploadCommand(
 
   let buildId = null;
   let config = null;
-  const uploadStartTime = Date.now();
+  let uploadStartTime = Date.now();
 
   try {
     output.info('Starting upload process...');
 
     // Load configuration with CLI overrides
-    const allOptions = { ...globalOptions, ...options };
+    let allOptions = { ...globalOptions, ...options };
     config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token
@@ -112,11 +113,18 @@ export async function uploadCommand(
     }
 
     // Collect git metadata if not provided
-    const branch = await detectBranch(options.branch);
-    const commit = await detectCommit(options.commit);
-    const message = options.message || (await detectCommitMessage());
-    const buildName = await generateBuildNameWithGit(options.buildName);
-    const pullRequestNumber = detectPullRequestNumber();
+    let configuredBuildName =
+      config.build.name && config.build.name !== CONFIG_DEFAULTS.build.name
+        ? config.build.name
+        : undefined;
+    let branch = await detectBranch(options.branch || config.build.branch);
+    let commit = await detectCommit(options.commit || config.build.commit);
+    let message =
+      options.message || config.build.message || (await detectCommitMessage());
+    let buildName = await generateBuildNameWithGit(
+      options.buildName || configuredBuildName
+    );
+    let pullRequestNumber = detectPullRequestNumber();
 
     output.info(`Uploading screenshots from: ${screenshotsPath}`);
     if (globalOptions.verbose) {
@@ -134,7 +142,7 @@ export async function uploadCommand(
     let uploader = createUploader({ ...config, command: 'upload' });
 
     // Prepare upload options with progress callback
-    const uploadOptions = {
+    let uploadOptions = {
       screenshotsDir: screenshotsPath,
       buildName,
       branch,
@@ -142,12 +150,13 @@ export async function uploadCommand(
       message,
       environment: config.build.environment,
       threshold: config.comparison.threshold,
+      minClusterSize: config.comparison.minClusterSize,
       uploadAll: options.uploadAll || false,
       metadata: options.metadata ? JSON.parse(options.metadata) : {},
       pullRequestNumber,
       parallelId: config.parallelId,
       onProgress: progressData => {
-        const {
+        let {
           message: progressMessage,
           current,
           total,
@@ -175,7 +184,7 @@ export async function uploadCommand(
 
     // Start upload
     output.progress('Starting upload...');
-    const result = await uploader.upload(uploadOptions);
+    let result = await uploader.upload(uploadOptions);
     buildId = result.buildId; // Ensure we have the buildId
 
     // Write session for subsequent commands (like preview)
@@ -305,7 +314,8 @@ export async function uploadCommand(
           executionTimeMs,
         });
         output.cleanup();
-        return { success: buildResult.failedComparisons === 0, result };
+        let success = buildResult.failedComparisons === 0;
+        return { success, exitCode: success ? 0 : 1, result };
       }
 
       output.complete('Build processing completed');
@@ -334,6 +344,11 @@ export async function uploadCommand(
         ));
       output.blank();
       output.labelValue('View', output.link('Results', waitBuildUrl));
+
+      if (buildResult.failedComparisons > 0) {
+        output.cleanup();
+        return { success: false, exitCode: 1, result };
+      }
     }
 
     output.cleanup();
@@ -349,13 +364,12 @@ export async function uploadCommand(
           message: 'Vizzly API unavailable - upload skipped',
           executionTimeMs: Date.now() - uploadStartTime,
         });
-        output.cleanup();
       } else {
         output.warn(
           'Vizzly API unavailable - upload skipped. Your tests still ran.'
         );
-        output.cleanup();
       }
+      output.cleanup();
       return { success: true, result: { skipped: true } };
     }
 
@@ -428,6 +442,13 @@ export function validateUploadOptions(screenshotsPath, options) {
       errors.push(
         'Threshold must be a non-negative number (CIEDE2000 Delta E)'
       );
+    }
+  }
+
+  if (options.minClusterSize !== undefined) {
+    let minClusterSize = Number(options.minClusterSize);
+    if (!Number.isInteger(minClusterSize) || minClusterSize < 1) {
+      errors.push('Min cluster size must be a positive integer');
     }
   }
 

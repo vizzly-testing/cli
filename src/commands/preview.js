@@ -325,6 +325,7 @@ export async function previewCommand(
     formatSessionAge = defaultFormatSessionAge,
     detectBranch = defaultDetectBranch,
     openBrowser = defaultOpenBrowser,
+    createZipWithSystem: createZip = createZipWithSystem,
     output = defaultOutput,
     exit = code => process.exit(code),
   } = deps;
@@ -349,16 +350,18 @@ export async function previewCommand(
       return { success: false, reason: 'no-api-key' };
     }
 
+    let uploadPath = options.base ? resolve(path, options.base) : path;
+
     // Validate path exists and is a directory
-    if (!existsSync(path)) {
-      output.error(`Path does not exist: ${path}`);
+    if (!existsSync(uploadPath)) {
+      output.error(`Path does not exist: ${uploadPath}`);
       exit(1);
       return { success: false, reason: 'path-not-found' };
     }
 
-    let pathStat = statSync(path);
+    let pathStat = statSync(uploadPath);
     if (!pathStat.isDirectory()) {
-      output.error(`Path is not a directory: ${path}`);
+      output.error(`Path is not a directory: ${uploadPath}`);
       exit(1);
       return { success: false, reason: 'not-a-directory' };
     }
@@ -513,7 +516,7 @@ export async function previewCommand(
       count: fileCount,
       totalSize,
       files,
-    } = await countFiles(path, {
+    } = await countFiles(uploadPath, {
       collectPaths: options.dryRun,
       excludedDirs,
       excludedFiles,
@@ -521,7 +524,7 @@ export async function previewCommand(
 
     if (fileCount === 0) {
       output.stopSpinner();
-      output.error(`No files found in ${path}`);
+      output.error(`No files found in ${uploadPath}`);
       exit(1);
       return { success: false, reason: 'no-files' };
     }
@@ -535,7 +538,7 @@ export async function previewCommand(
       if (globalOptions.json) {
         output.data({
           dryRun: true,
-          path: resolve(path),
+          path: resolve(uploadPath),
           fileCount,
           totalSize,
           excludedDirs,
@@ -548,7 +551,7 @@ export async function previewCommand(
         );
         output.blank();
         output.print(
-          `  ${colors.brand.textTertiary('Source')}      ${resolve(path)}`
+          `  ${colors.brand.textTertiary('Source')}      ${resolve(uploadPath)}`
         );
         output.print(
           `  ${colors.brand.textTertiary('Files')}       ${fileCount}`
@@ -614,7 +617,7 @@ export async function previewCommand(
 
     let zipBuffer;
     try {
-      await createZipWithSystem(path, zipPath, exclusions);
+      await createZip(uploadPath, zipPath, exclusions);
       zipBuffer = await readFile(zipPath);
     } catch (zipError) {
       output.stopSpinner();
@@ -644,10 +647,10 @@ export async function previewCommand(
         success: true,
         buildId,
         previewUrl: result.previewUrl,
-        files: result.uploaded || fileCount,
+        files: result.uploaded ?? fileCount,
         bytes: totalSize,
         compressedBytes: zipBuffer.length,
-        compressionRatio,
+        compressionRatio: `${compressionPercent}%`,
         newBytes: result.newBytes,
         reusedBlobs: result.reusedBlobs || 0,
         deduplicationRatio: result.deduplicationRatio,

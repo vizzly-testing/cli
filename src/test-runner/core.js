@@ -14,6 +14,7 @@
  * @param {number} options.port - Server port
  * @param {string} options.buildId - Build ID
  * @param {boolean} [options.setBaseline] - Whether to set baseline
+ * @param {boolean} [options.failOnDiff] - Whether visual diffs should fail tests
  * @param {Object} [options.baseEnv] - Base environment (defaults to process.env)
  * @returns {Object} Environment variables object
  */
@@ -21,6 +22,7 @@ export function buildTestEnv({
   port,
   buildId,
   setBaseline = false,
+  failOnDiff = false,
   baseEnv = process.env,
 }) {
   return {
@@ -29,6 +31,7 @@ export function buildTestEnv({
     VIZZLY_BUILD_ID: buildId,
     VIZZLY_ENABLED: 'true',
     VIZZLY_SET_BASELINE: setBaseline ? 'true' : 'false',
+    VIZZLY_FAIL_ON_DIFF: failOnDiff ? 'true' : 'false',
   };
 }
 

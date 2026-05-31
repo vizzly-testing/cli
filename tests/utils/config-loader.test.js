@@ -57,6 +57,8 @@ describe('utils/config-loader', () => {
         VIZZLY_API_URL: process.env.VIZZLY_API_URL,
         VIZZLY_BUILD_NAME: process.env.VIZZLY_BUILD_NAME,
         VIZZLY_PARALLEL_ID: process.env.VIZZLY_PARALLEL_ID,
+        VIZZLY_THRESHOLD: process.env.VIZZLY_THRESHOLD,
+        VIZZLY_MIN_CLUSTER_SIZE: process.env.VIZZLY_MIN_CLUSTER_SIZE,
         VIZZLY_HOME: process.env.VIZZLY_HOME,
       };
 
@@ -64,6 +66,8 @@ describe('utils/config-loader', () => {
       delete process.env.VIZZLY_TOKEN;
       delete process.env.VIZZLY_BUILD_NAME;
       delete process.env.VIZZLY_PARALLEL_ID;
+      delete process.env.VIZZLY_THRESHOLD;
+      delete process.env.VIZZLY_MIN_CLUSTER_SIZE;
 
       // Create test directory
       if (existsSync(testDir)) {
@@ -138,6 +142,16 @@ describe('utils/config-loader', () => {
 
       assert.strictEqual(config.apiKey, 'env-token');
       assert.strictEqual(config.parallelId, 'parallel-123');
+    });
+
+    it('applies comparison environment variable overrides', async () => {
+      process.env.VIZZLY_THRESHOLD = '0';
+      process.env.VIZZLY_MIN_CLUSTER_SIZE = '1';
+
+      let config = await loadConfig();
+
+      assert.strictEqual(config.comparison.threshold, 0);
+      assert.strictEqual(config.comparison.minClusterSize, 1);
     });
 
     it('keeps user login separate from cloud upload credentials', async () => {

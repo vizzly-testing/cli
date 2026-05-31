@@ -15,6 +15,12 @@ import {
 } from '../src/types/client';
 import type { ScreenshotResult } from '../src/types/client';
 
+let screenshotResult: ScreenshotResult = {
+  success: true,
+  status: 'diff',
+};
+expectType<ScreenshotResult>(screenshotResult);
+
 // ============================================================================
 // vizzlyScreenshot
 // ============================================================================
@@ -32,9 +38,12 @@ expectType<Promise<ScreenshotResult | null>>(
 // Should accept options object
 expectType<Promise<ScreenshotResult | null>>(
   vizzlyScreenshot('test', Buffer.from('test'), {
-    properties: { browser: 'chrome' },
+    properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } },
     threshold: 5,
+    minClusterSize: 2,
     fullPage: true,
+    requestTimeout: 5000,
+    buildId: 'build-123',
   })
 );
 
@@ -42,7 +51,7 @@ expectType<Promise<ScreenshotResult | null>>(
 expectType<Promise<ScreenshotResult | null>>(
   vizzlyScreenshot('test', Buffer.from('test'), {
     browser: 'chrome',
-    viewport: '1920x1080',
+    viewport: { width: 1920, height: 1080 },
   })
 );
 
@@ -59,6 +68,9 @@ expectError(vizzlyScreenshot('test', 123));
 
 // Should error on wrong options type
 expectError(vizzlyScreenshot('test', Buffer.from('test'), { threshold: 'high' }));
+expectError(
+  vizzlyScreenshot('test', Buffer.from('test'), { requestTimeout: 'fast' })
+);
 
 // ============================================================================
 // vizzlyFlush
@@ -67,6 +79,14 @@ expectError(vizzlyScreenshot('test', Buffer.from('test'), { threshold: 'high' })
 // Should return Promise<FlushResult | null>
 import type { FlushResult } from '../src/types/client';
 expectType<Promise<FlushResult | null>>(vizzlyFlush());
+let flushResult: FlushResult = {
+  success: true,
+  uploaded: 2,
+  failed: 1,
+  total: 3,
+};
+expectType<number | undefined>(flushResult.uploaded);
+expectType<string | undefined>(flushResult.message);
 
 // ============================================================================
 // isVizzlyReady
@@ -88,9 +108,15 @@ configure({ serverUrl: 'http://localhost:3000' });
 
 // Should accept enabled
 configure({ enabled: true });
+configure({ failOnDiff: true });
 
 // Should accept both
-configure({ serverUrl: 'http://localhost:3000', enabled: false });
+configure({
+  serverUrl: 'http://localhost:3000',
+  enabled: false,
+  failOnDiff: false,
+});
+expectError(configure({ failOnDiff: 'yes' }));
 
 // ============================================================================
 // setEnabled
@@ -116,6 +142,7 @@ expectType<boolean>(info.ready);
 expectType<string | null>(info.buildId);
 expectType<boolean>(info.tddMode);
 expectType<boolean>(info.disabled);
+expectType<boolean>(info.failOnDiff);
 
 // ============================================================================
 // Public helper exports
@@ -134,5 +161,6 @@ expectType<string | null>(
   autoDiscoverTddServer('/workspace/project', {
     exists: path => path.endsWith('server.json'),
     readFile: () => JSON.stringify({ port: 47392 }),
+    env: { VIZZLY_FAIL_ON_DIFF: 'true' },
   })
 );

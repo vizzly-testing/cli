@@ -288,7 +288,7 @@ export function success(message, data = {}) {
   if (config.silent) return;
 
   if (config.json) {
-    console.log(JSON.stringify({ status: 'success', message, ...data }));
+    console.error(JSON.stringify({ status: 'success', message, ...data }));
   } else {
     console.error('');
     console.error(colors.success('✓'), message);
@@ -305,7 +305,7 @@ export function result(message) {
   const elapsed = getElapsedTime();
 
   if (config.json) {
-    console.log(JSON.stringify({ status: 'complete', message, elapsed }));
+    console.error(JSON.stringify({ status: 'complete', message, elapsed }));
   } else {
     console.error('');
     console.error(
@@ -323,7 +323,7 @@ export function info(message, data = {}) {
   if (!shouldLog('info')) return;
 
   if (config.json) {
-    console.log(JSON.stringify({ status: 'info', message, ...data }));
+    console.error(JSON.stringify({ status: 'info', message, ...data }));
   } else {
     console.log(colors.info('ℹ'), message);
   }
@@ -508,7 +508,7 @@ export function progress(message, current = 0, total = 0) {
   if (config.silent) return;
 
   if (config.json) {
-    console.log(
+    console.error(
       JSON.stringify({
         status: 'progress',
         message,
@@ -943,7 +943,7 @@ export function complete(message, options = {}) {
   let detailStr = detail ? ` ${colors.brand.textMuted(detail)}` : '';
 
   if (config.json) {
-    console.log(JSON.stringify({ status: 'complete', message, detail }));
+    console.error(JSON.stringify({ status: 'complete', message, detail }));
   } else {
     console.log(`  ${colors.brand.success('✓')} ${message}${detailStr}`);
   }

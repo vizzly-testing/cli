@@ -53,16 +53,22 @@ export function cleanupLocalDaemonFiles(directory = process.cwd(), deps = {}) {
   };
 }
 
-export function buildLegacyServerInfo({ pid, port, now = Date.now }) {
+export function buildLegacyServerInfo({
+  pid,
+  port,
+  failOnDiff = false,
+  now = Date.now,
+}) {
   return {
     pid,
     port: port.toString(),
     startTime: now(),
+    failOnDiff,
   };
 }
 
 export function writeLegacyGlobalServerFile(
-  { pid, port },
+  { pid, port, failOnDiff = false },
   {
     home = homedir,
     exists = existsSync,
@@ -77,7 +83,7 @@ export function writeLegacyGlobalServerFile(
   }
 
   let globalServerFile = join(globalVizzlyDir, 'server.json');
-  let serverInfo = buildLegacyServerInfo({ pid, port, now });
+  let serverInfo = buildLegacyServerInfo({ pid, port, failOnDiff, now });
   writeFile(globalServerFile, JSON.stringify(serverInfo, null, 2));
   return { path: globalServerFile, serverInfo };
 }
@@ -443,7 +449,11 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
 
     // Also write legacy server.json for SDK discovery (backwards compatibility)
     try {
-      writeLegacyGlobalServerFile({ pid: child.pid, port });
+      writeLegacyGlobalServerFile({
+        pid: child.pid,
+        port,
+        failOnDiff: options.failOnDiff || false,
+      });
     } catch {
       // Non-fatal, SDK can still use health check
     }

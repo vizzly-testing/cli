@@ -10,6 +10,7 @@ import {
   finalizeBuild as defaultFinalizeApiBuild,
   getBuild as defaultGetBuild,
 } from '../api/index.js';
+import { CONFIG_DEFAULTS } from '../config/core.js';
 import { VizzlyError } from '../errors/vizzly-error.js';
 import { createServerManager as defaultCreateServerManager } from '../server-manager/index.js';
 import { createAuthService as defaultCreateAuthService } from '../services/auth-service.js';
@@ -24,6 +25,9 @@ import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import {
   detectBranch as defaultDetectBranch,
   detectCommit as defaultDetectCommit,
+  detectCommitMessage as defaultDetectCommitMessage,
+  detectPullRequestNumber as defaultDetectPullRequestNumber,
+  generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
 
@@ -60,6 +64,9 @@ export async function tddCommand(
     runTests = defaultRunTests,
     detectBranch = defaultDetectBranch,
     detectCommit = defaultDetectCommit,
+    detectCommitMessage = defaultDetectCommitMessage,
+    detectPullRequestNumber = defaultDetectPullRequestNumber,
+    generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
     spawn = defaultSpawn,
     output = defaultOutput,
   } = deps;
@@ -94,7 +101,11 @@ export async function tddCommand(
     let config = await loadConfig(globalOptions.config, allOptions);
 
     // Dev mode works locally by default - only needs token for baseline download
-    let needsToken = options.baselineBuild || options.baselineComparison;
+    let needsToken =
+      options.baselineBuild ||
+      options.baselineComparison ||
+      config.baselineBuildId ||
+      config.baselineComparisonId;
 
     if (!config.apiKey && needsToken) {
       throw new Error(
@@ -106,8 +117,18 @@ export async function tddCommand(
     config.allowNoToken = true;
 
     // Collect git metadata
-    let branch = await detectBranch(options.branch);
-    let commit = await detectCommit(options.commit);
+    let configuredBuildName =
+      config.build.name && config.build.name !== CONFIG_DEFAULTS.build.name
+        ? config.build.name
+        : undefined;
+    let branch = await detectBranch(options.branch || config.build.branch);
+    let commit = await detectCommit(options.commit || config.build.commit);
+    let message =
+      options.message || config.build.message || (await detectCommitMessage());
+    let buildName = await generateBuildNameWithGit(
+      options.buildName || configuredBuildName
+    );
+    let pullRequestNumber = detectPullRequestNumber();
 
     // Show header (skip in daemon mode)
     if (!options.daemon) {
@@ -153,9 +174,21 @@ export async function tddCommand(
       tdd: true,
       daemon: options.daemon || false,
       setBaseline: options.setBaseline || false,
+      failOnDiff: options.failOnDiff || false,
+      name: buildName,
+      buildName,
       branch,
       commit,
+      message,
       environment: config.build.environment,
+      pullRequestNumber,
+      parallelId: config.parallelId,
+      metadata: {
+        comparison: {
+          threshold: config.comparison.threshold,
+          minClusterSize: config.comparison.minClusterSize,
+        },
+      },
       threshold: config.comparison.threshold,
       minClusterSize: config.comparison.minClusterSize,
       allowNoToken: config.allowNoToken || false,

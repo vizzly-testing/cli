@@ -14,9 +14,11 @@ module Vizzly
   class Client
     attr_reader :server_url, :disabled
 
-    def initialize(server_url: nil)
+    def initialize(server_url: nil, fail_on_diff: nil)
+      @server_info = nil
+      @configured_fail_on_diff = fail_on_diff
       @server_url = server_url || discover_server_url
-      @disabled = false
+      @disabled = ENV['VIZZLY_ENABLED'] == 'false'
       @warned = false
     end
 
@@ -26,9 +28,13 @@ module Vizzly
     # @param image_data [String] PNG image data as binary string
     # @param options [Hash] Optional configuration
     # @option options [Hash] :properties Additional properties to attach
-    # @option options [Integer] :threshold Pixel difference threshold (0-100)
-    # @option options [Integer] :min_cluster_size Minimum cluster size to count as a real difference (default: 2)
+    # @option options [Numeric] :threshold Delta E comparison threshold. When
+    #   omitted, the server's configured threshold is used.
+    # @option options [Integer] :min_cluster_size Ignore connected diff
+    #   clusters smaller than this size. When omitted, the server config is used.
     # @option options [Boolean] :full_page Whether this is a full page screenshot
+    # @option options [String] :build_id Build ID for grouping screenshots
+    # @option options [Numeric] :request_timeout Request timeout in milliseconds
     #
     # @return [Hash, nil] Response data or nil if disabled/failed
     #
@@ -53,27 +59,59 @@ module Vizzly
       end
 
       image_base64 = Base64.strict_encode64(image_data)
+      options = normalize_options(options)
+
+      request_timeout = option_value(options, :request_timeout, :requestTimeout)
+      request_timeout_seconds = request_timeout ? request_timeout.to_f / 1000.0 : 30
+      build_id = option_value(options, :build_id, :buildId) ||
+                 ENV.fetch('VIZZLY_BUILD_ID', nil)
+      min_cluster_size = option_value(
+        options,
+        :min_cluster_size,
+        :minClusterSize
+      )
+      full_page = options.key?(:full_page) ? options[:full_page] : options[:fullPage]
+
+      reserved_keys = %i[
+        properties
+        threshold
+        min_cluster_size
+        minClusterSize
+        full_page
+        fullPage
+        build_id
+        buildId
+        request_timeout
+        requestTimeout
+      ]
+      top_level_properties = options.reject { |key, _value| reserved_keys.include?(key) }
 
       # Build properties hash - comparison options merged with user properties
       # Server extracts threshold/minClusterSize from properties, not top-level
-      properties = (options[:properties] || {}).merge(
+      properties = top_level_properties.merge(options[:properties] || {}).merge(
         threshold: options[:threshold],
-        minClusterSize: options[:min_cluster_size],
-        fullPage: options[:full_page]
+        minClusterSize: min_cluster_size,
+        fullPage: full_page
       ).compact
 
       payload = {
         name: name,
         image: image_base64,
         type: 'base64',
-        buildId: ENV.fetch('VIZZLY_BUILD_ID', nil),
+        buildId: build_id,
         properties: properties
       }.compact
 
       uri = URI("#{@server_url}/screenshot")
 
       begin
-        response = Net::HTTP.start(uri.host, uri.port, open_timeout: 10, read_timeout: 30) do |http|
+        response = Net::HTTP.start(
+          uri.host,
+          uri.port,
+          use_ssl: uri.scheme == 'https',
+          open_timeout: 10,
+          read_timeout: request_timeout_seconds
+        ) do |http|
           request = Net::HTTP::Post.new(uri)
           request['Content-Type'] = 'application/json'
           request.body = JSON.generate(payload)
@@ -91,6 +129,11 @@ module Vizzly
           if response.code == '422' && error_data['tddMode'] && error_data['comparison']
             comp = error_data['comparison']
             diff_percent = comp['diffPercentage']&.round(2) || 0.0
+
+            if fail_on_diff?
+              raise Error,
+                    "Visual diff detected for \"#{comp['name'] || name}\" (#{comp['diffPercentage'] || 0}% difference)"
+            end
 
             # Extract port from server_url
             port = begin
@@ -114,7 +157,13 @@ module Vizzly
                 "Screenshot failed: #{response.code} #{response.message} - #{error_data['error'] || 'Unknown error'}"
         end
 
-        JSON.parse(response.body)
+        body = JSON.parse(response.body)
+        if body['tddMode'] && %w[diff failed].include?(body['status']) && fail_on_diff?
+          raise Error,
+                "Visual diff detected for \"#{body['name'] || name}\" (#{body['diffPercentage'] || 0}% difference)"
+        end
+
+        body
       rescue Error => e
         # Re-raise Vizzly errors (like visual diffs)
         raise if e.message.include?('Visual diff')
@@ -193,13 +242,31 @@ module Vizzly
       {
         enabled: !disabled?,
         server_url: @server_url,
+        serverUrl: @server_url,
         ready: ready?,
         build_id: ENV.fetch('VIZZLY_BUILD_ID', nil),
-        disabled: disabled?
+        buildId: ENV.fetch('VIZZLY_BUILD_ID', nil),
+        disabled: disabled?,
+        fail_on_diff: fail_on_diff?,
+        failOnDiff: fail_on_diff?
       }
     end
 
     private
+
+    def normalize_options(options)
+      options.each_with_object({}) do |(key, value), normalized|
+        normalized[key.is_a?(String) ? key.to_sym : key] = value
+      end
+    end
+
+    def option_value(options, *keys)
+      keys.each do |key|
+        return options[key] if options.key?(key)
+      end
+
+      nil
+    end
 
     def warn_once(message)
       return if @warned
@@ -217,6 +284,15 @@ module Vizzly
       auto_discover_tdd_server
     end
 
+    def fail_on_diff?
+      return @configured_fail_on_diff unless @configured_fail_on_diff.nil?
+
+      env_value = ENV.fetch('VIZZLY_FAIL_ON_DIFF', '').downcase
+      return true if %w[true 1].include?(env_value)
+
+      @server_info && @server_info['failOnDiff'] == true
+    end
+
     # Auto-discover local TDD server by checking for server.json
     def auto_discover_tdd_server
       dir = Dir.pwd
@@ -228,6 +304,7 @@ module Vizzly
         if File.exist?(server_json_path)
           begin
             server_info = JSON.parse(File.read(server_json_path))
+            @server_info = server_info
             port = server_info['port'] || DEFAULT_TDD_PORT
             return "http://localhost:#{port}"
           rescue JSON::ParserError, Errno::ENOENT

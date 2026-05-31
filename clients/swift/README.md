@@ -31,7 +31,7 @@ Or add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/vizzly-testing/cli", from: "1.0.0")
+    .package(url: "https://github.com/vizzly-testing/cli", branch: "main")
 ],
 targets: [
     .testTarget(
@@ -137,7 +137,7 @@ func testNavigationBar() {
 
 ```swift
 func testAnimatedContent() {
-    // Allow a higher comparison threshold for animated content
+    // Allow a higher Delta E comparison threshold for animated content
     app.vizzlyScreenshot(
         name: "animated-banner",
         threshold: 5
@@ -201,7 +201,9 @@ extension XCUIApplication {
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
         minClusterSize: Int? = nil,
-        fullPage: Bool = false
+        fullPage: Bool? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]?
 }
 ```
@@ -214,7 +216,9 @@ extension XCUIElement {
         name: String,
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
-        minClusterSize: Int? = nil
+        minClusterSize: Int? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]?
 }
 ```
@@ -229,7 +233,9 @@ extension XCTestCase {
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
         minClusterSize: Int? = nil,
-        fullPage: Bool = false
+        fullPage: Bool? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]?
 
     func vizzlyScreenshot(
@@ -237,7 +243,9 @@ extension XCTestCase {
         element: XCUIElement,
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
-        minClusterSize: Int? = nil
+        minClusterSize: Int? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]?
 }
 ```
@@ -248,13 +256,21 @@ extension XCTestCase {
 class VizzlyClient {
     static let shared: VizzlyClient
 
+    init(
+        serverUrl: String? = nil,
+        autoDiscover: Bool = true,
+        failOnDiff: Bool? = nil
+    )
+
     func screenshot(
         name: String,
         image: Data,
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
         minClusterSize: Int? = nil,
-        fullPage: Bool = false
+        fullPage: Bool? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]?
 
     var isReady: Bool { get }
@@ -280,13 +296,28 @@ When you run `vizzly tdd start`, the CLI automatically writes server info to `~/
 ### Environment Variables
 
 - `VIZZLY_SERVER_URL` - Server URL (e.g., `http://localhost:47392`)
-- `VIZZLY_BUILD_ID` - Build identifier for grouping screenshots (set automatically in CI)
+- `VIZZLY_BUILD_ID` - Build identifier for grouping screenshots. The SDK also
+  auto-discovers `buildId` from `.vizzly/server.json` when present.
+- `VIZZLY_FAIL_ON_DIFF` - Set to `true` or `1` to fail when a local TDD
+  comparison returns a visual diff. The SDK also honors `failOnDiff: true` from
+  discovered `.vizzly/server.json`.
+
+Swift screenshot calls intentionally expose comparison metadata (`properties`,
+`threshold`, `minClusterSize`, and `fullPage`). They also accept per-call
+`buildId` and `requestTimeout` overrides; `requestTimeout` is measured in
+milliseconds to match the JavaScript and Ruby SDKs.
 
 ### Manual Configuration
 
 ```swift
 // Override auto-discovery
 let client = VizzlyClient(serverUrl: "http://localhost:47392")
+
+// Fail the SDK call when local TDD mode reports a visual diff
+let strictClient = VizzlyClient(
+    serverUrl: "http://localhost:47392",
+    failOnDiff: true
+)
 ```
 
 ## TDD Mode vs Cloud Mode
@@ -403,17 +434,14 @@ jobs:
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
         run: |
-          pnpm exec vizzly run -- xcodebuild test \
-            -scheme MyApp \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
-            -resultBundlePath TestResults
+          pnpm exec vizzly run "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15' -resultBundlePath TestResults"
 ```
 
 ### Fastlane
 
 ```ruby
 lane :visual_tests do
-  sh "pnpm exec vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15'"
+  sh "pnpm exec vizzly run \"bundle exec fastlane scan scheme:MyApp devices:'iPhone 15'\""
 end
 ```
 

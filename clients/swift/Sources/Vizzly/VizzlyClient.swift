@@ -90,13 +90,21 @@ public final class VizzlyClient {
 
     private var hasWarned = false
     private let defaultTddPort = 47392
+    private let configuredFailOnDiff: Bool?
+    private var discoveredFailOnDiff = false
 
     /// Initialize a new Vizzly client
     ///
     /// - Parameter serverUrl: Optional server URL. If not provided, auto-discovery will be used.
     /// - Parameter autoDiscover: Whether to discover a local Vizzly server when
     ///   `serverUrl` is nil.
-    public init(serverUrl: String? = nil, autoDiscover: Bool = true) {
+    /// - Parameter failOnDiff: Optional override for failing local TDD visual diffs.
+    public init(
+        serverUrl: String? = nil,
+        autoDiscover: Bool = true,
+        failOnDiff: Bool? = nil
+    ) {
+        self.configuredFailOnDiff = failOnDiff
         self.serverUrl = serverUrl ?? (autoDiscover ? discoverServerUrl() : nil)
     }
 
@@ -111,6 +119,8 @@ public final class VizzlyClient {
     ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
     ///     as a real difference. When nil, the server configuration is used.
     ///   - fullPage: Whether this is a full page screenshot
+    ///   - buildId: Optional build ID override for grouping screenshots
+    ///   - requestTimeout: Optional request timeout in milliseconds
     /// - Returns: Response data if successful, nil otherwise
     @discardableResult
     public func screenshot(
@@ -119,7 +129,9 @@ public final class VizzlyClient {
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
         minClusterSize: Int? = nil,
-        fullPage: Bool = false
+        fullPage: Bool? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]? {
         guard !isDisabled else { return nil }
 
@@ -136,7 +148,7 @@ public final class VizzlyClient {
             threshold: threshold,
             minClusterSize: minClusterSize,
             fullPage: fullPage,
-            buildId: getBuildId(),
+            buildId: buildId ?? getBuildId(),
             deviceInfo: getDeviceInfo()
         )
 
@@ -150,7 +162,7 @@ public final class VizzlyClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
+        request.timeoutInterval = requestTimeout.map { $0 / 1000.0 } ?? 30
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: payload)
@@ -187,7 +199,19 @@ public final class VizzlyClient {
             return nil
         }
 
-        return parseScreenshotResponse(data, name: name)
+        let parsedResponse = parseScreenshotResponse(data, name: name)
+        if shouldFailOnDiff(),
+           let responseBody = parsedResponse,
+           responseBody["tddMode"] as? Bool == true,
+           let status = responseBody["status"] as? String,
+           ["diff", "failed"].contains(status) {
+            let diffPercentage = responseBody["diffPercentage"] ?? 0
+            print("❌ Visual diff detected for \"\(responseBody["name"] ?? name)\" (\(diffPercentage)% difference)")
+            disable(reason: "visual diff")
+            return nil
+        }
+
+        return parsedResponse
     }
 
     /// Flush any pending screenshots (no-op for simple client)
@@ -216,7 +240,8 @@ public final class VizzlyClient {
         var info: [String: Any] = [
             "enabled": !isDisabled,
             "ready": isReady,
-            "disabled": isDisabled
+            "disabled": isDisabled,
+            "failOnDiff": shouldFailOnDiff()
         ]
 
         if let serverUrl = serverUrl {
@@ -238,7 +263,7 @@ public final class VizzlyClient {
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
         minClusterSize: Int? = nil,
-        fullPage: Bool = false,
+        fullPage: Bool? = nil,
         buildId: String? = nil,
         deviceInfo: [String: Any] = [:]
     ) -> [String: Any] {
@@ -258,8 +283,8 @@ public final class VizzlyClient {
             mergedProperties["minClusterSize"] = minClusterSize
         }
 
-        if fullPage {
-            mergedProperties["fullPage"] = true
+        if let fullPage = fullPage {
+            mergedProperties["fullPage"] = fullPage
         }
 
         var payload: [String: Any] = [
@@ -268,9 +293,7 @@ public final class VizzlyClient {
             "type": "base64"
         ]
 
-        if !mergedProperties.isEmpty {
-            payload["properties"] = mergedProperties
-        }
+        payload["properties"] = mergedProperties
 
         if let buildId = buildId {
             payload["buildId"] = buildId
@@ -391,6 +414,7 @@ public final class VizzlyClient {
         }
 
         if let port = port {
+            discoveredFailOnDiff = serverInfo["failOnDiff"] as? Bool == true
             let url = "http://localhost:\(port)"
             // Verify server is actually running on this port
             if checkServerReachable(url) {
@@ -399,6 +423,15 @@ public final class VizzlyClient {
         }
 
         return nil
+    }
+
+    private func shouldFailOnDiff() -> Bool {
+        if let configuredFailOnDiff = configuredFailOnDiff {
+            return configuredFailOnDiff
+        }
+
+        let envValue = ProcessInfo.processInfo.environment["VIZZLY_FAIL_ON_DIFF"]?.lowercased()
+        return envValue == "true" || envValue == "1" || discoveredFailOnDiff
     }
 
     private func getBuildId() -> String? {
@@ -505,6 +538,12 @@ public final class VizzlyClient {
             }
 
             let dashboardUrl = "http://localhost:\(port)/dashboard"
+
+            if shouldFailOnDiff() {
+                print("❌ Visual diff detected for \"\(comparison["name"] ?? name)\" (\(comparison["diffPercentage"] ?? 0)% difference)")
+                disable(reason: "visual diff")
+                return
+            }
 
             print("⚠️  Visual diff: \(comparison["name"] ?? name) (\(diffPercent)%) → \(dashboardUrl)")
             return

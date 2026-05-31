@@ -9,7 +9,6 @@ class ScreenshotTest < Minitest::Test
   def setup
     options = Selenium::WebDriver::Chrome::Options.new
     options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
     options.add_argument('--window-size=1920,1080')
 
     @driver = Selenium::WebDriver.for :chrome, options: options
@@ -23,8 +22,8 @@ class ScreenshotTest < Minitest::Test
     # Navigate to vizzly.dev
     @driver.navigate.to 'https://vizzly.dev'
 
-    # Wait for page to load
-    sleep 1
+    wait = Selenium::WebDriver::Wait.new(timeout: 10)
+    wait.until { @driver.find_element(tag_name: 'body').displayed? }
 
     # Capture screenshot as PNG binary data
     image_data = @driver.screenshot_as(:png)

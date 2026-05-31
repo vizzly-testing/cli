@@ -43,9 +43,18 @@ Vizzly.screenshot('checkout-page', image_data,
     browser: 'chrome',
     viewport: { width: 1920, height: 1080 }
   },
-  threshold: 5
+  threshold: 5,
+  min_cluster_size: 3,
+  full_page: true,
+  build_id: 'build_123',
+  request_timeout: 60_000
 )
 ```
+
+Ruby option names use snake_case. The client also accepts camelCase aliases for
+parity with the JavaScript API: `minClusterSize`, `fullPage`, `buildId`, and
+`requestTimeout`. `request_timeout` is measured in milliseconds, so
+`60_000` means one minute.
 
 ### Using a Client Instance
 
@@ -53,10 +62,21 @@ Vizzly.screenshot('checkout-page', image_data,
 client = Vizzly::Client.new
 client.screenshot('login-form', image_data)
 
+# Override local TDD visual diff behavior for this client
+strict_client = Vizzly::Client.new(fail_on_diff: true)
+
+# Attach screenshots to a known build and tune request timeout in milliseconds
+client.screenshot(
+  'checkout',
+  image_data,
+  build_id: 'build_123',
+  request_timeout: 60_000
+)
+
 # Check if client is ready
 puts "Ready: #{client.ready?}"
 
-# Get client info
+# Get client info, including the effective fail_on_diff setting
 puts client.info
 ```
 
@@ -100,6 +120,8 @@ You can also configure via environment variables:
 
 - `VIZZLY_SERVER_URL` - Server URL (e.g., `http://localhost:47392`)
 - `VIZZLY_BUILD_ID` - Build identifier for grouping screenshots
+- `VIZZLY_FAIL_ON_DIFF` - Set to `true` or `1` to raise when a local TDD
+  comparison returns a visual diff
 
 ## Development
 

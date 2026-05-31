@@ -52,7 +52,7 @@ Create a `vizzly.config.js` file (optional but recommended):
 
 ```javascript
 export default {
-  // Screenshot threshold (0-100)
+  // Delta E comparison threshold. Omitted screenshots use server config.
   threshold: 0,
 
   // TDD server port
@@ -272,7 +272,7 @@ func testAnimatedView() {
     let finishedState = app.otherElements["AnimatedBannerReady"]
     XCTAssertTrue(finishedState.waitForExistence(timeout: 5))
 
-    // Use threshold for slight variations
+    // Use a Delta E comparison threshold for slight visual variations
     app.vizzlyScreenshot(
         name: "animated-banner",
         threshold: 5
@@ -312,10 +312,7 @@ jobs:
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
         run: |
-          pnpm exec vizzly run -- xcodebuild test \
-            -scheme MyApp \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
-            -only-testing:MyAppUITests
+          vizzly run "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:MyAppUITests"
 ```
 
 ### Fastlane
@@ -324,7 +321,7 @@ Add to your `Fastfile`:
 
 ```ruby
 lane :visual_tests do
-  sh("pnpm exec vizzly run -- bundle exec fastlane scan scheme:MyApp devices:'iPhone 15' only_testing:MyAppUITests")
+  sh("pnpm exec vizzly run \"bundle exec fastlane scan scheme:MyApp devices:'iPhone 15' only_testing:MyAppUITests\"")
 end
 ```
 
@@ -419,7 +416,7 @@ override func setUpWithError() throws {
 
 1. Pin simulator versions in CI to match local
 2. Use consistent device names
-3. Consider slightly higher threshold (1-2%) for font rendering differences
+3. Consider a slightly higher Delta E comparison threshold for font rendering differences
 
 ### "Connection Refused" Errors
 

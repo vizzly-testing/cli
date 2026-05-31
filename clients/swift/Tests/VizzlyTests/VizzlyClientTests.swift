@@ -1,6 +1,6 @@
 import XCTest
 @testable import Vizzly
-import VizzlyXCTest
+@testable import VizzlyXCTest
 
 final class VizzlyClientTests: XCTestCase {
 
@@ -22,9 +22,19 @@ final class VizzlyClientTests: XCTestCase {
         XCTAssertNotNil(info["enabled"])
         XCTAssertNotNil(info["ready"])
         XCTAssertNotNil(info["disabled"])
+        XCTAssertNotNil(info["failOnDiff"])
 
         XCTAssertTrue(info["enabled"] as? Bool ?? false)
         XCTAssertFalse(info["disabled"] as? Bool ?? true)
+        XCTAssertFalse(info["failOnDiff"] as? Bool ?? true)
+    }
+
+    func testClientInfoExposesConfiguredFailOnDiff() {
+        let enabledClient = VizzlyClient(autoDiscover: false, failOnDiff: true)
+        let disabledClient = VizzlyClient(autoDiscover: false, failOnDiff: false)
+
+        XCTAssertEqual(enabledClient.info["failOnDiff"] as? Bool, true)
+        XCTAssertEqual(disabledClient.info["failOnDiff"] as? Bool, false)
     }
 
     func testClientDisable() {
@@ -120,6 +130,52 @@ final class VizzlyClientTests: XCTestCase {
         XCTAssertEqual(properties?["fullPage"] as? Bool, true)
     }
 
+    func testExplicitFullPageFalseIsSentAsProperty() {
+        let payload = VizzlyClient.makeScreenshotPayload(
+            name: "test",
+            image: createTestImage(),
+            fullPage: false
+        )
+
+        let properties = payload["properties"] as? [String: Any]
+        XCTAssertEqual(properties?["fullPage"] as? Bool, false)
+    }
+
+    func testPerCallBuildIdIsSentOutsideProperties() {
+        let payload = VizzlyClient.makeScreenshotPayload(
+            name: "test",
+            image: createTestImage(),
+            properties: ["theme": "dark"],
+            buildId: "build-from-call"
+        )
+
+        XCTAssertEqual(payload["buildId"] as? String, "build-from-call")
+        let properties = payload["properties"] as? [String: Any]
+        XCTAssertEqual(properties?["theme"] as? String, "dark")
+        XCTAssertNil(properties?["buildId"])
+    }
+
+    func testBrowserAndNestedViewportPropertiesAreSent() {
+        let payload = VizzlyClient.makeScreenshotPayload(
+            name: "responsive-homepage",
+            image: createTestImage(),
+            properties: [
+                "browser": "chrome",
+                "viewport": [
+                    "width": 1920,
+                    "height": 1080
+                ]
+            ]
+        )
+
+        let properties = payload["properties"] as? [String: Any]
+        XCTAssertEqual(properties?["browser"] as? String, "chrome")
+
+        let viewport = properties?["viewport"] as? [String: Any]
+        XCTAssertEqual(viewport?["width"] as? Int, 1920)
+        XCTAssertEqual(viewport?["height"] as? Int, 1080)
+    }
+
     func testDefaultComparisonOptionsUseServerConfiguration() {
         let payload = VizzlyClient.makeScreenshotPayload(
             name: "test",
@@ -129,7 +185,41 @@ final class VizzlyClientTests: XCTestCase {
         XCTAssertNil(payload["threshold"])
         XCTAssertNil(payload["minClusterSize"])
         XCTAssertNil(payload["fullPage"])
-        XCTAssertNil(payload["properties"])
+        let properties = payload["properties"] as? [String: Any]
+        XCTAssertEqual(properties?.isEmpty, true)
+    }
+
+    func testXCTestApplicationMetadataMergesUserProperties() {
+        let properties = VizzlyXCTestMetadata.applicationProperties(
+            properties: [
+                "platform": "custom-platform",
+                "theme": "dark"
+            ],
+            viewport: [
+                "width": 390,
+                "height": 844
+            ]
+        )
+
+        XCTAssertEqual(properties["platform"] as? String, "custom-platform")
+        XCTAssertEqual(properties["theme"] as? String, "dark")
+
+        let viewport = properties["viewport"] as? [String: Any]
+        XCTAssertEqual(viewport?["width"] as? Int, 390)
+        XCTAssertEqual(viewport?["height"] as? Int, 844)
+    }
+
+    func testXCTestElementMetadataMergesElementTypeAndUserProperties() {
+        let properties = VizzlyXCTestMetadata.elementProperties(
+            properties: [
+                "state": "selected"
+            ],
+            elementType: 42
+        )
+
+        XCTAssertEqual(properties["elementType"] as? UInt, 42)
+        XCTAssertEqual(properties["state"] as? String, "selected")
+        XCTAssertNotNil(properties["platform"])
     }
 
     // MARK: - Helpers

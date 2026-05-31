@@ -13,15 +13,26 @@ let package = Package(
         .library(
             name: "Vizzly",
             targets: ["Vizzly"]),
+        .library(
+            name: "VizzlyXCTest",
+            targets: ["VizzlyXCTest"]),
     ],
     targets: [
         .target(
             name: "Vizzly",
             dependencies: [],
             path: "clients/swift/Sources/Vizzly"),
+        .target(
+            name: "VizzlyXCTest",
+            dependencies: ["Vizzly"],
+            path: "clients/swift/Sources/VizzlyXCTest"),
         .testTarget(
             name: "VizzlyTests",
-            dependencies: ["Vizzly"],
+            dependencies: ["Vizzly", "VizzlyXCTest"],
             path: "clients/swift/Tests/VizzlyTests"),
+        .testTarget(
+            name: "VizzlyE2ETests",
+            dependencies: ["Vizzly"],
+            path: "clients/swift/Tests/VizzlyE2ETests"),
     ]
 )

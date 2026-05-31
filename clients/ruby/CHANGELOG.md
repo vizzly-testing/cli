@@ -2,20 +2,15 @@
 
 ## [0.2.1] - 2026-02-04
 
-## What's Changed
-
-Release v0.2.1
-
-See the full diff for detailed changes.
+### Changed
+- Improved packaging and release metadata.
 
 
 ## [0.2.0] - 2026-01-07
 
-## What's Changed
-
-Release v0.2.0
-
-See the full diff for detailed changes.
+### Added
+- Support for `min_cluster_size` and `full_page` screenshot options.
+- Browser E2E coverage for Ruby screenshot capture.
 
 
 All notable changes to the Vizzly Ruby client will be documented in this file.
@@ -44,5 +39,7 @@ This changelog is automatically generated when releasing new versions.
 - Graceful error handling and auto-disable on failure
 - TDD mode visual diff warnings with dashboard links
 
-[Unreleased]: https://github.com/vizzly-testing/cli/compare/ruby/v0.1.0...HEAD
+[Unreleased]: https://github.com/vizzly-testing/cli/compare/ruby/v0.2.1...HEAD
+[0.2.1]: https://github.com/vizzly-testing/cli/releases/tag/ruby/v0.2.1
+[0.2.0]: https://github.com/vizzly-testing/cli/releases/tag/ruby/v0.2.0
 [0.1.0]: https://github.com/vizzly-testing/cli/releases/tag/ruby/v0.1.0

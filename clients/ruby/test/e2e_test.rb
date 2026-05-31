@@ -73,7 +73,6 @@ module E2ETestHelpers
   def setup_selenium
     options = Selenium::WebDriver::Chrome::Options.new
     options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
     options.add_argument('--window-size=1920,1080')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
@@ -84,7 +83,6 @@ module E2ETestHelpers
   def wait_for_page_load
     wait = Selenium::WebDriver::Wait.new(timeout: 10)
     wait.until { @driver.find_element(tag_name: 'body') }
-    sleep 0.3
   end
 
   def capture_screenshot(name, options = {})
@@ -94,7 +92,8 @@ module E2ETestHelpers
 
   def capture_element_screenshot(name, element, options = {})
     @driver.execute_script('arguments[0].scrollIntoView(true);', element)
-    sleep 0.1
+    wait = Selenium::WebDriver::Wait.new(timeout: 10)
+    wait.until { element.displayed? }
 
     image_data = element.screenshot_as(:png)
     Vizzly.screenshot(name, image_data, options)

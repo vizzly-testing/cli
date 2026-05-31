@@ -10,6 +10,89 @@ import UIKit
 import AppKit
 #endif
 
+enum VizzlyXCTestMetadata {
+    static func merge(
+        properties: [String: Any]?,
+        automaticProperties: [String: Any]
+    ) -> [String: Any] {
+        var combinedProperties = automaticProperties
+
+        for (key, value) in properties ?? [:] {
+            combinedProperties[key] = value
+        }
+
+        return combinedProperties
+    }
+
+    static func applicationProperties(
+        properties: [String: Any]?,
+        viewport: [String: Any]? = defaultViewport()
+    ) -> [String: Any] {
+        var automaticProperties = platformProperties()
+
+        if let viewport = viewport {
+            automaticProperties["viewport"] = viewport
+        }
+
+        return merge(
+            properties: properties,
+            automaticProperties: automaticProperties
+        )
+    }
+
+    static func elementProperties(
+        properties: [String: Any]?,
+        elementType: UInt
+    ) -> [String: Any] {
+        var automaticProperties = platformProperties()
+        automaticProperties["elementType"] = elementType
+
+        return merge(
+            properties: properties,
+            automaticProperties: automaticProperties
+        )
+    }
+
+    static func platformProperties() -> [String: Any] {
+        #if os(iOS)
+        return [
+            "platform": "iOS",
+            "device": UIDevice.current.model,
+            "osVersion": UIDevice.current.systemVersion
+        ]
+        #elseif os(macOS)
+        return [
+            "platform": "macOS",
+            "osVersion": ProcessInfo.processInfo.operatingSystemVersionString
+        ]
+        #else
+        return [:]
+        #endif
+    }
+
+    static func defaultViewport() -> [String: Any]? {
+        #if os(iOS)
+        let screen = UIScreen.main
+        return [
+            "width": Int(screen.bounds.width * screen.scale),
+            "height": Int(screen.bounds.height * screen.scale),
+            "scale": screen.scale
+        ]
+        #elseif os(macOS)
+        guard let screen = NSScreen.main else {
+            return nil
+        }
+
+        return [
+            "width": Int(screen.frame.width),
+            "height": Int(screen.frame.height)
+        ]
+        #else
+        return nil
+        #endif
+    }
+}
+
 /// XCTest extensions for easy Vizzly integration
 extension XCTestCase {
 
@@ -24,6 +107,8 @@ extension XCTestCase {
     ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
     ///     as a real difference. When nil, the server configuration is used.
     ///   - fullPage: Whether this is a full page screenshot
+    ///   - buildId: Optional build ID override for grouping screenshots
+    ///   - requestTimeout: Optional request timeout in milliseconds
     @available(iOS 13.0, macOS 10.15, *)
     @discardableResult
     public func vizzlyScreenshot(
@@ -32,35 +117,15 @@ extension XCTestCase {
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
         minClusterSize: Int? = nil,
-        fullPage: Bool = false
+        fullPage: Bool? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]? {
         let screenshot = app.screenshot()
 
-        var combinedProperties = properties ?? [:]
-
-        // Add device/platform info automatically
-        #if os(iOS)
-        combinedProperties["platform"] = "iOS"
-        combinedProperties["device"] = UIDevice.current.model
-        combinedProperties["osVersion"] = UIDevice.current.systemVersion
-
-        // Add screen size
-        let screen = UIScreen.main
-        combinedProperties["viewport"] = [
-            "width": Int(screen.bounds.width * screen.scale),
-            "height": Int(screen.bounds.height * screen.scale),
-            "scale": screen.scale
-        ]
-        #elseif os(macOS)
-        combinedProperties["platform"] = "macOS"
-
-        if let screen = NSScreen.main {
-            combinedProperties["viewport"] = [
-                "width": Int(screen.frame.width),
-                "height": Int(screen.frame.height)
-            ]
-        }
-        #endif
+        let combinedProperties = VizzlyXCTestMetadata.applicationProperties(
+            properties: properties
+        )
 
         return VizzlyClient.shared.screenshot(
             name: name,
@@ -68,7 +133,9 @@ extension XCTestCase {
             properties: combinedProperties,
             threshold: threshold,
             minClusterSize: minClusterSize,
-            fullPage: fullPage
+            fullPage: fullPage,
+            buildId: buildId,
+            requestTimeout: requestTimeout
         )
     }
 
@@ -82,6 +149,8 @@ extension XCTestCase {
     ///     Vizzly server configuration is used.
     ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
     ///     as a real difference. When nil, the server configuration is used.
+    ///   - buildId: Optional build ID override for grouping screenshots
+    ///   - requestTimeout: Optional request timeout in milliseconds
     @available(iOS 13.0, macOS 10.15, *)
     @discardableResult
     public func vizzlyScreenshot(
@@ -89,20 +158,16 @@ extension XCTestCase {
         element: XCUIElement,
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
-        minClusterSize: Int? = nil
+        minClusterSize: Int? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]? {
         let screenshot = element.screenshot()
 
-        var combinedProperties = properties ?? [:]
-
-        // Add element info
-        combinedProperties["elementType"] = element.elementType.rawValue
-
-        #if os(iOS)
-        combinedProperties["platform"] = "iOS"
-        #elseif os(macOS)
-        combinedProperties["platform"] = "macOS"
-        #endif
+        let combinedProperties = VizzlyXCTestMetadata.elementProperties(
+            properties: properties,
+            elementType: element.elementType.rawValue
+        )
 
         return VizzlyClient.shared.screenshot(
             name: name,
@@ -110,7 +175,9 @@ extension XCTestCase {
             properties: combinedProperties,
             threshold: threshold,
             minClusterSize: minClusterSize,
-            fullPage: false
+            fullPage: false,
+            buildId: buildId,
+            requestTimeout: requestTimeout
         )
     }
 }
@@ -129,33 +196,23 @@ extension XCUIApplication {
     ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
     ///     as a real difference. When nil, the server configuration is used.
     ///   - fullPage: Whether this is a full page screenshot
+    ///   - buildId: Optional build ID override for grouping screenshots
+    ///   - requestTimeout: Optional request timeout in milliseconds
     @discardableResult
     public func vizzlyScreenshot(
         name: String,
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
         minClusterSize: Int? = nil,
-        fullPage: Bool = false
+        fullPage: Bool? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]? {
         let screenshot = self.screenshot()
 
-        var combinedProperties = properties ?? [:]
-
-        #if os(iOS)
-        combinedProperties["platform"] = "iOS"
-        combinedProperties["device"] = UIDevice.current.model
-        combinedProperties["osVersion"] = UIDevice.current.systemVersion
-
-        let screen = UIScreen.main
-        combinedProperties["viewport"] = [
-            "width": Int(screen.bounds.width * screen.scale),
-            "height": Int(screen.bounds.height * screen.scale),
-            "scale": screen.scale
-        ]
-        #elseif os(macOS)
-        combinedProperties["platform"] = "macOS"
-        combinedProperties["osVersion"] = ProcessInfo.processInfo.operatingSystemVersionString
-        #endif
+        let combinedProperties = VizzlyXCTestMetadata.applicationProperties(
+            properties: properties
+        )
 
         return VizzlyClient.shared.screenshot(
             name: name,
@@ -163,7 +220,9 @@ extension XCUIApplication {
             properties: combinedProperties,
             threshold: threshold,
             minClusterSize: minClusterSize,
-            fullPage: fullPage
+            fullPage: fullPage,
+            buildId: buildId,
+            requestTimeout: requestTimeout
         )
     }
 }
@@ -181,25 +240,23 @@ extension XCUIElement {
     ///     Vizzly server configuration is used.
     ///   - minClusterSize: Optional minimum changed-pixel cluster size to count
     ///     as a real difference. When nil, the server configuration is used.
+    ///   - buildId: Optional build ID override for grouping screenshots
+    ///   - requestTimeout: Optional request timeout in milliseconds
     @discardableResult
     public func vizzlyScreenshot(
         name: String,
         properties: [String: Any]? = nil,
         threshold: Double? = nil,
-        minClusterSize: Int? = nil
+        minClusterSize: Int? = nil,
+        buildId: String? = nil,
+        requestTimeout: Double? = nil
     ) -> [String: Any]? {
         let screenshot = self.screenshot()
 
-        var combinedProperties = properties ?? [:]
-        combinedProperties["elementType"] = self.elementType.rawValue
-
-        #if os(iOS)
-        combinedProperties["platform"] = "iOS"
-        combinedProperties["osVersion"] = UIDevice.current.systemVersion
-        #elseif os(macOS)
-        combinedProperties["platform"] = "macOS"
-        combinedProperties["osVersion"] = ProcessInfo.processInfo.operatingSystemVersionString
-        #endif
+        let combinedProperties = VizzlyXCTestMetadata.elementProperties(
+            properties: properties,
+            elementType: self.elementType.rawValue
+        )
 
         return VizzlyClient.shared.screenshot(
             name: name,
@@ -207,7 +264,9 @@ extension XCUIElement {
             properties: combinedProperties,
             threshold: threshold,
             minClusterSize: minClusterSize,
-            fullPage: false
+            fullPage: false,
+            buildId: buildId,
+            requestTimeout: requestTimeout
         )
     }
 }

@@ -227,17 +227,21 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
 
+        let screenshotData = {
+          buildId: normalizedOptions.buildId ?? getBuildId(),
+          name,
+          image,
+          type,
+          properties: normalizedOptions.properties,
+        };
+        if (normalizedOptions.warnings.length > 0) {
+          screenshotData.warnings = normalizedOptions.warnings;
+        }
+
         let httpStart = Date.now();
         let { status, json } = await httpPost(
           `${serverUrl}/screenshot`,
-          {
-            buildId: normalizedOptions.buildId ?? getBuildId(),
-            name,
-            image,
-            type,
-            properties: normalizedOptions.properties,
-            warnings: normalizedOptions.warnings,
-          },
+          screenshotData,
           requestTimeout
         );
         let httpMs = Date.now() - httpStart;

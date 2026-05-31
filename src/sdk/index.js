@@ -340,8 +340,10 @@ export class VizzlySDK extends EventEmitter {
       image: imageBase64,
       type: 'base64',
       properties: normalizedOptions.properties,
-      warnings: normalizedOptions.warnings,
     };
+    if (normalizedOptions.warnings.length > 0) {
+      screenshotData.warnings = normalizedOptions.warnings;
+    }
 
     // POST to the local screenshot server
     let serverUrl = `http://localhost:${this.config.server?.port || 3000}`;

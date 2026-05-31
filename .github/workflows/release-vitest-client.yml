@@ -13,6 +13,10 @@ on:
           - minor
           - major
 
+concurrency:
+  group: sdk-release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -68,6 +72,7 @@ jobs:
           echo "tag=vitest/v$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
+        continue-on-error: true
         uses: openai/codex-action@a26d2d4d8b78a694338b8e3715c3630254340b2c # v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -118,6 +123,14 @@ jobs:
         working-directory: ./clients/vitest
         run: pnpm run lint
 
+      - name: Verify package version is unpublished
+        working-directory: ./clients/vitest
+        run: |
+          if npm view @vizzly-testing/vitest@${{ steps.version.outputs.version }} version >/dev/null 2>&1; then
+            echo "@vizzly-testing/vitest@${{ steps.version.outputs.version }} is already published"
+            exit 1
+          fi
+
       - name: Update CHANGELOG.md
         working-directory: ./clients/vitest
         run: |
@@ -148,6 +161,13 @@ jobs:
           mv CHANGELOG-NEW.md CHANGELOG.md
           rm CHANGELOG-RELEASE.md
 
+      - name: Pack package
+        id: pack
+        working-directory: ./clients/vitest
+        run: |
+          PACK_FILE=$(npm pack --ignore-scripts)
+          echo "file=$PACK_FILE" >> $GITHUB_OUTPUT
+
       - name: Reconfigure git auth
         run: |
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
@@ -164,7 +184,7 @@ jobs:
 
       - name: Publish to npm
         working-directory: ./clients/vitest
-        run: npm publish --provenance --access public
+        run: npm publish "${{ steps.pack.outputs.file }}" --provenance --access public
 
       - name: Read changelog for release
         id: release_notes
@@ -184,7 +204,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: 🧪 Vitest Integration v${{ steps.version.outputs.version }}
           body: ${{ steps.release_notes.outputs.notes }}
-          files: ./clients/vitest/*.tgz
+          files: ./clients/vitest/${{ steps.pack.outputs.file }}
           draft: false
           prerelease: false
         env:

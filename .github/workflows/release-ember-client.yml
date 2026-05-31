@@ -18,6 +18,10 @@ on:
         default: false
         type: boolean
 
+concurrency:
+  group: sdk-release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -77,6 +81,7 @@ jobs:
           echo "tag=ember/v$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
+        continue-on-error: true
         uses: openai/codex-action@a26d2d4d8b78a694338b8e3715c3630254340b2c # v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -127,6 +132,14 @@ jobs:
         working-directory: ./clients/ember
         run: pnpm run lint
 
+      - name: Verify package version is unpublished
+        working-directory: ./clients/ember
+        run: |
+          if npm view @vizzly-testing/ember@${{ steps.version.outputs.version }} version >/dev/null 2>&1; then
+            echo "@vizzly-testing/ember@${{ steps.version.outputs.version }} is already published"
+            exit 1
+          fi
+
       - name: Update CHANGELOG.md
         working-directory: ./clients/ember
         run: |
@@ -157,6 +170,13 @@ jobs:
           mv CHANGELOG-NEW.md CHANGELOG.md
           rm CHANGELOG-RELEASE.md
 
+      - name: Pack package
+        id: pack
+        working-directory: ./clients/ember
+        run: |
+          PACK_FILE=$(npm pack --ignore-scripts)
+          echo "file=$PACK_FILE" >> $GITHUB_OUTPUT
+
       - name: Reconfigure git auth
         run: |
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
@@ -175,9 +195,9 @@ jobs:
         working-directory: ./clients/ember
         run: |
           if [ "${{ github.event.inputs.prerelease }}" == "true" ]; then
-            npm publish --provenance --access public --tag beta
+            npm publish "${{ steps.pack.outputs.file }}" --provenance --access public --tag beta
           else
-            npm publish --provenance --access public
+            npm publish "${{ steps.pack.outputs.file }}" --provenance --access public
           fi
 
       - name: Read changelog for release
@@ -198,7 +218,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: 🐹 Ember SDK v${{ steps.version.outputs.version }}
           body: ${{ steps.release_notes.outputs.notes }}
-          files: ./clients/ember/*.tgz
+          files: ./clients/ember/${{ steps.pack.outputs.file }}
           draft: false
           prerelease: ${{ github.event.inputs.prerelease }}
         env:

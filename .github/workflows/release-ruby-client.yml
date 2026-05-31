@@ -13,6 +13,10 @@ on:
           - minor
           - major
 
+concurrency:
+  group: sdk-release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -41,6 +45,11 @@ jobs:
         run: |
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
           git config --local user.name "${{ secrets.GIT_USER_NAME }}"
+
+      - name: Ensure we have latest main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
 
       - name: Get current version
         id: current_version
@@ -78,6 +87,7 @@ jobs:
           echo "tag=ruby/v$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
+        continue-on-error: true
         uses: openai/codex-action@a26d2d4d8b78a694338b8e3715c3630254340b2c # v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -114,7 +124,11 @@ jobs:
             ### Fixed
             - Bug fixes
 
-            **Full Changelog**: https://github.com/vizzly-testing/vizzly-cli/compare/ruby/v${{ steps.current_version.outputs.version }}...ruby/v${{ steps.new_version.outputs.version }}
+            **Full Changelog**: https://github.com/vizzly-testing/cli/compare/ruby/v${{ steps.current_version.outputs.version }}...ruby/v${{ steps.new_version.outputs.version }}
+
+      - name: Install dependencies
+        working-directory: ./clients/ruby
+        run: bundle install
 
       - name: Update version in gemspec
         working-directory: ./clients/ruby
@@ -146,6 +160,18 @@ jobs:
           tail -n +2 CHANGELOG.md >> CHANGELOG-NEW.md
           mv CHANGELOG-NEW.md CHANGELOG.md
           rm CHANGELOG-RELEASE.md
+
+      - name: Run tests
+        working-directory: ./clients/ruby
+        run: bundle exec rake
+
+      - name: Verify gem version is unpublished
+        working-directory: ./clients/ruby
+        run: |
+          if gem list --remote --exact vizzly --version "${{ steps.new_version.outputs.version }}" | grep -q '^vizzly '; then
+            echo "vizzly ${{ steps.new_version.outputs.version }} is already published"
+            exit 1
+          fi
 
       - name: Reconfigure git auth
         run: |

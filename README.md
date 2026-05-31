@@ -119,19 +119,22 @@ test('homepage looks correct', async ({ page }) => {
 
   let screenshot = await page.screenshot();
   await vizzlyScreenshot('homepage', screenshot, {
-    browser: 'chrome',
-    viewport: { width: 1920, height: 1080 },
     fullPage: true,
     requestTimeout: 5000,
+    properties: {
+      browser: 'chrome',
+      viewport: { width: 1920, height: 1080 },
+    },
   });
 });
 ```
 
-Top-level screenshot options that are not transport-specific are normalized
-into Vizzly metadata, so `browser`, `viewport`, `threshold`,
-`minClusterSize`, and `fullPage` are equivalent to passing them inside
-`properties`. `requestTimeout` stays on the client request, and `buildId`
-is sent with the screenshot request to group it with the correct build.
+`properties` is your metadata bag for baseline grouping, filtering, and
+debugging. SDK options such as `threshold`, `minClusterSize`, `fullPage`,
+`requestTimeout`, and `buildId` stay at the top level. If one of those reserved
+SDK options is accidentally placed inside `properties`, Vizzly removes it from
+metadata, applies it as an option when possible, and warns so the call site can
+be cleaned up.
 
 The client SDK is lightweight. It posts screenshots to the local Vizzly server
 or the cloud build wrapper. It works with any test runner.

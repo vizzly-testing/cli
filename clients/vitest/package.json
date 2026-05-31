@@ -33,10 +33,9 @@
   "types": "./src/index.d.ts",
   "files": [
     "src",
-    "eslint.config.js",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "test": "pnpm run test:unit",

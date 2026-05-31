@@ -111,37 +111,43 @@ export function clearServerInfoCache() {
  * @param {string} name - Screenshot name
  * @param {Buffer} imageBuffer - PNG image data
  * @param {Object} properties - Screenshot metadata
+ * @param {Object} [options] - Forwarding options
+ * @param {string|null} [options.buildId] - Build ID to attach to screenshot
+ * @param {number|null} [options.requestTimeout] - HTTP request timeout in milliseconds
  * @returns {Promise<Object>} Response from TDD server
  */
-async function forwardToVizzly(name, imageBuffer, properties = {}) {
+async function forwardToVizzly(
+  name,
+  imageBuffer,
+  properties = {},
+  { buildId = null, requestTimeout = null } = {}
+) {
   let serverInfo = autoDiscoverTddServer();
 
   if (!serverInfo) {
-    // Check for cloud mode via environment
-    if (process.env.VIZZLY_TOKEN) {
-      // In cloud mode, we'd queue for upload
-      // For MVP, return success and let TDD server handle cloud forwarding
-      return { success: true, mode: 'cloud', queued: true };
-    }
-
     throw new Error(
-      'No Vizzly server found. Run `vizzly tdd start` first, or set VIZZLY_TOKEN for cloud mode.'
+      'No Vizzly server found. Run `vizzly tdd start` first, or run tests through `vizzly run` for cloud uploads.'
     );
   }
 
   let tddServerUrl = serverInfo.url;
 
   let payload = {
+    ...(buildId ? { buildId } : {}),
     name,
     image: imageBuffer.toString('base64'),
     properties: {
-      framework: 'ember',
       ...properties,
+      framework: 'ember',
     },
   };
 
   // Use node:http directly with Connection: close to prevent keep-alive hangs
-  let result = await httpPost(`${tddServerUrl}/screenshot`, payload);
+  let result = await httpPost(
+    `${tddServerUrl}/screenshot`,
+    payload,
+    requestTimeout
+  );
   return result;
 }
 
@@ -149,9 +155,10 @@ async function forwardToVizzly(name, imageBuffer, properties = {}) {
  * Make HTTP POST request without keep-alive (prevents process hang on shutdown)
  * @param {string} url - Target URL
  * @param {Object} data - JSON payload
+ * @param {number|null} [timeoutMs] - Request timeout in milliseconds
  * @returns {Promise<Object>} Parsed JSON response
  */
-function httpPost(url, data) {
+function httpPost(url, data, timeoutMs = null) {
   return new Promise((resolve, reject) => {
     let parsedUrl = new URL(url);
     let isHttps = parsedUrl.protocol === 'https:';
@@ -197,6 +204,14 @@ function httpPost(url, data) {
     });
 
     req.on('error', reject);
+
+    if (timeoutMs) {
+      req.setTimeout(timeoutMs, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+    }
+
     req.write(body);
     req.end();
   });
@@ -216,7 +231,15 @@ async function handleScreenshot(req, res) {
 
   req.on('end', async () => {
     try {
-      let { name, selector, fullPage, properties } = JSON.parse(body);
+      let {
+        buildId,
+        name,
+        selector,
+        fullPage,
+        properties,
+        viewport,
+        requestTimeout,
+      } = JSON.parse(body);
 
       if (!name) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -239,8 +262,20 @@ async function handleScreenshot(req, res) {
       };
 
       let imageBuffer;
+      if (
+        viewport?.width &&
+        viewport?.height &&
+        typeof pageRef.setViewportSize === 'function'
+      ) {
+        await pageRef.setViewportSize({
+          width: viewport.width,
+          height: viewport.height,
+        });
+      }
 
       if (selector) {
+        delete screenshotOptions.fullPage;
+
         // Capture specific element
         let element = pageRef.locator(selector).first();
         let elementHandle = await element.elementHandle();
@@ -258,7 +293,10 @@ async function handleScreenshot(req, res) {
       }
 
       // Forward to Vizzly TDD server
-      let result = await forwardToVizzly(name, imageBuffer, properties);
+      let result = await forwardToVizzly(name, imageBuffer, properties, {
+        buildId,
+        requestTimeout,
+      });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));

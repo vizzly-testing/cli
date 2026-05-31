@@ -7,7 +7,7 @@
  * @module @vizzly-testing/ember/testem
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -76,14 +76,18 @@ function createLaunchers() {
  * @param {Object} options - Playwright launch options
  */
 function writePlaywrightConfig(options) {
-  if (!options || Object.keys(options).length === 0) return;
-
   let vizzlyDir = join(process.cwd(), '.vizzly');
+  let configPath = join(vizzlyDir, 'playwright.json');
+
+  if (!options || Object.keys(options).length === 0) {
+    rmSync(configPath, { force: true });
+    return;
+  }
+
   if (!existsSync(vizzlyDir)) {
     mkdirSync(vizzlyDir, { recursive: true });
   }
 
-  let configPath = join(vizzlyDir, 'playwright.json');
   writeFileSync(configPath, JSON.stringify(options, null, 2));
 }
 

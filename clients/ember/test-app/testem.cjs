@@ -14,7 +14,7 @@ if (typeof module !== 'undefined') {
     browser_start_timeout: 120,
     browser_args: {
       Chrome: {
-        ci: ['--headless', '--disable-gpu'],
+        ci: ['--headless'],
         dev: [], // headed for local debugging
       },
     },

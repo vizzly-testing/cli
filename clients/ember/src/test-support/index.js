@@ -182,12 +182,16 @@ function shouldFailOnDiff() {
  * @param {string} name - Unique name for this screenshot
  * @param {Object} [options] - Screenshot options
  * @param {string} [options.selector] - CSS selector to capture specific element within the app
- * @param {boolean} [options.fullPage=false] - Capture full scrollable content
+ * @param {boolean} [options.fullPage=false] - Capture full scrollable content for page-scoped screenshots
  * @param {number} [options.width=1280] - Viewport width for the screenshot
  * @param {number} [options.height=720] - Viewport height for the screenshot
  * @param {string} [options.scope='app'] - What to capture: 'app' (default), 'container', or 'page'
  * @param {Object} [options.properties] - Additional metadata for the screenshot
+ * @param {number} [options.threshold] - Vizzly comparison threshold. Omitted values use server config.
+ * @param {number} [options.minClusterSize] - Ignore connected diff clusters smaller than this size. Omitted values use server config.
  * @param {boolean} [options.failOnDiff] - Fail the test if visual diff is detected (overrides env var)
+ * @param {string} [options.buildId] - Build ID override for this screenshot
+ * @param {number} [options.requestTimeout] - HTTP request timeout in milliseconds
  * @returns {Promise<Object>} Screenshot result from Vizzly server
  *
  * @example
@@ -214,7 +218,11 @@ export async function vizzlyScreenshot(name, options = {}) {
     height = 720,
     scope = 'app',
     properties = {},
+    threshold = null,
+    minClusterSize = null,
     failOnDiff = null, // null means use env var, true/false overrides
+    buildId = null,
+    requestTimeout = null,
   } = options;
 
   // Get screenshot URL injected by the launcher
@@ -234,13 +242,6 @@ export async function vizzlyScreenshot(name, options = {}) {
     await settled();
   }
 
-  // Prepare testing container for screenshot (expand to full size)
-  let cleanup = prepareTestingContainer(width, height, fullPage);
-
-  // Force a repaint to ensure styles are applied
-  // eslint-disable-next-line no-unused-expressions
-  document.body.offsetHeight;
-
   // Determine what selector to pass to Playwright
   let captureSelector = null;
 
@@ -259,25 +260,78 @@ export async function vizzlyScreenshot(name, options = {}) {
   }
   // scope === 'page' means captureSelector stays null (full page)
 
+  let effectiveFullPage = captureSelector ? false : fullPage;
+
+  // Prepare testing container for screenshot (expand to full size)
+  let cleanup = prepareTestingContainer(width, height, effectiveFullPage);
+
+  // Force a repaint to ensure styles are applied
+  // eslint-disable-next-line no-unused-expressions
+  document.body.offsetHeight;
+
+  let customViewport = properties.viewport;
+  let customViewportWidth = properties.viewport_width;
+  let customViewportHeight = properties.viewport_height;
+  let screenshotProperties = {
+    ...properties,
+    framework: 'ember',
+    browser: detectBrowser(),
+    viewport_width: width,
+    viewport_height: height,
+    url: window.location.href,
+  };
+
+  if (customViewport !== undefined) {
+    screenshotProperties.viewport = customViewport;
+  }
+
+  if (customViewportWidth !== undefined) {
+    screenshotProperties.viewport_width = customViewportWidth;
+  }
+
+  if (customViewportHeight !== undefined) {
+    screenshotProperties.viewport_height = customViewportHeight;
+  }
+
+  if (threshold !== null) {
+    screenshotProperties.threshold = threshold;
+  }
+
+  if (minClusterSize !== null) {
+    screenshotProperties.minClusterSize = minClusterSize;
+  }
+
+  if (!captureSelector && effectiveFullPage !== null) {
+    screenshotProperties.fullPage = effectiveFullPage;
+  }
+
   // Build request payload
   let payload = {
+    buildId: buildId || window.__VIZZLY_BUILD_ID__ || null,
     name,
     selector: captureSelector,
-    fullPage,
-    properties: {
-      browser: detectBrowser(),
-      viewport_width: width,
-      viewport_height: height,
-      url: window.location.href,
-      ...properties,
+    fullPage: effectiveFullPage,
+    viewport: {
+      width,
+      height,
     },
+    properties: screenshotProperties,
+    requestTimeout,
   };
 
   try {
+    let signal =
+      requestTimeout &&
+      typeof AbortSignal !== 'undefined' &&
+      typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(requestTimeout)
+        : undefined;
+
     // Send screenshot request to server
     let response = await fetch(`${screenshotUrl}/screenshot`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      ...(signal ? { signal } : {}),
       body: JSON.stringify(payload),
     });
 

@@ -38,16 +38,11 @@ function isCI() {
  * Get default Chromium args for stability
  * @returns {string[]}
  */
-function getDefaultChromiumArgs() {
+export function getDefaultChromiumArgs() {
   let args = ['--no-sandbox', '--disable-setuid-sandbox'];
 
   if (isCI()) {
-    args.push(
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-software-rasterizer',
-      '--disable-extensions'
-    );
+    args.push('--disable-dev-shm-usage', '--disable-extensions');
   }
 
   return args;
@@ -61,6 +56,7 @@ function getDefaultChromiumArgs() {
  * @param {Object} options - Launch options
  * @param {string} options.screenshotUrl - URL of the screenshot HTTP server
  * @param {boolean} [options.failOnDiff] - Whether tests should fail on visual diffs
+ * @param {string|null} [options.buildId] - Build ID to attach to screenshots
  * @param {Object} [options.playwrightOptions] - Playwright launch options (headless, slowMo, timeout, etc.)
  * @param {Function} [options.onPageCreated] - Callback when page is created (before navigation)
  * @param {Function} [options.onBrowserDisconnected] - Callback when browser disconnects unexpectedly
@@ -70,6 +66,7 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
   let {
     screenshotUrl,
     failOnDiff,
+    buildId = null,
     playwrightOptions = {},
     onPageCreated,
     onBrowserDisconnected,
@@ -114,11 +111,12 @@ export async function launchBrowser(browserType, testUrl, options = {}) {
 
   // Inject Vizzly config into page context BEFORE navigation
   await page.addInitScript(
-    ({ screenshotUrl, failOnDiff }) => {
+    ({ screenshotUrl, failOnDiff, buildId }) => {
       window.__VIZZLY_SCREENSHOT_URL__ = screenshotUrl;
       window.__VIZZLY_FAIL_ON_DIFF__ = failOnDiff;
+      window.__VIZZLY_BUILD_ID__ = buildId;
     },
-    { screenshotUrl, failOnDiff }
+    { screenshotUrl, failOnDiff, buildId }
   );
 
   // Call onPageCreated callback BEFORE navigation

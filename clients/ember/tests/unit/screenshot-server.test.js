@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -13,6 +14,8 @@ import {
 
 describe('screenshot-server', () => {
   let server = null;
+  let originalVizzlyServerUrl = process.env.VIZZLY_SERVER_URL;
+  let originalVizzlyToken = process.env.VIZZLY_TOKEN;
 
   afterEach(async () => {
     if (server) {
@@ -20,6 +23,16 @@ describe('screenshot-server', () => {
       server = null;
     }
     setPage(null);
+    if (originalVizzlyServerUrl === undefined) {
+      delete process.env.VIZZLY_SERVER_URL;
+    } else {
+      process.env.VIZZLY_SERVER_URL = originalVizzlyServerUrl;
+    }
+    if (originalVizzlyToken === undefined) {
+      delete process.env.VIZZLY_TOKEN;
+    } else {
+      process.env.VIZZLY_TOKEN = originalVizzlyToken;
+    }
   });
 
   describe('startScreenshotServer()', () => {
@@ -156,6 +169,164 @@ describe('screenshot-server', () => {
       assert.ok(
         response.headers.get('Access-Control-Allow-Methods').includes('POST')
       );
+    });
+
+    it('sets requested viewport before capturing the screenshot', async () => {
+      let viewportCalls = [];
+      let screenshotCalls = [];
+      let forwardedPayload = null;
+      let vizzlyServer = await startFakeVizzlyServer(payload => {
+        forwardedPayload = payload;
+      });
+      process.env.VIZZLY_SERVER_URL = `http://127.0.0.1:${vizzlyServer.port}`;
+
+      setPage({
+        async setViewportSize(viewport) {
+          viewportCalls.push(viewport);
+        },
+        async screenshot(options) {
+          screenshotCalls.push(options);
+          return Buffer.from('png');
+        },
+      });
+
+      try {
+        let response = await fetch(
+          `http://127.0.0.1:${server.port}/screenshot`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              buildId: 'build-from-ember',
+              name: 'mobile-dashboard',
+              fullPage: false,
+              viewport: { width: 375, height: 667 },
+              properties: { browser: 'chromium' },
+              requestTimeout: 30_000,
+            }),
+          }
+        );
+
+        assert.strictEqual(response.status, 200);
+        assert.deepStrictEqual(viewportCalls, [{ width: 375, height: 667 }]);
+        assert.strictEqual(screenshotCalls.length, 1);
+        assert.strictEqual(forwardedPayload.buildId, 'build-from-ember');
+        assert.strictEqual(forwardedPayload.name, 'mobile-dashboard');
+        assert.deepStrictEqual(forwardedPayload.properties, {
+          framework: 'ember',
+          browser: 'chromium',
+        });
+      } finally {
+        await vizzlyServer.stop();
+      }
+    });
+
+    it('keeps framework pinned to ember when forwarding screenshot properties', async () => {
+      let forwardedPayload = null;
+      let vizzlyServer = await startFakeVizzlyServer(payload => {
+        forwardedPayload = payload;
+      });
+      process.env.VIZZLY_SERVER_URL = `http://127.0.0.1:${vizzlyServer.port}`;
+
+      setPage({
+        async screenshot() {
+          return Buffer.from('png');
+        },
+      });
+
+      try {
+        let response = await fetch(
+          `http://127.0.0.1:${server.port}/screenshot`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: 'dashboard',
+              properties: {
+                framework: 'custom-framework',
+                theme: 'dark',
+              },
+            }),
+          }
+        );
+
+        assert.strictEqual(response.status, 200);
+        assert.deepStrictEqual(forwardedPayload.properties, {
+          framework: 'ember',
+          theme: 'dark',
+        });
+      } finally {
+        await vizzlyServer.stop();
+      }
+    });
+
+    it('does not pass fullPage to element screenshots', async () => {
+      let screenshotCalls = [];
+      let vizzlyServer = await startFakeVizzlyServer();
+      process.env.VIZZLY_SERVER_URL = `http://127.0.0.1:${vizzlyServer.port}`;
+
+      setPage({
+        locator() {
+          return {
+            first() {
+              return {
+                async elementHandle() {
+                  return {};
+                },
+                async screenshot(options) {
+                  screenshotCalls.push(options);
+                  return Buffer.from('png');
+                },
+              };
+            },
+          };
+        },
+      });
+
+      try {
+        let response = await fetch(
+          `http://127.0.0.1:${server.port}/screenshot`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: 'button',
+              selector: '#ember-testing button',
+              fullPage: true,
+              properties: {},
+            }),
+          }
+        );
+
+        assert.strictEqual(response.status, 200);
+        assert.deepStrictEqual(screenshotCalls, [{ type: 'png' }]);
+      } finally {
+        await vizzlyServer.stop();
+      }
+    });
+
+    it('does not fake cloud success when no Vizzly server is running', async () => {
+      delete process.env.VIZZLY_SERVER_URL;
+      process.env.VIZZLY_TOKEN = 'token-without-wrapper';
+
+      setPage({
+        async screenshot() {
+          return Buffer.from('png');
+        },
+      });
+
+      let response = await fetch(`http://127.0.0.1:${server.port}/screenshot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'cloud-without-wrapper',
+          properties: {},
+        }),
+      });
+
+      assert.strictEqual(response.status, 500);
+      let body = await response.json();
+      assert.match(body.error, /vizzly run/);
     });
   });
 
@@ -314,3 +485,37 @@ describe('screenshot-server', () => {
     });
   });
 });
+
+function startFakeVizzlyServer(onPayload = () => {}) {
+  return new Promise((resolve, reject) => {
+    let server = createServer((req, res) => {
+      if (req.method !== 'POST' || req.url !== '/screenshot') {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
+
+      let chunks = [];
+      req.on('data', chunk => {
+        chunks.push(chunk);
+      });
+      req.on('end', () => {
+        let body = Buffer.concat(chunks).toString();
+        onPayload(body ? JSON.parse(body) : {});
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'match' }));
+      });
+    });
+
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      resolve({
+        port: server.address().port,
+        stop: () =>
+          new Promise(stopResolve => {
+            server.close(stopResolve);
+          }),
+      });
+    });
+  });
+}

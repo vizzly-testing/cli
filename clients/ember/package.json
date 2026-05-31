@@ -43,8 +43,8 @@
     "bin",
     "src",
     "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "test": "node --test --test-reporter=spec 'tests/unit/**/*.test.js'",

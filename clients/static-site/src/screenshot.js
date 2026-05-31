@@ -130,10 +130,11 @@ export async function captureAndSendScreenshot(
     url: page.url(),
   });
   let screenshot = await captureScreenshot(page, screenshotOptions);
-  let requestTimeout =
-    screenshotOptions.requestTimeout ||
-    screenshotOptions.timeout ||
-    DEFAULT_SCREENSHOT_TIMEOUT;
 
-  await vizzlyScreenshot(name, screenshot, { properties, requestTimeout });
+  let vizzlyOptions = { properties };
+  if (screenshotOptions.requestTimeout !== undefined) {
+    vizzlyOptions.requestTimeout = screenshotOptions.requestTimeout;
+  }
+
+  await vizzlyScreenshot(name, screenshot, vizzlyOptions);
 }

@@ -225,4 +225,31 @@ describe('captureAndSendScreenshot', () => {
       requestTimeout: 120000,
     });
   });
+
+  it('does not turn screenshot timeout into Vizzly request timeout', async () => {
+    let screenshot = Buffer.from('fake-screenshot');
+    let mockVizzlyScreenshot = mock.fn(async () => {});
+    let page = {
+      screenshot: mock.fn(async () => screenshot),
+      url: () => 'http://localhost:3000/docs',
+    };
+
+    _setVizzlyScreenshot(mockVizzlyScreenshot);
+
+    await captureAndSendScreenshot(
+      page,
+      { path: '/docs' },
+      { name: 'desktop', width: 1920, height: 1080 },
+      {
+        browser: 'chromium',
+        fullPage: true,
+        timeout: 45_000,
+      }
+    );
+
+    let [, , options] = mockVizzlyScreenshot.mock.calls[0].arguments;
+
+    assert.strictEqual(options.requestTimeout, undefined);
+    assert.strictEqual(options.properties.requestTimeout, undefined);
+  });
 });

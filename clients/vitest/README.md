@@ -25,7 +25,7 @@ standard `toMatchScreenshot` API - no code changes required!
 ## Installation
 
 ```bash
-pnpm install -D @vizzly-testing/vitest @vizzly-testing/cli
+pnpm install -D @vizzly-testing/vitest @vizzly-testing/cli vitest @vitest/browser @vitest/browser-playwright
 ```
 
 ## Quick Start
@@ -65,7 +65,7 @@ import { page } from 'vitest/browser'
 
 test('homepage looks correct', async () => {
   // Render your component/page
-  document.body.innerHTML = '<div class="hero">Hello World</div>'
+  document.body.innerHTML = '<h1 class="hero">Hello World</h1>'
 
   // Basic screenshot
   await expect(page.getByRole('heading')).toMatchScreenshot('homepage.png')
@@ -73,8 +73,7 @@ test('homepage looks correct', async () => {
   // With properties for multi-variant testing
   await expect(page.getByRole('heading')).toMatchScreenshot('hero-section.png', {
     properties: {
-      theme: 'dark',
-      viewport: '1920x1080'
+      theme: 'dark'
     },
     threshold: 5
   })
@@ -87,7 +86,7 @@ test('homepage looks correct', async () => {
 
 ```bash
 # Terminal 1: Start Vizzly TDD server
-pnpm exec vizzly dev start
+pnpm exec vizzly tdd start
 
 # Terminal 2: Run tests
 pnpm exec vitest
@@ -107,20 +106,16 @@ pnpm exec vizzly run "pnpm exec vitest" --wait
 
 ## API Reference
 
-### Plugin Options
+### Plugin
 
-The plugin requires no configuration, but you can pass options if needed:
+The plugin does not take configuration today. Add it once to your Vitest
+plugins list and pass screenshot-specific options to `toMatchScreenshot`.
 
 ```javascript
 import { vizzlyPlugin } from '@vizzly-testing/vitest'
 
 // Simple - just add the plugin
 vizzlyPlugin()
-
-// Or with options (rarely needed)
-vizzlyPlugin({
-  // Plugin-specific options can go here
-})
 ```
 
 ### Screenshot Options
@@ -136,8 +131,11 @@ await expect(page).toMatchScreenshot('screenshot.png', {
     userRole: 'admin'
   },
 
-  // Comparison threshold (0-100)
+  // Vizzly diff sensitivity threshold
   threshold: 5,
+
+  // Ignore tiny connected pixel clusters
+  minClusterSize: 10,
 
   // Full page capture
   fullPage: true
@@ -146,9 +144,19 @@ await expect(page).toMatchScreenshot('screenshot.png', {
 
 **Available Options:**
 
-- `properties` (object) - Custom metadata for signature-based baseline matching
-- `threshold` (number, 0-100) - Acceptable difference percentage (default: 0)
-- `fullPage` (boolean) - Capture full scrollable page instead of viewport
+- Playwright/Vitest screenshot options such as `animations`, `caret`, `mask`,
+  `maskColor`, `omitBackground`, `scale`, and `timeout` are passed through to
+  the browser screenshot capture.
+- Vizzly automatically adds `browser`, `url`, `viewport`, `viewport_width`, and
+  `viewport_height` metadata based on the current browser session.
+- `properties` (object) - Custom metadata for signature-based baseline matching.
+  Reserved runtime fields stay pinned to the current browser session; explicit
+  viewport fields are still allowed when a test intentionally needs a custom
+  signature.
+- `threshold` (number) - Vizzly diff sensitivity threshold. When omitted, the Vizzly server configuration is used.
+- `minClusterSize` (number) - Ignore connected diff clusters smaller than this size
+- `fullPage` (boolean) - Capture full scrollable page instead of viewport. This applies to page targets; locator targets stay element-sized.
+- `failOnDiff` (boolean) - Fail this assertion when Vizzly reports a visual diff. When omitted, the Vizzly server or environment setting is used.
 
 ## Multi-Variant Testing
 
@@ -210,8 +218,7 @@ test('typed screenshot', async () => {
   await expect(page).toMatchScreenshot('hero.png', {
     properties: {
       // Full autocomplete support
-      theme: 'dark',
-      viewport: '1920x1080'
+      theme: 'dark'
     },
     threshold: 5,
     fullPage: true
@@ -245,7 +252,7 @@ test('manual screenshot', async () => {
 
 ## Examples & Tests
 
-See the tests in this package at `tests/`:
+See the package tests in the Vizzly CLI repo under `clients/vitest/tests/`:
 
 - **vitest-plugin.spec.js** - Unit tests for plugin configuration and comparator function
 - **e2e/** - End-to-end test project running actual Vitest tests with the plugin
@@ -256,8 +263,8 @@ The E2E tests serve as both validation and a working example. Run them with:
 # From clients/vitest directory
 pnpm install
 pnpm run test:unit    # Run unit tests
-pnpm run test:e2e     # Run E2E tests (requires vizzly dev start)
-pnpm test            # Run all tests
+pnpm run test:e2e     # Run E2E tests (requires vizzly tdd start)
+pnpm test            # Run unit tests
 ```
 
 ## Troubleshooting
@@ -265,12 +272,12 @@ pnpm test            # Run all tests
 ### "Vizzly not available" message
 
 Make sure you're running tests with either:
-- `vizzly dev start` (TDD mode)
+- `vizzly tdd start` (TDD mode)
 - `vizzly run "pnpm exec vitest"` (cloud mode)
 
 ### Screenshots not appearing in dashboard
 
-1. Check `vizzly status` for TDD, make sure `VIZZLY_TOKEN` is set for cloud capture
+1. Check `pnpm exec vizzly tdd status` for TDD, make sure `VIZZLY_TOKEN` is set for cloud capture
 2. Verify API token is set: `pnpm exec vizzly whoami`
 3. Check console for error messages
 

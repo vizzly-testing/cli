@@ -40,7 +40,7 @@
  *   await expect(page).toMatchScreenshot('hero.png', {
  *     properties: {
  *       theme: 'dark',
- *       viewport: '1920x1080'
+ *       viewport: { width: 1920, height: 1080 }
  *     },
  *     threshold: 5
  *   })
@@ -51,7 +51,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getVizzlyInfo } from '@vizzly-testing/cli/client';
 
-export function vizzlyPlugin(_options = {}) {
+export function vizzlyPlugin() {
   return {
     name: 'vitest-vizzly',
     config() {
@@ -59,27 +59,34 @@ export function vizzlyPlugin(_options = {}) {
       // Search for .vizzly/server.json from process.cwd() up to root
       let serverUrl = process.env.VIZZLY_SERVER_URL || '';
       let buildId = process.env.VIZZLY_BUILD_ID || '';
+      let failOnDiff = process.env.VIZZLY_FAIL_ON_DIFF || '';
 
-      if (!serverUrl) {
-        // Search for .vizzly/server.json in current working directory and parent directories
-        let currentDir = process.cwd();
-        while (currentDir !== '/') {
-          let serverJsonPath = join(currentDir, '.vizzly', 'server.json');
-          if (existsSync(serverJsonPath)) {
-            try {
-              let serverConfig = JSON.parse(
-                readFileSync(serverJsonPath, 'utf-8')
-              );
+      // Search for .vizzly/server.json in current working directory and parent directories
+      let currentDir = process.cwd();
+      while (currentDir !== '/') {
+        let serverJsonPath = join(currentDir, '.vizzly', 'server.json');
+        if (existsSync(serverJsonPath)) {
+          try {
+            let serverConfig = JSON.parse(
+              readFileSync(serverJsonPath, 'utf-8')
+            );
+
+            if (!serverUrl && serverConfig.port) {
               serverUrl = `http://localhost:${serverConfig.port}`;
-              break;
-            } catch {
-              // Ignore malformed server.json
             }
+
+            if (!failOnDiff && serverConfig.failOnDiff === true) {
+              failOnDiff = 'true';
+            }
+
+            break;
+          } catch {
+            // Ignore malformed server.json
           }
-          let parentDir = resolve(currentDir, '..');
-          if (parentDir === currentDir) break;
-          currentDir = parentDir;
         }
+        let parentDir = resolve(currentDir, '..');
+        if (parentDir === currentDir) break;
+        currentDir = parentDir;
       }
 
       return {
@@ -95,6 +102,7 @@ export function vizzlyPlugin(_options = {}) {
         define: {
           __VIZZLY_SERVER_URL__: JSON.stringify(serverUrl),
           __VIZZLY_BUILD_ID__: JSON.stringify(buildId),
+          __VIZZLY_FAIL_ON_DIFF__: JSON.stringify(failOnDiff),
         },
       };
     },

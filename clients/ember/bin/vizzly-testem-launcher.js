@@ -119,6 +119,7 @@ async function main() {
     browserInstance = await launchBrowser(browserType, testUrl, {
       screenshotUrl,
       failOnDiff,
+      buildId: process.env.VIZZLY_BUILD_ID || null,
       playwrightOptions,
       onPageCreated: page => {
         setPage(page);

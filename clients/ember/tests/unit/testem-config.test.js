@@ -146,19 +146,15 @@ describe('testem-config', () => {
       });
     });
 
-    it('does not write playwright.json when playwrightOptions is empty', () => {
+    it('removes stale playwright.json when playwrightOptions is empty', () => {
       // Clean up any existing file first
       let configPath = join(process.cwd(), '.vizzly', 'playwright.json');
-      if (existsSync(configPath)) {
-        rmSync(configPath);
-      }
+      configure({}, { headless: false });
+      assert.ok(existsSync(configPath), 'precondition should write config');
 
       configure({}, {});
 
-      assert.ok(
-        !existsSync(configPath),
-        'should not write empty playwright.json'
-      );
+      assert.ok(!existsSync(configPath), 'should remove stale playwright.json');
     });
 
     it('handles lowercase browser names', () => {

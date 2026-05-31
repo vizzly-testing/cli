@@ -184,8 +184,16 @@ await vizzlyScreenshot('screenshot-name', {
     user: 'admin'
   },
 
-  // Fail test if visual diff detected (overrides --fail-on-diff flag)
-  failOnDiff: true
+  // Comparison tuning
+  threshold: 5,
+  minClusterSize: 10,
+
+  // Fail this test if a visual diff is detected
+  failOnDiff: true,
+
+  // Optional per-screenshot transport options
+  buildId: 'build_123',
+  requestTimeout: 60000
 });
 ```
 
@@ -197,9 +205,21 @@ await vizzlyScreenshot('screenshot-name', {
 | `height` | number | 720 | Viewport height for the screenshot |
 | `selector` | string | null | CSS selector to capture specific element |
 | `scope` | string | 'app' | What to capture: `'app'` (just #ember-testing), `'container'`, or `'page'` (full page including QUnit) |
-| `fullPage` | boolean | false | Capture full scrollable content |
+| `fullPage` | boolean | false | Capture full scrollable content for `scope: 'page'`; app, container, and selector captures are element-sized |
 | `properties` | object | {} | Custom metadata attached to the screenshot |
-| `failOnDiff` | boolean | null | Fail the test when visual diff is detected. `null` uses the `--fail-on-diff` CLI flag. |
+| `threshold` | number | null | Vizzly comparison threshold. `null` uses the server config. |
+| `minClusterSize` | number | null | Ignore connected diff clusters smaller than this size. `null` uses the server config. |
+| `failOnDiff` | boolean | null | Fail the test when visual diff is detected. `null` uses the launcher/server setting; explicit `true` or `false` overrides it for this screenshot. |
+| `buildId` | string | injected | Build ID override for this screenshot. Defaults to the build ID injected by `vizzly run`. |
+| `requestTimeout` | number | null | HTTP request timeout in milliseconds for sending this screenshot to Vizzly. |
+
+`failOnDiff` is resolved in this order: the per-screenshot option, the launcher
+setting injected from `VIZZLY_FAIL_ON_DIFF` or `.vizzly/server.json`, then
+non-failing mode.
+
+Each screenshot also includes Vizzly metadata for grouping and comparison:
+`browser`, `viewport_width`, `viewport_height`, `url`, and any custom
+`properties` you provide.
 
 The function automatically:
 - Waits for Ember's `settled()` before capturing
@@ -248,6 +268,7 @@ For CI environments, ensure:
 
 1. Browsers are installed: `pnpm exec playwright install chromium`
 2. Vizzly token is set: `VIZZLY_TOKEN=your-token`
+3. Tests run through the Vizzly CLI wrapper so cloud uploads are finalized
 
 ```yaml
 # GitHub Actions example
@@ -257,7 +278,7 @@ For CI environments, ensure:
 - name: Run Tests
   env:
     VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
-  run: ember test
+  run: pnpm exec vizzly run "ember test"
 ```
 
 ### Failing on Visual Diffs

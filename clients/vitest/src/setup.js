@@ -4,9 +4,123 @@
  */
 import { expect } from 'vitest';
 
+export function buildScreenshotProperties(
+  options = {},
+  locationHref = '',
+  context = {}
+) {
+  let customProperties = options.properties ?? {};
+  let customViewport = customProperties.viewport;
+  let customViewportWidth = customProperties.viewport_width;
+  let customViewportHeight = customProperties.viewport_height;
+  let viewportWidth = context.viewport?.width;
+  let viewportHeight = context.viewport?.height;
+  let properties = {
+    ...customProperties,
+    framework: 'vitest',
+    vitest: true,
+    url: locationHref,
+    browser: context.browser || detectBrowser(),
+  };
+
+  if (Number.isFinite(viewportWidth) && Number.isFinite(viewportHeight)) {
+    properties.viewport = { width: viewportWidth, height: viewportHeight };
+    properties.viewport_width = viewportWidth;
+    properties.viewport_height = viewportHeight;
+  }
+
+  if (customViewport !== undefined) {
+    properties.viewport = customViewport;
+  }
+
+  if (customViewportWidth !== undefined) {
+    properties.viewport_width = customViewportWidth;
+  }
+
+  if (customViewportHeight !== undefined) {
+    properties.viewport_height = customViewportHeight;
+  }
+
+  if (options.threshold !== undefined) {
+    properties.threshold = options.threshold;
+  }
+
+  if (options.minClusterSize !== undefined) {
+    properties.minClusterSize = options.minClusterSize;
+  }
+
+  if (!context.element && options.fullPage !== undefined) {
+    properties.fullPage = options.fullPage;
+  }
+
+  return properties;
+}
+
+export function detectBrowser(userAgent = globalThis.navigator?.userAgent) {
+  if (!userAgent) return 'unknown';
+
+  let normalizedUserAgent = userAgent.toLowerCase();
+
+  if (normalizedUserAgent.includes('firefox')) return 'firefox';
+  if (normalizedUserAgent.includes('edg/')) return 'edge';
+  if (normalizedUserAgent.includes('chrome')) return 'chromium';
+  if (normalizedUserAgent.includes('safari')) return 'webkit';
+
+  return 'unknown';
+}
+
+export function buildScreenshotCaptureOptions(options = {}, context = {}) {
+  let captureOptions = { ...options };
+  delete captureOptions.properties;
+  delete captureOptions.threshold;
+  delete captureOptions.minClusterSize;
+  delete captureOptions.failOnDiff;
+  delete captureOptions.buildId;
+  delete captureOptions.requestTimeout;
+
+  if (context.element) {
+    delete captureOptions.fullPage;
+  }
+
+  return captureOptions;
+}
+
+export function normalizeScreenshotMatcherArgs(name, options = {}) {
+  if (name && typeof name === 'object') {
+    return { name: undefined, options: name };
+  }
+
+  return { name, options };
+}
+
+export function isElementScreenshotTarget(target, page) {
+  return (
+    target &&
+    target !== page &&
+    typeof target === 'object' &&
+    typeof target.screenshot === 'function'
+  );
+}
+
+export function shouldFailOnDiff(override = null) {
+  if (override !== null && override !== undefined) {
+    return override === true;
+  }
+
+  let value =
+    typeof __VIZZLY_FAIL_ON_DIFF__ !== 'undefined'
+      ? __VIZZLY_FAIL_ON_DIFF__
+      : '';
+  return value === true || value === 'true' || value === '1';
+}
+
 // Custom matcher that completely replaces Vitest's toMatchScreenshot
 // This runs in browser context, so we make direct HTTP calls instead of using Node SDK
 async function toMatchScreenshot(element, name, options = {}) {
+  let args = normalizeScreenshotMatcherArgs(name, options);
+  name = args.name;
+  options = args.options;
+
   let serverUrl =
     typeof __VIZZLY_SERVER_URL__ !== 'undefined' ? __VIZZLY_SERVER_URL__ : '';
   let buildId =
@@ -22,32 +136,31 @@ async function toMatchScreenshot(element, name, options = {}) {
   }
 
   // Import page from Vitest browser context
-  const { page } = await import('vitest/browser');
+  let { page } = await import('vitest/browser');
 
   // Take screenshot - Vitest browser mode returns a file path, not the image data
   let screenshotPath;
-  if (typeof element === 'object' && element.locator) {
-    // It's a Playwright locator
-    screenshotPath = await element.screenshot(options);
+  if (isElementScreenshotTarget(element, page)) {
+    let captureOptions = buildScreenshotCaptureOptions(options, {
+      element: true,
+    });
+    screenshotPath = await element.screenshot(captureOptions);
   } else {
     // It's the page object
-    screenshotPath = await page.screenshot(options);
+    let captureOptions = buildScreenshotCaptureOptions(options);
+    screenshotPath = await page.screenshot(captureOptions);
   }
 
   let screenshotName = name || `screenshot-${Date.now()}`;
 
-  // Extract options from top-level
-  let threshold = options.threshold ?? 0;
-  let fullPage = options.fullPage;
-  let customProperties = options.properties ?? {};
-
   // Prepare properties
-  let properties = {
-    framework: 'vitest',
-    vitest: true,
-    url: window.location.href,
-    ...customProperties,
-  };
+  let properties = buildScreenshotProperties(options, window.location.href, {
+    element: isElementScreenshotTarget(element, page),
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    },
+  });
 
   try {
     // Vitest browser mode saves screenshots to disk and returns the file path
@@ -63,8 +176,6 @@ async function toMatchScreenshot(element, name, options = {}) {
         image: screenshotPath, // Send file path directly
         type: 'file-path',
         buildId: buildId || null,
-        threshold,
-        fullPage,
         properties,
       }),
     });
@@ -90,7 +201,7 @@ async function toMatchScreenshot(element, name, options = {}) {
 
     if (comparisonStatus === 'new') {
       return {
-        pass: false,
+        pass: true,
         message: () =>
           `New screenshot baseline created: ${screenshotName}. View at http://localhost:47392/dashboard`,
       };
@@ -110,11 +221,11 @@ async function toMatchScreenshot(element, name, options = {}) {
         ? comparison.diffPercentage.toFixed(2)
         : '0.00';
 
-      if (comparison.diffPercentage <= threshold) {
+      if (!shouldFailOnDiff(options.failOnDiff)) {
         return {
           pass: true,
           message: () =>
-            `Screenshot within threshold: ${screenshotName} (${diffPercent}% ≤ ${threshold.toFixed(2)}%)`,
+            `Visual difference recorded: ${screenshotName} (${diffPercent}% difference). View at http://localhost:47392/dashboard`,
         };
       }
 

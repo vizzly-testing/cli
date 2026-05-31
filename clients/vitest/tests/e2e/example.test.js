@@ -5,7 +5,7 @@
  * - Page screenshots
  * - Element screenshots
  * - Properties/metadata
- * - Threshold options
+ * - Threshold/minClusterSize options
  *
  * Uses the shared test-site CSS for consistent styling.
  */
@@ -83,6 +83,7 @@ describe('Vizzly Vitest Plugin', () => {
 
     await expect(page).toMatchScreenshot('warning.png', {
       threshold: 5,
+      minClusterSize: 10,
     });
   });
 

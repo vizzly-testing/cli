@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-01
+
+## What's Changed
+
+### Added
+- Added automatic screenshot metadata for Vitest captures, including the current
+  page URL, browser, viewport, viewport width, and viewport height.
+- Added support for Vitest and Playwright screenshot capture options such as
+  `animations`, `caret`, `mask`, `maskColor`, `omitBackground`, `scale`, and
+  `timeout`.
+- Added `minClusterSize` and `failOnDiff` options to `toMatchScreenshot`.
+- Added support for calling `toMatchScreenshot` with options only, without a
+  screenshot name.
+
+### Changed
+- Visual diffs are now recorded without failing the assertion unless
+  `failOnDiff` is enabled by the screenshot option, environment, or Vizzly TDD
+  server configuration.
+- New screenshot baselines now pass after being created, so first-time captures
+  do not fail the Vitest run.
+- `vizzlyPlugin` is now configuration-free; pass screenshot behavior through
+  `toMatchScreenshot` options instead.
+- Package scripts and docs now use `pnpm` commands for installation and test
+  workflows.
+
+### Fixed
+- Fixed element screenshots so `fullPage` is not passed to element capture or
+  recorded as full-page metadata.
+- Fixed Vizzly-only options so they are sent to Vizzly as comparison metadata
+  instead of being forwarded to browser screenshot capture.
+- Fixed reserved runtime metadata such as framework, Vitest marker, URL, and
+  browser so user-provided properties cannot accidentally overwrite the current
+  browser session values.
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/vitest/v0.1.1...vitest/v0.2.0
+
 ## [0.1.1] - 2026-01-15
 
 ## What's Changed

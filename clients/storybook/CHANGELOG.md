@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-06-01
+
+## What's Changed
+
+### Added
+- Added support and documentation for Storybook 10 projects.
+- Added a CLI-discoverable plugin entrypoint at `@vizzly-testing/storybook/plugin`.
+- Added `--no-headless`, `--no-full-page`, `--timeout`, and
+  `--request-timeout` command options.
+- Added per-story screenshot metadata for cloud uploads, including story ID,
+  story title, story name, viewport name, viewport size, browser, URL, and
+  custom `parameters.vizzly.screenshot.properties`.
+- Added per-story support for screenshot `threshold`, `minClusterSize`,
+  `fullPage`, `omitBackground`, `timeout`, and `requestTimeout` overrides.
+
+### Changed
+- Screenshots now default to full-page capture. Use `--no-full-page` or
+  `storybook.screenshot.fullPage: false` for viewport-only captures.
+- Default concurrency is now auto-detected from CPU cores instead of using a
+  fixed value.
+- Include, exclude, and interaction hook patterns now match against more story
+  fields, including ID, title/name, title, name, and import path.
+- Cloud run configuration now honors shared comparison settings such as
+  `comparison.threshold` and `comparison.minClusterSize`.
+- JavaScript install and build examples now use `pnpm`.
+
+### Fixed
+- Fixed Storybook story URL capture so uploaded screenshots include the isolated
+  story preview URL.
+- Fixed Storybook navigation fallback when client-side story rendering does not
+  complete before the configured timeout.
+- Fixed cloud run finalization so builds are marked failed when screenshot
+  capture has errors and finalized successfully when no stories are found.
+- Fixed static Storybook server shutdown so open connections do not keep the
+  process alive.
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/storybook/v0.7.0...storybook/v0.8.0
+
 ## [0.7.0] - 2026-02-16
 
 ## What's Changed

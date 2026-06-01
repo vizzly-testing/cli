@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-01
+
+## What's Changed
+
+### Added
+- Added browser engine selection for static-site captures. Use `--browser`
+  or `staticSite.browser.type` to run screenshots in `chromium`, `firefox`,
+  or `webkit`.
+- Added `--no-headless`, `--no-full-page`, and `--no-use-sitemap` CLI flags
+  for clearer opt-out control over browser visibility, screenshot mode, and
+  sitemap discovery.
+- Added `--request-timeout` and `staticSite.screenshot.requestTimeout` for
+  controlling the Vizzly screenshot upload request timeout separately from the
+  browser screenshot timeout.
+- Added richer screenshot metadata, including browser, page URL, full-page
+  mode, viewport name, and viewport dimensions.
+- Added support for the shared top-level `comparison.minClusterSize` option in
+  static-site cloud runs.
+
+### Changed
+- Full-page screenshots are now the default. Use `--no-full-page` or
+  `staticSite.screenshot.fullPage: false` to capture only the viewport.
+- Default concurrency is now CPU-aware instead of a fixed value, with automatic
+  defaults between 2 and 8 workers.
+- Screenshot viewport dimension properties now use `viewport_width` and
+  `viewport_height` naming.
+- Static Site examples and documentation now use pnpm commands and the updated
+  programmatic SDK context shape.
+
+### Fixed
+- Fixed include, exclude, interaction, and page override pattern matching so
+  paths work consistently with or without a leading slash.
+- Fixed URL generation for discovered `.html` pages so paths that already end
+  in `.html` are not requested with a duplicate `.html` suffix.
+- Fixed cloud build finalization so runs with screenshot failures are marked as
+  failed instead of successful.
+- Improved missing-browser errors with the exact Playwright install command for
+  the selected browser.
+- Improved static server shutdown so lingering connections do not keep the
+  process open.
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/static-site/v0.2.0...static-site/v0.3.0
+
 ## [0.2.0] - 2026-01-30
 
 ## What's Changed

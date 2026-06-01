@@ -1,4 +1,13 @@
-# Changelog
+# Vizzly Swift SDK Changelog
+
+## [0.1.0] - 2026-06-01
+
+## What's Changed
+
+Release v0.1.0
+
+See the full diff for detailed changes.
+
 
 All notable changes to the Vizzly Swift SDK will be documented in this file.
 

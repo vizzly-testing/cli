@@ -2,6 +2,9 @@
 
 require 'rake/testtask'
 require 'rubocop/rake_task'
+require 'bundler/gem_tasks'
+
+Bundler::GemHelper.tag_prefix = 'ruby/'
 
 # Path to vizzly CLI
 VIZZLY_CLI = File.expand_path('../../bin/vizzly.js', __dir__)

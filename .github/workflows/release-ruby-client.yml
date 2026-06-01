@@ -183,22 +183,12 @@ jobs:
           git add clients/ruby/vizzly.gemspec clients/ruby/CHANGELOG.md
           git commit -m "🔖 Ruby client v${{ steps.new_version.outputs.version }}"
           git push origin main
-          git tag "${{ steps.new_version.outputs.tag }}"
-          git push origin "${{ steps.new_version.outputs.tag }}"
 
-      - name: Build gem
-        working-directory: ./clients/ruby
-        run: gem build vizzly.gemspec
-
-      - name: Publish to RubyGems
-        working-directory: ./clients/ruby
-        run: |
-          mkdir -p ~/.gem
-          echo ":rubygems_api_key: ${RUBYGEMS_API_KEY}" > ~/.gem/credentials
-          chmod 0600 ~/.gem/credentials
-          gem push vizzly-${{ steps.new_version.outputs.version }}.gem
-        env:
-          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+      - name: Release to RubyGems
+        uses: rubygems/release-gem@f0d7faff26625599a847d40d9fa28ace24c2aacc # v1
+        with:
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          working-directory: ./clients/ruby
 
       - name: Read changelog for release
         id: release_notes
@@ -218,7 +208,7 @@ jobs:
           tag_name: ${{ steps.new_version.outputs.tag }}
           name: 💎 Ruby Client v${{ steps.new_version.outputs.version }}
           body: ${{ steps.release_notes.outputs.notes }}
-          files: ./clients/ruby/vizzly-${{ steps.new_version.outputs.version }}.gem
+          files: ./clients/ruby/pkg/vizzly-${{ steps.new_version.outputs.version }}.gem
           draft: false
           prerelease: false
         env:

@@ -3,7 +3,9 @@
 require 'minitest/autorun'
 require 'json'
 require 'fileutils'
+require 'net/http'
 require 'tmpdir'
+require 'uri'
 require 'webrick'
 require_relative '../lib/vizzly'
 
@@ -39,7 +41,14 @@ module E2ETestHelpers
     )
 
     @test_site_thread = Thread.new { @test_site_server.start }
-    sleep 0.5
+
+    wait = Selenium::WebDriver::Wait.new(timeout: 10)
+    wait.until do
+      response = Net::HTTP.get_response(URI("#{@test_site_url}/index.html"))
+      response.is_a?(Net::HTTPSuccess)
+    rescue Errno::ECONNREFUSED, Net::OpenTimeout
+      false
+    end
   end
 
   def stop_test_site_server
@@ -82,7 +91,17 @@ module E2ETestHelpers
 
   def wait_for_page_load
     wait = Selenium::WebDriver::Wait.new(timeout: 10)
+    wait.until { @driver.execute_script('return document.readyState') == 'complete' }
     wait.until { @driver.find_element(tag_name: 'body') }
+  end
+
+  def navigate_to(page)
+    url = "#{@test_site_url}/#{page}"
+    @driver.navigate.to url
+
+    wait_for_page_load
+    wait = Selenium::WebDriver::Wait.new(timeout: 10)
+    wait.until { @driver.current_url == url }
   end
 
   def capture_screenshot(name, options = {})
@@ -187,16 +206,14 @@ class E2ETest < Minitest::Test
   # ===========================================================================
 
   def test_homepage_full_page
-    @driver.navigate.to "#{@test_site_url}/index.html"
-    wait_for_page_load
+    navigate_to('index.html')
 
     result = capture_screenshot('homepage-full', full_page: true)
     assert_screenshot_result(result)
   end
 
   def test_homepage_navigation
-    @driver.navigate.to "#{@test_site_url}/index.html"
-    wait_for_page_load
+    navigate_to('index.html')
 
     nav = @driver.find_element(tag_name: 'nav')
     result = capture_element_screenshot('homepage-nav', nav)
@@ -204,8 +221,7 @@ class E2ETest < Minitest::Test
   end
 
   def test_homepage_hero_section
-    @driver.navigate.to "#{@test_site_url}/index.html"
-    wait_for_page_load
+    navigate_to('index.html')
 
     hero = @driver.find_element(tag_name: 'section')
     result = capture_element_screenshot('homepage-hero', hero,
@@ -218,24 +234,21 @@ class E2ETest < Minitest::Test
   # ===========================================================================
 
   def test_features_page
-    @driver.navigate.to "#{@test_site_url}/features.html"
-    wait_for_page_load
+    navigate_to('features.html')
 
     result = capture_screenshot('features-full', full_page: true)
     assert_screenshot_result(result)
   end
 
   def test_pricing_page
-    @driver.navigate.to "#{@test_site_url}/pricing.html"
-    wait_for_page_load
+    navigate_to('pricing.html')
 
     result = capture_screenshot('pricing-full', full_page: true)
     assert_screenshot_result(result)
   end
 
   def test_contact_page
-    @driver.navigate.to "#{@test_site_url}/contact.html"
-    wait_for_page_load
+    navigate_to('contact.html')
 
     result = capture_screenshot('contact-full', full_page: true)
     assert_screenshot_result(result)
@@ -246,8 +259,7 @@ class E2ETest < Minitest::Test
   # ===========================================================================
 
   def test_screenshot_with_threshold
-    @driver.navigate.to "#{@test_site_url}/index.html"
-    wait_for_page_load
+    navigate_to('index.html')
 
     nav = @driver.find_element(tag_name: 'nav')
     result = capture_element_screenshot('threshold-test', nav, threshold: 5)
@@ -255,8 +267,7 @@ class E2ETest < Minitest::Test
   end
 
   def test_screenshot_with_properties
-    @driver.navigate.to "#{@test_site_url}/index.html"
-    wait_for_page_load
+    navigate_to('index.html')
 
     result = capture_screenshot('props-test',
                                 properties: {
@@ -268,8 +279,7 @@ class E2ETest < Minitest::Test
   end
 
   def test_screenshot_with_all_options
-    @driver.navigate.to "#{@test_site_url}/index.html"
-    wait_for_page_load
+    navigate_to('index.html')
 
     result = capture_screenshot('all-options-test',
                                 full_page: true,
@@ -290,8 +300,7 @@ class E2ETest < Minitest::Test
     pages = %w[index.html features.html pricing.html contact.html]
 
     pages.each_with_index do |page, index|
-      @driver.navigate.to "#{@test_site_url}/#{page}"
-      wait_for_page_load
+      navigate_to(page)
 
       nav = @driver.find_element(tag_name: 'nav')
       result = capture_element_screenshot("nav-page-#{index}", nav,

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-06-01
+
+## What's Changed
+
+### Added
+- Added per-screenshot comparison options to `vizzlyScreenshot()`: `threshold` and `minClusterSize`.
+- Added support for per-screenshot `buildId` and `requestTimeout` options, including forwarding them through the Ember screenshot server to Vizzly.
+- Added automatic screenshot metadata for the current page URL, browser, viewport width, and viewport height so captures are easier to group, compare, and link back to preview pages.
+
+### Changed
+- Aligned the Ember SDK screenshot option contract with the other Vizzly JavaScript SDKs: Vizzly routing, comparison, timeout, and build options now stay as explicit options, while `properties` remains the custom metadata bag.
+- Updated screenshot capture behavior so requested viewport dimensions are applied before capture.
+- Changed full-page handling so `fullPage` only applies to page captures; app, container, and selector captures are element-sized.
+- Updated cloud upload guidance to run Ember tests through `vizzly run` so uploads can be finalized correctly.
+- Updated JavaScript package-management examples and test-app workflow from npm commands to pnpm commands.
+
+### Fixed
+- Fixed selector screenshots so page-only `fullPage` options are not passed to element screenshots.
+- Fixed cloud-mode/no-server messaging to point users to `vizzly tdd start` for local runs or `vizzly run` for cloud uploads.
+- Fixed stale `.vizzly/playwright.json` behavior by removing the generated Playwright config when no launcher options are provided.
+- Simplified Chromium CI launch arguments while retaining the stability flags needed for CI environments.
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/ember/v0.0.3...ember/v0.1.0
+
 ## [0.0.3] - 2026-01-07
 
 ## What's Changed

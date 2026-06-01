@@ -34,6 +34,20 @@ function occupyPort(port) {
   });
 }
 
+function getServerPort(server) {
+  let address = server.address();
+  return typeof address === 'object' && address ? address.port : null;
+}
+
+function closeServer(server) {
+  return new Promise((resolve, reject) => {
+    server.close(error => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
 describe('tdd/server-registry', () => {
   let testDir;
   let registry;
@@ -256,30 +270,35 @@ describe('tdd/server-registry', () => {
     });
 
     it('skips ports actually in use by other processes', async () => {
-      // Actually occupy port 47500 with a real TCP server
-      let occupyingServer = await occupyPort(47500);
+      let occupyingServer = await occupyPort(0);
+      let occupiedPort = getServerPort(occupyingServer);
 
       try {
-        let port = await registry.findAvailablePort(47500);
-        assert.strictEqual(port, 47501);
+        let port = await registry.findAvailablePort(occupiedPort);
+        assert.notStrictEqual(port, occupiedPort);
+        assert.ok(port > occupiedPort);
       } finally {
-        occupyingServer.close();
+        await closeServer(occupyingServer);
       }
     });
 
     it('handles combination of registered and occupied ports', async () => {
-      // Register 47600 in registry
-      registry.register({ pid: process.pid, port: 47600, directory: '/a' });
-
-      // Actually occupy 47601
-      let occupyingServer = await occupyPort(47601);
+      let occupyingServer = await occupyPort(0);
+      let occupiedPort = getServerPort(occupyingServer);
+      let registeredPort = occupiedPort - 1;
+      registry.register({
+        pid: process.pid,
+        port: registeredPort,
+        directory: '/a',
+      });
 
       try {
-        let port = await registry.findAvailablePort(47600);
-        // Should skip 47600 (registered) and 47601 (occupied), return 47602
-        assert.strictEqual(port, 47602);
+        let port = await registry.findAvailablePort(registeredPort);
+        assert.notStrictEqual(port, registeredPort);
+        assert.notStrictEqual(port, occupiedPort);
+        assert.ok(port > occupiedPort);
       } finally {
-        occupyingServer.close();
+        await closeServer(occupyingServer);
       }
     });
   });

@@ -1,5 +1,39 @@
 # Vizzly Ruby Client Changelog
 
+## [0.3.0] - 2026-06-01
+
+## What's Changed
+
+### Added
+- Added `fail_on_diff` support for local TDD visual diffs. Configure it with
+  `Vizzly::Client.new(fail_on_diff: true)`, `VIZZLY_FAIL_ON_DIFF=true`, or
+  the local TDD server setting to raise `Vizzly::Error` when a visual diff is
+  detected.
+- Added per-screenshot `build_id` and `request_timeout` options, with
+  snake_case Ruby names and camelCase aliases for JavaScript API parity.
+- Added `VIZZLY_ENABLED=false` support to disable screenshot capture from the
+  environment.
+- Added richer `Client#info` output, including `serverUrl`, `buildId`,
+  `fail_on_diff`, and `failOnDiff`.
+
+### Changed
+- Screenshot option handling now separates Vizzly options from user metadata.
+  Reserved options passed inside `properties` are promoted to the correct
+  request fields and emit a warning so `properties` can remain user metadata.
+- `threshold` now accepts numeric values and is documented as a Delta E
+  comparison threshold.
+
+### Fixed
+- Fixed request handling for HTTPS `server_url` values.
+- Fixed screenshot option serialization for string-keyed options, camelCase
+  aliases, zero values, fractional thresholds, and nested metadata hashes.
+- Fixed local TDD diff handling so both current successful diff responses and
+  legacy `422` diff responses are handled consistently when `fail_on_diff` is
+  enabled.
+
+**Full Changelog**: https://github.com/vizzly-testing/cli/compare/ruby/v0.2.1...ruby/v0.3.0
+
+
 ## [0.2.1] - 2026-02-04
 
 ### Changed

@@ -37,7 +37,10 @@ const state = new ComponentsPageState();
             <h3 class="showcase-label">Variants</h3>
             <div class="button-row">
               <Button @variant="primary" @testId="btn-primary">Primary</Button>
-              <Button @variant="secondary" @testId="btn-secondary">Secondary</Button>
+              <Button
+                @variant="secondary"
+                @testId="btn-secondary"
+              >Secondary</Button>
               <Button @variant="danger" @testId="btn-danger">Danger</Button>
               <Button @variant="ghost" @testId="btn-ghost">Ghost</Button>
             </div>
@@ -46,9 +49,21 @@ const state = new ComponentsPageState();
           <div class="showcase-item">
             <h3 class="showcase-label">Sizes</h3>
             <div class="button-row">
-              <Button @variant="primary" @size="small" @testId="btn-small">Small</Button>
-              <Button @variant="primary" @size="medium" @testId="btn-medium">Medium</Button>
-              <Button @variant="primary" @size="large" @testId="btn-large">Large</Button>
+              <Button
+                @variant="primary"
+                @size="small"
+                @testId="btn-small"
+              >Small</Button>
+              <Button
+                @variant="primary"
+                @size="medium"
+                @testId="btn-medium"
+              >Medium</Button>
+              <Button
+                @variant="primary"
+                @size="large"
+                @testId="btn-large"
+              >Large</Button>
             </div>
           </div>
 
@@ -56,7 +71,11 @@ const state = new ComponentsPageState();
             <h3 class="showcase-label">States</h3>
             <div class="button-row">
               <Button @variant="primary" @testId="btn-enabled">Enabled</Button>
-              <Button @variant="primary" @disabled={{true}} @testId="btn-disabled">Disabled</Button>
+              <Button
+                @variant="primary"
+                @disabled={{true}}
+                @testId="btn-disabled"
+              >Disabled</Button>
             </div>
           </div>
         </div>
@@ -95,13 +114,25 @@ const state = new ComponentsPageState();
           Click the buttons below to open modals of different sizes.
         </p>
         <div class="button-row">
-          <Button @variant="primary" @onClick={{fn state.openModal "small"}} @testId="open-modal-small">
+          <Button
+            @variant="primary"
+            @onClick={{fn state.openModal "small"}}
+            @testId="open-modal-small"
+          >
             Small Modal
           </Button>
-          <Button @variant="primary" @onClick={{fn state.openModal "medium"}} @testId="open-modal-medium">
+          <Button
+            @variant="primary"
+            @onClick={{fn state.openModal "medium"}}
+            @testId="open-modal-medium"
+          >
             Medium Modal
           </Button>
-          <Button @variant="primary" @onClick={{fn state.openModal "large"}} @testId="open-modal-large">
+          <Button
+            @variant="primary"
+            @onClick={{fn state.openModal "large"}}
+            @testId="open-modal-large"
+          >
             Large Modal
           </Button>
         </div>
@@ -115,13 +146,21 @@ const state = new ComponentsPageState();
         @testId="demo-modal"
       >
         <:default>
-          <p>This is a {{state.modalSize}} modal dialog. You can put any content here.</p>
+          <p>This is a
+            {{state.modalSize}}
+            modal dialog. You can put any content here.</p>
           <p>Click the close button or outside the modal to dismiss it.</p>
         </:default>
 
         <:footer>
-          <Button @variant="secondary" @onClick={{state.closeModal}}>Cancel</Button>
-          <Button @variant="primary" @onClick={{state.closeModal}}>Confirm</Button>
+          <Button
+            @variant="secondary"
+            @onClick={{state.closeModal}}
+          >Cancel</Button>
+          <Button
+            @variant="primary"
+            @onClick={{state.closeModal}}
+          >Confirm</Button>
         </:footer>
       </Modal>
     </section>

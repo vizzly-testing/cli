@@ -22,7 +22,7 @@ import n from 'eslint-plugin-n';
 
 import babelParser from '@babel/eslint-parser';
 
-const esmParserOptions = {
+let esmParserOptions = {
   ecmaFeatures: { modules: true },
   ecmaVersion: 'latest',
 };
@@ -51,6 +51,13 @@ export default [
     files: ['**/*.js'],
     languageOptions: {
       parser: babelParser,
+      parserOptions: {
+        babelOptions: {
+          babelrc: false,
+          configFile: false,
+        },
+        requireConfigFile: false,
+      },
     },
   },
   {
@@ -66,6 +73,12 @@ export default [
     files: ['tests/**/*-test.{js,gjs}'],
     plugins: {
       qunit,
+    },
+  },
+  {
+    rules: {
+      'ember/no-empty-glimmer-component-classes': 'off',
+      'ember/template-no-let-reference': 'off',
     },
   },
   /**

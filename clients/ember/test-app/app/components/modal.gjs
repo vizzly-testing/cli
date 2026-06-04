@@ -4,14 +4,33 @@ import { on } from '@ember/modifier';
 export default class Modal extends Component {
   <template>
     {{#if @isOpen}}
-      <div class="modal-backdrop" data-test-modal={{@testId}} {{on "click" this.handleBackdropClick}}>
-        <div class="modal {{if @size @size 'medium'}}" role="dialog" aria-modal="true" {{on "click" this.stopPropagation}}>
+      <div
+        class="modal-backdrop"
+        data-test-modal={{@testId}}
+        {{on "click" this.handleBackdropClick}}
+      >
+        <div
+          class="modal {{if @size @size 'medium'}}"
+          role="dialog"
+          aria-modal="true"
+          {{on "click" this.stopPropagation}}
+        >
           <div class="modal-header">
             <h2 class="modal-title">{{@title}}</h2>
             {{#if @onClose}}
-              <button type="button" class="modal-close" aria-label="Close" {{on "click" @onClose}}>
+              <button
+                type="button"
+                class="modal-close"
+                aria-label="Close"
+                {{on "click" @onClose}}
+              >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path
+                    d="M15 5L5 15M5 5L15 15"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </button>
             {{/if}}

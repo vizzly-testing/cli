@@ -24,7 +24,13 @@ import Button from '../components/button';
 
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        sans-serif;
       background: #f3f4f6;
       color: #111827;
       line-height: 1.5;

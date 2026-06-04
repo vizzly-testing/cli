@@ -77,7 +77,9 @@ export default class NavBar extends Component {
         color: #6b7280;
         text-decoration: none;
         border-radius: 6px;
-        transition: color 0.15s ease, background 0.15s ease;
+        transition:
+          color 0.15s ease,
+          background 0.15s ease;
       }
 
       .nav-link:hover {

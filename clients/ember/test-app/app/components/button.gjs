@@ -5,7 +5,9 @@ export default class Button extends Component {
   <template>
     <button
       type={{if @type @type "button"}}
-      class="button {{if @variant @variant 'primary'}} {{if @size @size 'medium'}}"
+      class="button
+        {{if @variant @variant 'primary'}}
+        {{if @size @size 'medium'}}"
       disabled={{@disabled}}
       data-test-button={{@testId}}
       {{on "click" (if @onClick @onClick this.noop)}}
@@ -15,7 +17,10 @@ export default class Button extends Component {
 
     <style>
       .button {
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
         font-weight: 500;
         border: none;
         border-radius: 6px;

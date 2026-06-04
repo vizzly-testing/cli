@@ -6,7 +6,7 @@ packages:
   - test-site
 
 overrides:
-  '@babel/runtime': ^7.29.2
+  '@babel/runtime': ^7.29.7
   uuid: ^11.1.1
   ws: ^8.20.1
 

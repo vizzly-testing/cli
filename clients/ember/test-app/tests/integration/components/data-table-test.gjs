@@ -15,17 +15,33 @@ module('Integration | Component | DataTable', function (hooks) {
   ];
 
   const rows = [
-    { id: 1, name: 'Alice Johnson', email: 'alice@example.com', status: 'Active' },
+    {
+      id: 1,
+      name: 'Alice Johnson',
+      email: 'alice@example.com',
+      status: 'Active',
+    },
     { id: 2, name: 'Bob Smith', email: 'bob@example.com', status: 'Active' },
-    { id: 3, name: 'Carol White', email: 'carol@example.com', status: 'Inactive' },
+    {
+      id: 3,
+      name: 'Carol White',
+      email: 'carol@example.com',
+      status: 'Inactive',
+    },
   ];
 
   test('it renders table with data', async function (assert) {
-    await render(<template>
-      <div style="padding: 20px; max-width: 600px;">
-        <DataTable @columns={{columns}} @rows={{rows}} @testId="users-table" />
-      </div>
-    </template>);
+    await render(
+      <template>
+        <div style="padding: 20px; max-width: 600px;">
+          <DataTable
+            @columns={{columns}}
+            @rows={{rows}}
+            @testId="users-table"
+          />
+        </div>
+      </template>
+    );
 
     assert.dom('[data-test-data-table="users-table"]').exists();
     assert.dom('.table-header').exists({ count: 4 });
@@ -37,16 +53,18 @@ module('Integration | Component | DataTable', function (hooks) {
   test('it renders empty state', async function (assert) {
     let emptyRows = [];
 
-    await render(<template>
-      <div style="padding: 20px; max-width: 600px;">
-        <DataTable
-          @columns={{columns}}
-          @rows={{emptyRows}}
-          @emptyMessage="No users found"
-          @testId="empty-table"
-        />
-      </div>
-    </template>);
+    await render(
+      <template>
+        <div style="padding: 20px; max-width: 600px;">
+          <DataTable
+            @columns={{columns}}
+            @rows={{emptyRows}}
+            @emptyMessage="No users found"
+            @testId="empty-table"
+          />
+        </div>
+      </template>
+    );
 
     assert.dom('.table-empty').hasText('No users found');
 
@@ -64,11 +82,17 @@ module('Integration | Component | DataTable', function (hooks) {
       });
     }
 
-    await render(<template>
-      <div style="padding: 20px; max-width: 600px;">
-        <DataTable @columns={{columns}} @rows={{manyRows}} @testId="many-rows" />
-      </div>
-    </template>);
+    await render(
+      <template>
+        <div style="padding: 20px; max-width: 600px;">
+          <DataTable
+            @columns={{columns}}
+            @rows={{manyRows}}
+            @testId="many-rows"
+          />
+        </div>
+      </template>
+    );
 
     assert.dom('.table-row').exists({ count: 10 });
 
@@ -76,11 +100,17 @@ module('Integration | Component | DataTable', function (hooks) {
   });
 
   test('it applies column alignment', async function (assert) {
-    await render(<template>
-      <div style="padding: 20px; max-width: 600px;">
-        <DataTable @columns={{columns}} @rows={{rows}} @testId="aligned-table" />
-      </div>
-    </template>);
+    await render(
+      <template>
+        <div style="padding: 20px; max-width: 600px;">
+          <DataTable
+            @columns={{columns}}
+            @rows={{rows}}
+            @testId="aligned-table"
+          />
+        </div>
+      </template>
+    );
 
     // ID and Status columns should be centered
     assert.dom('.table-header.center').exists({ count: 2 });

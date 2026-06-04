@@ -9,11 +9,13 @@ module('Integration | Component | Modal', function (hooks) {
   setupRenderingTest(hooks);
 
   test('it renders when open', async function (assert) {
-    await render(<template>
-      <Modal @isOpen={{true}} @title="Test Modal" @testId="test-modal">
-        <p>This is the modal content.</p>
-      </Modal>
-    </template>);
+    await render(
+      <template>
+        <Modal @isOpen={{true}} @title="Test Modal" @testId="test-modal">
+          <p>This is the modal content.</p>
+        </Modal>
+      </template>
+    );
 
     assert.dom('[data-test-modal="test-modal"]').exists();
     assert.dom('.modal-title').hasText('Test Modal');
@@ -22,51 +24,73 @@ module('Integration | Component | Modal', function (hooks) {
   });
 
   test('it does not render when closed', async function (assert) {
-    await render(<template>
-      <Modal @isOpen={{false}} @title="Hidden Modal" @testId="hidden-modal">
-        <p>You should not see this.</p>
-      </Modal>
-    </template>);
+    await render(
+      <template>
+        <Modal @isOpen={{false}} @title="Hidden Modal" @testId="hidden-modal">
+          <p>You should not see this.</p>
+        </Modal>
+      </template>
+    );
 
     assert.dom('[data-test-modal="hidden-modal"]').doesNotExist();
   });
 
   test('it renders different sizes', async function (assert) {
-    await render(<template>
-      <Modal @isOpen={{true}} @title="Small Modal" @size="small" @testId="small-modal">
-        <p>This is a small modal.</p>
-      </Modal>
-    </template>);
+    await render(
+      <template>
+        <Modal
+          @isOpen={{true}}
+          @title="Small Modal"
+          @size="small"
+          @testId="small-modal"
+        >
+          <p>This is a small modal.</p>
+        </Modal>
+      </template>
+    );
 
     assert.dom('.modal').hasClass('small');
     await vizzlyScreenshot('modal-small');
   });
 
   test('it renders large modal', async function (assert) {
-    await render(<template>
-      <Modal @isOpen={{true}} @title="Large Modal" @size="large" @testId="large-modal">
-        <p>This is a large modal with more space for content.</p>
-        <p>It can contain longer forms or detailed information.</p>
-      </Modal>
-    </template>);
+    await render(
+      <template>
+        <Modal
+          @isOpen={{true}}
+          @title="Large Modal"
+          @size="large"
+          @testId="large-modal"
+        >
+          <p>This is a large modal with more space for content.</p>
+          <p>It can contain longer forms or detailed information.</p>
+        </Modal>
+      </template>
+    );
 
     assert.dom('.modal').hasClass('large');
     await vizzlyScreenshot('modal-large');
   });
 
   test('it renders with footer', async function (assert) {
-    await render(<template>
-      <Modal @isOpen={{true}} @title="Modal with Actions" @testId="modal-footer">
-        <:default>
-          <p>Please confirm your action.</p>
-        </:default>
+    await render(
+      <template>
+        <Modal
+          @isOpen={{true}}
+          @title="Modal with Actions"
+          @testId="modal-footer"
+        >
+          <:default>
+            <p>Please confirm your action.</p>
+          </:default>
 
-        <:footer>
-          <Button @variant="secondary">Cancel</Button>
-          <Button @variant="primary">Confirm</Button>
-        </:footer>
-      </Modal>
-    </template>);
+          <:footer>
+            <Button @variant="secondary">Cancel</Button>
+            <Button @variant="primary">Confirm</Button>
+          </:footer>
+        </Modal>
+      </template>
+    );
 
     assert.dom('.modal-footer').exists();
     await vizzlyScreenshot('modal-with-footer');
@@ -74,13 +98,22 @@ module('Integration | Component | Modal', function (hooks) {
 
   test('it calls onClose when close button clicked', async function (assert) {
     let closed = false;
-    let handleClose = () => { closed = true; };
+    let handleClose = () => {
+      closed = true;
+    };
 
-    await render(<template>
-      <Modal @isOpen={{true}} @title="Closeable Modal" @onClose={{handleClose}} @testId="closeable">
-        <p>Click the X to close.</p>
-      </Modal>
-    </template>);
+    await render(
+      <template>
+        <Modal
+          @isOpen={{true}}
+          @title="Closeable Modal"
+          @onClose={{handleClose}}
+          @testId="closeable"
+        >
+          <p>Click the X to close.</p>
+        </Modal>
+      </template>
+    );
 
     assert.false(closed, 'Modal not closed yet');
     await click('.modal-close');

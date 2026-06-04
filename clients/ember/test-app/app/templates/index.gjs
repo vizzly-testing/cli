@@ -4,10 +4,34 @@ import Alert from '../components/alert';
 import DataTable from '../components/data-table';
 
 const users = [
-  { id: 1, name: 'Alice Johnson', email: 'alice@example.com', role: 'Admin', status: 'Active' },
-  { id: 2, name: 'Bob Smith', email: 'bob@example.com', role: 'Editor', status: 'Active' },
-  { id: 3, name: 'Carol White', email: 'carol@example.com', role: 'Viewer', status: 'Inactive' },
-  { id: 4, name: 'David Brown', email: 'david@example.com', role: 'Editor', status: 'Active' },
+  {
+    id: 1,
+    name: 'Alice Johnson',
+    email: 'alice@example.com',
+    role: 'Admin',
+    status: 'Active',
+  },
+  {
+    id: 2,
+    name: 'Bob Smith',
+    email: 'bob@example.com',
+    role: 'Editor',
+    status: 'Active',
+  },
+  {
+    id: 3,
+    name: 'Carol White',
+    email: 'carol@example.com',
+    role: 'Viewer',
+    status: 'Inactive',
+  },
+  {
+    id: 4,
+    name: 'David Brown',
+    email: 'david@example.com',
+    role: 'Editor',
+    status: 'Active',
+  },
 ];
 
 const columns = [
@@ -22,12 +46,14 @@ const columns = [
   <div class="page-index" data-test-page="index">
     <header class="page-header">
       <h1 class="page-title">Dashboard</h1>
-      <p class="page-subtitle">Welcome to the Vizzly visual testing demo application</p>
+      <p class="page-subtitle">Welcome to the Vizzly visual testing demo
+        application</p>
     </header>
 
     <div class="alerts-section" data-test-alerts>
       <Alert @variant="info" @title="Visual Testing">
-        This app demonstrates the @vizzly-testing/ember SDK for visual regression testing.
+        This app demonstrates the @vizzly-testing/ember SDK for visual
+        regression testing.
       </Alert>
     </div>
 

@@ -3,7 +3,10 @@ import { on } from '@ember/modifier';
 
 export default class FormField extends Component {
   <template>
-    <div class="form-field {{if @error 'has-error'}}" data-test-form-field={{@name}}>
+    <div
+      class="form-field {{if @error 'has-error'}}"
+      data-test-form-field={{@name}}
+    >
       {{#if @label}}
         <label class="form-label" for={{@name}}>
           {{@label}}
@@ -69,7 +72,9 @@ export default class FormField extends Component {
         border: 1px solid #d1d5db;
         border-radius: 6px;
         background: white;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
       }
 
       .form-input:focus {

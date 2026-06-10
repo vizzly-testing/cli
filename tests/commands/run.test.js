@@ -345,6 +345,14 @@ describe('commands/run', () => {
 
       assert.strictEqual(result.success, false);
       assert.strictEqual(result.exitCode, 2);
+      assert.ok(
+        output.calls.some(
+          c =>
+            c.method === 'error' &&
+            c.args[0].includes('Test command failed with exit code 2') &&
+            c.args[0].includes('Check the command output above')
+        )
+      );
     });
 
     it('handles generic error during test run', async () => {

@@ -446,7 +446,9 @@ export async function runCommand(
           });
           output.cleanup();
         } else {
-          output.error('Test run failed');
+          output.error(
+            `Test command failed with exit code ${exitCode}. Check the command output above for the original failure.`
+          );
         }
         return { success: false, exitCode };
       } else {

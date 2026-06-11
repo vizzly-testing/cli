@@ -40,11 +40,13 @@ Use `vizzly init --agent-skill` to install only the local skill, or
 
 ### Start Local TDD
 
-Start the TDD server, run your tests, and open the dashboard at
-`http://localhost:47392`.
+Start the TDD server, run your tests, and open the dashboard at the URL the
+command prints. Add `--open` when you want Vizzly to open the dashboard for
+you. If the default port is busy, Vizzly picks the next available port; use the
+printed `--port` value with `vizzly tdd status` or `vizzly tdd stop`.
 
 ```bash
-vizzly tdd start
+vizzly tdd start --open
 pnpm test -- --watch
 ```
 
@@ -206,7 +208,10 @@ export default {
 | Command | What it does |
 | --- | --- |
 | `vizzly tdd start` | Start the local TDD server and dashboard. |
-| `vizzly tdd run "cmd"` | Run tests once and generate a static visual report. |
+| `vizzly tdd status` | Check the local TDD server for this project. |
+| `vizzly tdd list` | List running local TDD servers. |
+| `vizzly tdd stop` | Stop the local TDD server for this project. |
+| `vizzly tdd run "cmd"` | Run tests once, generate a static visual report, and open it by default. |
 | `vizzly run "cmd"` | Run tests with cloud build and review integration. |
 | `vizzly context ...` | Fetch visual context for builds, comparisons, screenshots, and review queues. |
 | `vizzly upload <dir>` | Upload an existing folder of screenshots. |

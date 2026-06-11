@@ -19,7 +19,7 @@ function isProcessRunning(pid) {
   }
 }
 
-function parsePositiveInteger(value) {
+export function parsePositiveInteger(value) {
   let text = String(value).trim();
   if (!/^\d+$/.test(text)) {
     return null;
@@ -80,11 +80,16 @@ export async function resolveDaemonPid({
   pidFile = join(process.cwd(), '.vizzly', 'server.pid'),
   readPid = readDaemonPidFile,
   findByPort = findDaemonPidByPort,
+  allowPortFallback = false,
   fileDeps = {},
 } = {}) {
   let pid = readPid(pidFile, fileDeps);
   if (pid) {
     return pid;
+  }
+
+  if (!allowPortFallback) {
+    return null;
   }
 
   return await findByPort(port);

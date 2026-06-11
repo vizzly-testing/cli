@@ -239,6 +239,10 @@ export function isVerbose() {
   return config.logLevel === 'debug';
 }
 
+export function isJson() {
+  return config.json;
+}
+
 /**
  * Show command header with distinctive branding
  * Uses BearDen's signature amber color for "vizzly"

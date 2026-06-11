@@ -92,6 +92,8 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     output.debug('config', 'using user login for user-authenticated commands');
   }
 
+  config._configPath = result?.filepath || null;
+
   return config;
 }
 

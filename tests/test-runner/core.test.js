@@ -457,6 +457,17 @@ describe('test-runner/core', () => {
         shell: true,
       });
     });
+
+    it('pipes child output in JSON mode so CLI stdout stays machine readable', () => {
+      let env = { NODE_ENV: 'test' };
+      let options = buildSpawnOptions(env, { json: true });
+
+      assert.deepStrictEqual(options, {
+        env,
+        stdio: ['inherit', 'pipe', 'pipe'],
+        shell: true,
+      });
+    });
   });
 
   describe('normalizeSetBaseline', () => {

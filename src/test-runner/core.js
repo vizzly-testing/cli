@@ -223,12 +223,14 @@ export function hasApiKey(config) {
 /**
  * Build spawn options for test command execution
  * @param {Object} env - Environment variables
+ * @param {Object} [options] - Spawn display options
+ * @param {boolean} [options.json] - Keep stdout reserved for CLI JSON output
  * @returns {Object} Spawn options
  */
-export function buildSpawnOptions(env) {
+export function buildSpawnOptions(env, options = {}) {
   return {
     env,
-    stdio: 'inherit',
+    stdio: options.json ? ['inherit', 'pipe', 'pipe'] : 'inherit',
     shell: true,
   };
 }

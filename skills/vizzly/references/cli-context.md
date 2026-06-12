@@ -5,13 +5,19 @@ Use these commands to gather Vizzly evidence before making UI assumptions.
 ## Local TDD
 
 ```bash
-vizzly tdd start
+vizzly tdd start --open
+vizzly tdd status
+vizzly tdd stop
 vizzly tdd run "<test command>" --no-open
 vizzly context build current --source local --agent
 vizzly context build current --source local --agent --json
 ```
 
-Local context reads `.vizzly` state and does not require cloud auth.
+If `tdd start` prints a non-default port, pass that same port to
+`tdd status --port <port>` and `tdd stop --port <port>`.
+
+Local context reads `.vizzly` state and does not require cloud auth. After a
+one-shot `tdd run`, prefer the printed `contextCommand` before editing UI.
 
 ## Cloud Builds
 

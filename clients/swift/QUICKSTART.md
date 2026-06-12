@@ -20,8 +20,11 @@ pnpm install -g @vizzly-testing/cli
 In your iOS project directory:
 
 ```bash
-vizzly tdd start
+vizzly tdd start --open
 ```
+
+Vizzly uses port `47392` by default. If that port is busy, it prints the
+dashboard URL with the auto-assigned port.
 
 ## 4. Write a Visual Test
 
@@ -58,13 +61,24 @@ xcodebuild test \
 
 ## 6. Review Results
 
-Open dashboard: **http://localhost:47392/dashboard**
+Open the dashboard URL printed by `vizzly tdd start`.
 
 - ✅ Green = Screenshots match baselines
 - ⚠️ Yellow = Visual differences detected
 - 🆕 Blue = New screenshots (first run)
 
 Click any screenshot to see side-by-side comparison and approve/reject changes.
+
+For a one-off local check, wrap the test command instead:
+
+```bash
+vizzly tdd run \
+  "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15'" \
+  --no-open
+```
+
+That writes review data under `.vizzly/` and creates `.vizzly/report/index.html`
+when screenshots are captured.
 
 ## Next Steps
 

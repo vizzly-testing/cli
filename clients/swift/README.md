@@ -52,10 +52,12 @@ for native app integration.
 
 ```bash
 cd /path/to/your/ios/project
-vizzly tdd start
+vizzly tdd start --open
 ```
 
-This starts a local server at `http://localhost:47392` that receives screenshots and performs visual comparisons.
+This starts a local server that receives screenshots and performs visual
+comparisons. Vizzly uses `http://localhost:47392` by default; if that port is
+busy, use the URL printed by the command.
 
 ### 2. Add Vizzly to Your UI Tests
 
@@ -86,7 +88,20 @@ xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 1
 
 ### 4. View Results
 
-Open the dashboard at **http://localhost:47392/dashboard** to see visual comparisons, accept/reject changes, and review differences.
+Open the dashboard URL printed by `vizzly tdd start` to see visual comparisons,
+accept/reject changes, and review differences.
+
+For a one-off local run, wrap your `xcodebuild` command:
+
+```bash
+vizzly tdd run \
+  "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15'" \
+  --no-open
+```
+
+That writes local review data under `.vizzly/`. If screenshots were captured,
+Vizzly also creates `.vizzly/report/index.html`; omit `--no-open` when you want
+the report opened automatically.
 
 ## Usage Examples
 

@@ -5,7 +5,7 @@ Seamlessly integrate your static sites (Gatsby, Astro, Jekyll, Next.js static ex
 ## Installation
 
 ```bash
-pnpm install @vizzly-testing/static-site
+pnpm install -D @vizzly-testing/cli @vizzly-testing/static-site
 ```
 
 The plugin is automatically discovered by the Vizzly CLI via the `@vizzly-testing/*` scope.
@@ -29,6 +29,9 @@ vizzly static-site ./dist \
 
 # With concurrency control
 vizzly static-site ./dist --concurrency 5
+
+# With comma-separated browser args
+vizzly static-site ./dist --browser-args "--no-sandbox,--disable-dev-shm-usage"
 ```
 
 ### Programmatic Usage
@@ -151,7 +154,7 @@ Configuration is merged in this order (later overrides earlier):
 - `--browser <type>` - Browser engine to use: `chromium`, `firefox`, or `webkit`
 - `--include <pattern>` - Include page pattern (glob)
 - `--exclude <pattern>` - Exclude page pattern (glob)
-- `--browser-args <args>` - Additional Playwright browser arguments
+- `--browser-args <args>` - Comma-separated Playwright browser arguments
 - `--headless` - Run browser in headless mode (default: true)
 - `--no-headless` - Run browser with a visible window
 - `--full-page` - Capture full page screenshots (default: true)

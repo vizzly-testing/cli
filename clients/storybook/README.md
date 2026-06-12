@@ -7,7 +7,7 @@ changes with position-based comments and review rules.
 ## Installation
 
 ```bash
-pnpm install @vizzly-testing/storybook
+pnpm install -D @vizzly-testing/cli @vizzly-testing/storybook
 ```
 
 The plugin is automatically discovered by the Vizzly CLI via the `@vizzly-testing/*` scope.
@@ -43,6 +43,9 @@ vizzly storybook ./storybook-static \
 
 # With concurrency control
 vizzly storybook ./storybook-static --concurrency 5
+
+# With comma-separated browser args
+vizzly storybook ./storybook-static --browser-args "--no-sandbox,--disable-dev-shm-usage"
 ```
 
 ### Programmatic Usage
@@ -166,7 +169,7 @@ Configuration is merged in this order (later overrides earlier):
 - `--include <pattern>` - Include story pattern (glob)
 - `--exclude <pattern>` - Exclude story pattern (glob)
 - `--config <path>` - Path to custom config file
-- `--browser-args <args>` - Additional Playwright browser arguments
+- `--browser-args <args>` - Comma-separated Playwright browser arguments
 - `--headless` - Run browser in headless mode (default: true)
 - `--no-headless` - Run browser with a visible window
 - `--full-page` - Capture full page screenshots (default: true)

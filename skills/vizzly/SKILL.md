@@ -23,16 +23,24 @@ If a task names a screen, component, or screenshot, inspect that screenshot's hi
 vizzly context screenshot "<screenshot-name>" --source local --json
 ```
 
-When you make or verify UI changes, run the focused user workflow that owns the surface:
+When you make or verify UI changes, use the local TDD server as the active feedback loop:
+
+```bash
+vizzly tdd start &
+npm run test:e2e -- tests/e2e/path.spec.js
+vizzly context build current --source local --agent --json
+```
+
+The user may choose whether the TDD server runs in the foreground or background. Once it is
+running, run tests normally from the repo. The SDK discovers `.vizzly/server.json`, posts
+screenshots to the active TDD server, and refreshes `.vizzly/current`, `.vizzly/diffs`, report
+data, and local context.
+
+Use `vizzly tdd run` for true one-off runs where you want the CLI to own starting the visual
+session and running the command:
 
 ```bash
 vizzly tdd run "<test command>" --no-open
-```
-
-Then inspect what changed:
-
-```bash
-vizzly context build current --source local --agent --json
 ```
 
 For specific evidence, drill in:

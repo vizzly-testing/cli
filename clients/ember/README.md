@@ -5,11 +5,14 @@ Visual testing SDK for Ember.js projects using Testem. Capture screenshots from 
 ## Installation
 
 ```bash
-pnpm install -D @vizzly-testing/ember
+pnpm install -D @vizzly-testing/cli @vizzly-testing/ember
 
-# Install a Playwright browser
+# Install the Playwright browser you plan to test with
 pnpm exec playwright install chromium
 ```
+
+Chromium, Firefox, and WebKit are supported. Install additional browsers with
+`pnpm exec playwright install firefox` or `pnpm exec playwright install webkit`.
 
 ## Setup
 
@@ -31,7 +34,9 @@ module.exports = configure({
 });
 ```
 
-The `configure()` function replaces standard browser launchers (Chrome, Firefox, Safari) with Playwright-powered launchers that can capture screenshots. Browsers run in **headless mode by default**.
+The `configure()` function maps standard Testem launchers (Chrome, Firefox,
+Safari) to Playwright-powered Chromium, Firefox, and WebKit launchers that can
+capture screenshots. Browsers run in **headless mode by default**.
 
 > **Note for Ember + Vite projects**: The `cwd: 'dist'` option is required because Vite builds test files into the `dist/` directory. Without this, Testem won't find your test assets.
 

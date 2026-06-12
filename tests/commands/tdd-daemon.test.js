@@ -4,10 +4,8 @@ import { describe, it } from 'node:test';
 import {
   buildDaemonChildArgs,
   buildDashboardUrl,
-  buildLegacyServerInfo,
   buildOpenDashboardCommand,
   cleanupDaemonState,
-  cleanupLegacyGlobalServerFile,
   cleanupLocalDaemonFiles,
   findDaemonPidByPort,
   getLocalDaemonFiles,
@@ -19,7 +17,6 @@ import {
   waitForDaemonChildInit,
   waitForProcessExit,
   waitForServerRunning,
-  writeLegacyGlobalServerFile,
 } from '../../src/commands/tdd-daemon.js';
 
 function createManualTimers() {
@@ -134,70 +131,13 @@ describe('commands/tdd-daemon helpers', () => {
       ]);
     });
 
-    it('writes the legacy global server file for SDK discovery', () => {
-      let createdDirectories = [];
-      let writes = [];
-
-      let result = writeLegacyGlobalServerFile(
-        { pid: 1234, port: 47400, failOnDiff: true },
-        {
-          home: () => '/home/test',
-          exists: () => false,
-          mkdir: (path, options) => {
-            createdDirectories.push({ path, options });
-          },
-          writeFile: (path, contents) => {
-            writes.push({ path, contents: JSON.parse(contents) });
-          },
-          now: () => 987654321,
-        }
-      );
-
-      assert.deepStrictEqual(createdDirectories, [
-        { path: '/home/test/.vizzly', options: { recursive: true } },
-      ]);
-      assert.deepStrictEqual(writes, [
-        {
-          path: '/home/test/.vizzly/server.json',
-          contents: {
-            pid: 1234,
-            port: '47400',
-            startTime: 987654321,
-            failOnDiff: true,
-          },
-        },
-      ]);
-      assert.deepStrictEqual(result, {
-        path: '/home/test/.vizzly/server.json',
-        serverInfo: buildLegacyServerInfo({
-          pid: 1234,
-          port: 47400,
-          failOnDiff: true,
-          now: () => 987654321,
-        }),
-      });
-    });
-
-    it('cleans the legacy global server file when present', () => {
-      let removed = [];
-      let didRemove = cleanupLegacyGlobalServerFile({
-        home: () => '/home/test',
-        exists: path => path === '/home/test/.vizzly/server.json',
-        unlink: path => removed.push(path),
-      });
-
-      assert.strictEqual(didRemove, true);
-      assert.deepStrictEqual(removed, ['/home/test/.vizzly/server.json']);
-    });
-
-    it('cleans local files, legacy global state, and registry entries together', () => {
+    it('cleans local files and registry entries together', () => {
       let removed = [];
       let registryCalls = [];
       let localFiles = new Set([
         '/repo/app/.vizzly/server.pid',
         '/repo/app/.vizzly/server.json',
       ]);
-      let legacyFiles = new Set(['/home/test/.vizzly/server.json']);
 
       let result = cleanupDaemonState({
         port: 47400,
@@ -209,22 +149,15 @@ describe('commands/tdd-daemon helpers', () => {
           existsSync: path => localFiles.has(path),
           unlinkSync: path => removed.push(path),
         },
-        legacyFileDeps: {
-          home: () => '/home/test',
-          exists: path => legacyFiles.has(path),
-          unlink: path => removed.push(path),
-        },
       });
 
       assert.deepStrictEqual(result, {
         pidFileRemoved: true,
         serverFileRemoved: true,
-        legacyGlobalServerFileRemoved: true,
       });
       assert.deepStrictEqual(removed, [
         '/repo/app/.vizzly/server.pid',
         '/repo/app/.vizzly/server.json',
-        '/home/test/.vizzly/server.json',
       ]);
       assert.deepStrictEqual(registryCalls, [
         { port: 47400, directory: '/repo/app' },
@@ -245,17 +178,11 @@ describe('commands/tdd-daemon helpers', () => {
           existsSync: path => path === '/repo/app/.vizzly/server.pid',
           unlinkSync: path => removed.push(path),
         },
-        legacyFileDeps: {
-          home: () => '/home/test',
-          exists: () => false,
-          unlink: path => removed.push(path),
-        },
       });
 
       assert.deepStrictEqual(result, {
         pidFileRemoved: true,
         serverFileRemoved: false,
-        legacyGlobalServerFileRemoved: false,
       });
       assert.deepStrictEqual(removed, ['/repo/app/.vizzly/server.pid']);
     });

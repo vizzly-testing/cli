@@ -458,9 +458,11 @@ vizzly tdd start
 **Solution**:
 
 1. Ensure TDD server is running: `vizzly tdd start`
-2. Check `~/.vizzly/server.json` exists in your home directory
-3. Verify the server is reachable: `curl http://localhost:47392/health`
-4. Or explicitly set: `export VIZZLY_SERVER_URL=http://localhost:47392`
+2. Check `.vizzly/server.json` exists in your project checkout
+3. Verify the printed server URL is reachable, for example:
+   `curl http://localhost:47392/health`
+4. Or explicitly set the printed URL:
+   `export VIZZLY_SERVER_URL=http://localhost:47392`
 
 ## Best Practices
 

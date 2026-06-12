@@ -6,8 +6,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, join } from 'node:path';
 import { getServerRegistry } from '../tdd/server-registry.js';
 import { withTimeout } from '../utils/async-utils.js';
 import * as output from '../utils/output.js';
@@ -86,66 +85,6 @@ export function readLocalDaemonInfo(directory = process.cwd(), deps = {}) {
   }
 }
 
-export function buildLegacyServerInfo({
-  pid,
-  port,
-  failOnDiff = false,
-  now = Date.now,
-}) {
-  return {
-    pid,
-    port: port.toString(),
-    startTime: now(),
-    failOnDiff,
-  };
-}
-
-function getLegacyGlobalServerFile({
-  home = homedir,
-  vizzlyHome = process.env.VIZZLY_HOME,
-} = {}) {
-  if (vizzlyHome) {
-    return join(vizzlyHome, 'server.json');
-  }
-
-  return join(home(), '.vizzly', 'server.json');
-}
-
-export function writeLegacyGlobalServerFile(
-  { pid, port, failOnDiff = false },
-  {
-    home = homedir,
-    vizzlyHome = process.env.VIZZLY_HOME,
-    exists = existsSync,
-    mkdir = mkdirSync,
-    writeFile = writeFileSync,
-    now = Date.now,
-  } = {}
-) {
-  let globalServerFile = getLegacyGlobalServerFile({ home, vizzlyHome });
-  let globalVizzlyDir = dirname(globalServerFile);
-  if (!exists(globalVizzlyDir)) {
-    mkdir(globalVizzlyDir, { recursive: true });
-  }
-
-  let serverInfo = buildLegacyServerInfo({ pid, port, failOnDiff, now });
-  writeFile(globalServerFile, JSON.stringify(serverInfo, null, 2));
-  return { path: globalServerFile, serverInfo };
-}
-
-export function cleanupLegacyGlobalServerFile({
-  home = homedir,
-  vizzlyHome = process.env.VIZZLY_HOME,
-  exists = existsSync,
-  unlink = unlinkSync,
-} = {}) {
-  let globalServerFile = getLegacyGlobalServerFile({ home, vizzlyHome });
-  return removeFileIfExists(globalServerFile, {
-    existsSync: exists,
-    unlinkSync: unlink,
-  });
-}
-
 export function unregisterDaemonServer({
   port,
   directory = process.cwd(),
@@ -159,17 +98,14 @@ export function cleanupDaemonState({
   directory = process.cwd(),
   registry = getServerRegistry(),
   localFileDeps = {},
-  legacyFileDeps = {},
   cleanLocalFiles = true,
 } = {}) {
-  let localFiles = cleanLocalFiles
+  let cleanupResult = cleanLocalFiles
     ? cleanupLocalDaemonFiles(directory, localFileDeps)
     : {
         pidFileRemoved: false,
         serverFileRemoved: false,
       };
-  let legacyGlobalServerFileRemoved =
-    cleanupLegacyGlobalServerFile(legacyFileDeps);
 
   try {
     if (port !== undefined) {
@@ -181,10 +117,7 @@ export function cleanupDaemonState({
     // Non-fatal; stale file cleanup is still useful on its own.
   }
 
-  return {
-    ...localFiles,
-    legacyGlobalServerFileRemoved,
-  };
+  return cleanupResult;
 }
 
 function resolveDaemonTarget(options = {}, directory = process.cwd()) {
@@ -574,17 +507,6 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       });
     } catch {
       // Non-fatal
-    }
-
-    // Also write legacy server.json for SDK discovery (backwards compatibility)
-    try {
-      writeLegacyGlobalServerFile({
-        pid: child.pid,
-        port,
-        failOnDiff: options.failOnDiff || false,
-      });
-    } catch {
-      // Non-fatal, SDK can still use health check
     }
 
     // JSON output for successful start

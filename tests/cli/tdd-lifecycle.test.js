@@ -349,14 +349,14 @@ describe('cli/tdd lifecycle', () => {
     }
   });
 
-  it('does not clean legacy daemon files from HOME when VIZZLY_HOME is isolated', async () => {
+  it('does not touch unrelated HOME server files when VIZZLY_HOME is isolated', async () => {
     let cwd = createWorkspace();
     let home = mkdtempSync(join(tmpdir(), 'vizzly-cli-home-'));
     let vizzlyHome = join(cwd, '.isolated-vizzly-home');
-    let legacyDir = join(home, '.vizzly');
-    let legacyFile = join(legacyDir, 'server.json');
-    mkdirSync(legacyDir, { recursive: true });
-    writeFileSync(legacyFile, JSON.stringify({ pid: 1234, port: 47392 }));
+    let unrelatedDir = join(home, '.vizzly');
+    let unrelatedFile = join(unrelatedDir, 'server.json');
+    mkdirSync(unrelatedDir, { recursive: true });
+    writeFileSync(unrelatedFile, JSON.stringify({ pid: 1234, port: 47392 }));
 
     let result = await runCLI(
       ['--no-color', 'tdd', 'stop', '--port', '47393'],
@@ -370,8 +370,8 @@ describe('cli/tdd lifecycle', () => {
     );
 
     assert.strictEqual(result.code, 0);
-    assert.strictEqual(existsSync(legacyFile), true);
-    assert.deepStrictEqual(JSON.parse(readFileSync(legacyFile, 'utf8')), {
+    assert.strictEqual(existsSync(unrelatedFile), true);
+    assert.deepStrictEqual(JSON.parse(readFileSync(unrelatedFile, 'utf8')), {
       pid: 1234,
       port: 47392,
     });

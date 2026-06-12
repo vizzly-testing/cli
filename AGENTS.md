@@ -37,8 +37,9 @@ Keep subjects concise; include issue/PR refs when relevant (example: `(#217)`).
 PRs should include:
 - Why the change is needed.
 - A clear summary of all meaningful diff areas.
-- A test plan with exact commands run.
+- A concise confidence/verification summary without listing commands run.
 - Screenshots or terminal output for UI/reporting changes when helpful.
+- Do not mention private or sibling repo work in public repo PRs.
 
 ## Security & Configuration Tips
 Use Node.js `>=22`. Keep secrets (for example `VIZZLY_TOKEN`) out of git.  

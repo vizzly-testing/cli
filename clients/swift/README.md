@@ -52,10 +52,12 @@ for native app integration.
 
 ```bash
 cd /path/to/your/ios/project
-vizzly tdd start
+vizzly tdd start --open
 ```
 
-This starts a local server at `http://localhost:47392` that receives screenshots and performs visual comparisons.
+This starts a local server that receives screenshots and performs visual
+comparisons. Vizzly uses `http://localhost:47392` by default; if that port is
+busy, use the URL printed by the command.
 
 ### 2. Add Vizzly to Your UI Tests
 
@@ -86,7 +88,20 @@ xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 1
 
 ### 4. View Results
 
-Open the dashboard at **http://localhost:47392/dashboard** to see visual comparisons, accept/reject changes, and review differences.
+Open the dashboard URL printed by `vizzly tdd start` to see visual comparisons,
+accept/reject changes, and review differences.
+
+For a one-off local run, wrap your `xcodebuild` command:
+
+```bash
+vizzly tdd run \
+  "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15'" \
+  --no-open
+```
+
+That writes local review data under `.vizzly/`. If screenshots were captured,
+Vizzly also creates `.vizzly/report/index.html`; omit `--no-open` when you want
+the report opened automatically.
 
 ## Usage Examples
 
@@ -288,10 +303,11 @@ The SDK automatically discovers a running Vizzly TDD server using this priority 
 
 1. **VIZZLY_SERVER_URL environment variable** - Explicitly set server URL
 2. **Project server file** - `.vizzly/server.json` in the current directory
-3. **Global server file** - `~/.vizzly/server.json` written by CLI
-4. **Default port health check** - Tests `http://localhost:47392/health`
+3. **Default port health check** - Tests `http://localhost:47392/health`
 
-When you run `vizzly tdd start`, the CLI automatically writes server info to `~/.vizzly/server.json` in your home directory, enabling zero-config discovery from iOS tests.
+When you run `vizzly tdd start`, the CLI writes server info to
+`.vizzly/server.json` in your project. Run UI tests from the project checkout,
+or set `VIZZLY_SERVER_URL` explicitly when your test process starts elsewhere.
 
 ### Environment Variables
 
@@ -464,9 +480,11 @@ override func setUpWithError() throws {
 ### Server Not Found
 
 1. Ensure TDD server is running: `vizzly tdd start`
-2. Check `~/.vizzly/server.json` exists in your home directory
-3. Verify the server is reachable: `curl http://localhost:47392/health`
-4. Or explicitly set: `export VIZZLY_SERVER_URL=http://localhost:47392`
+2. Check `.vizzly/server.json` exists in your project checkout
+3. Verify the printed server URL is reachable, for example:
+   `curl http://localhost:47392/health`
+4. Or explicitly set the printed URL:
+   `export VIZZLY_SERVER_URL=http://localhost:47392`
 
 ### Visual Differences Not Showing
 

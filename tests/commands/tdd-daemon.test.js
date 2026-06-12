@@ -4,21 +4,19 @@ import { describe, it } from 'node:test';
 import {
   buildDaemonChildArgs,
   buildDashboardUrl,
-  buildLegacyServerInfo,
   buildOpenDashboardCommand,
   cleanupDaemonState,
-  cleanupLegacyGlobalServerFile,
   cleanupLocalDaemonFiles,
   findDaemonPidByPort,
   getLocalDaemonFiles,
   readDaemonPidFile,
+  readLocalDaemonInfo,
   removeFileIfExists,
   resolveDaemonPid,
   validateTddStartOptions,
   waitForDaemonChildInit,
   waitForProcessExit,
   waitForServerRunning,
-  writeLegacyGlobalServerFile,
 } from '../../src/commands/tdd-daemon.js';
 
 function createManualTimers() {
@@ -133,70 +131,13 @@ describe('commands/tdd-daemon helpers', () => {
       ]);
     });
 
-    it('writes the legacy global server file for SDK discovery', () => {
-      let createdDirectories = [];
-      let writes = [];
-
-      let result = writeLegacyGlobalServerFile(
-        { pid: 1234, port: 47400, failOnDiff: true },
-        {
-          home: () => '/home/test',
-          exists: () => false,
-          mkdir: (path, options) => {
-            createdDirectories.push({ path, options });
-          },
-          writeFile: (path, contents) => {
-            writes.push({ path, contents: JSON.parse(contents) });
-          },
-          now: () => 987654321,
-        }
-      );
-
-      assert.deepStrictEqual(createdDirectories, [
-        { path: '/home/test/.vizzly', options: { recursive: true } },
-      ]);
-      assert.deepStrictEqual(writes, [
-        {
-          path: '/home/test/.vizzly/server.json',
-          contents: {
-            pid: 1234,
-            port: '47400',
-            startTime: 987654321,
-            failOnDiff: true,
-          },
-        },
-      ]);
-      assert.deepStrictEqual(result, {
-        path: '/home/test/.vizzly/server.json',
-        serverInfo: buildLegacyServerInfo({
-          pid: 1234,
-          port: 47400,
-          failOnDiff: true,
-          now: () => 987654321,
-        }),
-      });
-    });
-
-    it('cleans the legacy global server file when present', () => {
-      let removed = [];
-      let didRemove = cleanupLegacyGlobalServerFile({
-        home: () => '/home/test',
-        exists: path => path === '/home/test/.vizzly/server.json',
-        unlink: path => removed.push(path),
-      });
-
-      assert.strictEqual(didRemove, true);
-      assert.deepStrictEqual(removed, ['/home/test/.vizzly/server.json']);
-    });
-
-    it('cleans local files, legacy global state, and registry entries together', () => {
+    it('cleans local files and registry entries together', () => {
       let removed = [];
       let registryCalls = [];
       let localFiles = new Set([
         '/repo/app/.vizzly/server.pid',
         '/repo/app/.vizzly/server.json',
       ]);
-      let legacyFiles = new Set(['/home/test/.vizzly/server.json']);
 
       let result = cleanupDaemonState({
         port: 47400,
@@ -208,22 +149,15 @@ describe('commands/tdd-daemon helpers', () => {
           existsSync: path => localFiles.has(path),
           unlinkSync: path => removed.push(path),
         },
-        legacyFileDeps: {
-          home: () => '/home/test',
-          exists: path => legacyFiles.has(path),
-          unlink: path => removed.push(path),
-        },
       });
 
       assert.deepStrictEqual(result, {
         pidFileRemoved: true,
         serverFileRemoved: true,
-        legacyGlobalServerFileRemoved: true,
       });
       assert.deepStrictEqual(removed, [
         '/repo/app/.vizzly/server.pid',
         '/repo/app/.vizzly/server.json',
-        '/home/test/.vizzly/server.json',
       ]);
       assert.deepStrictEqual(registryCalls, [
         { port: 47400, directory: '/repo/app' },
@@ -244,17 +178,11 @@ describe('commands/tdd-daemon helpers', () => {
           existsSync: path => path === '/repo/app/.vizzly/server.pid',
           unlinkSync: path => removed.push(path),
         },
-        legacyFileDeps: {
-          home: () => '/home/test',
-          exists: () => false,
-          unlink: path => removed.push(path),
-        },
       });
 
       assert.deepStrictEqual(result, {
         pidFileRemoved: true,
         serverFileRemoved: false,
-        legacyGlobalServerFileRemoved: false,
       });
       assert.deepStrictEqual(removed, ['/repo/app/.vizzly/server.pid']);
     });
@@ -383,10 +311,26 @@ describe('commands/tdd-daemon helpers', () => {
       assert.strictEqual(findByPortCalls, 0);
     });
 
-    it('falls back to port discovery when the pid file is stale', async () => {
+    it('does not fall back to port discovery by default when the pid file is stale', async () => {
+      let findByPortCalls = 0;
       let pid = await resolveDaemonPid({
         port: 47400,
         readPid: () => null,
+        findByPort: () => {
+          findByPortCalls++;
+          return 4321;
+        },
+      });
+
+      assert.strictEqual(pid, null);
+      assert.strictEqual(findByPortCalls, 0);
+    });
+
+    it('falls back to port discovery only when explicitly requested', async () => {
+      let pid = await resolveDaemonPid({
+        port: 47400,
+        readPid: () => null,
+        allowPortFallback: true,
         findByPort: port => {
           assert.strictEqual(port, 47400);
           return 4321;
@@ -394,6 +338,52 @@ describe('commands/tdd-daemon helpers', () => {
       });
 
       assert.strictEqual(pid, 4321);
+    });
+  });
+
+  describe('readLocalDaemonInfo', () => {
+    it('normalizes local daemon server info', () => {
+      let info = readLocalDaemonInfo('/repo/app', {
+        existsSync: path => path === '/repo/app/.vizzly/server.json',
+        readFileSync: () =>
+          JSON.stringify({
+            pid: '1234',
+            port: '47400',
+            startTime: 987654321,
+            logFile: '/repo/app/.vizzly/server.log',
+          }),
+      });
+
+      assert.deepStrictEqual(info, {
+        pid: 1234,
+        port: 47400,
+        startTime: 987654321,
+        logFile: '/repo/app/.vizzly/server.log',
+      });
+    });
+
+    it('returns null for missing, invalid, or portless server info', () => {
+      assert.strictEqual(
+        readLocalDaemonInfo('/repo/app', {
+          existsSync: () => false,
+          readFileSync: () => '{}',
+        }),
+        null
+      );
+      assert.strictEqual(
+        readLocalDaemonInfo('/repo/app', {
+          existsSync: () => true,
+          readFileSync: () => 'not-json',
+        }),
+        null
+      );
+      assert.strictEqual(
+        readLocalDaemonInfo('/repo/app', {
+          existsSync: () => true,
+          readFileSync: () => JSON.stringify({ pid: 1234 }),
+        }),
+        null
+      );
     });
   });
 
@@ -524,6 +514,31 @@ describe('commands/tdd-daemon helpers', () => {
       assert.strictEqual(child.listenerCount('exit'), 0);
     });
 
+    it('returns a child error message when daemon initialization fails', async () => {
+      let timers = createManualTimers();
+      let child = new EventEmitter();
+
+      let promise = waitForDaemonChildInit(child, { timers });
+      child.emit('message', {
+        type: 'error',
+        message: 'Port is already in use',
+        code: 'EADDRINUSE',
+        stack: 'Error: Port is already in use\n    at startServer',
+      });
+
+      let result = await promise;
+
+      assert.strictEqual(result.ok, false);
+      assert.strictEqual(result.reason, 'error');
+      assert.match(result.error.message, /Port is already in use/);
+      assert.strictEqual(result.error.code, 'EADDRINUSE');
+      assert.match(result.error.stack, /startServer/);
+      assert.strictEqual(timers.get(1), undefined);
+      assert.strictEqual(child.listenerCount('message'), 0);
+      assert.strictEqual(child.listenerCount('disconnect'), 0);
+      assert.strictEqual(child.listenerCount('exit'), 0);
+    });
+
     it('returns an exit result when the daemon child exits first', async () => {
       let timers = createManualTimers();
       let child = new EventEmitter();
@@ -533,10 +548,30 @@ describe('commands/tdd-daemon helpers', () => {
 
       let result = await promise;
 
-      assert.deepStrictEqual(result, { ok: false, reason: 'exit' });
+      assert.strictEqual(result.ok, false);
+      assert.strictEqual(result.reason, 'exit');
+      assert.match(result.error.message, /Daemon child exited before startup/);
       assert.strictEqual(timers.get(1), undefined);
       assert.strictEqual(child.listenerCount('disconnect'), 0);
       assert.strictEqual(child.listenerCount('exit'), 0);
+    });
+
+    it('returns stderr when the daemon child exits before IPC setup', async () => {
+      let timers = createManualTimers();
+      let child = new EventEmitter();
+      child.stderr = new EventEmitter();
+
+      let promise = waitForDaemonChildInit(child, { timers });
+      child.stderr.emit('data', 'Cannot find module tdd-daemon.js\n');
+      child.emit('exit', 1, null);
+
+      let result = await promise;
+
+      assert.strictEqual(result.ok, false);
+      assert.strictEqual(result.reason, 'exit');
+      assert.match(result.error.message, /Cannot find module/);
+      assert.strictEqual(result.error.code, 1);
+      assert.strictEqual(child.stderr.listenerCount('data'), 0);
     });
 
     it('returns a timeout result and removes listeners', async () => {

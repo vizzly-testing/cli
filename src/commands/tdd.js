@@ -195,6 +195,7 @@ export async function tddCommand(
       baselineBuildId: config.baselineBuildId,
       baselineComparisonId: config.baselineComparisonId,
       wait: false,
+      json: globalOptions.json,
     };
 
     // In daemon mode, just start the server without running tests

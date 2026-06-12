@@ -40,16 +40,30 @@ Use `vizzly init --agent-skill` to install only the local skill, or
 
 ### Start Local TDD
 
-Start the TDD server, run your tests, and open the dashboard at
-`http://localhost:47392`.
+Start the TDD server, run your tests, and open the dashboard at the URL the
+command prints. Add `--open` when you want Vizzly to open the dashboard for
+you. If the default port is busy, Vizzly picks the next available port; use the
+printed `--port` value with `vizzly tdd status` or `vizzly tdd stop`.
 
 ```bash
-vizzly tdd start
+vizzly tdd start --open
 pnpm test -- --watch
 ```
 
 The dashboard shows screenshots, baselines, and diffs as they arrive. Accept or
 reject changes right from the UI.
+
+For a one-off local check, wrap the test command with `tdd run`:
+
+```bash
+vizzly tdd run "pnpm test" --no-open
+vizzly context build current --source local --agent
+```
+
+That run writes review data under `.vizzly/` and prints a context command you
+can use for follow-up inspection. If screenshots were captured, Vizzly also
+generates `.vizzly/report/index.html`; omit `--no-open` when you want that
+report opened automatically.
 
 ### Run With Cloud Review
 
@@ -206,10 +220,18 @@ export default {
 | Command | What it does |
 | --- | --- |
 | `vizzly tdd start` | Start the local TDD server and dashboard. |
-| `vizzly tdd run "cmd"` | Run tests once and generate a static visual report. |
+| `vizzly tdd status` | Check the local TDD server for this project. |
+| `vizzly tdd list` | List running local TDD servers. |
+| `vizzly tdd stop` | Stop the local TDD server for this project. |
+| `vizzly tdd run "cmd"` | Run tests once and write local review data under `.vizzly/`. |
 | `vizzly run "cmd"` | Run tests with cloud build and review integration. |
 | `vizzly context ...` | Fetch visual context for builds, comparisons, screenshots, and review queues. |
 | `vizzly upload <dir>` | Upload an existing folder of screenshots. |
+| `vizzly preview <dir>` | Upload static build output for in-context review. |
+| `vizzly approve <comparison-id>` | Approve a visual comparison. |
+| `vizzly reject <comparison-id>` | Reject a visual comparison with a reason. |
+| `vizzly comment <build-id>` | Add a build comment. |
+| `vizzly config [key]` | Inspect resolved configuration values. |
 | `vizzly login` | Authenticate through the browser. |
 | `vizzly doctor` | Validate your local setup. |
 

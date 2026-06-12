@@ -51,28 +51,43 @@ cd /path/to/MyiOSApp
 Create a `vizzly.config.js` file (optional but recommended):
 
 ```javascript
-export default {
-  // Delta E comparison threshold. Omitted screenshots use server config.
-  threshold: 0,
+import { defineConfig } from '@vizzly-testing/cli/config';
 
-  // TDD server port
-  port: 47392,
-
-  // Baseline directory
-  baselineDir: '.vizzly/baselines'
-}
+export default defineConfig({
+  server: {
+    port: 47392,
+  },
+  comparison: {
+    // Delta E comparison threshold. Omitted screenshots use server config.
+    threshold: 0,
+  },
+});
 ```
 
 ### 4. Start TDD Server
 
 ```bash
-vizzly tdd start
+vizzly tdd start --open
 ```
 
-This starts a local server at `http://localhost:47392` that will:
+This starts a local server that will:
 - Receive screenshots from your tests
 - Compare them against baselines
-- Serve a dashboard at `http://localhost:47392/dashboard`
+- Serve a dashboard at the URL printed by the command
+
+Vizzly uses port `47392` by default. If that port is busy, it auto-assigns
+another free port and prints that URL instead.
+
+For a one-off run, wrap your test command:
+
+```bash
+vizzly tdd run \
+  "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15'" \
+  --no-open
+```
+
+That writes local review data under `.vizzly/` and creates a static report at
+`.vizzly/report/index.html` when screenshots are captured.
 
 ### 5. Write UI Tests with Vizzly
 
@@ -443,9 +458,11 @@ vizzly tdd start
 **Solution**:
 
 1. Ensure TDD server is running: `vizzly tdd start`
-2. Check `~/.vizzly/server.json` exists in your home directory
-3. Verify the server is reachable: `curl http://localhost:47392/health`
-4. Or explicitly set: `export VIZZLY_SERVER_URL=http://localhost:47392`
+2. Check `.vizzly/server.json` exists in your project checkout
+3. Verify the printed server URL is reachable, for example:
+   `curl http://localhost:47392/health`
+4. Or explicitly set the printed URL:
+   `export VIZZLY_SERVER_URL=http://localhost:47392`
 
 ## Best Practices
 

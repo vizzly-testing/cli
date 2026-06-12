@@ -337,22 +337,10 @@ export async function previewCommand(
   });
 
   try {
-    // Load configuration
-    let allOptions = { ...globalOptions, ...options };
-    let config = await loadConfig(globalOptions.config, allOptions);
-
-    // Validate API token (skip for dry-run)
-    if (!options.dryRun && !config.apiKey) {
-      output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
-      );
-      exit(1);
-      return { success: false, reason: 'no-api-key' };
-    }
-
     let uploadPath = options.base ? resolve(path, options.base) : path;
 
-    // Validate path exists and is a directory
+    // Validate path exists and is a directory before auth so local input
+    // mistakes are visible without requiring credentials.
     if (!existsSync(uploadPath)) {
       output.error(`Path does not exist: ${uploadPath}`);
       exit(1);
@@ -364,6 +352,19 @@ export async function previewCommand(
       output.error(`Path is not a directory: ${uploadPath}`);
       exit(1);
       return { success: false, reason: 'not-a-directory' };
+    }
+
+    // Load configuration
+    let allOptions = { ...globalOptions, ...options };
+    let config = await loadConfig(globalOptions.config, allOptions);
+
+    // Validate API token (skip for dry-run)
+    if (!options.dryRun && !config.apiKey) {
+      output.error(
+        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+      );
+      exit(1);
+      return { success: false, reason: 'no-api-key' };
     }
 
     // Resolve build ID

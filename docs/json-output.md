@@ -152,6 +152,15 @@ vizzly tdd run "pnpm test" --json
 }
 ```
 
+`tdd run` keeps structured output on stdout. The wrapped test command can still
+print normally; Vizzly forwards that child output to stderr in JSON mode so
+`stdout` stays safe to parse.
+
+When screenshots are captured, Vizzly also writes local review artifacts under
+`.vizzly/`, including `.vizzly/report-data.json` and
+`.vizzly/report/index.html`. Use `contextCommand` when you want a stable
+follow-up command for local review data.
+
 ### `vizzly tdd start`
 
 ```bash
@@ -170,6 +179,11 @@ vizzly tdd start --json
 }
 ```
 
+If this project already has a live TDD server, the command returns
+`status: "already_running"` with the same `port`, `pid`, and `dashboardUrl`
+fields. Use that `port` with `vizzly tdd status --port <port>` or
+`vizzly tdd stop --port <port>` when Vizzly auto-assigned a non-default port.
+
 ### `vizzly tdd stop`
 
 ```bash
@@ -185,6 +199,10 @@ vizzly tdd stop --json
   }
 }
 ```
+
+`stop` also returns parseable non-happy-path states. If no server is registered
+for the current project or port, `data.status` is `"not_running"`. If Vizzly
+finds stale daemon files and cleans them up, `data.status` is `"stale"`.
 
 ### `vizzly tdd status`
 
@@ -205,6 +223,10 @@ vizzly tdd status --json
   }
 }
 ```
+
+When no server is running, `status` still uses the data envelope and returns
+`{ "running": false, "message": "TDD server not running" }`. Stale daemon files
+are reported as `status: "stale"` with `running: false` after cleanup.
 
 ### `vizzly tdd list`
 
@@ -737,6 +759,43 @@ vizzly upload ./screenshots --json
 }
 ```
 
+With `--wait`, the payload includes comparison results after Vizzly finishes
+processing the build:
+
+```bash
+vizzly upload ./screenshots --wait --json
+```
+
+```json
+{
+  "status": "data",
+  "data": {
+    "buildId": "abc123-def456",
+    "status": "failed",
+    "url": "https://app.vizzly.dev/...",
+    "stats": {
+      "total": 20,
+      "uploaded": 15,
+      "skipped": 5,
+      "bytes": 2500000
+    },
+    "git": {
+      "branch": "main",
+      "commit": "abc1234",
+      "message": "Add feature"
+    },
+    "comparisons": {
+      "total": 15,
+      "passed": 12,
+      "failed": 2,
+      "new": 1
+    },
+    "approvalStatus": "pending",
+    "executionTimeMs": 9876
+  }
+}
+```
+
 ### `vizzly preview`
 
 ```bash
@@ -762,6 +821,61 @@ vizzly preview ./dist --json
   }
 }
 ```
+
+### `vizzly approve`
+
+```bash
+vizzly approve <comparison-id> --json
+```
+
+```json
+{
+  "status": "data",
+  "data": {
+    "approved": true,
+    "comparisonId": "comp_123",
+    "comparison": { /* updated comparison */ }
+  }
+}
+```
+
+### `vizzly reject`
+
+```bash
+vizzly reject <comparison-id> --reason "Unexpected regression" --json
+```
+
+```json
+{
+  "status": "data",
+  "data": {
+    "rejected": true,
+    "comparisonId": "comp_123",
+    "reason": "Unexpected regression",
+    "comparison": { /* updated comparison */ }
+  }
+}
+```
+
+### `vizzly comment`
+
+```bash
+vizzly comment <build-id> "Needs design review" --json
+```
+
+```json
+{
+  "status": "data",
+  "data": {
+    "created": true,
+    "buildId": "build_123",
+    "comment": { /* created comment */ }
+  }
+}
+```
+
+Review actions require a user login. Project tokens are intentionally not enough
+to approve, reject, or comment.
 
 ### `vizzly status`
 

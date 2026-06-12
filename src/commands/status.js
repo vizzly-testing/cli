@@ -41,6 +41,21 @@ function createStatusClient({ createApiClient, config }) {
   });
 }
 
+function isMissingPreviewError(error) {
+  return error.context?.status === 404;
+}
+
+async function fetchOptionalPreviewInfo(getPreviewInfo, client, buildId) {
+  try {
+    return await getPreviewInfo(client, buildId);
+  } catch (error) {
+    if (isMissingPreviewError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export function normalizeBuildStatus(buildStatus) {
   return buildStatus.build || buildStatus;
 }
@@ -297,7 +312,11 @@ export async function statusCommand(
     let buildStatus = await getBuild(client, buildId);
 
     // Also fetch preview info (if exists)
-    let previewInfo = await getPreviewInfo(client, buildId);
+    let previewInfo = await fetchOptionalPreviewInfo(
+      getPreviewInfo,
+      client,
+      buildId
+    );
     output.stopSpinner();
 
     // Extract build data from API response

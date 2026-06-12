@@ -291,6 +291,7 @@ export async function runCommand(
       uploadAll: options.uploadAll || false,
       pullRequestNumber,
       parallelId: config.parallelId,
+      json: globalOptions.json,
     };
 
     // Start test run
@@ -386,10 +387,12 @@ export async function runCommand(
         return { success: true, result };
       }
 
-      output.complete('Test run completed');
+      if (!globalOptions.json) {
+        output.complete('Test run completed');
+      }
 
       // Show Vizzly summary with link to results
-      if (result.buildId) {
+      if (result.buildId && !globalOptions.json) {
         output.blank();
         let colors = output.getColors();
         output.print(
@@ -446,7 +449,7 @@ export async function runCommand(
           });
           output.cleanup();
         } else {
-          output.error('Test run failed');
+          output.error('Test run failed', error);
         }
         return { success: false, exitCode };
       } else {

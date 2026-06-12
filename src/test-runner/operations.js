@@ -178,12 +178,21 @@ export async function finalizeBuild({
  * @param {Function} options.deps.createError - Error factory
  * @returns {Promise<{ process: Object }>} Spawned process reference
  */
-export function executeTestCommand({ command, env, deps }) {
+export function executeTestCommand({ command, env, json = false, deps }) {
   let { spawn, createError } = deps;
 
   return new Promise((resolve, reject) => {
-    let spawnOptions = buildSpawnOptions(env);
+    let spawnOptions = buildSpawnOptions(env, { json });
     let testProcess = spawn(command, spawnOptions);
+
+    if (json) {
+      testProcess.stdout?.on('data', data => {
+        process.stderr.write(data);
+      });
+      testProcess.stderr?.on('data', data => {
+        process.stderr.write(data);
+      });
+    }
 
     testProcess.on('error', error => {
       reject(
@@ -264,6 +273,7 @@ export async function runTests({ runOptions, config, deps }) {
     await executeTestCommand({
       command: testCommand,
       env,
+      json: runOptions.json,
       deps: { spawn, createError },
     });
     return buildDisabledRunResult();
@@ -320,6 +330,7 @@ export async function runTests({ runOptions, config, deps }) {
       await executeTestCommand({
         command: testCommand,
         env,
+        json: runOptions.json,
         deps: { spawn, createError },
       });
       testSuccess = true;
@@ -384,7 +395,9 @@ export async function runTests({ runOptions, config, deps }) {
 
   // Throw test error after cleanup
   if (testError) {
-    output.error('Test run failed:', testError);
+    if (!runOptions.json) {
+      output.error('Test run failed:', testError);
+    }
     throw testError;
   }
 

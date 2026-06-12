@@ -1492,6 +1492,10 @@ export class TddService {
     );
     let hasChanges = failedComparisons.length > 0 || newComparisons.length > 0;
 
+    if (output.isJson?.()) {
+      return results;
+    }
+
     // Header with summary - use bear emoji as Vizzly mascot
     output.blank();
     output.print(
@@ -1579,10 +1583,11 @@ export class TddService {
       let serverFile = `${this.workingDir}/.vizzly/server.json`;
       let serverRunning = false;
       let serverPort = 47392;
+      let serverInfo = {};
 
       try {
         if (existsSync(serverFile)) {
-          let serverInfo = JSON.parse(readFileSync(serverFile, 'utf8'));
+          serverInfo = JSON.parse(readFileSync(serverFile, 'utf8'));
           if (serverInfo.port) {
             serverPort = serverInfo.port;
             serverRunning = true;
@@ -1592,7 +1597,7 @@ export class TddService {
         // Ignore errors reading server file
       }
 
-      if (serverRunning) {
+      if (serverRunning && !serverInfo.buildId) {
         // Server is running - show the dashboard URL
         output.print(
           `  ${textTertiary('→')} Review changes: ${infoColor(colors.underline(`http://localhost:${serverPort}`))}`

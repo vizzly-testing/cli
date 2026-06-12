@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-import { program } from 'commander';
+import { existsSync, statSync } from 'node:fs';
+import { Option, program } from 'commander';
 import { apiCommand, validateApiOptions } from './commands/api.js';
 import {
   baselinesCommand,
@@ -95,7 +96,7 @@ const formatHelp = (cmd, helper) => {
     lines.push(`   ${c.gray('Visual regression testing from your terminal')}`);
   } else {
     // Compact header for subcommands
-    lines.push(`  ${c.brand.amber(c.bold('vizzly'))} ${c.white(cmd.name())}`);
+    lines.push(`  ${c.brand.amber(c.bold(commandPath(cmd)))}`);
     let desc = cmd.description();
     if (desc) {
       lines.push(`  ${c.gray(desc)}`);
@@ -141,7 +142,7 @@ const formatHelp = (cmd, helper) => {
           key: 'setup',
           icon: '▸',
           title: 'Setup',
-          names: ['init', 'doctor', 'config', 'baselines'],
+          names: ['init', 'doctor', 'config', 'baselines', 'project'],
         },
         { key: 'advanced', icon: '▸', title: 'Advanced', names: ['api'] },
         {
@@ -234,7 +235,7 @@ const formatHelp = (cmd, helper) => {
     lines.push(`  ${c.brand.amber('▸')} ${c.bold('Quick Start')}`);
     lines.push('');
     lines.push(`      ${c.dim('# Local visual review')}`);
-    lines.push(`      ${c.gray('$')} ${c.white('vizzly tdd start')}`);
+    lines.push(`      ${c.gray('$')} ${c.white('vizzly tdd start --open')}`);
     lines.push('');
     lines.push(`      ${c.dim('# CI pipeline')}`);
     lines.push(
@@ -276,6 +277,21 @@ const formatHelp = (cmd, helper) => {
 
   return lines.join('\n');
 };
+
+function commandPath(cmd) {
+  let names = [];
+  let current = cmd;
+
+  while (current) {
+    let name = current.name();
+    if (name) {
+      names.unshift(name);
+    }
+    current = current.parent;
+  }
+
+  return names.join(' ');
+}
 
 function extractGlobalOptionsFromArgv(argv, commandNames = null) {
   let configPath = null;
@@ -337,6 +353,162 @@ function normalizeJsonArgv(argv, commandNames) {
   return normalizedArgv;
 }
 
+function findNestedCommandRequest(
+  args,
+  startIndex,
+  subcommandNames,
+  parentName
+) {
+  if (!subcommandNames?.size) {
+    return null;
+  }
+
+  let valueOptions = new Set(['-c', '--config', '--token', '--log-level']);
+
+  for (let i = startIndex; i < args.length; i++) {
+    let arg = args[i];
+
+    if (arg === '--') {
+      return null;
+    }
+
+    if (valueOptions.has(arg)) {
+      i++;
+      continue;
+    }
+
+    if (arg.startsWith('--')) {
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      continue;
+    }
+
+    return {
+      name: arg,
+      known: subcommandNames.has(arg),
+      helpCommand: `vizzly ${parentName} --help`,
+    };
+  }
+
+  return null;
+}
+
+function findRequestedCommand(
+  argv,
+  commandNames,
+  nestedCommandNames = new Map()
+) {
+  let valueOptions = new Set(['-c', '--config', '--token', '--log-level']);
+  let args = argv.slice(2);
+  let jsonValueCandidate = null;
+
+  for (let i = 0; i < args.length; i++) {
+    let arg = args[i];
+
+    if (arg === '--') {
+      return null;
+    }
+
+    if (arg === '--json') {
+      let nextArg = args[i + 1];
+      if (nextArg && !nextArg.startsWith('-') && !commandNames.has(nextArg)) {
+        jsonValueCandidate = jsonValueCandidate || nextArg;
+        i++;
+      }
+      continue;
+    }
+
+    if (valueOptions.has(arg)) {
+      i++;
+      continue;
+    }
+
+    if (arg.startsWith('--json=')) {
+      continue;
+    }
+
+    if (arg.startsWith('--')) {
+      continue;
+    }
+
+    if (arg.startsWith('-')) {
+      continue;
+    }
+
+    let known = commandNames.has(arg);
+    if (known) {
+      let nestedRequest = findNestedCommandRequest(
+        args,
+        i + 1,
+        nestedCommandNames.get(arg),
+        arg
+      );
+      if (nestedRequest && !nestedRequest.known) {
+        return nestedRequest;
+      }
+    }
+
+    return {
+      name: arg,
+      known,
+    };
+  }
+
+  if (jsonValueCandidate) {
+    return {
+      name: jsonValueCandidate,
+      known: false,
+    };
+  }
+
+  return null;
+}
+
+function getGlobalOptions() {
+  let options = program.opts();
+  return {
+    ...options,
+    noColor: options.noColor || options.color === false,
+  };
+}
+
+function reportValidationErrors(errors) {
+  if (output.isJson()) {
+    output.error('Validation errors', null, { errors });
+  } else {
+    output.error('Validation errors:');
+    for (let error of errors) {
+      output.printErr(`  - ${error}`);
+    }
+  }
+  process.exit(1);
+}
+
+function formatCommanderError(message) {
+  return message.replace(/^error:\s*/, '').trim();
+}
+
+function writeCommanderError(text) {
+  let message = formatCommanderError(text);
+  if (!message) {
+    return;
+  }
+
+  if (output.isJson()) {
+    if (message.startsWith('(')) {
+      return;
+    }
+    output.error(message);
+  } else {
+    process.stderr.write(text);
+    if (!text.endsWith('\n')) {
+      process.stderr.write('\n');
+    }
+  }
+}
+
 program
   .name('vizzly')
   .description('Vizzly CLI for visual regression testing')
@@ -359,6 +531,14 @@ program
     'Fail on any error (default: be resilient, warn on non-critical issues)'
   )
   .configureHelp({ formatHelp });
+
+program.configureOutput({
+  writeErr: writeCommanderError,
+});
+
+program.showHelpAfterError('(Run vizzly --help for available commands)');
+program.showSuggestionAfterError();
+program.exitOverride();
 
 // Load plugins before defining commands
 // We need to manually parse to get the config option early
@@ -424,7 +604,7 @@ program
   )
   .option('--skip-agent-skill', 'Skip the Vizzly agent skill prompt')
   .action(async options => {
-    let globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
     await init({ ...globalOptions, ...options, plugins });
   });
 
@@ -451,15 +631,21 @@ program
   .option('--upload-all', 'Upload all screenshots without SHA deduplication')
   .option('--parallel-id <id>', 'Unique identifier for parallel test execution')
   .action(async (path, options) => {
-    let globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateUploadOptions(path, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
+      reportValidationErrors(validationErrors);
+    }
+
+    if (!existsSync(path)) {
+      output.error(`Path does not exist: ${path}`);
+      process.exit(1);
+    }
+
+    if (!statSync(path).isDirectory()) {
+      output.error(`Path is not a directory: ${path}`);
       process.exit(1);
     }
 
@@ -472,13 +658,15 @@ program
 // TDD command with subcommands - local visual review with an interactive dashboard
 const tddCmd = program
   .command('tdd')
-  .description('Run tests in TDD mode with local visual review');
+  .description('Run tests in TDD mode with local visual review')
+  .showHelpAfterError('(Run vizzly tdd --help for available commands)')
+  .showSuggestionAfterError();
 
 // TDD Start - Background server
 tddCmd
   .command('start')
   .description('Start background TDD server with dashboard')
-  .option('--port <port>', 'Port for TDD server', '47392')
+  .option('--port <port>', 'Port for TDD server')
   .option('--open', 'Open dashboard in browser')
   .option('--baseline-build <id>', 'Use specific build as baseline')
   .option('--baseline-comparison <id>', 'Use specific comparison as baseline')
@@ -492,9 +680,14 @@ tddCmd
   .option('--timeout <ms>', 'Server timeout in milliseconds', '30000')
   .option('--fail-on-diff', 'Fail tests when visual differences are detected')
   .option('--token <token>', 'API token override')
-  .option('--daemon-child', 'Internal: run as daemon child process')
+  .addOption(
+    new Option(
+      '--daemon-child',
+      'Internal: run as daemon child process'
+    ).hideHelp()
+  )
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // If this is a daemon child process, run the server directly
     if (options.daemonChild) {
@@ -504,11 +697,7 @@ tddCmd
 
     let validationErrors = validateTddStartOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await tddStartCommand(options, globalOptions);
@@ -518,8 +707,13 @@ tddCmd
 tddCmd
   .command('stop')
   .description('Stop background TDD server')
+  .option('--port <port>', 'Port for TDD server')
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
+    let validationErrors = validateTddStartOptions(options);
+    if (validationErrors.length > 0) {
+      reportValidationErrors(validationErrors);
+    }
     await tddStopCommand(options, globalOptions);
   });
 
@@ -527,8 +721,13 @@ tddCmd
 tddCmd
   .command('status')
   .description('Check TDD server status')
+  .option('--port <port>', 'Port for TDD server')
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
+    let validationErrors = validateTddStartOptions(options);
+    if (validationErrors.length > 0) {
+      reportValidationErrors(validationErrors);
+    }
     await tddStatusCommand(options, globalOptions);
   });
 
@@ -537,7 +736,7 @@ tddCmd
   .command('list')
   .description('List all running TDD servers')
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
     await tddListCommand(options, globalOptions);
   });
 
@@ -545,7 +744,7 @@ tddCmd
 tddCmd
   .command('run <command>')
   .description('Run tests once in TDD mode with local visual review')
-  .option('--port <port>', 'Port for TDD server', '47392')
+  .option('--port <port>', 'Port for TDD server')
   .option('--branch <branch>', 'Git branch override')
   .option('--environment <env>', 'Environment name', 'test')
   .option('--threshold <number>', 'Comparison threshold', Number)
@@ -565,16 +764,12 @@ tddCmd
   .option('--fail-on-diff', 'Fail tests when visual differences are detected')
   .option('--no-open', 'Skip opening report in browser')
   .action(async (command, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateTddOptions(command, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     const { result, cleanup } = await tddCommand(
@@ -602,8 +797,11 @@ tddCmd
     process.once('SIGINT', sigintHandler);
     process.once('SIGTERM', sigtermHandler);
 
-    // If there are comparisons, generate static report
-    const hasComparisons = result?.comparisons?.length > 0;
+    // If the run captured screenshots, generate a static report for review.
+    let hasComparisons =
+      result?.screenshotsCaptured > 0 ||
+      result?.comparisons?.length > 0 ||
+      result?.summary?.total > 0;
     if (hasComparisons) {
       // Note: Tests have completed at this point, so report-data.json is stable.
       // The report reflects the final state of all comparisons.
@@ -658,16 +856,12 @@ program
   .option('--upload-all', 'Upload all screenshots without SHA deduplication')
   .option('--parallel-id <id>', 'Unique identifier for parallel test execution')
   .action(async (command, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateRunOptions(command, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     try {
@@ -686,16 +880,12 @@ program
   .description('Check the status of a build')
   .argument('<build-id>', 'Build ID to check status for')
   .action(async (buildId, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateStatusOptions(buildId, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await statusCommand(buildId, options, globalOptions);
@@ -731,16 +921,12 @@ Examples:
 `
   )
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateBuildsOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await buildsCommand(options, globalOptions);
@@ -772,16 +958,12 @@ Examples:
 `
   )
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateComparisonsOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await comparisonsCommand(options, globalOptions);
@@ -789,7 +971,9 @@ Examples:
 
 let contextCmd = program
   .command('context')
-  .description('Fetch build and diff context');
+  .description('Fetch build and diff context')
+  .showHelpAfterError('(Run vizzly context --help for available commands)')
+  .showSuggestionAfterError();
 
 contextCmd
   .command('build')
@@ -815,14 +999,10 @@ Examples:
 `
   )
   .action(async (buildId, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
     const validationErrors = validateContextBuildOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await contextBuildCommand(buildId, options, globalOptions);
@@ -859,14 +1039,10 @@ Examples:
 `
   )
   .action(async (comparisonId, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
     const validationErrors = validateContextComparisonOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await contextComparisonCommand(comparisonId, options, globalOptions);
@@ -900,14 +1076,10 @@ Examples:
 `
   )
   .action(async (name, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
     const validationErrors = validateContextScreenshotOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await contextScreenshotCommand(name, options, globalOptions);
@@ -931,14 +1103,10 @@ Examples:
 `
   )
   .action(async (fingerprintHash, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
     const validationErrors = validateContextSimilarOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await contextSimilarCommand(fingerprintHash, options, globalOptions);
@@ -963,14 +1131,10 @@ Examples:
 `
   )
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
     const validationErrors = validateContextReviewQueueOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await contextReviewQueueCommand(options, globalOptions);
@@ -984,16 +1148,12 @@ program
     'Specific config key to get (dot notation, e.g., comparison.threshold)'
   )
   .action(async (key, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateConfigOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await configCommand(key, options, globalOptions);
@@ -1017,16 +1177,12 @@ Note: Baselines are stored locally in .vizzly/baselines/ during TDD mode.
 `
   )
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateBaselinesOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await baselinesCommand(options, globalOptions);
@@ -1067,16 +1223,12 @@ Most operations have dedicated commands (builds, comparisons, approve, etc.).
 `
   )
   .action(async (endpoint, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateApiOptions(endpoint, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await apiCommand(endpoint, options, globalOptions);
@@ -1085,7 +1237,7 @@ Most operations have dedicated commands (builds, comparisons, approve, etc.).
 program
   .command('approve')
   .description('Approve a comparison')
-  .argument('<comparison-id>', 'Comparison ID to approve (UUID format)')
+  .argument('<comparison-id>', 'Comparison ID to approve')
   .option('-m, --comment <message>', 'Optional comment explaining the approval')
   .addHelpText(
     'after',
@@ -1102,15 +1254,11 @@ Workflow:
 `
   )
   .action(async (comparisonId, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     const validationErrors = validateApproveOptions(comparisonId, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await approveCommand(comparisonId, options, globalOptions);
@@ -1119,7 +1267,7 @@ Workflow:
 program
   .command('reject')
   .description('Reject a comparison')
-  .argument('<comparison-id>', 'Comparison ID to reject (UUID format)')
+  .argument('<comparison-id>', 'Comparison ID to reject')
   .option('-r, --reason <message>', 'Required reason for rejection')
   .addHelpText(
     'after',
@@ -1136,15 +1284,11 @@ Workflow:
 `
   )
   .action(async (comparisonId, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     const validationErrors = validateRejectOptions(comparisonId, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await rejectCommand(comparisonId, options, globalOptions);
@@ -1153,7 +1297,7 @@ Workflow:
 program
   .command('comment')
   .description('Add a comment to a build')
-  .argument('<build-id>', 'Build ID to comment on (UUID format)')
+  .argument('<build-id>', 'Build ID to comment on')
   .argument('<message>', 'Comment message')
   .option(
     '-t, --type <type>',
@@ -1175,15 +1319,11 @@ Workflow:
 `
   )
   .action(async (buildId, message, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     const validationErrors = validateCommentOptions(buildId, message, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await commentCommand(buildId, message, options, globalOptions);
@@ -1204,15 +1344,11 @@ or the single organization for a project token.
 `
   )
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     const validationErrors = validateOrgsOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await orgsCommand(options, globalOptions);
@@ -1239,15 +1375,11 @@ Workflow:
 `
   )
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     const validationErrors = validateProjectsOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await projectsCommand(options, globalOptions);
@@ -1255,7 +1387,9 @@ Workflow:
 
 let projectCommand = program
   .command('project')
-  .description('Manage the project linked to this local checkout');
+  .description('Manage the project linked to this local checkout')
+  .showHelpAfterError('(Run vizzly project --help for available commands)')
+  .showSuggestionAfterError();
 
 projectCommand
   .command('link [selector]')
@@ -1276,15 +1410,11 @@ used for cloud uploads; your user login remains separate for review actions.
 `
   )
   .action(async (selector, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     const validationErrors = validateProjectLinkOptions(selector, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await projectLinkCommand(selector, options, globalOptions);
@@ -1295,16 +1425,12 @@ program
   .description('Finalize a parallel build after all shards complete')
   .argument('<parallel-id>', 'Parallel ID to finalize')
   .action(async (parallelId, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateFinalizeOptions(parallelId, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await finalizeCommand(parallelId, options, globalOptions);
@@ -1333,29 +1459,27 @@ program
     (val, prev) => (prev ? [...prev, val] : [val])
   )
   .action(async (path, options) => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Show helpful error if path is missing
     if (!path) {
       output.error('Path to static files is required');
-      output.blank();
-      output.print('  Upload your build output directory:');
-      output.blank();
-      output.print('    vizzly preview ./dist');
-      output.print('    vizzly preview ./build');
-      output.print('    vizzly preview ./out');
-      output.blank();
+      if (!globalOptions.json) {
+        output.blank();
+        output.print('  Upload your build output directory:');
+        output.blank();
+        output.print('    vizzly preview ./dist');
+        output.print('    vizzly preview ./build');
+        output.print('    vizzly preview ./out');
+        output.blank();
+      }
       process.exit(1);
     }
 
     // Validate options
     const validationErrors = validatePreviewOptions(path, options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await previewCommand(path, options, globalOptions);
@@ -1366,16 +1490,12 @@ program
   .description('Run diagnostics to check your environment and configuration')
   .option('--api', 'Include API connectivity checks')
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateDoctorOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await doctorCommand(options, globalOptions);
@@ -1386,16 +1506,12 @@ program
   .description('Authenticate with your Vizzly account')
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateLoginOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await loginCommand(options, globalOptions);
@@ -1406,16 +1522,12 @@ program
   .description('Clear stored authentication tokens')
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateLogoutOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await logoutCommand(options, globalOptions);
@@ -1426,16 +1538,12 @@ program
   .description('Show current authentication status and user information')
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
-    const globalOptions = program.opts();
+    let globalOptions = getGlobalOptions();
 
     // Validate options
     const validationErrors = validateWhoamiOptions(options);
     if (validationErrors.length > 0) {
-      output.error('Validation errors:');
-      for (let error of validationErrors) {
-        output.printErr(`  - ${error}`);
-      }
-      process.exit(1);
+      reportValidationErrors(validationErrors);
     }
 
     await whoamiCommand(options, globalOptions);
@@ -1446,6 +1554,12 @@ program
 saveUserPath().catch(() => {});
 
 let commandNames = new Set(program.commands.map(command => command.name()));
+let nestedCommandNames = new Map(
+  program.commands.map(command => [
+    command.name(),
+    new Set(command.commands.map(subcommand => subcommand.name())),
+  ])
+);
 let normalizedArgv = normalizeJsonArgv(process.argv, commandNames);
 let normalizedGlobals = extractGlobalOptionsFromArgv(
   normalizedArgv,
@@ -1460,4 +1574,26 @@ output.configure({
   resetTimer: false,
 });
 
-program.parse(normalizedArgv);
+let requestedCommand = findRequestedCommand(
+  normalizedArgv,
+  commandNames,
+  nestedCommandNames
+);
+if (requestedCommand && !requestedCommand.known) {
+  output.error(`unknown command '${requestedCommand.name}'`);
+  if (!output.isJson() && requestedCommand.helpCommand) {
+    output.printErr(
+      `(Run ${requestedCommand.helpCommand} for available commands)`
+    );
+  }
+  process.exit(1);
+}
+
+try {
+  program.parse(normalizedArgv);
+} catch (error) {
+  if (error.exitCode == null) {
+    output.error('Unexpected CLI error', error);
+  }
+  process.exit(error.exitCode ?? 1);
+}

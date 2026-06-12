@@ -41,7 +41,7 @@
     "test": "pnpm run test:unit",
     "test:unit": "vitest run --config vitest.config.js",
     "test:e2e": "vitest run --config vitest.e2e.config.js",
-    "test:e2e:tdd": "../../bin/vizzly.js tdd run 'pnpm run test:e2e'",
+    "test:e2e:tdd": "../../bin/vizzly.js tdd run 'pnpm run test:e2e' --no-open",
     "test:e2e:cloud": "../../bin/vizzly.js run 'pnpm run test:e2e'",
     "lint": "biome lint src tests",
     "lint:fix": "biome lint --write src tests",

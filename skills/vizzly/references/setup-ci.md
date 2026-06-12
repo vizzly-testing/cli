@@ -6,11 +6,13 @@ Use Vizzly locally for fast feedback and in CI for shared review.
 
 ```bash
 vizzly init
-vizzly tdd start
+vizzly tdd start --open
 vizzly tdd run "<test command>" --no-open
 ```
 
 The local SDK discovers `.vizzly/server.json` and sends screenshots to the TDD server when it is running.
+For one-off checks, `vizzly tdd run` writes local review data under `.vizzly/`
+and prints a context command for follow-up inspection.
 
 ## Cloud Setup
 

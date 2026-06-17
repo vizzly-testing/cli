@@ -11,12 +11,10 @@ import {
   buildBuildPayload,
   buildEndpointWithParams,
   buildQueryParams,
-  buildScreenshotCheckObject,
   buildScreenshotPayload,
+  buildScreenshotResolvePayload,
   buildShaCheckPayload,
   computeSha256,
-  findScreenshotBySha,
-  shaExists,
 } from './core.js';
 
 // ============================================================================
@@ -156,6 +154,18 @@ export async function checkShas(client, screenshots, buildId) {
   }
 }
 
+function canUploadBytesAfterShaResolveError(error) {
+  let status = error?.context?.status;
+
+  // Network failures, older servers, and server errors should degrade to the
+  // slower byte upload path. Auth and ownership errors must still surface.
+  if (!status) return true;
+  if (status >= 500) return true;
+  if (status === 400 && error.message?.includes('image_data')) return true;
+
+  return false;
+}
+
 /**
  * Upload a screenshot with SHA deduplication
  * @param {Object} client - API client
@@ -184,24 +194,39 @@ export async function uploadScreenshot(
     });
   }
 
-  // Normal flow with SHA deduplication
+  // Normal flow with server-side SHA resolution.
   let sha256 = computeSha256(buffer);
-  let checkObj = buildScreenshotCheckObject(sha256, name, metadata);
-  let checkResult = await checkShas(client, [checkObj], buildId);
+  let resolvePayload = buildScreenshotResolvePayload(name, metadata, sha256);
+  try {
+    let resolveResult = await client.request(
+      `/api/sdk/builds/${buildId}/screenshots`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resolvePayload),
+      }
+    );
 
-  if (shaExists(checkResult, sha256)) {
-    // File already exists, screenshot record was automatically created
-    let screenshot = findScreenshotBySha(checkResult, sha256);
-    return {
-      message: 'Screenshot already exists, skipped upload',
-      sha256,
-      skipped: true,
-      screenshot,
-      fromExisting: true,
-    };
+    if (resolveResult?.upload_required === false) {
+      return {
+        message: 'Screenshot already exists, skipped upload',
+        sha256,
+        skipped: true,
+        screenshot: resolveResult,
+        fromExisting: true,
+      };
+    }
+  } catch (error) {
+    if (!canUploadBytesAfterShaResolveError(error)) {
+      throw error;
+    }
+
+    output.debug('sha-resolve', 'failed, uploading screenshot bytes', {
+      error: error.message,
+    });
   }
 
-  // File doesn't exist, proceed with upload
+  // File doesn't exist, or resolve failed; proceed with upload.
   let payload = buildScreenshotPayload(name, buffer, metadata, sha256);
   return client.request(`/api/sdk/builds/${buildId}/screenshots`, {
     method: 'POST',

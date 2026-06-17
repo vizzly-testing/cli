@@ -66,6 +66,21 @@ function createMockClient(responseOrHandler = {}) {
   };
 }
 
+function createSequencedClient(responses) {
+  let responseIndex = 0;
+
+  return createMockClient(() => {
+    let response = responses[responseIndex] ?? responses[responses.length - 1];
+    responseIndex++;
+
+    if (response instanceof Error) {
+      throw response;
+    }
+
+    return response;
+  });
+}
+
 describe('api/endpoints', () => {
   describe('getBuild', () => {
     it('requests correct endpoint', async () => {
@@ -337,13 +352,11 @@ describe('api/endpoints', () => {
   });
 
   describe('uploadScreenshot', () => {
-    it('uploads screenshot with deduplication', async () => {
-      let client = createMockClient(endpoint => {
-        if (endpoint === '/api/sdk/check-shas') {
-          return { existing: [], missing: ['someSha'], screenshots: [] };
-        }
-        return { id: 'screenshot-1' };
-      });
+    it('resolves SHA before uploading screenshot bytes', async () => {
+      let client = createSequencedClient([
+        { upload_required: true },
+        { id: 'screenshot-1' },
+      ]);
 
       let buffer = Buffer.from('fake png data');
       let result = await uploadScreenshot(
@@ -355,22 +368,38 @@ describe('api/endpoints', () => {
       );
 
       assert.ok(result);
-      // Should have called check-shas first, then upload
       let calls = client.getCalls();
       assert.strictEqual(calls.length, 2);
+      assert.strictEqual(
+        calls[0].endpoint,
+        '/api/sdk/builds/build-123/screenshots'
+      );
+      assert.strictEqual(
+        calls[1].endpoint,
+        '/api/sdk/builds/build-123/screenshots'
+      );
+      let resolveBody = JSON.parse(calls[0].options.body);
+      let uploadBody = JSON.parse(calls[1].options.body);
+      let expectedSha = createHash('sha256').update(buffer).digest('hex');
+
+      assert.strictEqual(resolveBody.name, 'test-screenshot');
+      assert.strictEqual(resolveBody.sha256, expectedSha);
+      assert.deepStrictEqual(resolveBody.properties, { viewport: '1920x1080' });
+      assert.ok(!resolveBody.image_data);
+      assert.strictEqual(uploadBody.sha256, expectedSha);
+      assert.ok(uploadBody.image_data);
     });
 
-    it('skips upload when SHA exists', async () => {
+    it('skips byte upload when screenshot create resolves reusable SHA', async () => {
       let buffer = Buffer.from('fake png data');
-      // Compute the actual SHA that will be generated
       let sha = createHash('sha256').update(buffer).digest('hex');
 
       let client = createMockClient(endpoint => {
-        if (endpoint === '/api/sdk/check-shas') {
+        if (endpoint === '/api/sdk/builds/build-123/screenshots') {
           return {
-            existing: [sha],
-            missing: [],
-            screenshots: [{ sha256: sha, id: 'existing-id' }],
+            id: 'existing-id',
+            sha256: sha,
+            upload_required: false,
           };
         }
         return { id: 'screenshot-1' };
@@ -385,9 +414,56 @@ describe('api/endpoints', () => {
 
       assert.strictEqual(result.skipped, true);
       assert.strictEqual(result.fromExisting, true);
-      // Should only call check-shas, not upload
       let calls = client.getCalls();
       assert.strictEqual(calls.length, 1);
+      assert.strictEqual(
+        calls[0].endpoint,
+        '/api/sdk/builds/build-123/screenshots'
+      );
+      let resolveBody = JSON.parse(calls[0].options.body);
+      assert.strictEqual(resolveBody.sha256, sha);
+      assert.ok(!resolveBody.image_data);
+    });
+
+    it('uploads bytes when SHA resolution is unavailable', async () => {
+      let client = createSequencedClient([
+        new Error('old server'),
+        { id: 'screenshot-1' },
+      ]);
+
+      let buffer = Buffer.from('fake png data');
+      let result = await uploadScreenshot(
+        client,
+        'build-123',
+        'test-screenshot',
+        buffer,
+        { viewport: '1920x1080' }
+      );
+
+      assert.deepStrictEqual(result, { id: 'screenshot-1' });
+      let calls = client.getCalls();
+      assert.strictEqual(calls.length, 2);
+      assert.ok(!JSON.parse(calls[0].options.body).image_data);
+      assert.ok(JSON.parse(calls[1].options.body).image_data);
+    });
+
+    it('does not retry byte upload when SHA resolution fails with auth errors', async () => {
+      let authError = new Error('Invalid or expired API token');
+      authError.context = { status: 401 };
+      let client = createMockClient(() => {
+        throw authError;
+      });
+
+      let buffer = Buffer.from('fake png data');
+
+      await assert.rejects(
+        () => uploadScreenshot(client, 'build-123', 'test-screenshot', buffer),
+        /Invalid or expired API token/
+      );
+
+      let calls = client.getCalls();
+      assert.strictEqual(calls.length, 1);
+      assert.ok(!JSON.parse(calls[0].options.body).image_data);
     });
 
     it('uploads directly when skipDedup is true', async () => {
@@ -404,7 +480,7 @@ describe('api/endpoints', () => {
       );
 
       let calls = client.getCalls();
-      // Should only have one call (upload), not checkShas
+      // Should only have one call (upload), not SHA resolve
       assert.strictEqual(calls.length, 1);
       assert.ok(calls[0].endpoint.includes('/screenshots'));
     });

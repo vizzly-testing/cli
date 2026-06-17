@@ -15,6 +15,7 @@ import {
   buildRequestHeaders,
   buildScreenshotCheckObject,
   buildScreenshotPayload,
+  buildScreenshotResolvePayload,
   buildShaCheckPayload,
   buildUserAgent,
   computeSha256,
@@ -278,6 +279,21 @@ describe('api/core', () => {
       let result = buildScreenshotPayload('test', buffer, null);
 
       assert.deepStrictEqual(result.properties, {});
+    });
+
+    it('builds SHA resolve payload without image bytes', () => {
+      let result = buildScreenshotResolvePayload(
+        'homepage',
+        { browser: 'firefox' },
+        'abc123'
+      );
+
+      assert.deepStrictEqual(result, {
+        name: 'homepage',
+        properties: { browser: 'firefox' },
+        sha256: 'abc123',
+      });
+      assert.strictEqual(result.image_data, undefined);
     });
   });
 

@@ -176,9 +176,11 @@ vizzly upload ./screenshots --threshold 2 --min-cluster-size 4 --batch-size 10 -
 `--upload-timeout` controls the upload client's timeout, including how long
 `--wait` polls for build processing.
 
-CI workflows can force every screenshot through even when the SHA cache says it
-already uploaded. Parallel jobs should use the same stable ID, then finalize
-that ID after every shard completes:
+When `vizzly run` sends screenshots to Vizzly, the CLI first asks the API to
+resolve each screenshot by SHA. If Vizzly already has the image bytes, the CLI
+creates the screenshot record without re-uploading the image. CI workflows can
+force every screenshot through with `--upload-all`. Parallel jobs should use the
+same stable ID, then finalize that ID after every shard completes:
 
 ```bash
 vizzly run "pnpm test" --upload-all --parallel-id "$GITHUB_RUN_ID"

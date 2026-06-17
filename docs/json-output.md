@@ -759,6 +759,10 @@ vizzly upload ./screenshots --json
 }
 ```
 
+`stats.skipped` counts screenshots that Vizzly resolved by SHA without sending
+image bytes. Use `--upload-all` when you need every screenshot uploaded
+regardless of existing storage.
+
 With `--wait`, the payload includes comparison results after Vizzly finishes
 processing the build:
 

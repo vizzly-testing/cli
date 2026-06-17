@@ -22,6 +22,7 @@ export {
   buildRequestHeaders,
   buildScreenshotCheckObject,
   buildScreenshotPayload,
+  buildScreenshotResolvePayload,
   buildShaCheckPayload,
   buildUserAgent,
   computeSha256,

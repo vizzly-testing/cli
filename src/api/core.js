@@ -70,9 +70,9 @@ export function buildRequestHeaders({
 // ============================================================================
 
 /**
- * Build payload for screenshot upload
+ * Build payload for screenshot upload or SHA resolution
  * @param {string} name - Screenshot name
- * @param {Buffer} buffer - Image data
+ * @param {Buffer|null} buffer - Image data, or null when resolving by SHA
  * @param {Object} metadata - Screenshot metadata (viewport, browser, etc.)
  * @param {string|null} sha256 - Pre-computed SHA256 hash (optional)
  * @returns {Object} Screenshot upload payload
@@ -85,15 +85,29 @@ export function buildScreenshotPayload(
 ) {
   let payload = {
     name,
-    image_data: buffer.toString('base64'),
     properties: metadata ?? {},
   };
+
+  if (buffer) {
+    payload.image_data = buffer.toString('base64');
+  }
 
   if (sha256) {
     payload.sha256 = sha256;
   }
 
   return payload;
+}
+
+/**
+ * Build payload for server-side screenshot resolution without sending image bytes
+ * @param {string} name - Screenshot name
+ * @param {Object} metadata - Screenshot metadata (viewport, browser, etc.)
+ * @param {string} sha256 - Pre-computed SHA256 hash
+ * @returns {Object} Screenshot resolution payload
+ */
+export function buildScreenshotResolvePayload(name, metadata = {}, sha256) {
+  return buildScreenshotPayload(name, null, metadata, sha256);
 }
 
 /**

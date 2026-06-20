@@ -94,7 +94,7 @@
   },
   "dependencies": {
     "@vizzly-testing/bear-den": "0.1.2",
-    "@vizzly-testing/honeydiff": "^0.11.0",
+    "@vizzly-testing/honeydiff": "^0.11.1",
     "ansis": "^4.2.0",
     "commander": "^14.0.0",
     "cosmiconfig": "^9.0.0",

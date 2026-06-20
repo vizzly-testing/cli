@@ -17,8 +17,8 @@ importers:
         specifier: 0.1.2
         version: 0.1.2(@heroicons/react@2.2.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(tailwindcss@4.3.0)
       '@vizzly-testing/honeydiff':
-        specifier: ^0.10.3
-        version: 0.10.3
+        specifier: ^0.11.0
+        version: 0.11.0
       ansis:
         specifier: ^4.2.0
         version: 4.3.1
@@ -2478,6 +2478,10 @@ packages:
 
   '@vizzly-testing/honeydiff@0.10.3':
     resolution: {integrity: sha512-gzcd2Ryr0l9trrNb4PL3oo51HzBFFDQBiXTTF56+3IHi/yHo52qCvKpJQAPZwauWOuBXr53dIa7OelkTxkyeCA==}
+    engines: {node: '>=22.0.0'}
+
+  '@vizzly-testing/honeydiff@0.11.0':
+    resolution: {integrity: sha512-MF6zmBVq4XRNnDSUMkmnvSIxuN4ewLy5Nz0ifrlMSi6n8gZMJOJ22COrTaBExC11SBc/wF150OncTDlYCOFHRg==}
     engines: {node: '>=22.0.0'}
 
   '@warp-drive/build-config@5.8.2':
@@ -9569,6 +9573,8 @@ snapshots:
       - typescript
 
   '@vizzly-testing/honeydiff@0.10.3': {}
+
+  '@vizzly-testing/honeydiff@0.11.0': {}
 
   '@warp-drive/build-config@5.8.2(@babel/core@7.29.7)':
     dependencies:

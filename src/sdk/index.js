@@ -341,6 +341,9 @@ export class VizzlySDK extends EventEmitter {
       type: 'base64',
       properties: normalizedOptions.properties,
     };
+    if (normalizedOptions.dom) {
+      screenshotData.dom = normalizedOptions.dom;
+    }
     if (normalizedOptions.warnings.length > 0) {
       screenshotData.warnings = normalizedOptions.warnings;
     }

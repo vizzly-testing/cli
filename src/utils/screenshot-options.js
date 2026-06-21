@@ -23,6 +23,18 @@ export let RESERVED_PROPERTY_OPTIONS = Object.freeze({
     message:
       'Move "requestTimeout" out of properties; properties is only for user metadata.',
   },
+  page: {
+    message:
+      'Move "page" out of properties; properties is only for user metadata.',
+  },
+  captureDom: {
+    message:
+      'Move "captureDom" out of properties; properties is only for user metadata.',
+  },
+  dom: {
+    message:
+      'Move "dom" out of properties; properties is only for user metadata.',
+  },
 });
 
 function createReservedPropertyWarning(option) {
@@ -45,6 +57,9 @@ export function normalizeScreenshotOptions(options = {}) {
     threshold,
     minClusterSize,
     fullPage,
+    page,
+    captureDom,
+    dom,
   } = options;
 
   let warnings = [];
@@ -63,6 +78,9 @@ export function normalizeScreenshotOptions(options = {}) {
       if (key === 'requestTimeout' && requestTimeout === undefined) {
         requestTimeout = value;
       }
+      if (key === 'page' && page === undefined) page = value;
+      if (key === 'captureDom' && captureDom === undefined) captureDom = value;
+      if (key === 'dom' && dom === undefined) dom = value;
 
       continue;
     }
@@ -85,6 +103,9 @@ export function normalizeScreenshotOptions(options = {}) {
   return {
     buildId,
     requestTimeout,
+    page,
+    captureDom: captureDom === true,
+    dom: dom ?? null,
     properties: normalizedProperties,
     warnings,
   };

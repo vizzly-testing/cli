@@ -167,6 +167,22 @@ function shouldFailOnDiff() {
   );
 }
 
+function captureDomSnapshot() {
+  return {
+    schemaVersion: 1,
+    html: `<!doctype html>\n${document.documentElement.outerHTML}`,
+    url: window.location.href,
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      deviceScaleFactor: window.devicePixelRatio || 1,
+      scrollX: window.scrollX || 0,
+      scrollY: window.scrollY || 0,
+    },
+    capturedAt: new Date().toISOString(),
+  };
+}
+
 /**
  * Capture a visual screenshot
  *
@@ -223,6 +239,7 @@ export async function vizzlyScreenshot(name, options = {}) {
     failOnDiff = null, // null means use env var, true/false overrides
     buildId = null,
     requestTimeout = null,
+    captureDom = false,
   } = options;
 
   // Get screenshot URL injected by the launcher
@@ -318,6 +335,10 @@ export async function vizzlyScreenshot(name, options = {}) {
     properties: screenshotProperties,
     requestTimeout,
   };
+
+  if (captureDom === true) {
+    payload.dom = captureDomSnapshot();
+  }
 
   try {
     let signal =

@@ -267,6 +267,16 @@ describe('api/core', () => {
       assert.strictEqual(result.sha256, 'abc123');
     });
 
+    it('includes DOM payload when provided', () => {
+      let buffer = Buffer.from('image');
+      let dom = { html: '<html></html>' };
+      let result = buildScreenshotPayload('test', buffer, {}, 'abc123', {
+        dom,
+      });
+
+      assert.strictEqual(result.dom, dom);
+    });
+
     it('defaults metadata to empty object', () => {
       let buffer = Buffer.from('image');
       let result = buildScreenshotPayload('test', buffer);
@@ -285,13 +295,15 @@ describe('api/core', () => {
       let result = buildScreenshotResolvePayload(
         'homepage',
         { browser: 'firefox' },
-        'abc123'
+        'abc123',
+        { dom: { html: '<html></html>' } }
       );
 
       assert.deepStrictEqual(result, {
         name: 'homepage',
         properties: { browser: 'firefox' },
         sha256: 'abc123',
+        dom: { html: '<html></html>' },
       });
       assert.strictEqual(result.image_data, undefined);
     });

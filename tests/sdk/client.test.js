@@ -592,6 +592,56 @@ describe('client/index httpPost integration tests', () => {
     });
   });
 
+  it('captures DOM from a Playwright-style page without serializing the page object', async () => {
+    let page = {
+      async evaluate(callback) {
+        let previousDocument = globalThis.document;
+        let previousWindow = globalThis.window;
+
+        globalThis.document = {
+          documentElement: {
+            outerHTML: '<html><body><main data-testid="checkout">Checkout</main></body></html>',
+          },
+          title: 'Checkout',
+        };
+        globalThis.window = {
+          location: { href: 'http://localhost:3000/checkout' },
+          innerWidth: 1440,
+          innerHeight: 900,
+          devicePixelRatio: 2,
+          scrollX: 4,
+          scrollY: 8,
+        };
+
+        try {
+          return callback();
+        } finally {
+          globalThis.document = previousDocument;
+          globalThis.window = previousWindow;
+        }
+      },
+    };
+
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      captureDom: true,
+      page,
+      properties: { url: 'http://localhost:3000/checkout' },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.strictEqual(requests[0].body.properties.page, undefined);
+    assert.strictEqual(requests[0].body.dom.html.includes('data-testid="checkout"'), true);
+    assert.strictEqual(requests[0].body.dom.url, 'http://localhost:3000/checkout');
+    assert.deepStrictEqual(requests[0].body.dom.viewport, {
+      width: 1440,
+      height: 900,
+      deviceScaleFactor: 2,
+      scrollX: 4,
+      scrollY: 8,
+    });
+    assert.deepStrictEqual(requests[0].body.dom.metadata, { title: 'Checkout' });
+  });
+
   it('sends Connection: close header to disable keep-alive', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'));
 

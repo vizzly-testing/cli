@@ -65,9 +65,11 @@ describe('server/handlers/api-handler', () => {
         buildId,
         name,
         buffer,
-        props
+        props,
+        skipDedup,
+        options
       ) => {
-        uploadedData = { buildId, name, buffer, props };
+        uploadedData = { buildId, name, buffer, props, skipDedup, options };
         return { success: true };
       };
 
@@ -86,7 +88,10 @@ describe('server/handlers/api-handler', () => {
         'build-123',
         'test-screenshot',
         base64Image,
-        { viewport: '1920x1080' }
+        { viewport: '1920x1080' },
+        'base64',
+        [],
+        { html: '<html></html>' }
       );
 
       assert.strictEqual(result.statusCode, 200);
@@ -100,6 +105,10 @@ describe('server/handlers/api-handler', () => {
       assert.strictEqual(uploadedData.buildId, 'build-123');
       assert.strictEqual(uploadedData.name, 'test-screenshot');
       assert.ok(Buffer.isBuffer(uploadedData.buffer));
+      assert.strictEqual(uploadedData.skipDedup, false);
+      assert.deepStrictEqual(uploadedData.options, {
+        dom: { html: '<html></html>' },
+      });
     });
 
     it('handles file path image', async () => {

@@ -364,7 +364,9 @@ describe('api/endpoints', () => {
         'build-123',
         'test-screenshot',
         buffer,
-        { viewport: '1920x1080' }
+        { viewport: '1920x1080' },
+        false,
+        { dom: { html: '<html></html>' } }
       );
 
       assert.ok(result);
@@ -384,9 +386,11 @@ describe('api/endpoints', () => {
 
       assert.strictEqual(resolveBody.name, 'test-screenshot');
       assert.strictEqual(resolveBody.sha256, expectedSha);
+      assert.deepStrictEqual(resolveBody.dom, { html: '<html></html>' });
       assert.deepStrictEqual(resolveBody.properties, { viewport: '1920x1080' });
       assert.ok(!resolveBody.image_data);
       assert.strictEqual(uploadBody.sha256, expectedSha);
+      assert.deepStrictEqual(uploadBody.dom, { html: '<html></html>' });
       assert.ok(uploadBody.image_data);
     });
 
@@ -476,13 +480,17 @@ describe('api/endpoints', () => {
         'test-screenshot',
         buffer,
         {},
-        true // skipDedup
+        true, // skipDedup
+        { dom: { html: '<html></html>' } }
       );
 
       let calls = client.getCalls();
       // Should only have one call (upload), not SHA resolve
       assert.strictEqual(calls.length, 1);
       assert.ok(calls[0].endpoint.includes('/screenshots'));
+      assert.deepStrictEqual(JSON.parse(calls[0].options.body).dom, {
+        html: '<html></html>',
+      });
     });
   });
 

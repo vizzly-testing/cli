@@ -55,7 +55,8 @@ export const createApiHandler = (
     image,
     properties = {},
     type,
-    warnings = []
+    warnings = [],
+    dom = null
   ) => {
     let handlerStart = Date.now();
     output.debug('upload', `${name} received`, {
@@ -151,7 +152,9 @@ export const createApiHandler = (
       buildId,
       name,
       imageBuffer,
-      properties ?? {}
+      properties ?? {},
+      false,
+      { dom }
     )
       .then(result => {
         let duration = Date.now() - uploadStart;

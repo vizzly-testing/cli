@@ -81,7 +81,8 @@ export function buildScreenshotPayload(
   name,
   buffer,
   metadata = {},
-  sha256 = null
+  sha256 = null,
+  options = {}
 ) {
   let payload = {
     name,
@@ -96,6 +97,10 @@ export function buildScreenshotPayload(
     payload.sha256 = sha256;
   }
 
+  if (options.dom) {
+    payload.dom = options.dom;
+  }
+
   return payload;
 }
 
@@ -106,8 +111,13 @@ export function buildScreenshotPayload(
  * @param {string} sha256 - Pre-computed SHA256 hash
  * @returns {Object} Screenshot resolution payload
  */
-export function buildScreenshotResolvePayload(name, metadata = {}, sha256) {
-  return buildScreenshotPayload(name, null, metadata, sha256);
+export function buildScreenshotResolvePayload(
+  name,
+  metadata = {},
+  sha256,
+  options = {}
+) {
+  return buildScreenshotPayload(name, null, metadata, sha256, options);
 }
 
 /**

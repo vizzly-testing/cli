@@ -227,6 +227,11 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
 
+        let dom = normalizedOptions.dom;
+        if (!dom && normalizedOptions.captureDom) {
+          dom = await captureDomSnapshot(normalizedOptions.page);
+        }
+
         let screenshotData = {
           buildId: normalizedOptions.buildId ?? getBuildId(),
           name,
@@ -234,6 +239,9 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
           type,
           properties: normalizedOptions.properties,
         };
+        if (dom) {
+          screenshotData.dom = dom;
+        }
         if (normalizedOptions.warnings.length > 0) {
           screenshotData.warnings = normalizedOptions.warnings;
         }
@@ -353,6 +361,35 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
       return null;
     },
   };
+}
+
+async function captureDomSnapshot(page) {
+  if (!page || typeof page.evaluate !== 'function') {
+    return null;
+  }
+
+  try {
+    return await page.evaluate(() => ({
+      html: `<!doctype html>\n${document.documentElement.outerHTML}`,
+      url: window.location.href,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        deviceScaleFactor: window.devicePixelRatio,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+      },
+      capturedAt: new Date().toISOString(),
+      metadata: {
+        title: document.title,
+      },
+    }));
+  } catch (error) {
+    if (shouldLogClient('warn')) {
+      console.warn(`[vizzly] Failed to capture DOM: ${error.message}`);
+    }
+    return null;
+  }
 }
 
 /**

@@ -24,7 +24,7 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
     if (pathname === '/screenshot') {
       try {
         const body = await parseJsonBody(req);
-        const { buildId, name, properties, image, type, warnings } = body;
+        const { buildId, name, properties, image, type, warnings, dom } = body;
 
         if (!name || !image) {
           sendError(res, 400, 'name and image are required');
@@ -40,7 +40,8 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
           image,
           properties,
           type,
-          warnings
+          warnings,
+          dom
         );
 
         sendJson(res, result.statusCode, result.body);

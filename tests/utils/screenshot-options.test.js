@@ -53,6 +53,8 @@ describe('createScreenshotProperties', () => {
         fullPage: true,
         buildId: 'build-from-properties',
         requestTimeout: 60_000,
+        page: { evaluate: () => {} },
+        captureDom: true,
       },
     });
 
@@ -64,10 +66,34 @@ describe('createScreenshotProperties', () => {
     });
     assert.strictEqual(normalized.buildId, 'build-from-properties');
     assert.strictEqual(normalized.requestTimeout, 60_000);
+    assert.strictEqual(typeof normalized.page.evaluate, 'function');
+    assert.strictEqual(normalized.captureDom, true);
     assert.deepStrictEqual(
       normalized.warnings.map(warning => warning.option),
-      ['threshold', 'minClusterSize', 'fullPage', 'buildId', 'requestTimeout']
+      [
+        'threshold',
+        'minClusterSize',
+        'fullPage',
+        'buildId',
+        'requestTimeout',
+        'page',
+        'captureDom',
+      ]
     );
+  });
+
+  it('keeps DOM capture out of screenshot properties', () => {
+    let normalized = normalizeScreenshotOptions({
+      captureDom: true,
+      dom: { html: '<html></html>' },
+      properties: {
+        theme: 'dark',
+      },
+    });
+
+    assert.strictEqual(normalized.captureDom, true);
+    assert.deepStrictEqual(normalized.dom, { html: '<html></html>' });
+    assert.deepStrictEqual(normalized.properties, { theme: 'dark' });
   });
 
   it('ignores arbitrary top-level metadata outside the user properties bag', () => {

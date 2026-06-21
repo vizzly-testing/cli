@@ -105,6 +105,22 @@ export async function captureScreenshot(page, options = {}) {
   return screenshot;
 }
 
+export async function captureDomSnapshot(page) {
+  return await page.evaluate(() => ({
+    schemaVersion: 1,
+    html: `<!doctype html>\n${document.documentElement.outerHTML}`,
+    url: window.location.href,
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      deviceScaleFactor: window.devicePixelRatio || 1,
+      scrollX: window.scrollX || 0,
+      scrollY: window.scrollY || 0,
+    },
+    capturedAt: new Date().toISOString(),
+  }));
+}
+
 /**
  * Capture and send screenshot to Vizzly
  * @param {Object} page - Playwright page instance
@@ -138,6 +154,10 @@ export async function captureAndSendScreenshot(
 
   if (screenshotOptions.requestTimeout !== undefined) {
     vizzlyOptions.requestTimeout = screenshotOptions.requestTimeout;
+  }
+
+  if (screenshotOptions.captureDom === true) {
+    vizzlyOptions.dom = await captureDomSnapshot(page);
   }
 
   await vizzlyScreenshot(name, screenshot, vizzlyOptions);

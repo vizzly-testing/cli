@@ -77,6 +77,7 @@ export function buildScreenshotCaptureOptions(options = {}, context = {}) {
   delete captureOptions.failOnDiff;
   delete captureOptions.buildId;
   delete captureOptions.requestTimeout;
+  delete captureOptions.captureDom;
 
   if (context.element) {
     delete captureOptions.fullPage;
@@ -112,6 +113,22 @@ export function shouldFailOnDiff(override = null) {
       ? __VIZZLY_FAIL_ON_DIFF__
       : '';
   return value === true || value === 'true' || value === '1';
+}
+
+export function captureDomSnapshot() {
+  return {
+    schemaVersion: 1,
+    html: `<!doctype html>\n${document.documentElement.outerHTML}`,
+    url: window.location.href,
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      deviceScaleFactor: window.devicePixelRatio || 1,
+      scrollX: window.scrollX || 0,
+      scrollY: window.scrollY || 0,
+    },
+    capturedAt: new Date().toISOString(),
+  };
 }
 
 // Custom matcher that completely replaces Vitest's toMatchScreenshot
@@ -166,18 +183,24 @@ async function toMatchScreenshot(element, name, options = {}) {
     // Vitest browser mode saves screenshots to disk and returns the file path
     // The TDD server can read the file directly since it's on the same machine
     // Just send the path as-is
+    let payload = {
+      name: screenshotName,
+      image: screenshotPath, // Send file path directly
+      type: 'file-path',
+      buildId: buildId || null,
+      properties,
+    };
+
+    if (options.captureDom === true) {
+      payload.dom = captureDomSnapshot();
+    }
+
     let response = await fetch(`${serverUrl}/screenshot`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: screenshotName,
-        image: screenshotPath, // Send file path directly
-        type: 'file-path',
-        buildId: buildId || null,
-        properties,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {

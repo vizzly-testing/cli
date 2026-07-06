@@ -8,8 +8,7 @@ updates:
       time: "09:00"
       timezone: "UTC"
     commit-message:
-      prefix: "⬆️ build"
-      include: "scope"
+      prefix: "⬆️"
     groups:
       dependencies:
         patterns:
@@ -22,7 +21,7 @@ updates:
           - "*"
         update-types:
           - "major"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 20
     cooldown:
       semver-major-days: 30
       semver-minor-days: 14

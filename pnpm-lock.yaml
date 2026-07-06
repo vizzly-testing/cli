@@ -126,8 +126,8 @@ importers:
         specifier: '>=0.12.0'
         version: 0.30.0(typescript@6.0.3)
       playwright-core:
-        specifier: ^1.49.0
-        version: 1.60.0
+        specifier: ^1.61.0
+        version: 1.61.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.3.8
@@ -137,7 +137,7 @@ importers:
     dependencies:
       '@vizzly-testing/ember':
         specifier: file:..
-        version: file:clients/ember(@vizzly-testing/cli@0.30.0(typescript@6.0.3))
+        version: link:..
     devDependencies:
       '@babel/core':
         specifier: ^7.29.7
@@ -2494,13 +2494,6 @@ packages:
     resolution: {integrity: sha512-nn2cDrXK86iU/DQZMdqIxzPChsac46TdsekgwpRIz16FQrlJy9LCZVWFY98LRUrbphGu4V+fxcIr5FFKSiDorg==}
     engines: {node: '>=20.0.0'}
     hasBin: true
-
-  '@vizzly-testing/ember@file:clients/ember':
-    resolution: {directory: clients/ember, type: directory}
-    engines: {node: '>=22.0.0'}
-    hasBin: true
-    peerDependencies:
-      '@vizzly-testing/cli': '>=0.12.0'
 
   '@vizzly-testing/honeydiff@0.10.3':
     resolution: {integrity: sha512-gzcd2Ryr0l9trrNb4PL3oo51HzBFFDQBiXTTF56+3IHi/yHo52qCvKpJQAPZwauWOuBXr53dIa7OelkTxkyeCA==}
@@ -9650,11 +9643,6 @@ snapshots:
       odiff-bin: 3.2.1
     transitivePeerDependencies:
       - typescript
-
-  '@vizzly-testing/ember@file:clients/ember(@vizzly-testing/cli@0.30.0(typescript@6.0.3))':
-    dependencies:
-      '@vizzly-testing/cli': 0.30.0(typescript@6.0.3)
-      playwright-core: 1.61.0
 
   '@vizzly-testing/honeydiff@0.10.3': {}
 

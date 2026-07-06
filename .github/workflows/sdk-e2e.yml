@@ -326,7 +326,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Get Playwright version
-        working-directory: ./clients/ember/test-app
+        working-directory: ./clients/ember
         id: playwright-version
         run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> $GITHUB_OUTPUT
 
@@ -335,12 +335,12 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.playwright-version.outputs.version }}-ember-chromium-v4
+          key: playwright-${{ steps.playwright-version.outputs.version }}-ember-chromium-v5
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        working-directory: ./clients/ember/test-app
-        run: pnpm dlx playwright@${{ steps.playwright-version.outputs.version }} install chromium chromium-headless-shell --with-deps
+        working-directory: ./clients/ember
+        run: pnpm exec playwright-core install chromium chromium-headless-shell --with-deps
 
       - name: Build Ember test app
         working-directory: ./clients/ember/test-app

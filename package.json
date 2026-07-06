@@ -96,7 +96,7 @@
     "@vizzly-testing/bear-den": "0.1.4",
     "@vizzly-testing/honeydiff": "^0.11.1",
     "ansis": "^4.2.0",
-    "commander": "^14.0.0",
+    "commander": "^15.0.0",
     "cosmiconfig": "^9.0.0",
     "dotenv": "^17.2.1",
     "form-data": "^4.0.0",

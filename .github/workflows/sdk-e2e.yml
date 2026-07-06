@@ -61,7 +61,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./test-site
-        run: node ../bin/vizzly.js run "pnpm test"
+        run: node ../bin/vizzly.js run "pnpm test" --allow-no-token
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
@@ -123,7 +123,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/vitest
-        run: ../../bin/vizzly.js run "pnpm run test:e2e"
+        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
@@ -194,7 +194,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/storybook
-        run: ../../bin/vizzly.js run "pnpm run test:e2e"
+        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
         env:
           CI: true
           VIZZLY_LOG_LEVEL: debug
@@ -205,7 +205,12 @@ jobs:
       - name: Upload preview
         if: success()
         working-directory: ./clients/storybook
-        run: ../../bin/vizzly.js preview example-storybook/dist
+        run: |
+          if [ -n "$VIZZLY_TOKEN" ]; then
+            ../../bin/vizzly.js preview example-storybook/dist
+          else
+            echo "Skipping preview upload without VIZZLY_TOKEN"
+          fi
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STORYBOOK_CLIENT_TOKEN }}
 
@@ -268,7 +273,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/static-site
-        run: ../../bin/vizzly.js run "pnpm run test:e2e"
+        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
@@ -277,7 +282,12 @@ jobs:
 
       - name: Upload preview
         working-directory: ./clients/static-site
-        run: ../../bin/vizzly.js preview ../../test-site
+        run: |
+          if [ -n "$VIZZLY_TOKEN" ]; then
+            ../../bin/vizzly.js preview ../../test-site
+          else
+            echo "Skipping preview upload without VIZZLY_TOKEN"
+          fi
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
 
@@ -311,28 +321,30 @@ jobs:
         working-directory: ./clients/ember
         run: pnpm install --frozen-lockfile
 
+      - name: Install Ember test app dependencies
+        working-directory: ./clients/ember/test-app
+        run: pnpm install --frozen-lockfile
+
       - name: Get Playwright version
         working-directory: ./clients/ember
         id: playwright-version
-        run: echo "version=$(pnpm exec playwright-core --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> $GITHUB_OUTPUT
+        run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.playwright-version.outputs.version }}-ember-chromium-v3
+          key: playwright-${{ steps.playwright-version.outputs.version }}-ember-chromium-v5
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/ember
-        run: pnpm exec playwright-core install chromium --with-deps
+        run: pnpm exec playwright-core install chromium chromium-headless-shell --with-deps
 
       - name: Build Ember test app
         working-directory: ./clients/ember/test-app
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run build --mode development
+        run: pnpm run build --mode development
 
       - name: Run E2E tests (TDD mode)
         working-directory: ./clients/ember/test-app
@@ -342,7 +354,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/ember/test-app
-        run: ../../../bin/vizzly.js run "pnpm exec testem ci --file testem.cjs"
+        run: ../../../bin/vizzly.js run "pnpm exec testem ci --file testem.cjs" --allow-no-token
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_EMBER_CLIENT_TOKEN }}
@@ -399,7 +411,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/ruby
-        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb"
+        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb" --allow-no-token
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_RUBY_CLIENT_TOKEN }}
@@ -444,7 +456,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/swift
-        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests"
+        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests" --allow-no-token
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_SWIFT_CLIENT_TOKEN }}

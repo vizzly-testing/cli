@@ -340,7 +340,7 @@ jobs:
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: ./clients/ember/test-app
-        run: pnpm dlx playwright@${{ steps.playwright-version.outputs.version }} install chromium --with-deps
+        run: pnpm dlx playwright@${{ steps.playwright-version.outputs.version }} install chromium chromium-headless-shell --with-deps
 
       - name: Build Ember test app
         working-directory: ./clients/ember/test-app

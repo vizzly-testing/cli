@@ -7,6 +7,9 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "UTC"
+    commit-message:
+      prefix: "⬆️ build"
+      include: "scope"
     groups:
       dependencies:
         patterns:

@@ -5,6 +5,7 @@ import {
   createBuildUrl,
   createComparisonStats,
   createStatusData,
+  createStatusSuggestedCommands,
   getProcessingProgress,
   normalizeBuildStatus,
   shouldFailStatus,
@@ -166,6 +167,16 @@ describe('commands/status', () => {
         executionTime: 4250,
         isBaseline: false,
         userAgent: 'vizzly-test',
+        suggestedCommands: [
+          {
+            label: 'Review build context',
+            command: 'vizzly context build build-123',
+          },
+          {
+            label: 'List comparison details',
+            command: 'vizzly comparisons --build build-123',
+          },
+        ],
         preview: {
           url: 'https://preview.test',
           status: 'ready',
@@ -224,6 +235,19 @@ describe('commands/status', () => {
       );
       assert.strictEqual(shouldFailStatus(createBuild()), false);
     });
+
+    it('creates suggested follow-up commands', () => {
+      assert.deepStrictEqual(createStatusSuggestedCommands(createBuild()), [
+        {
+          label: 'Review build context',
+          command: 'vizzly context build build-123',
+        },
+        {
+          label: 'List comparison details',
+          command: 'vizzly comparisons --build build-123',
+        },
+      ]);
+    });
   });
 
   describe('statusCommand', () => {
@@ -271,6 +295,13 @@ describe('commands/status', () => {
       assert.ok(
         harness.output.calls.some(
           call => call.method === 'labelValue' && call.args[0] === 'Preview'
+        )
+      );
+      assert.ok(
+        harness.output.calls.some(
+          call =>
+            call.method === 'print' &&
+            call.args[0].includes('vizzly context build build-123')
         )
       );
     });

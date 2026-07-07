@@ -60,6 +60,19 @@ export function normalizeBuildStatus(buildStatus) {
   return buildStatus.build || buildStatus;
 }
 
+export function createStatusSuggestedCommands(build) {
+  return [
+    {
+      label: 'Review build context',
+      command: `vizzly context build ${build.id}`,
+    },
+    {
+      label: 'List comparison details',
+      command: `vizzly comparisons --build ${build.id}`,
+    },
+  ];
+}
+
 export function createStatusData(build, previewInfo = null) {
   return {
     buildId: build.id,
@@ -81,6 +94,7 @@ export function createStatusData(build, previewInfo = null) {
     executionTime: build.execution_time_ms,
     isBaseline: build.is_baseline,
     userAgent: build.user_agent,
+    suggestedCommands: createStatusSuggestedCommands(build),
     preview: previewInfo
       ? {
           url: previewInfo.preview_url,
@@ -176,6 +190,18 @@ function writeStatusTiming({ build, output }) {
   }
 }
 
+function writeSuggestedCommands({ build, output }) {
+  let colors = output.getColors();
+  let commands = createStatusSuggestedCommands(build);
+
+  output.blank();
+  output.print('  Suggested commands');
+
+  for (let item of commands) {
+    output.print(`    ${colors.brand.textMuted(item.command)}`);
+  }
+}
+
 function createVerboseInfo(build) {
   let verboseInfo = {};
 
@@ -256,6 +282,8 @@ function writeHumanStatus({
     output.blank();
     output.keyValue(createVerboseInfo(build));
   }
+
+  writeSuggestedCommands({ build, output });
 
   let progress = getProcessingProgress(build);
   if (progress !== null) {

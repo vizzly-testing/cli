@@ -258,9 +258,19 @@ describe('commands/context', () => {
       assert.strictEqual(payload.build.id, 'build-1');
       assert.strictEqual(payload.baseline.selected.name, 'Approved Main');
       assert.strictEqual(payload.status.needs_review, true);
+      assert.strictEqual(payload.groups.length, 2);
+      assert.strictEqual(payload.groups[0].name, 'Dashboard');
+      assert.strictEqual(payload.groups[0].variants[0].diff.region_count, 1);
+      assert.strictEqual(payload.groups[0].variants[0].diff.regions, undefined);
       assert.strictEqual(payload.evidence.length, 2);
       assert.strictEqual(payload.evidence[0].name, 'Dashboard');
       assert.strictEqual(payload.evidence[0].diff.region_count, 1);
+      assert.strictEqual(payload.evidence[0].diff.regions, undefined);
+      assert.ok(
+        payload.suggested_commands.some(item =>
+          item.command.includes('vizzly context comparison cmp-1')
+        )
+      );
       assert.ok(!payload.screenshots);
       assert.ok(!payload.comments);
       assert.ok(
@@ -317,6 +327,7 @@ describe('commands/context', () => {
       assert.deepStrictEqual(payload.comments, {
         build: [{ id: 'comment-1' }],
       });
+      assert.strictEqual(payload.groups[0].variants[0].diff.regions, undefined);
       assert.deepStrictEqual(payload.evidence[0].diff.regions, [
         { pixelCount: 50 },
       ]);
@@ -420,6 +431,68 @@ describe('commands/context', () => {
       assert.strictEqual(dataCall.args[0].build.id, 'local-build');
     });
 
+    it('suggests local context drilldowns for local agent JSON', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'current',
+        { source: 'local', agent: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiUrl: 'https://api.test',
+          }),
+          resolveContextSource: () => 'local',
+          createLocalWorkspaceContextProvider: () => ({
+            getBuildContext: async () => ({
+              resource: 'build_context',
+              source: 'local_workspace',
+              scope: {
+                organization: { slug: 'local' },
+                project: { slug: 'web' },
+              },
+              build: { id: 'local-build', status: 'completed' },
+              status: { needs_review: true, pending_comparisons: 2 },
+              comparisons: [
+                {
+                  id: 'cmp-low',
+                  screenshot_name: 'Low Impact',
+                  result: 'changed',
+                  diff: { percentage: 2 },
+                },
+                {
+                  id: 'cmp-high',
+                  screenshot_name: 'High Impact',
+                  result: 'changed',
+                  diff: { percentage: 99 },
+                },
+              ],
+            }),
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      let commands = payload.suggested_commands.map(item => item.command);
+
+      assert.strictEqual(payload.groups[0].name, 'High Impact');
+      assert.strictEqual(payload.evidence[0].id, 'cmp-high');
+      assert.ok(
+        commands.includes('vizzly context build current --source local')
+      );
+      assert.ok(
+        commands.includes('vizzly context comparison cmp-high --source local')
+      );
+      assert.ok(
+        commands.includes(
+          'vizzly context screenshot "High Impact" --source local'
+        )
+      );
+      assert.ok(!commands.some(command => command.startsWith('vizzly status')));
+    });
+
     it('uses comparison results in human output instead of completed status', async () => {
       let output = createMockOutput();
 
@@ -471,8 +544,12 @@ describe('commands/context', () => {
       let printLines = output.calls
         .filter(call => call.method === 'print')
         .map(call => call.args[0]);
-      assert.ok(printLines.some(line => line.includes('Dashboard CHANGED')));
-      assert.ok(printLines.some(line => line.includes('Settings NEW')));
+      assert.ok(printLines.some(line => line.includes('Screenshot groups')));
+      assert.ok(printLines.some(line => line.includes('Dashboard')));
+      assert.ok(printLines.some(line => line.includes('Settings')));
+      assert.ok(
+        printLines.some(line => line.includes('vizzly context build build-1'))
+      );
     });
 
     it('renders canonical build context from the app without legacy review fields', async () => {
@@ -559,7 +636,8 @@ describe('commands/context', () => {
       let printLines = output.calls
         .filter(call => call.method === 'print')
         .map(call => call.args[0]);
-      assert.ok(printLines.some(line => line.includes('Dashboard CHANGED')));
+      assert.ok(printLines.some(line => line.includes('Screenshot groups')));
+      assert.ok(printLines.some(line => line.includes('Dashboard')));
       assert.ok(printLines.some(line => line.includes('needs review')));
     });
 

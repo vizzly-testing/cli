@@ -15,6 +15,10 @@ import { resolveContextSource as defaultResolveContextSource } from '../context/
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 import { readSession as defaultReadSession } from '../utils/session.js';
+import {
+  normalizeBuildContext,
+  summarizeComparisonGroups,
+} from '../utils/visual-context-normalizers.js';
 
 function buildAuthErrorMessage() {
   return 'Authentication required. Use --token, set VIZZLY_TOKEN, run "vizzly login", or link a project.';
@@ -409,6 +413,75 @@ function summarizeComparisons(comparisons = []) {
   };
 }
 
+function isLocalContext(context = {}) {
+  return context.source === 'local' || context.source === 'local_workspace';
+}
+
+function appendSourceOption(command, context = {}) {
+  return isLocalContext(context) ? `${command} --source local` : command;
+}
+
+function getBuildContextCommandTarget(context = {}) {
+  if (isLocalContext(context)) {
+    return 'current';
+  }
+
+  return context.build?.id || null;
+}
+
+function buildSuggestedCommands(context = {}) {
+  let buildTarget = getBuildContextCommandTarget(context);
+  let commands = [];
+
+  if (!isLocalContext(context) && context.build?.id) {
+    commands.push({
+      label: 'Check build status',
+      command: `vizzly status ${context.build.id}`,
+    });
+  }
+
+  if (buildTarget) {
+    commands.push({
+      label: 'Review build context',
+      command: appendSourceOption(
+        `vizzly context build ${buildTarget}`,
+        context
+      ),
+    });
+  }
+
+  let firstActionableGroup = sortGroupsForTriage(context.groups || []).find(
+    group => {
+      return (
+        group.aggregate_status?.has_changes || group.aggregate_status?.has_new
+      );
+    }
+  );
+  let firstActionableVariant = firstActionableGroup?.primary_variant;
+
+  if (firstActionableVariant?.id) {
+    commands.push({
+      label: 'Inspect top comparison',
+      command: appendSourceOption(
+        `vizzly context comparison ${firstActionableVariant.id}`,
+        context
+      ),
+    });
+  }
+
+  if (firstActionableGroup?.name) {
+    commands.push({
+      label: 'Inspect screenshot history',
+      command: appendSourceOption(
+        `vizzly context screenshot "${firstActionableGroup.name}"`,
+        context
+      ),
+    });
+  }
+
+  return commands;
+}
+
 function buildAgentNextActions(context = {}, comparisonSummary = {}) {
   if (context.status?.needs_review) {
     return [
@@ -444,6 +517,9 @@ function formatAgentSummary(context = {}, comparisons = []) {
   return {
     comparisons:
       context.summary?.comparisons || summarizeComparisons(comparisons),
+    groups:
+      context.summary?.groups ||
+      summarizeComparisonGroups(context.groups || []),
     review: context.summary?.review || {},
     comments: context.summary?.comments || {
       build: getBuildCommentsCount(context),
@@ -452,40 +528,83 @@ function formatAgentSummary(context = {}, comparisons = []) {
   };
 }
 
+function selectEvidenceComparisons(groups = [], rawComparisons = []) {
+  let rawComparisonById = new Map(
+    rawComparisons
+      .filter(comparison => comparison.id)
+      .map(comparison => [comparison.id, comparison])
+  );
+  let evidence = [];
+  let selectedIds = new Set();
+
+  for (let group of groups) {
+    let variants = (group.variants || []).filter(variant => {
+      return isChangedComparison(variant) || isNewComparison(variant);
+    });
+
+    for (let variant of variants) {
+      let id =
+        variant.id ||
+        `${variant.name}:${variant.browser}:${variant.viewport?.display}`;
+
+      if (selectedIds.has(id)) {
+        continue;
+      }
+
+      selectedIds.add(id);
+      evidence.push(rawComparisonById.get(variant.id) || variant);
+    }
+  }
+
+  return evidence;
+}
+
 function buildAgentBuildPayload(
   context,
   { source = null, include = [], evidenceLimit = 10 } = {}
 ) {
-  let comparisons = context.comparisons || [];
+  let normalizedContext = normalizeBuildContext(context);
+  let rawComparisons = context.comparisons || [];
+  let comparisons = normalizedContext.comparisons || [];
+  let groups = sortGroupsForTriage(normalizedContext.groups || []);
   let includeSet = new Set(include);
   let includeDiffs = includeSet.has('diffs');
-  let changed = comparisons.filter(isChangedComparison);
-  let fresh = comparisons.filter(isNewComparison);
-  let evidence = [...changed, ...fresh]
+  let evidenceComparisons = selectEvidenceComparisons(groups, rawComparisons);
+  let fallbackEvidenceComparisons =
+    rawComparisons.length > 0 ? rawComparisons : comparisons;
+  let fallbackChanged = fallbackEvidenceComparisons.filter(isChangedComparison);
+  let fallbackFresh = fallbackEvidenceComparisons.filter(isNewComparison);
+  let evidenceSource =
+    evidenceComparisons.length > 0
+      ? evidenceComparisons
+      : [...fallbackChanged, ...fallbackFresh];
+  let evidence = evidenceSource
     .slice(0, evidenceLimit)
     .map(comparison => buildCompactComparison(comparison, { includeDiffs }));
   let comparisonSummary = summarizeComparisons(comparisons);
   let payload = {
     resource: 'build_agent_context',
-    source: context.source || source || 'cloud',
-    scope: context.scope || null,
+    source: normalizedContext.source || source || 'cloud',
+    scope: normalizedContext.scope || null,
     project: {
-      organization: context.scope?.organization?.slug || null,
-      slug: context.scope?.project?.slug || null,
-      name: context.scope?.project?.name || null,
-      visibility: context.scope?.project?.visibility || null,
+      organization: normalizedContext.scope?.organization?.slug || null,
+      slug: normalizedContext.scope?.project?.slug || null,
+      name: normalizedContext.scope?.project?.name || null,
+      visibility: normalizedContext.scope?.project?.visibility || null,
     },
-    build: context.build || null,
+    build: normalizedContext.build || null,
     baseline: {
-      selected: context.baseline?.selected || null,
-      selection_reason: context.baseline?.selection_reason || null,
+      selected: normalizedContext.baseline?.selected || null,
+      selection_reason: normalizedContext.baseline?.selection_reason || null,
     },
-    status: formatAgentStatus(context.status),
-    summary: formatAgentSummary(context, comparisons),
+    status: formatAgentStatus(normalizedContext.status),
+    summary: formatAgentSummary(normalizedContext, comparisons),
+    groups,
     evidence,
-    links: context.links || {},
-    preview: context.preview || null,
-    next_actions: buildAgentNextActions(context, comparisonSummary),
+    links: normalizedContext.links || {},
+    preview: normalizedContext.preview || null,
+    suggested_commands: buildSuggestedCommands(normalizedContext),
+    next_actions: buildAgentNextActions(normalizedContext, comparisonSummary),
   };
 
   if (includeSet.has('screenshots')) {
@@ -588,34 +707,151 @@ function printComparisonList(output, comparisons = [], { limit = 5 } = {}) {
   }
 }
 
+function formatGroupStatus(group = {}) {
+  let status = group.aggregate_status || {};
+  let parts = [];
+
+  if (status.has_rejected) {
+    parts.push('rejected');
+  }
+  if (status.has_flaky) {
+    parts.push('flaky');
+  }
+  if (status.has_changes) {
+    parts.push('changed');
+  }
+  if (status.has_new) {
+    parts.push('new');
+  }
+  if (status.all_approved) {
+    parts.push('approved');
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : 'unchanged';
+}
+
+function formatDiffPercentage(value) {
+  return value == null ? null : `${value}%`;
+}
+
+function sortGroupsForTriage(groups = []) {
+  return [...groups].sort((a, b) => {
+    let priorityDifference =
+      (b.aggregate_status?.status_priority || 0) -
+      (a.aggregate_status?.status_priority || 0);
+
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    let diffDifference =
+      (b.aggregate_status?.max_diff_percentage || 0) -
+      (a.aggregate_status?.max_diff_percentage || 0);
+
+    if (diffDifference !== 0) {
+      return diffDifference;
+    }
+
+    return (a.name || '').localeCompare(b.name || '');
+  });
+}
+
+function printScreenshotGroups(output, groups = [], { limit = 8 } = {}) {
+  let colors = output.getColors();
+  let visibleGroups = sortGroupsForTriage(groups).slice(0, limit);
+
+  output.print('  Screenshot groups');
+
+  for (let group of visibleGroups) {
+    let status = formatGroupStatus(group);
+    let maxDiff = formatDiffPercentage(
+      group.aggregate_status?.max_diff_percentage
+    );
+    let details = [
+      `variants ${group.variant_count || group.variants?.length || 0}`,
+      status,
+    ];
+
+    if (maxDiff) {
+      details.push(`max diff ${maxDiff}`);
+    }
+
+    if (group.comment_count > 0) {
+      details.push(`${group.comment_count} comments`);
+    }
+
+    output.print(`  ${colors.bold(group.name || 'unknown screenshot')}`);
+    output.print(`    ${colors.dim(details.join(' · '))}`);
+
+    for (let variant of (group.variants || []).slice(0, 3)) {
+      let variantDetails = [
+        variant.browser,
+        variant.viewport?.display,
+        variant.result,
+        variant.needs_review ? 'needs review' : null,
+        variant.diff?.fingerprint_hash
+          ? `fp:${variant.diff.fingerprint_hash}`
+          : null,
+      ].filter(Boolean);
+
+      output.print(`    ${colors.dim(variantDetails.join(' · '))}`);
+    }
+  }
+
+  if (groups.length > visibleGroups.length) {
+    output.print(
+      `    ${colors.dim(`...${groups.length - visibleGroups.length} more groups`)}`
+    );
+  }
+}
+
+function printSuggestedCommands(output, commands = []) {
+  if (commands.length === 0) {
+    return;
+  }
+
+  let colors = output.getColors();
+  output.blank();
+  output.print('  Suggested commands');
+
+  for (let item of commands) {
+    output.print(`    ${colors.dim(item.command)}`);
+  }
+}
+
 function displayBuildContext(output, context) {
+  let normalizedContext = normalizeBuildContext(context);
   output.header('context', 'build');
 
   let colors = output.getColors();
-  let buildTone = getStatusTone(colors, context.build.status);
-  let comparisons = context.comparisons || [];
-  let screenshots = context.screenshots || [];
-  let reviewSummary = context.summary?.review || {};
-  let commentsSummary = context.summary?.comments || {};
-  let needsReview = formatNeedsReview(context.status);
-  let baseline = context.baseline?.selected || null;
+  let buildTone = getStatusTone(colors, normalizedContext.build.status);
+  let comparisons = normalizedContext.comparisons || [];
+  let screenshots = normalizedContext.screenshots || [];
+  let groups = normalizedContext.groups || [];
+  let reviewSummary = normalizedContext.summary?.review || {};
+  let commentsSummary = normalizedContext.summary?.comments || {};
+  let needsReview = formatNeedsReview(normalizedContext.status);
+  let baseline = normalizedContext.baseline?.selected || null;
 
   output.print(
-    `  ${colors.bold(context.build.name || context.build.id)} ${buildTone((context.build.status || 'unknown').toUpperCase())}`
+    `  ${colors.bold(normalizedContext.build.name || normalizedContext.build.id)} ${buildTone((normalizedContext.build.status || 'unknown').toUpperCase())}`
   );
   output.print(
-    `  ${colors.dim(`@${context.scope.organization.slug}/${context.scope.project.slug}`)}`
+    `  ${colors.dim(`@${normalizedContext.scope.organization.slug}/${normalizedContext.scope.project.slug}`)}`
   );
   output.blank();
 
   output.labelValue('Comparisons', String(comparisons.length));
+  if (groups.length > 0) {
+    output.labelValue('Screenshot Groups', String(groups.length));
+  }
   if (screenshots.length > 0) {
     output.labelValue('Screenshots', String(screenshots.length));
   }
   if (baseline) {
     output.labelValue(
       'Baseline',
-      `${baseline.name || baseline.id || 'selected'}${context.baseline.selection_reason ? ` · ${context.baseline.selection_reason}` : ''}`
+      `${baseline.name || baseline.id || 'selected'}${normalizedContext.baseline.selection_reason ? ` · ${normalizedContext.baseline.selection_reason}` : ''}`
     );
   }
   if (needsReview) {
@@ -630,23 +866,29 @@ function displayBuildContext(output, context) {
     `${commentsSummary.build ?? getBuildCommentsCount(context)} build comments · ${commentsSummary.screenshot ?? getScreenshotCommentsCount(context)} screenshot comments · ${getReviewAssignmentsCount(context)} assignments`
   );
 
-  if (context.preview) {
-    let previewUrl = context.preview.preview_url || context.preview.url;
+  if (normalizedContext.preview) {
+    let previewUrl =
+      normalizedContext.preview.preview_url || normalizedContext.preview.url;
     output.labelValue(
       'Preview',
-      `${context.preview.status || 'unknown'}${previewUrl ? ' · available' : ''}`
+      `${normalizedContext.preview.status || 'unknown'}${previewUrl ? ' · available' : ''}`
     );
   }
 
-  if (context.links?.build_url) {
-    output.labelValue('Build URL', context.links.build_url);
+  if (normalizedContext.links?.build_url) {
+    output.labelValue('Build URL', normalizedContext.links.build_url);
   }
 
-  if (comparisons.length > 0) {
+  if (groups.length > 0) {
+    output.blank();
+    printScreenshotGroups(output, groups);
+  } else if (comparisons.length > 0) {
     output.blank();
     output.print('  Comparisons');
     printComparisonList(output, comparisons);
   }
+
+  printSuggestedCommands(output, buildSuggestedCommands(normalizedContext));
 }
 
 function formatAgentBuildContext(context) {

@@ -818,6 +818,71 @@ describe('commands/context', () => {
       assert.ok(agentOutput.includes('Checkout: failed'));
       assert.ok(agentOutput.includes('0.8% diff'));
     });
+
+    it('limits agent evidence to comparisons that need review', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true },
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            resource: 'build_context',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'web' },
+            },
+            build: { id: 'build-1', status: 'completed' },
+            status: { needs_review: true, pending_comparisons: 1 },
+            comparisons: [
+              {
+                screenshot_name: 'Checkout',
+                result: 'changed',
+                needs_review: true,
+                dynamic_content: {
+                  hotspot_analysis: { coverage: 0.42, confidence_score: 78 },
+                  auto_approval: {
+                    approved: false,
+                    reason: 'distributed_layout_change',
+                  },
+                },
+              },
+              {
+                screenshot_name: 'Dashboard',
+                result: 'changed',
+                needs_review: false,
+                approval_status: 'approved',
+                dynamic_content: {
+                  auto_approval: { approved: true, reason: 'thresholds_met' },
+                },
+              },
+            ],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let agentOutput = output.calls
+        .filter(call => call.method === 'print')
+        .map(call => call.args[0])
+        .join('\n');
+
+      assert.ok(agentOutput.includes('Checkout: changed'));
+      assert.ok(
+        agentOutput.includes('Dynamic coverage: 42.0% · confidence 78')
+      );
+      assert.ok(
+        agentOutput.includes('Auto-approval: distributed_layout_change')
+      );
+      assert.strictEqual(agentOutput.includes('Dashboard: changed'), false);
+    });
   });
 
   describe('contextComparisonCommand', () => {

@@ -731,6 +731,12 @@ function formatAgentBuildContext(context) {
   let changed = comparisons.filter(isChangedComparison);
   let fresh = comparisons.filter(isNewComparison);
   let needsReview = comparisons.filter(comparison => comparison.needs_review);
+  let evidence =
+    needsReview.length > 0
+      ? needsReview
+      : context.status?.needs_review
+        ? [...changed, ...fresh]
+        : [];
   let baseline = context.baseline?.selected;
   let failedScreenshots = (context.screenshots || []).filter(
     screenshot => screenshot.status === 'failed'
@@ -798,11 +804,11 @@ function formatAgentBuildContext(context) {
     }
   }
 
-  if (changed.length > 0 || fresh.length > 0) {
+  if (evidence.length > 0) {
     lines.push('');
     lines.push('## Evidence To Inspect');
 
-    for (let comparison of [...changed, ...fresh].slice(0, 10)) {
+    for (let comparison of evidence.slice(0, 10)) {
       let diffPercentage = getComparisonDiffPercentage(comparison);
       let detail = diffPercentage == null ? '' : ` · ${diffPercentage}% diff`;
       let diffUrl =
@@ -823,16 +829,36 @@ function formatAgentBuildContext(context) {
           `  Baseline: ${comparisonBaseline.url || comparisonBaseline.original_url}`
         );
       }
+
+      let hotspot = comparison.dynamic_content?.hotspot_analysis;
+      let autoApproval = comparison.dynamic_content?.auto_approval;
+      if (hotspot?.coverage != null) {
+        let confidence =
+          hotspot.confidence_score == null
+            ? ''
+            : ` · confidence ${hotspot.confidence_score}`;
+        lines.push(
+          `  Dynamic coverage: ${(hotspot.coverage * 100).toFixed(1)}%${confidence}`
+        );
+      }
+      if (autoApproval?.reason) {
+        lines.push(`  Auto-approval: ${autoApproval.reason}`);
+      }
     }
   }
 
-  if (comparisons.length > 0 && changed.length === 0 && fresh.length === 0) {
+  if (comparisons.length > 0 && evidence.length === 0) {
     lines.push('');
     lines.push('## Reviewed Screenshots');
 
     for (let comparison of comparisons.slice(0, 10)) {
+      let autoApproval = comparison.dynamic_content?.auto_approval;
+      let autoApprovalDetail =
+        autoApproval?.approved && autoApproval.reason
+          ? ` · auto-approved (${autoApproval.reason})`
+          : '';
       lines.push(
-        `- ${getComparisonName(comparison)}: ${getComparisonDisplayState(comparison)}`
+        `- ${getComparisonName(comparison)}: ${getComparisonDisplayState(comparison)}${autoApprovalDetail}`
       );
     }
 

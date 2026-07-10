@@ -98,7 +98,7 @@ describe('commands/finalize', () => {
         {},
         {
           loadConfig: async () => ({
-            apiKey: 'test-token',
+            userToken: 'user-token',
             apiUrl: 'https://api.test',
           }),
           createApiClient: opts => {
@@ -122,7 +122,7 @@ describe('commands/finalize', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(capturedParallelId, 'parallel-123');
-      assert.strictEqual(capturedClient.token, 'test-token');
+      assert.strictEqual(capturedClient.token, 'user-token');
       assert.strictEqual(capturedClient.command, 'finalize');
     });
 

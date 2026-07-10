@@ -50,10 +50,10 @@ export async function finalizeCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Validate API token
-    if (!config.apiKey) {
+    let token = config.apiKey || config.userToken;
+    if (!token) {
       output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+        'Authentication required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
       );
       exit(1);
       return { success: false, reason: 'no-api-key' };
@@ -71,7 +71,7 @@ export async function finalizeCommand(
     output.startSpinner('Finalizing parallel build...');
     let client = createApiClient({
       baseUrl: config.apiUrl,
-      token: config.apiKey,
+      token,
       command: 'finalize',
     });
     let result = await finalizeParallelBuild(client, parallelId);

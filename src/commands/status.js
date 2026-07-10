@@ -36,7 +36,7 @@ function configureOutput(output, globalOptions) {
 function createStatusClient({ createApiClient, config }) {
   return createApiClient({
     baseUrl: config.apiUrl,
-    token: config.apiKey,
+    token: config.apiKey || config.userToken,
     command: 'status',
   });
 }
@@ -61,6 +61,22 @@ export function normalizeBuildStatus(buildStatus) {
 }
 
 export function createStatusData(build, previewInfo = null) {
+  let screenshotsTotal = build.screenshot_count || 0;
+  let comparisonsTotal = build.total_comparisons || 0;
+  let processingStats = build.processing_stats || {};
+  let processingFailed =
+    build.failed_jobs || processingStats.screenshots_failed || 0;
+  let processingActive = build.processing_screenshots || 0;
+  let processingPending = build.pending_screenshots || 0;
+  let processingCompleted =
+    build.completed_jobs || processingStats.screenshots_processed || 0;
+  if (
+    build.status === 'completed' &&
+    processingActive === 0 &&
+    processingPending === 0
+  ) {
+    processingCompleted = Math.max(screenshotsTotal - processingFailed, 0);
+  }
   return {
     buildId: build.id,
     status: build.status,
@@ -72,8 +88,18 @@ export function createStatusData(build, previewInfo = null) {
     branch: build.branch,
     commit: build.commit_sha,
     commitMessage: build.commit_message,
-    screenshotsTotal: build.screenshot_count || 0,
-    comparisonsTotal: build.total_comparisons || 0,
+    screenshotsTotal,
+    processing: {
+      completed: processingCompleted,
+      failed: processingFailed,
+      active: processingActive,
+      pending: processingPending,
+    },
+    comparisonsTotal,
+    screenshotsWithoutComparison: Math.max(
+      screenshotsTotal - comparisonsTotal,
+      0
+    ),
     newComparisons: build.new_comparisons || 0,
     changedComparisons: build.changed_comparisons || 0,
     identicalComparisons: build.identical_comparisons || 0,
@@ -104,7 +130,14 @@ export function createBuildInfo(build) {
   }
 
   if (build.commit_sha) {
-    buildInfo.Commit = `${build.commit_sha.substring(0, 8)} - ${build.commit_message || 'No message'}`;
+    let commitMessage = (build.commit_message || 'No message')
+      .split('\n')[0]
+      .trim();
+    let conciseMessage =
+      commitMessage.length > 80
+        ? `${commitMessage.slice(0, 77)}...`
+        : commitMessage;
+    buildInfo.Commit = `${build.commit_sha.substring(0, 8)} - ${conciseMessage}`;
   }
 
   return buildInfo;
@@ -129,12 +162,15 @@ export function createComparisonStats(build, colors) {
   return stats.join(colors.brand.textMuted(' · '));
 }
 
-export function createBuildUrl(baseUrl, build) {
-  if (!baseUrl || !build.project_id) {
+export function createBuildUrl(baseUrl, build, linkedProject = null) {
+  let organizationSlug =
+    linkedProject?.organizationSlug || build.organization_slug;
+  let projectSlug = linkedProject?.projectSlug || build.project_slug;
+  if (!baseUrl || !organizationSlug || !projectSlug) {
     return null;
   }
 
-  return `${getAppBaseUrl(baseUrl)}/projects/${build.project_id}/builds/${build.id}`;
+  return `${getAppBaseUrl(baseUrl)}/${organizationSlug}/${projectSlug}/builds/${build.id}`;
 }
 
 export function shouldFailStatus(build) {
@@ -223,12 +259,34 @@ function writeHumanStatus({
 
   output.labelValue('Screenshots', String(build.screenshot_count || 0));
 
+  if (
+    build.completed_jobs != null ||
+    build.failed_jobs != null ||
+    build.processing_screenshots != null
+  ) {
+    output.labelValue(
+      'Processing',
+      `${build.completed_jobs || 0} completed · ${build.failed_jobs || 0} failed · ${build.processing_screenshots || 0} active`
+    );
+  }
+
   if (comparisonStats) {
     output.labelValue('Comparisons', comparisonStats);
   }
 
+  let screenshotsWithoutComparison = Math.max(
+    (build.screenshot_count || 0) - (build.total_comparisons || 0),
+    0
+  );
+  if (screenshotsWithoutComparison > 0) {
+    output.labelValue(
+      'Uncompared',
+      `${screenshotsWithoutComparison} screenshots`
+    );
+  }
+
   if (build.approval_status) {
-    output.labelValue('Approval', build.approval_status);
+    output.labelValue('Review', build.approval_status);
   }
 
   output.blank();
@@ -296,10 +354,10 @@ export async function statusCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Validate API token
-    if (!config.apiKey) {
+    let token = config.apiKey || config.userToken;
+    if (!token) {
       output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+        'Authentication required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
       );
       output.cleanup();
       exit(1);
@@ -332,7 +390,7 @@ export async function statusCommand(
     // Human-readable output
     // Show build URL if we can construct it
     let baseUrl = config.baseUrl || getApiUrl();
-    let buildUrl = createBuildUrl(baseUrl, build);
+    let buildUrl = createBuildUrl(baseUrl, build, config.linkedProject);
     writeHumanStatus({ build, buildUrl, globalOptions, output, previewInfo });
 
     output.cleanup();

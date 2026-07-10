@@ -169,6 +169,20 @@ describe('utils/config-loader', () => {
       assert.strictEqual(config.userToken, 'user-access-token');
     });
 
+    it('keeps an expired user access token available for API refresh', async () => {
+      await saveGlobalConfig({
+        auth: {
+          accessToken: 'expired-user-access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: '2000-01-01T00:00:00.000Z',
+        },
+      });
+
+      let config = await loadConfig();
+
+      assert.strictEqual(config.userToken, 'expired-user-access-token');
+    });
+
     it('uses the active linked project token for cloud upload credentials', async () => {
       await saveGlobalConfig({
         projectLink: {

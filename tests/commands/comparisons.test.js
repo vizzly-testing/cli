@@ -133,12 +133,32 @@ describe('commands/comparisons', () => {
 
     it('fetches comparisons for build with JSON output', async () => {
       let output = createMockOutput();
+      let clientOptions;
       let mockBuild = {
         id: 'build-1',
         name: 'Build 1',
         comparisons: [
-          { id: 'comp-1', name: 'button-primary', status: 'identical' },
-          { id: 'comp-2', name: 'button-secondary', status: 'changed' },
+          {
+            id: 'comp-1',
+            name: 'button-primary',
+            status: 'completed',
+            result: 'identical',
+          },
+          {
+            id: 'comp-2',
+            name: 'button-secondary',
+            status: 'completed',
+            result: 'changed',
+          },
+          {
+            id: 'comp-3',
+            name: 'button-new',
+            status: 'completed',
+            result: 'new',
+            current_browser: 'Chromium',
+            current_viewport_width: 1920,
+            current_viewport_height: 1080,
+          },
         ],
       };
 
@@ -147,10 +167,13 @@ describe('commands/comparisons', () => {
         { json: true },
         {
           loadConfig: async () => ({
-            apiKey: 'test-token',
+            userToken: 'user-token',
             apiUrl: 'https://api.test',
           }),
-          createApiClient: () => ({}),
+          createApiClient: options => {
+            clientOptions = options;
+            return {};
+          },
           getBuild: async () => ({ build: mockBuild }),
           output,
           exit: () => {},
@@ -159,10 +182,80 @@ describe('commands/comparisons', () => {
 
       let dataCall = output.calls.find(c => c.method === 'data');
       assert.ok(dataCall);
+      assert.strictEqual(clientOptions.token, 'user-token');
       assert.strictEqual(dataCall.args[0].buildId, 'build-1');
-      assert.strictEqual(dataCall.args[0].comparisons.length, 2);
-      assert.strictEqual(dataCall.args[0].summary.passed, 1);
-      assert.strictEqual(dataCall.args[0].summary.failed, 1);
+      assert.strictEqual(dataCall.args[0].comparisons.length, 3);
+      assert.strictEqual(dataCall.args[0].summary.identical, 1);
+      assert.strictEqual(dataCall.args[0].summary.changed, 1);
+      assert.strictEqual(dataCall.args[0].summary.new, 1);
+      assert.strictEqual(dataCall.args[0].comparisons[2].status, 'new');
+      assert.strictEqual(
+        dataCall.args[0].comparisons[2].processingStatus,
+        'completed'
+      );
+      assert.strictEqual(dataCall.args[0].comparisons[2].browser, 'Chromium');
+      assert.deepStrictEqual(dataCall.args[0].comparisons[2].viewport, {
+        width: 1920,
+        height: 1080,
+      });
+      assert.deepStrictEqual(dataCall.args[0].pagination, {
+        total: 3,
+        limit: 50,
+        offset: 0,
+        hasMore: false,
+      });
+    });
+
+    it('paginates comparisons for a build after applying filters', async () => {
+      let output = createMockOutput();
+      let mockBuild = {
+        id: 'build-1',
+        comparisons: [
+          { id: 'comp-1', name: 'one', status: 'completed', result: 'changed' },
+          {
+            id: 'comp-2',
+            name: 'two',
+            status: 'completed',
+            result: 'identical',
+          },
+          {
+            id: 'comp-3',
+            name: 'three',
+            status: 'completed',
+            result: 'changed',
+          },
+        ],
+      };
+
+      await comparisonsCommand(
+        { build: 'build-1', limit: 1, offset: 1 },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let result = output.calls.find(c => c.method === 'data').args[0];
+      assert.deepStrictEqual(
+        result.comparisons.map(comparison => comparison.id),
+        ['comp-2']
+      );
+      assert.deepStrictEqual(result.summary, {
+        total: 3,
+        identical: 1,
+        changed: 2,
+        new: 0,
+      });
+      assert.deepStrictEqual(result.pagination, {
+        total: 3,
+        limit: 1,
+        offset: 1,
+        hasMore: true,
+      });
     });
 
     it('passes include as a string to getBuild, not an object', async () => {
@@ -229,9 +322,24 @@ describe('commands/comparisons', () => {
         id: 'build-1',
         name: 'Build 1',
         comparisons: [
-          { id: 'comp-1', name: 'button-primary', status: 'identical' },
-          { id: 'comp-2', name: 'button-secondary', status: 'changed' },
-          { id: 'comp-3', name: 'button-tertiary', status: 'identical' },
+          {
+            id: 'comp-1',
+            name: 'button-primary',
+            status: 'completed',
+            result: 'identical',
+          },
+          {
+            id: 'comp-2',
+            name: 'button-secondary',
+            status: 'completed',
+            result: 'changed',
+          },
+          {
+            id: 'comp-3',
+            name: 'button-tertiary',
+            status: 'completed',
+            result: 'identical',
+          },
         ],
       };
 
@@ -366,7 +474,7 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].name, 'button-primary');
     });
 
-    it('includes honeydiff data in JSON output for single comparison', async () => {
+    it('keeps honeydiff summaries compact in JSON output by default', async () => {
       let output = createMockOutput();
       let mockComparison = {
         id: 'comp-1',
@@ -406,10 +514,44 @@ describe('commands/comparisons', () => {
       assert.strictEqual(result.honeydiff.gmsdScore, 0.0123);
       assert.strictEqual(result.honeydiff.clusterClassification, 'minor');
       assert.strictEqual(result.honeydiff.fingerprintHash, 'abc123def456');
+      assert.strictEqual(result.honeydiff.diffRegions, undefined);
+      assert.strictEqual(result.honeydiff.diffLines, undefined);
+      assert.strictEqual(result.honeydiff.fingerprintData, undefined);
+    });
+
+    it('includes raw honeydiff geometry in verbose JSON output', async () => {
+      let output = createMockOutput();
+      let mockComparison = {
+        id: 'comp-1',
+        name: 'button-primary',
+        status: 'completed',
+        result: 'changed',
+        fingerprint_hash: 'abc123def456',
+        diff_regions: [{ x: 10, y: 20, width: 50, height: 30 }],
+        diff_lines: [20, 30, 40],
+        fingerprint_data: { hash_components: [1, 2, 3] },
+      };
+
+      await comparisonsCommand(
+        { id: 'comp-1' },
+        { json: true, verbose: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getComparison: async () => mockComparison,
+          output,
+          exit: () => {},
+        }
+      );
+
+      let result = output.calls.find(c => c.method === 'data').args[0];
       assert.deepStrictEqual(result.honeydiff.diffRegions, [
         { x: 10, y: 20, width: 50, height: 30 },
       ]);
       assert.deepStrictEqual(result.honeydiff.diffLines, [20, 30, 40]);
+      assert.deepStrictEqual(result.honeydiff.fingerprintData, {
+        hash_components: [1, 2, 3],
+      });
     });
 
     it('includes honeydiff data from search results (nested in diff_image)', async () => {

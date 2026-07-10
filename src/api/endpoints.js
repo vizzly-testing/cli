@@ -256,8 +256,12 @@ export async function getComparison(client, comparisonId) {
  * @param {string} buildId - Build ID
  * @returns {Promise<Object>} Build context bundle
  */
-export async function getBuildContext(client, buildId) {
-  return client.request(`/api/sdk/context/builds/${buildId}`);
+export async function getBuildContext(client, buildId, options = {}) {
+  let endpoint = buildEndpointWithParams(
+    `/api/sdk/context/builds/${buildId}`,
+    options
+  );
+  return client.request(endpoint);
 }
 
 /**

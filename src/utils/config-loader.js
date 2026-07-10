@@ -10,7 +10,7 @@ import {
   getParallelId,
   getThreshold,
 } from './environment-config.js';
-import { getAccessToken } from './global-config.js';
+import { getAuthTokens } from './global-config.js';
 import * as output from './output.js';
 import { getActiveProjectLink } from './project-link-store.js';
 
@@ -86,9 +86,9 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   // 6. Keep user auth separate from upload credentials.
-  let userToken = await getAccessToken();
-  if (userToken) {
-    config.userToken = userToken;
+  let userAuth = await getAuthTokens();
+  if (userAuth?.accessToken) {
+    config.userToken = userAuth.accessToken;
     output.debug('config', 'using user login for user-authenticated commands');
   }
 

@@ -70,6 +70,20 @@ describe('context/provider-resolver', () => {
     assert.strictEqual(source, 'cloud');
   });
 
+  it('uses cloud for an explicit build id even when local context is available', () => {
+    let source = resolveContextSource(
+      { requestedSource: 'auto', command: 'build', target: 'build-123' },
+      {
+        createLocalWorkspaceContextProvider: () => ({
+          isAvailable: () => true,
+          canHandle: () => true,
+        }),
+      }
+    );
+
+    assert.strictEqual(source, 'cloud');
+  });
+
   it('falls back to cloud in auto mode when the workspace cannot answer the query', () => {
     let source = resolveContextSource(
       { requestedSource: 'auto', command: 'similar', target: 'fp-dashboard' },

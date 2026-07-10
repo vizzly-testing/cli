@@ -42,6 +42,10 @@ export function resolveContextSource(options = {}, deps = {}) {
     return 'cloud';
   }
 
+  if (command === 'build' && target && target !== 'current') {
+    return 'cloud';
+  }
+
   if (
     isLocalAvailable &&
     (localSnapshot == null

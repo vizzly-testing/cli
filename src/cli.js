@@ -1028,6 +1028,7 @@ contextCmd
     'Historical hotspot analysis window size (1-50)',
     Number
   )
+  .option('--include <items>', 'Add detail to JSON output: diffs')
   .addHelpText(
     'after',
     `
@@ -1035,6 +1036,7 @@ Examples:
   $ vizzly context comparison def456
   $ vizzly context comparison def456 --source local
   $ vizzly context comparison def456 --similar-limit 5 --recent-limit 5
+  $ vizzly context comparison def456 --json --include diffs
   $ vizzly context comparison def456 --json
 `
   )

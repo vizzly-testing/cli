@@ -65,6 +65,14 @@ describe('commands/context', () => {
       );
     });
 
+    it('rejects unsupported comparison context detail', () => {
+      assert.ok(
+        validateContextComparisonOptions({ include: 'screenshots' }).includes(
+          '--include must contain only: diffs'
+        )
+      );
+    });
+
     it('rejects malformed and decimal comparison context limits', () => {
       assert.ok(
         validateContextComparisonOptions({
@@ -222,6 +230,9 @@ describe('commands/context', () => {
                   image_url: 'https://cdn.test/diff.png',
                   regions: [{ pixelCount: 50 }],
                   fingerprint_hash: 'fp-dashboard',
+                  projection: {
+                    clusters: { count: 1, average_density: 0.82 },
+                  },
                 },
                 screenshot: {
                   id: 'ss-1',
@@ -261,13 +272,13 @@ describe('commands/context', () => {
       assert.strictEqual(payload.evidence.length, 2);
       assert.strictEqual(payload.evidence[0].name, 'Dashboard');
       assert.strictEqual(payload.evidence[0].diff.region_count, 1);
+      assert.strictEqual(
+        payload.evidence[0].diff.projection.clusters.average_density,
+        0.82
+      );
       assert.ok(!payload.screenshots);
       assert.ok(!payload.comments);
-      assert.ok(
-        payload.next_actions.some(action =>
-          action.includes('Inspect the changed and new comparisons')
-        )
-      );
+      assert.strictEqual('next_actions' in payload, false);
     });
 
     it('allows compact agent JSON to include requested detail', async () => {
@@ -322,6 +333,71 @@ describe('commands/context', () => {
       ]);
       assert.deepStrictEqual(payload.evidence[0].diff.cluster_metadata, {
         clusterCount: 1,
+      });
+    });
+
+    it('keeps failed screenshot assets, identity, and groups in compact agent JSON', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            resource: 'build_context',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'web' },
+            },
+            build: { id: 'build-1', status: 'completed' },
+            status: { needs_review: true, failed_screenshots: 1 },
+            summary: {
+              screenshots: { total: 1, completed: 0, failed: 1 },
+            },
+            signature_properties: ['scenario'],
+            groups: [],
+            screenshots: [
+              {
+                id: 'ss-failed',
+                name: 'Project Settings Shell',
+                status: 'failed',
+                browser: 'chromium',
+                viewport: { width: 375, height: 667 },
+                bitmap: { width: 398, height: 2942 },
+                metadata: { properties: { scenario: 'long-project-name' } },
+                signature:
+                  'Project Settings Shell|375|chromium|long-project-name',
+                url: 'https://cdn.test/current.png',
+              },
+            ],
+            comparisons: [],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.strictEqual(payload.status.failed_screenshots, 1);
+      assert.deepStrictEqual(payload.signature_properties, ['scenario']);
+      assert.strictEqual(payload.evidence[0].result, 'failed');
+      assert.strictEqual(
+        payload.evidence[0].screenshot.url,
+        'https://cdn.test/current.png'
+      );
+      assert.deepStrictEqual(payload.evidence[0].screenshot.viewport, {
+        width: 375,
+        height: 667,
+      });
+      assert.deepStrictEqual(payload.evidence[0].screenshot.bitmap, {
+        width: 398,
+        height: 2942,
       });
     });
 
@@ -626,7 +702,10 @@ describe('commands/context', () => {
       assert.ok(agentOutput.includes('Approved baseline: Approved Main'));
       assert.ok(agentOutput.includes('Report: file:///tmp/vizzly-local'));
       assert.ok(agentOutput.includes('Dashboard: changed'));
-      assert.ok(agentOutput.includes('approved baselines as visual truth'));
+      assert.strictEqual(
+        agentOutput.includes('approved baselines as visual truth'),
+        false
+      );
     });
 
     it('prints reviewed screenshot names for all-green agent context', async () => {
@@ -748,7 +827,7 @@ describe('commands/context', () => {
 
       await contextComparisonCommand(
         'comparison-1',
-        { similarLimit: 5, recentLimit: 4, windowSize: 12 },
+        { similarLimit: 5, recentLimit: 4, windowSize: 12, include: 'diffs' },
         { json: true },
         {
           loadConfig: async () => ({
@@ -772,10 +851,11 @@ describe('commands/context', () => {
         similarLimit: 5,
         recentLimit: 4,
         windowSize: 12,
+        details: 'diffs',
       });
     });
 
-    it('shows known region labels in human output', async () => {
+    it('shows visual assets and known region labels in human output', async () => {
       let output = createMockOutput();
 
       await contextComparisonCommand(
@@ -797,7 +877,13 @@ describe('commands/context', () => {
               id: 'comparison-1',
               result: 'changed',
               status: 'completed',
-              screenshot: { name: 'Dashboard' },
+              screenshot: {
+                name: 'Dashboard',
+                original_url: 'https://cdn.test/current.png',
+              },
+              baseline: {
+                original_url: 'https://cdn.test/baseline.png',
+              },
               analysis: {
                 fingerprint_hash: 'fp-dashboard',
                 diff_image_url: 'https://cdn.test/diff.png',
@@ -807,6 +893,13 @@ describe('commands/context', () => {
               similar_by_fingerprint: [],
               recent_by_name: [],
               confirmed_regions: [{ label: 'Known header copy band' }],
+            },
+            dynamic_content: {
+              pattern_summary: {
+                patternCount: 1,
+                regionCount: 2,
+                statuses: ['candidate'],
+              },
             },
             review: {
               build_comments: [],
@@ -824,6 +917,27 @@ describe('commands/context', () => {
       );
       assert.ok(knownRegionsCall);
       assert.strictEqual(knownRegionsCall.args[1], 'Known header copy band');
+      let dynamicPatternsCall = output.calls.find(
+        call =>
+          call.method === 'labelValue' && call.args[0] === 'Dynamic Patterns'
+      );
+      assert.strictEqual(
+        dynamicPatternsCall.args[1],
+        '1 patterns · 2 regions · candidate'
+      );
+      let assetLabels = output.calls
+        .filter(call => call.method === 'labelValue')
+        .map(call => call.args);
+      assert.deepStrictEqual(
+        assetLabels.filter(([label]) =>
+          ['Current', 'Baseline', 'Diff'].includes(label)
+        ),
+        [
+          ['Current', 'https://cdn.test/current.png'],
+          ['Baseline', 'https://cdn.test/baseline.png'],
+          ['Diff', 'https://cdn.test/diff.png'],
+        ]
+      );
     });
   });
 

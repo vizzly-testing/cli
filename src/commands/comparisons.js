@@ -44,10 +44,10 @@ export async function comparisonsCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Validate API token
-    if (!config.apiKey) {
+    let token = config.apiKey || config.userToken;
+    if (!token) {
       output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+        'Authentication required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
       );
       exit(1);
       return;
@@ -55,7 +55,7 @@ export async function comparisonsCommand(
 
     let client = createApiClient({
       baseUrl: config.apiUrl,
-      token: config.apiKey,
+      token,
       command: 'comparisons',
     });
 
@@ -66,7 +66,11 @@ export async function comparisonsCommand(
       output.stopSpinner();
 
       if (globalOptions.json) {
-        output.data(formatComparisonForJson(comparison));
+        output.data(
+          formatComparisonForJson(comparison, {
+            includeGeometry: globalOptions.verbose,
+          })
+        );
         output.cleanup();
         return;
       }
@@ -87,7 +91,9 @@ export async function comparisonsCommand(
 
       // Apply status filter if provided
       if (options.status) {
-        comparisons = comparisons.filter(c => c.status === options.status);
+        comparisons = comparisons.filter(
+          c => getComparisonOutcome(c) === options.status
+        );
       }
 
       // Apply name filter if provided
@@ -96,17 +102,36 @@ export async function comparisonsCommand(
         comparisons = comparisons.filter(c => matchesName(c.name));
       }
 
+      let summary = {
+        total: comparisons.length,
+        identical: comparisons.filter(
+          c => getComparisonOutcome(c) === 'identical'
+        ).length,
+        changed: comparisons.filter(c => getComparisonOutcome(c) === 'changed')
+          .length,
+        new: comparisons.filter(c => getComparisonOutcome(c) === 'new').length,
+      };
+      let offset = options.offset || 0;
+      let limit = options.limit || 50;
+      let paginatedComparisons = comparisons.slice(offset, offset + limit);
+      let pagination = {
+        total: comparisons.length,
+        limit,
+        offset,
+        hasMore: offset + paginatedComparisons.length < comparisons.length,
+      };
+
       if (globalOptions.json) {
         output.data({
           buildId: build.id,
           buildName: build.name,
-          comparisons: comparisons.map(formatComparisonForJson),
-          summary: {
-            total: comparisons.length,
-            passed: comparisons.filter(c => c.status === 'identical').length,
-            failed: comparisons.filter(c => c.status === 'changed').length,
-            new: comparisons.filter(c => c.status === 'new').length,
-          },
+          comparisons: paginatedComparisons.map(comparison =>
+            formatComparisonForJson(comparison, {
+              includeGeometry: globalOptions.verbose,
+            })
+          ),
+          summary,
+          pagination,
         });
         output.cleanup();
         return;
@@ -115,8 +140,10 @@ export async function comparisonsCommand(
       displayBuildComparisons(
         output,
         build,
-        comparisons,
-        globalOptions.verbose
+        paginatedComparisons,
+        globalOptions.verbose,
+        summary,
+        pagination
       );
       output.cleanup();
       return;
@@ -143,7 +170,11 @@ export async function comparisonsCommand(
 
       if (globalOptions.json) {
         output.data({
-          comparisons: comparisons.map(formatComparisonForJson),
+          comparisons: comparisons.map(comparison =>
+            formatComparisonForJson(comparison, {
+              includeGeometry: globalOptions.verbose,
+            })
+          ),
           pagination: {
             total: pagination.total,
             limit: filters.limit,
@@ -186,7 +217,17 @@ export async function comparisonsCommand(
 /**
  * Format a comparison for JSON output
  */
-function formatComparisonForJson(comparison) {
+function getComparisonOutcome(comparison) {
+  return comparison.result || comparison.status;
+}
+
+function getComparisonViewport(comparison) {
+  let width = comparison.viewport_width ?? comparison.current_viewport_width;
+  let height = comparison.viewport_height ?? comparison.current_viewport_height;
+  return width ? { width, height } : null;
+}
+
+function formatComparisonForJson(comparison, { includeGeometry = false } = {}) {
   // API endpoints return different shapes:
   // - Single comparison: nested baseline_screenshot/current_screenshot + flat diff_url, honeydiff at top level
   // - Build comparisons: flat diff_url/diff_image_url, no storage URLs, limited honeydiff
@@ -208,13 +249,12 @@ function formatComparisonForJson(comparison) {
   return {
     id: comparison.id,
     name: comparison.name,
-    status: comparison.status,
+    status: getComparisonOutcome(comparison),
+    processingStatus: comparison.result ? comparison.status : null,
     diffPercentage: comparison.diff_percentage ?? null,
     approvalStatus: comparison.approval_status,
-    viewport: comparison.viewport_width
-      ? { width: comparison.viewport_width, height: comparison.viewport_height }
-      : null,
-    browser: comparison.browser || null,
+    viewport: getComparisonViewport(comparison),
+    browser: comparison.browser || comparison.current_browser || null,
     urls: {
       baseline:
         comparison.baseline_screenshot?.original_url ||
@@ -239,11 +279,18 @@ function formatComparisonForJson(comparison) {
           clusterClassification: clusterMetadata?.classification || null,
           clusterMetadata,
           fingerprintHash,
-          diffRegions:
-            comparison.diff_regions ?? diffImage.diff_regions ?? null,
-          diffLines: comparison.diff_lines ?? diffImage.diff_lines ?? null,
-          fingerprintData:
-            comparison.fingerprint_data ?? diffImage.fingerprint_data ?? null,
+          ...(includeGeometry
+            ? {
+                diffRegions:
+                  comparison.diff_regions ?? diffImage.diff_regions ?? null,
+                diffLines:
+                  comparison.diff_lines ?? diffImage.diff_lines ?? null,
+                fingerprintData:
+                  comparison.fingerprint_data ??
+                  diffImage.fingerprint_data ??
+                  null,
+              }
+            : {}),
         }
       : null,
     buildId: comparison.build_id,
@@ -257,11 +304,12 @@ function formatComparisonForJson(comparison) {
  * Display a single comparison in detail
  */
 function displayComparison(output, comparison, verbose) {
-  output.header('comparison', comparison.status);
+  let outcome = getComparisonOutcome(comparison);
+  output.header('comparison', outcome);
 
   output.keyValue({
     Name: comparison.name,
-    Status: comparison.status?.toUpperCase(),
+    Status: outcome?.toUpperCase(),
     'Diff %':
       comparison.diff_percentage != null
         ? `${(comparison.diff_percentage * 100).toFixed(2)}%`
@@ -353,7 +401,14 @@ function displayComparison(output, comparison, verbose) {
 /**
  * Display comparisons for a build
  */
-function displayBuildComparisons(output, build, comparisons, verbose) {
+function displayBuildComparisons(
+  output,
+  build,
+  comparisons,
+  verbose,
+  summary,
+  pagination
+) {
   let colors = output.getColors();
 
   output.header('comparisons');
@@ -367,21 +422,19 @@ function displayBuildComparisons(output, build, comparisons, verbose) {
   }
 
   // Summary
-  let passed = comparisons.filter(c => c.status === 'identical').length;
-  let failed = comparisons.filter(c => c.status === 'changed').length;
-  let newCount = comparisons.filter(c => c.status === 'new').length;
-
   let stats = [];
-  if (passed > 0) stats.push(`${colors.brand.success(passed)} identical`);
-  if (failed > 0) stats.push(`${colors.brand.warning(failed)} changed`);
-  if (newCount > 0) stats.push(`${colors.brand.info(newCount)} new`);
+  if (summary.identical > 0)
+    stats.push(`${colors.brand.success(summary.identical)} identical`);
+  if (summary.changed > 0)
+    stats.push(`${colors.brand.warning(summary.changed)} changed`);
+  if (summary.new > 0) stats.push(`${colors.brand.info(summary.new)} new`);
 
   output.labelValue('Summary', stats.join(colors.dim(' · ')));
   output.blank();
 
   // List comparisons
   for (let comp of comparisons.slice(0, verbose ? 100 : 20)) {
-    let icon = getStatusIcon(colors, comp.status);
+    let icon = getStatusIcon(colors, getComparisonOutcome(comp));
     let diffInfo =
       comp.diff_percentage != null
         ? colors.dim(` (${(comp.diff_percentage * 100).toFixed(1)}%)`)
@@ -396,6 +449,16 @@ function displayBuildComparisons(output, build, comparisons, verbose) {
     output.blank();
     output.hint(
       `... and ${comparisons.length - (verbose ? 100 : 20)} more. Use --verbose to see all.`
+    );
+  }
+
+  if (pagination.offset > 0 || pagination.hasMore) {
+    let first = pagination.total === 0 ? 0 : pagination.offset + 1;
+    let last = pagination.offset + comparisons.length;
+    output.blank();
+    output.hint(
+      `Showing ${first}-${last} of ${pagination.total}. ` +
+        `Use --offset ${last} to see the next page.`
     );
   }
 }
@@ -442,7 +505,7 @@ function displaySearchResults(
     }
 
     for (let comp of group.comparisons.slice(0, verbose ? 10 : 3)) {
-      let icon = getStatusIcon(colors, comp.status);
+      let icon = getStatusIcon(colors, getComparisonOutcome(comp));
       let classification = verbose
         ? getClassificationLabel(
             colors,

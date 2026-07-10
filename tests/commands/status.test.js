@@ -74,7 +74,10 @@ function createBuild(overrides = {}) {
     is_baseline: false,
     user_agent: 'vizzly-test',
     project_id: 'project-123',
+    completed_jobs: 3,
     failed_jobs: 0,
+    processing_screenshots: 0,
+    pending_screenshots: 0,
     ...overrides,
   };
 }
@@ -158,7 +161,14 @@ describe('commands/status', () => {
         commit: 'abcdef1234567890',
         commitMessage: 'Update homepage',
         screenshotsTotal: 3,
+        processing: {
+          completed: 3,
+          failed: 0,
+          active: 0,
+          pending: 0,
+        },
         comparisonsTotal: 3,
+        screenshotsWithoutComparison: 0,
         newComparisons: 1,
         changedComparisons: 1,
         identicalComparisons: 1,
@@ -172,6 +182,46 @@ describe('commands/status', () => {
           fileCount: 12,
           expiresAt: '2026-05-19T12:00:00.000Z',
         },
+      });
+    });
+
+    it('uses persisted processing stats when flat job counts are absent', () => {
+      let data = createStatusData(
+        createBuild({
+          screenshot_count: 201,
+          total_comparisons: 199,
+          completed_jobs: undefined,
+          failed_jobs: undefined,
+          processing_stats: {
+            screenshots_processed: 199,
+            screenshots_failed: 2,
+          },
+        })
+      );
+
+      assert.deepStrictEqual(data.processing, {
+        completed: 199,
+        failed: 2,
+        active: 0,
+        pending: 0,
+      });
+    });
+
+    it('does not infer completed screenshots for failed builds without processing facts', () => {
+      let data = createStatusData(
+        createBuild({
+          status: 'failed',
+          completed_jobs: undefined,
+          failed_jobs: undefined,
+          processing_stats: undefined,
+        })
+      );
+
+      assert.deepStrictEqual(data.processing, {
+        completed: 0,
+        failed: 0,
+        active: 0,
+        pending: 0,
       });
     });
 
@@ -194,12 +244,22 @@ describe('commands/status', () => {
 
     it('creates build URLs, progress, and failure status', () => {
       assert.strictEqual(
-        createBuildUrl('https://app.test/api', createBuild()),
-        'https://app.test/projects/project-123/builds/build-123'
+        createBuildUrl('https://app.test/api', createBuild(), {
+          organizationSlug: 'acme',
+          projectSlug: 'web',
+        }),
+        'https://app.test/acme/web/builds/build-123'
       );
       assert.strictEqual(
-        createBuildUrl('https://api.test/api/v1', createBuild()),
-        'https://api.test/projects/project-123/builds/build-123'
+        createBuildUrl(
+          'https://api.test/api/v1',
+          createBuild({ organization_slug: 'acme', project_slug: 'web' })
+        ),
+        'https://api.test/acme/web/builds/build-123'
+      );
+      assert.strictEqual(
+        createBuildUrl('https://app.test/api', createBuild()),
+        null
       );
       assert.strictEqual(createBuildUrl(null, createBuild()), null);
       assert.strictEqual(
@@ -256,7 +316,7 @@ describe('commands/status', () => {
 
     it('prints human-readable status and exits non-zero for failed builds', async () => {
       let harness = createStatusHarness(
-        createBuild({ status: 'failed', failed_jobs: 1 }),
+        createBuild({ status: 'failed', failed_jobs: 1, total_comparisons: 2 }),
         { preview_url: 'https://preview.test' }
       );
 
@@ -270,7 +330,23 @@ describe('commands/status', () => {
       );
       assert.ok(
         harness.output.calls.some(
+          call =>
+            call.method === 'labelValue' &&
+            call.args[0] === 'Uncompared' &&
+            call.args[1] === '1 screenshots'
+        )
+      );
+      assert.ok(
+        harness.output.calls.some(
           call => call.method === 'labelValue' && call.args[0] === 'Preview'
+        )
+      );
+      assert.ok(
+        harness.output.calls.some(
+          call =>
+            call.method === 'labelValue' &&
+            call.args[0] === 'Processing' &&
+            call.args[1].includes('1 failed')
         )
       );
     });
@@ -331,6 +407,18 @@ describe('commands/status', () => {
         result: { reason: 'missing_token' },
       });
       assert.ok(output.calls.some(call => call.method === 'cleanup'));
+    });
+
+    it('uses logged-in user auth when no project token is configured', async () => {
+      let harness = createStatusHarness();
+      harness.deps.loadConfig = async () => ({
+        userToken: 'user-token',
+        apiUrl: 'https://api.test',
+      });
+
+      await statusCommand('build-123', {}, {}, harness.deps);
+
+      assert.strictEqual(harness.clientConfig.token, 'user-token');
     });
 
     it('does not fail CI when API returns 5xx error', async () => {

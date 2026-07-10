@@ -80,6 +80,11 @@ function validateIncludeOption(value) {
   return invalid.length > 0 ? [buildIncludeErrorMessage()] : [];
 }
 
+function validateComparisonIncludeOption(value) {
+  let invalid = parseIncludeOption(value).filter(item => item !== 'diffs');
+  return invalid.length > 0 ? ['--include must contain only: diffs'] : [];
+}
+
 function validateScopedProjectOptions(options = {}) {
   let errors = [];
 
@@ -141,8 +146,8 @@ function createCloudContextProvider(config, deps = {}) {
 
   return {
     source: 'cloud',
-    async getBuildContext(buildId) {
-      return await getBuildContext(client, buildId);
+    async getBuildContext(buildId, query) {
+      return await getBuildContext(client, buildId, query);
     },
     async getComparisonContext(comparisonId, query) {
       return await getComparisonContext(client, comparisonId, query);
@@ -337,6 +342,11 @@ function getComparisonDiffImageUrl(comparison = {}) {
 }
 
 function getComparisonRegionCount(comparison = {}) {
+  let directCount =
+    comparison.diff?.region_count ?? comparison.analysis?.region_count;
+  if (Number.isInteger(directCount)) {
+    return directCount;
+  }
   let regions = comparison.diff?.regions || comparison.analysis?.diff_regions;
   return Array.isArray(regions) ? regions.length : 0;
 }
@@ -359,6 +369,7 @@ function buildCompactDiff(comparison = {}, includeDiffs = false) {
     fingerprint_hash: getComparisonFingerprint(comparison),
     region_count: getComparisonRegionCount(comparison),
     image_url: getComparisonDiffImageUrl(comparison),
+    projection: diff.projection || diff.analysis_projection || null,
   };
 
   if (includeDiffs) {
@@ -384,18 +395,69 @@ function buildCompactComparison(
     name: getComparisonName(comparison),
     result: getComparisonDisplayState(comparison),
     approval_status: comparison.approval_status || null,
+    approval: comparison.approval || null,
     needs_review: Boolean(comparison.needs_review),
     is_flaky: Boolean(comparison.is_flaky),
     screenshot: {
       id: screenshot.id || null,
+      browser: screenshot.browser || null,
+      device: screenshot.device || null,
+      viewport: screenshot.viewport || null,
+      bitmap: screenshot.bitmap || null,
+      metadata: screenshot.metadata || null,
+      signature: screenshot.signature || null,
       url: screenshot.url || screenshot.original_url || null,
     },
     baseline: {
       id: baseline.id || null,
       build_id: baseline.build_id || null,
+      browser: baseline.browser || null,
+      viewport: baseline.viewport || null,
+      bitmap: baseline.bitmap || null,
+      metadata: baseline.metadata || null,
       url: baseline.url || baseline.original_url || null,
     },
     diff: buildCompactDiff(comparison, includeDiffs),
+  };
+}
+
+function buildCompactGroup(group = {}) {
+  let comparisons = group.comparisons || [];
+  return {
+    name: group.name || group.testName || null,
+    total_variants: group.totalVariants ?? comparisons.length,
+    browsers: group.browsers || [],
+    viewports: group.viewports || [],
+    results: comparisons.reduce((counts, comparison) => {
+      let result = getComparisonDisplayState(comparison);
+      counts[result] = (counts[result] || 0) + 1;
+      return counts;
+    }, {}),
+    comparison_ids: comparisons
+      .map(comparison => comparison.id)
+      .filter(Boolean),
+  };
+}
+
+function buildFailedScreenshotEvidence(screenshot = {}) {
+  return {
+    id: null,
+    name: screenshot.name || screenshot.id || 'unknown screenshot',
+    result: 'failed',
+    approval_status: null,
+    needs_review: true,
+    is_flaky: false,
+    screenshot: {
+      id: screenshot.id || null,
+      browser: screenshot.browser || null,
+      viewport: screenshot.viewport || null,
+      bitmap: screenshot.bitmap || null,
+      metadata: screenshot.metadata || null,
+      signature: screenshot.signature || null,
+      url: screenshot.url || null,
+    },
+    baseline: null,
+    diff: null,
   };
 }
 
@@ -409,34 +471,13 @@ function summarizeComparisons(comparisons = []) {
   };
 }
 
-function buildAgentNextActions(context = {}, comparisonSummary = {}) {
-  if (context.status?.needs_review) {
-    return [
-      'Inspect the changed and new comparisons before editing related UI.',
-      'Use approved baselines as the expected visual behavior.',
-      'Leave approval decisions to human reviewers.',
-    ];
-  }
-
-  if (comparisonSummary.total > 0) {
-    return [
-      'Use the approved baseline and reviewed screenshots as current visual truth.',
-      'Prefer targeted edits that preserve identical comparisons.',
-    ];
-  }
-
-  return [
-    'No comparisons were returned for this build context.',
-    'Open the build URL for more detail if this is unexpected.',
-  ];
-}
-
 function formatAgentStatus(status = {}) {
   return {
     needs_review: Boolean(status.needs_review),
     reasons: status.reasons || [],
     pending_comparisons: status.pending_comparisons || 0,
     unresolved_comments: status.unresolved_comments || 0,
+    failed_screenshots: status.failed_screenshots || 0,
   };
 }
 
@@ -444,6 +485,7 @@ function formatAgentSummary(context = {}, comparisons = []) {
   return {
     comparisons:
       context.summary?.comparisons || summarizeComparisons(comparisons),
+    screenshots: context.summary?.screenshots || {},
     review: context.summary?.review || {},
     comments: context.summary?.comments || {
       build: getBuildCommentsCount(context),
@@ -461,10 +503,20 @@ function buildAgentBuildPayload(
   let includeDiffs = includeSet.has('diffs');
   let changed = comparisons.filter(isChangedComparison);
   let fresh = comparisons.filter(isNewComparison);
-  let evidence = [...changed, ...fresh]
+  let failedScreenshots = (context.screenshots || []).filter(
+    screenshot => screenshot.status === 'failed'
+  );
+  let evidence = [
+    ...failedScreenshots.map(buildFailedScreenshotEvidence),
+    ...changed,
+    ...fresh,
+  ]
     .slice(0, evidenceLimit)
-    .map(comparison => buildCompactComparison(comparison, { includeDiffs }));
-  let comparisonSummary = summarizeComparisons(comparisons);
+    .map(item =>
+      item.result === 'failed' && item.id === null
+        ? item
+        : buildCompactComparison(item, { includeDiffs })
+    );
   let payload = {
     resource: 'build_agent_context',
     source: context.source || source || 'cloud',
@@ -482,10 +534,11 @@ function buildAgentBuildPayload(
     },
     status: formatAgentStatus(context.status),
     summary: formatAgentSummary(context, comparisons),
+    signature_properties: context.signature_properties || [],
+    groups: (context.groups || []).map(buildCompactGroup),
     evidence,
     links: context.links || {},
     preview: context.preview || null,
-    next_actions: buildAgentNextActions(context, comparisonSummary),
   };
 
   if (includeSet.has('screenshots')) {
@@ -539,7 +592,8 @@ function formatNeedsReview(status = {}) {
     return 'no';
   }
 
-  return `yes · ${pending} comparisons · ${unresolved} unresolved comments`;
+  let failed = status.failed_screenshots || 0;
+  return `yes · ${pending} comparisons · ${failed} failed screenshots · ${unresolved} unresolved comments`;
 }
 
 function formatConfirmedRegionLabels(regions = []) {
@@ -599,6 +653,7 @@ function displayBuildContext(output, context) {
   let commentsSummary = context.summary?.comments || {};
   let needsReview = formatNeedsReview(context.status);
   let baseline = context.baseline?.selected || null;
+  let screenshotSummary = context.summary?.screenshots || {};
 
   output.print(
     `  ${colors.bold(context.build.name || context.build.id)} ${buildTone((context.build.status || 'unknown').toUpperCase())}`
@@ -610,7 +665,13 @@ function displayBuildContext(output, context) {
 
   output.labelValue('Comparisons', String(comparisons.length));
   if (screenshots.length > 0) {
-    output.labelValue('Screenshots', String(screenshots.length));
+    output.labelValue(
+      'Screenshots',
+      `${screenshots.length} total · ${screenshotSummary.completed || 0} completed · ${screenshotSummary.failed || 0} failed`
+    );
+  }
+  if (context.groups?.length > 0) {
+    output.labelValue('Groups', String(context.groups.length));
   }
   if (baseline) {
     output.labelValue(
@@ -647,6 +708,22 @@ function displayBuildContext(output, context) {
     output.print('  Comparisons');
     printComparisonList(output, comparisons);
   }
+
+  let failedScreenshots = screenshots.filter(
+    screenshot => screenshot.status === 'failed'
+  );
+  if (failedScreenshots.length > 0) {
+    output.blank();
+    output.print('  Failed Screenshots');
+    for (let screenshot of failedScreenshots.slice(0, 10)) {
+      output.print(
+        `  ${colors.bold(screenshot.name)} ${colors.brand.error('FAILED')}`
+      );
+      if (screenshot.url) {
+        output.print(`    ${colors.dim(screenshot.url)}`);
+      }
+    }
+  }
 }
 
 function formatAgentBuildContext(context) {
@@ -655,6 +732,9 @@ function formatAgentBuildContext(context) {
   let fresh = comparisons.filter(isNewComparison);
   let needsReview = comparisons.filter(comparison => comparison.needs_review);
   let baseline = context.baseline?.selected;
+  let failedScreenshots = (context.screenshots || []).filter(
+    screenshot => screenshot.status === 'failed'
+  );
   let lines = [
     `# Vizzly Visual Context: ${context.build?.name || context.build?.id || 'Build'}`,
     '',
@@ -670,7 +750,7 @@ function formatAgentBuildContext(context) {
 
   if (context.status) {
     lines.push(
-      `Needs review: ${context.status.needs_review ? 'yes' : 'no'} (${context.status.pending_comparisons || 0} pending comparisons)`
+      `Needs review: ${context.status.needs_review ? 'yes' : 'no'} (${context.status.pending_comparisons || 0} pending comparisons, ${context.status.failed_screenshots || 0} failed screenshots)`
     );
   }
 
@@ -694,6 +774,29 @@ function formatAgentBuildContext(context) {
   lines.push(`- Changed: ${changed.length}`);
   lines.push(`- New: ${fresh.length}`);
   lines.push(`- Needs review: ${needsReview.length}`);
+  lines.push(`- Failed screenshots: ${failedScreenshots.length}`);
+
+  if (failedScreenshots.length > 0) {
+    lines.push('');
+    lines.push('## Failed Screenshots');
+    for (let screenshot of failedScreenshots.slice(0, 10)) {
+      let viewport = screenshot.viewport
+        ? `${screenshot.viewport.width}x${screenshot.viewport.height}`
+        : 'unknown viewport';
+      let bitmap = screenshot.bitmap
+        ? `${screenshot.bitmap.width}x${screenshot.bitmap.height}`
+        : 'unknown bitmap';
+      lines.push(
+        `- ${screenshot.name}: ${viewport} viewport · ${bitmap} bitmap`
+      );
+      if (screenshot.signature) {
+        lines.push(`  Signature: ${screenshot.signature}`);
+      }
+      if (screenshot.url) {
+        lines.push(`  Current: ${screenshot.url}`);
+      }
+    }
+  }
 
   if (changed.length > 0 || fresh.length > 0) {
     lines.push('');
@@ -704,11 +807,21 @@ function formatAgentBuildContext(context) {
       let detail = diffPercentage == null ? '' : ` · ${diffPercentage}% diff`;
       let diffUrl =
         comparison.diff?.image_url || comparison.analysis?.diff_image_url;
+      let screenshot = getComparisonScreenshot(comparison);
+      let comparisonBaseline = getComparisonBaseline(comparison);
       lines.push(
         `- ${getComparisonName(comparison)}: ${getComparisonDisplayState(comparison)}${detail}`
       );
       if (diffUrl) {
         lines.push(`  Diff: ${diffUrl}`);
+      }
+      if (screenshot.url || screenshot.original_url) {
+        lines.push(`  Current: ${screenshot.url || screenshot.original_url}`);
+      }
+      if (comparisonBaseline.url || comparisonBaseline.original_url) {
+        lines.push(
+          `  Baseline: ${comparisonBaseline.url || comparisonBaseline.original_url}`
+        );
       }
     }
   }
@@ -727,11 +840,6 @@ function formatAgentBuildContext(context) {
       lines.push(`- ...${comparisons.length - 10} more`);
     }
   }
-
-  lines.push('');
-  lines.push(
-    'Use this as reviewed UI context. Treat approved baselines as visual truth, inspect meaningful diffs, and leave approval decisions to humans.'
-  );
 
   return lines.join('\n');
 }
@@ -755,6 +863,7 @@ function displayComparisonContext(output, context) {
   let confirmedRegionLabels = formatConfirmedRegionLabels(
     context.history.confirmed_regions
   );
+  let patternSummary = context.dynamic_content?.pattern_summary || {};
 
   output.print(
     `  ${colors.bold(screenshotName)} ${statusTone(displayState.toUpperCase())}`
@@ -764,10 +873,17 @@ function displayComparisonContext(output, context) {
   );
   output.blank();
 
-  output.labelValue(
-    'Eyes',
-    `${analysis.diff_image_url ? 'baseline/current/diff' : 'comparison metadata only'}`
-  );
+  let current = context.comparison.screenshot || {};
+  let baseline = context.comparison.baseline || {};
+  if (current.original_url) {
+    output.labelValue('Current', current.original_url);
+  }
+  if (baseline.original_url) {
+    output.labelValue('Baseline', baseline.original_url);
+  }
+  if (analysis.diff_image_url) {
+    output.labelValue('Diff', analysis.diff_image_url);
+  }
   output.labelValue(
     'Memory',
     `${context.history.similar_by_fingerprint.length} similar · ${context.history.recent_by_name.length} recent · ${context.history.confirmed_regions.length} confirmed regions`
@@ -783,6 +899,13 @@ function displayComparisonContext(output, context) {
 
   if (confirmedRegionLabels) {
     output.labelValue('Known Regions', confirmedRegionLabels);
+  }
+
+  if (patternSummary.patternCount > 0) {
+    output.labelValue(
+      'Dynamic Patterns',
+      `${patternSummary.patternCount} patterns · ${patternSummary.regionCount || 0} regions · ${(patternSummary.statuses || []).join(', ')}`
+    );
   }
 
   if (context.links?.comparison_url) {
@@ -818,6 +941,9 @@ function displayScreenshotContext(output, context) {
     'Hotspots',
     `${context.hotspot_analysis.total_builds_analyzed} builds analyzed · ${context.hotspot_analysis.confidence}`
   );
+  if (context.screenshot.variants?.length > 0) {
+    output.labelValue('Variants', String(context.screenshot.variants.length));
+  }
 
   if (confirmedRegionLabels) {
     output.labelValue('Known Regions', confirmedRegionLabels);
@@ -911,7 +1037,11 @@ export async function contextBuildCommand(
     let resolvedBuildId = resolveBuildContextId(buildId, runtime, deps);
 
     output.startSpinner('Fetching build context...');
-    let context = await runtime.provider.getBuildContext(resolvedBuildId);
+    let context = await runtime.provider.getBuildContext(resolvedBuildId, {
+      details: parseIncludeOption(options.include).includes('diffs')
+        ? 'diffs'
+        : undefined,
+    });
     output.stopSpinner();
 
     if (globalOptions.json && options.agent && !options.full) {
@@ -980,6 +1110,9 @@ export async function contextComparisonCommand(
       similarLimit: options.similarLimit,
       recentLimit: options.recentLimit,
       windowSize: options.windowSize,
+      details: parseIncludeOption(options.include).includes('diffs')
+        ? 'diffs'
+        : undefined,
     };
 
     output.startSpinner('Fetching comparison context...');
@@ -1180,6 +1313,7 @@ export function validateContextBuildOptions(_options = {}) {
 export function validateContextComparisonOptions(options = {}) {
   let errors = [];
   errors.push(...validateSourceOption(options.source));
+  errors.push(...validateComparisonIncludeOption(options.include));
   errors.push(
     ...validateLimitRange(options.similarLimit, '--similar-limit', {
       max: 50,

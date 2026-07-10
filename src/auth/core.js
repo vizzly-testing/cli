@@ -158,12 +158,18 @@ export function buildLogoutPayload(refreshToken) {
  * @returns {Object} Token data for storage
  */
 export function buildTokenData(response, existingUser = null) {
-  return {
+  let tokenData = {
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
     expiresAt: response.expiresAt,
     user: response.user || existingUser,
   };
+
+  if (response.apiUrl) {
+    tokenData.apiUrl = response.apiUrl;
+  }
+
+  return tokenData;
 }
 
 /**

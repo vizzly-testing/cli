@@ -154,7 +154,7 @@ export async function getUserPath() {
 
 /**
  * Get authentication tokens from global config
- * @returns {Promise<Object|null>} Token object with accessToken, refreshToken, expiresAt, user, or null if not found
+ * @returns {Promise<Object|null>} Stored authentication and its issuing API URL, or null if not found
  */
 export async function getAuthTokens() {
   const config = await loadGlobalConfig();
@@ -168,7 +168,7 @@ export async function getAuthTokens() {
 
 /**
  * Save authentication tokens to global config
- * @param {Object} auth - Auth object with accessToken, refreshToken, expiresAt, user
+ * @param {Object} auth - Auth object with tokens, user, and issuing API URL
  * @returns {Promise<void>}
  */
 export async function saveAuthTokens(auth) {
@@ -180,6 +180,10 @@ export async function saveAuthTokens(auth) {
     expiresAt: auth.expiresAt,
     user: auth.user,
   };
+
+  if (auth.apiUrl) {
+    config.auth.apiUrl = auth.apiUrl;
+  }
 
   await saveGlobalConfig(config);
 }

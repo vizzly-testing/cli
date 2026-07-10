@@ -87,6 +87,31 @@ describe('commands/logout', () => {
       assert.deepStrictEqual(dataCall.args[0], { loggedOut: true });
     });
 
+    it('revokes the token against the API URL stored with the login', async () => {
+      let capturedBaseUrl = null;
+
+      await logoutCommand(
+        {},
+        { json: true },
+        {
+          getAuthTokens: async () => ({
+            ...auth,
+            apiUrl: 'http://localhost:3000',
+          }),
+          getApiUrl: () => 'https://app.vizzly.dev',
+          createAuthClient: ({ baseUrl }) => {
+            capturedBaseUrl = baseUrl;
+            return {};
+          },
+          createTokenStore: () => ({}),
+          logout: async () => {},
+          output: createMockOutput(),
+        }
+      );
+
+      assert.strictEqual(capturedBaseUrl, 'http://localhost:3000');
+    });
+
     it('prints human-readable logout confirmation', async () => {
       let output = createMockOutput();
 

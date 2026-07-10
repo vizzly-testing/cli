@@ -64,6 +64,7 @@ describe('utils/config-loader', () => {
 
       // Clean env
       delete process.env.VIZZLY_TOKEN;
+      delete process.env.VIZZLY_API_URL;
       delete process.env.VIZZLY_BUILD_NAME;
       delete process.env.VIZZLY_PARALLEL_ID;
       delete process.env.VIZZLY_THRESHOLD;
@@ -167,6 +168,53 @@ describe('utils/config-loader', () => {
 
       assert.strictEqual(config.apiKey, undefined);
       assert.strictEqual(config.userToken, 'user-access-token');
+    });
+
+    it('uses the API URL stored with the user login by default', async () => {
+      await saveGlobalConfig({
+        auth: {
+          accessToken: 'user-access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: '2999-01-01T00:00:00.000Z',
+          apiUrl: 'http://localhost:3000',
+        },
+      });
+
+      let config = await loadConfig();
+
+      assert.strictEqual(config.apiUrl, 'http://localhost:3000');
+    });
+
+    it('lets an explicit environment API URL override the login origin', async () => {
+      process.env.VIZZLY_API_URL = 'https://configured.example.test';
+      await saveGlobalConfig({
+        auth: {
+          accessToken: 'user-access-token',
+          apiUrl: 'http://localhost:3000',
+        },
+      });
+
+      let config = await loadConfig();
+
+      assert.strictEqual(config.apiUrl, 'https://configured.example.test');
+    });
+
+    it('lets an explicit project API URL override the login origin', async () => {
+      let configPath = join(testDir, 'vizzly-origin.config.js');
+      writeFileSync(
+        configPath,
+        "export default { apiUrl: 'https://project.example.test' };"
+      );
+      await saveGlobalConfig({
+        auth: {
+          accessToken: 'user-access-token',
+          apiUrl: 'http://localhost:3000',
+        },
+      });
+
+      let config = await loadConfig(configPath);
+
+      assert.strictEqual(config.apiUrl, 'https://project.example.test');
     });
 
     it('keeps an expired user access token available for API refresh', async () => {

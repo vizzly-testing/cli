@@ -58,7 +58,7 @@ export async function logoutCommand(
     output.startSpinner('Logging out...');
 
     let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
+      baseUrl: options.apiUrl || auth.apiUrl || getApiUrl(),
     });
     let tokenStore = createTokenStore();
 

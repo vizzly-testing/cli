@@ -148,8 +148,8 @@ export async function tddCommand(
 
     // Create services for dashboard tabs
     let configService = createConfigService({ workingDir: process.cwd() });
-    let authService = createAuthService();
-    let projectService = createProjectService();
+    let authService = createAuthService({ apiUrl: config.apiUrl });
+    let projectService = createProjectService({ apiUrl: config.apiUrl });
 
     // Create server manager (functional object)
     serverManager = createServerManager(configWithVerbose, {

@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it, mock } from 'node:test';
 import { createApiClient, DEFAULT_API_URL } from '../../src/api/client.js';
-import { saveAuthTokens } from '../../src/utils/global-config.js';
+import {
+  getAuthTokens,
+  saveAuthTokens,
+} from '../../src/utils/global-config.js';
 
 describe('api/client', () => {
   describe('DEFAULT_API_URL', () => {
@@ -226,6 +229,53 @@ describe('api/client', () => {
         name: 'AuthError',
       });
       assert.strictEqual(mockFetch.mock.calls.length, 1);
+    });
+
+    it('preserves the authenticated API URL when refreshing a user token', async () => {
+      await saveAuthTokens({
+        accessToken: 'old-access-token',
+        refreshToken: 'user-refresh-token',
+        expiresAt: '2000-01-01T00:00:00.000Z',
+        apiUrl: 'http://localhost:3000',
+      });
+
+      let client = createApiClient({
+        token: 'old-access-token',
+        baseUrl: 'http://localhost:3000',
+      });
+      let callCount = 0;
+      mockFetch.mock.mockImplementation(async () => {
+        callCount += 1;
+        if (callCount === 1) {
+          return {
+            ok: false,
+            status: 401,
+            headers: new Map(),
+            text: async () => 'Expired',
+          };
+        }
+        if (callCount === 2) {
+          return {
+            ok: true,
+            json: async () => ({
+              accessToken: 'new-access-token',
+              refreshToken: 'new-refresh-token',
+              expiresIn: 3600,
+            }),
+          };
+        }
+        return {
+          ok: true,
+          json: async () => ({ data: 'refreshed' }),
+        };
+      });
+
+      let result = await client.request('/api/builds');
+      let stored = await getAuthTokens();
+
+      assert.deepStrictEqual(result, { data: 'refreshed' });
+      assert.strictEqual(stored.apiUrl, 'http://localhost:3000');
+      assert.strictEqual(mockFetch.mock.calls.length, 3);
     });
 
     it('throws VizzlyError for server errors', async () => {

@@ -90,7 +90,7 @@ export function createAuthService(options = {}) {
      * @returns {Promise<Object>}
      */
     async completeDeviceFlow(tokens) {
-      return authOps.completeDeviceFlow(tokenStore, tokens);
+      return authOps.completeDeviceFlow(tokenStore, { ...tokens, apiUrl });
     },
 
     /**

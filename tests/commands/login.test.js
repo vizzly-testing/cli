@@ -228,6 +228,7 @@ describe('commands/login', () => {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
         expiresAt: '2026-05-19T12:00:00.000Z',
+        apiUrl: 'https://api.override.test',
         user: {
           name: 'Robert',
           email: 'robert@example.test',

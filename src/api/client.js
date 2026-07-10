@@ -153,6 +153,7 @@ export function createApiClient(options = {}) {
         expiresAt:
           data.expiresAt ||
           new Date(Date.now() + data.expiresIn * 1000).toISOString(),
+        apiUrl: auth.apiUrl || baseUrl,
         user: auth.user,
       });
 

@@ -103,7 +103,7 @@ export async function whoamiCommand(
     output.startSpinner('Fetching user information...');
 
     let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
+      baseUrl: options.apiUrl || auth.apiUrl || getApiUrl(),
     });
     let tokenStore = createTokenStore();
 

@@ -154,6 +154,31 @@ describe('commands/whoami', () => {
       assert.strictEqual(dataCall.args[0].tokenExpiresAt, auth.expiresAt);
     });
 
+    it('uses the API URL stored with the login', async () => {
+      let capturedBaseUrl = null;
+
+      await whoamiCommand(
+        {},
+        { json: true },
+        {
+          getAuthTokens: async () => ({
+            ...auth,
+            apiUrl: 'http://localhost:3000',
+          }),
+          getApiUrl: () => 'https://app.vizzly.dev',
+          createAuthClient: ({ baseUrl }) => {
+            capturedBaseUrl = baseUrl;
+            return {};
+          },
+          createTokenStore: () => ({}),
+          whoami: async () => response,
+          output: createMockOutput(),
+        }
+      );
+
+      assert.strictEqual(capturedBaseUrl, 'http://localhost:3000');
+    });
+
     it('prints human-readable user and organization information', async () => {
       let output = createMockOutput();
 

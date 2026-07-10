@@ -193,6 +193,7 @@ describe('utils/global-config', () => {
         accessToken: 'token123',
         refreshToken: 'refresh456',
         expiresAt: '2025-06-01T00:00:00Z',
+        apiUrl: 'http://localhost:3000',
         user: { email: 'test@example.com' },
       });
 
@@ -201,6 +202,7 @@ describe('utils/global-config', () => {
       assert.strictEqual(config.auth.accessToken, 'token123');
       assert.strictEqual(config.auth.refreshToken, 'refresh456');
       assert.strictEqual(config.auth.expiresAt, '2025-06-01T00:00:00Z');
+      assert.strictEqual(config.auth.apiUrl, 'http://localhost:3000');
       assert.strictEqual(config.auth.user.email, 'test@example.com');
     });
 

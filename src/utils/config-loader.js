@@ -25,6 +25,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     fileConfig = result.config.default || result.config;
   }
 
+  let hasConfiguredApiUrl = Boolean(
+    fileConfig.apiUrl || process.env.VIZZLY_API_URL || cliOverrides.apiUrl
+  );
+
   // 2. Validate config file using Zod schema
   let validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
 
@@ -64,7 +68,14 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   applyCLIOverrides(config, cliOverrides);
 
-  // 5. Fall back to a linked project token for cloud upload commands.
+  // 5. Use the server that issued the user login unless explicitly overridden.
+  let userAuth = await getAuthTokens();
+  if (!hasConfiguredApiUrl && userAuth?.apiUrl) {
+    config.apiUrl = userAuth.apiUrl;
+    output.debug('config', 'using API URL from user login');
+  }
+
+  // 6. Fall back to a linked project token for cloud upload commands.
   if (!config.apiKey) {
     let linkedProject = await getActiveProjectLink({ apiUrl: config.apiUrl });
     if (linkedProject?.token) {
@@ -85,8 +96,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     }
   }
 
-  // 6. Keep user auth separate from upload credentials.
-  let userAuth = await getAuthTokens();
+  // 7. Keep user auth separate from upload credentials.
   if (userAuth?.accessToken) {
     config.userToken = userAuth.accessToken;
     output.debug('config', 'using user login for user-authenticated commands');
@@ -105,6 +115,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 function applyCLIOverrides(config, cliOverrides = {}) {
   // Global overrides
   if (cliOverrides.token) config.apiKey = cliOverrides.token;
+  if (cliOverrides.apiUrl) config.apiUrl = cliOverrides.apiUrl;
 
   // Build-related overrides
   if (cliOverrides.buildName) config.build.name = cliOverrides.buildName;

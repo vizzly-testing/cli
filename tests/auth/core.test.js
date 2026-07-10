@@ -225,6 +225,17 @@ describe('auth/core', () => {
 
       assert.deepStrictEqual(tokenData.user, { id: 'new_user', name: 'New' });
     });
+
+    it('preserves the issuing API URL when provided', () => {
+      let tokenData = buildTokenData({
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        expiresAt: '2025-12-31',
+        apiUrl: 'http://localhost:3000',
+      });
+
+      assert.strictEqual(tokenData.apiUrl, 'http://localhost:3000');
+    });
   });
 
   describe('validateTokens', () => {

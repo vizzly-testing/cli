@@ -171,8 +171,9 @@ export async function loginCommand(
     output.header('login');
 
     // Create auth client and token store
+    let apiUrl = options.apiUrl || getApiUrl();
     let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
+      baseUrl: apiUrl,
     });
     let tokenStore = createTokenStore();
 
@@ -226,7 +227,10 @@ export async function loginCommand(
 
     // Complete device flow and save tokens
     // Handle both snake_case and camelCase for token data, and nested tokens object
-    let tokens = buildTokens(tokenData, now());
+    let tokens = {
+      ...buildTokens(tokenData, now()),
+      apiUrl,
+    };
     await completeDeviceFlow(tokenStore, tokens);
 
     // Display success

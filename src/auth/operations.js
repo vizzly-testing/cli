@@ -81,8 +81,10 @@ export async function refresh(httpClient, tokenStore) {
     body: JSON.stringify(buildRefreshPayload(auth.refreshToken)),
   });
 
-  // Preserve existing user data when refreshing
-  await tokenStore.saveTokens(buildTokenData(response, auth.user));
+  // Preserve identity and server origin when refreshing.
+  await tokenStore.saveTokens(
+    buildTokenData({ ...response, apiUrl: auth.apiUrl }, auth.user)
+  );
 
   return response;
 }

@@ -44,6 +44,8 @@ describe('commands/tdd', () => {
     it('works without API token in TDD mode', async () => {
       let output = createMockOutput();
       let runTestsCalled = false;
+      let authServiceOptions = null;
+      let projectServiceOptions = null;
 
       let { result, cleanup } = await tddCommand(
         'pnpm test',
@@ -55,6 +57,14 @@ describe('commands/tdd', () => {
             start: async () => {},
             stop: async () => {},
           }),
+          createAuthService: options => {
+            authServiceOptions = options;
+            return {};
+          },
+          createProjectService: options => {
+            projectServiceOptions = options;
+            return {};
+          },
           runTests: async () => {
             runTestsCalled = true;
             return { screenshotsCaptured: 5, comparisons: [] };
@@ -67,6 +77,12 @@ describe('commands/tdd', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(runTestsCalled, true);
+      assert.deepStrictEqual(authServiceOptions, {
+        apiUrl: 'https://api.test',
+      });
+      assert.deepStrictEqual(projectServiceOptions, {
+        apiUrl: 'https://api.test',
+      });
       await cleanup();
     });
 

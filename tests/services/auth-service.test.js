@@ -146,7 +146,11 @@ describe('services/auth-service', () => {
     it('saves tokens to store', async () => {
       let tokenStore = createInMemoryTokenStore(null);
       let httpClient = createMockHttpClient({});
-      let service = createAuthService({ httpClient, tokenStore });
+      let service = createAuthService({
+        apiUrl: 'http://localhost:3000',
+        httpClient,
+        tokenStore,
+      });
 
       await service.completeDeviceFlow({
         accessToken: 'new-access',
@@ -157,6 +161,7 @@ describe('services/auth-service', () => {
       let stored = tokenStore._getState();
       assert.strictEqual(stored.accessToken, 'new-access');
       assert.strictEqual(stored.refreshToken, 'new-refresh');
+      assert.strictEqual(stored.apiUrl, 'http://localhost:3000');
     });
   });
 
@@ -198,6 +203,7 @@ describe('services/auth-service', () => {
       let tokenStore = createInMemoryTokenStore({
         accessToken: 'old-access',
         refreshToken: 'old-refresh',
+        apiUrl: 'http://localhost:3000',
         user: { email: 'user@example.com' },
       });
       let httpClient = createMockHttpClient({
@@ -214,6 +220,7 @@ describe('services/auth-service', () => {
       let stored = tokenStore._getState();
       assert.strictEqual(stored.accessToken, 'new-access');
       assert.strictEqual(stored.refreshToken, 'new-refresh');
+      assert.strictEqual(stored.apiUrl, 'http://localhost:3000');
       // Should preserve user data
       assert.strictEqual(stored.user.email, 'user@example.com');
     });

@@ -888,6 +888,35 @@ function displayBuildContext(output, context) {
     printComparisonList(output, comparisons);
   }
 
+  let failedScreenshots = screenshots.filter(
+    screenshot => screenshot.status === 'failed'
+  );
+  if (failedScreenshots.length > 0) {
+    output.blank();
+    output.print('  Failed screenshots');
+    for (let screenshot of failedScreenshots) {
+      let viewport = screenshot.viewport
+        ? `${screenshot.viewport.width || '?'}x${screenshot.viewport.height || '?'}`
+        : null;
+      let bitmap = screenshot.bitmap
+        ? `${screenshot.bitmap.width || '?'}x${screenshot.bitmap.height || '?'}`
+        : null;
+      let details = [
+        screenshot.browser,
+        viewport && `viewport ${viewport}`,
+        bitmap && `image ${bitmap}`,
+      ].filter(Boolean);
+
+      output.print(
+        `  ${colors.bold(screenshot.name || screenshot.id || 'unknown screenshot')}`
+      );
+      if (details.length > 0)
+        output.print(`    ${colors.dim(details.join(' · '))}`);
+      if (screenshot.error_message)
+        output.print(`    ${screenshot.error_message}`);
+    }
+  }
+
   printSuggestedCommands(output, buildSuggestedCommands(normalizedContext));
 }
 
@@ -936,6 +965,21 @@ function formatAgentBuildContext(context) {
   lines.push(`- Changed: ${changed.length}`);
   lines.push(`- New: ${fresh.length}`);
   lines.push(`- Needs review: ${needsReview.length}`);
+
+  let failedScreenshots = (context.screenshots || []).filter(
+    screenshot => screenshot.status === 'failed'
+  );
+  if (failedScreenshots.length > 0) {
+    lines.push('');
+    lines.push('## Failed Screenshots');
+    for (let screenshot of failedScreenshots) {
+      lines.push(
+        `- ${screenshot.name || screenshot.id || 'unknown screenshot'}`
+      );
+      if (screenshot.error_message)
+        lines.push(`  Reason: ${screenshot.error_message}`);
+    }
+  }
 
   if (changed.length > 0 || fresh.length > 0) {
     lines.push('');

@@ -594,7 +594,19 @@ describe('commands/context', () => {
               comments: { build: 1, screenshot: 2 },
             },
             preview: { status: 'ready', url: 'https://preview.test' },
-            screenshots: [{ id: 'ss-1', name: 'Dashboard' }],
+            screenshots: [
+              { id: 'ss-1', name: 'Dashboard', status: 'completed' },
+              {
+                id: 'ss-failed',
+                name: 'Project Settings Shell',
+                status: 'failed',
+                browser: 'chromium',
+                viewport: { width: 375, height: 667 },
+                bitmap: { width: 398, height: 2942 },
+                error_message:
+                  "Image dimensions don't match: 398x2942 vs 375x2942",
+              },
+            ],
             comparisons: [
               {
                 id: 'cmp-1',
@@ -639,6 +651,15 @@ describe('commands/context', () => {
       assert.ok(printLines.some(line => line.includes('Screenshot groups')));
       assert.ok(printLines.some(line => line.includes('Dashboard')));
       assert.ok(printLines.some(line => line.includes('needs review')));
+      assert.ok(printLines.some(line => line.includes('Failed screenshots')));
+      assert.ok(
+        printLines.some(line => line.includes('Project Settings Shell'))
+      );
+      assert.ok(
+        printLines.some(line =>
+          line.includes("Image dimensions don't match: 398x2942 vs 375x2942")
+        )
+      );
     });
 
     it('prints compact agent context for local and cloud build handoff', async () => {
@@ -678,6 +699,15 @@ describe('commands/context', () => {
                 report_url:
                   'file:///tmp/vizzly-local-workspace/.vizzly/report/index.html',
               },
+              screenshots: [
+                {
+                  id: 'ss-failed',
+                  name: 'Project Settings Shell',
+                  status: 'failed',
+                  error_message:
+                    "Image dimensions don't match: 398x2942 vs 375x2942",
+                },
+              ],
               comparisons: [
                 {
                   screenshot_name: 'Dashboard',
@@ -704,6 +734,12 @@ describe('commands/context', () => {
       assert.ok(agentOutput.includes('Approved baseline: Approved Main'));
       assert.ok(agentOutput.includes('Report: file:///tmp/vizzly-local'));
       assert.ok(agentOutput.includes('Dashboard: changed'));
+      assert.ok(agentOutput.includes('## Failed Screenshots'));
+      assert.ok(
+        agentOutput.includes(
+          "Image dimensions don't match: 398x2942 vs 375x2942"
+        )
+      );
       assert.ok(agentOutput.includes('approved baselines as visual truth'));
     });
 

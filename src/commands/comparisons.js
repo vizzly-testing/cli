@@ -66,11 +66,7 @@ export async function comparisonsCommand(
       output.stopSpinner();
 
       if (globalOptions.json) {
-        output.data(
-          formatComparisonForJson(comparison, {
-            includeGeometry: globalOptions.verbose,
-          })
-        );
+        output.data(formatComparisonForJson(comparison));
         output.cleanup();
         return;
       }
@@ -92,7 +88,9 @@ export async function comparisonsCommand(
       // Apply status filter if provided
       if (options.status) {
         comparisons = comparisons.filter(
-          c => getComparisonOutcome(c) === options.status
+          c =>
+            getComparisonOutcome(c) === options.status ||
+            c.status === options.status
         );
       }
 
@@ -111,8 +109,10 @@ export async function comparisonsCommand(
           .length,
         new: comparisons.filter(c => getComparisonOutcome(c) === 'new').length,
       };
+      summary.passed = summary.identical;
+      summary.failed = summary.changed;
       let offset = options.offset || 0;
-      let limit = options.limit || 50;
+      let limit = options.limit ?? comparisons.length;
       let paginatedComparisons = comparisons.slice(offset, offset + limit);
       let pagination = {
         total: comparisons.length,
@@ -125,11 +125,7 @@ export async function comparisonsCommand(
         output.data({
           buildId: build.id,
           buildName: build.name,
-          comparisons: paginatedComparisons.map(comparison =>
-            formatComparisonForJson(comparison, {
-              includeGeometry: globalOptions.verbose,
-            })
-          ),
+          comparisons: paginatedComparisons.map(formatComparisonForJson),
           summary,
           pagination,
         });
@@ -170,11 +166,7 @@ export async function comparisonsCommand(
 
       if (globalOptions.json) {
         output.data({
-          comparisons: comparisons.map(comparison =>
-            formatComparisonForJson(comparison, {
-              includeGeometry: globalOptions.verbose,
-            })
-          ),
+          comparisons: comparisons.map(formatComparisonForJson),
           pagination: {
             total: pagination.total,
             limit: filters.limit,
@@ -227,7 +219,7 @@ function getComparisonViewport(comparison) {
   return width ? { width, height } : null;
 }
 
-function formatComparisonForJson(comparison, { includeGeometry = false } = {}) {
+function formatComparisonForJson(comparison) {
   // API endpoints return different shapes:
   // - Single comparison: nested baseline_screenshot/current_screenshot + flat diff_url, honeydiff at top level
   // - Build comparisons: flat diff_url/diff_image_url, no storage URLs, limited honeydiff
@@ -249,8 +241,9 @@ function formatComparisonForJson(comparison, { includeGeometry = false } = {}) {
   return {
     id: comparison.id,
     name: comparison.name,
-    status: getComparisonOutcome(comparison),
-    processingStatus: comparison.result ? comparison.status : null,
+    status: comparison.status,
+    result: getComparisonOutcome(comparison),
+    processingStatus: comparison.status || null,
     diffPercentage: comparison.diff_percentage ?? null,
     approvalStatus: comparison.approval_status,
     viewport: getComparisonViewport(comparison),
@@ -279,18 +272,11 @@ function formatComparisonForJson(comparison, { includeGeometry = false } = {}) {
           clusterClassification: clusterMetadata?.classification || null,
           clusterMetadata,
           fingerprintHash,
-          ...(includeGeometry
-            ? {
-                diffRegions:
-                  comparison.diff_regions ?? diffImage.diff_regions ?? null,
-                diffLines:
-                  comparison.diff_lines ?? diffImage.diff_lines ?? null,
-                fingerprintData:
-                  comparison.fingerprint_data ??
-                  diffImage.fingerprint_data ??
-                  null,
-              }
-            : {}),
+          diffRegions:
+            comparison.diff_regions ?? diffImage.diff_regions ?? null,
+          diffLines: comparison.diff_lines ?? diffImage.diff_lines ?? null,
+          fingerprintData:
+            comparison.fingerprint_data ?? diffImage.fingerprint_data ?? null,
         }
       : null,
     buildId: comparison.build_id,

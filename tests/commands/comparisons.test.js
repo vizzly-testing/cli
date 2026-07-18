@@ -187,8 +187,11 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].comparisons.length, 3);
       assert.strictEqual(dataCall.args[0].summary.identical, 1);
       assert.strictEqual(dataCall.args[0].summary.changed, 1);
+      assert.strictEqual(dataCall.args[0].summary.passed, 1);
+      assert.strictEqual(dataCall.args[0].summary.failed, 1);
       assert.strictEqual(dataCall.args[0].summary.new, 1);
-      assert.strictEqual(dataCall.args[0].comparisons[2].status, 'new');
+      assert.strictEqual(dataCall.args[0].comparisons[2].status, 'completed');
+      assert.strictEqual(dataCall.args[0].comparisons[2].result, 'new');
       assert.strictEqual(
         dataCall.args[0].comparisons[2].processingStatus,
         'completed'
@@ -200,7 +203,7 @@ describe('commands/comparisons', () => {
       });
       assert.deepStrictEqual(dataCall.args[0].pagination, {
         total: 3,
-        limit: 50,
+        limit: 3,
         offset: 0,
         hasMore: false,
       });
@@ -249,6 +252,8 @@ describe('commands/comparisons', () => {
         identical: 1,
         changed: 2,
         new: 0,
+        passed: 1,
+        failed: 2,
       });
       assert.deepStrictEqual(result.pagination, {
         total: 3,
@@ -474,7 +479,7 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].name, 'button-primary');
     });
 
-    it('keeps honeydiff summaries compact in JSON output by default', async () => {
+    it('preserves honeydiff geometry in JSON output', async () => {
       let output = createMockOutput();
       let mockComparison = {
         id: 'comp-1',
@@ -514,9 +519,13 @@ describe('commands/comparisons', () => {
       assert.strictEqual(result.honeydiff.gmsdScore, 0.0123);
       assert.strictEqual(result.honeydiff.clusterClassification, 'minor');
       assert.strictEqual(result.honeydiff.fingerprintHash, 'abc123def456');
-      assert.strictEqual(result.honeydiff.diffRegions, undefined);
-      assert.strictEqual(result.honeydiff.diffLines, undefined);
-      assert.strictEqual(result.honeydiff.fingerprintData, undefined);
+      assert.deepStrictEqual(result.honeydiff.diffRegions, [
+        { x: 10, y: 20, width: 50, height: 30 },
+      ]);
+      assert.deepStrictEqual(result.honeydiff.diffLines, [20, 30, 40]);
+      assert.deepStrictEqual(result.honeydiff.fingerprintData, {
+        hash_components: [1, 2, 3],
+      });
     });
 
     it('includes raw honeydiff geometry in verbose JSON output', async () => {

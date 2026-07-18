@@ -236,6 +236,10 @@ describe('commands/context', () => {
                 },
                 screenshot: {
                   id: 'ss-1',
+                  viewport_width: 1280,
+                  viewport_height: 720,
+                  bitmap_width: 1280,
+                  bitmap_height: 900,
                   original_url: 'https://cdn.test/current.png',
                 },
                 baseline: {
@@ -249,6 +253,13 @@ describe('commands/context', () => {
                 screenshot_name: 'Settings',
                 result: 'new',
                 needs_review: true,
+              },
+              {
+                id: 'cmp-3',
+                screenshot_name: 'Reviewed dynamic content',
+                result: 'changed',
+                approval_status: 'approved',
+                needs_review: false,
               },
             ],
             comments: {
@@ -271,6 +282,14 @@ describe('commands/context', () => {
       assert.strictEqual(payload.status.needs_review, true);
       assert.strictEqual(payload.evidence.length, 2);
       assert.strictEqual(payload.evidence[0].name, 'Dashboard');
+      assert.deepStrictEqual(payload.evidence[0].screenshot.viewport, {
+        width: 1280,
+        height: 720,
+      });
+      assert.deepStrictEqual(payload.evidence[0].screenshot.bitmap, {
+        width: 1280,
+        height: 900,
+      });
       assert.strictEqual(payload.evidence[0].diff.region_count, 1);
       assert.strictEqual(
         payload.evidence[0].diff.projection.clusters.average_density,
@@ -308,6 +327,7 @@ describe('commands/context', () => {
                 id: 'cmp-1',
                 screenshot_name: 'Dashboard',
                 result: 'changed',
+                approval_status: 'pending',
                 diff: {
                   regions: [{ pixelCount: 50 }],
                   cluster_metadata: { clusterCount: 1 },

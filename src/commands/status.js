@@ -10,7 +10,6 @@ import {
 } from '../api/index.js';
 import { getAppBaseUrl } from '../utils/api-url.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
-import { getApiUrl as defaultGetApiUrl } from '../utils/environment-config.js';
 import * as defaultOutput from '../utils/output.js';
 
 function createStatusDeps(deps = {}) {
@@ -19,7 +18,6 @@ function createStatusDeps(deps = {}) {
     createApiClient: deps.createApiClient || defaultCreateApiClient,
     getBuild: deps.getBuild || defaultGetBuild,
     getPreviewInfo: deps.getPreviewInfo || defaultGetPreviewInfo,
-    getApiUrl: deps.getApiUrl || defaultGetApiUrl,
     output: deps.output || defaultOutput,
     exit: deps.exit || (code => process.exit(code)),
   };
@@ -337,15 +335,8 @@ export async function statusCommand(
   globalOptions = {},
   deps = {}
 ) {
-  let {
-    loadConfig,
-    createApiClient,
-    getBuild,
-    getPreviewInfo,
-    getApiUrl,
-    output,
-    exit,
-  } = createStatusDeps(deps);
+  let { loadConfig, createApiClient, getBuild, getPreviewInfo, output, exit } =
+    createStatusDeps(deps);
 
   configureOutput(output, globalOptions);
 
@@ -389,8 +380,7 @@ export async function statusCommand(
 
     // Human-readable output
     // Show build URL if we can construct it
-    let baseUrl = config.baseUrl || getApiUrl();
-    let buildUrl = createBuildUrl(baseUrl, build, config.linkedProject);
+    let buildUrl = createBuildUrl(config.apiUrl, build, config.linkedProject);
     writeHumanStatus({ build, buildUrl, globalOptions, output, previewInfo });
 
     output.cleanup();

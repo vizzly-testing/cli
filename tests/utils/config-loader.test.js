@@ -161,6 +161,7 @@ describe('utils/config-loader', () => {
           accessToken: 'user-access-token',
           refreshToken: 'refresh-token',
           expiresAt: '2999-01-01T00:00:00.000Z',
+          apiUrl: 'https://app.vizzly.dev',
         },
       });
 
@@ -183,6 +184,7 @@ describe('utils/config-loader', () => {
       let config = await loadConfig();
 
       assert.strictEqual(config.apiUrl, 'http://localhost:3000');
+      assert.strictEqual(config.userToken, 'user-access-token');
     });
 
     it('lets an explicit environment API URL override the login origin', async () => {
@@ -197,6 +199,7 @@ describe('utils/config-loader', () => {
       let config = await loadConfig();
 
       assert.strictEqual(config.apiUrl, 'https://configured.example.test');
+      assert.strictEqual(config.userToken, undefined);
     });
 
     it('lets an explicit project API URL override the login origin', async () => {
@@ -215,6 +218,7 @@ describe('utils/config-loader', () => {
       let config = await loadConfig(configPath);
 
       assert.strictEqual(config.apiUrl, 'https://project.example.test');
+      assert.strictEqual(config.userToken, undefined);
     });
 
     it('keeps an expired user access token available for API refresh', async () => {
@@ -223,6 +227,7 @@ describe('utils/config-loader', () => {
           accessToken: 'expired-user-access-token',
           refreshToken: 'refresh-token',
           expiresAt: '2000-01-01T00:00:00.000Z',
+          apiUrl: 'https://app.vizzly.dev',
         },
       });
 

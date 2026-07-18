@@ -231,6 +231,38 @@ describe('api/client', () => {
       assert.strictEqual(mockFetch.mock.calls.length, 1);
     });
 
+    it('does not refresh or rewrite user auth through a different API origin', async () => {
+      await saveAuthTokens({
+        accessToken: 'user-access-token',
+        refreshToken: 'user-refresh-token',
+        expiresAt: '2000-01-01T00:00:00.000Z',
+        apiUrl: 'https://app.vizzly.dev',
+      });
+
+      let client = createApiClient({
+        token: 'user-access-token',
+        baseUrl: 'http://localhost:3000',
+      });
+
+      mockFetch.mock.mockImplementation(async () => ({
+        ok: false,
+        status: 401,
+        headers: new Map(),
+        text: async () => 'Unauthorized',
+      }));
+
+      await assert.rejects(() => client.request('/api/protected'), {
+        name: 'AuthError',
+      });
+      assert.strictEqual(mockFetch.mock.calls.length, 1);
+      assert.deepStrictEqual(await getAuthTokens(), {
+        accessToken: 'user-access-token',
+        refreshToken: 'user-refresh-token',
+        expiresAt: '2000-01-01T00:00:00.000Z',
+        apiUrl: 'https://app.vizzly.dev',
+      });
+    });
+
     it('preserves the authenticated API URL when refreshing a user token', async () => {
       await saveAuthTokens({
         accessToken: 'old-access-token',

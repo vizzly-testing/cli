@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
 import { CONFIG_DEFAULTS, deepMerge } from '../config/core.js';
+import { getApiOrigin } from './api-url.js';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
 import {
   getApiToken,
@@ -97,7 +98,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   // 7. Keep user auth separate from upload credentials.
-  if (userAuth?.accessToken) {
+  if (
+    userAuth?.accessToken &&
+    getApiOrigin(userAuth.apiUrl) === getApiOrigin(config.apiUrl)
+  ) {
     config.userToken = userAuth.accessToken;
     output.debug('config', 'using user login for user-authenticated commands');
   }

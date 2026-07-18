@@ -13,3 +13,11 @@ export function getAppBaseUrl(apiUrl) {
     return apiUrl.replace(/\/api(?:\/.*)?$/, '');
   }
 }
+
+export function getApiOrigin(apiUrl) {
+  try {
+    return new URL(apiUrl).origin;
+  } catch {
+    return null;
+  }
+}

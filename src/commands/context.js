@@ -359,6 +359,27 @@ function getComparisonBaseline(comparison = {}) {
   return comparison.baseline || comparison.screenshot?.baseline || {};
 }
 
+function getImageDimensions(image = {}, kind) {
+  let nested = image[kind];
+  if (nested) return nested;
+
+  let width = image[`${kind}_width`];
+  let height = image[`${kind}_height`];
+  return width != null || height != null ? { width, height } : null;
+}
+
+function comparisonNeedsReview(comparison = {}) {
+  if (comparison.needs_review === true) return true;
+  return (
+    comparison.approval_status === 'pending' &&
+    (isChangedComparison(comparison) || isNewComparison(comparison))
+  );
+}
+
+function selectReviewEvidence(context = {}) {
+  return (context.comparisons || []).filter(comparisonNeedsReview);
+}
+
 function buildCompactDiff(comparison = {}, includeDiffs = false) {
   let diff = comparison.diff || comparison.analysis || {};
   let compact = {
@@ -402,8 +423,8 @@ function buildCompactComparison(
       id: screenshot.id || null,
       browser: screenshot.browser || null,
       device: screenshot.device || null,
-      viewport: screenshot.viewport || null,
-      bitmap: screenshot.bitmap || null,
+      viewport: getImageDimensions(screenshot, 'viewport'),
+      bitmap: getImageDimensions(screenshot, 'bitmap'),
       metadata: screenshot.metadata || null,
       signature: screenshot.signature || null,
       url: screenshot.url || screenshot.original_url || null,
@@ -412,8 +433,8 @@ function buildCompactComparison(
       id: baseline.id || null,
       build_id: baseline.build_id || null,
       browser: baseline.browser || null,
-      viewport: baseline.viewport || null,
-      bitmap: baseline.bitmap || null,
+      viewport: getImageDimensions(baseline, 'viewport'),
+      bitmap: getImageDimensions(baseline, 'bitmap'),
       metadata: baseline.metadata || null,
       url: baseline.url || baseline.original_url || null,
     },
@@ -424,8 +445,9 @@ function buildCompactComparison(
 function buildCompactGroup(group = {}) {
   let comparisons = group.comparisons || [];
   return {
-    name: group.name || group.testName || null,
-    total_variants: group.totalVariants ?? comparisons.length,
+    name: group.name || group.test_name || group.testName || null,
+    total_variants:
+      group.total_variants ?? group.totalVariants ?? comparisons.length,
     browsers: group.browsers || [],
     viewports: group.viewports || [],
     results: comparisons.reduce((counts, comparison) => {
@@ -501,15 +523,12 @@ function buildAgentBuildPayload(
   let comparisons = context.comparisons || [];
   let includeSet = new Set(include);
   let includeDiffs = includeSet.has('diffs');
-  let changed = comparisons.filter(isChangedComparison);
-  let fresh = comparisons.filter(isNewComparison);
   let failedScreenshots = (context.screenshots || []).filter(
     screenshot => screenshot.status === 'failed'
   );
   let evidence = [
     ...failedScreenshots.map(buildFailedScreenshotEvidence),
-    ...changed,
-    ...fresh,
+    ...selectReviewEvidence(context),
   ]
     .slice(0, evidenceLimit)
     .map(item =>
@@ -730,13 +749,7 @@ function formatAgentBuildContext(context) {
   let comparisons = context.comparisons || [];
   let changed = comparisons.filter(isChangedComparison);
   let fresh = comparisons.filter(isNewComparison);
-  let needsReview = comparisons.filter(comparison => comparison.needs_review);
-  let evidence =
-    needsReview.length > 0
-      ? needsReview
-      : context.status?.needs_review
-        ? [...changed, ...fresh]
-        : [];
+  let evidence = selectReviewEvidence(context);
   let baseline = context.baseline?.selected;
   let failedScreenshots = (context.screenshots || []).filter(
     screenshot => screenshot.status === 'failed'
@@ -779,7 +792,7 @@ function formatAgentBuildContext(context) {
   lines.push(`- Total comparisons: ${comparisons.length}`);
   lines.push(`- Changed: ${changed.length}`);
   lines.push(`- New: ${fresh.length}`);
-  lines.push(`- Needs review: ${needsReview.length}`);
+  lines.push(`- Needs review: ${evidence.length}`);
   lines.push(`- Failed screenshots: ${failedScreenshots.length}`);
 
   if (failedScreenshots.length > 0) {

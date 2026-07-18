@@ -6,6 +6,7 @@
  */
 
 import { AuthError, VizzlyError } from '../errors/vizzly-error.js';
+import { getApiOrigin } from '../utils/api-url.js';
 import { getAuthTokens, saveAuthTokens } from '../utils/global-config.js';
 import { getPackageVersion } from '../utils/package-info.js';
 import {
@@ -84,14 +85,15 @@ export function createApiClient(options = {}) {
       let errorBody = await extractErrorBody(response);
 
       // Handle 401 with token refresh
+      let refreshAuth = await getRefreshAuth();
       if (
         shouldRetryWithRefresh(
           response.status,
           isRetry,
-          !isProjectToken(token) && (await hasRefreshToken())
+          !isProjectToken(token) && Boolean(refreshAuth)
         )
       ) {
-        let refreshed = await attemptTokenRefresh();
+        let refreshed = await attemptTokenRefresh(refreshAuth);
         if (refreshed) {
           token = refreshed;
           return request(endpoint, fetchOptions, true);
@@ -118,18 +120,19 @@ export function createApiClient(options = {}) {
   /**
    * Check if refresh token is available
    */
-  async function hasRefreshToken() {
+  async function getRefreshAuth() {
     let auth = await getAuthTokens();
-    return !!auth?.refreshToken;
+    if (!auth?.refreshToken || auth.accessToken !== token) return null;
+    if (getApiOrigin(auth.apiUrl) !== getApiOrigin(baseUrl)) return null;
+    return auth;
   }
 
   /**
    * Attempt to refresh the access token
    * @returns {Promise<string|null>} New token or null if refresh failed
    */
-  async function attemptTokenRefresh() {
-    let auth = await getAuthTokens();
-    if (!auth?.refreshToken) return null;
+  async function attemptTokenRefresh(auth) {
+    if (!auth) return null;
 
     try {
       let refreshUrl = buildApiUrl(baseUrl, '/api/auth/cli/refresh');

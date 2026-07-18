@@ -421,6 +421,26 @@ describe('commands/status', () => {
       assert.strictEqual(harness.clientConfig.token, 'user-token');
     });
 
+    it('prints build links on the API origin that served the status', async () => {
+      let harness = createStatusHarness(
+        createBuild({ organization_slug: 'acme', project_slug: 'web' })
+      );
+      harness.deps.loadConfig = async () => ({
+        userToken: 'user-token',
+        apiUrl: 'http://localhost:3000/api',
+      });
+
+      await statusCommand('build-123', {}, {}, harness.deps);
+
+      let buildUrl = harness.output.calls.find(
+        call => call.method === 'labelValue' && call.args[0] === 'View'
+      );
+      assert.strictEqual(
+        buildUrl.args[1],
+        'http://localhost:3000/acme/web/builds/build-123'
+      );
+    });
+
     it('does not fail CI when API returns 5xx error', async () => {
       let output = createMockOutput();
       let exitCode = null;

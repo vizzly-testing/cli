@@ -446,14 +446,14 @@ export async function vizzlyScreenshot(name, imageBuffer, options = {}) {
 }
 
 /**
- * Wait for all queued screenshots to be processed
+ * Deprecated low-level helper for flushing the local Vizzly HTTP server.
+ *
+ * @deprecated Use `vizzly run`, `vizzly tdd run`, or the running TDD server
+ * lifecycle instead. Normal test suites should not call this from teardown.
+ * This helper remains only for custom harnesses that directly manage the
+ * local HTTP server lifecycle.
  *
  * @returns {Promise<Object|null>} Flush summary, or null if no server is connected
- *
- * @example
- * afterAll(async () => {
- *   await vizzlyFlush();
- * });
  */
 export async function vizzlyFlush() {
   let client = getClient();

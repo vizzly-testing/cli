@@ -290,7 +290,6 @@ class VizzlyClient {
 
     var isReady: Bool { get }
     var info: [String: Any] { get }
-    func flush()
     func disable(reason: String)
 }
 ```

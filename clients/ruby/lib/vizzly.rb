@@ -179,8 +179,7 @@ module Vizzly
     end
     # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
-    # Wait for all queued screenshots to be processed
-    # (Simple client doesn't need explicit flushing)
+    # Compatibility no-op for older integrations.
     #
     # @return [true]
     def flush
@@ -361,7 +360,7 @@ module Vizzly
       client.screenshot(name, image_data, options)
     end
 
-    # Flush the shared client
+    # Compatibility wrapper for older integrations.
     #
     # @see Client#flush
     def flush

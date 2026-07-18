@@ -214,7 +214,7 @@ public final class VizzlyClient {
         return parsedResponse
     }
 
-    /// Flush any pending screenshots (no-op for simple client)
+    /// Compatibility no-op for older integrations.
     public func flush() {
         // Simple client doesn't queue screenshots
     }

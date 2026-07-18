@@ -600,7 +600,8 @@ describe('client/index httpPost integration tests', () => {
 
         globalThis.document = {
           documentElement: {
-            outerHTML: '<html><body><main data-testid="checkout">Checkout</main></body></html>',
+            outerHTML:
+              '<html><body><main data-testid="checkout">Checkout</main></body></html>',
           },
           title: 'Checkout',
         };
@@ -630,8 +631,14 @@ describe('client/index httpPost integration tests', () => {
 
     assert.strictEqual(requests.length, 1);
     assert.strictEqual(requests[0].body.properties.page, undefined);
-    assert.strictEqual(requests[0].body.dom.html.includes('data-testid="checkout"'), true);
-    assert.strictEqual(requests[0].body.dom.url, 'http://localhost:3000/checkout');
+    assert.strictEqual(
+      requests[0].body.dom.html.includes('data-testid="checkout"'),
+      true
+    );
+    assert.strictEqual(
+      requests[0].body.dom.url,
+      'http://localhost:3000/checkout'
+    );
     assert.deepStrictEqual(requests[0].body.dom.viewport, {
       width: 1440,
       height: 900,
@@ -639,7 +646,9 @@ describe('client/index httpPost integration tests', () => {
       scrollX: 4,
       scrollY: 8,
     });
-    assert.deepStrictEqual(requests[0].body.dom.metadata, { title: 'Checkout' });
+    assert.deepStrictEqual(requests[0].body.dom.metadata, {
+      title: 'Checkout',
+    });
   });
 
   it('sends Connection: close header to disable keep-alive', async () => {

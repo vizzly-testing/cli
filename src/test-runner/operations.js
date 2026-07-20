@@ -245,18 +245,6 @@ async function executeDisabledTestRun({ testCommand, json, deps }) {
   return buildDisabledRunResult();
 }
 
-function shouldDisableVizzlyAfterBuildError({ error, tdd }) {
-  let status = error.context?.status;
-  let isAvailabilityError = status === 408 || status === 429 || status >= 500;
-  let isClientError = status >= 400 && status < 500;
-
-  return (
-    !tdd &&
-    error.code !== 'AUTH_ERROR' &&
-    (isAvailabilityError || !isClientError)
-  );
-}
-
 // ============================================================================
 // High-Level Run Operations
 // ============================================================================
@@ -311,35 +299,14 @@ export async function runTests({ runOptions, config, deps }) {
   let testSuccess = false;
   let testError = null;
 
+  let setBaseline;
   try {
-    // Create build
-    try {
-      buildId = await createBuild({
-        runOptions,
-        tdd,
-        config,
-        deps: { buildManager, createApiClient, createApiBuild, output },
-      });
-    } catch (error) {
-      if (!shouldDisableVizzlyAfterBuildError({ error, tdd })) {
-        throw error;
-      }
-
-      output.warn(
-        'Vizzly is unavailable. Running tests without visual testing.'
-      );
-      output.debug('build', 'creation failed; disabling Vizzly', {
-        error: error.message,
-      });
-
-      let result = await executeDisabledTestRun({
-        testCommand,
-        json: runOptions.json,
-        deps: { spawn, createError },
-      });
-
-      return result;
-    }
+    buildId = await createBuild({
+      runOptions,
+      tdd,
+      config,
+      deps: { buildManager, createApiClient, createApiBuild, output },
+    });
 
     // Get build URL for API mode
     if (!tdd && buildId) {
@@ -358,36 +325,53 @@ export async function runTests({ runOptions, config, deps }) {
     }
 
     // Start server
-    let setBaseline = normalizeSetBaseline(runOptions);
+    setBaseline = normalizeSetBaseline(runOptions);
     await serverManager.start(buildId, tdd, setBaseline);
 
     if (onServerReady) {
       onServerReady({ port: config.server?.port, buildId, tdd });
     }
-
-    // Execute test command
-    let env = buildTestEnv({
-      port: config.server?.port,
-      buildId,
-      setBaseline,
-      failOnDiff: runOptions.failOnDiff || false,
+  } catch (error) {
+    output.warn(
+      'Vizzly encountered an error. Running tests without visual testing.'
+    );
+    output.debug('run', 'setup failed; disabling Vizzly', {
+      error: error.message,
     });
 
     try {
-      await executeTestCommand({
-        command: testCommand,
-        env,
-        json: runOptions.json,
-        deps: { spawn, createError },
+      await serverManager.stop();
+    } catch (stopError) {
+      output.debug('run', 'failed to stop Vizzly after setup error', {
+        error: stopError.message,
       });
-      testSuccess = true;
-    } catch (error) {
-      testError = error;
-      testSuccess = false;
     }
+
+    return executeDisabledTestRun({
+      testCommand,
+      json: runOptions.json,
+      deps: { spawn, createError },
+    });
+  }
+
+  // Execute the user's tests. This is the only error that can fail the run.
+  let env = buildTestEnv({
+    port: config.server?.port,
+    buildId,
+    setBaseline,
+    failOnDiff: runOptions.failOnDiff || false,
+  });
+
+  try {
+    await executeTestCommand({
+      command: testCommand,
+      env,
+      json: runOptions.json,
+      deps: { spawn, createError },
+    });
+    testSuccess = true;
   } catch (error) {
     testError = error;
-    testSuccess = false;
   }
 
   // Get TDD results before stopping the server
@@ -430,7 +414,13 @@ export async function runTests({ runOptions, config, deps }) {
 
     // In API mode, get actual screenshot count from handler after flush
     if (!tdd && serverManager.server?.getScreenshotCount) {
-      screenshotCount = serverManager.server.getScreenshotCount(buildId) || 0;
+      try {
+        screenshotCount = serverManager.server.getScreenshotCount(buildId) || 0;
+      } catch (countError) {
+        output.debug('build', 'failed to get screenshot count', {
+          error: countError.message,
+        });
+      }
     }
   } finally {
     try {

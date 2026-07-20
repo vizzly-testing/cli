@@ -183,7 +183,7 @@ describe('commands/run CLI', () => {
     });
   });
 
-  it('runs the user test suite with Vizzly disabled when the API is unavailable', async () => {
+  it('runs the user test suite with Vizzly disabled when the API rejects the request', async () => {
     await withApiServer(
       async ({ apiUrl }) => {
         let cwd = createWorkspace();
@@ -204,11 +204,11 @@ describe('commands/run CLI', () => {
         );
 
         assert.strictEqual(result.code, 0);
-        assert.match(result.stderr, /Vizzly is unavailable/);
+        assert.match(result.stderr, /Running tests without visual testing/);
         assert.match(result.stderr, /user tests ran/);
         assert.doesNotMatch(result.stderr, /Cloudflare Tunnel error/);
       },
-      { buildCreationStatus: 530 }
+      { buildCreationStatus: 401 }
     );
   });
 
@@ -233,7 +233,7 @@ describe('commands/run CLI', () => {
         );
 
         assert.strictEqual(result.code, 0);
-        assert.match(result.stderr, /Vizzly is unavailable/);
+        assert.match(result.stderr, /Running tests without visual testing/);
         assert.match(result.stderr, /user tests ran/);
 
         let payload = parseSingleJson(result.stdout);

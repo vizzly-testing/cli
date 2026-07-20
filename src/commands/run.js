@@ -69,15 +69,6 @@ function buildContextCommand(buildId) {
   return `vizzly context build ${buildId} --agent`;
 }
 
-function isVizzlyAvailabilityError(error) {
-  let status = error.context?.status;
-  let isAvailabilityStatus = status === 408 || status === 429 || status >= 500;
-  let isTransportFailure =
-    error.code === 'BUILD_STATUS_FAILED' && status == null;
-
-  return isAvailabilityStatus || isTransportFailure;
-}
-
 /**
  * Run command implementation
  * @param {string} testCommand - Test command to execute
@@ -129,6 +120,8 @@ export async function runCommand(
   let startTime = null;
   let isTddMode = false;
   let config = null;
+  let userTestsCompleted = false;
+  let completedResult = null;
 
   // Ensure cleanup on exit
   let cleanup = async () => {
@@ -358,6 +351,8 @@ export async function runCommand(
           },
         },
       });
+      userTestsCompleted = true;
+      completedResult = result;
 
       // Store buildId for cleanup purposes
       if (result.buildId) {
@@ -462,7 +457,8 @@ export async function runCommand(
         }
         return { success: false, exitCode };
       } else {
-        // Setup or other error - VizzlyError.getUserMessage() provides context
+        // This should only be reached for failures outside the SDK paths that
+        // runTests handles by disabling Vizzly and running the child command.
         if (globalOptions.json) {
           let executionTimeMs = Date.now() - (startTime || Date.now());
           output.data({
@@ -550,23 +546,28 @@ export async function runCommand(
   } catch (error) {
     output.stopSpinner();
 
-    // Don't fail CI for Vizzly availability issues
-    if (isVizzlyAvailabilityError(error)) {
+    // Once the user's tests have passed, no Vizzly-side error can change the
+    // result. This includes polling, formatting, and API response errors.
+    if (userTestsCompleted) {
       if (globalOptions.json) {
         output.data({
-          buildId: null,
-          status: 'skipped',
-          message: 'Vizzly API unavailable - visual tests skipped',
+          buildId: completedResult?.buildId || null,
+          status: 'completed',
+          message: 'Vizzly disabled after an SDK error',
           executionTimeMs: Date.now() - (startTime || Date.now()),
+          exitCode: 0,
         });
       } else {
         output.warn(
-          'Vizzly API unavailable - visual tests skipped. Your tests still ran.'
+          'Vizzly encountered an error after your tests passed. Ignoring it.'
         );
       }
       output.cleanup();
-      output.debug('api', 'API error details:', { error: error.message });
-      return { success: true, result: { skipped: true } };
+      output.debug('run', 'Vizzly SDK error details', { error: error.message });
+      return {
+        success: true,
+        result: completedResult || { skipped: true },
+      };
     }
 
     // Provide more context about where the error occurred

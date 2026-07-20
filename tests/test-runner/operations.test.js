@@ -12,16 +12,18 @@ import {
 
 function runTestsWithBuildCreation(createApiBuild, options = {}) {
   let {
+    buildManager = {},
     exitCode = 0,
     onSpawn = () => {},
     output = {},
     serverManager = {},
+    tdd = false,
   } = options;
 
   return runTests({
     runOptions: {
       testCommand: 'pnpm test',
-      tdd: false,
+      tdd,
       allowNoToken: false,
     },
     config: {
@@ -30,10 +32,11 @@ function runTestsWithBuildCreation(createApiBuild, options = {}) {
     },
     deps: {
       serverManager: {
+        start: async () => {},
         stop: async () => {},
         ...serverManager,
       },
-      buildManager: {},
+      buildManager,
       spawn: (_command, spawnOptions) => {
         onSpawn(spawnOptions);
         return {
@@ -548,33 +551,7 @@ describe('test-runner/operations', () => {
       );
     });
 
-    it('does not hide user-actionable API errors', async () => {
-      let apiError = new Error('Invalid API token');
-      apiError.code = 'AUTH_ERROR';
-
-      await assert.rejects(
-        () =>
-          runTestsWithBuildCreation(async () => {
-            throw apiError;
-          }),
-        apiError
-      );
-    });
-
-    it('does not hide generic client errors', async () => {
-      let apiError = new Error('Bad request');
-      apiError.context = { status: 400 };
-
-      await assert.rejects(
-        () =>
-          runTestsWithBuildCreation(async () => {
-            throw apiError;
-          }),
-        apiError
-      );
-    });
-
-    for (let status of [408, 429, 500]) {
+    for (let status of [400, 401, 408, 429, 500, 530]) {
       it(`disables Vizzly when build creation returns ${status}`, async () => {
         let result = await runTestsWithBuildCreation(async () => {
           let error = new Error(`API request failed: ${status}`);
@@ -586,6 +563,58 @@ describe('test-runner/operations', () => {
         assert.strictEqual(result.testsFailed, 0);
       });
     }
+
+    it('disables Vizzly when local build setup throws', async () => {
+      let result = await runTestsWithBuildCreation(async () => ({}), {
+        tdd: true,
+        buildManager: {
+          createBuild: async () => {
+            throw new Error('Local build setup failed');
+          },
+        },
+      });
+
+      assert.strictEqual(result.testsPassed, 1);
+      assert.strictEqual(result.testsFailed, 0);
+    });
+
+    it('disables Vizzly when the screenshot server cannot start', async () => {
+      let spawnedEnv = null;
+      let result = await runTestsWithBuildCreation(
+        async () => ({ id: 'build-123' }),
+        {
+          onSpawn: options => {
+            spawnedEnv = options.env;
+          },
+          serverManager: {
+            start: async () => {
+              throw new Error('Server startup failed');
+            },
+          },
+        }
+      );
+
+      assert.strictEqual(spawnedEnv.VIZZLY_ENABLED, 'false');
+      assert.strictEqual(result.testsPassed, 1);
+    });
+
+    it('ignores screenshot count errors after the user tests pass', async () => {
+      let result = await runTestsWithBuildCreation(
+        async () => ({ id: 'build-123' }),
+        {
+          serverManager: {
+            server: {
+              getScreenshotCount: () => {
+                throw new Error('Screenshot count failed');
+              },
+            },
+          },
+        }
+      );
+
+      assert.strictEqual(result.testsPassed, 1);
+      assert.strictEqual(result.screenshotsCaptured, 0);
+    });
 
     it('disables Vizzly when build creation returns no build ID', async () => {
       let result = await runTestsWithBuildCreation(async () => ({}));

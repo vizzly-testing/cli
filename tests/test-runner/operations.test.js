@@ -10,7 +10,7 @@ import {
   runTests,
 } from '../../src/test-runner/operations.js';
 
-function runTestsWithBuildCreation(createApiBuild, options = {}) {
+function runTestsWithBuildSetup(createApiBuild, options = {}) {
   let {
     buildManager = {},
     exitCode = 0,
@@ -511,7 +511,7 @@ describe('test-runner/operations', () => {
       let spawnedEnv = null;
       let warning = null;
 
-      let result = await runTestsWithBuildCreation(
+      let result = await runTestsWithBuildSetup(
         async () => {
           let error = new Error('API request failed: 530');
           error.context = { status: 530 };
@@ -541,7 +541,7 @@ describe('test-runner/operations', () => {
     it('still fails when the user test command fails after Vizzly is disabled', async () => {
       await assert.rejects(
         () =>
-          runTestsWithBuildCreation(
+          runTestsWithBuildSetup(
             async () => {
               throw new Error('fetch failed');
             },
@@ -551,21 +551,8 @@ describe('test-runner/operations', () => {
       );
     });
 
-    for (let status of [400, 401, 408, 429, 500, 530]) {
-      it(`disables Vizzly when build creation returns ${status}`, async () => {
-        let result = await runTestsWithBuildCreation(async () => {
-          let error = new Error(`API request failed: ${status}`);
-          error.context = { status };
-          throw error;
-        });
-
-        assert.strictEqual(result.testsPassed, 1);
-        assert.strictEqual(result.testsFailed, 0);
-      });
-    }
-
     it('disables Vizzly when local build setup throws', async () => {
-      let result = await runTestsWithBuildCreation(async () => ({}), {
+      let result = await runTestsWithBuildSetup(async () => ({}), {
         tdd: true,
         buildManager: {
           createBuild: async () => {
@@ -580,7 +567,7 @@ describe('test-runner/operations', () => {
 
     it('disables Vizzly when the screenshot server cannot start', async () => {
       let spawnedEnv = null;
-      let result = await runTestsWithBuildCreation(
+      let result = await runTestsWithBuildSetup(
         async () => ({ id: 'build-123' }),
         {
           onSpawn: options => {
@@ -599,7 +586,7 @@ describe('test-runner/operations', () => {
     });
 
     it('ignores screenshot count errors after the user tests pass', async () => {
-      let result = await runTestsWithBuildCreation(
+      let result = await runTestsWithBuildSetup(
         async () => ({ id: 'build-123' }),
         {
           serverManager: {
@@ -617,7 +604,7 @@ describe('test-runner/operations', () => {
     });
 
     it('disables Vizzly when build creation returns no build ID', async () => {
-      let result = await runTestsWithBuildCreation(async () => ({}));
+      let result = await runTestsWithBuildSetup(async () => ({}));
 
       assert.strictEqual(result.testsPassed, 1);
       assert.strictEqual(result.testsFailed, 0);

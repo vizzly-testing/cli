@@ -120,8 +120,7 @@ export async function runCommand(
   let startTime = null;
   let isTddMode = false;
   let config = null;
-  let userTestsCompleted = false;
-  let completedResult = null;
+  let result = null;
 
   // Ensure cleanup on exit
   let cleanup = async () => {
@@ -301,7 +300,6 @@ export async function runCommand(
     startTime = Date.now();
     isTddMode = runOptions.tdd || false;
 
-    let result;
     try {
       result = await runTests({
         runOptions,
@@ -351,8 +349,6 @@ export async function runCommand(
           },
         },
       });
-      userTestsCompleted = true;
-      completedResult = result;
 
       // Store buildId for cleanup purposes
       if (result.buildId) {
@@ -548,10 +544,10 @@ export async function runCommand(
 
     // Once the user's tests have passed, no Vizzly-side error can change the
     // result. This includes polling, formatting, and API response errors.
-    if (userTestsCompleted) {
+    if (result) {
       if (globalOptions.json) {
         output.data({
-          buildId: completedResult?.buildId || null,
+          buildId: result.buildId || null,
           status: 'completed',
           message: 'Vizzly disabled after an SDK error',
           executionTimeMs: Date.now() - (startTime || Date.now()),
@@ -564,10 +560,7 @@ export async function runCommand(
       }
       output.cleanup();
       output.debug('run', 'Vizzly SDK error details', { error: error.message });
-      return {
-        success: true,
-        result: completedResult || { skipped: true },
-      };
+      return { success: true, result };
     }
 
     // Provide more context about where the error occurred

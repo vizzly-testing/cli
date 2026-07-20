@@ -286,12 +286,7 @@ export async function waitForBuild({ buildId, timeout, signal, client, deps }) {
       let code = extractStatusCodeFromError(err?.message);
       throw createError(
         `Failed to check build status: ${code}`,
-        'BUILD_STATUS_FAILED',
-        {
-          buildId,
-          causeCode: err.code,
-          status: err.context?.status,
-        }
+        'BUILD_STATUS_FAILED'
       );
     }
 

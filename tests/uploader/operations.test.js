@@ -511,21 +511,17 @@ describe('uploader/operations', () => {
       );
     });
 
-    it('preserves API error context when a status check fails', async () => {
+    it('throws on API request error', async () => {
       let mockClient = {
         request: async () => {
-          let error = new Error('status 503');
-          error.code = 'VIZZLY_ERROR';
-          error.context = { status: 503 };
-          throw error;
+          throw new Error('status 500');
         },
       };
 
       let deps = {
-        createError: (msg, code, context) => {
+        createError: (msg, code) => {
           let err = new Error(msg);
           err.code = code;
-          err.context = context;
           return err;
         },
         createTimeoutError: () => new Error(),
@@ -543,9 +539,6 @@ describe('uploader/operations', () => {
         error => {
           assert.ok(error.message.includes('Failed to check build status'));
           assert.strictEqual(error.code, 'BUILD_STATUS_FAILED');
-          assert.strictEqual(error.context.buildId, 'build-123');
-          assert.strictEqual(error.context.causeCode, 'VIZZLY_ERROR');
-          assert.strictEqual(error.context.status, 503);
           return true;
         }
       );

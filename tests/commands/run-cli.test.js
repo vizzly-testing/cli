@@ -16,7 +16,18 @@ function parseSingleJson(stdout) {
   return parsed;
 }
 
-async function withApiServer(callback) {
+async function getFreePort() {
+  let server = createServer();
+  await new Promise(resolve => {
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  let port = server.address().port;
+  await new Promise(resolve => server.close(resolve));
+  return port;
+}
+
+async function withApiServer(callback, options = {}) {
+  let { buildCreationStatus = 200 } = options;
   let buildId = 'build-123';
   let buildUrl = 'http://app.test/org/project/builds/build-123';
   let requests = [];
@@ -25,6 +36,13 @@ async function withApiServer(callback) {
     res.setHeader('content-type', 'application/json');
 
     if (req.method === 'POST' && req.url === '/api/sdk/builds') {
+      if (buildCreationStatus !== 200) {
+        res.statusCode = buildCreationStatus;
+        res.setHeader('content-type', 'text/html');
+        res.end('<html><title>Cloudflare Tunnel error</title></html>');
+        return;
+      }
+
       res.end(JSON.stringify({ id: buildId, url: buildUrl }));
       return;
     }
@@ -115,6 +133,7 @@ describe('commands/run CLI', () => {
   it('keeps --json --wait stdout parseable after a real API build completes', async () => {
     await withApiServer(async ({ apiUrl, requests }) => {
       let cwd = createWorkspace();
+      let port = await getFreePort();
       let command = [
         "console.log('child stdout noise');",
         "console.error('child stderr noise');",
@@ -127,6 +146,8 @@ describe('commands/run CLI', () => {
           'run',
           `node -e ${JSON.stringify(command)}`,
           '--wait',
+          '--port',
+          String(port),
         ],
         {
           cwd,
@@ -137,7 +158,7 @@ describe('commands/run CLI', () => {
         }
       );
 
-      assert.strictEqual(result.code, 0);
+      assert.strictEqual(result.code, 0, `${result.stderr}\n${result.stdout}`);
       assert.match(result.stderr, /child stdout noise/);
       assert.match(result.stderr, /child stderr noise/);
       assert.doesNotMatch(result.stdout, /Screenshots/);
@@ -160,6 +181,67 @@ describe('commands/run CLI', () => {
         ]
       );
     });
+  });
+
+  it('runs the user test suite with Vizzly disabled when the API is unavailable', async () => {
+    await withApiServer(
+      async ({ apiUrl }) => {
+        let cwd = createWorkspace();
+        let command = [
+          "console.error('user tests ran');",
+          "process.exit(process.env.VIZZLY_ENABLED === 'false' ? 0 : 9);",
+        ].join(' ');
+
+        let result = await runCLI(
+          ['--no-color', 'run', `node -e ${JSON.stringify(command)}`],
+          {
+            cwd,
+            env: {
+              VIZZLY_API_URL: apiUrl,
+              VIZZLY_TOKEN: 'vzt_test_token',
+            },
+          }
+        );
+
+        assert.strictEqual(result.code, 0);
+        assert.match(result.stderr, /Vizzly is unavailable/);
+        assert.match(result.stderr, /user tests ran/);
+        assert.doesNotMatch(result.stderr, /Cloudflare Tunnel error/);
+      },
+      { buildCreationStatus: 530 }
+    );
+  });
+
+  it('keeps JSON output parseable when Vizzly is unavailable', async () => {
+    await withApiServer(
+      async ({ apiUrl }) => {
+        let cwd = createWorkspace();
+        let command = [
+          "console.error('user tests ran');",
+          "process.exit(process.env.VIZZLY_ENABLED === 'false' ? 0 : 9);",
+        ].join(' ');
+
+        let result = await runCLI(
+          ['--no-color', '--json', 'run', `node -e ${JSON.stringify(command)}`],
+          {
+            cwd,
+            env: {
+              VIZZLY_API_URL: apiUrl,
+              VIZZLY_TOKEN: 'vzt_test_token',
+            },
+          }
+        );
+
+        assert.strictEqual(result.code, 0);
+        assert.match(result.stderr, /Vizzly is unavailable/);
+        assert.match(result.stderr, /user tests ran/);
+
+        let payload = parseSingleJson(result.stdout);
+        assert.strictEqual(payload.data.status, 'completed');
+        assert.strictEqual(payload.data.exitCode, 0);
+      },
+      { buildCreationStatus: 503 }
+    );
   });
 
   it('keeps --json failures parseable when the child command prints output', async () => {

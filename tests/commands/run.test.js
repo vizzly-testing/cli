@@ -471,6 +471,52 @@ describe('commands/run', () => {
       );
     });
 
+    it('does not fail when build status polling loses the API connection', async () => {
+      let output = createMockOutput();
+      let userTestsRan = false;
+
+      let result = await runCommand(
+        'pnpm test',
+        { wait: true },
+        {},
+        {
+          loadConfig: async () => createMockConfig(),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          createUploader: () => ({
+            waitForBuild: async () => {
+              let error = new Error('Failed to check build status');
+              error.code = 'BUILD_STATUS_FAILED';
+              error.context = { status: undefined };
+              throw error;
+            },
+          }),
+          runTests: async () => {
+            userTestsRan = true;
+            return {
+              buildId: 'build-123',
+              screenshotsCaptured: 0,
+            };
+          },
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          detectCommitMessage: async () => 'test',
+          detectPullRequestNumber: () => null,
+          generateBuildNameWithGit: async () => 'test-build',
+          output,
+          exit: () => {},
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.strictEqual(userTestsRan, true);
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+    });
+
     it('registers and removes process event listeners', async () => {
       let output = createMockOutput();
       let registeredEvents = [];
@@ -1100,6 +1146,7 @@ describe('commands/run', () => {
       let exitCode = null;
 
       let apiError = new Error('API request failed: 400 - Bad Request');
+      apiError.code = 'BUILD_STATUS_FAILED';
       apiError.context = { status: 400 };
 
       let result = await runCommand(

@@ -7,7 +7,61 @@ import {
   fetchBuildUrl,
   finalizeBuild,
   initializeDaemon,
+  runTests,
 } from '../../src/test-runner/operations.js';
+
+function runTestsWithBuildCreation(createApiBuild, options = {}) {
+  let {
+    exitCode = 0,
+    onSpawn = () => {},
+    output = {},
+    serverManager = {},
+  } = options;
+
+  return runTests({
+    runOptions: {
+      testCommand: 'pnpm test',
+      tdd: false,
+      allowNoToken: false,
+    },
+    config: {
+      apiKey: 'test-key',
+      apiUrl: 'https://api.vizzly.test',
+    },
+    deps: {
+      serverManager: {
+        stop: async () => {},
+        ...serverManager,
+      },
+      buildManager: {},
+      spawn: (_command, spawnOptions) => {
+        onSpawn(spawnOptions);
+        return {
+          on: (event, callback) => {
+            if (event === 'exit') {
+              process.nextTick(() => callback(exitCode, null));
+            }
+          },
+        };
+      },
+      createApiClient: () => ({}),
+      createApiBuild,
+      getBuild: async () => ({}),
+      finalizeApiBuild: async () => {},
+      createError: (message, code) => {
+        let error = new Error(message);
+        error.code = code;
+        return error;
+      },
+      output: {
+        debug: () => {},
+        error: () => {},
+        warn: () => {},
+        ...output,
+      },
+    },
+  });
+}
 
 describe('test-runner/operations', () => {
   describe('createBuild', () => {
@@ -446,6 +500,98 @@ describe('test-runner/operations', () => {
           return true;
         }
       );
+    });
+  });
+
+  describe('runTests', () => {
+    it('runs the user test command with Vizzly disabled when build creation fails', async () => {
+      let spawnedEnv = null;
+      let warning = null;
+
+      let result = await runTestsWithBuildCreation(
+        async () => {
+          let error = new Error('API request failed: 530');
+          error.context = { status: 530 };
+          throw error;
+        },
+        {
+          onSpawn: options => {
+            spawnedEnv = options.env;
+          },
+          output: {
+            warn: message => {
+              warning = message;
+            },
+          },
+        }
+      );
+
+      assert.strictEqual(spawnedEnv.VIZZLY_ENABLED, 'false');
+      assert.match(warning, /running tests without visual testing/i);
+      assert.deepStrictEqual(result, {
+        testsPassed: 1,
+        testsFailed: 0,
+        screenshotsCaptured: 0,
+      });
+    });
+
+    it('still fails when the user test command fails after Vizzly is disabled', async () => {
+      await assert.rejects(
+        () =>
+          runTestsWithBuildCreation(
+            async () => {
+              throw new Error('fetch failed');
+            },
+            { exitCode: 1 }
+          ),
+        { code: 'TEST_COMMAND_FAILED' }
+      );
+    });
+
+    it('does not hide user-actionable API errors', async () => {
+      let apiError = new Error('Invalid API token');
+      apiError.code = 'AUTH_ERROR';
+
+      await assert.rejects(
+        () =>
+          runTestsWithBuildCreation(async () => {
+            throw apiError;
+          }),
+        apiError
+      );
+    });
+
+    it('does not hide generic client errors', async () => {
+      let apiError = new Error('Bad request');
+      apiError.context = { status: 400 };
+
+      await assert.rejects(
+        () =>
+          runTestsWithBuildCreation(async () => {
+            throw apiError;
+          }),
+        apiError
+      );
+    });
+
+    for (let status of [408, 429, 500]) {
+      it(`disables Vizzly when build creation returns ${status}`, async () => {
+        let result = await runTestsWithBuildCreation(async () => {
+          let error = new Error(`API request failed: ${status}`);
+          error.context = { status };
+          throw error;
+        });
+
+        assert.strictEqual(result.testsPassed, 1);
+        assert.strictEqual(result.testsFailed, 0);
+      });
+    }
+
+    it('disables Vizzly when build creation returns no build ID', async () => {
+      let result = await runTestsWithBuildCreation(async () => ({}));
+
+      assert.strictEqual(result.testsPassed, 1);
+      assert.strictEqual(result.testsFailed, 0);
     });
   });
 

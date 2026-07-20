@@ -69,6 +69,15 @@ function buildContextCommand(buildId) {
   return `vizzly context build ${buildId} --agent`;
 }
 
+function isVizzlyAvailabilityError(error) {
+  let status = error.context?.status;
+  let isAvailabilityStatus = status === 408 || status === 429 || status >= 500;
+  let isTransportFailure =
+    error.code === 'BUILD_STATUS_FAILED' && status == null;
+
+  return isAvailabilityStatus || isTransportFailure;
+}
+
 /**
  * Run command implementation
  * @param {string} testCommand - Test command to execute
@@ -541,9 +550,8 @@ export async function runCommand(
   } catch (error) {
     output.stopSpinner();
 
-    // Don't fail CI for Vizzly infrastructure issues (5xx errors)
-    let status = error.context?.status;
-    if (status >= 500) {
+    // Don't fail CI for Vizzly availability issues
+    if (isVizzlyAvailabilityError(error)) {
       if (globalOptions.json) {
         output.data({
           buildId: null,

@@ -63,6 +63,10 @@ export async function createBuild({ runOptions, tdd, config, deps }) {
   let payload = buildApiBuildPayload(runOptions, config.comparison);
   let buildResult = await createApiBuild(client, payload);
 
+  if (!buildResult?.id) {
+    throw new Error('Vizzly API did not return a build ID');
+  }
+
   output.debug('build', `created ${buildResult.id}`);
 
   return buildResult.id;
@@ -228,6 +232,31 @@ export function executeTestCommand({ command, env, json = false, deps }) {
   });
 }
 
+async function executeDisabledTestRun({ testCommand, json, deps }) {
+  let { spawn, createError } = deps;
+
+  await executeTestCommand({
+    command: testCommand,
+    env: buildDisabledEnv(),
+    json,
+    deps: { spawn, createError },
+  });
+
+  return buildDisabledRunResult();
+}
+
+function shouldDisableVizzlyAfterBuildError({ error, tdd }) {
+  let status = error.context?.status;
+  let isAvailabilityError = status === 408 || status === 429 || status >= 500;
+  let isClientError = status >= 400 && status < 500;
+
+  return (
+    !tdd &&
+    error.code !== 'AUTH_ERROR' &&
+    (isAvailabilityError || !isClientError)
+  );
+}
+
 // ============================================================================
 // High-Level Run Operations
 // ============================================================================
@@ -269,14 +298,11 @@ export async function runTests({ runOptions, config, deps }) {
   if (
     shouldDisableVizzly({ allowNoToken, hasApiKey: hasApiKey(config), tdd })
   ) {
-    let env = buildDisabledEnv();
-    await executeTestCommand({
-      command: testCommand,
-      env,
+    return executeDisabledTestRun({
+      testCommand,
       json: runOptions.json,
       deps: { spawn, createError },
     });
-    return buildDisabledRunResult();
   }
 
   let buildId = null;
@@ -287,12 +313,33 @@ export async function runTests({ runOptions, config, deps }) {
 
   try {
     // Create build
-    buildId = await createBuild({
-      runOptions,
-      tdd,
-      config,
-      deps: { buildManager, createApiClient, createApiBuild, output },
-    });
+    try {
+      buildId = await createBuild({
+        runOptions,
+        tdd,
+        config,
+        deps: { buildManager, createApiClient, createApiBuild, output },
+      });
+    } catch (error) {
+      if (!shouldDisableVizzlyAfterBuildError({ error, tdd })) {
+        throw error;
+      }
+
+      output.warn(
+        'Vizzly is unavailable. Running tests without visual testing.'
+      );
+      output.debug('build', 'creation failed; disabling Vizzly', {
+        error: error.message,
+      });
+
+      let result = await executeDisabledTestRun({
+        testCommand,
+        json: runOptions.json,
+        deps: { spawn, createError },
+      });
+
+      return result;
+    }
 
     // Get build URL for API mode
     if (!tdd && buildId) {

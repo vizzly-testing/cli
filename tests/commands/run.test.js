@@ -471,6 +471,59 @@ describe('commands/run', () => {
       );
     });
 
+    it('does not fail when build status polling returns any API error', async () => {
+      let output = createMockOutput();
+      let userTestsRan = false;
+
+      let result = await runCommand(
+        'pnpm test',
+        { wait: true },
+        {},
+        {
+          loadConfig: async () => createMockConfig(),
+          createServerManager: () => ({
+            start: async () => {},
+            stop: async () => {},
+          }),
+          createUploader: () => ({
+            waitForBuild: async () => {
+              let error = new Error('Failed to check build status');
+              error.code = 'BUILD_STATUS_FAILED';
+              error.context = { status: 400 };
+              throw error;
+            },
+          }),
+          runTests: async () => {
+            userTestsRan = true;
+            return {
+              buildId: 'build-123',
+              screenshotsCaptured: 0,
+            };
+          },
+          detectBranch: async () => 'main',
+          detectCommit: async () => 'abc123',
+          detectCommitMessage: async () => 'test',
+          detectPullRequestNumber: () => null,
+          generateBuildNameWithGit: async () => 'test-build',
+          output,
+          exit: () => {},
+          processOn: () => {},
+          processRemoveListener: () => {},
+        }
+      );
+
+      assert.strictEqual(userTestsRan, true);
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.buildId, 'build-123');
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'warn' &&
+            call.args[0].includes('after your tests passed')
+        )
+      );
+    });
+
     it('registers and removes process event listeners', async () => {
       let output = createMockOutput();
       let registeredEvents = [];
@@ -981,146 +1034,6 @@ describe('commands/run', () => {
           c => c.method === 'error' && c.args[0].includes('Server startup')
         )
       );
-    });
-
-    it('does not fail CI when API returns 5xx error', async () => {
-      let output = createMockOutput();
-      let exitCode = null;
-
-      // Simulate a 5xx API error (e.g., Cloudflare 530)
-      let apiError = new Error('API request failed: 530');
-      apiError.context = { status: 530 };
-
-      let result = await runCommand(
-        'pnpm test',
-        {},
-        {},
-        {
-          loadConfig: async () => {
-            throw apiError;
-          },
-          output,
-          exit: code => {
-            exitCode = code;
-          },
-          processOn: () => {},
-          processRemoveListener: () => {},
-        }
-      );
-
-      // Should succeed (not fail CI)
-      assert.strictEqual(result.success, true);
-      assert.strictEqual(result.result.skipped, true);
-      assert.strictEqual(exitCode, null); // exit(1) should NOT be called
-
-      // Should show warning
-      assert.ok(
-        output.calls.some(
-          c => c.method === 'warn' && c.args[0].includes('API unavailable')
-        )
-      );
-    });
-
-    it('emits a JSON skip payload when API returns 5xx error', async () => {
-      let output = createMockOutput();
-      let exitCode = null;
-
-      let apiError = new Error('API request failed: 503');
-      apiError.context = { status: 503 };
-
-      let result = await runCommand(
-        'pnpm test',
-        {},
-        { json: true },
-        {
-          loadConfig: async () => {
-            throw apiError;
-          },
-          output,
-          exit: code => {
-            exitCode = code;
-          },
-          processOn: () => {},
-          processRemoveListener: () => {},
-        }
-      );
-
-      let dataCall = output.calls.find(c => c.method === 'data');
-
-      assert.deepStrictEqual(
-        {
-          buildId: dataCall.args[0].buildId,
-          status: dataCall.args[0].status,
-          message: dataCall.args[0].message,
-        },
-        {
-          buildId: null,
-          status: 'skipped',
-          message: 'Vizzly API unavailable - visual tests skipped',
-        }
-      );
-      assert.strictEqual(typeof dataCall.args[0].executionTimeMs, 'number');
-      assert.strictEqual(result.success, true);
-      assert.strictEqual(result.result.skipped, true);
-      assert.strictEqual(exitCode, null);
-    });
-
-    it('does not fail CI when API returns 500 error', async () => {
-      let output = createMockOutput();
-      let exitCode = null;
-
-      let apiError = new Error(
-        'API request failed: 500 - Internal Server Error'
-      );
-      apiError.context = { status: 500 };
-
-      let result = await runCommand(
-        'pnpm test',
-        {},
-        {},
-        {
-          loadConfig: async () => {
-            throw apiError;
-          },
-          output,
-          exit: code => {
-            exitCode = code;
-          },
-          processOn: () => {},
-          processRemoveListener: () => {},
-        }
-      );
-
-      assert.strictEqual(result.success, true);
-      assert.strictEqual(exitCode, null);
-    });
-
-    it('still fails CI for 4xx client errors', async () => {
-      let output = createMockOutput();
-      let exitCode = null;
-
-      let apiError = new Error('API request failed: 400 - Bad Request');
-      apiError.context = { status: 400 };
-
-      let result = await runCommand(
-        'pnpm test',
-        {},
-        {},
-        {
-          loadConfig: async () => {
-            throw apiError;
-          },
-          output,
-          exit: code => {
-            exitCode = code;
-          },
-          processOn: () => {},
-          processRemoveListener: () => {},
-        }
-      );
-
-      assert.strictEqual(result.success, false);
-      assert.strictEqual(exitCode, 1);
     });
 
     it('SIGINT handler triggers cleanup and exit', async () => {

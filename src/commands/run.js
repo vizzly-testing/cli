@@ -120,6 +120,7 @@ export async function runCommand(
   let startTime = null;
   let isTddMode = false;
   let config = null;
+  let result = null;
 
   // Ensure cleanup on exit
   let cleanup = async () => {
@@ -299,7 +300,6 @@ export async function runCommand(
     startTime = Date.now();
     isTddMode = runOptions.tdd || false;
 
-    let result;
     try {
       result = await runTests({
         runOptions,
@@ -453,7 +453,8 @@ export async function runCommand(
         }
         return { success: false, exitCode };
       } else {
-        // Setup or other error - VizzlyError.getUserMessage() provides context
+        // This should only be reached for failures outside the SDK paths that
+        // runTests handles by disabling Vizzly and running the child command.
         if (globalOptions.json) {
           let executionTimeMs = Date.now() - (startTime || Date.now());
           output.data({
@@ -541,24 +542,25 @@ export async function runCommand(
   } catch (error) {
     output.stopSpinner();
 
-    // Don't fail CI for Vizzly infrastructure issues (5xx errors)
-    let status = error.context?.status;
-    if (status >= 500) {
+    // Once the user's tests have passed, no Vizzly-side error can change the
+    // result. This includes polling, formatting, and API response errors.
+    if (result) {
       if (globalOptions.json) {
         output.data({
-          buildId: null,
-          status: 'skipped',
-          message: 'Vizzly API unavailable - visual tests skipped',
+          buildId: result.buildId || null,
+          status: 'completed',
+          message: 'Vizzly disabled after an SDK error',
           executionTimeMs: Date.now() - (startTime || Date.now()),
+          exitCode: 0,
         });
       } else {
         output.warn(
-          'Vizzly API unavailable - visual tests skipped. Your tests still ran.'
+          'Vizzly encountered an error after your tests passed. Ignoring it.'
         );
       }
       output.cleanup();
-      output.debug('api', 'API error details:', { error: error.message });
-      return { success: true, result: { skipped: true } };
+      output.debug('run', 'Vizzly SDK error details', { error: error.message });
+      return { success: true, result };
     }
 
     // Provide more context about where the error occurred

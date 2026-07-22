@@ -563,6 +563,113 @@ describe('commands/context', () => {
       assert.ok(printLines.some(line => line.includes('needs review')));
     });
 
+    it('renders grouped review facts and failed captures without replacing server aggregates', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            resource: 'build_context',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'checkout' },
+            },
+            build: {
+              id: 'build-1',
+              name: 'Grouped Review Build',
+              status: 'completed',
+            },
+            groups: [
+              {
+                name: 'Checkout',
+                variant_count: 8,
+                aggregate_status: {
+                  has_changes: false,
+                  has_new: false,
+                  all_approved: true,
+                  needs_review: false,
+                  needs_review_count: 0,
+                  failed_count: 0,
+                  max_diff_percentage: 0,
+                },
+                variants: [
+                  {
+                    id: 'partial-variant',
+                    result: 'changed',
+                    visual_review: { state: 'pending' },
+                    browser: 'chromium',
+                    viewport: { width: 375, height: 667 },
+                  },
+                ],
+              },
+              {
+                name: 'Payment',
+                variant_count: 6,
+                aggregate_status: {
+                  needs_review: true,
+                  needs_review_count: 3,
+                  failed_count: 2,
+                },
+                variants: [],
+              },
+            ],
+            screenshots: [
+              {
+                id: 'failed-capture',
+                name: 'Settings',
+                status: 'failed',
+                error_message: 'Browser render failed',
+                browser: 'webkit',
+                viewport: { width: 1280, height: 720 },
+                url: 'https://cdn.test/failed-current.png',
+              },
+            ],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let lines = output.calls
+        .filter(call => call.method === 'print')
+        .map(call => call.args[0]);
+      let checkoutIndex = lines.findIndex(line =>
+        line.includes('Checkout APPROVED')
+      );
+      let paymentIndex = lines.findIndex(line =>
+        line.includes('Payment FAILED')
+      );
+
+      assert.ok(lines.some(line => line.includes('Screenshot groups')));
+      assert.ok(checkoutIndex >= 0);
+      assert.ok(paymentIndex > checkoutIndex);
+      assert.ok(
+        lines.some(line => line.includes('8 variants · 0 needs review'))
+      );
+      assert.ok(
+        lines.some(line =>
+          line.includes('6 variants · 3 needs review · 2 failed')
+        )
+      );
+      assert.ok(lines.some(line => line.includes('Failed captures')));
+      assert.ok(lines.some(line => line.includes('Settings FAILED')));
+      assert.ok(
+        lines.some(
+          line =>
+            line.includes('Browser render failed') &&
+            line.includes('https://cdn.test/failed-current.png')
+        )
+      );
+    });
+
     it('prints compact agent context for local and cloud build handoff', async () => {
       let output = createMockOutput();
 

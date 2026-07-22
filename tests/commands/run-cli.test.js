@@ -170,6 +170,10 @@ describe('commands/run CLI', () => {
       assert.strictEqual(payload.data.status, 'completed');
       assert.strictEqual(payload.data.buildId, 'build-123');
       assert.strictEqual(payload.data.comparisons.total, 0);
+      assert.strictEqual(
+        payload.data.contextCommand,
+        'vizzly context build build-123 --agent --json'
+      );
       assert.deepStrictEqual(
         requests.map(request => `${request.method} ${request.url}`),
         [

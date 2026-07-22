@@ -232,15 +232,15 @@ describe('commands/tdd', () => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.exitCode, 0);
-      assert.ok(
-        output.calls.some(
-          c =>
-            c.method === 'print' &&
-            c.args[0].includes(
-              'vizzly context build current --source local --agent'
-            )
-        )
+      let contextCall = output.calls.find(
+        call =>
+          call.method === 'print' &&
+          call.args[0].includes(
+            'vizzly context build current --source local --agent'
+          )
       );
+      assert.ok(contextCall);
+      assert.doesNotMatch(contextCall.args[0], /--json/);
     });
 
     it('handles test run with failed comparisons', async () => {

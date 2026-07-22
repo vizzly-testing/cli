@@ -71,7 +71,7 @@ vizzly run "pnpm test" --json
   "data": {
     "buildId": "abc123-def456",
     "status": "completed",
-    "contextCommand": "vizzly context build abc123-def456 --agent",
+    "contextCommand": "vizzly context build abc123-def456 --agent --json",
     "screenshotsCaptured": 15,
     "executionTimeMs": 4821,
     "git": {
@@ -106,7 +106,7 @@ With `--wait`, includes comparison results:
       "identical": 12
     },
     "approvalStatus": "pending",
-    "contextCommand": "vizzly context build abc123-def456 --agent",
+    "contextCommand": "vizzly context build abc123-def456 --agent --json",
     "exitCode": 1
   }
 }
@@ -147,7 +147,7 @@ vizzly tdd run "pnpm test" --json
       "new": 0
     },
     "reportPath": ".vizzly/report/index.html",
-    "contextCommand": "vizzly context build current --source local --agent"
+    "contextCommand": "vizzly context build current --source local --agent --json"
   }
 }
 ```

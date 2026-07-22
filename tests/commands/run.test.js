@@ -302,13 +302,13 @@ describe('commands/run', () => {
       assert.ok(output.calls.some(c => c.method === 'complete'));
       // Now uses print for screenshot summary
       assert.ok(output.calls.some(c => c.method === 'print'));
-      assert.ok(
-        output.calls.some(
-          c =>
-            c.method === 'print' &&
-            c.args[0].includes('vizzly context build build-123 --agent')
-        )
+      let contextCall = output.calls.find(
+        call =>
+          call.method === 'print' &&
+          call.args[0].includes('vizzly context build build-123 --agent')
       );
+      assert.ok(contextCall);
+      assert.doesNotMatch(contextCall.args[0], /--json/);
     });
 
     it('handles test command failure with exit code', async () => {

@@ -74,9 +74,9 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@babel/cli": "^7.28.0",
-    "@babel/core": "^7.23.6",
-    "@babel/preset-env": "^7.23.6",
+    "@babel/cli": "^8.0.1",
+    "@babel/core": "^8.0.1",
+    "@babel/preset-env": "^8.0.2",
     "@biomejs/biome": "^2.3.8",
     "rimraf": "^6.0.1"
   }

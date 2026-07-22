@@ -143,6 +143,39 @@ function createWorkspaceFixture() {
 
 async function withBuildContextApi(callback) {
   let requests = [];
+  let comparisons = Array.from({ length: 11 }, (_, index) => ({
+    id: `comparison-${index + 1}`,
+    screenshot_name: `Screenshot ${index + 1}`,
+    result: 'changed',
+    needs_review: true,
+    visual_review: { state: 'pending' },
+    is_flaky: false,
+    screenshot: {
+      id: `current-${index + 1}`,
+      name: `Screenshot ${index + 1}`,
+      browser: 'chrome',
+      viewport: { width: 1440, height: 900 },
+      bitmap: { width: 2880, height: 1800 },
+      metadata: { locale: 'en-US' },
+      signature: `Screenshot ${index + 1}|1440|chrome`,
+      url: `https://cdn.test/current-${index + 1}.png`,
+      baseline: {
+        id: `baseline-${index + 1}`,
+        build_id: 'baseline-build',
+        name: `Screenshot ${index + 1}`,
+        url: `https://cdn.test/baseline-${index + 1}.png`,
+      },
+    },
+    diff: {
+      percentage: index + 0.5,
+      changed_pixels: index + 10,
+      total_pixels: 5184000,
+      image_url: `https://cdn.test/diff-${index + 1}.png`,
+      fingerprint_hash: `fingerprint-${index + 1}`,
+      projection: { clusters: { count: 1 } },
+      regions: [{ x: 10, y: 20, width: 30, height: 40 }],
+    },
+  }));
   let groups = Array.from({ length: 11 }, (_, index) => ({
     name: `Screenshot ${index + 1}`,
     variant_count: 1,
@@ -155,39 +188,66 @@ async function withBuildContextApi(callback) {
       {
         id: `comparison-${index + 1}`,
         result: 'changed',
+        status: 'completed',
         needs_review: true,
         visual_review: { state: 'pending' },
-        current_screenshot: {
-          id: `current-${index + 1}`,
-          name: `Screenshot ${index + 1}`,
-          browser: 'chrome',
-          viewport: { width: 1440, height: 900 },
-          bitmap: { width: 2880, height: 1800 },
-          metadata: { locale: 'en-US' },
-          signature: `Screenshot ${index + 1}|1440|chrome`,
-          url: `https://cdn.test/current-${index + 1}.png`,
-        },
-        baseline_screenshot: {
-          id: `baseline-${index + 1}`,
-          build_id: 'baseline-build',
-          url: `https://cdn.test/baseline-${index + 1}.png`,
-        },
-        analysis: {
-          diff_image_url: `https://cdn.test/diff-${index + 1}.png`,
-          fingerprint_hash: `fingerprint-${index + 1}`,
-          projection: { clusters: { count: 1 } },
-          diff_regions: [{ x: 10, y: 20, width: 30, height: 40 }],
-        },
+        diff_percentage: index + 0.5,
       },
     ],
   }));
   let server = createServer((req, res) => {
     requests.push(req.url);
     res.setHeader('content-type', 'application/json');
+
+    if (req.url.startsWith('/api/sdk/context/comparisons/')) {
+      res.end(
+        JSON.stringify({
+          resource: 'comparison_context',
+          review_flow: 'legacy',
+          comparison: comparisons[0],
+        })
+      );
+      return;
+    }
+
+    if (req.url.startsWith('/api/sdk/context/screenshots/')) {
+      res.end(
+        JSON.stringify({
+          resource: 'screenshot_context',
+          review_flow: 'legacy',
+          screenshot: { name: 'Screenshot 1' },
+        })
+      );
+      return;
+    }
+
+    if (req.url.startsWith('/api/sdk/context/fingerprints/')) {
+      res.end(
+        JSON.stringify({
+          resource: 'fingerprint_context',
+          review_flow: 'legacy',
+          fingerprint: { hash: 'fingerprint-1' },
+          matches: [],
+        })
+      );
+      return;
+    }
+
+    if (req.url.startsWith('/api/sdk/context/review-queue')) {
+      res.end(
+        JSON.stringify({
+          resource: 'review_queue_context',
+          review_flow: 'legacy',
+          comparisons: [],
+        })
+      );
+      return;
+    }
+
     res.end(
       JSON.stringify({
         resource: 'build_context',
-        source: 'cloud',
+        review_flow: 'legacy',
         scope: {
           organization: { slug: 'acme' },
           project: { slug: 'web', name: 'Web' },
@@ -196,6 +256,7 @@ async function withBuildContextApi(callback) {
         status: { needs_review: true, pending_comparisons: 11 },
         summary: { comparisons: { total: 11, changed: 11 } },
         groups,
+        comparisons,
       })
     );
   });
@@ -230,7 +291,15 @@ describe('context CLI integration', () => {
       let compactPayload = JSON.parse(compact.stdout).data;
       assert.strictEqual(compactPayload.evidence_returned, 10);
       assert.strictEqual(compactPayload.evidence_truncated, true);
+      assert.strictEqual(compactPayload.source, 'cloud');
+      assert.strictEqual(compactPayload.review_flow, 'legacy');
       assert.strictEqual(compactPayload.evidence[0].review_state, 'pending');
+      assert.strictEqual(compactPayload.evidence[0].id, 'comparison-1');
+      assert.strictEqual(compactPayload.evidence[0].name, 'Screenshot 1');
+      assert.strictEqual(compactPayload.evidence[0].is_flaky, false);
+      assert.strictEqual(compactPayload.evidence[0].screenshot.id, 'current-1');
+      assert.strictEqual(compactPayload.evidence[0].baseline.id, 'baseline-1');
+      assert.strictEqual(compactPayload.evidence[0].diff.total_pixels, 5184000);
       assert.strictEqual(
         compactPayload.evidence[0].screenshot.url,
         'https://cdn.test/current-1.png'
@@ -265,6 +334,34 @@ describe('context CLI integration', () => {
         '/api/sdk/context/builds/build-123?details=summary',
         '/api/sdk/context/builds/build-123?details=diffs',
       ]);
+    });
+  });
+
+  it('labels every cloud context resource with its selected source', async () => {
+    await withBuildContextApi(async ({ apiUrl }) => {
+      let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-provenance-'));
+      let env = {
+        VIZZLY_API_URL: apiUrl,
+        VIZZLY_TOKEN: 'vzt_test_token',
+      };
+      let commands = [
+        ['comparison', 'comparison-1'],
+        ['screenshot', 'Screenshot 1'],
+        ['similar', 'fingerprint-1'],
+        ['review-queue'],
+      ];
+
+      for (let command of commands) {
+        let result = await runCLI(
+          ['--json', 'context', ...command, '--source', 'cloud'],
+          { cwd, env }
+        );
+
+        assert.strictEqual(result.code, 0, result.stderr);
+        let payload = JSON.parse(result.stdout).data;
+        assert.strictEqual(payload.source, 'cloud');
+        assert.strictEqual(payload.review_flow, 'legacy');
+      }
     });
   });
 

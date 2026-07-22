@@ -517,6 +517,40 @@ function groupFlatComparisons(comparisons = [], options = {}) {
 }
 
 /**
+ * Join compact group variants to the exact comparison records in the same API
+ * response.
+ *
+ * The build context API deliberately keeps group variants small while also
+ * returning complete comparison evidence at the top level. Joining by the
+ * server-owned comparison ID keeps the useful group ordering and aggregates
+ * without dropping screenshot identity, baseline facts, or Honeydiff data.
+ *
+ * @param {Object[]} groups - Raw comparison groups from build context.
+ * @param {Object[]} comparisons - Exact top-level comparison records.
+ * @returns {Object[]} Groups whose variants include exact comparison evidence.
+ */
+function joinGroupComparisons(groups = [], comparisons = []) {
+  let comparisonsById = new Map(
+    comparisons
+      .filter(comparison => comparison?.id)
+      .map(comparison => [comparison.id, comparison])
+  );
+
+  return groups.map(group => {
+    let variantKey = Array.isArray(group.variants) ? 'variants' : 'comparisons';
+    let variants = Array.isArray(group[variantKey]) ? group[variantKey] : [];
+
+    return {
+      ...group,
+      [variantKey]: variants.map(variant => ({
+        ...variant,
+        ...(comparisonsById.get(variant.id) || {}),
+      })),
+    };
+  });
+}
+
+/**
  * Keep failed capture identity, render evidence, and the API error together.
  *
  * A capture can fail before any comparison exists, so it must remain useful
@@ -589,9 +623,10 @@ export function normalizeBuildContext(context = {}, options = {}) {
   let comparisons = rawComparisons.map(comparison =>
     normalizeComparisonRecord(comparison, options)
   );
+  let joinedGroups = joinGroupComparisons(context.groups || [], rawComparisons);
   let groups =
-    Array.isArray(context.groups) && context.groups.length > 0
-      ? context.groups.map(group => normalizeComparisonGroup(group, options))
+    joinedGroups.length > 0
+      ? joinedGroups.map(group => normalizeComparisonGroup(group, options))
       : groupFlatComparisons(rawComparisons, options);
 
   return {

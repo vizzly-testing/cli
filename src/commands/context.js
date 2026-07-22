@@ -108,6 +108,21 @@ function createClient(config, createApiClient) {
   });
 }
 
+/**
+ * Attach the provider that produced a context payload.
+ *
+ * Context endpoints return API-owned evidence, while source selection belongs
+ * to the CLI. Keeping both in one payload prevents follow-up agent commands
+ * from silently crossing between cloud and local evidence.
+ *
+ * @param {Object} context - Context payload returned by a provider.
+ * @param {string} source - Provider source selected by the CLI.
+ * @returns {Object} Context payload with explicit source provenance.
+ */
+function attachContextSource(context, source) {
+  return { ...context, source: context?.source || source };
+}
+
 async function loadContextConfig(globalOptions, options, deps) {
   let {
     loadConfig = defaultLoadConfig,
@@ -143,19 +158,34 @@ function createCloudContextProvider(config, deps = {}) {
   return {
     source: 'cloud',
     async getBuildContext(buildId, query) {
-      return await getBuildContext(client, buildId, query);
+      return attachContextSource(
+        await getBuildContext(client, buildId, query),
+        'cloud'
+      );
     },
     async getComparisonContext(comparisonId, query) {
-      return await getComparisonContext(client, comparisonId, query);
+      return attachContextSource(
+        await getComparisonContext(client, comparisonId, query),
+        'cloud'
+      );
     },
     async getScreenshotContext(screenshotName, query) {
-      return await getScreenshotContext(client, screenshotName, query);
+      return attachContextSource(
+        await getScreenshotContext(client, screenshotName, query),
+        'cloud'
+      );
     },
     async getSimilarFingerprintContext(fingerprintHash, query) {
-      return await getSimilarFingerprintContext(client, fingerprintHash, query);
+      return attachContextSource(
+        await getSimilarFingerprintContext(client, fingerprintHash, query),
+        'cloud'
+      );
     },
     async getReviewQueueContext(query) {
-      return await getReviewQueueContext(client, query);
+      return attachContextSource(
+        await getReviewQueueContext(client, query),
+        'cloud'
+      );
     },
   };
 }
@@ -609,7 +639,8 @@ function buildAgentBuildPayload(
   let evidenceTruncated = candidates.length > evidence.length;
   let payload = {
     resource: 'build_agent_context',
-    source: normalized.source || source || 'cloud',
+    source: normalized.source || source,
+    review_flow: normalized.review_flow,
     scope: normalized.scope || null,
     project: {
       organization: normalized.scope?.organization?.slug || null,

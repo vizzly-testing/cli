@@ -166,7 +166,11 @@ describe('commands/context', () => {
       assert.ok(dataCall);
       assert.strictEqual(dataCall.args[0].resource, 'build_context');
       assert.strictEqual(dataCall.args[0].build.id, 'build-1');
-      assert.strictEqual(dataCall.args[0], context);
+      assert.strictEqual(dataCall.args[0].source, 'cloud');
+      assert.deepStrictEqual(dataCall.args[0], {
+        ...context,
+        source: 'cloud',
+      });
       assert.strictEqual(capturedQuery, undefined);
     });
 

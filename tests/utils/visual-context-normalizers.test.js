@@ -145,6 +145,73 @@ describe('visual context normalizers', () => {
     );
   });
 
+  it('joins grouped variants to exact API comparison evidence by ID', () => {
+    let context = normalizeBuildContext({
+      groups: [
+        {
+          name: 'Public build detail',
+          total_variants: 1,
+          comparisons: [
+            {
+              id: 'comparison-1',
+              result: 'changed',
+              status: 'completed',
+              approval_status: 'pending',
+              diff_percentage: 0.52,
+            },
+          ],
+        },
+      ],
+      comparisons: [
+        {
+          id: 'comparison-1',
+          screenshot_name: 'public-build-detail-approved',
+          result: 'changed',
+          approval_status: 'pending',
+          needs_review: true,
+          is_flaky: false,
+          screenshot: {
+            id: 'screenshot-1',
+            name: 'public-build-detail-approved',
+            browser: 'chrome',
+            signature: 'public-build-detail-approved|1440|chrome',
+            url: 'https://cdn.test/current.png',
+            baseline: {
+              id: 'baseline-1',
+              build_id: 'baseline-build',
+              name: 'public-build-detail-approved',
+              url: 'https://cdn.test/baseline.png',
+            },
+          },
+          diff: {
+            percentage: 0.52,
+            changed_pixels: 120,
+            total_pixels: 2221440,
+            fingerprint_hash: 'fingerprint-1',
+          },
+        },
+      ],
+    });
+
+    let comparison = context.groups[0].variants[0];
+    assert.strictEqual(comparison.id, 'comparison-1');
+    assert.strictEqual(comparison.name, 'public-build-detail-approved');
+    assert.strictEqual(comparison.status, 'completed');
+    assert.strictEqual(comparison.is_flaky, false);
+    assert.strictEqual(comparison.screenshot.id, 'screenshot-1');
+    assert.strictEqual(
+      comparison.screenshot.signature,
+      'public-build-detail-approved|1440|chrome'
+    );
+    assert.strictEqual(comparison.baseline.id, 'baseline-1');
+    assert.strictEqual(
+      comparison.baseline.name,
+      'public-build-detail-approved'
+    );
+    assert.strictEqual(comparison.diff.total_pixels, 2221440);
+    assert.strictEqual(comparison.diff.fingerprint_hash, 'fingerprint-1');
+  });
+
   it('preserves aggregate-only review facts and failed capture evidence', () => {
     let context = normalizeBuildContext({
       groups: [

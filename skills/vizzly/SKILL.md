@@ -1,107 +1,74 @@
 ---
 name: vizzly
-description: "Use when a repo has Vizzly configured and you need screenshot memory or visual history: before/after UI changes, visual regression review, screenshot history, approved baselines, diffs, dynamic regions, docs/manual images, public screenshots, or Vizzly builds. Teaches agents to use Vizzly CLI/context for local TDD, cloud builds, review state, comments, hotspots, previews, and SDK capture patterns."
+description: "Inspect, explain, and debug Vizzly visual regression evidence; use an existing Vizzly workflow before and after UI changes; add or adjust screenshot capture; troubleshoot local TDD or cloud builds; or configure Vizzly CI. Use when a task mentions Vizzly, screenshot baselines, comparisons, Honeydiff, visual review, dynamic regions, or a repository's Vizzly setup."
 ---
 
 # Vizzly
 
-Vizzly is the project's screenshot memory database. It stores approved baselines, current screenshots, diffs, review state, comments, hotspots, previews, and public screenshot URLs.
+Use Vizzly as visual evidence for user-facing changes. Keep the repository's
+existing test workflow in charge of how the UI is exercised.
 
-Use Vizzly when you need to understand what the UI looked like before, what changed, what humans already reviewed, or which screenshots already exist. Browser automation is still useful for interacting with a live app; Vizzly is usually the faster first stop for visual history.
+## Start From The Repository
 
-## First Instinct
+1. Confirm that the repository uses Vizzly by checking its configuration,
+   dependencies, scripts, or existing `.vizzly` data.
+2. Use the repository's established CLI invocation. The examples in this skill
+   use `vizzly`; substitute its package script, `pnpm exec vizzly`, or
+   `npx vizzly` when that is how the repository runs local binaries.
+3. Do not install, initialize, log in, or change credentials unless the task
+   explicitly includes setup. Never print or persist a token.
 
-Before changing UI, check whether Vizzly already has local screenshot context:
+## Follow The Evidence Loop
 
-```bash
-vizzly context build current --source local --agent
-```
+1. Choose the most relevant source:
+   - Use a supplied cloud build or comparison ID when the task names one.
+   - Use existing local context when `.vizzly` contains the run under review.
+   - Generate fresh evidence through the repository's existing visual test
+     workflow when stored evidence may be stale or absent.
+2. Request the bounded, machine-readable build context:
 
-If a task names a screen, component, or screenshot, inspect that screenshot's history before changing thresholds or re-capturing blindly:
+   ```bash
+   vizzly context build current --source local --agent --json
+   vizzly context build <build-id> --agent --json
+   ```
 
-```bash
-vizzly context screenshot "<screenshot-name>" --source local --json
-```
+3. Check the build identity, source, branch, timestamps, baseline selection,
+   review state, and truncation fields before interpreting the evidence. Treat
+   omitted fields as unknown.
+4. Inspect the current, baseline, and diff images together using whatever
+   image, browser, URL, or local-file capability is available. If an image is
+   inaccessible, say so and do not infer its visual contents from metadata.
+5. Read viewport, browser, screenshot metadata, review state, and Honeydiff
+   facts alongside the images. Follow the returned `suggested_commands` for
+   exact comparison or screenshot drill-downs. Request raw diff regions only
+   when the compact summary is insufficient.
+6. Separate observations from explanations. State what the evidence shows,
+   then label any proposed cause with appropriate confidence.
+7. Make the smallest justified UI or test change, rerun the owning user
+   workflow, and inspect the resulting evidence again.
 
-When you make or verify UI changes, use the local TDD server as the active feedback loop:
+## Guardrails
 
-```bash
-vizzly tdd start &
-npm run test:e2e -- tests/e2e/path.spec.js
-vizzly context build current --source local --agent --json
-```
+- Treat an approved baseline as the accepted reference for that comparison,
+  not infallible truth. Check its identity and selection reason.
+- Do not invent progress, counts, review state, visual causes, or missing API
+  values.
+- Do not approve, reject, comment on, publish, or replace visual evidence
+  unless the user explicitly asks for that mutation.
+- Preserve existing thresholds, cluster sizes, signature properties, and
+  dynamic-region behavior unless the task and evidence justify changing them.
+- Prefer deterministic fixtures and existing end-to-end journeys over hiding a
+  diff with broader tolerances or a new screenshot-only test.
+- Report the screenshot or comparison identity, the relevant build or link,
+  the observed evidence, any access limitations, and the command used.
 
-The user may choose whether the TDD server runs in the foreground or background. Once it is
-running, run tests normally from the repo. The SDK discovers `.vizzly/server.json`, posts
-screenshots to the active TDD server, and refreshes `.vizzly/current`, `.vizzly/diffs`, report
-data, and local context.
+## Load References Only When Needed
 
-Use `vizzly tdd run` for true one-off runs where you want the CLI to own starting the visual
-session and running the command:
-
-```bash
-vizzly tdd run "<test command>" --no-open
-```
-
-For specific evidence, drill in:
-
-```bash
-vizzly context comparison <comparison-id> --json
-vizzly context screenshot "<screenshot-name>" --json
-vizzly context review-queue --json
-```
-
-If local context is unavailable and the project uses cloud builds, use the build id from CI or CLI output:
-
-```bash
-vizzly context build <build-id> --agent --json --include diffs,comments
-```
-
-## What Vizzly Knows
-
-- **Approved baselines**: expected UI.
-- **Current screenshots**: what the latest run rendered.
-- **Diffs**: where pixels/layout/content changed.
-- **Review state and comments**: human context attached to builds and screenshots.
-- **Hotspots and confirmed regions**: known dynamic areas.
-- **Preview links**: static or deployed UI context for a build.
-- **Public screenshots**: stable URLs for documentation and manuals.
-
-## Acting On Visual Context
-
-- Treat approved baselines as visual truth.
-- Treat diffs as evidence, not as approval instructions.
-- Do not approve or reject visual changes unless the user explicitly asks.
-- Prefer existing E2E or user journeys over narrow screenshot-only specs.
-- For dynamic content, inspect screenshot context before changing thresholds.
-- Prefer deterministic test data, per-screenshot `threshold`, per-screenshot `minClusterSize`, hotspots, or confirmed regions over global tolerance changes.
-- Report visual findings with screenshot names, build/comparison links when available, and the command you ran.
-
-## Capturing Screenshots
-
-Use the existing integration when one is present. For direct JavaScript capture:
-
-```javascript
-import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
-
-let screenshot = await page.screenshot();
-await vizzlyScreenshot('checkout-form', screenshot, {
-  properties: {
-    browser: 'chromium',
-    viewport: 'desktop',
-    state: 'valid-card'
-  },
-  threshold: 2,
-  minClusterSize: 4
-});
-```
-
-Use `properties` to separate variants such as theme, locale, viewport, role, state, component, page, or docs/manual grouping.
-
-## When You Need More Detail
-
-- For SDK examples and capture patterns, read `references/sdks.md`.
-- For CLI/context commands and JSON output, read `references/cli-context.md`.
-- For dynamic content, thresholds, and hotspots, read `references/dynamic-content.md`.
-- For public screenshot URLs and docs/manual images, read `references/public-screenshots.md`.
-- For project setup and CI, read `references/setup-ci.md`.
+- Read [references/cli-context.md](references/cli-context.md) for local and
+  cloud inspection commands, TDD lifecycle, and evidence drill-downs.
+- Read [references/sdks.md](references/sdks.md) only when adding or changing
+  screenshot capture code.
+- Read [references/dynamic-content.md](references/dynamic-content.md) when a
+  diff may involve unstable content, hotspots, or confirmed regions.
+- Read [references/setup-ci.md](references/setup-ci.md) only when the task asks
+  to initialize Vizzly, change CI, or troubleshoot configuration.

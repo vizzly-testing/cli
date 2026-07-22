@@ -1,6 +1,7 @@
 # SDK Capture Patterns
 
-Vizzly works best when screenshots are attached to real user journeys and stable names.
+Prefer the repository's existing Vizzly integration and user journey. Add a new
+capture path only when the task requires it.
 
 ## JavaScript Client
 
@@ -8,55 +9,41 @@ Vizzly works best when screenshots are attached to real user journeys and stable
 import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
 
 let screenshot = await page.screenshot();
-await vizzlyScreenshot('settings-profile-edit-mode', screenshot, {
-  properties: {
-    browser: 'chromium',
-    viewport: 'desktop',
-    state: 'edit'
-  },
-  threshold: 2,
-  minClusterSize: 4
-});
+await vizzlyScreenshot('settings-profile-edit-mode', screenshot);
 ```
 
-`vizzlyScreenshot(name, image, options)` accepts a PNG buffer or file path.
+`vizzlyScreenshot(name, image, options)` accepts PNG bytes or a file path.
+Available options include:
 
-Important options:
-
-- `properties`: metadata used for baseline identity and filtering.
+- `properties`: metadata attached to the screenshot.
 - `threshold`: per-screenshot CIEDE2000 Delta E tolerance.
 - `minClusterSize`: minimum changed-pixel cluster size.
-- `fullPage`: marks full-page captures.
+- `fullPage`: whether the screenshot represents a full-page capture.
 
-## Vitest
+Do not add arbitrary tuning values. Preserve the repository's existing values
+unless visual evidence justifies changing them.
 
-Use the Vizzly Vitest plugin when present. It keeps the native `toMatchScreenshot` style:
+## Screenshot Identity
 
-```javascript
-await expect(page.getByRole('heading')).toMatchScreenshot('hero-section.png', {
-  properties: {
-    theme: 'dark',
-    viewport: 'desktop'
-  },
-  threshold: 2,
-  fullPage: true
-});
-```
+Use a stable, descriptive name. Vizzly's signature always includes the name,
+viewport width, and browser. Only properties named in the project's
+`signatureProperties` configuration participate in baseline identity.
 
-## Storybook And Static Sites
+Treat other `properties` as metadata. Do not assume values such as theme,
+locale, or state create separate baselines unless the configuration says so.
 
-If the repo uses Vizzly Storybook or static-site clients, prefer those existing flows over adding custom Playwright screenshots. They already know how to crawl stories/pages, name screenshots, and attach viewport metadata.
+## Existing Integrations
 
-## Swift
+- Use the Vizzly Vitest matcher when the project already configures the plugin:
 
-Swift/XCTest projects use `VizzlyXCTest` helpers such as `app.vizzlyScreenshot(name:properties:threshold:minClusterSize:)`. For iOS work, verify against the Swift package docs in the repo before changing examples.
+  ```javascript
+  await expect(page).toMatchScreenshot('hero-section.png');
+  ```
 
-## Naming
+- Prefer existing Storybook, static-site, or Ember capture flows over adding a
+  parallel Playwright path.
+- For Swift/XCTest, inspect the repository's Vizzly Swift package documentation
+  and existing `VizzlyXCTest` usage before changing capture code.
 
-Use stable, descriptive screenshot names:
-
-- Good: `checkout-payment-form-valid-card`
-- Good: `settings-profile-edit-mode`
-- Avoid: `screenshot1`, `test`, names with slashes
-
-Use properties for variants instead of stuffing every variant into the name.
+Use properties for searchable metadata and configured variants. Avoid generic
+names such as `screenshot1` or `test`, and avoid names with slashes.

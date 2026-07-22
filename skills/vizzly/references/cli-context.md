@@ -1,35 +1,87 @@
 # CLI And Context
 
-Use these commands to gather Vizzly evidence before making UI assumptions.
+Use the repository's existing CLI invocation. The examples use `vizzly` for
+brevity; substitute the repository's package script or package-manager command
+when needed.
 
-## Local TDD
+Use existing authentication and project configuration. If cloud authentication
+is missing, report the blocker. Do not start an interactive login or change
+credentials unless the task includes setup.
+
+## Inspect Existing Local Evidence
+
+Request structured local evidence with both `--agent` and `--json`:
 
 ```bash
-vizzly tdd start --open
-vizzly tdd status
-vizzly tdd stop
-vizzly tdd run "<test command>" --no-open
-vizzly context build current --source local --agent
+vizzly context build current --source local --agent --json
+vizzly context screenshot "<screenshot-name>" --source local --json
+vizzly context review-queue --source local --json
+```
+
+Pin hand-written local drill-downs with `--source local`. Without it, automatic
+source resolution may fall back to cloud data when a local item is unavailable.
+
+Local context reads persisted `.vizzly` artifacts. Confirm that their build,
+branch, timestamp, and baseline match the task before treating them as current.
+
+## Generate Fresh Local Evidence
+
+For a one-off run, let Vizzly own the complete local session:
+
+```bash
+vizzly tdd run "<existing visual test command>" --no-open
 vizzly context build current --source local --agent --json
 ```
 
-If `tdd start` prints a non-default port, pass that same port to
-`tdd status --port <port>` and `tdd stop --port <port>`.
-
-Local context reads `.vizzly` state and does not require cloud auth. After a
-one-shot `tdd run`, prefer the printed `contextCommand` before editing UI.
-
-## Cloud Builds
+For repeated test runs, start the detached daemon once:
 
 ```bash
-export VIZZLY_TOKEN="project-token"
-vizzly run "<test command>" --wait --json
-vizzly context build <build-id> --agent --json --include diffs,comments
+vizzly tdd start --json
+vizzly tdd status --json
+<existing visual test command>
+vizzly context build current --source local --agent --json
+vizzly tdd stop --json
 ```
 
-`vizzly run --wait --json` returns a `contextCommand` when a cloud build is created. Prefer that command over constructing URLs by hand.
+Treat `tdd run` and `tdd start` as alternatives. Do not shell-background
+`tdd start`; it already launches a detached daemon. Stop only a server started
+for the current task, and reuse the printed port for status or stop commands
+when Vizzly selects a non-default port.
 
-## Drilldowns
+## Inspect Cloud Evidence
+
+When the task already has a build ID:
+
+```bash
+vizzly status <build-id> --json
+vizzly context build <build-id> --agent --json
+```
+
+Use status for server-owned lifecycle, processing, comparison, and review
+facts. Use build context for visual debugging.
+
+When creating a cloud build is in scope, wrap the repository's existing test
+command:
+
+```bash
+vizzly run "<existing visual test command>" --wait --json
+vizzly context build <build-id> --agent --json
+```
+
+## Read And Drill Into Evidence
+
+For each evidence record:
+
+1. Inspect the current, baseline, and diff images with an available harness
+   capability. State the limitation if an image cannot be accessed.
+2. Read render metadata, review state, and compact Honeydiff diagnostics next
+   to the images.
+3. Run the returned `suggested_commands` instead of reconstructing identifiers
+   or URLs.
+4. Add `--include diffs` only when raw Honeydiff region geometry is needed.
+   Request comments only when human review context matters.
+
+Useful manual drill-downs are:
 
 ```bash
 vizzly context comparison <comparison-id> --json
@@ -38,11 +90,5 @@ vizzly context similar <fingerprint-hash> --json
 vizzly context review-queue --json
 ```
 
-Use comparison context for one diff. Use screenshot context for history and recurring dynamic areas. Use review queue context when triaging unresolved visual work.
-
-## Good Agent Behavior
-
-- Use `--json` for automation and summaries.
-- Use `--agent` when building prompt context or asking another agent to continue.
-- Keep human-readable command output in final summaries only when it changes the user's next action.
-- Do not approve/reject unless explicitly asked.
+`context similar` is cloud-only. Keep missing values unknown, and do not turn
+metadata into a visual conclusion when the underlying images are unavailable.

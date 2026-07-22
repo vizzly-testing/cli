@@ -1,4 +1,4 @@
 interface:
   display_name: "Vizzly"
-  short_description: "Use Vizzly visual context while changing UI."
-  default_prompt: "Use Vizzly to inspect visual context before and after UI changes."
+  short_description: "Inspect and debug visual changes with Vizzly"
+  default_prompt: "Use $vizzly to inspect the visual evidence for this UI change and explain what changed."

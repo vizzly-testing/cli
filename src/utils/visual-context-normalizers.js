@@ -204,31 +204,61 @@ function getBaselineScreenshot(comparison = {}) {
 }
 
 /**
- * Project compact Honeydiff facts while leaving raw region geometry untouched.
+ * Project compact Honeydiff facts without making raw geometry the default.
+ *
+ * Agents need stable counts, fingerprints, URLs, and the API projection for
+ * first-pass diagnosis. Raw regions and scoring details stay behind an
+ * explicit include because they can dominate an otherwise bounded handoff.
  *
  * @param {Object} comparison - Comparison record from the API.
+ * @param {boolean} includeDiffs - Whether to include raw Honeydiff diagnostics.
  * @returns {Object} Compact diff evidence suitable for context summaries.
  */
-function getComparisonDiff(comparison = {}) {
+function getComparisonDiff(comparison = {}, includeDiffs = false) {
   let diff =
     comparison.diff || comparison.diff_image || comparison.analysis || {};
-  let regions = diff.regions || diff.diff_regions || comparison.diff_regions;
+  let analysis = comparison.analysis || {};
+  let regions =
+    diff.regions ||
+    diff.diff_regions ||
+    analysis.diff_regions ||
+    comparison.diff_regions;
   let projection =
     diff.projection ||
     diff.analysis_projection ||
+    analysis.projection ||
+    analysis.analysis_projection ||
     comparison.analysis_projection ||
     comparison.projection ||
     null;
 
-  return {
-    percentage: diff.percentage ?? comparison.diff_percentage ?? null,
-    changed_pixels: diff.changed_pixels ?? comparison.changed_pixels ?? null,
-    total_pixels: diff.total_pixels ?? comparison.total_pixels ?? null,
-    threshold: diff.threshold ?? comparison.threshold ?? null,
+  let compact = {
+    percentage:
+      diff.percentage ??
+      analysis.percentage ??
+      analysis.diff_percentage ??
+      comparison.diff_percentage ??
+      null,
+    changed_pixels:
+      diff.changed_pixels ??
+      analysis.changed_pixels ??
+      comparison.changed_pixels ??
+      null,
+    total_pixels:
+      diff.total_pixels ??
+      analysis.total_pixels ??
+      comparison.total_pixels ??
+      null,
+    threshold:
+      diff.threshold ?? analysis.threshold ?? comparison.threshold ?? null,
     fingerprint_hash:
-      diff.fingerprint_hash || comparison.fingerprint_hash || null,
+      diff.fingerprint_hash ||
+      analysis.fingerprint_hash ||
+      comparison.fingerprint_hash ||
+      null,
     region_count:
       diff.region_count ??
+      analysis.region_count ??
       comparison.region_count ??
       projection?.clusters?.count ??
       (Array.isArray(regions) ? regions.length : null),
@@ -236,10 +266,28 @@ function getComparisonDiff(comparison = {}) {
     image_url:
       diff.image_url ||
       diff.url ||
+      analysis.diff_image_url ||
       comparison.diff_url ||
       comparison.diff_image_url ||
       null,
   };
+
+  if (includeDiffs) {
+    compact.regions = regions || [];
+    compact.cluster_metadata =
+      diff.cluster_metadata ||
+      analysis.cluster_metadata ||
+      comparison.cluster_metadata ||
+      null;
+    compact.ssim_score =
+      diff.ssim_score ?? analysis.ssim_score ?? comparison.ssim_score ?? null;
+    compact.gmsd_score =
+      diff.gmsd_score ?? analysis.gmsd_score ?? comparison.gmsd_score ?? null;
+    compact.diff_lines =
+      diff.diff_lines || analysis.diff_lines || comparison.diff_lines || [];
+  }
+
+  return compact;
 }
 
 /**
@@ -267,6 +315,7 @@ function comparisonNeedsReview(comparison = {}, reviewState = null) {
  * @param {Object} comparison - Comparison record from the API.
  * @param {Object} options - Normalization options.
  * @param {string|null} [options.fallbackName] - Group name for unnamed variants.
+ * @param {boolean} [options.includeDiffs] - Include raw Honeydiff diagnostics.
  * @returns {Object} A stable comparison evidence record.
  */
 export function normalizeComparisonRecord(comparison = {}, options = {}) {
@@ -296,7 +345,7 @@ export function normalizeComparisonRecord(comparison = {}, options = {}) {
     viewport: getComparisonViewport(comparison),
     screenshot: getCurrentScreenshot(comparison),
     baseline: getBaselineScreenshot(comparison),
-    diff: getComparisonDiff(comparison),
+    diff: getComparisonDiff(comparison, options.includeDiffs === true),
   };
 }
 
@@ -405,7 +454,10 @@ export function normalizeComparisonGroup(group = {}, options = {}) {
   let rawVariants = group.variants || group.comparisons || [];
   let groupName = group.name || group.test_name || group.testName || null;
   let variants = rawVariants.map(variant =>
-    normalizeComparisonRecord(variant, { fallbackName: groupName })
+    normalizeComparisonRecord(variant, {
+      fallbackName: groupName,
+      includeDiffs: options.includeDiffs,
+    })
   );
   let complete = hasCompleteVariants(
     group,
@@ -446,9 +498,10 @@ export function normalizeComparisonGroup(group = {}, options = {}) {
  * Group a complete legacy flat comparison list by screenshot name.
  *
  * @param {Object[]} comparisons - Complete flat comparisons from build context.
+ * @param {Object} options - Normalization options passed to each comparison.
  * @returns {Object[]} Normalized screenshot groups in API order.
  */
-function groupFlatComparisons(comparisons = []) {
+function groupFlatComparisons(comparisons = [], options = {}) {
   let grouped = new Map();
 
   for (let comparison of comparisons) {
@@ -459,22 +512,29 @@ function groupFlatComparisons(comparisons = []) {
   }
 
   return [...grouped.values()].map(group =>
-    normalizeComparisonGroup(group, { variantsComplete: true })
+    normalizeComparisonGroup(group, { ...options, variantsComplete: true })
   );
 }
 
 /**
  * Keep failed capture identity, render evidence, and the API error together.
  *
+ * A capture can fail before any comparison exists, so it must remain useful
+ * evidence without inheriting comparison-only assumptions.
+ *
  * @param {Object} screenshot - Failed screenshot record from the API.
+ * @param {Object} options - Normalization options passed to the record.
  * @returns {Object} A normalized failed-capture record.
  */
-function normalizeFailedCapture(screenshot = {}) {
-  let normalized = normalizeComparisonRecord({
-    ...screenshot,
-    screenshot,
-    result: screenshot.result || screenshot.status || 'failed',
-  });
+function normalizeFailedCapture(screenshot = {}, options = {}) {
+  let normalized = normalizeComparisonRecord(
+    {
+      ...screenshot,
+      screenshot,
+      result: screenshot.result || screenshot.status || 'failed',
+    },
+    options
+  );
 
   return {
     ...normalized,
@@ -487,9 +547,10 @@ function normalizeFailedCapture(screenshot = {}) {
  * Collect failed captures from explicit and screenshot-list response shapes.
  *
  * @param {Object} context - Raw build context response.
+ * @param {Object} options - Normalization options passed to each capture.
  * @returns {Object[]} Deduplicated failed captures in API order.
  */
-function getFailedCaptures(context = {}) {
+function getFailedCaptures(context = {}, options = {}) {
   let explicit = Array.isArray(context.failed_captures)
     ? context.failed_captures
     : Array.isArray(context.failed_screenshots)
@@ -501,14 +562,16 @@ function getFailedCaptures(context = {}) {
   let captures = [...explicit, ...screenshots];
   let seen = new Set();
 
-  return captures.map(normalizeFailedCapture).filter(capture => {
-    let key = capture.id || capture.screenshot.signature || capture.name;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
+  return captures
+    .map(capture => normalizeFailedCapture(capture, options))
+    .filter(capture => {
+      let key = capture.id || capture.screenshot.signature || capture.name;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
 }
 
 /**
@@ -517,22 +580,24 @@ function getFailedCaptures(context = {}) {
  * Raw JSON output intentionally bypasses this lossy presentation boundary.
  *
  * @param {Object} context - Raw build context response from the provider.
+ * @param {Object} options - Normalization options.
+ * @param {boolean} [options.includeDiffs] - Include raw Honeydiff diagnostics.
  * @returns {Object} Normalized comparisons, groups, and failed captures.
  */
-export function normalizeBuildContext(context = {}) {
+export function normalizeBuildContext(context = {}, options = {}) {
   let rawComparisons = context.comparisons || [];
   let comparisons = rawComparisons.map(comparison =>
-    normalizeComparisonRecord(comparison)
+    normalizeComparisonRecord(comparison, options)
   );
   let groups =
     Array.isArray(context.groups) && context.groups.length > 0
-      ? context.groups.map(group => normalizeComparisonGroup(group))
-      : groupFlatComparisons(rawComparisons);
+      ? context.groups.map(group => normalizeComparisonGroup(group, options))
+      : groupFlatComparisons(rawComparisons, options);
 
   return {
     ...context,
     comparisons,
     groups,
-    failed_captures: getFailedCaptures(context),
+    failed_captures: getFailedCaptures(context, options),
   };
 }

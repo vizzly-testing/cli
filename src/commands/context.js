@@ -142,8 +142,8 @@ function createCloudContextProvider(config, deps = {}) {
 
   return {
     source: 'cloud',
-    async getBuildContext(buildId) {
-      return await getBuildContext(client, buildId);
+    async getBuildContext(buildId, query) {
+      return await getBuildContext(client, buildId, query);
     },
     async getComparisonContext(comparisonId, query) {
       return await getComparisonContext(client, comparisonId, query);
@@ -331,170 +331,317 @@ function getComparisonFingerprint(comparison = {}) {
   );
 }
 
-function getComparisonDiffImageUrl(comparison = {}) {
-  return (
-    comparison.diff?.image_url || comparison.analysis?.diff_image_url || null
-  );
-}
-
-function getComparisonRegionCount(comparison = {}) {
-  let regions = comparison.diff?.regions || comparison.analysis?.diff_regions;
-  return Array.isArray(regions) ? regions.length : 0;
-}
-
-function getComparisonScreenshot(comparison = {}) {
-  return comparison.screenshot || {};
-}
-
-function getComparisonBaseline(comparison = {}) {
-  return comparison.baseline || comparison.screenshot?.baseline || {};
-}
-
-function buildCompactDiff(comparison = {}, includeDiffs = false) {
-  let diff = comparison.diff || comparison.analysis || {};
-  let compact = {
-    percentage: getComparisonDiffPercentage(comparison),
-    changed_pixels: diff.changed_pixels ?? comparison.changed_pixels ?? null,
-    total_pixels: diff.total_pixels ?? comparison.total_pixels ?? null,
-    threshold: diff.threshold ?? comparison.threshold ?? null,
-    fingerprint_hash: getComparisonFingerprint(comparison),
-    region_count: getComparisonRegionCount(comparison),
-    image_url: getComparisonDiffImageUrl(comparison),
-  };
-
-  if (includeDiffs) {
-    compact.regions = diff.regions || diff.diff_regions || [];
-    compact.cluster_metadata = diff.cluster_metadata || null;
-    compact.ssim_score = diff.ssim_score ?? null;
-    compact.gmsd_score = diff.gmsd_score ?? null;
-    compact.diff_lines = diff.diff_lines || [];
+/**
+ * Decide whether a comparison belongs in the agent handoff.
+ *
+ * Explicit API review state wins because an already-reviewed visual change is
+ * not actionable. Legacy result fallback keeps older flat responses useful
+ * only when the server did not supply that review fact.
+ *
+ * @param {Object} comparison - Normalized comparison record.
+ * @returns {boolean} Whether the record is actionable evidence.
+ */
+function isEvidenceCandidate(comparison = {}) {
+  if (comparison.needs_review != null) {
+    return comparison.needs_review === true;
   }
 
-  return compact;
+  return ['changed', 'new', 'failed', 'error'].includes(comparison.result);
 }
 
-function buildCompactComparison(
-  comparison = {},
-  { includeDiffs = false } = {}
+/**
+ * Keep the group facts needed to understand one comparison in isolation.
+ *
+ * Repeating this small server-owned summary on each record avoids returning
+ * the full, potentially unbounded group tree in compact agent output.
+ *
+ * @param {Object} group - Normalized screenshot group.
+ * @returns {Object} Compact API-backed aggregate facts for the group.
+ */
+function buildEvidenceGroup(group = {}) {
+  let aggregate = group.aggregate_status || {};
+
+  return {
+    name: group.name || null,
+    variant_count: group.variant_count ?? null,
+    needs_review_count: aggregate.needs_review_count ?? null,
+    failed_count: aggregate.failed_count ?? null,
+    max_diff_percentage: aggregate.max_diff_percentage ?? null,
+  };
+}
+
+/**
+ * Shape one normalized comparison for the bounded evidence queue.
+ *
+ * The projection keeps visual result, review state, render assets, and
+ * Honeydiff facts together so an agent can reason about a diff without
+ * joining separate collections client-side.
+ *
+ * @param {Object} comparison - Normalized comparison record.
+ * @param {Object} group - Normalized group containing the comparison.
+ * @returns {Object} One self-contained comparison evidence record.
+ */
+function buildComparisonEvidence(comparison = {}, group = {}) {
+  return {
+    kind: 'comparison',
+    id: comparison.id,
+    name: comparison.name,
+    result: comparison.result,
+    status: comparison.status,
+    review_state: comparison.review_state,
+    visual_review: comparison.visual_review,
+    approval_status: comparison.approval_status,
+    needs_review: comparison.needs_review,
+    is_flaky: comparison.is_flaky,
+    group: buildEvidenceGroup(group),
+    screenshot: comparison.screenshot,
+    baseline: comparison.baseline,
+    diff: comparison.diff,
+  };
+}
+
+/**
+ * Represent a capture failure without pretending it is a comparison.
+ *
+ * Failed screenshots have useful render evidence but no comparison ID. The
+ * explicit kind and null ID prevent suggested commands from sending a
+ * screenshot identifier to the comparison endpoint.
+ *
+ * @param {Object} capture - Normalized failed screenshot capture.
+ * @returns {Object} One failed-capture evidence record.
+ */
+function buildFailedCaptureEvidence(capture = {}) {
+  return {
+    ...buildComparisonEvidence(capture, { name: capture.name }),
+    kind: 'failed_capture',
+    id: null,
+    error_message: capture.error_message,
+  };
+}
+
+/**
+ * Read actionable variants without overriding a server-reviewed group.
+ *
+ * A false aggregate is authoritative even when a partial variant payload
+ * appears pending, which prevents the client from reopening completed work.
+ *
+ * @param {Object} group - Normalized screenshot group.
+ * @returns {Object[]} Actionable variants in API order.
+ */
+function getGroupEvidence(group = {}) {
+  if (group.aggregate_status?.needs_review === false) {
+    return [];
+  }
+
+  return (group.variants || []).filter(isEvidenceCandidate);
+}
+
+/**
+ * Interleave actionable variants across groups in their original API order.
+ *
+ * Taking one variant per group before taking second variants preserves useful
+ * breadth when the final handoff is capped and one screenshot has many device
+ * or browser variants.
+ *
+ * @param {Object[]} groups - Normalized screenshot groups.
+ * @returns {Object[]} Self-contained evidence records in breadth-first order.
+ */
+function selectBreadthFirstEvidence(groups = []) {
+  let candidatesByGroup = groups.map(getGroupEvidence);
+  let evidence = [];
+  let variantIndex = 0;
+  let remaining = candidatesByGroup.some(candidates => candidates.length > 0);
+
+  while (remaining) {
+    remaining = false;
+    for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+      let comparison = candidatesByGroup[groupIndex][variantIndex];
+      if (comparison) {
+        evidence.push(buildComparisonEvidence(comparison, groups[groupIndex]));
+        remaining = true;
+      }
+    }
+    variantIndex += 1;
+  }
+
+  return evidence;
+}
+
+/**
+ * Quote a value only when a suggested command needs shell protection.
+ *
+ * Suggested commands are meant to be executable, so names with whitespace or
+ * apostrophes must survive copy and paste without changing their value.
+ *
+ * @param {unknown} value - CLI argument value.
+ * @returns {string} A shell-safe argument for the displayed command.
+ */
+function quoteCommandArgument(value) {
+  let stringValue = String(value);
+  if (/^[A-Za-z0-9._:/-]+$/.test(stringValue)) {
+    return stringValue;
+  }
+
+  return `'${stringValue.replaceAll("'", `'\\''`)}'`;
+}
+
+/**
+ * Recognize both local source labels emitted across supported context shapes.
+ *
+ * @param {Object} context - Normalized context response.
+ * @returns {boolean} Whether follow-up commands must stay in local mode.
+ */
+function isLocalContext(context = {}) {
+  return ['local', 'local_workspace'].includes(context.source);
+}
+
+/**
+ * Keep suggested commands on the same source as the evidence they inspect.
+ *
+ * Without the explicit local flag, an executable suggestion could silently
+ * switch to cloud context and describe a different build.
+ *
+ * @param {string} command - Base CLI command.
+ * @param {Object} context - Context that produced the command.
+ * @returns {string} Command pinned to local context when needed.
+ */
+function appendLocalSource(command, context = {}) {
+  return isLocalContext(context) ? `${command} --source local` : command;
+}
+
+/**
+ * Build concrete drill-down paths from the evidence actually returned.
+ *
+ * Executable commands replace generic client-authored advice. They let an
+ * agent ask the API for deeper comparison, history, or raw diff context, and
+ * only suggest the full build when the bounded queue omitted records.
+ *
+ * @param {Object} context - Normalized build context.
+ * @param {Object[]} evidence - Evidence included in the compact handoff.
+ * @param {boolean} truncated - Whether additional evidence was omitted.
+ * @returns {{label: string, command: string}[]} Suggested CLI commands.
+ */
+function buildSuggestedCommands(
+  context = {},
+  evidence = [],
+  truncated = false
 ) {
-  let screenshot = getComparisonScreenshot(comparison);
-  let baseline = getComparisonBaseline(comparison);
+  let commands = [];
+  let firstComparison = evidence.find(
+    item => item.kind === 'comparison' && item.id
+  );
+  let firstNamedEvidence = evidence.find(item => item.name);
+  let buildTarget = isLocalContext(context)
+    ? 'current'
+    : context.build?.id || null;
 
-  return {
-    id: comparison.id || null,
-    name: getComparisonName(comparison),
-    result: getComparisonDisplayState(comparison),
-    approval_status: comparison.approval_status || null,
-    needs_review: Boolean(comparison.needs_review),
-    is_flaky: Boolean(comparison.is_flaky),
-    screenshot: {
-      id: screenshot.id || null,
-      url: screenshot.url || screenshot.original_url || null,
-    },
-    baseline: {
-      id: baseline.id || null,
-      build_id: baseline.build_id || null,
-      url: baseline.url || baseline.original_url || null,
-    },
-    diff: buildCompactDiff(comparison, includeDiffs),
-  };
-}
-
-function summarizeComparisons(comparisons = []) {
-  return {
-    total: comparisons.length,
-    changed: comparisons.filter(isChangedComparison).length,
-    new: comparisons.filter(isNewComparison).length,
-    needs_review: comparisons.filter(comparison => comparison.needs_review)
-      .length,
-  };
-}
-
-function buildAgentNextActions(context = {}, comparisonSummary = {}) {
-  if (context.status?.needs_review) {
-    return [
-      'Inspect the changed and new comparisons before editing related UI.',
-      'Use approved baselines as the expected visual behavior.',
-      'Leave approval decisions to human reviewers.',
-    ];
+  if (firstComparison?.id) {
+    commands.push({
+      label: 'Inspect comparison context',
+      command: appendLocalSource(
+        `vizzly --json context comparison ${quoteCommandArgument(firstComparison.id)}`,
+        context
+      ),
+    });
   }
 
-  if (comparisonSummary.total > 0) {
-    return [
-      'Use the approved baseline and reviewed screenshots as current visual truth.',
-      'Prefer targeted edits that preserve identical comparisons.',
-    ];
+  if (firstNamedEvidence?.name) {
+    commands.push({
+      label: 'Inspect screenshot history',
+      command: appendLocalSource(
+        `vizzly --json context screenshot ${quoteCommandArgument(firstNamedEvidence.name)}`,
+        context
+      ),
+    });
   }
 
-  return [
-    'No comparisons were returned for this build context.',
-    'Open the build URL for more detail if this is unexpected.',
-  ];
+  if (buildTarget && evidence.length > 0) {
+    commands.push({
+      label: 'Load raw diff diagnostics',
+      command: appendLocalSource(
+        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --include diffs`,
+        context
+      ),
+    });
+  }
+
+  if (buildTarget && truncated) {
+    commands.push({
+      label: 'Load full build context',
+      command: appendLocalSource(
+        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --full`,
+        context
+      ),
+    });
+  }
+
+  return commands;
 }
 
-function formatAgentStatus(status = {}) {
-  return {
-    needs_review: Boolean(status.needs_review),
-    reasons: status.reasons || [],
-    pending_comparisons: status.pending_comparisons || 0,
-    unresolved_comments: status.unresolved_comments || 0,
-  };
-}
-
-function formatAgentSummary(context = {}, comparisons = []) {
-  return {
-    comparisons:
-      context.summary?.comparisons || summarizeComparisons(comparisons),
-    review: context.summary?.review || {},
-    comments: context.summary?.comments || {
-      build: getBuildCommentsCount(context),
-      screenshot: getScreenshotCommentsCount(context),
-    },
-  };
-}
-
+/**
+ * Create the compact agent presentation without rewriting API truth.
+ *
+ * Status, summaries, review facts, assets, and Honeydiff values pass through
+ * normalization from the server. The client owns only the bounded selection,
+ * truthful truncation facts, explicit includes, and follow-up commands.
+ *
+ * @param {Object} context - Raw build context returned by the provider.
+ * @param {Object} options - Compact presentation options.
+ * @param {string|null} [options.source] - Resolved source fallback.
+ * @param {string[]} [options.include] - Explicit detail collections.
+ * @param {number} [options.evidenceLimit] - Maximum evidence record count.
+ * @returns {Object} Bounded agent build context.
+ */
 function buildAgentBuildPayload(
   context,
   { source = null, include = [], evidenceLimit = 10 } = {}
 ) {
-  let comparisons = context.comparisons || [];
   let includeSet = new Set(include);
   let includeDiffs = includeSet.has('diffs');
-  let changed = comparisons.filter(isChangedComparison);
-  let fresh = comparisons.filter(isNewComparison);
-  let evidence = [...changed, ...fresh]
-    .slice(0, evidenceLimit)
-    .map(comparison => buildCompactComparison(comparison, { includeDiffs }));
-  let comparisonSummary = summarizeComparisons(comparisons);
+  let normalized = normalizeBuildContext(context, { includeDiffs });
+  let candidates = [
+    ...normalized.failed_captures.map(buildFailedCaptureEvidence),
+    ...selectBreadthFirstEvidence(normalized.groups),
+  ];
+  let evidence = candidates.slice(0, evidenceLimit);
+  let evidenceTruncated = candidates.length > evidence.length;
   let payload = {
     resource: 'build_agent_context',
-    source: context.source || source || 'cloud',
-    scope: context.scope || null,
+    source: normalized.source || source || 'cloud',
+    scope: normalized.scope || null,
     project: {
-      organization: context.scope?.organization?.slug || null,
-      slug: context.scope?.project?.slug || null,
-      name: context.scope?.project?.name || null,
-      visibility: context.scope?.project?.visibility || null,
+      organization: normalized.scope?.organization?.slug || null,
+      slug: normalized.scope?.project?.slug || null,
+      name: normalized.scope?.project?.name || null,
+      visibility: normalized.scope?.project?.visibility || null,
     },
-    build: context.build || null,
+    build: normalized.build || null,
     baseline: {
-      selected: context.baseline?.selected || null,
-      selection_reason: context.baseline?.selection_reason || null,
+      selected: normalized.baseline?.selected || null,
+      selection_reason: normalized.baseline?.selection_reason || null,
     },
-    status: formatAgentStatus(context.status),
-    summary: formatAgentSummary(context, comparisons),
+    status: normalized.status || null,
+    summary: normalized.summary || null,
+    signature_properties: normalized.signature_properties ?? null,
+    evidence_limit: evidenceLimit,
+    evidence_returned: evidence.length,
+    evidence_truncated: evidenceTruncated,
     evidence,
-    links: context.links || {},
-    preview: context.preview || null,
-    next_actions: buildAgentNextActions(context, comparisonSummary),
+    links: normalized.links || {},
+    preview: normalized.preview || null,
+    suggested_commands: buildSuggestedCommands(
+      normalized,
+      evidence,
+      evidenceTruncated
+    ),
   };
 
   if (includeSet.has('screenshots')) {
-    payload.screenshots = context.screenshots || [];
+    payload.screenshots = normalized.screenshots || [];
   }
 
   if (includeSet.has('comments')) {
-    payload.comments = context.comments || {};
+    payload.comments = normalized.comments || {};
   }
 
   return payload;
@@ -1058,16 +1205,24 @@ export async function contextBuildCommand(
     }
 
     let resolvedBuildId = resolveBuildContextId(buildId, runtime, deps);
+    let include = parseIncludeOption(options.include);
+    let query =
+      globalOptions.json && options.agent && !options.full
+        ? { details: include.includes('diffs') ? 'diffs' : 'summary' }
+        : undefined;
 
     output.startSpinner('Fetching build context...');
-    let context = await runtime.provider.getBuildContext(resolvedBuildId);
+    let context = await runtime.provider.getBuildContext(
+      resolvedBuildId,
+      query
+    );
     output.stopSpinner();
 
     if (globalOptions.json && options.agent && !options.full) {
       output.data(
         buildAgentBuildPayload(context, {
           source: runtime.source,
-          include: parseIncludeOption(options.include),
+          include,
         })
       );
       output.cleanup();

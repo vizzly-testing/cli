@@ -251,13 +251,23 @@ export async function getComparison(client, comparisonId) {
 }
 
 /**
- * Get build context bundle for agent and reviewer workflows
+ * Get a build context bundle at the detail level the caller can consume.
+ *
+ * Passing detail selection to the API keeps compact callers from downloading
+ * raw Honeydiff geometry by default while preserving the unfiltered endpoint
+ * for raw and full context consumers.
+ *
  * @param {Object} client - API client
  * @param {string} buildId - Build ID
+ * @param {Object} options - Optional query params
  * @returns {Promise<Object>} Build context bundle
  */
-export async function getBuildContext(client, buildId) {
-  return client.request(`/api/sdk/context/builds/${buildId}`);
+export async function getBuildContext(client, buildId, options = {}) {
+  let endpoint = buildEndpointWithParams(
+    `/api/sdk/context/builds/${buildId}`,
+    options
+  );
+  return client.request(endpoint);
 }
 
 /**

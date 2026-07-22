@@ -16,6 +16,7 @@ import {
   getBatchHotspots,
   getBuild,
   getBuildContext,
+  getBuildStatus,
   getBuilds,
   getComparison,
   getComparisonContext,
@@ -99,6 +100,19 @@ describe('api/endpoints', () => {
       assert.strictEqual(
         client.getLastCall().endpoint,
         '/api/sdk/builds/123?include=screenshots'
+      );
+    });
+  });
+
+  describe('getBuildStatus', () => {
+    it('requests the canonical build status endpoint', async () => {
+      let client = createMockClient({ resource: 'build_status' });
+
+      await getBuildStatus(client, 'build-123');
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/builds/build-123/status'
       );
     });
   });

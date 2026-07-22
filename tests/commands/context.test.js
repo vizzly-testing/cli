@@ -136,6 +136,7 @@ describe('commands/context', () => {
 
     it('returns build context in JSON mode', async () => {
       let output = createMockOutput();
+      let capturedQuery = 'not-called';
       let context = {
         resource: 'build_context',
         build: { id: 'build-1' },
@@ -152,7 +153,10 @@ describe('commands/context', () => {
             apiUrl: 'https://api.test',
           }),
           createApiClient: () => ({}),
-          getBuildContext: async () => context,
+          getBuildContext: async (_client, _buildId, query) => {
+            capturedQuery = query;
+            return context;
+          },
           output,
           exit: () => {},
         }
@@ -162,6 +166,8 @@ describe('commands/context', () => {
       assert.ok(dataCall);
       assert.strictEqual(dataCall.args[0].resource, 'build_context');
       assert.strictEqual(dataCall.args[0].build.id, 'build-1');
+      assert.strictEqual(dataCall.args[0], context);
+      assert.strictEqual(capturedQuery, undefined);
     });
 
     it('returns compact agent JSON by default instead of the full context payload', async () => {
@@ -213,6 +219,7 @@ describe('commands/context', () => {
                 id: 'cmp-1',
                 screenshot_name: 'Dashboard',
                 result: 'changed',
+                visual_review: { state: 'pending', reviewer: null },
                 needs_review: true,
                 diff: {
                   percentage: 1.23,
@@ -222,14 +229,27 @@ describe('commands/context', () => {
                   image_url: 'https://cdn.test/diff.png',
                   regions: [{ pixelCount: 50 }],
                   fingerprint_hash: 'fp-dashboard',
+                  projection: {
+                    clusters: { count: 1 },
+                    distribution: 'header',
+                  },
                 },
                 screenshot: {
                   id: 'ss-1',
+                  browser: 'chrome',
+                  device: 'desktop',
+                  viewport: { width: 1440, height: 900 },
+                  bitmap: { width: 2880, height: 1800 },
+                  metadata: { locale: 'en-US' },
+                  signature: 'Dashboard|1440|chrome',
                   original_url: 'https://cdn.test/current.png',
                 },
                 baseline: {
                   id: 'base-ss-1',
                   build_id: 'baseline-1',
+                  browser: 'chrome',
+                  viewport: { width: 1440, height: 900 },
+                  bitmap: { width: 2880, height: 1800 },
                   original_url: 'https://cdn.test/baseline.png',
                 },
               },
@@ -259,13 +279,195 @@ describe('commands/context', () => {
       assert.strictEqual(payload.baseline.selected.name, 'Approved Main');
       assert.strictEqual(payload.status.needs_review, true);
       assert.strictEqual(payload.evidence.length, 2);
+      assert.strictEqual(payload.evidence_limit, 10);
+      assert.strictEqual(payload.evidence_returned, 2);
+      assert.strictEqual(payload.evidence_truncated, false);
       assert.strictEqual(payload.evidence[0].name, 'Dashboard');
       assert.strictEqual(payload.evidence[0].diff.region_count, 1);
+      assert.deepStrictEqual(payload.evidence[0].diff.projection, {
+        clusters: { count: 1 },
+        distribution: 'header',
+      });
+      assert.strictEqual(payload.evidence[0].review_state, 'pending');
+      assert.strictEqual(payload.evidence[0].screenshot.browser, 'chrome');
+      assert.deepStrictEqual(payload.evidence[0].screenshot.viewport, {
+        width: 1440,
+        height: 900,
+      });
+      assert.strictEqual(
+        payload.evidence[0].screenshot.url,
+        'https://cdn.test/current.png'
+      );
+      assert.strictEqual(
+        payload.evidence[0].baseline.url,
+        'https://cdn.test/baseline.png'
+      );
+      assert.ok(!payload.evidence[0].diff.regions);
       assert.ok(!payload.screenshots);
       assert.ok(!payload.comments);
+      assert.ok(!payload.groups);
+      assert.ok(!payload.next_actions);
+      assert.deepStrictEqual(
+        payload.suggested_commands.map(item => item.command),
+        [
+          'vizzly --json context comparison cmp-1',
+          'vizzly --json context screenshot Dashboard',
+          'vizzly --json context build build-1 --agent --include diffs',
+        ]
+      );
+    });
+
+    it('keeps one bounded breadth-first evidence queue in API order', async () => {
+      let output = createMockOutput();
+      let groups = Array.from({ length: 6 }, (_, groupIndex) => ({
+        name: `Group ${groupIndex + 1}`,
+        variant_count: 2,
+        aggregate_status: {
+          needs_review: true,
+          needs_review_count: 2,
+        },
+        variants: Array.from({ length: 2 }, (_, variantIndex) => ({
+          id: `cmp-${groupIndex + 1}-${variantIndex + 1}`,
+          result: 'changed',
+          needs_review: true,
+        })),
+      }));
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            build: { id: 'build-1' },
+            groups,
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.strictEqual(payload.evidence_returned, 10);
+      assert.strictEqual(payload.evidence_truncated, true);
+      assert.deepStrictEqual(
+        payload.evidence.map(item => item.id),
+        [
+          'cmp-1-1',
+          'cmp-2-1',
+          'cmp-3-1',
+          'cmp-4-1',
+          'cmp-5-1',
+          'cmp-6-1',
+          'cmp-1-2',
+          'cmp-2-2',
+          'cmp-3-2',
+          'cmp-4-2',
+        ]
+      );
       assert.ok(
-        payload.next_actions.some(action =>
-          action.includes('Inspect the changed and new comparisons')
+        payload.suggested_commands.some(item =>
+          item.command.endsWith('--agent --full')
+        )
+      );
+    });
+
+    it('returns no compact evidence when the API marks every group reviewed', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            build: { id: 'build-1' },
+            groups: [
+              {
+                name: 'Dashboard',
+                aggregate_status: { needs_review: false },
+                variants: [
+                  {
+                    id: 'cmp-approved',
+                    result: 'changed',
+                    needs_review: true,
+                  },
+                ],
+              },
+            ],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.strictEqual(payload.status, null);
+      assert.strictEqual(payload.summary, null);
+      assert.strictEqual(payload.evidence_returned, 0);
+      assert.deepStrictEqual(payload.evidence, []);
+      assert.deepStrictEqual(payload.suggested_commands, []);
+    });
+
+    it('keeps failed captures actionable without inventing comparison IDs', async () => {
+      let output = createMockOutput();
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({
+            build: { id: 'build-1' },
+            screenshots: [
+              {
+                id: 'failed-screenshot',
+                name: 'Settings page',
+                status: 'failed',
+                error_message: 'Browser render failed',
+                url: 'https://cdn.test/failed.png',
+              },
+            ],
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.strictEqual(payload.evidence[0].kind, 'failed_capture');
+      assert.strictEqual(payload.evidence[0].id, null);
+      assert.strictEqual(
+        payload.evidence[0].screenshot.id,
+        'failed-screenshot'
+      );
+      assert.strictEqual(
+        payload.evidence[0].error_message,
+        'Browser render failed'
+      );
+      assert.ok(
+        payload.suggested_commands.every(
+          item => !item.command.includes('context comparison')
+        )
+      );
+      assert.ok(
+        payload.suggested_commands.some(item =>
+          item.command.includes("context screenshot 'Settings page'")
         )
       );
     });
@@ -327,6 +529,7 @@ describe('commands/context', () => {
 
     it('returns the full payload when agent JSON asks for full context', async () => {
       let output = createMockOutput();
+      let capturedQuery = 'not-called';
       let context = {
         resource: 'build_context',
         build: { id: 'build-1' },
@@ -343,7 +546,10 @@ describe('commands/context', () => {
             apiUrl: 'https://api.test',
           }),
           createApiClient: () => ({}),
-          getBuildContext: async () => context,
+          getBuildContext: async (_client, _buildId, query) => {
+            capturedQuery = query;
+            return context;
+          },
           output,
           exit: () => {},
         }
@@ -352,6 +558,7 @@ describe('commands/context', () => {
       let payload = output.calls.find(call => call.method === 'data').args[0];
       assert.strictEqual(payload.resource, 'build_context');
       assert.deepStrictEqual(payload.screenshots, [{ id: 'ss-1' }]);
+      assert.strictEqual(capturedQuery, undefined);
     });
 
     it('resolves cloud current builds from the active run session', async () => {

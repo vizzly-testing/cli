@@ -271,8 +271,11 @@ vizzly context build current --source local --agent
 ```
 
 Use `--json` for durable automation. Use `--agent --json` when you want the compact handoff that
-agents should read first. Add `--include screenshots,diffs,comments` for selected detail, or
-`--full` when you need the complete build context payload.
+agents should read first. It returns at most 10 actionable evidence records while preserving API
+order, with failed captures first and one variant from each screenshot group before additional
+variants. Add `--include diffs` for raw Honeydiff diagnostics on those selected records. Explicit
+`screenshots` and `comments` includes return those API collections, and `--full` returns the
+complete build context payload unchanged.
 
 Compact agent JSON:
 
@@ -311,27 +314,70 @@ Compact agent JSON:
       "new": 1
     }
   },
+  "evidence_limit": 10,
+  "evidence_returned": 1,
+  "evidence_truncated": false,
   "evidence": [
     {
+      "kind": "comparison",
       "id": "cmp-1",
       "name": "Dashboard",
       "result": "changed",
+      "review_state": "pending",
       "needs_review": true,
+      "group": {
+        "name": "Dashboard",
+        "variant_count": 2,
+        "needs_review_count": 1,
+        "failed_count": 0,
+        "max_diff_percentage": 0.42
+      },
+      "screenshot": {
+        "id": "current-1",
+        "browser": "chrome",
+        "viewport": { "width": 1440, "height": 900 },
+        "bitmap": { "width": 2880, "height": 1800 },
+        "signature": "Dashboard|1440|chrome",
+        "url": "https://.../current.png"
+      },
+      "baseline": {
+        "id": "baseline-1",
+        "build_id": "baseline-build",
+        "url": "https://.../baseline.png"
+      },
       "diff": {
         "percentage": 0.42,
         "fingerprint_hash": "00000000001ec127",
         "region_count": 12,
+        "projection": {
+          "clusters": { "count": 12 }
+        },
         "image_url": "https://..."
       }
     }
   ],
-  "next_actions": [
-    "Inspect the changed and new comparisons before editing related UI.",
-    "Use approved baselines as the expected visual behavior.",
-    "Leave approval decisions to human reviewers."
+  "suggested_commands": [
+    {
+      "label": "Inspect comparison context",
+      "command": "vizzly --json context comparison cmp-1"
+    },
+    {
+      "label": "Inspect screenshot history",
+      "command": "vizzly --json context screenshot Dashboard"
+    },
+    {
+      "label": "Load raw diff diagnostics",
+      "command": "vizzly --json context build abc123 --agent --include diffs"
+    }
   ]
 }
 ```
+
+`status`, `summary`, review state, asset URLs, and Honeydiff values come from the API. The compact
+client does not estimate processing progress or rebuild server aggregates. Its local work is
+limited to normalization, bounded evidence selection, truncation facts, and executable
+`suggested_commands`. When `evidence_truncated` is `true`, the suggestions also include a `--full`
+command.
 
 Full build context JSON:
 

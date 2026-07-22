@@ -115,6 +115,17 @@ describe('api/endpoints', () => {
       );
     });
 
+    it('includes build context detail params when provided', async () => {
+      let client = createMockClient({ resource: 'build_context' });
+
+      await getBuildContext(client, 'build-123', { details: 'summary' });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/builds/build-123?details=summary'
+      );
+    });
+
     it('includes comparison context query params when provided', async () => {
       let client = createMockClient({ resource: 'comparison_context' });
 

@@ -398,7 +398,11 @@ describe('commands/run', () => {
             waitForBuild: async buildId => {
               waitForBuildCalled = true;
               assert.strictEqual(buildId, 'build-123');
-              return { failedComparisons: 0, passedComparisons: 5 };
+              return {
+                status: 'completed',
+                failedComparisons: 0,
+                passedComparisons: 5,
+              };
             },
           }),
           runTests: async () => ({
@@ -441,6 +445,7 @@ describe('commands/run', () => {
           }),
           createUploader: () => ({
             waitForBuild: async () => ({
+              status: 'completed',
               failedComparisons: 3,
               passedComparisons: 5,
             }),
@@ -471,7 +476,7 @@ describe('commands/run', () => {
       );
     });
 
-    it('does not fail when build status polling returns any API error', async () => {
+    it('keeps passed tests separate from an unavailable API build status', async () => {
       let output = createMockOutput();
       let userTestsRan = false;
 
@@ -515,11 +520,17 @@ describe('commands/run', () => {
       assert.strictEqual(userTestsRan, true);
       assert.strictEqual(result.success, true);
       assert.strictEqual(result.result.buildId, 'build-123');
+      assert.strictEqual(result.result.status, null);
+      assert.strictEqual(result.result.testsPassed, true);
+      assert.deepStrictEqual(result.result.error, {
+        code: 'BUILD_STATUS_FAILED',
+        message: 'Failed to check build status',
+      });
       assert.ok(
         output.calls.some(
           call =>
             call.method === 'warn' &&
-            call.args[0].includes('after your tests passed')
+            call.args[0].includes('could not confirm the build status')
         )
       );
     });
@@ -729,6 +740,8 @@ describe('commands/run', () => {
             waitForBuild: async buildId => {
               assert.strictEqual(buildId, 'build-123');
               return {
+                status: 'completed',
+                build: { conclusion: 'review_required' },
                 totalComparisons: 3,
                 newComparisons: 1,
                 failedComparisons: 2,
@@ -757,7 +770,8 @@ describe('commands/run', () => {
       let dataCalls = output.calls.filter(c => c.method === 'data');
 
       assert.strictEqual(dataCalls.length, 1);
-      assert.strictEqual(dataCalls[0].args[0].status, 'failed');
+      assert.strictEqual(dataCalls[0].args[0].status, 'completed');
+      assert.strictEqual(dataCalls[0].args[0].conclusion, 'review_required');
       assert.deepStrictEqual(dataCalls[0].args[0].comparisons, {
         total: 3,
         new: 1,

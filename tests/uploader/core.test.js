@@ -408,21 +408,22 @@ describe('uploader/core', () => {
         totalComparisons: 10,
         passedComparisons: 8,
         failedComparisons: 2,
-        newComparisons: 0,
+        newComparisons: undefined,
         identicalComparisons: 8,
-        approvalStatus: 'pending',
+        approvalStatus: undefined,
         url: 'https://example.com/builds/123',
       });
     });
 
-    it('defaults comparison values when not present', () => {
+    it('does not invent comparison values when the API omits them', () => {
       let build = { id: 'build-123', status: 'completed' };
       let result = buildWaitResult(build);
 
-      assert.strictEqual(result.passedComparisons, 0);
-      assert.strictEqual(result.failedComparisons, 0);
-      assert.strictEqual(result.totalComparisons, 0);
-      assert.strictEqual(result.newComparisons, 0);
+      assert.strictEqual(result.passedComparisons, undefined);
+      assert.strictEqual(result.failedComparisons, undefined);
+      assert.strictEqual(result.totalComparisons, undefined);
+      assert.strictEqual(result.newComparisons, undefined);
+      assert.strictEqual(result.approvalStatus, undefined);
       assert.strictEqual(result.comparisons, undefined);
     });
 

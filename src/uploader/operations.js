@@ -299,7 +299,8 @@ export async function waitForBuild({ buildId, timeout, signal, client, deps }) {
     if (build.status === 'failed') {
       throw createError(
         `Build failed: ${build.error || 'Unknown error'}`,
-        'BUILD_FAILED'
+        'BUILD_FAILED',
+        { buildId, build }
       );
     }
 

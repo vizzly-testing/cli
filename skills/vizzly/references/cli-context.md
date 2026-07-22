@@ -68,9 +68,6 @@ vizzly run "<existing visual test command>" --wait --json
 vizzly context build <build-id> --agent --json
 ```
 
-The `contextCommand` returned by current `run` and `tdd run` output omits
-`--json`. Add `--json` when using it as the bounded structured handoff.
-
 ## Read And Drill Into Evidence
 
 For each evidence record:

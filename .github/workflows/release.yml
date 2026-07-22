@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       version_type:
-        description: 'Version bump type, or current to publish the package.json version'
+        description: 'Version bump type'
         required: true
         default: 'patch'
         type: choice
         options:
-          - current
           - patch
           - minor
           - major
+          - beta
 
 jobs:
   release:
@@ -54,7 +54,9 @@ jobs:
       - name: Bump version
         id: version
         run: |
-          if [ "${{ github.event.inputs.version_type }}" != "current" ]; then
+          if [ "${{ github.event.inputs.version_type }}" = "beta" ]; then
+            npm version prerelease --preid=beta --no-git-tag-version
+          else
             npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
           fi
 
@@ -63,10 +65,8 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "package_version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
-          if [ "${{ github.event.inputs.version_type }}" != "current" ]; then
-            git add package.json pnpm-lock.yaml
-            git commit -m "🔖 v$PACKAGE_VERSION"
-          fi
+          git add package.json pnpm-lock.yaml
+          git commit -m "🔖 v$PACKAGE_VERSION"
 
       - name: Get previous published version
         id: prev_version
@@ -179,7 +179,12 @@ jobs:
         run: pnpm run build
 
       - name: Publish to NPM
-        run: npm publish --provenance --access public --ignore-scripts
+        run: |
+          if [ "${{ github.event.inputs.version_type }}" = "beta" ]; then
+            npm publish --provenance --access public --tag beta --ignore-scripts
+          else
+            npm publish --provenance --access public --ignore-scripts
+          fi
 
       - name: Push version and tag
         run: |
@@ -191,9 +196,9 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ steps.version.outputs.new_version }}
-          name: ✨ ${{ steps.version.outputs.new_version }}
+          name: ${{ github.event.inputs.version_type == 'beta' && '🧪' || '✨' }} ${{ steps.version.outputs.new_version }}
           body: ${{ steps.release_notes.outputs.notes }}
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event.inputs.version_type == 'beta' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

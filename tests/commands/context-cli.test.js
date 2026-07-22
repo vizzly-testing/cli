@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { runCLI } from '../helpers/cli-runner.js';
+import { parseJSONOutput, runCLI } from '../helpers/cli-runner.js';
 
 function createWorkspaceFixture() {
   let cwd = join(
@@ -275,6 +275,40 @@ async function withBuildContextApi(callback) {
 }
 
 describe('context CLI integration', () => {
+  it('reports the resolved API origin when cloud context is unreachable', async () => {
+    let server = createServer(request => request.socket.destroy());
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+    try {
+      let address = server.address();
+      let apiUrl = `http://127.0.0.1:${address.port}`;
+      let result = await runCLI(
+        ['--json', 'context', 'build', 'build-123', '--source', 'cloud'],
+        {
+          cwd: mkdtempSync(join(tmpdir(), 'vizzly-context-network-')),
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+
+      assert.strictEqual(result.code, 1);
+      let messages = parseJSONOutput(result.stderr);
+      assert.ok(
+        messages.some(
+          message =>
+            message.status === 'error' &&
+            message.error?.message.includes(
+              `Unable to reach Vizzly at ${apiUrl}`
+            )
+        )
+      );
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+    }
+  });
+
   it('returns bounded API-backed agent evidence through the real CLI', async () => {
     await withBuildContextApi(async ({ apiUrl, requests }) => {
       let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-cloud-'));
@@ -312,6 +346,26 @@ describe('context CLI integration', () => {
       assert.ok(!compactPayload.groups);
       assert.ok(!compactPayload.next_actions);
 
+      let nextPage = await runCLI(
+        [
+          '--json',
+          'context',
+          'build',
+          'build-123',
+          '--agent',
+          '--offset',
+          '10',
+        ],
+        { cwd, env }
+      );
+
+      assert.strictEqual(nextPage.code, 0);
+      let nextPagePayload = JSON.parse(nextPage.stdout).data;
+      assert.strictEqual(nextPagePayload.evidence_offset, 10);
+      assert.strictEqual(nextPagePayload.evidence_returned, 1);
+      assert.strictEqual(nextPagePayload.evidence_has_more, false);
+      assert.strictEqual(nextPagePayload.evidence[0].id, 'comparison-11');
+
       let withDiffs = await runCLI(
         [
           '--json',
@@ -332,7 +386,40 @@ describe('context CLI integration', () => {
       ]);
       assert.deepStrictEqual(requests, [
         '/api/sdk/context/builds/build-123?details=summary',
+        '/api/sdk/context/builds/build-123?details=summary',
         '/api/sdk/context/builds/build-123?details=diffs',
+      ]);
+    });
+  });
+
+  it('normalizes focused comparison evidence through the real CLI', async () => {
+    await withBuildContextApi(async ({ apiUrl }) => {
+      let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-comparison-'));
+      let result = await runCLI(
+        [
+          '--json',
+          'context',
+          'comparison',
+          'comparison-1',
+          '--agent',
+          '--source',
+          'cloud',
+        ],
+        {
+          cwd,
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+
+      assert.strictEqual(result.code, 0, result.stderr);
+      let payload = JSON.parse(result.stdout).data;
+      assert.strictEqual(payload.resource, 'comparison_agent_context');
+      assert.strictEqual(payload.comparison.id, 'comparison-1');
+      assert.deepStrictEqual(payload.comparison.diff.regions, [
+        { x: 10, y: 20, width: 30, height: 40 },
       ]);
     });
   });

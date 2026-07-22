@@ -181,6 +181,33 @@ describe('api/client', () => {
       assert.strictEqual(options.headers['Content-Type'], 'application/json');
     });
 
+    it('identifies the API origin when the network request fails', async () => {
+      let client = createApiClient({
+        token: 'test-token',
+        baseUrl: 'http://localhost:3000',
+      });
+      let networkError = new TypeError('fetch failed');
+      networkError.cause = { code: 'ECONNREFUSED' };
+      mockFetch.mock.mockImplementation(async () => {
+        throw networkError;
+      });
+
+      await assert.rejects(
+        () => client.request('/api/builds'),
+        error => {
+          assert.strictEqual(error.name, 'VizzlyError');
+          assert.match(
+            error.message,
+            /Unable to reach Vizzly at http:\/\/localhost:3000/
+          );
+          assert.match(error.message, /ECONNREFUSED/);
+          assert.strictEqual(error.code, 'NETWORK_ERROR');
+          assert.strictEqual(error.context?.apiOrigin, 'http://localhost:3000');
+          return true;
+        }
+      );
+    });
+
     it('throws AuthError for 401 response', async () => {
       let client = createApiClient({
         token: 'test-token',

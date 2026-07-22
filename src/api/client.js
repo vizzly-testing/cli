@@ -27,6 +27,16 @@ function isProjectToken(token) {
   return typeof token === 'string' && token.startsWith('vzt_');
 }
 
+/** Prefer the transport cause because Node's top-level fetch message is generic. */
+function getNetworkFailureReason(error) {
+  return (
+    error?.cause?.code ||
+    error?.cause?.message ||
+    error?.message ||
+    'request failed'
+  );
+}
+
 /**
  * Create an API client with the given configuration
  *
@@ -75,10 +85,21 @@ export function createApiClient(options = {}) {
       extra: fetchOptions.headers || {},
     });
 
-    let response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+      });
+    } catch (error) {
+      let apiOrigin = new URL(url).origin;
+      let reason = getNetworkFailureReason(error);
+      throw new VizzlyError(
+        `Unable to reach Vizzly at ${apiOrigin}: ${reason}`,
+        'NETWORK_ERROR',
+        { apiOrigin }
+      );
+    }
 
     if (!response.ok) {
       let errorBody = await extractErrorBody(response);

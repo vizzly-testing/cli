@@ -264,6 +264,7 @@ cloud data or your local `.vizzly` workspace.
 ```bash
 vizzly context build abc123 --source cloud --json
 vizzly context build abc123 --source cloud --agent --json
+vizzly context build abc123 --source cloud --agent --json --offset 10
 vizzly context build abc123 --source cloud --agent --json --include diffs,comments
 vizzly context build abc123 --source cloud --agent --json --full
 vizzly context build current --source local --json
@@ -273,7 +274,8 @@ vizzly context build current --source local --agent
 Use `--json` for durable automation. Use `--agent --json` when you want the compact handoff that
 agents should read first. It returns at most 10 actionable evidence records while preserving API
 order, with failed captures first and one variant from each screenshot group before additional
-variants. Add `--include diffs` for raw Honeydiff diagnostics on those selected records. Explicit
+variants. Follow the returned next-page command or use `--offset` to continue through that order.
+Add `--include diffs` for raw Honeydiff diagnostics on those selected records. Explicit
 `screenshots` and `comments` includes return those API collections, and `--full` returns the
 complete build context payload unchanged.
 
@@ -315,7 +317,10 @@ Compact agent JSON:
     }
   },
   "evidence_limit": 10,
+  "evidence_offset": 0,
+  "evidence_total": 1,
   "evidence_returned": 1,
+  "evidence_has_more": false,
   "evidence_truncated": false,
   "evidence": [
     {
@@ -359,7 +364,7 @@ Compact agent JSON:
   "suggested_commands": [
     {
       "label": "Inspect comparison context",
-      "command": "vizzly --json context comparison cmp-1 --source cloud"
+      "command": "vizzly --json context comparison cmp-1 --agent --source cloud"
     },
     {
       "label": "Inspect screenshot history",
@@ -375,9 +380,9 @@ Compact agent JSON:
 
 `status`, `summary`, review state, asset URLs, and Honeydiff values come from the API. The compact
 client does not estimate processing progress or rebuild server aggregates. Its local work is
-limited to normalization, bounded evidence selection, truncation facts, and executable
-`suggested_commands`. When `evidence_truncated` is `true`, the suggestions also include a `--full`
-command.
+limited to normalization, API-ordered evidence paging, truncation facts, and executable
+`suggested_commands`. When more records follow the current page, the suggestions include the exact
+next `--offset`. When the page omits any records, they also include a `--full` command.
 
 Full build context JSON:
 
@@ -452,8 +457,47 @@ Full build context JSON:
 
 ```bash
 vizzly context comparison cmp-1 --source cloud --json
+vizzly context comparison cmp-1 --source cloud --agent --json
 vizzly context comparison build-detail-screenshots --source local --json
 ```
+
+Raw JSON preserves the provider response. Add `--agent` to normalize current, baseline, diff, and
+Honeydiff fields into the same evidence shape used by compact build context.
+
+Agent comparison JSON:
+
+```json
+{
+  "resource": "comparison_agent_context",
+  "source": "cloud",
+  "comparison": {
+    "id": "cmp-1",
+    "name": "Dashboard",
+    "result": "changed",
+    "review_state": "pending",
+    "screenshot": {
+      "url": "https://.../current.png"
+    },
+    "baseline": {
+      "url": "https://.../baseline.png"
+    },
+    "diff": {
+      "image_url": "https://.../diff.png",
+      "fingerprint_hash": "00000000001ec127",
+      "regions": [],
+      "cluster_metadata": {
+        "classification": "dynamic_content"
+      }
+    }
+  },
+  "history": {
+    "similar_by_fingerprint": [],
+    "recent_by_name": []
+  }
+}
+```
+
+Raw comparison JSON remains available without `--agent`:
 
 ```json
 {

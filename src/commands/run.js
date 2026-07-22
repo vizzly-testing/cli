@@ -78,7 +78,7 @@ export async function resolveBuildDisplayUrl({
  */
 function buildContextCommand(buildId, { structured = false } = {}) {
   let jsonFlag = structured ? ' --json' : '';
-  return `vizzly context build ${buildId} --agent${jsonFlag}`;
+  return `vizzly context build ${buildId} --agent${jsonFlag} --source cloud`;
 }
 
 /**

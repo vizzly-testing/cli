@@ -152,7 +152,79 @@ describe('context/local-workspace-provider', () => {
     assert.strictEqual(provider.canHandle('comparison', 'comp-1'), true);
     provider.getBuildContext('local-build');
 
-    assert.strictEqual(readCount, 7);
+    assert.strictEqual(readCount, 6);
+  });
+
+  it('does not treat a cloud session as local evidence', () => {
+    let projectRoot = '/tmp/vizzly-cloud-session-only';
+    let paths = createWorkspacePaths(projectRoot);
+    let provider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      {
+        readJsonIfExists: path => {
+          if (path === paths.session) {
+            return {
+              buildId: 'cloud-build',
+              branch: 'main',
+              commit: 'abc123',
+            };
+          }
+
+          return null;
+        },
+      }
+    );
+
+    assert.strictEqual(provider.isAvailable(), false);
+    assert.strictEqual(provider.canHandle('build', 'cloud-build'), false);
+  });
+
+  it('keeps stale local report evidence separate from a cloud session', () => {
+    let projectRoot = '/tmp/vizzly-cloud-session-with-local-report';
+    let paths = createWorkspacePaths(projectRoot);
+    let provider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      {
+        readJsonIfExists: path => {
+          if (path === paths.session) {
+            return {
+              buildId: 'cloud-build',
+              branch: 'main',
+              commit: 'abc123',
+            };
+          }
+
+          if (path === paths.report) {
+            return {
+              comparisons: [
+                {
+                  id: 'stale-local-comparison',
+                  name: 'Old local screenshot',
+                  status: 'failed',
+                  current: '/images/current/old.png',
+                  properties: {},
+                },
+              ],
+            };
+          }
+
+          if (path === paths.comparisonDetails) {
+            return {};
+          }
+
+          return null;
+        },
+      }
+    );
+
+    assert.strictEqual(provider.isAvailable(), true);
+    assert.strictEqual(provider.canHandle('build', 'cloud-build'), false);
+    assert.strictEqual(provider.canHandle('build', 'current'), true);
+
+    let context = provider.getBuildContext('current');
+    assert.strictEqual(context.build.id, 'local-workspace');
+    assert.strictEqual(context.build.branch, 'local');
+    assert.strictEqual(context.build.commit_sha, null);
   });
 
   it('caps the default local review queue size', () => {

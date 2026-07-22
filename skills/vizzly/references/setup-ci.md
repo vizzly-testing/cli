@@ -60,7 +60,8 @@ having every shard race to finalize the build.
 - Run `vizzly doctor` for local configuration checks.
 - Run `vizzly tdd status --json` for a local daemon started by the task.
 - Run `vizzly status <build-id> --json` for cloud lifecycle facts.
-- Run `vizzly context build <build-id> --agent --json` for visual evidence.
+- Run `vizzly context build <build-id> --source cloud --agent --json` for visual
+  evidence.
 - If screenshots are absent, verify the existing SDK or integration, the test
   path that should capture them, and the active local or cloud session.
 - If authentication is absent, report it rather than initiating login unless

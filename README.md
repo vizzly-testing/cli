@@ -100,8 +100,8 @@ evidence in one place.
 
 ```bash
 # Cloud context for a build or comparison
-vizzly context build abc123
-vizzly context comparison def456 --json
+vizzly context build abc123 --source cloud
+vizzly context comparison def456 --source cloud --json
 
 # Local workspace context from .vizzly/
 vizzly context build current --source local

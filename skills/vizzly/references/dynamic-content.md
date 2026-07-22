@@ -8,10 +8,11 @@ responsive text as possible causes of change, not automatic explanations.
 1. Inspect screenshot history and the actual image evidence:
 
    ```bash
-   vizzly context screenshot "<screenshot-name>" --json
+   vizzly context screenshot "<screenshot-name>" --source <local-or-cloud> --json
    ```
 
-2. Record the observed region, recurrence, render metadata, and whether the
+2. Replace `<local-or-cloud>` with the source of the evidence being diagnosed.
+   Record the observed region, recurrence, render metadata, and whether the
    same change appears across builds or variants.
 3. Check whether deterministic fixtures can remove irrelevant variation.
 4. Treat hotspots and confirmed regions as server- or user-owned evidence.

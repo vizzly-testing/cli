@@ -310,9 +310,9 @@ describe('commands/context', () => {
       assert.deepStrictEqual(
         payload.suggested_commands.map(item => item.command),
         [
-          'vizzly --json context comparison cmp-1',
-          'vizzly --json context screenshot Dashboard',
-          'vizzly --json context build build-1 --agent --include diffs',
+          'vizzly --json context comparison cmp-1 --source cloud',
+          'vizzly --json context screenshot Dashboard --source cloud',
+          'vizzly --json context build build-1 --agent --include diffs --source cloud',
         ]
       );
     });
@@ -372,7 +372,7 @@ describe('commands/context', () => {
       );
       assert.ok(
         payload.suggested_commands.some(item =>
-          item.command.endsWith('--agent --full')
+          item.command.endsWith('--agent --full --source cloud')
         )
       );
     });

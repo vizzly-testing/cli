@@ -268,6 +268,56 @@ describe('context CLI integration', () => {
     });
   });
 
+  it('does not let a cloud session relabel stale local evidence', async () => {
+    await withBuildContextApi(async ({ apiUrl, requests }) => {
+      let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-mixed-source-'));
+      let vizzlyDir = join(cwd, '.vizzly');
+      mkdirSync(vizzlyDir, { recursive: true });
+      writeFileSync(
+        join(vizzlyDir, 'session.json'),
+        JSON.stringify({
+          buildId: 'build-123',
+          branch: 'main',
+          commit: 'abc123',
+          createdAt: '2026-07-22T00:00:00.000Z',
+        })
+      );
+      writeFileSync(
+        join(vizzlyDir, 'report-data.json'),
+        JSON.stringify({
+          comparisons: [
+            {
+              id: 'stale-local-comparison',
+              name: 'Old local screenshot',
+              status: 'failed',
+              current: '/images/current/old.png',
+            },
+          ],
+        })
+      );
+
+      let result = await runCLI(
+        ['--json', 'context', 'build', 'build-123', '--agent'],
+        {
+          cwd,
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+
+      assert.strictEqual(result.code, 0, result.stderr);
+      let payload = JSON.parse(result.stdout).data;
+      assert.strictEqual(payload.source, 'cloud');
+      assert.strictEqual(payload.build.id, 'build-123');
+      assert.strictEqual(payload.evidence[0].id, 'comparison-1');
+      assert.deepStrictEqual(requests, [
+        '/api/sdk/context/builds/build-123?details=summary',
+      ]);
+    });
+  });
+
   it('treats root-level --json as a flag before the context command', async () => {
     let result = await runCLI(['--json', 'context', 'build', 'build-123']);
 
@@ -282,7 +332,7 @@ describe('context CLI integration', () => {
     mkdirSync(vizzlyHome, { recursive: true });
 
     let result = await runCLI(
-      ['--json', 'context', 'build', 'current', '--source', 'local'],
+      ['--json', 'context', 'build', 'current', '--source', 'local', '--agent'],
       {
         cwd,
         env: {
@@ -296,9 +346,14 @@ describe('context CLI integration', () => {
     assert.strictEqual(parsed.status, 'data');
     assert.strictEqual(parsed.data.source, 'local_workspace');
     assert.strictEqual(parsed.data.build.id, 'local-build-1');
+    assert.ok(
+      parsed.data.suggested_commands.every(item =>
+        item.command.endsWith('--source local')
+      )
+    );
   });
 
-  it('auto-selects local screenshot context when a workspace session is active', async () => {
+  it('auto-selects local screenshot context when local evidence is available', async () => {
     let cwd = createWorkspaceFixture();
     let vizzlyHome = join(cwd, '.vizzly-home');
     mkdirSync(vizzlyHome, { recursive: true });

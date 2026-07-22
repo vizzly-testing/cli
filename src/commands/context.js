@@ -496,17 +496,19 @@ function isLocalContext(context = {}) {
 }
 
 /**
- * Keep suggested commands on the same source as the evidence they inspect.
+ * Keep executable suggestions on the source that produced their evidence.
  *
- * Without the explicit local flag, an executable suggestion could silently
- * switch to cloud context and describe a different build.
+ * Mixed workspaces can contain both a cloud run session and persisted local
+ * TDD results. Pinning either source prevents a follow-up command from
+ * silently crossing that boundary and describing a different build.
  *
  * @param {string} command - Base CLI command.
  * @param {Object} context - Context that produced the command.
- * @returns {string} Command pinned to local context when needed.
+ * @returns {string} Command pinned to its originating source.
  */
-function appendLocalSource(command, context = {}) {
-  return isLocalContext(context) ? `${command} --source local` : command;
+function appendContextSource(command, context = {}) {
+  let source = isLocalContext(context) ? 'local' : 'cloud';
+  return `${command} --source ${source}`;
 }
 
 /**
@@ -538,7 +540,7 @@ function buildSuggestedCommands(
   if (firstComparison?.id) {
     commands.push({
       label: 'Inspect comparison context',
-      command: appendLocalSource(
+      command: appendContextSource(
         `vizzly --json context comparison ${quoteCommandArgument(firstComparison.id)}`,
         context
       ),
@@ -548,7 +550,7 @@ function buildSuggestedCommands(
   if (firstNamedEvidence?.name) {
     commands.push({
       label: 'Inspect screenshot history',
-      command: appendLocalSource(
+      command: appendContextSource(
         `vizzly --json context screenshot ${quoteCommandArgument(firstNamedEvidence.name)}`,
         context
       ),
@@ -558,7 +560,7 @@ function buildSuggestedCommands(
   if (buildTarget && evidence.length > 0) {
     commands.push({
       label: 'Load raw diff diagnostics',
-      command: appendLocalSource(
+      command: appendContextSource(
         `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --include diffs`,
         context
       ),
@@ -568,7 +570,7 @@ function buildSuggestedCommands(
   if (buildTarget && truncated) {
     commands.push({
       label: 'Load full build context',
-      command: appendLocalSource(
+      command: appendContextSource(
         `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --full`,
         context
       ),

@@ -181,21 +181,28 @@ function buildComparisonLinks(snapshot, comparisonId) {
   };
 }
 
+/**
+ * Describe the local evidence set without borrowing cloud run identity.
+ *
+ * A cloud `session.json` can coexist with older file-backed TDD evidence. Using
+ * that session here makes stale local comparisons look like the current cloud
+ * build, so local identity comes only from the active local server.
+ *
+ * @param {Object} snapshot - Persisted local workspace evidence.
+ * @returns {Object} Build-shaped identity for the local context payload.
+ */
 function buildBuildSnapshot(snapshot) {
-  let buildId =
-    snapshot.session?.buildId ||
-    snapshot.serverInfo?.buildId ||
-    'local-workspace';
+  let buildId = snapshot.serverInfo?.buildId || 'local-workspace';
 
   return {
     id: buildId,
     name: buildId,
-    branch: snapshot.session?.branch || 'local',
-    commit_sha: snapshot.session?.commit || null,
+    branch: 'local',
+    commit_sha: null,
     commit_message: null,
     approval_status: snapshot.serverInfo ? 'pending' : 'approved',
     status: snapshot.serverInfo ? 'running' : 'completed',
-    created_at: snapshot.session?.createdAt || null,
+    created_at: null,
   };
 }
 
@@ -417,7 +424,6 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       vizzlyDir,
       existsSync,
       serverInfo: readJson(join(vizzlyDir, 'server.json')),
-      session: readJson(join(vizzlyDir, 'session.json')),
       reportData: normalizeReportData(
         readJson(join(vizzlyDir, 'report-data.json')) || createEmptyReportData()
       ),
@@ -436,7 +442,6 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
   function isAvailable(snapshot = loadSnapshot()) {
     return Boolean(
       snapshot.serverInfo ||
-        snapshot.session ||
         snapshot.reportData.comparisons.length > 0 ||
         snapshot.baselineMetadata
     );
@@ -529,7 +534,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       )
     ) {
       throw createLocalWorkspaceError(
-        `Local workspace context is only available for the active session build (${resolvedBuild.id})`
+        `Local workspace context is only available for the active local build (${resolvedBuild.id})`
       );
     }
 

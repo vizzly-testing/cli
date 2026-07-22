@@ -54,7 +54,7 @@ When the task already has a build ID:
 
 ```bash
 vizzly status <build-id> --json
-vizzly context build <build-id> --agent --json
+vizzly context build <build-id> --source cloud --agent --json
 ```
 
 Use status for server-owned lifecycle, processing, comparison, and review
@@ -65,7 +65,7 @@ command:
 
 ```bash
 vizzly run "<existing visual test command>" --wait --json
-vizzly context build <build-id> --agent --json
+vizzly context build <build-id> --source cloud --agent --json
 ```
 
 ## Read And Drill Into Evidence
@@ -84,11 +84,13 @@ For each evidence record:
 Useful manual drill-downs are:
 
 ```bash
-vizzly context comparison <comparison-id> --json
-vizzly context screenshot "<screenshot-name>" --json
-vizzly context similar <fingerprint-hash> --json
-vizzly context review-queue --json
+vizzly context comparison <comparison-id> --source <local-or-cloud> --json
+vizzly context screenshot "<screenshot-name>" --source <local-or-cloud> --json
+vizzly context similar <fingerprint-hash> --source cloud --json
+vizzly context review-queue --source <local-or-cloud> --json
 ```
 
-`context similar` is cloud-only. Keep missing values unknown, and do not turn
-metadata into a visual conclusion when the underlying images are unavailable.
+Use the source from the evidence you are inspecting in place of
+`<local-or-cloud>`. `context similar` is cloud-only. Keep missing values
+unknown, and do not turn metadata into a visual conclusion when the underlying
+images are unavailable.

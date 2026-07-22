@@ -27,10 +27,15 @@ async function getFreePort() {
 }
 
 async function withApiServer(callback, options = {}) {
-  let { buildCreationStatus = 200 } = options;
+  let {
+    buildCreationStatus = 200,
+    waitStatusCode = 200,
+    waitBuildState = 'completed',
+  } = options;
   let buildId = 'build-123';
   let buildUrl = 'http://app.test/org/project/builds/build-123';
   let requests = [];
+  let buildReadCount = 0;
   let server = createServer((req, res) => {
     requests.push({ method: req.method, url: req.url });
     res.setHeader('content-type', 'application/json');
@@ -48,11 +53,22 @@ async function withApiServer(callback, options = {}) {
     }
 
     if (req.method === 'GET' && req.url === `/api/sdk/builds/${buildId}`) {
+      buildReadCount++;
+      if (buildReadCount > 1 && waitStatusCode !== 200) {
+        res.statusCode = waitStatusCode;
+        res.end(JSON.stringify({ error: 'build status unavailable' }));
+        return;
+      }
+
       res.end(
         JSON.stringify({
           build: {
             id: buildId,
-            status: 'completed',
+            status: buildReadCount > 1 ? waitBuildState : 'completed',
+            error:
+              buildReadCount > 1 && waitBuildState === 'failed'
+                ? 'comparison processing failed'
+                : undefined,
             url: buildUrl,
             total_comparisons: 0,
             new_comparisons: 0,
@@ -185,6 +201,89 @@ describe('commands/run CLI', () => {
         ]
       );
     });
+  });
+
+  it('does not claim the API build completed when its status is unavailable', async () => {
+    await withApiServer(
+      async ({ apiUrl }) => {
+        let cwd = createWorkspace();
+        let port = await getFreePort();
+
+        let result = await runCLI(
+          [
+            '--no-color',
+            '--json',
+            'run',
+            `node -e ${JSON.stringify('process.exit(0)')}`,
+            '--wait',
+            '--port',
+            String(port),
+          ],
+          {
+            cwd,
+            env: {
+              VIZZLY_API_URL: apiUrl,
+              VIZZLY_TOKEN: 'vzt_test_token',
+            },
+          }
+        );
+
+        assert.strictEqual(
+          result.code,
+          0,
+          `${result.stderr}\n${result.stdout}`
+        );
+        let payload = parseSingleJson(result.stdout);
+        assert.strictEqual(payload.data.status, null);
+        assert.strictEqual(payload.data.testsPassed, true);
+        assert.strictEqual(payload.data.error.code, 'BUILD_STATUS_FAILED');
+        assert.match(payload.data.error.message, /503/);
+        assert.strictEqual(
+          payload.data.contextCommand,
+          'vizzly context build build-123 --agent --json --source cloud'
+        );
+      },
+      { waitStatusCode: 503 }
+    );
+  });
+
+  it('preserves an API-reported failed build after the child tests pass', async () => {
+    await withApiServer(
+      async ({ apiUrl }) => {
+        let cwd = createWorkspace();
+        let port = await getFreePort();
+
+        let result = await runCLI(
+          [
+            '--no-color',
+            '--json',
+            'run',
+            `node -e ${JSON.stringify('process.exit(0)')}`,
+            '--wait',
+            '--port',
+            String(port),
+          ],
+          {
+            cwd,
+            env: {
+              VIZZLY_API_URL: apiUrl,
+              VIZZLY_TOKEN: 'vzt_test_token',
+            },
+          }
+        );
+
+        assert.strictEqual(result.code, 1);
+        let payload = parseSingleJson(result.stdout);
+        assert.strictEqual(payload.data.status, 'failed');
+        assert.strictEqual(payload.data.testsPassed, true);
+        assert.strictEqual(payload.data.error.code, 'BUILD_FAILED');
+        assert.match(
+          payload.data.error.message,
+          /comparison processing failed/
+        );
+      },
+      { waitBuildState: 'failed' }
+    );
   });
 
   it('runs the user test suite with Vizzly disabled when the API rejects the request', async () => {

@@ -510,9 +510,23 @@ export async function runCommand(
           });
 
           let exitCode = buildResult.failedComparisons > 0 ? 1 : 0;
+          let comparisons = {};
+          if (buildResult.totalComparisons !== undefined) {
+            comparisons.total = buildResult.totalComparisons;
+          }
+          if (buildResult.newComparisons !== undefined) {
+            comparisons.new = buildResult.newComparisons;
+          }
+          if (buildResult.failedComparisons !== undefined) {
+            comparisons.changed = buildResult.failedComparisons;
+          }
+          if (buildResult.identicalComparisons !== undefined) {
+            comparisons.identical = buildResult.identicalComparisons;
+          }
+
           let jsonResult = {
             buildId: result.buildId,
-            status: buildResult.failedComparisons > 0 ? 'failed' : 'completed',
+            status: buildResult.status,
             url: displayUrl,
             screenshotsCaptured: result.screenshotsCaptured || 0,
             executionTimeMs,
@@ -521,18 +535,21 @@ export async function runCommand(
               commit,
               message,
             },
-            comparisons: {
-              total: buildResult.totalComparisons || 0,
-              new: buildResult.newComparisons || 0,
-              changed: buildResult.failedComparisons || 0,
-              identical: buildResult.identicalComparisons || 0,
-            },
-            approvalStatus: buildResult.approvalStatus || 'pending',
             contextCommand: buildContextCommand(result.buildId, {
               structured: true,
             }),
             exitCode,
           };
+
+          if (Object.keys(comparisons).length > 0) {
+            jsonResult.comparisons = comparisons;
+          }
+          if (buildResult.approvalStatus !== undefined) {
+            jsonResult.approvalStatus = buildResult.approvalStatus;
+          }
+          if (buildResult.build?.conclusion !== undefined) {
+            jsonResult.conclusion = buildResult.build.conclusion;
+          }
 
           output.data(jsonResult);
           output.cleanup();
@@ -557,24 +574,51 @@ export async function runCommand(
     output.stopSpinner();
 
     // Once the user's tests have passed, no Vizzly-side error can change the
-    // result. This includes polling, formatting, and API response errors.
+    // test result. Keep that outcome while reporting that the API-backed build
+    // status is unavailable instead of inventing a terminal build state.
     if (result) {
-      if (globalOptions.json) {
-        output.data({
-          buildId: result.buildId || null,
-          status: 'completed',
-          message: 'Vizzly disabled after an SDK error',
-          executionTimeMs: Date.now() - (startTime || Date.now()),
-          exitCode: 0,
+      let apiBuild = error.context?.build;
+      let buildStatus = apiBuild?.status ?? null;
+      let exitCode = buildStatus === 'failed' ? 1 : 0;
+      let errorDetails = {
+        code: error.code || 'VIZZLY_STATUS_UNAVAILABLE',
+        message: error.getUserMessage ? error.getUserMessage() : error.message,
+      };
+      let unavailableResult = {
+        buildId: result.buildId || null,
+        status: buildStatus,
+        testsPassed: true,
+        error: errorDetails,
+        executionTimeMs: Date.now() - (startTime || Date.now()),
+        exitCode,
+      };
+
+      if (apiBuild?.conclusion !== undefined) {
+        unavailableResult.conclusion = apiBuild.conclusion;
+      }
+
+      if (result.buildId) {
+        unavailableResult.contextCommand = buildContextCommand(result.buildId, {
+          structured: true,
         });
+      }
+
+      if (globalOptions.json) {
+        output.data(unavailableResult);
+      } else if (buildStatus === 'failed') {
+        output.error(errorDetails.message);
       } else {
         output.warn(
-          'Vizzly encountered an error after your tests passed. Ignoring it.'
+          `Tests passed, but Vizzly could not confirm the build status: ${errorDetails.message}`
         );
       }
       output.cleanup();
       output.debug('run', 'Vizzly SDK error details', { error: error.message });
-      return { success: true, result };
+      return {
+        success: exitCode === 0,
+        exitCode,
+        result: unavailableResult,
+      };
     }
 
     // Provide more context about where the error occurred

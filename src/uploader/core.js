@@ -314,27 +314,24 @@ export function buildUploadResult({ buildId, url, total, uploaded, skipped }) {
  * @returns {Object} Wait result
  */
 export function buildWaitResult(build) {
-  let totalComparisons = build.comparisonsTotal ?? build.total_comparisons ?? 0;
+  let totalComparisons = build.comparisonsTotal ?? build.total_comparisons;
   let passedComparisons =
     build.comparisonsPassed ??
     build.passed_comparisons ??
     build.identicalComparisons ??
-    build.identical_comparisons ??
-    0;
+    build.identical_comparisons;
   let failedComparisons =
     build.comparisonsFailed ??
     build.failed_comparisons ??
     build.changedComparisons ??
-    build.changed_comparisons ??
-    0;
+    build.changed_comparisons;
   let newComparisons =
-    build.comparisonsNew ?? build.newComparisons ?? build.new_comparisons ?? 0;
+    build.comparisonsNew ?? build.newComparisons ?? build.new_comparisons;
   let identicalComparisons =
     build.identicalComparisons ??
     build.identical_comparisons ??
     passedComparisons;
-  let approvalStatus =
-    build.approvalStatus ?? build.approval_status ?? 'pending';
+  let approvalStatus = build.approvalStatus ?? build.approval_status;
   let hasComparisonCounts =
     build.comparisonsTotal !== undefined ||
     build.total_comparisons !== undefined ||
@@ -348,7 +345,7 @@ export function buildWaitResult(build) {
     build.identical_comparisons !== undefined;
 
   let result = {
-    status: 'completed',
+    status: build.status,
     build,
     passedComparisons,
     failedComparisons,

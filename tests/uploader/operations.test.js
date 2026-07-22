@@ -42,9 +42,10 @@ describe('uploader/operations', () => {
 
       let deps = {
         readFile: async filePath => Buffer.from(`content-${filePath}`),
-        createError: (msg, code) => {
+        createError: (msg, code, context) => {
           let err = new Error(msg);
           err.code = code;
+          err.context = context;
           return err;
         },
       };
@@ -456,9 +457,10 @@ describe('uploader/operations', () => {
       };
 
       let deps = {
-        createError: (msg, code) => {
+        createError: (msg, code, context) => {
           let err = new Error(msg);
           err.code = code;
+          err.context = context;
           return err;
         },
         createTimeoutError: () => new Error(),
@@ -476,6 +478,7 @@ describe('uploader/operations', () => {
         error => {
           assert.ok(error.message.includes('Build failed'));
           assert.strictEqual(error.code, 'BUILD_FAILED');
+          assert.strictEqual(error.context.build.status, 'failed');
           return true;
         }
       );

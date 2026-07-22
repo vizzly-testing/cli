@@ -205,10 +205,12 @@ export interface BuildResult {
   status: 'completed' | 'failed' | 'pending';
   build: unknown;
   comparisons?: number;
-  totalComparisons: number;
+  totalComparisons?: number;
   passedComparisons?: number;
   failedComparisons?: number;
-  newComparisons: number;
+  newComparisons?: number;
+  identicalComparisons?: number;
+  approvalStatus?: string;
   url?: string;
 }
 

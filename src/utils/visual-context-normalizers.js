@@ -1,3 +1,9 @@
+/**
+ * Read the API's canonical visual-review state with legacy approval fallbacks.
+ *
+ * @param {Object} record - Comparison or review record from the API.
+ * @returns {string|null} The review state when the API supplied one.
+ */
 export function getVisualReviewState(record = {}) {
   return (
     record.visual_review?.state ||
@@ -7,10 +13,22 @@ export function getVisualReviewState(record = {}) {
   );
 }
 
+/**
+ * Keep visual outcome separate from processing status when both are available.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @returns {string|null} The visual result, or the legacy status fallback.
+ */
 export function getComparisonResult(comparison = {}) {
   return comparison.result || comparison.status || null;
 }
 
+/**
+ * Resolve a screenshot name across current and legacy response shapes.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @returns {string|null} The first API-provided name or identity fallback.
+ */
 export function getComparisonName(comparison = {}) {
   return (
     comparison.name ||
@@ -23,6 +41,12 @@ export function getComparisonName(comparison = {}) {
   );
 }
 
+/**
+ * Resolve CSS viewport dimensions without confusing them with bitmap size.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @returns {{width: number|null, height: number|null}|null} Viewport dimensions.
+ */
 export function getComparisonViewport(comparison = {}) {
   let current = comparison.current_screenshot || comparison.screenshot || {};
   let viewport = comparison.viewport || current.viewport || {};
@@ -42,6 +66,12 @@ export function getComparisonViewport(comparison = {}) {
   return width != null || height != null ? { width, height } : null;
 }
 
+/**
+ * Resolve the browser from nested current screenshot or legacy metadata fields.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @returns {string|null} The browser name when present.
+ */
 export function getComparisonBrowser(comparison = {}) {
   return (
     comparison.browser ||
@@ -54,6 +84,13 @@ export function getComparisonBrowser(comparison = {}) {
   );
 }
 
+/**
+ * Resolve bitmap dimensions from nested or flat screenshot fields.
+ *
+ * @param {Object} record - Preferred screenshot record.
+ * @param {Object} fallback - Legacy fields to use when the record is incomplete.
+ * @returns {{width: number|null, height: number|null}|null} Bitmap dimensions.
+ */
 function getBitmap(record = {}, fallback = {}) {
   let bitmap = record.bitmap || fallback.bitmap || {};
   let width =
@@ -64,6 +101,13 @@ function getBitmap(record = {}, fallback = {}) {
   return width != null || height != null ? { width, height } : null;
 }
 
+/**
+ * Resolve viewport dimensions from one screenshot-shaped record.
+ *
+ * @param {Object} record - Preferred screenshot record.
+ * @param {Object} fallback - Legacy fields to use when the record is incomplete.
+ * @returns {{width: number|null, height: number|null}|null} Viewport dimensions.
+ */
 function getRecordViewport(record = {}, fallback = {}) {
   let viewport = record.viewport || fallback.viewport || {};
   let width =
@@ -77,6 +121,12 @@ function getRecordViewport(record = {}, fallback = {}) {
   return width != null || height != null ? { width, height } : null;
 }
 
+/**
+ * Normalize current screenshot identity, render facts, metadata, and asset URL.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @returns {Object} A stable current screenshot projection.
+ */
 function getCurrentScreenshot(comparison = {}) {
   let screenshot = comparison.current_screenshot || comparison.screenshot || {};
 
@@ -120,6 +170,12 @@ function getCurrentScreenshot(comparison = {}) {
   };
 }
 
+/**
+ * Normalize the baseline screenshot without inventing missing render facts.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @returns {Object} A stable baseline screenshot projection.
+ */
 function getBaselineScreenshot(comparison = {}) {
   let current = comparison.current_screenshot || comparison.screenshot || {};
   let baseline =
@@ -147,6 +203,12 @@ function getBaselineScreenshot(comparison = {}) {
   };
 }
 
+/**
+ * Project compact Honeydiff facts while leaving raw region geometry untouched.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @returns {Object} Compact diff evidence suitable for context summaries.
+ */
 function getComparisonDiff(comparison = {}) {
   let diff =
     comparison.diff || comparison.diff_image || comparison.analysis || {};
@@ -180,6 +242,13 @@ function getComparisonDiff(comparison = {}) {
   };
 }
 
+/**
+ * Prefer explicit review need and return null when the API supplied no review fact.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @param {string|null} reviewState - Canonical review state for the record.
+ * @returns {boolean|null} Whether the comparison needs review, when known.
+ */
 function comparisonNeedsReview(comparison = {}, reviewState = null) {
   if (comparison.needs_review != null) {
     return comparison.needs_review === true;
@@ -192,6 +261,14 @@ function comparisonNeedsReview(comparison = {}, reviewState = null) {
   return reviewState === 'pending';
 }
 
+/**
+ * Normalize one comparison across grouped and legacy flat API response shapes.
+ *
+ * @param {Object} comparison - Comparison record from the API.
+ * @param {Object} options - Normalization options.
+ * @param {string|null} [options.fallbackName] - Group name for unnamed variants.
+ * @returns {Object} A stable comparison evidence record.
+ */
 export function normalizeComparisonRecord(comparison = {}, options = {}) {
   let reviewState = getVisualReviewState(comparison);
   let name =
@@ -223,12 +300,26 @@ export function normalizeComparisonRecord(comparison = {}, options = {}) {
   };
 }
 
+/**
+ * Read the server's total variant count across supported response shapes.
+ *
+ * @param {Object} group - Screenshot group from the API.
+ * @returns {number|null} The explicit total when present.
+ */
 function getExplicitVariantCount(group = {}) {
   return (
     group.variant_count ?? group.total_variants ?? group.totalVariants ?? null
   );
 }
 
+/**
+ * Prove whether every variant is available before deriving aggregate facts.
+ *
+ * @param {Object} group - Screenshot group from the API.
+ * @param {Object[]} variants - Returned normalized variants.
+ * @param {boolean} forcedComplete - Whether the caller owns the complete set.
+ * @returns {boolean} Whether aggregate derivation is safe.
+ */
 function hasCompleteVariants(
   group = {},
   variants = [],
@@ -242,6 +333,16 @@ function hasCompleteVariants(
   return explicitCount != null && explicitCount === variants.length;
 }
 
+/**
+ * Derive only facts backed by a complete variant set and complete source fields.
+ *
+ * Unknown review, flaky, result, or diff values stay null instead of becoming
+ * client-authored false or zero values.
+ *
+ * @param {Object[]} variants - Complete normalized variants for one screenshot.
+ * @param {boolean} complete - Whether every variant is present.
+ * @returns {Object} Exact derived aggregate facts, or an empty object.
+ */
 function deriveAggregateFacts(variants = [], complete = false) {
   if (!complete) {
     return {};
@@ -292,6 +393,14 @@ function deriveAggregateFacts(variants = [], complete = false) {
   };
 }
 
+/**
+ * Normalize a screenshot group while keeping explicit server aggregates authoritative.
+ *
+ * @param {Object} group - Grouped visual-review record from the API.
+ * @param {Object} options - Normalization options.
+ * @param {boolean} [options.variantsComplete] - Marks a caller-owned complete set.
+ * @returns {Object} A normalized screenshot group and its variants.
+ */
 export function normalizeComparisonGroup(group = {}, options = {}) {
   let rawVariants = group.variants || group.comparisons || [];
   let groupName = group.name || group.test_name || group.testName || null;
@@ -333,6 +442,12 @@ export function normalizeComparisonGroup(group = {}, options = {}) {
   };
 }
 
+/**
+ * Group a complete legacy flat comparison list by screenshot name.
+ *
+ * @param {Object[]} comparisons - Complete flat comparisons from build context.
+ * @returns {Object[]} Normalized screenshot groups in API order.
+ */
 function groupFlatComparisons(comparisons = []) {
   let grouped = new Map();
 
@@ -348,6 +463,12 @@ function groupFlatComparisons(comparisons = []) {
   );
 }
 
+/**
+ * Keep failed capture identity, render evidence, and the API error together.
+ *
+ * @param {Object} screenshot - Failed screenshot record from the API.
+ * @returns {Object} A normalized failed-capture record.
+ */
 function normalizeFailedCapture(screenshot = {}) {
   let normalized = normalizeComparisonRecord({
     ...screenshot,
@@ -362,6 +483,12 @@ function normalizeFailedCapture(screenshot = {}) {
   };
 }
 
+/**
+ * Collect failed captures from explicit and screenshot-list response shapes.
+ *
+ * @param {Object} context - Raw build context response.
+ * @returns {Object[]} Deduplicated failed captures in API order.
+ */
 function getFailedCaptures(context = {}) {
   let explicit = Array.isArray(context.failed_captures)
     ? context.failed_captures
@@ -384,6 +511,14 @@ function getFailedCaptures(context = {}) {
   });
 }
 
+/**
+ * Adapt raw build context for human presentation across current and legacy APIs.
+ *
+ * Raw JSON output intentionally bypasses this lossy presentation boundary.
+ *
+ * @param {Object} context - Raw build context response from the provider.
+ * @returns {Object} Normalized comparisons, groups, and failed captures.
+ */
 export function normalizeBuildContext(context = {}) {
   let rawComparisons = context.comparisons || [];
   let comparisons = rawComparisons.map(comparison =>

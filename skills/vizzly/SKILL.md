@@ -54,8 +54,17 @@ vizzly context review-queue --json
 If local context is unavailable and the project uses cloud builds, use the build id from CI or CLI output:
 
 ```bash
-vizzly context build <build-id> --agent --json --include diffs,comments
+vizzly context build <build-id> --agent --json
 ```
+
+Start with this bounded handoff. Read each evidence record's current, baseline,
+and diff image URLs alongside its render metadata, review state, and Honeydiff
+summary. Look at the actual images before deciding what moved or why.
+
+Run the exact `suggested_commands` returned by the handoff to inspect a
+comparison or screenshot history. Add `--include diffs` only when the compact
+Honeydiff summary is not enough and you need raw region geometry. Request
+comments only when human review context is relevant.
 
 ## What Vizzly Knows
 
@@ -71,6 +80,8 @@ vizzly context build <build-id> --agent --json --include diffs,comments
 
 - Treat approved baselines as visual truth.
 - Treat diffs as evidence, not as approval instructions.
+- Keep missing fields unknown. Do not infer processing, comparison, or review
+  facts that the API did not return.
 - Do not approve or reject visual changes unless the user explicitly asks.
 - Prefer existing E2E or user journeys over narrow screenshot-only specs.
 - For dynamic content, inspect screenshot context before changing thresholds.

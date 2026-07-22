@@ -245,7 +245,8 @@ describe('commands/status', () => {
         suggestedCommands: [
           {
             label: 'Inspect build context',
-            command: 'vizzly --json context build build-123 --agent',
+            command:
+              'vizzly --json context build build-123 --agent --source cloud',
           },
           {
             label: 'List comparisons',
@@ -364,7 +365,8 @@ describe('commands/status', () => {
       assert.deepStrictEqual(createStatusSuggestedCommands(createBuild()), [
         {
           label: 'Inspect build context',
-          command: 'vizzly --json context build build-123 --agent',
+          command:
+            'vizzly --json context build build-123 --agent --source cloud',
         },
         {
           label: 'List comparisons',
@@ -475,7 +477,7 @@ describe('commands/status', () => {
           call =>
             call.method === 'print' &&
             call.args[0].includes(
-              'vizzly --json context build build-123 --agent'
+              'vizzly --json context build build-123 --agent --source cloud'
             )
         )
       );

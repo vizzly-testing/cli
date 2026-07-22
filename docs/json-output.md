@@ -71,7 +71,7 @@ vizzly run "pnpm test" --json
   "data": {
     "buildId": "abc123-def456",
     "status": "completed",
-    "contextCommand": "vizzly context build abc123-def456 --agent --json",
+    "contextCommand": "vizzly context build abc123-def456 --agent --json --source cloud",
     "screenshotsCaptured": 15,
     "executionTimeMs": 4821,
     "git": {
@@ -106,7 +106,7 @@ With `--wait`, includes comparison results:
       "identical": 12
     },
     "approvalStatus": "pending",
-    "contextCommand": "vizzly context build abc123-def456 --agent --json",
+    "contextCommand": "vizzly context build abc123-def456 --agent --json --source cloud",
     "exitCode": 1
   }
 }
@@ -262,10 +262,10 @@ cloud data or your local `.vizzly` workspace.
 #### `vizzly context build`
 
 ```bash
-vizzly context build abc123 --json
-vizzly context build abc123 --agent --json
-vizzly context build abc123 --agent --json --include diffs,comments
-vizzly context build abc123 --agent --json --full
+vizzly context build abc123 --source cloud --json
+vizzly context build abc123 --source cloud --agent --json
+vizzly context build abc123 --source cloud --agent --json --include diffs,comments
+vizzly context build abc123 --source cloud --agent --json --full
 vizzly context build current --source local --json
 vizzly context build current --source local --agent
 ```
@@ -359,15 +359,15 @@ Compact agent JSON:
   "suggested_commands": [
     {
       "label": "Inspect comparison context",
-      "command": "vizzly --json context comparison cmp-1"
+      "command": "vizzly --json context comparison cmp-1 --source cloud"
     },
     {
       "label": "Inspect screenshot history",
-      "command": "vizzly --json context screenshot Dashboard"
+      "command": "vizzly --json context screenshot Dashboard --source cloud"
     },
     {
       "label": "Load raw diff diagnostics",
-      "command": "vizzly --json context build abc123 --agent --include diffs"
+      "command": "vizzly --json context build abc123 --agent --include diffs --source cloud"
     }
   ]
 }
@@ -451,7 +451,7 @@ Full build context JSON:
 #### `vizzly context comparison`
 
 ```bash
-vizzly context comparison cmp-1 --json
+vizzly context comparison cmp-1 --source cloud --json
 vizzly context comparison build-detail-screenshots --source local --json
 ```
 
@@ -482,7 +482,7 @@ vizzly context comparison build-detail-screenshots --source local --json
 #### `vizzly context screenshot`
 
 ```bash
-vizzly context screenshot Dashboard --json
+vizzly context screenshot Dashboard --source cloud --json
 vizzly context screenshot Dashboard --source local --json
 ```
 
@@ -507,7 +507,7 @@ vizzly context screenshot Dashboard --source local --json
 #### `vizzly context similar`
 
 ```bash
-vizzly context similar fp-dashboard --project storybook --org acme --json
+vizzly context similar fp-dashboard --source cloud --project storybook --org acme --json
 ```
 
 ```json
@@ -533,7 +533,7 @@ the CLI returns a clear error instead of pretending the data exists.
 #### `vizzly context review-queue`
 
 ```bash
-vizzly context review-queue --project storybook --org acme --json
+vizzly context review-queue --source cloud --project storybook --org acme --json
 vizzly context review-queue --source local --json
 ```
 
@@ -1002,7 +1002,7 @@ vizzly status <build-id> --json
     "suggestedCommands": [
       {
         "label": "Inspect build context",
-        "command": "vizzly --json context build abc123-def456 --agent"
+        "command": "vizzly --json context build abc123-def456 --agent --source cloud"
       },
       {
         "label": "List comparisons",

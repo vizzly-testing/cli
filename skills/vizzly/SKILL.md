@@ -29,7 +29,7 @@ existing test workflow in charge of how the UI is exercised.
 
    ```bash
    vizzly context build current --source local --agent --json
-   vizzly context build <build-id> --agent --json
+   vizzly context build <build-id> --source cloud --agent --json
    ```
 
 3. Check the build identity, source, branch, timestamps, baseline selection,

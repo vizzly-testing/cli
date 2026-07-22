@@ -990,12 +990,12 @@ contextCmd
     'after',
     `
 Examples:
-  $ vizzly context build abc123
+  $ vizzly context build abc123 --source cloud
   $ vizzly context build current --source local
   $ vizzly context build current --source local --agent
-  $ vizzly context build abc123 --agent --json
-  $ vizzly context build abc123 --agent --json --include diffs,comments
-  $ vizzly context build abc123 --agent --json --full
+  $ vizzly context build abc123 --source cloud --agent --json
+  $ vizzly context build abc123 --source cloud --agent --json --include diffs,comments
+  $ vizzly context build abc123 --source cloud --agent --json --full
 `
   )
   .action(async (buildId, options) => {
@@ -1032,10 +1032,10 @@ contextCmd
     'after',
     `
 Examples:
-  $ vizzly context comparison def456
+  $ vizzly context comparison def456 --source cloud
   $ vizzly context comparison def456 --source local
-  $ vizzly context comparison def456 --similar-limit 5 --recent-limit 5
-  $ vizzly context comparison def456 --json
+  $ vizzly context comparison def456 --source cloud --similar-limit 5 --recent-limit 5
+  $ vizzly context comparison def456 --source cloud --json
 `
   )
   .action(async (comparisonId, options) => {
@@ -1069,10 +1069,10 @@ contextCmd
     'after',
     `
 Examples:
-  $ vizzly context screenshot Dashboard
+  $ vizzly context screenshot Dashboard --source cloud
   $ vizzly context screenshot Dashboard --source local
-  $ vizzly context screenshot Dashboard --project storybook --org acme
-  $ vizzly context screenshot Dashboard --json
+  $ vizzly context screenshot Dashboard --source cloud --project storybook --org acme
+  $ vizzly context screenshot Dashboard --source cloud --json
 `
   )
   .action(async (name, options) => {
@@ -1097,9 +1097,9 @@ contextCmd
     'after',
     `
 Examples:
-  $ vizzly context similar fp-dashboard
-  $ vizzly context similar fp-dashboard --project storybook --org acme
-  $ vizzly context similar fp-dashboard --json
+  $ vizzly context similar fp-dashboard --source cloud
+  $ vizzly context similar fp-dashboard --source cloud --project storybook --org acme
+  $ vizzly context similar fp-dashboard --source cloud --json
 `
   )
   .action(async (fingerprintHash, options) => {
@@ -1124,10 +1124,10 @@ contextCmd
     'after',
     `
 Examples:
-  $ vizzly context review-queue --project storybook --org acme
+  $ vizzly context review-queue --source cloud --project storybook --org acme
   $ vizzly context review-queue --source local
-  $ vizzly context review-queue --limit 10
-  $ vizzly context review-queue --json
+  $ vizzly context review-queue --source cloud --limit 10
+  $ vizzly context review-queue --source cloud --json
 `
   )
   .action(async options => {

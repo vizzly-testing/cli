@@ -45,6 +45,7 @@ export {
   getBatchHotspots,
   getBuild,
   getBuildContext,
+  getBuildStatus,
   getBuilds,
   getComparison,
   getComparisonContext,

@@ -952,8 +952,11 @@ vizzly status <build-id> --json
 {
   "status": "data",
   "data": {
+    "resource": "build_status",
+    "schemaVersion": 1,
     "buildId": "abc123-def456",
     "status": "completed",
+    "conclusion": "review_required",
     "name": "Build #123",
     "createdAt": "2025-01-15T10:30:00Z",
     "completedAt": "2025-01-15T10:32:00Z",
@@ -962,12 +965,50 @@ vizzly status <build-id> --json
     "commit": "abc1234",
     "commitMessage": "Add feature",
     "screenshotsTotal": 15,
+    "processing": {
+      "total": 15,
+      "completed": 15,
+      "failed": 0,
+      "active": 0,
+      "pending": 0
+    },
     "comparisonsTotal": 15,
+    "comparisons": {
+      "total": 15,
+      "new": 2,
+      "changed": 1,
+      "identical": 12
+    },
     "newComparisons": 2,
     "changedComparisons": 1,
     "identicalComparisons": 12,
-    "approvalStatus": "pending",
+    "reviewState": "pending",
+    "review": {
+      "pending": 3,
+      "approved": 12,
+      "rejected": 0,
+      "auto_approved": 0
+    },
+    "reviewFlow": "cricket",
+    "visualReview": { "state": "pending" },
     "executionTime": 4500,
+    "scope": {
+      "organization": { "id": "org-1", "slug": "acme" },
+      "project": { "id": "project-1", "slug": "storybook" }
+    },
+    "links": {
+      "web": "https://app.vizzly.dev/acme/storybook/builds/abc123-def456"
+    },
+    "suggestedCommands": [
+      {
+        "label": "Inspect build context",
+        "command": "vizzly --json context build abc123-def456 --agent"
+      },
+      {
+        "label": "List comparisons",
+        "command": "vizzly --json comparisons --build abc123-def456"
+      }
+    ],
     "preview": {
       "url": "https://preview.vizzly.dev/...",
       "status": "ready",
@@ -977,6 +1018,13 @@ vizzly status <build-id> --json
   }
 }
 ```
+
+The status command reads the API status bundle directly. Processing counts,
+comparison counts, conclusion, and review state stay separate; a pending review
+is never treated as unfinished screenshot processing. Fields the API does not
+provide are omitted instead of becoming client-authored zeroes. Legacy review
+responses continue to expose `approvalStatus`, and legacy build links continue
+to use the project-ID route when slug scope is unavailable.
 
 ### `vizzly init`
 

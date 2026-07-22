@@ -16,9 +16,14 @@ async function withApiServer(callback) {
     requests.push({ method: req.method, url: req.url });
     res.setHeader('content-type', 'application/json');
 
-    if (req.method === 'GET' && req.url === '/api/sdk/builds/build-123') {
+    if (
+      req.method === 'GET' &&
+      req.url === '/api/sdk/builds/build-123/status'
+    ) {
       res.end(
         JSON.stringify({
+          resource: 'build_status',
+          schema_version: 1,
           build: {
             id: 'build-123',
             status: 'completed',
@@ -30,15 +35,29 @@ async function withApiServer(callback) {
             branch: 'main',
             commit_sha: 'abcdef1234567890',
             commit_message: 'Dogfood status',
-            screenshot_count: 1,
-            total_comparisons: 1,
-            new_comparisons: 1,
-            changed_comparisons: 0,
-            identical_comparisons: 0,
-            approval_status: 'pending',
+            visual_review: { state: 'pending' },
             execution_time_ms: 100,
             is_baseline: false,
             user_agent: 'vizzly-test',
+          },
+          conclusion: 'review_required',
+          processing: {
+            total: 1,
+            completed: 1,
+            failed: 0,
+            active: 0,
+            pending: 0,
+          },
+          comparisons: { total: 1, new: 1, changed: 0, identical: 0 },
+          review: { pending: 1, approved: 0, rejected: 0 },
+          reviewFlow: 'cricket',
+          visualReview: { build: { state: 'pending' } },
+          scope: {
+            organization: { id: 'org-1', slug: 'acme' },
+            project: { id: 'project-1', slug: 'web' },
+          },
+          links: {
+            web: 'https://app.test/acme/web/builds/build-123',
           },
         })
       );
@@ -92,13 +111,29 @@ describe('commands/status CLI', () => {
 
       let payload = JSON.parse(result.stdout);
       assert.strictEqual(payload.status, 'data');
+      assert.strictEqual(payload.data.resource, 'build_status');
+      assert.strictEqual(payload.data.schemaVersion, 1);
       assert.strictEqual(payload.data.buildId, 'build-123');
       assert.strictEqual(payload.data.status, 'completed');
+      assert.strictEqual(payload.data.conclusion, 'review_required');
+      assert.deepStrictEqual(payload.data.processing, {
+        total: 1,
+        completed: 1,
+        failed: 0,
+        active: 0,
+        pending: 0,
+      });
+      assert.strictEqual(payload.data.reviewState, 'pending');
+      assert.ok(!Object.hasOwn(payload.data, 'approvalStatus'));
+      assert.strictEqual(
+        payload.data.links.web,
+        'https://app.test/acme/web/builds/build-123'
+      );
       assert.strictEqual(payload.data.preview, null);
       assert.deepStrictEqual(
         requests.map(request => `${request.method} ${request.url}`),
         [
-          'GET /api/sdk/builds/build-123',
+          'GET /api/sdk/builds/build-123/status',
           'GET /api/sdk/builds/build-123/preview',
         ]
       );

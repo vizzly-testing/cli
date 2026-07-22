@@ -37,6 +37,20 @@ export async function getBuild(client, buildId, include = null) {
 }
 
 /**
+ * Get the server-owned build processing and review status.
+ *
+ * This endpoint keeps processing, comparison, and review counts separate so
+ * callers do not have to reconstruct lifecycle state from legacy build fields.
+ *
+ * @param {Object} client - API client
+ * @param {string} buildId - Build ID
+ * @returns {Promise<Object>} Canonical build status bundle
+ */
+export async function getBuildStatus(client, buildId) {
+  return client.request(`/api/sdk/builds/${buildId}/status`);
+}
+
+/**
  * Get builds for a project
  * @param {Object} client - API client
  * @param {Object} filters - Filter options

@@ -15,6 +15,7 @@ import { resolveContextSource as defaultResolveContextSource } from '../context/
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 import { readSession as defaultReadSession } from '../utils/session.js';
+import { normalizeBuildContext } from '../utils/visual-context-normalizers.js';
 
 function buildAuthErrorMessage() {
   return 'Authentication required. Use --token, set VIZZLY_TOKEN, run "vizzly login", or link a project.';
@@ -532,14 +533,19 @@ function formatNeedsReview(status = {}) {
     return null;
   }
 
-  let pending = status.pending_comparisons || 0;
-  let unresolved = status.unresolved_comments || 0;
-
   if (!status.needs_review) {
     return 'no';
   }
 
-  return `yes · ${pending} comparisons · ${unresolved} unresolved comments`;
+  let details = [];
+  if (status.pending_comparisons != null) {
+    details.push(`${status.pending_comparisons} comparisons`);
+  }
+  if (status.unresolved_comments != null) {
+    details.push(`${status.unresolved_comments} unresolved comments`);
+  }
+
+  return details.length > 0 ? `yes · ${details.join(' · ')}` : 'yes';
 }
 
 function formatConfirmedRegionLabels(regions = []) {
@@ -588,64 +594,207 @@ function printComparisonList(output, comparisons = [], { limit = 5 } = {}) {
   }
 }
 
+function getGroupDisplayState(group = {}) {
+  let aggregate = group.aggregate_status || {};
+
+  if ((aggregate.failed_count ?? 0) > 0) return 'failed';
+  if (aggregate.has_rejected === true) return 'rejected';
+  if (aggregate.has_changes === true) return 'changed';
+  if (aggregate.has_new === true) return 'new';
+  if (aggregate.needs_review === true) return 'needs review';
+  if (aggregate.all_approved === true) return 'approved';
+  return null;
+}
+
+function formatViewport(viewport) {
+  if (!viewport) {
+    return null;
+  }
+
+  return `${viewport.width ?? '?'}×${viewport.height ?? '?'}`;
+}
+
+function printScreenshotGroups(output, groups = [], { limit = 8 } = {}) {
+  let colors = output.getColors();
+  let visibleGroups = groups.slice(0, limit);
+
+  output.print('  Screenshot groups');
+
+  for (let group of visibleGroups) {
+    let displayState = getGroupDisplayState(group);
+    let tone = getStatusTone(colors, displayState);
+    let aggregate = group.aggregate_status || {};
+    let details = [];
+
+    if (group.variant_count != null) {
+      details.push(`${group.variant_count} variants`);
+    }
+
+    if (aggregate.needs_review_count != null) {
+      details.push(`${aggregate.needs_review_count} needs review`);
+    }
+    if (aggregate.failed_count != null && aggregate.failed_count > 0) {
+      details.push(`${aggregate.failed_count} failed`);
+    }
+    if (aggregate.max_diff_percentage != null) {
+      details.push(`${aggregate.max_diff_percentage}% max diff`);
+    }
+
+    output.print(
+      `  ${colors.bold(group.name)}${displayState ? ` ${tone(displayState.toUpperCase())}` : ''}`
+    );
+    if (details.length > 0) {
+      output.print(`    ${colors.dim(details.join(' · '))}`);
+    }
+
+    for (let variant of group.variants.slice(0, 3)) {
+      let variantDetails = [
+        variant.review_state,
+        variant.browser,
+        formatViewport(variant.viewport),
+      ].filter(Boolean);
+      output.print(
+        `    ${getStatusTone(colors, variant.result)((variant.result || 'unknown').toUpperCase())}${variantDetails.length > 0 ? ` · ${colors.dim(variantDetails.join(' · '))}` : ''}`
+      );
+    }
+  }
+
+  if (groups.length > visibleGroups.length) {
+    output.print(
+      `    ${colors.dim(`...${groups.length - visibleGroups.length} more groups`)}`
+    );
+  }
+}
+
+function printFailedCaptures(output, captures = []) {
+  let colors = output.getColors();
+
+  output.print('  Failed captures');
+  for (let capture of captures.slice(0, 8)) {
+    let details = [
+      capture.error_message,
+      capture.browser,
+      formatViewport(capture.viewport),
+      capture.screenshot.url,
+    ].filter(Boolean);
+    output.print(
+      `  ${colors.bold(capture.name)} ${colors.brand.error('FAILED')}`
+    );
+    if (details.length > 0) {
+      output.print(`    ${colors.dim(details.join(' · '))}`);
+    }
+  }
+}
+
+function formatReviewSummary(review = {}) {
+  let details = [
+    review.pending != null ? `${review.pending} pending` : null,
+    review.approved != null ? `${review.approved} approved` : null,
+    review.rejected != null ? `${review.rejected} rejected` : null,
+  ].filter(Boolean);
+
+  return details.length > 0 ? details.join(' · ') : null;
+}
+
 function displayBuildContext(output, context) {
   output.header('context', 'build');
 
+  let normalizedContext = normalizeBuildContext(context);
   let colors = output.getColors();
-  let buildTone = getStatusTone(colors, context.build.status);
-  let comparisons = context.comparisons || [];
-  let screenshots = context.screenshots || [];
-  let reviewSummary = context.summary?.review || {};
-  let commentsSummary = context.summary?.comments || {};
-  let needsReview = formatNeedsReview(context.status);
-  let baseline = context.baseline?.selected || null;
+  let build = normalizedContext.build || {};
+  let buildTone = getStatusTone(colors, build.status);
+  let comparisons = normalizedContext.comparisons;
+  let groups = normalizedContext.groups;
+  let screenshots = normalizedContext.screenshots || [];
+  let failedCaptures = normalizedContext.failed_captures;
+  let reviewSummary = formatReviewSummary(normalizedContext.summary?.review);
+  let commentsSummary = normalizedContext.summary?.comments || {};
+  let needsReview = formatNeedsReview(normalizedContext.status);
+  let baseline = normalizedContext.baseline?.selected || null;
+  let comparisonCount =
+    normalizedContext.summary?.comparisons?.total ??
+    normalizedContext.total_comparisons ??
+    (Array.isArray(context.comparisons) ? comparisons.length : null);
+  let screenshotCount =
+    normalizedContext.summary?.screenshots?.total ??
+    normalizedContext.screenshot_count ??
+    (Array.isArray(context.screenshots) ? screenshots.length : null);
 
   output.print(
-    `  ${colors.bold(context.build.name || context.build.id)} ${buildTone((context.build.status || 'unknown').toUpperCase())}`
+    `  ${colors.bold(build.name || build.id || 'unknown build')} ${buildTone((build.status || 'unknown').toUpperCase())}`
   );
   output.print(
-    `  ${colors.dim(`@${context.scope.organization.slug}/${context.scope.project.slug}`)}`
+    `  ${colors.dim(`@${normalizedContext.scope?.organization?.slug || 'unknown'}/${normalizedContext.scope?.project?.slug || 'unknown'}`)}`
   );
   output.blank();
 
-  output.labelValue('Comparisons', String(comparisons.length));
-  if (screenshots.length > 0) {
-    output.labelValue('Screenshots', String(screenshots.length));
+  if (comparisonCount != null) {
+    output.labelValue('Comparisons', String(comparisonCount));
+  }
+  if (groups.length > 0) {
+    output.labelValue('Screenshot Groups', String(groups.length));
+  }
+  if (screenshotCount != null) {
+    output.labelValue('Screenshots', String(screenshotCount));
   }
   if (baseline) {
     output.labelValue(
       'Baseline',
-      `${baseline.name || baseline.id || 'selected'}${context.baseline.selection_reason ? ` · ${context.baseline.selection_reason}` : ''}`
+      `${baseline.name || baseline.id || 'selected'}${normalizedContext.baseline.selection_reason ? ` · ${normalizedContext.baseline.selection_reason}` : ''}`
     );
   }
   if (needsReview) {
     output.labelValue('Needs Review', needsReview);
   }
-  output.labelValue(
-    'Review',
-    `${reviewSummary.pending || 0} pending · ${reviewSummary.approved || 0} approved · ${reviewSummary.rejected || 0} rejected`
-  );
-  output.labelValue(
-    'Memory',
-    `${commentsSummary.build ?? getBuildCommentsCount(context)} build comments · ${commentsSummary.screenshot ?? getScreenshotCommentsCount(context)} screenshot comments · ${getReviewAssignmentsCount(context)} assignments`
-  );
+  if (reviewSummary) {
+    output.labelValue('Review', reviewSummary);
+  }
 
-  if (context.preview) {
-    let previewUrl = context.preview.preview_url || context.preview.url;
+  let buildComments =
+    commentsSummary.build ??
+    (Array.isArray(normalizedContext.comments?.build)
+      ? getBuildCommentsCount(normalizedContext)
+      : null);
+  let screenshotComments =
+    commentsSummary.screenshot ??
+    (Number.isInteger(normalizedContext.comments?.screenshot_count)
+      ? getScreenshotCommentsCount(normalizedContext)
+      : null);
+  let assignments = Array.isArray(normalizedContext.review?.assignments)
+    ? getReviewAssignmentsCount(normalizedContext)
+    : null;
+  let memory = [
+    buildComments != null ? `${buildComments} build comments` : null,
+    screenshotComments != null
+      ? `${screenshotComments} screenshot comments`
+      : null,
+    assignments != null ? `${assignments} assignments` : null,
+  ].filter(Boolean);
+  if (memory.length > 0) {
+    output.labelValue('Memory', memory.join(' · '));
+  }
+
+  if (normalizedContext.preview) {
+    let previewUrl =
+      normalizedContext.preview.preview_url || normalizedContext.preview.url;
     output.labelValue(
       'Preview',
-      `${context.preview.status || 'unknown'}${previewUrl ? ' · available' : ''}`
+      `${normalizedContext.preview.status || 'unknown'}${previewUrl ? ' · available' : ''}`
     );
   }
 
-  if (context.links?.build_url) {
-    output.labelValue('Build URL', context.links.build_url);
+  if (normalizedContext.links?.build_url) {
+    output.labelValue('Build URL', normalizedContext.links.build_url);
   }
 
-  if (comparisons.length > 0) {
+  if (groups.length > 0) {
     output.blank();
-    output.print('  Comparisons');
-    printComparisonList(output, comparisons);
+    printScreenshotGroups(output, groups);
+  }
+
+  if (failedCaptures.length > 0) {
+    output.blank();
+    printFailedCaptures(output, failedCaptures);
   }
 }
 

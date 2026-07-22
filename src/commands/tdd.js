@@ -31,8 +31,19 @@ import {
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
 
-function buildLocalContextCommand() {
-  return 'vizzly context build current --source local --agent';
+/**
+ * Build the follow-up command for local TDD evidence.
+ *
+ * JSON consumers need a self-contained command that returns structured
+ * evidence when executed. Human output keeps the existing readable summary.
+ *
+ * @param {Object} options - Command output options.
+ * @param {boolean} [options.structured=false] - Include machine-readable JSON.
+ * @returns {string} Executable local context command.
+ */
+function buildLocalContextCommand({ structured = false } = {}) {
+  let jsonFlag = structured ? ' --json' : '';
+  return `vizzly context build current --source local --agent${jsonFlag}`;
 }
 
 /**
@@ -296,7 +307,7 @@ export async function tddCommand(
         comparisons,
         summary,
         reportPath: runResult.reportPath || '.vizzly/report/index.html',
-        contextCommand: buildLocalContextCommand(),
+        contextCommand: buildLocalContextCommand({ structured: true }),
       });
       output.cleanup();
     }

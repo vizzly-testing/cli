@@ -65,8 +65,20 @@ export async function resolveBuildDisplayUrl({
   return undefined;
 }
 
-function buildContextCommand(buildId) {
-  return `vizzly context build ${buildId} --agent`;
+/**
+ * Build the follow-up command for a cloud run.
+ *
+ * JSON consumers need a self-contained command that returns structured
+ * evidence when executed. Human output keeps the existing readable summary.
+ *
+ * @param {string} buildId - Cloud build ID to inspect.
+ * @param {Object} options - Command output options.
+ * @param {boolean} [options.structured=false] - Include machine-readable JSON.
+ * @returns {string} Executable build context command.
+ */
+function buildContextCommand(buildId, { structured = false } = {}) {
+  let jsonFlag = structured ? ' --json' : '';
+  return `vizzly context build ${buildId} --agent${jsonFlag}`;
 }
 
 /**
@@ -377,7 +389,7 @@ export async function runCommand(
             message,
           },
           contextCommand: result.buildId
-            ? buildContextCommand(result.buildId)
+            ? buildContextCommand(result.buildId, { structured: true })
             : null,
           exitCode: 0,
         };
@@ -516,7 +528,9 @@ export async function runCommand(
               identical: buildResult.identicalComparisons || 0,
             },
             approvalStatus: buildResult.approvalStatus || 'pending',
-            contextCommand: buildContextCommand(result.buildId),
+            contextCommand: buildContextCommand(result.buildId, {
+              structured: true,
+            }),
             exitCode,
           };
 

@@ -580,15 +580,25 @@ vizzly comparisons --build <id> --status changed --json
       {
         "id": "comp-uuid",
         "name": "button-primary",
-        "status": "changed",
+        "status": "completed",
+        "result": "changed",
         "diffPercentage": 0.042,
         "approvalStatus": "pending",
+        "reviewState": "pending",
+        "visualReview": { "state": "pending" },
         "viewport": { "width": 1920, "height": 1080 },
         "browser": "chromium",
         "urls": {
           "baseline": "https://...",
           "current": "https://...",
           "diff": "https://..."
+        },
+        "honeydiff": {
+          "fingerprintHash": "00000000001ec127",
+          "regionCount": 12,
+          "projection": {
+            "clusters": { "count": 12, "average_density": 0.81 }
+          }
         }
       }
     ],
@@ -601,6 +611,11 @@ vizzly comparisons --build <id> --status changed --json
   }
 }
 ```
+
+`status` preserves the processing value returned by the API. Use `result` for
+the visual outcome (`identical`, `changed`, or `new`) and `reviewState` for the
+current review decision. Older responses that only provide `status` and
+`approvalStatus` keep working with the same fields.
 
 Search by name across builds:
 

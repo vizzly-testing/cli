@@ -11,6 +11,13 @@ import {
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 import { createWildcardMatcher } from '../utils/patterns.js';
+import {
+  getComparisonBrowser,
+  getComparisonName,
+  getComparisonResult,
+  getComparisonViewport,
+  getVisualReviewState,
+} from '../utils/visual-context-normalizers.js';
 
 /**
  * Comparisons command - query comparisons with various filters
@@ -87,13 +94,17 @@ export async function comparisonsCommand(
 
       // Apply status filter if provided
       if (options.status) {
-        comparisons = comparisons.filter(c => c.status === options.status);
+        comparisons = comparisons.filter(
+          comparison => getComparisonResult(comparison) === options.status
+        );
       }
 
       // Apply name filter if provided
       if (options.name) {
         let matchesName = createWildcardMatcher(options.name);
-        comparisons = comparisons.filter(c => matchesName(c.name));
+        comparisons = comparisons.filter(comparison =>
+          matchesName(getComparisonName(comparison))
+        );
       }
 
       if (globalOptions.json) {
@@ -103,9 +114,15 @@ export async function comparisonsCommand(
           comparisons: comparisons.map(formatComparisonForJson),
           summary: {
             total: comparisons.length,
-            passed: comparisons.filter(c => c.status === 'identical').length,
-            failed: comparisons.filter(c => c.status === 'changed').length,
-            new: comparisons.filter(c => c.status === 'new').length,
+            passed: comparisons.filter(
+              comparison => getComparisonResult(comparison) === 'identical'
+            ).length,
+            failed: comparisons.filter(
+              comparison => getComparisonResult(comparison) === 'changed'
+            ).length,
+            new: comparisons.filter(
+              comparison => getComparisonResult(comparison) === 'new'
+            ).length,
           },
         });
         output.cleanup();
@@ -198,23 +215,38 @@ function formatComparisonForJson(comparison) {
   let gmsdScore = comparison.gmsd_score ?? diffImage.gmsd_score ?? null;
   let fingerprintHash =
     comparison.fingerprint_hash || diffImage.fingerprint_hash || null;
+  let projection =
+    comparison.analysis_projection ||
+    comparison.projection ||
+    diffImage.analysis_projection ||
+    diffImage.projection ||
+    null;
+  let diffRegions = comparison.diff_regions ?? diffImage.diff_regions ?? null;
+  let regionCount =
+    comparison.region_count ??
+    diffImage.region_count ??
+    projection?.clusters?.count ??
+    (Array.isArray(diffRegions) ? diffRegions.length : null);
 
   let hasHoneydiff =
     clusterMetadata ||
     ssimScore != null ||
     gmsdScore != null ||
-    fingerprintHash;
+    fingerprintHash ||
+    projection ||
+    regionCount != null;
 
   return {
     id: comparison.id,
-    name: comparison.name,
+    name: getComparisonName(comparison),
     status: comparison.status,
+    result: getComparisonResult(comparison),
     diffPercentage: comparison.diff_percentage ?? null,
     approvalStatus: comparison.approval_status,
-    viewport: comparison.viewport_width
-      ? { width: comparison.viewport_width, height: comparison.viewport_height }
-      : null,
-    browser: comparison.browser || null,
+    reviewState: getVisualReviewState(comparison),
+    visualReview: comparison.visual_review || null,
+    viewport: getComparisonViewport(comparison),
+    browser: getComparisonBrowser(comparison),
     urls: {
       baseline:
         comparison.baseline_screenshot?.original_url ||
@@ -239,8 +271,9 @@ function formatComparisonForJson(comparison) {
           clusterClassification: clusterMetadata?.classification || null,
           clusterMetadata,
           fingerprintHash,
-          diffRegions:
-            comparison.diff_regions ?? diffImage.diff_regions ?? null,
+          regionCount,
+          projection,
+          diffRegions,
           diffLines: comparison.diff_lines ?? diffImage.diff_lines ?? null,
           fingerprintData:
             comparison.fingerprint_data ?? diffImage.fingerprint_data ?? null,
@@ -257,28 +290,29 @@ function formatComparisonForJson(comparison) {
  * Display a single comparison in detail
  */
 function displayComparison(output, comparison, verbose) {
-  output.header('comparison', comparison.status);
+  let formatted = formatComparisonForJson(comparison);
+  output.header('comparison', formatted.result);
 
   output.keyValue({
-    Name: comparison.name,
-    Status: comparison.status?.toUpperCase(),
+    Name: formatted.name,
+    Status: formatted.result?.toUpperCase(),
     'Diff %':
       comparison.diff_percentage != null
         ? `${(comparison.diff_percentage * 100).toFixed(2)}%`
         : 'N/A',
-    Approval: comparison.approval_status || 'pending',
+    Review: formatted.reviewState || 'unknown',
   });
 
   output.blank();
 
-  if (comparison.viewport_width) {
+  if (formatted.viewport) {
     output.labelValue(
       'Viewport',
-      `${comparison.viewport_width}×${comparison.viewport_height}`
+      `${formatted.viewport.width ?? '?'}×${formatted.viewport.height ?? '?'}`
     );
   }
-  if (comparison.browser) {
-    output.labelValue('Browser', comparison.browser);
+  if (formatted.browser) {
+    output.labelValue('Browser', formatted.browser);
   }
 
   output.blank();
@@ -295,45 +329,39 @@ function displayComparison(output, comparison, verbose) {
   }
 
   // Honeydiff analysis in verbose mode
-  if (verbose) {
-    let clusterMetadata =
-      comparison.cluster_metadata || comparison.diff_image?.cluster_metadata;
-    let ssim = comparison.ssim_score ?? comparison.diff_image?.ssim_score;
-    let gmsd = comparison.gmsd_score ?? comparison.diff_image?.gmsd_score;
-    let fingerprint =
-      comparison.fingerprint_hash || comparison.diff_image?.fingerprint_hash;
-
-    if (clusterMetadata || ssim != null || gmsd != null || fingerprint) {
+  if (verbose && formatted.honeydiff) {
+    let honeydiff = formatted.honeydiff;
+    if (
+      honeydiff.clusterMetadata ||
+      honeydiff.ssimScore != null ||
+      honeydiff.gmsdScore != null ||
+      honeydiff.fingerprintHash ||
+      honeydiff.regionCount != null
+    ) {
       output.blank();
-      if (clusterMetadata?.classification) {
-        output.labelValue('Classification', clusterMetadata.classification);
+      if (honeydiff.clusterClassification) {
+        output.labelValue('Classification', honeydiff.clusterClassification);
       }
-      if (ssim != null) {
-        output.labelValue('SSIM', ssim.toFixed(4));
+      if (honeydiff.ssimScore != null) {
+        output.labelValue('SSIM', honeydiff.ssimScore.toFixed(4));
       }
-      if (gmsd != null) {
-        output.labelValue('GMSD', gmsd.toFixed(4));
+      if (honeydiff.gmsdScore != null) {
+        output.labelValue('GMSD', honeydiff.gmsdScore.toFixed(4));
       }
-      if (fingerprint) {
-        output.labelValue('Fingerprint', fingerprint);
+      if (honeydiff.fingerprintHash) {
+        output.labelValue('Fingerprint', honeydiff.fingerprintHash);
+      }
+      if (honeydiff.regionCount != null) {
+        output.labelValue('Regions', String(honeydiff.regionCount));
       }
     }
   }
 
   // URLs in verbose mode
   if (verbose) {
-    let baselineUrl =
-      comparison.baseline_screenshot?.original_url ||
-      comparison.baseline_original_url ||
-      comparison.baseline_screenshot_url;
-    let currentUrl =
-      comparison.current_screenshot?.original_url ||
-      comparison.current_original_url ||
-      comparison.current_screenshot_url;
-    let diffUrl =
-      comparison.diff_image?.url ||
-      comparison.diff_image_url ||
-      comparison.diff_url;
+    let baselineUrl = formatted.urls.baseline;
+    let currentUrl = formatted.urls.current;
+    let diffUrl = formatted.urls.diff;
 
     if (baselineUrl || currentUrl || diffUrl) {
       output.blank();
@@ -367,9 +395,15 @@ function displayBuildComparisons(output, build, comparisons, verbose) {
   }
 
   // Summary
-  let passed = comparisons.filter(c => c.status === 'identical').length;
-  let failed = comparisons.filter(c => c.status === 'changed').length;
-  let newCount = comparisons.filter(c => c.status === 'new').length;
+  let passed = comparisons.filter(
+    comparison => getComparisonResult(comparison) === 'identical'
+  ).length;
+  let failed = comparisons.filter(
+    comparison => getComparisonResult(comparison) === 'changed'
+  ).length;
+  let newCount = comparisons.filter(
+    comparison => getComparisonResult(comparison) === 'new'
+  ).length;
 
   let stats = [];
   if (passed > 0) stats.push(`${colors.brand.success(passed)} identical`);
@@ -381,7 +415,7 @@ function displayBuildComparisons(output, build, comparisons, verbose) {
 
   // List comparisons
   for (let comp of comparisons.slice(0, verbose ? 100 : 20)) {
-    let icon = getStatusIcon(colors, comp.status);
+    let icon = getStatusIcon(colors, getComparisonResult(comp));
     let diffInfo =
       comp.diff_percentage != null
         ? colors.dim(` (${(comp.diff_percentage * 100).toFixed(1)}%)`)
@@ -389,7 +423,9 @@ function displayBuildComparisons(output, build, comparisons, verbose) {
     let classification = verbose
       ? getClassificationLabel(colors, comp.cluster_metadata)
       : '';
-    output.print(`  ${icon} ${comp.name}${diffInfo}${classification}`);
+    output.print(
+      `  ${icon} ${getComparisonName(comp)}${diffInfo}${classification}`
+    );
   }
 
   if (comparisons.length > (verbose ? 100 : 20)) {
@@ -442,14 +478,14 @@ function displaySearchResults(
     }
 
     for (let comp of group.comparisons.slice(0, verbose ? 10 : 3)) {
-      let icon = getStatusIcon(colors, comp.status);
+      let icon = getStatusIcon(colors, getComparisonResult(comp));
       let classification = verbose
         ? getClassificationLabel(
             colors,
             comp.cluster_metadata || comp.diff_image?.cluster_metadata
           )
         : '';
-      output.print(`      ${icon} ${comp.name}${classification}`);
+      output.print(`      ${icon} ${getComparisonName(comp)}${classification}`);
     }
 
     if (group.comparisons.length > (verbose ? 10 : 3)) {

@@ -165,6 +165,80 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].summary.failed, 1);
     });
 
+    it('preserves existing JSON fields while exposing current comparison evidence', async () => {
+      let output = createMockOutput();
+      let mockBuild = {
+        id: 'build-1',
+        name: 'Build 1',
+        comparisons: [
+          {
+            id: 'comp-1',
+            screenshot_name: 'checkout',
+            status: 'completed',
+            result: 'changed',
+            diff_percentage: 0.025,
+            approval_status: 'approved',
+            visual_review: { state: 'pending', decision: null },
+            current_browser: 'chromium',
+            current_viewport_width: 1440,
+            current_viewport_height: 900,
+            baseline_original_url: 'https://cdn.test/baseline.png',
+            current_original_url: 'https://cdn.test/current.png',
+            diff_image_url: 'https://cdn.test/diff.png',
+            analysis_projection: {
+              clusters: { count: 3, average_density: 0.81 },
+            },
+            fingerprint_hash: 'fp-checkout',
+          },
+        ],
+      };
+
+      await comparisonsCommand(
+        { build: 'build-1' },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let data = output.calls.find(call => call.method === 'data').args[0];
+      let comparison = data.comparisons[0];
+
+      assert.strictEqual(data.summary.failed, 1);
+      assert.strictEqual(comparison.id, 'comp-1');
+      assert.strictEqual(comparison.name, 'checkout');
+      assert.strictEqual(comparison.status, 'completed');
+      assert.strictEqual(comparison.result, 'changed');
+      assert.strictEqual(comparison.approvalStatus, 'approved');
+      assert.strictEqual(comparison.reviewState, 'pending');
+      assert.deepStrictEqual(comparison.visualReview, {
+        state: 'pending',
+        decision: null,
+      });
+      assert.strictEqual(comparison.browser, 'chromium');
+      assert.deepStrictEqual(comparison.viewport, {
+        width: 1440,
+        height: 900,
+      });
+      assert.deepStrictEqual(comparison.urls, {
+        baseline: 'https://cdn.test/baseline.png',
+        current: 'https://cdn.test/current.png',
+        diff: 'https://cdn.test/diff.png',
+      });
+      assert.strictEqual(comparison.honeydiff.fingerprintHash, 'fp-checkout');
+      assert.strictEqual(comparison.honeydiff.regionCount, 3);
+      assert.deepStrictEqual(comparison.honeydiff.projection, {
+        clusters: { count: 3, average_density: 0.81 },
+      });
+    });
+
     it('passes include as a string to getBuild, not an object', async () => {
       let output = createMockOutput();
       let capturedInclude = null;
@@ -254,6 +328,36 @@ describe('commands/comparisons', () => {
       assert.strictEqual(
         dataCall.args[0].comparisons[0].name,
         'button-secondary'
+      );
+    });
+
+    it('filters current comparisons by visual result rather than processing status', async () => {
+      let output = createMockOutput();
+      let mockBuild = {
+        id: 'build-1',
+        comparisons: [
+          { id: 'comp-1', status: 'completed', result: 'identical' },
+          { id: 'comp-2', status: 'completed', result: 'changed' },
+        ],
+      };
+
+      await comparisonsCommand(
+        { build: 'build-1', status: 'changed' },
+        { json: true },
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getBuild: async () => ({ build: mockBuild }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let comparisons = output.calls.find(call => call.method === 'data')
+        .args[0].comparisons;
+      assert.deepStrictEqual(
+        comparisons.map(comparison => comparison.id),
+        ['comp-2']
       );
     });
 
@@ -366,6 +470,46 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].name, 'button-primary');
     });
 
+    it('shows the visual result and canonical review state for current comparisons', async () => {
+      let output = createMockOutput();
+
+      await comparisonsCommand(
+        { id: 'comp-1' },
+        {},
+        {
+          loadConfig: async () => ({ apiKey: 'test-token' }),
+          createApiClient: () => ({}),
+          getComparison: async () => ({
+            id: 'comp-1',
+            screenshot_name: 'checkout',
+            status: 'completed',
+            result: 'changed',
+            visual_review: { state: 'pending' },
+            current_browser: 'chromium',
+            current_viewport_width: 1440,
+            current_viewport_height: 900,
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let header = output.calls.find(call => call.method === 'header');
+      let details = output.calls.find(call => call.method === 'keyValue');
+      let viewport = output.calls.find(
+        call => call.method === 'labelValue' && call.args[0] === 'Viewport'
+      );
+
+      assert.deepStrictEqual(header.args, ['comparison', 'changed']);
+      assert.deepStrictEqual(details.args[0], {
+        Name: 'checkout',
+        Status: 'CHANGED',
+        'Diff %': 'N/A',
+        Review: 'pending',
+      });
+      assert.strictEqual(viewport.args[1], '1440×900');
+    });
+
     it('includes honeydiff data in JSON output for single comparison', async () => {
       let output = createMockOutput();
       let mockComparison = {
@@ -409,6 +553,7 @@ describe('commands/comparisons', () => {
       assert.deepStrictEqual(result.honeydiff.diffRegions, [
         { x: 10, y: 20, width: 50, height: 30 },
       ]);
+      assert.strictEqual(result.honeydiff.regionCount, 1);
       assert.deepStrictEqual(result.honeydiff.diffLines, [20, 30, 40]);
     });
 

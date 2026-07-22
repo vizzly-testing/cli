@@ -983,6 +983,12 @@ contextCmd
   .option('--agent', 'Output compact context for LLM agents')
   .option('--full', 'Return the full build context payload with --agent --json')
   .option(
+    '--offset <n>',
+    'Skip the first N evidence records with --agent --json',
+    Number,
+    0
+  )
+  .option(
     '--include <items>',
     'Add detail to compact agent JSON: screenshots,diffs,comments'
   )
@@ -994,6 +1000,7 @@ Examples:
   $ vizzly context build current --source local
   $ vizzly context build current --source local --agent
   $ vizzly context build abc123 --source cloud --agent --json
+  $ vizzly context build abc123 --source cloud --agent --json --offset 10
   $ vizzly context build abc123 --source cloud --agent --json --include diffs,comments
   $ vizzly context build abc123 --source cloud --agent --json --full
 `
@@ -1013,6 +1020,7 @@ contextCmd
   .description('Fetch a comparison context bundle')
   .argument('<comparison-id>', 'Comparison ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
+  .option('--agent', 'Normalize JSON evidence for LLM agents')
   .option(
     '--similar-limit <n>',
     'Maximum similar fingerprint matches to return (1-50)',
@@ -1036,6 +1044,7 @@ Examples:
   $ vizzly context comparison def456 --source local
   $ vizzly context comparison def456 --source cloud --similar-limit 5 --recent-limit 5
   $ vizzly context comparison def456 --source cloud --json
+  $ vizzly context comparison def456 --source cloud --agent --json
 `
   )
   .action(async (comparisonId, options) => {

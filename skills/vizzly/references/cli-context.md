@@ -84,7 +84,7 @@ For each evidence record:
 Useful manual drill-downs are:
 
 ```bash
-vizzly context comparison <comparison-id> --source <local-or-cloud> --json
+vizzly context comparison <comparison-id> --source <local-or-cloud> --agent --json
 vizzly context screenshot "<screenshot-name>" --source <local-or-cloud> --json
 vizzly context similar <fingerprint-hash> --source cloud --json
 vizzly context review-queue --source <local-or-cloud> --json
@@ -94,3 +94,7 @@ Use the source from the evidence you are inspecting in place of
 `<local-or-cloud>`. `context similar` is cloud-only. Keep missing values
 unknown, and do not turn metadata into a visual conclusion when the underlying
 images are unavailable.
+
+When a build has more than 10 actionable records, run its returned next-page
+command. The command uses `--offset` to preserve API order without pulling the
+full build context into the agent handoff.

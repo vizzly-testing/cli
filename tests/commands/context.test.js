@@ -58,6 +58,19 @@ describe('commands/context', () => {
       );
     });
 
+    it('rejects invalid compact evidence offsets', () => {
+      assert.ok(
+        validateContextBuildOptions({ offset: -1 }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
+      assert.ok(
+        validateContextBuildOptions({ offset: 1.5 }).includes(
+          '--offset must be a non-negative integer'
+        )
+      );
+    });
+
     it('rejects out-of-range comparison context limits', () => {
       let errors = validateContextComparisonOptions({ similarLimit: 51 });
       assert.ok(
@@ -314,7 +327,7 @@ describe('commands/context', () => {
       assert.deepStrictEqual(
         payload.suggested_commands.map(item => item.command),
         [
-          'vizzly --json context comparison cmp-1 --source cloud',
+          'vizzly --json context comparison cmp-1 --agent --source cloud',
           'vizzly --json context screenshot Dashboard --source cloud',
           'vizzly --json context build build-1 --agent --include diffs --source cloud',
         ]
@@ -359,6 +372,9 @@ describe('commands/context', () => {
       let payload = output.calls.find(call => call.method === 'data').args[0];
       assert.strictEqual(payload.evidence_returned, 10);
       assert.strictEqual(payload.evidence_truncated, true);
+      assert.strictEqual(payload.evidence_offset, 0);
+      assert.strictEqual(payload.evidence_total, 12);
+      assert.strictEqual(payload.evidence_has_more, true);
       assert.deepStrictEqual(
         payload.evidence.map(item => item.id),
         [
@@ -377,6 +393,61 @@ describe('commands/context', () => {
       assert.ok(
         payload.suggested_commands.some(item =>
           item.command.endsWith('--agent --full --source cloud')
+        )
+      );
+      assert.ok(
+        payload.suggested_commands.some(item =>
+          item.command.endsWith('--agent --offset 10 --source cloud')
+        )
+      );
+    });
+
+    it('returns the requested API-ordered evidence page', async () => {
+      let output = createMockOutput();
+      let groups = Array.from({ length: 12 }, (_, index) => ({
+        name: `Group ${index + 1}`,
+        variant_count: 1,
+        aggregate_status: { needs_review: true, needs_review_count: 1 },
+        variants: [
+          {
+            id: `cmp-${index + 1}`,
+            result: 'changed',
+            needs_review: true,
+          },
+        ],
+      }));
+
+      await contextBuildCommand(
+        'build-1',
+        { agent: true, offset: 10 },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getBuildContext: async () => ({ build: { id: 'build-1' }, groups }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.strictEqual(payload.evidence_offset, 10);
+      assert.strictEqual(payload.evidence_total, 12);
+      assert.strictEqual(payload.evidence_returned, 2);
+      assert.strictEqual(payload.evidence_has_more, false);
+      assert.strictEqual(payload.evidence_truncated, true);
+      assert.deepStrictEqual(
+        payload.evidence.map(item => item.id),
+        ['cmp-11', 'cmp-12']
+      );
+      assert.ok(
+        payload.suggested_commands.some(item =>
+          item.command.endsWith(
+            '--agent --include diffs --offset 10 --source cloud'
+          )
         )
       );
     });
@@ -1142,6 +1213,82 @@ describe('commands/context', () => {
       );
       assert.ok(knownRegionsCall);
       assert.strictEqual(knownRegionsCall.args[1], 'Known header copy band');
+    });
+
+    it('returns consistent API-backed comparison evidence for agents', async () => {
+      let output = createMockOutput();
+
+      await contextComparisonCommand(
+        'comparison-1',
+        { agent: true },
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getComparisonContext: async () => ({
+            resource: 'comparison_context',
+            source: 'cloud',
+            review_flow: 'cricket_v1',
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'web' },
+            },
+            build: { id: 'build-1' },
+            comparison: {
+              id: 'comparison-1',
+              result: 'changed',
+              visual_review: { state: 'pending' },
+              screenshot: {
+                id: 'current-1',
+                name: 'Dashboard',
+                url: 'https://cdn.test/current.png',
+              },
+              baseline: {
+                id: 'baseline-1',
+                url: 'https://cdn.test/baseline.png',
+              },
+              analysis: {
+                diff_image_url: 'https://cdn.test/diff.png',
+                fingerprint_hash: 'fingerprint-1',
+                diff_regions: [{ x: 10, y: 20, width: 30, height: 40 }],
+                cluster_metadata: { classification: 'dynamic_content' },
+              },
+            },
+            dynamic_content: null,
+            history: {
+              similar_by_fingerprint: [],
+              recent_by_name: [],
+              hotspot_analysis: null,
+              confirmed_regions: [],
+            },
+            review: { review_summary: { pending: 1 } },
+            links: { comparison_url: 'https://app.test/comparison-1' },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let payload = output.calls.find(call => call.method === 'data').args[0];
+      assert.strictEqual(payload.resource, 'comparison_agent_context');
+      assert.strictEqual(payload.source, 'cloud');
+      assert.strictEqual(payload.comparison.name, 'Dashboard');
+      assert.strictEqual(payload.comparison.review_state, 'pending');
+      assert.strictEqual(
+        payload.comparison.diff.image_url,
+        'https://cdn.test/diff.png'
+      );
+      assert.deepStrictEqual(payload.comparison.diff.regions, [
+        { x: 10, y: 20, width: 30, height: 40 },
+      ]);
+      assert.deepStrictEqual(payload.comparison.diff.cluster_metadata, {
+        classification: 'dynamic_content',
+      });
+      assert.strictEqual(payload.dynamic_content, null);
+      assert.deepStrictEqual(payload.history.confirmed_regions, []);
     });
   });
 

@@ -15,7 +15,10 @@ import { resolveContextSource as defaultResolveContextSource } from '../context/
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 import { readSession as defaultReadSession } from '../utils/session.js';
-import { normalizeBuildContext } from '../utils/visual-context-normalizers.js';
+import {
+  normalizeBuildContext,
+  normalizeComparisonRecord,
+} from '../utils/visual-context-normalizers.js';
 
 function buildAuthErrorMessage() {
   return 'Authentication required. Use --token, set VIZZLY_TOKEN, run "vizzly login", or link a project.';
@@ -550,14 +553,18 @@ function appendContextSource(command, context = {}) {
  *
  * @param {Object} context - Normalized build context.
  * @param {Object[]} evidence - Evidence included in the compact handoff.
- * @param {boolean} truncated - Whether additional evidence was omitted.
+ * @param {Object} options - Evidence page and include options.
+ * @param {number} [options.evidenceOffset] - API-ordered records already skipped.
+ * @param {number} [options.evidenceTotal] - Total actionable evidence records.
+ * @param {string[]} [options.include] - Detail collections to preserve when paging.
  * @returns {{label: string, command: string}[]} Suggested CLI commands.
  */
-function buildSuggestedCommands(
-  context = {},
-  evidence = [],
-  truncated = false
-) {
+function buildSuggestedCommands(context = {}, evidence = [], options = {}) {
+  let {
+    evidenceOffset = 0,
+    evidenceTotal = evidence.length,
+    include = [],
+  } = options;
   let commands = [];
   let firstComparison = evidence.find(
     item => item.kind === 'comparison' && item.id
@@ -571,7 +578,7 @@ function buildSuggestedCommands(
     commands.push({
       label: 'Inspect comparison context',
       command: appendContextSource(
-        `vizzly --json context comparison ${quoteCommandArgument(firstComparison.id)}`,
+        `vizzly --json context comparison ${quoteCommandArgument(firstComparison.id)} --agent`,
         context
       ),
     });
@@ -588,16 +595,30 @@ function buildSuggestedCommands(
   }
 
   if (buildTarget && evidence.length > 0) {
+    let offsetFlag = evidenceOffset > 0 ? ` --offset ${evidenceOffset}` : '';
     commands.push({
       label: 'Load raw diff diagnostics',
       command: appendContextSource(
-        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --include diffs`,
+        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --include diffs${offsetFlag}`,
         context
       ),
     });
   }
 
-  if (buildTarget && truncated) {
+  let nextOffset = evidenceOffset + evidence.length;
+  if (buildTarget && nextOffset < evidenceTotal) {
+    let includeFlag =
+      include.length > 0 ? ` --include ${include.join(',')}` : '';
+    commands.push({
+      label: 'Load next evidence page',
+      command: appendContextSource(
+        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --offset ${nextOffset}${includeFlag}`,
+        context
+      ),
+    });
+  }
+
+  if (buildTarget && evidenceTotal > evidence.length) {
     commands.push({
       label: 'Load full build context',
       command: appendContextSource(
@@ -622,11 +643,12 @@ function buildSuggestedCommands(
  * @param {string|null} [options.source] - Resolved source fallback.
  * @param {string[]} [options.include] - Explicit detail collections.
  * @param {number} [options.evidenceLimit] - Maximum evidence record count.
+ * @param {number} [options.evidenceOffset] - API-ordered records to skip.
  * @returns {Object} Bounded agent build context.
  */
 function buildAgentBuildPayload(
   context,
-  { source = null, include = [], evidenceLimit = 10 } = {}
+  { source = null, include = [], evidenceLimit = 10, evidenceOffset = 0 } = {}
 ) {
   let includeSet = new Set(include);
   let includeDiffs = includeSet.has('diffs');
@@ -635,7 +657,11 @@ function buildAgentBuildPayload(
     ...normalized.failed_captures.map(buildFailedCaptureEvidence),
     ...selectBreadthFirstEvidence(normalized.groups),
   ];
-  let evidence = candidates.slice(0, evidenceLimit);
+  let evidence = candidates.slice(
+    evidenceOffset,
+    evidenceOffset + evidenceLimit
+  );
+  let evidenceHasMore = evidenceOffset + evidence.length < candidates.length;
   let evidenceTruncated = candidates.length > evidence.length;
   let payload = {
     resource: 'build_agent_context',
@@ -657,16 +683,19 @@ function buildAgentBuildPayload(
     summary: normalized.summary || null,
     signature_properties: normalized.signature_properties ?? null,
     evidence_limit: evidenceLimit,
+    evidence_offset: evidenceOffset,
+    evidence_total: candidates.length,
     evidence_returned: evidence.length,
+    evidence_has_more: evidenceHasMore,
     evidence_truncated: evidenceTruncated,
     evidence,
     links: normalized.links || {},
     preview: normalized.preview || null,
-    suggested_commands: buildSuggestedCommands(
-      normalized,
-      evidence,
-      evidenceTruncated
-    ),
+    suggested_commands: buildSuggestedCommands(normalized, evidence, {
+      evidenceOffset,
+      evidenceTotal: candidates.length,
+      include,
+    }),
   };
 
   if (includeSet.has('screenshots')) {
@@ -678,6 +707,51 @@ function buildAgentBuildPayload(
   }
 
   return payload;
+}
+
+/** Preserve an omitted history collection instead of inventing an empty one. */
+function normalizeComparisonHistory(comparisons) {
+  if (!Array.isArray(comparisons)) {
+    return comparisons ?? null;
+  }
+
+  return comparisons.map(comparison => normalizeComparisonRecord(comparison));
+}
+
+/**
+ * Normalize a focused comparison and its history without changing API facts.
+ *
+ * The build handoff and comparison endpoint use different field names for the
+ * same Honeydiff evidence. Agents should not need to know that raw regions are
+ * `analysis.diff_regions` in one response and `diff.regions` in another.
+ *
+ * @param {Object} context - Raw comparison context returned by the provider.
+ * @returns {Object} Stable, API-backed evidence for an agent.
+ */
+function buildAgentComparisonPayload(context = {}) {
+  let history = context.history || {};
+
+  return {
+    resource: 'comparison_agent_context',
+    source: context.source || null,
+    review_flow: context.review_flow || null,
+    scope: context.scope || null,
+    build: context.build || null,
+    signature_properties: context.signature_properties ?? null,
+    comparison: normalizeComparisonRecord(context.comparison || {}, {
+      includeDiffs: true,
+    }),
+    dynamic_content: context.dynamic_content ?? null,
+    history: {
+      ...history,
+      similar_by_fingerprint: normalizeComparisonHistory(
+        history.similar_by_fingerprint
+      ),
+      recent_by_name: normalizeComparisonHistory(history.recent_by_name),
+    },
+    review: context.review || null,
+    links: context.links || {},
+  };
 }
 
 function getBuildCommentsCount(context = {}) {
@@ -1256,6 +1330,7 @@ export async function contextBuildCommand(
         buildAgentBuildPayload(context, {
           source: runtime.source,
           include,
+          evidenceOffset: options.offset,
         })
       );
       output.cleanup();
@@ -1325,6 +1400,12 @@ export async function contextComparisonCommand(
       query
     );
     output.stopSpinner();
+
+    if (globalOptions.json && options.agent) {
+      output.data(buildAgentComparisonPayload(context));
+      output.cleanup();
+      return;
+    }
 
     if (globalOptions.json) {
       output.data(context);
@@ -1511,6 +1592,7 @@ export async function contextReviewQueueCommand(
 export function validateContextBuildOptions(_options = {}) {
   let errors = validateSourceOption(_options.source);
   errors.push(...validateIncludeOption(_options.include));
+  errors.push(...validateOffset(_options.offset));
   return errors;
 }
 

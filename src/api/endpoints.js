@@ -251,7 +251,12 @@ export async function getComparison(client, comparisonId) {
 }
 
 /**
- * Get build context bundle for agent and reviewer workflows
+ * Get a build context bundle at the detail level the caller can consume.
+ *
+ * Passing detail selection to the API keeps compact callers from downloading
+ * raw Honeydiff geometry by default while preserving the unfiltered endpoint
+ * for raw and full context consumers.
+ *
  * @param {Object} client - API client
  * @param {string} buildId - Build ID
  * @param {Object} options - Optional query params

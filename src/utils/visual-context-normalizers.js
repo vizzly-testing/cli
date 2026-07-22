@@ -204,7 +204,11 @@ function getBaselineScreenshot(comparison = {}) {
 }
 
 /**
- * Project compact Honeydiff facts while leaving raw region geometry untouched.
+ * Project compact Honeydiff facts without making raw geometry the default.
+ *
+ * Agents need stable counts, fingerprints, URLs, and the API projection for
+ * first-pass diagnosis. Raw regions and scoring details stay behind an
+ * explicit include because they can dominate an otherwise bounded handoff.
  *
  * @param {Object} comparison - Comparison record from the API.
  * @param {boolean} includeDiffs - Whether to include raw Honeydiff diagnostics.
@@ -514,6 +518,9 @@ function groupFlatComparisons(comparisons = [], options = {}) {
 
 /**
  * Keep failed capture identity, render evidence, and the API error together.
+ *
+ * A capture can fail before any comparison exists, so it must remain useful
+ * evidence without inheriting comparison-only assumptions.
  *
  * @param {Object} screenshot - Failed screenshot record from the API.
  * @param {Object} options - Normalization options passed to the record.

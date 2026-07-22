@@ -331,6 +331,16 @@ function getComparisonFingerprint(comparison = {}) {
   );
 }
 
+/**
+ * Decide whether a comparison belongs in the agent handoff.
+ *
+ * Explicit API review state wins because an already-reviewed visual change is
+ * not actionable. Legacy result fallback keeps older flat responses useful
+ * only when the server did not supply that review fact.
+ *
+ * @param {Object} comparison - Normalized comparison record.
+ * @returns {boolean} Whether the record is actionable evidence.
+ */
 function isEvidenceCandidate(comparison = {}) {
   if (comparison.needs_review != null) {
     return comparison.needs_review === true;
@@ -339,6 +349,15 @@ function isEvidenceCandidate(comparison = {}) {
   return ['changed', 'new', 'failed', 'error'].includes(comparison.result);
 }
 
+/**
+ * Keep the group facts needed to understand one comparison in isolation.
+ *
+ * Repeating this small server-owned summary on each record avoids returning
+ * the full, potentially unbounded group tree in compact agent output.
+ *
+ * @param {Object} group - Normalized screenshot group.
+ * @returns {Object} Compact API-backed aggregate facts for the group.
+ */
 function buildEvidenceGroup(group = {}) {
   let aggregate = group.aggregate_status || {};
 
@@ -351,6 +370,17 @@ function buildEvidenceGroup(group = {}) {
   };
 }
 
+/**
+ * Shape one normalized comparison for the bounded evidence queue.
+ *
+ * The projection keeps visual result, review state, render assets, and
+ * Honeydiff facts together so an agent can reason about a diff without
+ * joining separate collections client-side.
+ *
+ * @param {Object} comparison - Normalized comparison record.
+ * @param {Object} group - Normalized group containing the comparison.
+ * @returns {Object} One self-contained comparison evidence record.
+ */
 function buildComparisonEvidence(comparison = {}, group = {}) {
   return {
     kind: 'comparison',
@@ -370,6 +400,16 @@ function buildComparisonEvidence(comparison = {}, group = {}) {
   };
 }
 
+/**
+ * Represent a capture failure without pretending it is a comparison.
+ *
+ * Failed screenshots have useful render evidence but no comparison ID. The
+ * explicit kind and null ID prevent suggested commands from sending a
+ * screenshot identifier to the comparison endpoint.
+ *
+ * @param {Object} capture - Normalized failed screenshot capture.
+ * @returns {Object} One failed-capture evidence record.
+ */
 function buildFailedCaptureEvidence(capture = {}) {
   return {
     ...buildComparisonEvidence(capture, { name: capture.name }),
@@ -379,6 +419,15 @@ function buildFailedCaptureEvidence(capture = {}) {
   };
 }
 
+/**
+ * Read actionable variants without overriding a server-reviewed group.
+ *
+ * A false aggregate is authoritative even when a partial variant payload
+ * appears pending, which prevents the client from reopening completed work.
+ *
+ * @param {Object} group - Normalized screenshot group.
+ * @returns {Object[]} Actionable variants in API order.
+ */
 function getGroupEvidence(group = {}) {
   if (group.aggregate_status?.needs_review === false) {
     return [];
@@ -387,6 +436,16 @@ function getGroupEvidence(group = {}) {
   return (group.variants || []).filter(isEvidenceCandidate);
 }
 
+/**
+ * Interleave actionable variants across groups in their original API order.
+ *
+ * Taking one variant per group before taking second variants preserves useful
+ * breadth when the final handoff is capped and one screenshot has many device
+ * or browser variants.
+ *
+ * @param {Object[]} groups - Normalized screenshot groups.
+ * @returns {Object[]} Self-contained evidence records in breadth-first order.
+ */
 function selectBreadthFirstEvidence(groups = []) {
   let candidatesByGroup = groups.map(getGroupEvidence);
   let evidence = [];
@@ -408,6 +467,15 @@ function selectBreadthFirstEvidence(groups = []) {
   return evidence;
 }
 
+/**
+ * Quote a value only when a suggested command needs shell protection.
+ *
+ * Suggested commands are meant to be executable, so names with whitespace or
+ * apostrophes must survive copy and paste without changing their value.
+ *
+ * @param {unknown} value - CLI argument value.
+ * @returns {string} A shell-safe argument for the displayed command.
+ */
 function quoteCommandArgument(value) {
   let stringValue = String(value);
   if (/^[A-Za-z0-9._:/-]+$/.test(stringValue)) {
@@ -417,14 +485,42 @@ function quoteCommandArgument(value) {
   return `'${stringValue.replaceAll("'", `'\\''`)}'`;
 }
 
+/**
+ * Recognize both local source labels emitted across supported context shapes.
+ *
+ * @param {Object} context - Normalized context response.
+ * @returns {boolean} Whether follow-up commands must stay in local mode.
+ */
 function isLocalContext(context = {}) {
   return ['local', 'local_workspace'].includes(context.source);
 }
 
+/**
+ * Keep suggested commands on the same source as the evidence they inspect.
+ *
+ * Without the explicit local flag, an executable suggestion could silently
+ * switch to cloud context and describe a different build.
+ *
+ * @param {string} command - Base CLI command.
+ * @param {Object} context - Context that produced the command.
+ * @returns {string} Command pinned to local context when needed.
+ */
 function appendLocalSource(command, context = {}) {
   return isLocalContext(context) ? `${command} --source local` : command;
 }
 
+/**
+ * Build concrete drill-down paths from the evidence actually returned.
+ *
+ * Executable commands replace generic client-authored advice. They let an
+ * agent ask the API for deeper comparison, history, or raw diff context, and
+ * only suggest the full build when the bounded queue omitted records.
+ *
+ * @param {Object} context - Normalized build context.
+ * @param {Object[]} evidence - Evidence included in the compact handoff.
+ * @param {boolean} truncated - Whether additional evidence was omitted.
+ * @returns {{label: string, command: string}[]} Suggested CLI commands.
+ */
 function buildSuggestedCommands(
   context = {},
   evidence = [],
@@ -482,6 +578,20 @@ function buildSuggestedCommands(
   return commands;
 }
 
+/**
+ * Create the compact agent presentation without rewriting API truth.
+ *
+ * Status, summaries, review facts, assets, and Honeydiff values pass through
+ * normalization from the server. The client owns only the bounded selection,
+ * truthful truncation facts, explicit includes, and follow-up commands.
+ *
+ * @param {Object} context - Raw build context returned by the provider.
+ * @param {Object} options - Compact presentation options.
+ * @param {string|null} [options.source] - Resolved source fallback.
+ * @param {string[]} [options.include] - Explicit detail collections.
+ * @param {number} [options.evidenceLimit] - Maximum evidence record count.
+ * @returns {Object} Bounded agent build context.
+ */
 function buildAgentBuildPayload(
   context,
   { source = null, include = [], evidenceLimit = 10 } = {}

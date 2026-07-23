@@ -86,6 +86,12 @@ export function vizzlyScreenshot(
     threshold?: number;
     minClusterSize?: number;
     fullPage?: boolean;
+    /** Coordinate frame used by the harness that captured the image. */
+    captureMode?: 'viewport' | 'full_page' | 'element' | 'component';
+    /** Bitmap pixels per CSS pixel reported by the capture harness. */
+    deviceScaleFactor?: number;
+    /** Exact selector used when captureMode is element or component. */
+    selector?: string;
     /** Transport-only build ID used to route the request. */
     buildId?: string;
     /** Client-side HTTP timeout in milliseconds; not stored as metadata. */

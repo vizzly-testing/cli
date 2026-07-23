@@ -495,6 +495,27 @@ describe('client/index httpPost integration tests', () => {
     });
   });
 
+  it('preserves capture geometry for cloud identity and region evidence', async () => {
+    await vizzlyScreenshot('test', Buffer.from('data'), {
+      captureMode: 'element',
+      deviceScaleFactor: 2,
+      selector: '[data-testid="account-card"]',
+      properties: {
+        browser: 'chromium',
+        viewport: { width: 1440, height: 900 },
+      },
+    });
+
+    assert.strictEqual(requests.length, 1);
+    assert.deepStrictEqual(requests[0].body.properties, {
+      browser: 'chromium',
+      viewport: { width: 1440, height: 900 },
+      captureMode: 'element',
+      deviceScaleFactor: 2,
+      selector: '[data-testid="account-card"]',
+    });
+  });
+
   it('lets explicit comparison options override nested properties', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'), {
       threshold: 0,

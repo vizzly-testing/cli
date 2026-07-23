@@ -15,6 +15,18 @@ export let RESERVED_PROPERTY_OPTIONS = Object.freeze({
     message:
       'Move "fullPage" out of properties; properties is only for user metadata.',
   },
+  captureMode: {
+    message:
+      'Move "captureMode" out of properties; properties is only for user metadata.',
+  },
+  deviceScaleFactor: {
+    message:
+      'Move "deviceScaleFactor" out of properties; properties is only for user metadata.',
+  },
+  selector: {
+    message:
+      'Move "selector" out of properties; properties is only for user metadata.',
+  },
   buildId: {
     message:
       'Move "buildId" out of properties; properties is only for user metadata.',
@@ -36,6 +48,10 @@ function createReservedPropertyWarning(option) {
 /**
  * Normalize screenshot SDK options into the properties payload consumed by the
  * local TDD server and cloud-compatible comparison path.
+ *
+ * Capture geometry is reserved because the cloud must receive the facts from the
+ * harness that took the image. Dropping these values would force the API to guess
+ * a coordinate space from bitmap dimensions after the capture already happened.
  */
 export function normalizeScreenshotOptions(options = {}) {
   let {
@@ -45,6 +61,9 @@ export function normalizeScreenshotOptions(options = {}) {
     threshold,
     minClusterSize,
     fullPage,
+    captureMode,
+    deviceScaleFactor,
+    selector,
   } = options;
 
   let warnings = [];
@@ -59,6 +78,13 @@ export function normalizeScreenshotOptions(options = {}) {
         minClusterSize = value;
       }
       if (key === 'fullPage' && fullPage === undefined) fullPage = value;
+      if (key === 'captureMode' && captureMode === undefined) {
+        captureMode = value;
+      }
+      if (key === 'deviceScaleFactor' && deviceScaleFactor === undefined) {
+        deviceScaleFactor = value;
+      }
+      if (key === 'selector' && selector === undefined) selector = value;
       if (key === 'buildId' && buildId === undefined) buildId = value;
       if (key === 'requestTimeout' && requestTimeout === undefined) {
         requestTimeout = value;
@@ -80,6 +106,18 @@ export function normalizeScreenshotOptions(options = {}) {
 
   if (fullPage !== undefined) {
     normalizedProperties.fullPage = fullPage;
+  }
+
+  if (captureMode !== undefined) {
+    normalizedProperties.captureMode = captureMode;
+  }
+
+  if (deviceScaleFactor !== undefined) {
+    normalizedProperties.deviceScaleFactor = deviceScaleFactor;
+  }
+
+  if (selector !== undefined) {
+    normalizedProperties.selector = selector;
   }
 
   return {

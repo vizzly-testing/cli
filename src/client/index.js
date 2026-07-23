@@ -365,6 +365,9 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
  * @param {number} [options.threshold] - CIEDE2000 Delta E threshold for this screenshot
  * @param {number} [options.minClusterSize] - Minimum changed cluster size for this screenshot
  * @param {boolean} [options.fullPage] - Whether this is a full page screenshot
+ * @param {string} [options.captureMode] - Capture coordinate mode
+ * @param {number} [options.deviceScaleFactor] - Bitmap pixels per CSS pixel
+ * @param {string} [options.selector] - Selector used for an element capture
  *
  * @returns {Promise<Object|null>} Screenshot result from the server, or null when capture is skipped
  *

@@ -173,6 +173,32 @@ async function withBuildContextApi(callback) {
       image_url: `https://cdn.test/diff-${index + 1}.png`,
       fingerprint_hash: `fingerprint-${index + 1}`,
       projection: { clusters: { count: 1 } },
+      artifacts: {
+        analysis: {
+          available: true,
+          schema_version: 2,
+          size_bytes: 1024,
+          content_encoding: 'gzip',
+        },
+        effective_mask: {
+          evidence_status: 'complete',
+          available: true,
+          complete: true,
+          download_url: `/api/sdk/context/comparisons/comparison-${index + 1}/effective-mask`,
+          digest: `sha256:mask-${index + 1}`,
+          width: 2880,
+          height: 1800,
+          pixel_count: index + 10,
+          size_bytes: 2048,
+          mime_type: 'image/png',
+          honeydiff_version: '0.13.1',
+          mask_semantics_version: 'effective-mask-v1',
+          capture_identity_hash: `capture:v2:${index + 1}`,
+          render_profile_hash: 'render-profile:v2:shared',
+          analysis_contract_hash: 'analysis-contract:v1:shared',
+          coordinate_space_version: 'bitmap-top-left-v1',
+        },
+      },
       regions: [{ x: 10, y: 20, width: 30, height: 40 }],
     },
   }));
@@ -200,11 +226,17 @@ async function withBuildContextApi(callback) {
     res.setHeader('content-type', 'application/json');
 
     if (req.url.startsWith('/api/sdk/context/comparisons/')) {
+      let comparison = {
+        ...comparisons[0],
+        diff: undefined,
+        analysis: comparisons[0].diff,
+      };
+
       res.end(
         JSON.stringify({
           resource: 'comparison_context',
           review_flow: 'legacy',
-          comparison: comparisons[0],
+          comparison,
         })
       );
       return;
@@ -342,6 +374,33 @@ describe('context CLI integration', () => {
         compactPayload.evidence[0].diff.image_url,
         'https://cdn.test/diff-1.png'
       );
+      assert.deepStrictEqual(compactPayload.evidence[0].diff.artifacts, {
+        analysis: {
+          available: true,
+          schema_version: 2,
+          size_bytes: 1024,
+          content_encoding: 'gzip',
+        },
+        effective_mask: {
+          evidence_status: 'complete',
+          available: true,
+          complete: true,
+          download_url:
+            '/api/sdk/context/comparisons/comparison-1/effective-mask',
+          digest: 'sha256:mask-1',
+          width: 2880,
+          height: 1800,
+          pixel_count: 10,
+          size_bytes: 2048,
+          mime_type: 'image/png',
+          honeydiff_version: '0.13.1',
+          mask_semantics_version: 'effective-mask-v1',
+          capture_identity_hash: 'capture:v2:1',
+          render_profile_hash: 'render-profile:v2:shared',
+          analysis_contract_hash: 'analysis-contract:v1:shared',
+          coordinate_space_version: 'bitmap-top-left-v1',
+        },
+      });
       assert.ok(!compactPayload.evidence[0].diff.regions);
       assert.ok(!compactPayload.groups);
       assert.ok(!compactPayload.next_actions);
@@ -421,6 +480,14 @@ describe('context CLI integration', () => {
       assert.deepStrictEqual(payload.comparison.diff.regions, [
         { x: 10, y: 20, width: 30, height: 40 },
       ]);
+      assert.strictEqual(
+        payload.comparison.diff.artifacts.effective_mask.digest,
+        'sha256:mask-1'
+      );
+      assert.strictEqual(
+        payload.comparison.diff.artifacts.effective_mask.capture_identity_hash,
+        'capture:v2:1'
+      );
     });
   });
 

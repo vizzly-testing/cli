@@ -206,9 +206,10 @@ function getBaselineScreenshot(comparison = {}) {
 /**
  * Project compact Honeydiff facts without making raw geometry the default.
  *
- * Agents need stable counts, fingerprints, URLs, and the API projection for
- * first-pass diagnosis. Raw regions and scoring details stay behind an
- * explicit include because they can dominate an otherwise bounded handoff.
+ * Agents need stable counts, fingerprints, URLs, the API projection, and the
+ * server's authoritative artifact manifest for first-pass diagnosis. Raw
+ * regions and scoring details stay behind an explicit include because they
+ * can dominate an otherwise bounded handoff.
  *
  * @param {Object} comparison - Comparison record from the API.
  * @param {boolean} includeDiffs - Whether to include raw Honeydiff diagnostics.
@@ -231,6 +232,8 @@ function getComparisonDiff(comparison = {}, includeDiffs = false) {
     comparison.analysis_projection ||
     comparison.projection ||
     null;
+  let artifacts =
+    diff.artifacts ?? analysis.artifacts ?? comparison.artifacts ?? null;
 
   let compact = {
     percentage:
@@ -271,6 +274,12 @@ function getComparisonDiff(comparison = {}, includeDiffs = false) {
       comparison.diff_image_url ||
       null,
   };
+
+  // Preserve server-owned evidence exactly so agents can verify and download
+  // artifacts without the CLI recreating identities, digests, or availability.
+  if (artifacts != null) {
+    compact.artifacts = artifacts;
+  }
 
   if (includeDiffs) {
     compact.regions = regions || [];

@@ -180,19 +180,19 @@ async function withBuildContextApi(callback) {
           size_bytes: 1024,
           content_encoding: 'gzip',
         },
-        effective_mask: {
+        diff_mask: {
           evidence_status: 'complete',
           available: true,
           complete: true,
-          download_url: `/api/sdk/context/comparisons/comparison-${index + 1}/effective-mask`,
-          digest: `sha256:mask-${index + 1}`,
+          download_url: `/api/sdk/context/comparisons/comparison-${index + 1}/diff-mask`,
+          digest: `sha256:${'a'.repeat(64)}`,
           width: 2880,
           height: 1800,
           pixel_count: index + 10,
           size_bytes: 2048,
           mime_type: 'image/png',
-          honeydiff_version: '0.13.1',
-          mask_semantics_version: 'effective-mask-v1',
+          honeydiff_version: '0.14.0',
+          mask_semantics_version: 'diff-mask-v1',
           capture_identity_hash: `capture:v2:${index + 1}`,
           render_profile_hash: 'render-profile:v2:shared',
           analysis_contract_hash: 'analysis-contract:v1:shared',
@@ -381,20 +381,19 @@ describe('context CLI integration', () => {
           size_bytes: 1024,
           content_encoding: 'gzip',
         },
-        effective_mask: {
+        diff_mask: {
           evidence_status: 'complete',
           available: true,
           complete: true,
-          download_url:
-            '/api/sdk/context/comparisons/comparison-1/effective-mask',
-          digest: 'sha256:mask-1',
+          download_url: '/api/sdk/context/comparisons/comparison-1/diff-mask',
+          digest: `sha256:${'a'.repeat(64)}`,
           width: 2880,
           height: 1800,
           pixel_count: 10,
           size_bytes: 2048,
           mime_type: 'image/png',
-          honeydiff_version: '0.13.1',
-          mask_semantics_version: 'effective-mask-v1',
+          honeydiff_version: '0.14.0',
+          mask_semantics_version: 'diff-mask-v1',
           capture_identity_hash: 'capture:v2:1',
           render_profile_hash: 'render-profile:v2:shared',
           analysis_contract_hash: 'analysis-contract:v1:shared',
@@ -480,14 +479,24 @@ describe('context CLI integration', () => {
       assert.deepStrictEqual(payload.comparison.diff.regions, [
         { x: 10, y: 20, width: 30, height: 40 },
       ]);
-      assert.strictEqual(
-        payload.comparison.diff.artifacts.effective_mask.digest,
-        'sha256:mask-1'
-      );
-      assert.strictEqual(
-        payload.comparison.diff.artifacts.effective_mask.capture_identity_hash,
-        'capture:v2:1'
-      );
+      assert.deepStrictEqual(payload.comparison.diff.artifacts.diff_mask, {
+        evidence_status: 'complete',
+        available: true,
+        complete: true,
+        download_url: '/api/sdk/context/comparisons/comparison-1/diff-mask',
+        digest: `sha256:${'a'.repeat(64)}`,
+        width: 2880,
+        height: 1800,
+        pixel_count: 10,
+        size_bytes: 2048,
+        mime_type: 'image/png',
+        honeydiff_version: '0.14.0',
+        mask_semantics_version: 'diff-mask-v1',
+        capture_identity_hash: 'capture:v2:1',
+        render_profile_hash: 'render-profile:v2:shared',
+        analysis_contract_hash: 'analysis-contract:v1:shared',
+        coordinate_space_version: 'bitmap-top-left-v1',
+      });
     });
   });
 

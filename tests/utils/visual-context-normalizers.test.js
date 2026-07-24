@@ -27,6 +27,18 @@ describe('visual context normalizers', () => {
           baseline_screenshot_id: 'baseline-mobile',
           baseline_build_id: 'baseline-build',
           baseline_original_url: 'https://cdn.test/baseline.png',
+          analysis: {
+            artifacts: {
+              diff_mask: {
+                available: true,
+                complete: true,
+                download_url:
+                  '/api/sdk/context/comparisons/comparison-mobile/diff-mask',
+                digest: `sha256:${'a'.repeat(64)}`,
+                pixel_count: 321,
+              },
+            },
+          },
           diff_image_url: 'https://cdn.test/diff.png',
           diff_percentage: 2.5,
           fingerprint_hash: 'fp-checkout',
@@ -79,6 +91,16 @@ describe('visual context normalizers', () => {
     assert.strictEqual(comparison.diff.region_count, 2);
     assert.deepStrictEqual(comparison.diff.projection, {
       clusters: { count: 2 },
+    });
+    assert.deepStrictEqual(comparison.diff.artifacts, {
+      diff_mask: {
+        available: true,
+        complete: true,
+        download_url:
+          '/api/sdk/context/comparisons/comparison-mobile/diff-mask',
+        digest: `sha256:${'a'.repeat(64)}`,
+        pixel_count: 321,
+      },
     });
   });
 

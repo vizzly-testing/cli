@@ -190,6 +190,37 @@ function createWorkspaceFixture() {
 
 async function withBuildContextApi(callback) {
   let requests = [];
+  let completeDynamicRegions = {
+    proposals: {
+      selection: {
+        requestedBuild: {
+          selectedCount: 11,
+          excludedCount: 90,
+        },
+      },
+      exclusions: [
+        {
+          buildId: 'build-123',
+          comparisonId: 'comparison-complete-only',
+          reason: 'complete_only',
+          source: 'requested_build',
+        },
+        {
+          buildId: 'build-123',
+          comparisonId: 'comparison-diagnostic',
+          reason: 'diagnostic',
+          source: 'requested_build',
+        },
+      ],
+    },
+  };
+  let diagnosticDynamicRegions = {
+    ...completeDynamicRegions,
+    proposals: {
+      ...completeDynamicRegions.proposals,
+      exclusions: [completeDynamicRegions.proposals.exclusions[1]],
+    },
+  };
   let comparisons = Array.from({ length: 11 }, (_, index) => ({
     id: `comparison-${index + 1}`,
     screenshot_name: `Screenshot ${index + 1}`,
@@ -335,6 +366,9 @@ async function withBuildContextApi(callback) {
         build: { id: 'build-123', status: 'completed' },
         status: { needs_review: true, pending_comparisons: 11 },
         summary: { comparisons: { total: 11, changed: 11 } },
+        dynamic_regions: req.url.includes('details=')
+          ? diagnosticDynamicRegions
+          : completeDynamicRegions,
         groups,
         comparisons,
       })
@@ -347,6 +381,8 @@ async function withBuildContextApi(callback) {
     let address = server.address();
     await callback({
       apiUrl: `http://127.0.0.1:${address.port}`,
+      completeDynamicRegions,
+      diagnosticDynamicRegions,
       requests,
     });
   } finally {
@@ -390,7 +426,13 @@ describe('context CLI integration', () => {
   });
 
   it('returns bounded API-backed agent evidence through the real CLI', async () => {
-    await withBuildContextApi(async ({ apiUrl, requests }) => {
+    await withBuildContextApi(async contextApi => {
+      let {
+        apiUrl,
+        completeDynamicRegions,
+        diagnosticDynamicRegions,
+        requests,
+      } = contextApi;
       let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-cloud-'));
       let env = {
         VIZZLY_API_URL: apiUrl,
@@ -411,6 +453,10 @@ describe('context CLI integration', () => {
       assert.strictEqual(compactPayload.evidence[0].id, 'comparison-1');
       assert.strictEqual(compactPayload.evidence[0].name, 'Screenshot 1');
       assert.strictEqual(compactPayload.evidence[0].is_flaky, false);
+      assert.deepStrictEqual(
+        compactPayload.dynamic_regions,
+        diagnosticDynamicRegions
+      );
       assert.strictEqual(compactPayload.evidence[0].screenshot.id, 'current-1');
       assert.strictEqual(compactPayload.evidence[0].baseline.id, 'baseline-1');
       assert.strictEqual(compactPayload.evidence[0].diff.total_pixels, 5184000);
@@ -490,10 +536,23 @@ describe('context CLI integration', () => {
       assert.deepStrictEqual(diffPayload.evidence[0].diff.regions, [
         { x: 10, y: 20, width: 30, height: 40 },
       ]);
+
+      let full = await runCLI(
+        ['--json', 'context', 'build', 'build-123', '--agent', '--full'],
+        { cwd, env }
+      );
+
+      assert.strictEqual(full.code, 0);
+      let fullPayload = JSON.parse(full.stdout).data;
+      assert.deepStrictEqual(
+        fullPayload.dynamic_regions,
+        completeDynamicRegions
+      );
       assert.deepStrictEqual(requests, [
         '/api/sdk/context/builds/build-123?details=summary',
         '/api/sdk/context/builds/build-123?details=summary',
         '/api/sdk/context/builds/build-123?details=diffs',
+        '/api/sdk/context/builds/build-123',
       ]);
     });
   });

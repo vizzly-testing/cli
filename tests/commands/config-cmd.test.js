@@ -43,6 +43,16 @@ describe('commands/config', () => {
         { json: true },
         {
           loadConfig: async () => ({
+            environmentContext: {
+              name: 'production',
+              apiUrl: 'https://app.vizzly.dev',
+              origin: 'https://app.vizzly.dev',
+              source: 'default',
+            },
+            credential: {
+              kind: 'none',
+              tokenPrefix: null,
+            },
             server: { port: 47392, timeout: 30000 },
             comparison: { threshold: 2.0, minClusterSize: 2 },
             tdd: { openReport: false },
@@ -55,6 +65,10 @@ describe('commands/config', () => {
       let dataCall = output.calls.find(c => c.method === 'data');
       assert.ok(dataCall);
       assert.strictEqual(dataCall.args[0].config.server.port, 47392);
+      assert.strictEqual(
+        dataCall.args[0].config.environment.name,
+        'production'
+      );
       assert.strictEqual(dataCall.args[0].config.comparison.threshold, 2.0);
       assert.strictEqual(dataCall.args[0].config.comparison.minClusterSize, 2);
     });
@@ -164,6 +178,10 @@ describe('commands/config', () => {
           loadConfig: async () => ({
             apiKey: 'vzt_supersecrettoken12345',
             apiUrl: 'https://api.vizzly.dev',
+            credential: {
+              kind: 'config-token',
+              tokenPrefix: 'vzt_supe...',
+            },
             server: { port: 47392 },
           }),
           output,
@@ -195,6 +213,10 @@ describe('commands/config', () => {
           loadConfig: async () => ({
             apiKey: 'vzt_supersecrettoken12345',
             apiUrl: 'https://app.vizzly.dev',
+            credential: {
+              kind: 'linked-project',
+              tokenPrefix: 'vzt_123',
+            },
             server: { port: 47392 },
             linkedProject: {
               organizationSlug: 'vizzly',

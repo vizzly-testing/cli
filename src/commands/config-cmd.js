@@ -41,6 +41,8 @@ export async function configCommand(
 
     // Build the config object to display
     let displayConfig = {
+      environment: config.environmentContext,
+      credential: config.credential,
       server: config.server || CONFIG_DEFAULTS.server,
       build: config.build || {},
       upload: config.upload || {},
@@ -53,7 +55,7 @@ export async function configCommand(
       displayConfig.api = {
         url: config.apiUrl || config.baseUrl,
         tokenConfigured: true,
-        tokenPrefix: `${config.apiKey.substring(0, 8)}...`,
+        tokenPrefix: config.credential.tokenPrefix,
       };
     }
 

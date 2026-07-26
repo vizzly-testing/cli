@@ -17,6 +17,11 @@ export function createDoctorDiagnostics() {
       nodeVersionValid: null,
     },
     configuration: {
+      environment: null,
+      origin: null,
+      environmentSource: null,
+      credentialKind: null,
+      tokenPrefix: null,
       apiUrl: null,
       apiUrlValid: null,
       threshold: null,
@@ -153,6 +158,28 @@ export async function doctorCommand(
 
     // Load configuration (apply global CLI overrides like --config only)
     let config = await loadConfig(globalOptions.config);
+    diagnostics.configuration.environment =
+      config.environmentContext?.name || null;
+    diagnostics.configuration.origin =
+      config.environmentContext?.origin || null;
+    diagnostics.configuration.environmentSource =
+      config.environmentContext?.source || null;
+    diagnostics.configuration.credentialKind =
+      config.credential?.kind || 'none';
+    diagnostics.configuration.tokenPrefix =
+      config.credential?.tokenPrefix || null;
+    checks.push({
+      name: 'Environment',
+      value: config.environmentContext?.name || 'unknown',
+      ok: Boolean(config.environmentContext?.name),
+    });
+    checks.push({
+      name: 'Credential',
+      value: config.credential?.tokenPrefix
+        ? `${config.credential.kind} (${config.credential.tokenPrefix})`
+        : config.credential?.kind || 'none',
+      ok: true,
+    });
 
     let apiUrlCheck = getApiUrlCheck(config.apiUrl);
     diagnostics.configuration.apiUrl = apiUrlCheck.apiUrl;

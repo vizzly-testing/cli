@@ -50,6 +50,16 @@ function createMockOutput() {
 let validConfig = {
   apiUrl: 'https://api.example.test',
   apiKey: 'token-123',
+  environmentContext: {
+    name: 'custom',
+    apiUrl: 'https://api.example.test',
+    origin: 'https://api.example.test',
+    source: 'project-config',
+  },
+  credential: {
+    kind: 'config-token',
+    tokenPrefix: 'token-12...',
+  },
   comparison: { threshold: 2 },
   server: { port: 47888 },
 };
@@ -69,6 +79,11 @@ describe('commands/doctor', () => {
           nodeVersionValid: null,
         },
         configuration: {
+          environment: null,
+          origin: null,
+          environmentSource: null,
+          credentialKind: null,
+          tokenPrefix: null,
           apiUrl: null,
           apiUrlValid: null,
           threshold: null,

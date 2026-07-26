@@ -125,6 +125,30 @@ export function setCredentialState(config, origin, credentialState) {
 }
 
 /**
+ * Persist an explicit environment choice without touching either credential
+ * bucket.
+ *
+ * @param {Object} config - Global Vizzly configuration.
+ * @param {'production'|'local'} name - Environment to select.
+ * @returns {Object} Updated immutable global configuration.
+ */
+export function selectEnvironment(config, name) {
+  if (!ENVIRONMENT_NAMES.includes(name)) {
+    throw new Error(
+      `Unknown Vizzly environment "${name}". Use "production" or "local".`
+    );
+  }
+
+  return {
+    ...config,
+    environment: {
+      ...config.environment,
+      active: name,
+    },
+  };
+}
+
+/**
  * Cut released root credentials over to origin-scoped storage once.
  *
  * User auth belonged to the historical production default. Project links

@@ -6,6 +6,7 @@ import {
   normalizeApiUrl,
   PRODUCTION_API_URL,
   resolveEnvironment,
+  selectEnvironment,
 } from '../../src/utils/environment-profile.js';
 
 describe('utils/environment-profile', () => {
@@ -74,6 +75,27 @@ describe('utils/environment-profile', () => {
           env: { VIZZLY_API_URL: 'not a URL' },
         }),
       /Invalid URL/
+    );
+  });
+
+  it('changes only the selected environment and preserves credentials', () => {
+    let credentials = {
+      [PRODUCTION_API_URL]: { auth: { storage: 'keychain' } },
+      [LOCAL_API_URL]: { projectLink: { active: 'local-project' } },
+    };
+    let config = {
+      credentials,
+      unrelated: { preserved: true },
+    };
+
+    let selected = selectEnvironment(config, 'local');
+
+    assert.strictEqual(selected.environment.active, 'local');
+    assert.strictEqual(selected.credentials, credentials);
+    assert.strictEqual(selected.unrelated, config.unrelated);
+    assert.throws(
+      () => selectEnvironment(config, 'preview'),
+      /Unknown Vizzly environment "preview"/
     );
   });
 });

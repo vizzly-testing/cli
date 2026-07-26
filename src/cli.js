@@ -27,6 +27,11 @@ import {
 } from './commands/context.js';
 import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
 import {
+  environmentShowCommand,
+  environmentUseCommand,
+  validateEnvironmentName,
+} from './commands/environment.js';
+import {
   finalizeCommand,
   validateFinalizeOptions,
 } from './commands/finalize.js';
@@ -142,7 +147,14 @@ const formatHelp = (cmd, helper) => {
           key: 'setup',
           icon: '▸',
           title: 'Setup',
-          names: ['init', 'doctor', 'config', 'baselines', 'project'],
+          names: [
+            'init',
+            'doctor',
+            'config',
+            'environment',
+            'baselines',
+            'project',
+          ],
         },
         { key: 'advanced', icon: '▸', title: 'Advanced', names: ['api'] },
         {
@@ -1166,6 +1178,32 @@ program
     }
 
     await configCommand(key, options, globalOptions);
+  });
+
+let environmentCommand = program
+  .command('environment')
+  .description('Select and inspect the Vizzly API environment')
+  .showHelpAfterError('(Run vizzly environment --help for available commands)')
+  .showSuggestionAfterError();
+
+environmentCommand
+  .command('show')
+  .description('Show the selected API environment and credential')
+  .action(async options => {
+    await environmentShowCommand(options, getGlobalOptions());
+  });
+
+environmentCommand
+  .command('use')
+  .description('Persist the production or local API environment')
+  .argument('<name>', 'Environment name: production or local')
+  .action(async (name, options) => {
+    let validationErrors = validateEnvironmentName(name);
+    if (validationErrors.length > 0) {
+      reportValidationErrors(validationErrors);
+    }
+
+    await environmentUseCommand(name, options, getGlobalOptions());
   });
 
 program

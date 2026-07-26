@@ -4,12 +4,17 @@ import { CONFIG_DEFAULTS, deepMerge } from '../config/core.js';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
 import {
   getApiToken,
-  getApiUrl,
   getBuildName,
+  getEnvironmentContext,
   getMinClusterSize,
   getParallelId,
   getThreshold,
 } from './environment-config.js';
+import {
+  getApiOrigin,
+  getEnvironmentName,
+  normalizeApiUrl,
+} from './environment-profile.js';
 import { getAccessToken } from './global-config.js';
 import * as output from './output.js';
 import { getActiveProjectLink } from './project-link-store.js';
@@ -27,16 +32,29 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   // 2. Validate config file using Zod schema
   let validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
+  let environmentContext = getEnvironmentContext();
+
+  if (fileConfig.apiUrl && environmentContext.source === 'default') {
+    let apiUrl = normalizeApiUrl(fileConfig.apiUrl);
+    environmentContext = {
+      name: getEnvironmentName(apiUrl),
+      apiUrl,
+      origin: getApiOrigin(apiUrl),
+      source: 'project-config',
+    };
+  }
 
   // Create a proper clone of the default config to avoid shared object references
   let config = deepMerge(CONFIG_DEFAULTS, {});
+  let credential = fileConfig.apiKey
+    ? createCredentialSummary('config-token', fileConfig.apiKey)
+    : createCredentialSummary('none');
 
   // Merge validated file config
   mergeConfig(config, validatedFileConfig);
 
   // 3. Override with environment variables (higher priority than fallbacks)
   let envApiKey = getApiToken();
-  let envApiUrl = getApiUrl();
   let envBuildName = getBuildName();
   let envParallelId = getParallelId();
   let envThreshold = getThreshold();
@@ -44,9 +62,10 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   if (envApiKey) {
     config.apiKey = envApiKey;
+    credential = createCredentialSummary('environment-token', envApiKey);
     output.debug('config', 'using token from environment');
   }
-  if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
+  config.apiUrl = environmentContext.apiUrl;
   if (envBuildName) {
     config.build.name = envBuildName;
     output.debug('config', 'using build name from environment');
@@ -59,6 +78,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   // 4. Apply CLI overrides (highest priority)
   if (cliOverrides.token) {
+    credential = createCredentialSummary('command-token', cliOverrides.token);
     output.debug('config', 'using token from --token flag');
   }
 
@@ -81,6 +101,11 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
         expiresAt: linkedProject.expiresAt,
         storage: linkedProject.storage,
       };
+      credential = createCredentialSummary(
+        'linked-project',
+        linkedProject.token,
+        linkedProject.tokenPrefix
+      );
       output.debug('config', 'using linked project token');
     }
   }
@@ -89,12 +114,39 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   let userToken = await getAccessToken({ apiUrl: config.apiUrl });
   if (userToken) {
     config.userToken = userToken;
+    if (credential.kind === 'none') {
+      credential = createCredentialSummary('user-login', userToken);
+    }
     output.debug('config', 'using user login for user-authenticated commands');
   }
 
   config._configPath = result?.filepath || null;
+  config.environmentContext = environmentContext;
+  config.credential = credential;
 
   return config;
+}
+
+/**
+ * Describe the credential source without exposing the credential itself.
+ *
+ * Tracking this at config resolution avoids diagnostics guessing from token
+ * syntax after precedence has already been applied.
+ *
+ * @param {string} kind - Exact config source that selected the token.
+ * @param {string|null} token - Selected credential, when present.
+ * @param {string|null} knownPrefix - API-provided safe token prefix.
+ * @returns {{kind: string, tokenPrefix: string|null}} Safe credential facts.
+ */
+export function createCredentialSummary(
+  kind,
+  token = null,
+  knownPrefix = null
+) {
+  return {
+    kind,
+    tokenPrefix: knownPrefix || (token ? `${token.substring(0, 8)}...` : null),
+  };
 }
 
 /**

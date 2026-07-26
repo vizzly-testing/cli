@@ -60,7 +60,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "cli": "source .envrc && node bin/vizzly.js",
+    "cli": "node scripts/run-development-cli.js production",
+    "cli:local": "node scripts/run-development-cli.js local",
     "start": "node src/index.js",
     "build": "pnpm run clean && pnpm run compile && pnpm run build:reporter && pnpm run build:reporter-ssr && pnpm run copy-types",
     "clean": "rimraf dist",

@@ -207,9 +207,10 @@ function getBaselineScreenshot(comparison = {}) {
  * Project compact Honeydiff facts without making raw geometry the default.
  *
  * Agents need stable counts, fingerprints, URLs, the API projection, and the
- * server's authoritative artifact manifest for first-pass diagnosis. Raw
- * regions and scoring details stay behind an explicit include because they
- * can dominate an otherwise bounded handoff.
+ * server's authoritative artifact manifest for first-pass diagnosis. Keeping
+ * that manifest intact prevents the CLI from becoming less authoritative than
+ * the API. Raw regions and scoring details stay behind an explicit include
+ * because they can dominate an otherwise bounded handoff.
  *
  * @param {Object} comparison - Comparison record from the API.
  * @param {boolean} includeDiffs - Whether to include raw Honeydiff diagnostics.

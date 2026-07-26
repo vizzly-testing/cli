@@ -681,6 +681,7 @@ function buildAgentBuildPayload(
     },
     status: normalized.status || null,
     summary: normalized.summary || null,
+    dynamic_regions: normalized.dynamic_regions ?? null,
     signature_properties: normalized.signature_properties ?? null,
     evidence_limit: evidenceLimit,
     evidence_offset: evidenceOffset,
@@ -741,6 +742,7 @@ function buildAgentComparisonPayload(context = {}) {
     comparison: normalizeComparisonRecord(context.comparison || {}, {
       includeDiffs: true,
     }),
+    dynamic_regions: context.dynamic_regions ?? null,
     dynamic_content: context.dynamic_content ?? null,
     history: {
       ...history,

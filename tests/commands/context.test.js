@@ -230,6 +230,15 @@ describe('commands/context', () => {
             summary: {
               comparisons: { total: 2, changed: 1, new: 1, identical: 0 },
             },
+            dynamic_regions: {
+              policies: [
+                {
+                  region: { id: 'region-1', status: 'confirmed' },
+                  assignments: [{ screenshotName: 'Dashboard' }],
+                },
+              ],
+              proposals: { proposals: [] },
+            },
             screenshots: [{ id: 'ss-1', name: 'Dashboard' }],
             comparisons: [
               {
@@ -295,6 +304,15 @@ describe('commands/context', () => {
       assert.strictEqual(payload.build.id, 'build-1');
       assert.strictEqual(payload.baseline.selected.name, 'Approved Main');
       assert.strictEqual(payload.status.needs_review, true);
+      assert.deepStrictEqual(payload.dynamic_regions, {
+        policies: [
+          {
+            region: { id: 'region-1', status: 'confirmed' },
+            assignments: [{ screenshotName: 'Dashboard' }],
+          },
+        ],
+        proposals: { proposals: [] },
+      });
       assert.strictEqual(payload.evidence.length, 2);
       assert.strictEqual(payload.evidence_limit, 10);
       assert.strictEqual(payload.evidence_returned, 2);
@@ -1237,6 +1255,32 @@ describe('commands/context', () => {
               project: { slug: 'web' },
             },
             build: { id: 'build-1' },
+            dynamic_regions: {
+              systemResolution: {
+                type: 'dynamic_region_containment',
+                contractVersion: 'dynamic-region-containment-v1',
+                evidence: {
+                  id: 'evidence-1',
+                  maskDigest: 'sha256:mask-1',
+                },
+                policies: [
+                  {
+                    id: 'region-1',
+                    revision: 3,
+                    geometry: {
+                      anchorX: 'right',
+                      anchorY: 'bottom',
+                      width: 361,
+                      height: 15,
+                    },
+                    assignment: {
+                      id: 'assignment-1',
+                      screenshotName: 'Dashboard',
+                    },
+                  },
+                ],
+              },
+            },
             comparison: {
               id: 'comparison-1',
               result: 'changed',
@@ -1286,6 +1330,32 @@ describe('commands/context', () => {
       ]);
       assert.deepStrictEqual(payload.comparison.diff.cluster_metadata, {
         classification: 'dynamic_content',
+      });
+      assert.deepStrictEqual(payload.dynamic_regions, {
+        systemResolution: {
+          type: 'dynamic_region_containment',
+          contractVersion: 'dynamic-region-containment-v1',
+          evidence: {
+            id: 'evidence-1',
+            maskDigest: 'sha256:mask-1',
+          },
+          policies: [
+            {
+              id: 'region-1',
+              revision: 3,
+              geometry: {
+                anchorX: 'right',
+                anchorY: 'bottom',
+                width: 361,
+                height: 15,
+              },
+              assignment: {
+                id: 'assignment-1',
+                screenshotName: 'Dashboard',
+              },
+            },
+          ],
+        },
       });
       assert.strictEqual(payload.dynamic_content, null);
       assert.deepStrictEqual(payload.history.confirmed_regions, []);

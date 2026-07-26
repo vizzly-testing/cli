@@ -6,6 +6,53 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { parseJSONOutput, runCLI } from '../helpers/cli-runner.js';
 
+function createDynamicRegionResolutionContext() {
+  return {
+    systemResolution: {
+      type: 'dynamic_region_containment',
+      contractVersion: 'dynamic-region-containment-v1',
+      evidence: {
+        id: 'c5b6c137-39d7-4c8b-a7c0-b3a5e41d85da',
+        diffImageId: '64b2873e-3f76-43a1-9ff4-577c7f312ce2',
+        maskDigest: `sha256:${'a'.repeat(64)}`,
+        captureIdentityHash: `capture:v2:${'b'.repeat(64)}`,
+        analysisContractHash: `diff-mask-analysis-v1:${'c'.repeat(64)}`,
+        renderProfileHash: `render-profile:v2:${'d'.repeat(64)}`,
+        componentCount: 20,
+        containedComponentCount: 20,
+      },
+      policies: [
+        {
+          id: 'cf919da4-a9d0-4f7e-8c09-99c9f47138ce',
+          revision: 3,
+          revisionEvent: {
+            id: '9c2a7037-2a69-4ccb-bd4f-7b497bc23fca',
+            type: 'region.revised',
+            occurredAt: '2026-07-25T12:00:00.000Z',
+          },
+          geometry: {
+            anchorX: 'right',
+            anchorY: 'bottom',
+            coordinateSpaceVersion: 'bitmap-anchor-v1',
+            width: 361,
+            height: 15,
+            insetX: 352,
+            insetY: 49,
+          },
+          assignment: {
+            id: '2f07a9a1-b0c6-4bd6-a1dc-ac63812703c9',
+            captureIdentityHash: `capture:v2:${'b'.repeat(64)}`,
+            analysisContractHash: `diff-mask-analysis-v1:${'c'.repeat(64)}`,
+            screenshotName: 'Screenshot 1',
+            assignedAt: '2026-07-25T11:00:00.000Z',
+          },
+        },
+      ],
+      resolvedAt: '2026-07-25T12:05:00.000Z',
+    },
+  };
+}
+
 function createWorkspaceFixture() {
   let cwd = join(
     tmpdir(),
@@ -180,19 +227,19 @@ async function withBuildContextApi(callback) {
           size_bytes: 1024,
           content_encoding: 'gzip',
         },
-        effective_mask: {
+        diff_mask: {
           evidence_status: 'complete',
           available: true,
           complete: true,
-          download_url: `/api/sdk/context/comparisons/comparison-${index + 1}/effective-mask`,
-          digest: `sha256:mask-${index + 1}`,
+          download_url: `/api/sdk/context/comparisons/comparison-${index + 1}/diff-mask`,
+          digest: `sha256:${'a'.repeat(64)}`,
           width: 2880,
           height: 1800,
           pixel_count: index + 10,
           size_bytes: 2048,
           mime_type: 'image/png',
-          honeydiff_version: '0.13.1',
-          mask_semantics_version: 'effective-mask-v1',
+          honeydiff_version: '0.14.0',
+          mask_semantics_version: 'diff-mask-v1',
           capture_identity_hash: `capture:v2:${index + 1}`,
           render_profile_hash: 'render-profile:v2:shared',
           analysis_contract_hash: 'analysis-contract:v1:shared',
@@ -235,8 +282,9 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'comparison_context',
-          review_flow: 'legacy',
+          review_flow: 'cricket_v1',
           comparison,
+          dynamic_regions: createDynamicRegionResolutionContext(),
         })
       );
       return;
@@ -381,20 +429,19 @@ describe('context CLI integration', () => {
           size_bytes: 1024,
           content_encoding: 'gzip',
         },
-        effective_mask: {
+        diff_mask: {
           evidence_status: 'complete',
           available: true,
           complete: true,
-          download_url:
-            '/api/sdk/context/comparisons/comparison-1/effective-mask',
-          digest: 'sha256:mask-1',
+          download_url: '/api/sdk/context/comparisons/comparison-1/diff-mask',
+          digest: `sha256:${'a'.repeat(64)}`,
           width: 2880,
           height: 1800,
           pixel_count: 10,
           size_bytes: 2048,
           mime_type: 'image/png',
-          honeydiff_version: '0.13.1',
-          mask_semantics_version: 'effective-mask-v1',
+          honeydiff_version: '0.14.0',
+          mask_semantics_version: 'diff-mask-v1',
           capture_identity_hash: 'capture:v2:1',
           render_profile_hash: 'render-profile:v2:shared',
           analysis_contract_hash: 'analysis-contract:v1:shared',
@@ -480,13 +527,27 @@ describe('context CLI integration', () => {
       assert.deepStrictEqual(payload.comparison.diff.regions, [
         { x: 10, y: 20, width: 30, height: 40 },
       ]);
-      assert.strictEqual(
-        payload.comparison.diff.artifacts.effective_mask.digest,
-        'sha256:mask-1'
-      );
-      assert.strictEqual(
-        payload.comparison.diff.artifacts.effective_mask.capture_identity_hash,
-        'capture:v2:1'
+      assert.deepStrictEqual(payload.comparison.diff.artifacts.diff_mask, {
+        evidence_status: 'complete',
+        available: true,
+        complete: true,
+        download_url: '/api/sdk/context/comparisons/comparison-1/diff-mask',
+        digest: `sha256:${'a'.repeat(64)}`,
+        width: 2880,
+        height: 1800,
+        pixel_count: 10,
+        size_bytes: 2048,
+        mime_type: 'image/png',
+        honeydiff_version: '0.14.0',
+        mask_semantics_version: 'diff-mask-v1',
+        capture_identity_hash: 'capture:v2:1',
+        render_profile_hash: 'render-profile:v2:shared',
+        analysis_contract_hash: 'analysis-contract:v1:shared',
+        coordinate_space_version: 'bitmap-top-left-v1',
+      });
+      assert.deepStrictEqual(
+        payload.dynamic_regions,
+        createDynamicRegionResolutionContext()
       );
     });
   });
@@ -514,7 +575,10 @@ describe('context CLI integration', () => {
         assert.strictEqual(result.code, 0, result.stderr);
         let payload = JSON.parse(result.stdout).data;
         assert.strictEqual(payload.source, 'cloud');
-        assert.strictEqual(payload.review_flow, 'legacy');
+        assert.strictEqual(
+          payload.review_flow,
+          command[0] === 'comparison' ? 'cricket_v1' : 'legacy'
+        );
       }
     });
   });

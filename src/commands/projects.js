@@ -39,7 +39,10 @@ export async function projectsCommand(
 
     // Prefer user auth token for listing projects (project tokens are org-scoped).
     // Falls back to config.apiKey which may be: VIZZLY_TOKEN, --token flag, or project token.
-    let token = (await getAccessToken()) || config.apiKey;
+    let token =
+      config.userToken ||
+      (await getAccessToken({ apiUrl: config.apiUrl })) ||
+      config.apiKey;
 
     if (!token) {
       output.error(

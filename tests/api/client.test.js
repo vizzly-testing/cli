@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it, mock } from 'node:test';
 import { createApiClient, DEFAULT_API_URL } from '../../src/api/client.js';
-import { saveAuthTokens } from '../../src/utils/global-config.js';
+import {
+  getAuthTokens,
+  saveAuthTokens,
+} from '../../src/utils/global-config.js';
 
 describe('api/client', () => {
   describe('DEFAULT_API_URL', () => {
@@ -253,6 +256,69 @@ describe('api/client', () => {
         name: 'AuthError',
       });
       assert.strictEqual(mockFetch.mock.calls.length, 1);
+    });
+
+    it('refreshes and persists user auth only for the client API origin', async () => {
+      await saveAuthTokens(
+        {
+          accessToken: 'production-access',
+          refreshToken: 'production-refresh',
+          expiresAt: '2999-01-01T00:00:00.000Z',
+        },
+        { apiUrl: 'https://app.vizzly.dev' }
+      );
+      await saveAuthTokens(
+        {
+          accessToken: 'local-access',
+          refreshToken: 'local-refresh',
+          expiresAt: '2999-01-01T00:00:00.000Z',
+        },
+        { apiUrl: 'http://localhost:3000' }
+      );
+      let client = createApiClient({
+        token: 'local-access',
+        baseUrl: 'http://localhost:3000',
+      });
+      let buildRequests = 0;
+
+      mockFetch.mock.mockImplementation(async url => {
+        if (url.endsWith('/api/auth/cli/refresh')) {
+          return {
+            ok: true,
+            json: async () => ({
+              accessToken: 'refreshed-local-access',
+              refreshToken: 'refreshed-local-refresh',
+              expiresAt: '2999-02-01T00:00:00.000Z',
+            }),
+          };
+        }
+
+        buildRequests += 1;
+        if (buildRequests === 1) {
+          return {
+            ok: false,
+            status: 401,
+            headers: new Map(),
+            text: async () => 'Unauthorized',
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ builds: [] }),
+        };
+      });
+
+      await client.request('/api/sdk/builds');
+
+      let localAuth = await getAuthTokens({
+        apiUrl: 'http://localhost:3000',
+      });
+      let productionAuth = await getAuthTokens({
+        apiUrl: 'https://app.vizzly.dev',
+      });
+      assert.strictEqual(localAuth.accessToken, 'refreshed-local-access');
+      assert.strictEqual(productionAuth.accessToken, 'production-access');
     });
 
     it('throws VizzlyError for server errors', async () => {

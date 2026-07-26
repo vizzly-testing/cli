@@ -6,7 +6,16 @@ import {
   getScreenshotPaths,
   loadConfig,
 } from '../../src/utils/config-loader.js';
-import { saveGlobalConfig } from '../../src/utils/global-config.js';
+import {
+  LOCAL_API_URL,
+  PRODUCTION_API_URL,
+} from '../../src/utils/environment-profile.js';
+import {
+  loadGlobalConfig,
+  saveAuthTokens,
+  saveGlobalConfig,
+} from '../../src/utils/global-config.js';
+import { saveProjectLink } from '../../src/utils/project-link-store.js';
 
 describe('utils/config-loader', () => {
   describe('getScreenshotPaths', () => {
@@ -60,6 +69,7 @@ describe('utils/config-loader', () => {
         VIZZLY_THRESHOLD: process.env.VIZZLY_THRESHOLD,
         VIZZLY_MIN_CLUSTER_SIZE: process.env.VIZZLY_MIN_CLUSTER_SIZE,
         VIZZLY_HOME: process.env.VIZZLY_HOME,
+        VIZZLY_DISABLE_KEYCHAIN: process.env.VIZZLY_DISABLE_KEYCHAIN,
       };
 
       // Clean env
@@ -68,6 +78,7 @@ describe('utils/config-loader', () => {
       delete process.env.VIZZLY_PARALLEL_ID;
       delete process.env.VIZZLY_THRESHOLD;
       delete process.env.VIZZLY_MIN_CLUSTER_SIZE;
+      process.env.VIZZLY_DISABLE_KEYCHAIN = 'true';
 
       // Create test directory
       if (existsSync(testDir)) {
@@ -192,6 +203,60 @@ describe('utils/config-loader', () => {
       assert.strictEqual(config.apiKey, 'vzt_linked_secret');
       assert.strictEqual(config.linkedProject.organizationSlug, 'vizzly');
       assert.strictEqual(config.linkedProject.projectSlug, 'storybook');
+    });
+
+    it('switches API, user auth, and project token together without changing VIZZLY_HOME', async () => {
+      await saveAuthTokens(
+        {
+          accessToken: 'production-user',
+          expiresAt: '2999-01-01T00:00:00.000Z',
+        },
+        { apiUrl: PRODUCTION_API_URL }
+      );
+      await saveProjectLink({
+        apiUrl: PRODUCTION_API_URL,
+        organizationSlug: 'vizzly',
+        projectSlug: 'production-project',
+        token: 'vzt_production_project',
+        tokenPrefix: 'vzt_prod',
+      });
+      await saveAuthTokens(
+        {
+          accessToken: 'local-user',
+          expiresAt: '2999-01-01T00:00:00.000Z',
+        },
+        { apiUrl: LOCAL_API_URL }
+      );
+      await saveProjectLink({
+        apiUrl: LOCAL_API_URL,
+        organizationSlug: 'vizzly',
+        projectSlug: 'local-project',
+        token: 'vzt_local_project',
+        tokenPrefix: 'vzt_local',
+      });
+
+      let productionConfig = await loadConfig();
+      let globalConfig = await loadGlobalConfig();
+      await saveGlobalConfig({
+        ...globalConfig,
+        environment: { active: 'local' },
+      });
+      let localConfig = await loadConfig();
+
+      assert.strictEqual(productionConfig.apiUrl, PRODUCTION_API_URL);
+      assert.strictEqual(productionConfig.userToken, 'production-user');
+      assert.strictEqual(productionConfig.apiKey, 'vzt_production_project');
+      assert.strictEqual(
+        productionConfig.linkedProject.projectSlug,
+        'production-project'
+      );
+      assert.strictEqual(localConfig.apiUrl, LOCAL_API_URL);
+      assert.strictEqual(localConfig.userToken, 'local-user');
+      assert.strictEqual(localConfig.apiKey, 'vzt_local_project');
+      assert.strictEqual(
+        localConfig.linkedProject.projectSlug,
+        'local-project'
+      );
     });
 
     it('applies VIZZLY_BUILD_NAME environment variable', async () => {

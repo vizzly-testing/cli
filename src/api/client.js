@@ -140,7 +140,7 @@ export function createApiClient(options = {}) {
    * Check if refresh token is available
    */
   async function hasRefreshToken() {
-    let auth = await getAuthTokens();
+    let auth = await getAuthTokens({ apiUrl: baseUrl });
     return !!auth?.refreshToken;
   }
 
@@ -149,7 +149,7 @@ export function createApiClient(options = {}) {
    * @returns {Promise<string|null>} New token or null if refresh failed
    */
   async function attemptTokenRefresh() {
-    let auth = await getAuthTokens();
+    let auth = await getAuthTokens({ apiUrl: baseUrl });
     if (!auth?.refreshToken) return null;
 
     try {
@@ -168,14 +168,17 @@ export function createApiClient(options = {}) {
       let data = await response.json();
 
       // Save new tokens
-      await saveAuthTokens({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        expiresAt:
-          data.expiresAt ||
-          new Date(Date.now() + data.expiresIn * 1000).toISOString(),
-        user: auth.user,
-      });
+      await saveAuthTokens(
+        {
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          expiresAt:
+            data.expiresAt ||
+            new Date(Date.now() + data.expiresIn * 1000).toISOString(),
+          user: auth.user,
+        },
+        { apiUrl: baseUrl }
+      );
 
       return data.accessToken;
     } catch {

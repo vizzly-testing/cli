@@ -83,8 +83,10 @@ export async function whoamiCommand(
   });
 
   try {
+    let apiUrl = options.apiUrl || getApiUrl();
+
     // Check if user is logged in
-    let auth = await getAuthTokens();
+    let auth = await getAuthTokens({ apiUrl });
 
     if (!auth?.accessToken) {
       if (globalOptions.json) {
@@ -102,10 +104,8 @@ export async function whoamiCommand(
     // Get current user info
     output.startSpinner('Fetching user information...');
 
-    let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
-    });
-    let tokenStore = createTokenStore();
+    let client = createAuthClient({ baseUrl: apiUrl });
+    let tokenStore = createTokenStore({ apiUrl });
 
     let response = await whoami(client, tokenStore);
 

@@ -72,8 +72,11 @@ export async function projectLinkCommand(
 
   try {
     let config = await loadConfig(globalOptions.config, globalOptions);
+    let apiUrl = config.apiUrl || getApiUrl();
     let userToken =
-      config.userToken || globalOptions.token || (await getAccessToken());
+      config.userToken ||
+      globalOptions.token ||
+      (await getAccessToken({ apiUrl }));
 
     if (!userToken) {
       output.error('Login required before linking a project');
@@ -85,7 +88,6 @@ export async function projectLinkCommand(
 
     output.startSpinner(`Linking ${organizationSlug}/${projectSlug}...`);
 
-    let apiUrl = config.apiUrl || getApiUrl();
     let client = createApiClient({
       baseUrl: apiUrl,
       token: userToken,

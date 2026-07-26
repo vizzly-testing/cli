@@ -3,10 +3,16 @@
  * Manages ~/.vizzly/config.json for storing authentication tokens
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import {
+  getCredentialState,
+  migrateCredentialState,
+  resolveEnvironment,
+  setCredentialState,
+} from './environment-profile.js';
 import * as output from './output.js';
 
 export function expandHomePath(path) {
@@ -59,7 +65,7 @@ export function getGlobalConfigPath() {
  * @returns {Promise<void>}
  */
 async function ensureGlobalConfigDir() {
-  const dir = getGlobalConfigDir();
+  let dir = getGlobalConfigDir();
 
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true, mode: 0o700 });
@@ -71,15 +77,17 @@ async function ensureGlobalConfigDir() {
  * @returns {Promise<Object>} Global config object
  */
 export async function loadGlobalConfig() {
+  let parsedConfig;
+
   try {
-    const configPath = getGlobalConfigPath();
+    let configPath = getGlobalConfigPath();
 
     if (!existsSync(configPath)) {
       return {};
     }
 
-    const content = await readFile(configPath, 'utf-8');
-    return JSON.parse(content);
+    let content = await readFile(configPath, 'utf-8');
+    parsedConfig = JSON.parse(content);
   } catch (error) {
     // If file doesn't exist or is corrupted, return empty config
     if (error.code === 'ENOENT') {
@@ -89,6 +97,38 @@ export async function loadGlobalConfig() {
     // Log warning about corrupted config but don't crash
     output.warn('Global config file is corrupted, ignoring');
     return {};
+  }
+
+  let migration = migrateCredentialState(parsedConfig);
+  if (migration.changed) {
+    await saveGlobalConfig(migration.config);
+  }
+
+  return migration.config;
+}
+
+/**
+ * Read environment selection synchronously for commands created before config
+ * services are available.
+ *
+ * Corrupt state fails loudly so the CLI cannot silently fall back to
+ * production and select production credentials.
+ *
+ * @returns {Object} Parsed global configuration.
+ */
+export function loadGlobalConfigSync() {
+  try {
+    let configPath = getGlobalConfigPath();
+    if (!existsSync(configPath)) {
+      return {};
+    }
+
+    return JSON.parse(readFileSync(configPath, 'utf-8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return {};
+    }
+    throw new Error('Global Vizzly config is corrupted', { cause: error });
   }
 }
 
@@ -100,8 +140,8 @@ export async function loadGlobalConfig() {
 export async function saveGlobalConfig(config) {
   await ensureGlobalConfigDir();
 
-  const configPath = getGlobalConfigPath();
-  const content = JSON.stringify(config, null, 2);
+  let configPath = getGlobalConfigPath();
+  let content = JSON.stringify(config, null, 2);
 
   // Write file with secure permissions (owner read/write only)
   await writeFile(configPath, content, { mode: 0o600 });
@@ -156,14 +196,20 @@ export async function getUserPath() {
  * Get authentication tokens from global config
  * @returns {Promise<Object|null>} Token object with accessToken, refreshToken, expiresAt, user, or null if not found
  */
-export async function getAuthTokens() {
-  const config = await loadGlobalConfig();
+export async function getAuthTokens(options = {}) {
+  let config = await loadGlobalConfig();
+  let environment = resolveEnvironment({
+    config,
+    env: options.env,
+    apiUrl: options.apiUrl,
+  });
+  let credentials = getCredentialState(config, environment.origin);
 
-  if (!config.auth?.accessToken) {
+  if (!credentials.auth?.accessToken) {
     return null;
   }
 
-  return config.auth;
+  return credentials.auth;
 }
 
 /**
@@ -171,35 +217,55 @@ export async function getAuthTokens() {
  * @param {Object} auth - Auth object with accessToken, refreshToken, expiresAt, user
  * @returns {Promise<void>}
  */
-export async function saveAuthTokens(auth) {
-  const config = await loadGlobalConfig();
+export async function saveAuthTokens(auth, options = {}) {
+  let config = await loadGlobalConfig();
+  let environment = resolveEnvironment({
+    config,
+    env: options.env,
+    apiUrl: options.apiUrl,
+  });
+  let credentials = getCredentialState(config, environment.origin);
+  let nextConfig = setCredentialState(config, environment.origin, {
+    ...credentials,
+    auth: {
+      accessToken: auth.accessToken,
+      refreshToken: auth.refreshToken,
+      expiresAt: auth.expiresAt,
+      user: auth.user,
+    },
+  });
 
-  config.auth = {
-    accessToken: auth.accessToken,
-    refreshToken: auth.refreshToken,
-    expiresAt: auth.expiresAt,
-    user: auth.user,
-  };
-
-  await saveGlobalConfig(config);
+  await saveGlobalConfig(nextConfig);
 }
 
 /**
  * Clear authentication tokens from global config
  * @returns {Promise<void>}
  */
-export async function clearAuthTokens() {
-  const config = await loadGlobalConfig();
-  delete config.auth;
-  await saveGlobalConfig(config);
+export async function clearAuthTokens(options = {}) {
+  let config = await loadGlobalConfig();
+  let environment = resolveEnvironment({
+    config,
+    env: options.env,
+    apiUrl: options.apiUrl,
+  });
+  let credentials = getCredentialState(config, environment.origin);
+  let nextCredentials = { ...credentials };
+  delete nextCredentials.auth;
+  let nextConfig = setCredentialState(
+    config,
+    environment.origin,
+    nextCredentials
+  );
+  await saveGlobalConfig(nextConfig);
 }
 
 /**
  * Check if authentication tokens exist and are not expired
  * @returns {Promise<boolean>} True if valid tokens exist
  */
-export async function hasValidTokens() {
-  const auth = await getAuthTokens();
+export async function hasValidTokens(options = {}) {
+  let auth = await getAuthTokens(options);
 
   if (!auth?.accessToken) {
     return false;
@@ -207,11 +273,11 @@ export async function hasValidTokens() {
 
   // Check if token is expired
   if (auth.expiresAt) {
-    const expiresAt = new Date(auth.expiresAt);
-    const now = new Date();
+    let expiresAt = new Date(auth.expiresAt);
+    let now = new Date();
 
     // Consider expired if within 5 minutes of expiry
-    const bufferMs = 5 * 60 * 1000;
+    let bufferMs = 5 * 60 * 1000;
     if (now.getTime() >= expiresAt.getTime() - bufferMs) {
       return false;
     }
@@ -224,10 +290,10 @@ export async function hasValidTokens() {
  * Get the access token from global config if valid and not expired
  * @returns {Promise<string|null>} Access token or null
  */
-export async function getAccessToken() {
-  let valid = await hasValidTokens();
+export async function getAccessToken(options = {}) {
+  let valid = await hasValidTokens(options);
   if (!valid) return null;
 
-  let auth = await getAuthTokens();
+  let auth = await getAuthTokens(options);
   return auth?.accessToken || null;
 }

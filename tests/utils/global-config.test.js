@@ -10,6 +10,10 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
+  LOCAL_API_URL,
+  PRODUCTION_API_URL,
+} from '../../src/utils/environment-profile.js';
+import {
   clearAuthTokens,
   clearGlobalConfig,
   expandHomePath,
@@ -19,9 +23,11 @@ import {
   getGlobalConfigPath,
   hasValidTokens,
   loadGlobalConfig,
+  loadGlobalConfigSync,
   saveAuthTokens,
   saveGlobalConfig,
 } from '../../src/utils/global-config.js';
+import { getActiveProjectLink } from '../../src/utils/project-link-store.js';
 
 describe('utils/global-config', () => {
   let testDir = join(process.cwd(), '.test-global-config');
@@ -121,6 +127,16 @@ describe('utils/global-config', () => {
 
       assert.deepStrictEqual(config, {});
     });
+
+    it('fails loudly when synchronous environment selection reads corrupt config', () => {
+      mkdirSync(testDir, { recursive: true });
+      writeFileSync(join(testDir, 'config.json'), 'not valid json');
+
+      assert.throws(
+        () => loadGlobalConfigSync(),
+        /Global Vizzly config is corrupted/
+      );
+    });
   });
 
   describe('saveGlobalConfig', () => {
@@ -185,6 +201,94 @@ describe('utils/global-config', () => {
       assert.strictEqual(tokens.accessToken, 'abc123');
       assert.strictEqual(tokens.refreshToken, 'xyz789');
     });
+
+    it('cuts released auth over to production once without exposing it locally', async () => {
+      await saveGlobalConfig({
+        auth: {
+          accessToken: 'released-production-token',
+          refreshToken: 'released-refresh-token',
+        },
+      });
+
+      let localTokens = await getAuthTokens({ apiUrl: LOCAL_API_URL });
+      let productionTokens = await getAuthTokens({
+        apiUrl: PRODUCTION_API_URL,
+      });
+      let persistedConfig = JSON.parse(
+        readFileSync(join(testDir, 'config.json'), 'utf-8')
+      );
+
+      assert.strictEqual(localTokens, null);
+      assert.strictEqual(
+        productionTokens.accessToken,
+        'released-production-token'
+      );
+      assert.strictEqual(persistedConfig.auth, undefined);
+      assert.strictEqual(
+        persistedConfig.credentials[PRODUCTION_API_URL].auth.accessToken,
+        'released-production-token'
+      );
+    });
+
+    it('partitions released project links without changing Keychain accounts', async () => {
+      let productionAccount = 'https://app.vizzly.dev|vizzly/storybook';
+      let localAccount = 'http://localhost:3000|vizzly/storybook';
+      await saveGlobalConfig({
+        projectLink: {
+          active: localAccount,
+          links: {
+            [productionAccount]: {
+              apiUrl: PRODUCTION_API_URL,
+              organizationSlug: 'vizzly',
+              projectSlug: 'storybook',
+              storage: 'keychain',
+              tokenPrefix: 'vzt_prod',
+            },
+            [localAccount]: {
+              apiUrl: LOCAL_API_URL,
+              organizationSlug: 'vizzly',
+              projectSlug: 'storybook',
+              storage: 'keychain',
+              tokenPrefix: 'vzt_local',
+            },
+          },
+        },
+      });
+
+      let config = await loadGlobalConfig();
+      let secrets = new Map([
+        [productionAccount, 'vzt_production_secret'],
+        [localAccount, 'vzt_local_secret'],
+      ]);
+      let productionLink = await getActiveProjectLink(
+        { apiUrl: PRODUCTION_API_URL },
+        { getSecret: async account => secrets.get(account) || null }
+      );
+      let localLink = await getActiveProjectLink(
+        { apiUrl: LOCAL_API_URL },
+        { getSecret: async account => secrets.get(account) || null }
+      );
+      let productionProjectLink =
+        config.credentials[PRODUCTION_API_URL].projectLink;
+      let localProjectLink = config.credentials[LOCAL_API_URL].projectLink;
+      assert.strictEqual(productionProjectLink.active, productionAccount);
+      assert.strictEqual(
+        productionProjectLink.links[productionAccount].apiUrl,
+        PRODUCTION_API_URL
+      );
+      assert.strictEqual(localProjectLink.active, localAccount);
+      assert.strictEqual(
+        localProjectLink.links[localAccount].apiUrl,
+        LOCAL_API_URL
+      );
+      assert.strictEqual(productionLink.token, 'vzt_production_secret');
+      assert.strictEqual(localLink.token, 'vzt_local_secret');
+
+      let persistedConfig = JSON.parse(
+        readFileSync(join(testDir, 'config.json'), 'utf-8')
+      );
+      assert.strictEqual(persistedConfig.projectLink, undefined);
+    });
   });
 
   describe('saveAuthTokens', () => {
@@ -198,10 +302,11 @@ describe('utils/global-config', () => {
 
       let config = await loadGlobalConfig();
 
-      assert.strictEqual(config.auth.accessToken, 'token123');
-      assert.strictEqual(config.auth.refreshToken, 'refresh456');
-      assert.strictEqual(config.auth.expiresAt, '2025-06-01T00:00:00Z');
-      assert.strictEqual(config.auth.user.email, 'test@example.com');
+      let auth = config.credentials[PRODUCTION_API_URL].auth;
+      assert.strictEqual(auth.accessToken, 'token123');
+      assert.strictEqual(auth.refreshToken, 'refresh456');
+      assert.strictEqual(auth.expiresAt, '2025-06-01T00:00:00Z');
+      assert.strictEqual(auth.user.email, 'test@example.com');
     });
 
     it('preserves other config when saving tokens', async () => {
@@ -211,7 +316,30 @@ describe('utils/global-config', () => {
       let config = await loadGlobalConfig();
 
       assert.strictEqual(config.other, 'data');
-      assert.strictEqual(config.auth.accessToken, 'token');
+      assert.strictEqual(
+        config.credentials[PRODUCTION_API_URL].auth.accessToken,
+        'token'
+      );
+    });
+
+    it('keeps production and local user auth isolated in one Vizzly home', async () => {
+      await saveAuthTokens(
+        { accessToken: 'production-user' },
+        { apiUrl: PRODUCTION_API_URL }
+      );
+      await saveAuthTokens(
+        { accessToken: 'local-user' },
+        { apiUrl: LOCAL_API_URL }
+      );
+
+      assert.strictEqual(
+        (await getAuthTokens({ apiUrl: PRODUCTION_API_URL })).accessToken,
+        'production-user'
+      );
+      assert.strictEqual(
+        (await getAuthTokens({ apiUrl: LOCAL_API_URL })).accessToken,
+        'local-user'
+      );
     });
   });
 

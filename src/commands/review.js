@@ -39,7 +39,7 @@ async function getReviewToken(config, getAccessToken) {
     return config.userToken;
   }
 
-  let userToken = await getAccessToken();
+  let userToken = await getAccessToken({ apiUrl: config.apiUrl });
   if (userToken) {
     return userToken;
   }

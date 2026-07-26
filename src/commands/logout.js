@@ -40,8 +40,10 @@ export async function logoutCommand(
   });
 
   try {
+    let apiUrl = options.apiUrl || getApiUrl();
+
     // Check if user is logged in
-    let auth = await getAuthTokens();
+    let auth = await getAuthTokens({ apiUrl });
 
     if (!auth?.accessToken) {
       if (globalOptions.json) {
@@ -57,10 +59,8 @@ export async function logoutCommand(
     // Logout
     output.startSpinner('Logging out...');
 
-    let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
-    });
-    let tokenStore = createTokenStore();
+    let client = createAuthClient({ baseUrl: apiUrl });
+    let tokenStore = createTokenStore({ apiUrl });
 
     await logout(client, tokenStore);
 

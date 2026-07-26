@@ -86,7 +86,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   // 6. Keep user auth separate from upload credentials.
-  let userToken = await getAccessToken();
+  let userToken = await getAccessToken({ apiUrl: config.apiUrl });
   if (userToken) {
     config.userToken = userToken;
     output.debug('config', 'using user login for user-authenticated commands');

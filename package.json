@@ -60,7 +60,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "cli": "source .envrc && node bin/vizzly.js",
+    "cli": "node bin/vizzly.js",
+    "cli:local": "VIZZLY_API_URL=http://localhost:3000 node bin/vizzly.js",
     "start": "node src/index.js",
     "build": "pnpm run clean && pnpm run compile && pnpm run build:reporter && pnpm run build:reporter-ssr && pnpm run copy-types",
     "clean": "rimraf dist",

@@ -1,3 +1,9 @@
+import {
+  getApiOrigin,
+  getCredentialState,
+  resolveEnvironment,
+  setCredentialState,
+} from './environment-profile.js';
 import { loadGlobalConfig, saveGlobalConfig } from './global-config.js';
 import {
   deleteSecret as defaultDeleteSecret,
@@ -10,11 +16,21 @@ export function buildProjectLinkAccount({
   organizationSlug,
   projectSlug,
 }) {
-  return `${apiUrl || 'https://app.vizzly.dev'}|${organizationSlug}/${projectSlug}`;
+  let origin = getApiOrigin(apiUrl || 'https://app.vizzly.dev');
+  return `${origin}|${organizationSlug}/${projectSlug}`;
 }
 
-function getProjectLinkConfig(config) {
-  return config.projectLink || { active: null, links: {} };
+function getProjectLinkConfig(config, origin) {
+  let credentials = getCredentialState(config, origin);
+  return credentials.projectLink || { active: null, links: {} };
+}
+
+function setProjectLinkConfig(config, origin, projectLink) {
+  let credentials = getCredentialState(config, origin);
+  return setCredentialState(config, origin, {
+    ...credentials,
+    projectLink,
+  });
 }
 
 export async function saveProjectLink(link, deps = {}) {
@@ -26,15 +42,19 @@ export async function saveProjectLink(link, deps = {}) {
   } = deps;
 
   let config = await loadConfig();
-  let projectLink = getProjectLinkConfig(config);
-  let account = buildProjectLinkAccount(link);
+  let environment = resolveEnvironment({ config, apiUrl: link.apiUrl });
+  let projectLink = getProjectLinkConfig(config, environment.origin);
+  let account = buildProjectLinkAccount({
+    ...link,
+    apiUrl: environment.origin,
+  });
   let storedInKeychain = await saveSecret(account, link.token);
 
   projectLink.active = account;
   projectLink.links = {
     ...projectLink.links,
     [account]: {
-      apiUrl: link.apiUrl,
+      apiUrl: environment.apiUrl,
       organizationSlug: link.organizationSlug,
       organizationName: link.organizationName,
       projectSlug: link.projectSlug,
@@ -48,8 +68,12 @@ export async function saveProjectLink(link, deps = {}) {
     },
   };
 
-  config.projectLink = projectLink;
-  await saveConfig(config);
+  let nextConfig = setProjectLinkConfig(
+    config,
+    environment.origin,
+    projectLink
+  );
+  await saveConfig(nextConfig);
 
   return {
     ...projectLink.links[account],
@@ -62,7 +86,12 @@ export async function getActiveProjectLink(options = {}, deps = {}) {
   let { loadConfig = loadGlobalConfig, getSecret = defaultGetSecret } = deps;
 
   let config = await loadConfig();
-  let projectLink = getProjectLinkConfig(config);
+  let environment = resolveEnvironment({
+    config,
+    env: options.env,
+    apiUrl: options.apiUrl,
+  });
+  let projectLink = getProjectLinkConfig(config, environment.origin);
   let account = options.account || projectLink.active;
   let link = account ? projectLink.links?.[account] : null;
 
@@ -72,7 +101,10 @@ export async function getActiveProjectLink(options = {}, deps = {}) {
     options.organizationSlug &&
     options.projectSlug
   ) {
-    account = buildProjectLinkAccount(options);
+    account = buildProjectLinkAccount({
+      ...options,
+      apiUrl: environment.origin,
+    });
     link = projectLink.links?.[account] || null;
   }
 
@@ -80,7 +112,7 @@ export async function getActiveProjectLink(options = {}, deps = {}) {
     return null;
   }
 
-  if (options.apiUrl && link.apiUrl && link.apiUrl !== options.apiUrl) {
+  if (link.apiUrl && getApiOrigin(link.apiUrl) !== environment.origin) {
     return null;
   }
 
@@ -105,7 +137,12 @@ export async function clearActiveProjectLink(deps = {}) {
   } = deps;
 
   let config = await loadConfig();
-  let projectLink = getProjectLinkConfig(config);
+  let environment = resolveEnvironment({
+    config,
+    env: deps.env,
+    apiUrl: deps.apiUrl,
+  });
+  let projectLink = getProjectLinkConfig(config, environment.origin);
   let account = projectLink.active;
 
   if (!account || !projectLink.links?.[account]) {
@@ -119,8 +156,12 @@ export async function clearActiveProjectLink(deps = {}) {
 
   delete projectLink.links[account];
   projectLink.active = null;
-  config.projectLink = projectLink;
-  await saveConfig(config);
+  let nextConfig = setProjectLinkConfig(
+    config,
+    environment.origin,
+    projectLink
+  );
+  await saveConfig(nextConfig);
 
   return {
     ...link,

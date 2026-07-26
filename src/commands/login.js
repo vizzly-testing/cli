@@ -171,10 +171,9 @@ export async function loginCommand(
     output.header('login');
 
     // Create auth client and token store
-    let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
-    });
-    let tokenStore = createTokenStore();
+    let apiUrl = options.apiUrl || getApiUrl();
+    let client = createAuthClient({ baseUrl: apiUrl });
+    let tokenStore = createTokenStore({ apiUrl });
 
     // Initiate device flow
     output.startSpinner('Connecting to Vizzly...');

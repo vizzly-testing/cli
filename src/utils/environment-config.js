@@ -1,3 +1,6 @@
+import { resolveEnvironment } from './environment-profile.js';
+import { loadGlobalConfigSync } from './global-config.js';
+
 /**
  * Environment Configuration Utility
  * Centralized access to environment variables with proper defaults
@@ -26,7 +29,22 @@ export function getApiToken() {
  * @returns {string} API URL with default
  */
 export function getApiUrl() {
-  return process.env.VIZZLY_API_URL || 'https://app.vizzly.dev';
+  return getEnvironmentContext().apiUrl;
+}
+
+/**
+ * Resolve the active environment before any command chooses credentials.
+ *
+ * @param {Object} options - Optional config, environment, or URL overrides.
+ * @returns {Object} Environment name, API base URL, origin, and source.
+ */
+export function getEnvironmentContext(options = {}) {
+  let config = options.config || loadGlobalConfigSync();
+  return resolveEnvironment({
+    config,
+    env: options.env || process.env,
+    apiUrl: options.apiUrl,
+  });
 }
 
 /**

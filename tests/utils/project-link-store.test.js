@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  LOCAL_API_URL,
+  PRODUCTION_API_URL,
+} from '../../src/utils/environment-profile.js';
+import {
   buildProjectLinkAccount,
   clearActiveProjectLink,
   getActiveProjectLink,
@@ -59,13 +63,11 @@ describe('utils/project-link-store', () => {
     assert.strictEqual(savedLink.token, 'vzt_linked_secret');
 
     let config = store.getConfig();
-    let account = 'https://app.vizzly.dev|vizzly/storybook';
-    assert.strictEqual(config.projectLink.active, account);
-    assert.strictEqual(config.projectLink.links[account].storage, 'file');
-    assert.strictEqual(
-      config.projectLink.links[account].token,
-      'vzt_linked_secret'
-    );
+    let account = `${PRODUCTION_API_URL}|vizzly/storybook`;
+    let projectLink = config.credentials[PRODUCTION_API_URL].projectLink;
+    assert.strictEqual(projectLink.active, account);
+    assert.strictEqual(projectLink.links[account].storage, 'file');
+    assert.strictEqual(projectLink.links[account].token, 'vzt_linked_secret');
 
     let activeLink = await getActiveProjectLink(
       { apiUrl: 'https://app.vizzly.dev' },
@@ -111,11 +113,12 @@ describe('utils/project-link-store', () => {
       },
     });
 
-    let account = 'https://app.vizzly.dev|vizzly/storybook';
+    let account = `${PRODUCTION_API_URL}|vizzly/storybook`;
     let config = store.getConfig();
+    let projectLink = config.credentials[PRODUCTION_API_URL].projectLink;
     assert.strictEqual(savedLink.storage, 'keychain');
-    assert.strictEqual(config.projectLink.links[account].storage, 'keychain');
-    assert.strictEqual(config.projectLink.links[account].token, undefined);
+    assert.strictEqual(projectLink.links[account].storage, 'keychain');
+    assert.strictEqual(projectLink.links[account].token, undefined);
     assert.strictEqual(secrets.get(account), 'vzt_linked_secret');
 
     let activeLink = await getActiveProjectLink(
@@ -130,17 +133,21 @@ describe('utils/project-link-store', () => {
   });
 
   it('clears the active secure-store link and deletes its saved secret', async () => {
-    let account = 'https://app.vizzly.dev|vizzly/storybook';
+    let account = `${PRODUCTION_API_URL}|vizzly/storybook`;
     let store = createConfigStore({
-      projectLink: {
-        active: account,
-        links: {
-          [account]: {
-            apiUrl: 'https://app.vizzly.dev',
-            organizationSlug: 'vizzly',
-            projectSlug: 'storybook',
-            storage: 'keychain',
-            tokenPrefix: 'vzt_lin',
+      credentials: {
+        [PRODUCTION_API_URL]: {
+          projectLink: {
+            active: account,
+            links: {
+              [account]: {
+                apiUrl: PRODUCTION_API_URL,
+                organizationSlug: 'vizzly',
+                projectSlug: 'storybook',
+                storage: 'keychain',
+                tokenPrefix: 'vzt_lin',
+              },
+            },
           },
         },
       },
@@ -158,7 +165,43 @@ describe('utils/project-link-store', () => {
 
     assert.strictEqual(clearedLink.account, account);
     assert.deepStrictEqual(deletedAccounts, [account]);
-    assert.strictEqual(store.getConfig().projectLink.active, null);
-    assert.deepStrictEqual(store.getConfig().projectLink.links, {});
+    let projectLink =
+      store.getConfig().credentials[PRODUCTION_API_URL].projectLink;
+    assert.strictEqual(projectLink.active, null);
+    assert.deepStrictEqual(projectLink.links, {});
+  });
+
+  it('keeps one active project credential per API origin across restarts', async () => {
+    let store = createConfigStore();
+
+    await saveProjectLink(createLink({ token: 'production-project' }), {
+      loadConfig: store.loadConfig,
+      saveConfig: store.saveConfig,
+      saveSecret: async () => false,
+    });
+    await saveProjectLink(
+      createLink({
+        apiUrl: LOCAL_API_URL,
+        token: 'local-project',
+        tokenPrefix: 'vzt_loc',
+      }),
+      {
+        loadConfig: store.loadConfig,
+        saveConfig: store.saveConfig,
+        saveSecret: async () => false,
+      }
+    );
+
+    let productionLink = await getActiveProjectLink(
+      { apiUrl: PRODUCTION_API_URL },
+      { loadConfig: store.loadConfig }
+    );
+    let localLink = await getActiveProjectLink(
+      { apiUrl: LOCAL_API_URL },
+      { loadConfig: store.loadConfig }
+    );
+
+    assert.strictEqual(productionLink.token, 'production-project');
+    assert.strictEqual(localLink.token, 'local-project');
   });
 });

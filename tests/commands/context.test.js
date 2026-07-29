@@ -1233,6 +1233,70 @@ describe('commands/context', () => {
       assert.strictEqual(knownRegionsCall.args[1], 'Known header copy band');
     });
 
+    it('shows API-backed Dynamic content evaluation in human output', async () => {
+      let output = createMockOutput();
+
+      await contextComparisonCommand(
+        'comparison-1',
+        { agent: true },
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({}),
+          getComparisonContext: async () => ({
+            scope: {
+              organization: { slug: 'acme' },
+              project: { slug: 'storybook' },
+            },
+            comparison: {
+              id: 'comparison-1',
+              result: 'changed',
+              screenshot: { name: 'Dashboard' },
+              analysis: {},
+            },
+            dynamic_regions: {
+              evaluation: {
+                componentCount: 14,
+                explainedComponentCount: 11,
+                policyRegions: [{ id: 'region-1', revision: 3 }],
+                residualComponentCount: 3,
+                status: 'uncontained',
+              },
+            },
+            history: {
+              similar_by_fingerprint: [],
+              recent_by_name: [],
+              confirmed_regions: [],
+            },
+            review: {
+              build_comments: [],
+              screenshot_comments: [],
+            },
+            links: {},
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      let memoryCall = output.calls.find(
+        call => call.method === 'labelValue' && call.args[0] === 'Memory'
+      );
+      let dynamicContentCall = output.calls.find(
+        call =>
+          call.method === 'labelValue' && call.args[0] === 'Dynamic content'
+      );
+
+      assert.strictEqual(memoryCall.args[1], '0 similar · 0 recent');
+      assert.strictEqual(
+        dynamicContentCall.args[1],
+        'uncontained · 11/14 components explained · 3 left · 1 confirmed region'
+      );
+    });
+
     it('returns consistent API-backed comparison evidence for agents', async () => {
       let output = createMockOutput();
 

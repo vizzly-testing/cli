@@ -1148,6 +1148,15 @@ function countScreenshotCommentEntries(groups = []) {
   );
 }
 
+function formatDynamicRegionEvaluation(dynamicRegions) {
+  let evaluation = dynamicRegions?.evaluation;
+  if (!evaluation) return null;
+
+  let policyCount = evaluation.policyRegions?.length || 0;
+  let regionLabel = policyCount === 1 ? 'region' : 'regions';
+  return `${evaluation.status} · ${evaluation.explainedComponentCount}/${evaluation.componentCount} components explained · ${evaluation.residualComponentCount} left · ${policyCount} confirmed ${regionLabel}`;
+}
+
 function displayComparisonContext(output, context) {
   output.header('context', 'comparison');
 
@@ -1159,6 +1168,9 @@ function displayComparisonContext(output, context) {
   let analysis = context.comparison.analysis || {};
   let confirmedRegionLabels = formatConfirmedRegionLabels(
     context.history.confirmed_regions
+  );
+  let dynamicRegionEvaluation = formatDynamicRegionEvaluation(
+    context.dynamic_regions
   );
 
   output.print(
@@ -1175,8 +1187,13 @@ function displayComparisonContext(output, context) {
   );
   output.labelValue(
     'Memory',
-    `${context.history.similar_by_fingerprint.length} similar · ${context.history.recent_by_name.length} recent · ${context.history.confirmed_regions.length} confirmed regions`
+    dynamicRegionEvaluation
+      ? `${context.history.similar_by_fingerprint.length} similar · ${context.history.recent_by_name.length} recent`
+      : `${context.history.similar_by_fingerprint.length} similar · ${context.history.recent_by_name.length} recent · ${context.history.confirmed_regions.length} confirmed regions`
   );
+  if (dynamicRegionEvaluation) {
+    output.labelValue('Dynamic content', dynamicRegionEvaluation);
+  }
   output.labelValue(
     'Review',
     `${context.review.build_comments.length} build comments · ${countScreenshotCommentEntries(context.review.screenshot_comments)} screenshot comments`

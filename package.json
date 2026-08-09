@@ -140,5 +140,10 @@
     "typescript": "^6.0.3",
     "vite": "^8.0.0",
     "wouter": "^3.7.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion": "1.1.18"
+    }
   }
 }

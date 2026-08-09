@@ -36,7 +36,7 @@ jobs:
         run: pnpm run build
 
       - name: Run TUI visual tests
-        run: node bin/vizzly.js run "pnpm run test:tui"
+        run: node bin/vizzly.js run "pnpm run test:tui" --allow-no-token
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TUI_TOKEN }}

@@ -20,10 +20,9 @@
  * // tests/acceptance/my-test.js
  * import { vizzlyScreenshot } from '@vizzly-testing/ember/test-support';
  *
- * test('renders correctly', async function(assert) {
+ * test('renders correctly', async function() {
  *   await visit('/');
  *   await vizzlyScreenshot('homepage');
- *   assert.ok(true);
  * });
  */
 

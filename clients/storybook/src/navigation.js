@@ -168,14 +168,3 @@ async function clientSideNavigation(page, storyId, timeout) {
     { id: storyId, timeoutMs: timeout }
   );
 }
-
-/**
- * Reset tab's Storybook state (called on tab recycle)
- * @param {Object} entry - Pool entry for the tab
- */
-export function resetStorybookState(entry) {
-  if (entry) {
-    entry.storybookInitialized = false;
-    entry.currentStoryId = null;
-  }
-}

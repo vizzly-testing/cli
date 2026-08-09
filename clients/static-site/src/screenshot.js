@@ -15,11 +15,6 @@ try {
   vizzlyScreenshot = async () => {};
 }
 
-/** @internal Replace vizzlyScreenshot for testing */
-export function _setVizzlyScreenshot(fn) {
-  vizzlyScreenshot = fn;
-}
-
 /**
  * Generate screenshot name from page path
  * Viewport info goes in properties for grouping
@@ -116,14 +111,18 @@ export async function captureScreenshot(page, options = {}) {
  * @param {Object} pageObj - Page object
  * @param {Object} viewport - Viewport object
  * @param {Object} screenshotOptions - Screenshot options
+ * @param {Object} deps - External dependencies
+ * @param {Function} deps.vizzlyScreenshot - Screenshot transport
  * @returns {Promise<void>}
  */
 export async function captureAndSendScreenshot(
   page,
   pageObj,
   viewport,
-  screenshotOptions = {}
+  screenshotOptions = {},
+  deps = {}
 ) {
+  let sendScreenshot = deps.vizzlyScreenshot || vizzlyScreenshot;
   let name = generateScreenshotName(pageObj);
   let properties = generateScreenshotProperties(viewport, {
     ...screenshotOptions,
@@ -136,5 +135,5 @@ export async function captureAndSendScreenshot(
     vizzlyOptions.requestTimeout = screenshotOptions.requestTimeout;
   }
 
-  await vizzlyScreenshot(name, screenshot, vizzlyOptions);
+  await sendScreenshot(name, screenshot, vizzlyOptions);
 }

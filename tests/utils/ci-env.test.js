@@ -1,10 +1,14 @@
 import assert from 'node:assert';
+import { mkdtempSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   getBranch,
   getCIProvider,
   getCommit,
   getCommitMessage,
+  getGitHubEvent,
   getPullRequestBaseRef,
   getPullRequestBaseSha,
   getPullRequestHeadRef,
@@ -16,9 +20,11 @@ import {
 
 describe('utils/ci-env', () => {
   let originalEnv;
+  let tempFilesToCleanup = [];
 
   beforeEach(() => {
     originalEnv = { ...process.env };
+    tempFilesToCleanup = [];
     // Clear all CI-related env vars
     let ciVars = [
       'VIZZLY_BRANCH',
@@ -116,8 +122,26 @@ describe('utils/ci-env', () => {
   });
 
   afterEach(() => {
+    for (let file of tempFilesToCleanup) {
+      try {
+        unlinkSync(file);
+      } catch {
+        // File was already cleaned up or does not exist.
+      }
+    }
     process.env = originalEnv;
   });
+
+  function createTempEventFile(payload) {
+    let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
+    let eventPath = join(tempDir, 'event.json');
+    writeFileSync(
+      eventPath,
+      typeof payload === 'string' ? payload : JSON.stringify(payload)
+    );
+    tempFilesToCleanup.push(eventPath);
+    return eventPath;
+  }
 
   describe('getBranch', () => {
     it('returns null when no CI env vars set', () => {
@@ -185,6 +209,45 @@ describe('utils/ci-env', () => {
       process.env.GITHUB_SHA = 'abc123';
 
       assert.strictEqual(getCommit(), 'abc123');
+    });
+
+    it('reads the PR head SHA from a GitHub Actions event file', () => {
+      let eventPath = createTempEventFile({
+        pull_request: {
+          head: { sha: 'pr-head-sha-abc123' },
+          base: { sha: 'base-sha-def456' },
+        },
+      });
+
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = eventPath;
+      process.env.GITHUB_SHA = 'merge-commit-sha';
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getCommit(), 'pr-head-sha-abc123');
+    });
+
+    it('falls back to GITHUB_SHA when the event file is missing', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = '/nonexistent/path/event.json';
+      process.env.GITHUB_SHA = 'fallback-sha';
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getCommit(), 'fallback-sha');
+    });
+
+    it('falls back to GITHUB_SHA when the event is not a pull request', () => {
+      let eventPath = createTempEventFile({ ref: 'refs/heads/main' });
+
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = eventPath;
+      process.env.GITHUB_SHA = 'push-commit-sha';
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getCommit(), 'push-commit-sha');
     });
 
     it('reads generic COMMIT_SHA', () => {
@@ -338,6 +401,22 @@ describe('utils/ci-env', () => {
 
       assert.strictEqual(getPullRequestHeadSha(), 'jenkins-pr-sha');
     });
+
+    it('reads the PR head SHA from a GitHub Actions event file', () => {
+      let eventPath = createTempEventFile({
+        pull_request: {
+          head: { sha: 'pr-head-sha-from-event' },
+          base: { sha: 'base-sha' },
+        },
+      });
+
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = eventPath;
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getPullRequestHeadSha(), 'pr-head-sha-from-event');
+    });
   });
 
   describe('getPullRequestBaseSha', () => {
@@ -355,6 +434,54 @@ describe('utils/ci-env', () => {
       process.env.CI_MERGE_REQUEST_TARGET_BRANCH_SHA = 'gitlab-base';
 
       assert.strictEqual(getPullRequestBaseSha(), 'gitlab-base');
+    });
+
+    it('reads the PR base SHA from a GitHub Actions event file', () => {
+      let eventPath = createTempEventFile({
+        pull_request: {
+          head: { sha: 'head-sha' },
+          base: { sha: 'base-sha-from-event' },
+        },
+      });
+
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = eventPath;
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getPullRequestBaseSha(), 'base-sha-from-event');
+    });
+  });
+
+  describe('getGitHubEvent', () => {
+    it('returns an empty object when no event path is set', () => {
+      assert.deepStrictEqual(getGitHubEvent(), {});
+    });
+
+    it('parses and caches the event file', () => {
+      let eventPath = createTempEventFile({ action: 'opened', number: 42 });
+
+      process.env.GITHUB_EVENT_PATH = eventPath;
+      resetGitHubEventCache();
+
+      let event = getGitHubEvent();
+      assert.deepStrictEqual(event, { action: 'opened', number: 42 });
+
+      unlinkSync(eventPath);
+      tempFilesToCleanup = tempFilesToCleanup.filter(
+        file => file !== eventPath
+      );
+
+      assert.deepStrictEqual(getGitHubEvent(), event);
+    });
+
+    it('returns an empty object for invalid JSON', () => {
+      let eventPath = createTempEventFile('not valid json {{{');
+
+      process.env.GITHUB_EVENT_PATH = eventPath;
+      resetGitHubEventCache();
+
+      assert.deepStrictEqual(getGitHubEvent(), {});
     });
   });
 

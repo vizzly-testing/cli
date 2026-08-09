@@ -28,14 +28,3 @@ export function usePollAuthorization() {
     },
   });
 }
-
-export function useLogout() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: auth.logout,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.auth });
-      queryClient.invalidateQueries({ queryKey: queryKeys.cloud });
-    },
-  });
-}

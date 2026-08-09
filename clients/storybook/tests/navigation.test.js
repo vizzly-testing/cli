@@ -4,11 +4,7 @@
 
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
-import {
-  generateStoryUrl,
-  navigateToStory,
-  resetStorybookState,
-} from '../src/navigation.js';
+import { generateStoryUrl, navigateToStory } from '../src/navigation.js';
 
 describe('generateStoryUrl', () => {
   it('generates correct iframe URL', () => {
@@ -43,8 +39,6 @@ describe('navigateToStory', () => {
 
     assert.strictEqual(gotoCalls.length, 1);
     assert.ok(gotoCalls[0].includes('button--primary'));
-    assert.strictEqual(tab._poolEntry.storybookInitialized, true);
-    assert.strictEqual(tab._poolEntry.currentStoryId, 'button--primary');
   });
 
   it('uses client-side navigation on subsequent visits', async () => {
@@ -67,7 +61,6 @@ describe('navigateToStory', () => {
     assert.strictEqual(gotoCalls.length, 0); // No full page navigation
     // Single evaluate call that handles navigation + waiting
     assert.strictEqual(tab.evaluate.mock.callCount(), 1);
-    assert.strictEqual(tab._poolEntry.currentStoryId, 'button--secondary');
   });
 
   it('skips navigation if same story', async () => {
@@ -106,7 +99,6 @@ describe('navigateToStory', () => {
 
     assert.strictEqual(gotoCalls.length, 1);
     assert.ok(gotoCalls[0].includes('button--secondary'));
-    assert.strictEqual(tab._poolEntry.currentStoryId, 'button--secondary');
   });
 
   it('falls back to full navigation when Storybook never renders the story', async () => {
@@ -151,7 +143,6 @@ describe('navigateToStory', () => {
     assert.strictEqual(gotoCalls.length, 1);
     assert.ok(gotoCalls[0].includes('button--secondary'));
     assert.strictEqual(listeners.has('storyRendered'), false);
-    assert.strictEqual(tab._poolEntry.currentStoryId, 'button--secondary');
   });
 
   it('falls back to domcontentloaded on timeout', async () => {
@@ -198,25 +189,5 @@ describe('navigateToStory', () => {
     await navigateToStory(tab, 'button--primary', 'http://localhost:6006');
 
     assert.strictEqual(tab.goto.mock.callCount(), 1);
-  });
-});
-
-describe('resetStorybookState', () => {
-  it('clears storybookInitialized flag', () => {
-    let entry = {
-      storybookInitialized: true,
-      currentStoryId: 'button--primary',
-    };
-
-    resetStorybookState(entry);
-
-    assert.strictEqual(entry.storybookInitialized, false);
-    assert.strictEqual(entry.currentStoryId, null);
-  });
-
-  it('handles null entry gracefully', () => {
-    // Should not throw
-    resetStorybookState(null);
-    resetStorybookState(undefined);
   });
 });

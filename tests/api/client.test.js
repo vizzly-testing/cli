@@ -14,18 +14,6 @@ describe('api/client', () => {
   });
 
   describe('createApiClient', () => {
-    it('creates client with token', () => {
-      let client = createApiClient({
-        token: 'test-token',
-        baseUrl: 'https://api.test',
-      });
-
-      assert.ok(client.request);
-      assert.ok(client.getBaseUrl);
-      assert.ok(client.getToken);
-      assert.ok(client.getUserAgent);
-    });
-
     it('creates client with allowNoToken option', () => {
       let client = createApiClient({
         allowNoToken: true,

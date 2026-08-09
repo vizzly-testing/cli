@@ -28,15 +28,6 @@ describe('auth/client', () => {
   });
 
   describe('createAuthClient', () => {
-    it('creates client with default user agent', () => {
-      let client = createAuthClient({ baseUrl: 'https://api.test' });
-
-      assert.ok(client.request);
-      assert.ok(client.authenticatedRequest);
-      assert.ok(client.getBaseUrl);
-      assert.ok(client.getUserAgent);
-    });
-
     it('returns configured base URL', () => {
       let client = createAuthClient({ baseUrl: 'https://custom.api' });
 

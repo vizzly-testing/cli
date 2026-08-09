@@ -28,15 +28,6 @@ describe('server/handlers/api-handler', () => {
   });
 
   describe('createApiHandler', () => {
-    it('creates handler with required methods', () => {
-      let handler = createApiHandler(null);
-
-      assert.strictEqual(typeof handler.handleScreenshot, 'function');
-      assert.strictEqual(typeof handler.getScreenshotCount, 'function');
-      assert.strictEqual(typeof handler.flush, 'function');
-      assert.strictEqual(typeof handler.cleanup, 'function');
-    });
-
     it('getScreenshotCount returns 0 initially', () => {
       let handler = createApiHandler(null);
 

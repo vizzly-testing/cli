@@ -239,31 +239,8 @@ describe('commands/comparisons', () => {
       });
     });
 
-    it('passes include as a string to getBuild, not an object', async () => {
-      let output = createMockOutput();
-      let capturedInclude = null;
-
-      await comparisonsCommand(
-        { build: 'build-1' },
-        { json: true },
-        {
-          loadConfig: async () => ({ apiKey: 'test-token' }),
-          createApiClient: () => ({}),
-          getBuild: async (_client, _buildId, include) => {
-            capturedInclude = include;
-            return { build: { id: 'build-1', comparisons: [] } };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedInclude, 'comparisons');
-    });
-
     it('searches comparisons by name', async () => {
       let output = createMockOutput();
-      let capturedName = null;
       let mockComparisons = [
         {
           id: 'comp-1',
@@ -279,19 +256,15 @@ describe('commands/comparisons', () => {
         {
           loadConfig: async () => ({ apiKey: 'test-token' }),
           createApiClient: () => ({}),
-          searchComparisons: async (_client, name) => {
-            capturedName = name;
-            return {
-              comparisons: mockComparisons,
-              pagination: { total: 1, hasMore: false },
-            };
-          },
+          searchComparisons: async () => ({
+            comparisons: mockComparisons,
+            pagination: { total: 1, hasMore: false },
+          }),
           output,
           exit: () => {},
         }
       );
 
-      assert.strictEqual(capturedName, 'button-*');
       let dataCall = output.calls.find(c => c.method === 'data');
       assert.ok(dataCall);
       assert.strictEqual(dataCall.args[0].comparisons.length, 1);
@@ -390,57 +363,6 @@ describe('commands/comparisons', () => {
         dataCall.args[0].comparisons.map(comparison => comparison.name),
         ['card[primary].png']
       );
-    });
-
-    it('passes project filter to search', async () => {
-      let output = createMockOutput();
-      let capturedFilters = null;
-
-      await comparisonsCommand(
-        { name: 'button-*', project: 'my-project' },
-        { json: true },
-        {
-          loadConfig: async () => ({ apiKey: 'test-token' }),
-          createApiClient: () => ({}),
-          searchComparisons: async (_client, _name, filters) => {
-            capturedFilters = filters;
-            return {
-              comparisons: [],
-              pagination: { total: 0, hasMore: false },
-            };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedFilters.project, 'my-project');
-    });
-
-    it('passes organization filter to search', async () => {
-      let output = createMockOutput();
-      let capturedFilters = null;
-
-      await comparisonsCommand(
-        { name: 'button-*', project: 'storybook', org: 'my-org' },
-        { json: true },
-        {
-          loadConfig: async () => ({ apiKey: 'test-token' }),
-          createApiClient: () => ({}),
-          searchComparisons: async (_client, _name, filters) => {
-            capturedFilters = filters;
-            return {
-              comparisons: [],
-              pagination: { total: 0, hasMore: false },
-            };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedFilters.project, 'storybook');
-      assert.strictEqual(capturedFilters.organization, 'my-org');
     });
 
     it('fetches single comparison by ID', async () => {

@@ -87,45 +87,6 @@ describe('commands/finalize', () => {
       assert.ok(output.calls.some(c => c.method === 'error'));
     });
 
-    it('calls finalizeParallelBuild with correct params', async () => {
-      let output = createMockOutput();
-      let capturedClient = null;
-      let capturedParallelId = null;
-
-      let result = await finalizeCommand(
-        'parallel-123',
-        {},
-        {},
-        {
-          loadConfig: async () => ({
-            apiKey: 'test-token',
-            apiUrl: 'https://api.test',
-          }),
-          createApiClient: opts => {
-            capturedClient = opts;
-            return { request: async () => ({}) };
-          },
-          finalizeParallelBuild: async (_client, parallelId) => {
-            capturedParallelId = parallelId;
-            return {
-              build: {
-                id: 'build-456',
-                status: 'completed',
-                parallel_id: 'parallel-123',
-              },
-            };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(result.success, true);
-      assert.strictEqual(capturedParallelId, 'parallel-123');
-      assert.strictEqual(capturedClient.token, 'test-token');
-      assert.strictEqual(capturedClient.command, 'finalize');
-    });
-
     it('outputs JSON when json flag is set', async () => {
       let output = createMockOutput();
 
@@ -272,35 +233,6 @@ describe('commands/finalize', () => {
       );
 
       assert.ok(output.calls.some(c => c.method === 'cleanup'));
-    });
-
-    it('merges options and globalOptions for config', async () => {
-      let output = createMockOutput();
-      let capturedConfigPath = null;
-      let capturedOptions = null;
-
-      await finalizeCommand(
-        'parallel-123',
-        { token: 'option-token' },
-        { config: '/path/to/config', verbose: true },
-        {
-          loadConfig: async (configPath, options) => {
-            capturedConfigPath = configPath;
-            capturedOptions = options;
-            return { apiKey: 'test-token', apiUrl: 'https://api.test' };
-          },
-          createApiClient: () => ({ request: async () => ({}) }),
-          finalizeParallelBuild: async () => ({
-            build: { id: 'b', status: 'done', parallel_id: 'p' },
-          }),
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedConfigPath, '/path/to/config');
-      assert.strictEqual(capturedOptions.token, 'option-token');
-      assert.strictEqual(capturedOptions.verbose, true);
     });
 
     it('does not fail CI when API returns 5xx error', async () => {

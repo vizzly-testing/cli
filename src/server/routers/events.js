@@ -21,7 +21,7 @@ let defaultTimers = {
 /**
  * Read and parse JSON from disk, returning null on missing or invalid files.
  */
-export function readJsonFile(path) {
+function readJsonFile(path) {
   if (!existsSync(path)) {
     return null;
   }
@@ -36,7 +36,7 @@ export function readJsonFile(path) {
 /**
  * Read report data and attach baseline metadata for the stats view.
  */
-export function readReportDataFile({ reportDataPath, baselineMetadataPath }) {
+function readReportDataFile({ reportDataPath, baselineMetadataPath }) {
   let data = readJsonFile(reportDataPath);
   if (!data) {
     return null;
@@ -83,7 +83,7 @@ function summaryChanged(oldData, newData) {
 /**
  * Build incremental SSE events by diffing old vs new report data.
  */
-export function buildReportDataEvents(oldData, newData) {
+function buildReportDataEvents(oldData, newData) {
   if (!oldData) {
     return [{ type: 'reportData', data: newData }];
   }
@@ -119,7 +119,7 @@ export function buildReportDataEvents(oldData, newData) {
 /**
  * Watch report-data.json with fs.watch plus a lightweight mtime fallback.
  */
-export function watchReportDataFile({
+function watchReportDataFile({
   workingDir,
   reportDataPath,
   onReportDataChanged,

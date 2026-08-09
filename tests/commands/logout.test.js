@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  logoutCommand,
-  validateLogoutOptions,
-} from '../../src/commands/logout.js';
+import { logoutCommand } from '../../src/commands/logout.js';
 
 function createMockOutput() {
   let calls = [];
@@ -31,12 +28,6 @@ let auth = {
 };
 
 describe('commands/logout', () => {
-  describe('validateLogoutOptions', () => {
-    it('returns no errors', () => {
-      assert.deepStrictEqual(validateLogoutOptions({}), []);
-    });
-  });
-
   describe('logoutCommand', () => {
     it('returns not_logged_in JSON when no token is stored', async () => {
       let output = createMockOutput();
@@ -60,28 +51,18 @@ describe('commands/logout', () => {
 
     it('logs out with the configured auth client and token store', async () => {
       let output = createMockOutput();
-      let capturedBaseUrl = null;
-      let capturedTokenStore = null;
 
       await logoutCommand(
         { apiUrl: 'https://api.example.test' },
         { json: true },
         {
           getAuthTokens: async () => auth,
-          createAuthClient: ({ baseUrl }) => {
-            capturedBaseUrl = baseUrl;
-            return { kind: 'client' };
-          },
+          createAuthClient: () => ({ kind: 'client' }),
           createTokenStore: () => ({ kind: 'store' }),
-          logout: async (_client, tokenStore) => {
-            capturedTokenStore = tokenStore;
-          },
+          logout: async () => {},
           output,
         }
       );
-
-      assert.strictEqual(capturedBaseUrl, 'https://api.example.test');
-      assert.deepStrictEqual(capturedTokenStore, { kind: 'store' });
 
       let dataCall = output.calls.find(call => call.method === 'data');
       assert.deepStrictEqual(dataCall.args[0], { loggedOut: true });

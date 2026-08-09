@@ -97,6 +97,22 @@ function screenshotCommand(name) {
 }
 
 describe('cli/tdd lifecycle', () => {
+  it('rejects baseline downloads without an API token', async () => {
+    let result = await runCLI(
+      [
+        'tdd',
+        'run',
+        'node -e "process.exit(0)"',
+        '--baseline-build',
+        'build-123',
+      ],
+      { cwd: createWorkspace() }
+    );
+
+    assert.strictEqual(result.code, 1);
+    assert.match(`${result.stdout}\n${result.stderr}`, /API token required/);
+  });
+
   it('keeps JSON TDD run output parseable on stdout', async () => {
     let cwd = createWorkspace();
     let port = await getFreePort();
@@ -199,6 +215,44 @@ describe('cli/tdd lifecycle', () => {
       'cli-lifecycle-homepage'
     );
     assert.strictEqual(reportData.comparisons[0].status, 'new');
+  });
+
+  it('reports a passing screenshot on a subsequent run', async () => {
+    let cwd = createWorkspace();
+    let firstPort = await getFreePort();
+    let secondPort = await getFreePort();
+    let args = port => [
+      '--no-color',
+      'tdd',
+      'run',
+      screenshotCommand('cli-lifecycle-passing-homepage'),
+      '--port',
+      String(port),
+      '--no-open',
+    ];
+
+    let first = await runCLI(args(firstPort), { cwd });
+    assert.strictEqual(
+      first.code,
+      0,
+      `stdout:\n${first.stdout}\nstderr:\n${first.stderr}`
+    );
+    assert.match(first.stdout, /"status":"new"/);
+
+    let second = await runCLI(args(secondPort), { cwd });
+    assert.strictEqual(
+      second.code,
+      0,
+      `stdout:\n${second.stdout}\nstderr:\n${second.stderr}`
+    );
+    assert.match(second.stdout, /1 passed/);
+    assert.doesNotMatch(second.stdout, /Review changes:/);
+
+    let reportData = JSON.parse(
+      readFileSync(join(cwd, '.vizzly', 'report-data.json'), 'utf8')
+    );
+    assert.strictEqual(reportData.summary.passed, 1);
+    assert.strictEqual(reportData.comparisons[0].status, 'passed');
   });
 
   it('starts, reports, lists, and stops a daemon on an explicit port', async () => {

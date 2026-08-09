@@ -10,7 +10,6 @@ import {
   formatBytes,
   getFilename,
   getViewport,
-  validateBaselinesOptions,
 } from '../../src/commands/baselines.js';
 
 function createMockOutput() {
@@ -87,12 +86,6 @@ function writeBaselineFixture(workspace) {
 }
 
 describe('commands/baselines', () => {
-  describe('validateBaselinesOptions', () => {
-    it('returns no errors', () => {
-      assert.deepStrictEqual(validateBaselinesOptions({}), []);
-    });
-  });
-
   describe('baseline helpers', () => {
     it('extracts filenames and viewport data from metadata variants', () => {
       assert.strictEqual(

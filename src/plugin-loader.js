@@ -67,7 +67,7 @@ export async function loadPlugins(configPath, config) {
  * Discover installed plugins from node_modules/@vizzly-testing/*
  * @returns {Promise<Array>} Array of plugin info objects
  */
-export async function discoverInstalledPlugins() {
+async function discoverInstalledPlugins() {
   let plugins = [];
 
   try {

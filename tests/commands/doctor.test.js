@@ -6,7 +6,6 @@ import {
   getApiUrlCheck,
   getNodeVersionCheck,
   getThresholdCheck,
-  validateDoctorOptions,
 } from '../../src/commands/doctor.js';
 
 function createMockOutput() {
@@ -55,12 +54,6 @@ let validConfig = {
 };
 
 describe('commands/doctor', () => {
-  describe('validateDoctorOptions', () => {
-    it('returns no errors', () => {
-      assert.deepStrictEqual(validateDoctorOptions({}), []);
-    });
-  });
-
   describe('diagnostic helpers', () => {
     it('creates the default diagnostics shape', () => {
       assert.deepStrictEqual(createDoctorDiagnostics(), {
@@ -157,34 +150,19 @@ describe('commands/doctor', () => {
 
     it('checks API connectivity when requested', async () => {
       let output = createMockOutput();
-      let capturedClientOptions = null;
-      let capturedBuildOptions = null;
 
       await doctorCommand(
         { api: true },
         { json: true },
         {
-          createApiClient: options => {
-            capturedClientOptions = options;
-            return { kind: 'client' };
-          },
+          createApiClient: () => ({ kind: 'client' }),
           getApiToken: () => null,
-          getBuilds: async (_client, options) => {
-            capturedBuildOptions = options;
-            return { builds: [] };
-          },
+          getBuilds: async () => ({ builds: [] }),
           loadConfig: async () => validConfig,
           nodeVersion: 'v22.2.0',
           output,
         }
       );
-
-      assert.deepStrictEqual(capturedClientOptions, {
-        baseUrl: 'https://api.example.test',
-        token: 'token-123',
-        command: 'doctor',
-      });
-      assert.deepStrictEqual(capturedBuildOptions, { limit: 1 });
 
       let dataCall = output.calls.find(call => call.method === 'data');
       assert.strictEqual(

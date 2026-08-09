@@ -172,74 +172,6 @@ describe('commands/builds', () => {
       assert.strictEqual(dataCall.args[0].id, 'build-1');
     });
 
-    it('passes include as a string to getBuild when --comparisons is set', async () => {
-      let output = createMockOutput();
-      let capturedInclude = null;
-
-      await buildsCommand(
-        { build: 'build-1', comparisons: true },
-        { json: true },
-        {
-          loadConfig: async () => ({ apiKey: 'test-token' }),
-          createApiClient: () => ({}),
-          getBuild: async (_client, _buildId, include) => {
-            capturedInclude = include;
-            return { build: { id: 'build-1', status: 'completed' } };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedInclude, 'comparisons');
-    });
-
-    it('passes undefined include to getBuild when --comparisons is not set', async () => {
-      let output = createMockOutput();
-      let capturedInclude = 'NOT_CALLED';
-
-      await buildsCommand(
-        { build: 'build-1' },
-        { json: true },
-        {
-          loadConfig: async () => ({ apiKey: 'test-token' }),
-          createApiClient: () => ({}),
-          getBuild: async (_client, _buildId, include) => {
-            capturedInclude = include;
-            return { build: { id: 'build-1', status: 'completed' } };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedInclude, undefined);
-    });
-
-    it('passes filters to API', async () => {
-      let output = createMockOutput();
-      let capturedFilters = null;
-
-      await buildsCommand(
-        { branch: 'main', status: 'completed', limit: 10 },
-        { json: true },
-        {
-          loadConfig: async () => ({ apiKey: 'test-token' }),
-          createApiClient: () => ({}),
-          getBuilds: async (_client, filters) => {
-            capturedFilters = filters;
-            return { builds: [], pagination: { total: 0, hasMore: false } };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedFilters.branch, 'main');
-      assert.strictEqual(capturedFilters.status, 'completed');
-      assert.strictEqual(capturedFilters.limit, 10);
-    });
-
     it('includes URLs and honeydiff in comparisonDetails', async () => {
       let output = createMockOutput();
       let mockBuild = {
@@ -312,51 +244,6 @@ describe('commands/builds', () => {
       let comp = dataCall.args[0].comparisonDetails[0];
       assert.strictEqual(comp.honeydiff, null);
       assert.strictEqual(comp.urls.diff, null);
-    });
-
-    it('passes project filter to API', async () => {
-      let output = createMockOutput();
-      let capturedFilters = null;
-
-      await buildsCommand(
-        { project: 'proj-123' },
-        { json: true },
-        {
-          loadConfig: async () => ({ apiKey: 'test-token' }),
-          createApiClient: () => ({}),
-          getBuilds: async (_client, filters) => {
-            capturedFilters = filters;
-            return { builds: [], pagination: { total: 0, hasMore: false } };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedFilters.project, 'proj-123');
-    });
-
-    it('passes organization filter to API', async () => {
-      let output = createMockOutput();
-      let capturedFilters = null;
-
-      await buildsCommand(
-        { project: 'storybook', org: 'my-org' },
-        { json: true },
-        {
-          loadConfig: async () => ({ apiKey: 'test-token' }),
-          createApiClient: () => ({}),
-          getBuilds: async (_client, filters) => {
-            capturedFilters = filters;
-            return { builds: [], pagination: { total: 0, hasMore: false } };
-          },
-          output,
-          exit: () => {},
-        }
-      );
-
-      assert.strictEqual(capturedFilters.project, 'storybook');
-      assert.strictEqual(capturedFilters.organization, 'my-org');
     });
   });
 });

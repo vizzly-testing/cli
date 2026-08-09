@@ -283,9 +283,6 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
           threshold: 0,
           properties: { test: 'e2e' },
         });
-
-        // If we get here without error, screenshot succeeded
-        assert.ok(true, 'Screenshot should succeed');
       } finally {
         await page.close();
       }
@@ -310,8 +307,6 @@ describe('Storybook E2E with example-storybook', { skip: !runE2E }, () => {
           threshold: 5,
           properties: { test: 'threshold' },
         });
-
-        assert.ok(true, 'Screenshot with threshold should succeed');
       } finally {
         await page.close();
       }

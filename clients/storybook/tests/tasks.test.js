@@ -4,7 +4,7 @@
 
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
-import { generateTasks, processAllTasks, processTask } from '../src/tasks.js';
+import { generateTasks, processAllTasks } from '../src/tasks.js';
 
 describe('generateTasks', () => {
   it('generates tasks for each story × viewport combination', () => {
@@ -170,76 +170,6 @@ describe('generateTasks', () => {
     let tasks = generateTasks(stories, baseUrl, config, deps);
 
     assert.strictEqual(tasks.length, 0);
-  });
-});
-
-describe('processTask', () => {
-  it('sets viewport, navigates, and captures screenshot', async () => {
-    let setViewportCalls = [];
-    let navigateCalls = [];
-    let screenshotCalls = [];
-
-    let deps = {
-      setViewport: async (tab, viewport) => {
-        setViewportCalls.push({ tab, viewport });
-      },
-      navigateToStory: async (tab, storyId, baseUrl) => {
-        navigateCalls.push({ tab, storyId, baseUrl });
-      },
-      captureAndSendScreenshot: async (tab, story, viewport, opts) => {
-        screenshotCalls.push({ tab, story, viewport, opts });
-      },
-    };
-
-    let tab = { id: 1 };
-    let task = {
-      story: { id: 'button--primary', title: 'Button', name: 'Primary' },
-      viewport: { name: 'desktop', width: 1920, height: 1080 },
-      hook: null,
-      storyId: 'button--primary',
-      baseUrl: 'http://localhost:6006',
-      screenshotOptions: { fullPage: true },
-    };
-
-    await processTask(tab, task, deps);
-
-    assert.strictEqual(setViewportCalls.length, 1);
-    assert.strictEqual(setViewportCalls[0].tab, tab);
-    assert.deepStrictEqual(setViewportCalls[0].viewport, task.viewport);
-
-    assert.strictEqual(navigateCalls.length, 1);
-    assert.strictEqual(navigateCalls[0].storyId, 'button--primary');
-    assert.strictEqual(navigateCalls[0].baseUrl, 'http://localhost:6006');
-
-    assert.strictEqual(screenshotCalls.length, 1);
-    assert.deepStrictEqual(screenshotCalls[0].opts, { fullPage: true });
-  });
-
-  it('runs hook if provided', async () => {
-    let hookCalls = [];
-
-    let deps = {
-      setViewport: async () => {},
-      navigateToStory: async () => {},
-      captureAndSendScreenshot: async () => {},
-    };
-
-    let tab = { id: 1 };
-    let task = {
-      story: { id: 'button--primary', title: 'Button', name: 'Primary' },
-      viewport: { name: 'desktop', width: 1920, height: 1080 },
-      hook: async t => {
-        hookCalls.push(t);
-      },
-      storyId: 'button--primary',
-      baseUrl: 'http://localhost:6006',
-      screenshotOptions: {},
-    };
-
-    await processTask(tab, task, deps);
-
-    assert.strictEqual(hookCalls.length, 1);
-    assert.strictEqual(hookCalls[0], tab);
   });
 });
 

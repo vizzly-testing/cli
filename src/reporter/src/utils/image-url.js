@@ -4,7 +4,7 @@
  *
  * This is a no-op for non-local URLs.
  */
-export let LOCAL_IMAGE_PREFIX = '/images/';
+let LOCAL_IMAGE_PREFIX = '/images/';
 
 export function withImageVersion(url, version) {
   if (!url || typeof url !== 'string') {

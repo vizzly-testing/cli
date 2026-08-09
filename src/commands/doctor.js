@@ -280,11 +280,3 @@ export async function doctorCommand(
     if (hasErrors) exit(1);
   }
 }
-
-/**
- * Validate doctor options (no specific validation needed)
- * @param {Object} options - Command options
- */
-export function validateDoctorOptions() {
-  return []; // No specific validation for now
-}

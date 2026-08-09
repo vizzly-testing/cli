@@ -46,15 +46,6 @@ describe('mapWithConcurrency', () => {
     );
   });
 
-  it('should handle async function results', async () => {
-    let items = [1, 2, 3];
-
-    await mapWithConcurrency(items, async item => item * 2, 2);
-
-    // Should complete without error
-    assert.ok(true);
-  });
-
   it('should handle errors in processing', async () => {
     let items = [1, 2, 3];
 

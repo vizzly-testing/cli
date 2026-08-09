@@ -6,7 +6,6 @@ import {
   loginCommand,
   normalizeDeviceFlowResponse,
   resolveAuthorizedTokenData,
-  validateLoginOptions,
 } from '../../src/commands/login.js';
 
 function createMockOutput() {
@@ -112,12 +111,6 @@ function createLoginHarness({ browserOpened = true, pollResponse } = {}) {
 }
 
 describe('commands/login', () => {
-  describe('validateLoginOptions', () => {
-    it('returns no errors', () => {
-      assert.deepStrictEqual(validateLoginOptions({}), []);
-    });
-  });
-
   describe('device flow helpers', () => {
     it('normalizes snake_case and camelCase device flow responses', () => {
       assert.deepStrictEqual(

@@ -54,7 +54,7 @@ export function getInitConfigPath(cwd = process.cwd()) {
   return path.join(cwd, 'vizzly.config.js');
 }
 
-export function getPackagedAgentSkillPath(baseDir = commandDir) {
+function getPackagedAgentSkillPath(baseDir = commandDir) {
   return path.resolve(baseDir, '..', '..', 'skills', 'vizzly');
 }
 
@@ -75,11 +75,11 @@ export async function fileExists(filePath, access = fs.access) {
   }
 }
 
-export function getPluginsWithConfig(plugins = []) {
+function getPluginsWithConfig(plugins = []) {
   return plugins.filter(plugin => plugin.configSchema);
 }
 
-export function getPluginConfigNames(plugins = []) {
+function getPluginConfigNames(plugins = []) {
   return getPluginsWithConfig(plugins).map(plugin => plugin.name);
 }
 
@@ -164,7 +164,7 @@ export function formatPluginConfig(plugin, output = null) {
   }
 }
 
-export function generatePluginConfigs(plugins = [], output = null) {
+function generatePluginConfigs(plugins = [], output = null) {
   let sections = [];
 
   for (let plugin of plugins) {
@@ -282,7 +282,7 @@ async function shouldInstallAgentSkill(options, deps) {
 let agentGuidanceStart = '<!-- vizzly-agent-guidance -->';
 let agentGuidanceEnd = '<!-- /vizzly-agent-guidance -->';
 
-export function createAgentGuidanceContent() {
+function createAgentGuidanceContent() {
   return `${agentGuidanceStart}
 ## Visual Testing With Vizzly
 
@@ -305,7 +305,7 @@ function appendSection(content, section) {
   return `${content.replace(/\s*$/, '')}\n\n${section}`;
 }
 
-export async function upsertProjectAgentGuidance({
+async function upsertProjectAgentGuidance({
   cwd,
   access = fs.access,
   readFile = fs.readFile,
@@ -456,15 +456,10 @@ async function loadInitPlugins(options, deps) {
 
   try {
     let config = await deps.loadConfig(options.config, {});
-    return await deps.loadPlugins(options.config, config, null);
+    return await deps.loadPlugins(options.config, config);
   } catch {
     return [];
   }
-}
-
-// Export factory function for CLI
-export function createInitCommand(options) {
-  return () => init(options);
 }
 
 export async function init(options = {}, deps = {}) {

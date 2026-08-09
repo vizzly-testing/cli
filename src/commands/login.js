@@ -292,16 +292,3 @@ export async function loginCommand(
     }
   }
 }
-
-/**
- * Validate login options
- * @param {Object} options - Command options
- */
-export function validateLoginOptions() {
-  let errors = [];
-
-  // No specific validation needed for login command
-  // OAuth device flow handles everything via browser
-
-  return errors;
-}

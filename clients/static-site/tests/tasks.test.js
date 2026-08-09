@@ -4,7 +4,7 @@
 
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
-import { generateTasks, processAllTasks, processTask } from '../src/tasks.js';
+import { generateTasks, processAllTasks } from '../src/tasks.js';
 
 describe('generateTasks', () => {
   it('generates tasks for each page × viewport combination', () => {
@@ -129,76 +129,6 @@ describe('generateTasks', () => {
     let tasks = generateTasks(pages, baseUrl, config, deps);
 
     assert.strictEqual(tasks.length, 0);
-  });
-});
-
-describe('processTask', () => {
-  it('sets viewport, navigates, and captures screenshot', async () => {
-    let setViewportCalls = [];
-    let navigateCalls = [];
-    let screenshotCalls = [];
-
-    let deps = {
-      setViewport: async (tab, viewport) => {
-        setViewportCalls.push({ tab, viewport });
-      },
-      navigateToUrl: async (tab, url) => {
-        navigateCalls.push({ tab, url });
-      },
-      captureAndSendScreenshot: async (tab, page, viewport, opts) => {
-        screenshotCalls.push({ tab, page, viewport, opts });
-      },
-    };
-
-    let tab = { id: 1 };
-    let task = {
-      page: { path: '/test' },
-      viewport: { name: 'desktop', width: 1920, height: 1080 },
-      hook: null,
-      url: 'http://localhost:3000/test',
-      screenshotOptions: { fullPage: true, requestTimeout: 120000 },
-    };
-
-    await processTask(tab, task, deps);
-
-    assert.strictEqual(setViewportCalls.length, 1);
-    assert.strictEqual(setViewportCalls[0].tab, tab);
-    assert.deepStrictEqual(setViewportCalls[0].viewport, task.viewport);
-
-    assert.strictEqual(navigateCalls.length, 1);
-    assert.strictEqual(navigateCalls[0].url, task.url);
-
-    assert.strictEqual(screenshotCalls.length, 1);
-    assert.deepStrictEqual(screenshotCalls[0].opts, {
-      fullPage: true,
-      requestTimeout: 120000,
-    });
-  });
-
-  it('runs hook if provided', async () => {
-    let hookCalls = [];
-
-    let deps = {
-      setViewport: async () => {},
-      navigateToUrl: async () => {},
-      captureAndSendScreenshot: async () => {},
-    };
-
-    let tab = { id: 1 };
-    let task = {
-      page: { path: '/test' },
-      viewport: { name: 'desktop', width: 1920, height: 1080 },
-      hook: async t => {
-        hookCalls.push(t);
-      },
-      url: 'http://localhost:3000/test',
-      screenshotOptions: {},
-    };
-
-    await processTask(tab, task, deps);
-
-    assert.strictEqual(hookCalls.length, 1);
-    assert.strictEqual(hookCalls[0], tab);
   });
 });
 

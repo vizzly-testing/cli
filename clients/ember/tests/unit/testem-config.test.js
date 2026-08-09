@@ -1,20 +1,29 @@
 import assert from 'node:assert';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { afterEach, describe, it } from 'node:test';
 import { browserMappings, configure } from '../../src/testem-config.js';
 
 describe('testem-config', () => {
-  beforeEach(() => {
-    // Clean up before each test
-  });
-
   afterEach(() => {
     // Clean up any playwright.json that was written
     let playwrightConfig = join(process.cwd(), '.vizzly', 'playwright.json');
     if (existsSync(playwrightConfig)) {
       rmSync(playwrightConfig);
     }
+  });
+
+  it('preserves the public browser mappings', () => {
+    assert.deepStrictEqual(browserMappings, {
+      Chrome: 'VizzlyChrome',
+      chrome: 'VizzlyChrome',
+      Firefox: 'VizzlyFirefox',
+      firefox: 'VizzlyFirefox',
+      Safari: 'VizzlyWebKit',
+      safari: 'VizzlyWebKit',
+      WebKit: 'VizzlyWebKit',
+      webkit: 'VizzlyWebKit',
+    });
   });
 
   describe('configure()', () => {
@@ -179,28 +188,6 @@ describe('testem-config', () => {
       configure(input);
 
       assert.deepStrictEqual(input, inputCopy, 'input should not be mutated');
-    });
-  });
-
-  describe('browserMappings', () => {
-    it('maps Chrome to VizzlyChrome', () => {
-      assert.strictEqual(browserMappings.Chrome, 'VizzlyChrome');
-    });
-
-    it('maps chrome (lowercase) to VizzlyChrome', () => {
-      assert.strictEqual(browserMappings.chrome, 'VizzlyChrome');
-    });
-
-    it('maps Firefox to VizzlyFirefox', () => {
-      assert.strictEqual(browserMappings.Firefox, 'VizzlyFirefox');
-    });
-
-    it('maps Safari to VizzlyWebKit', () => {
-      assert.strictEqual(browserMappings.Safari, 'VizzlyWebKit');
-    });
-
-    it('maps WebKit to VizzlyWebKit', () => {
-      assert.strictEqual(browserMappings.WebKit, 'VizzlyWebKit');
     });
   });
 });

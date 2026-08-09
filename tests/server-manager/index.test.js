@@ -10,15 +10,6 @@ import {
 
 describe('server-manager/index', () => {
   describe('createServerManager', () => {
-    it('creates manager with start, stop, getTddResults, and server', () => {
-      let manager = createServerManager({ server: { port: 47392 } });
-
-      assert.ok(manager.start);
-      assert.ok(manager.stop);
-      assert.ok(manager.getTddResults);
-      assert.ok('server' in manager);
-    });
-
     describe('start', () => {
       it('starts TDD server when tddMode is true', async () => {
         let httpServerStarted = false;

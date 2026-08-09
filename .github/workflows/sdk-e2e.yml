@@ -61,9 +61,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./test-site
-        # Dependabot pull requests do not receive repository secrets. The
-        # flag keeps the test suite running locally when the token is absent.
-        run: node ../bin/vizzly.js run "pnpm test" --allow-no-token
+        run: node ../bin/vizzly.js run "pnpm test"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
@@ -125,7 +123,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/vitest
-        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
@@ -137,8 +135,6 @@ jobs:
     name: Storybook SDK
     runs-on: ubuntu-latest
     timeout-minutes: 8
-    env:
-      VIZZLY_TOKEN: ${{ secrets.VIZZLY_STORYBOOK_CLIENT_TOKEN }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -198,7 +194,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/storybook
-        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_LOG_LEVEL: debug
@@ -207,7 +203,7 @@ jobs:
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
       - name: Upload preview
-        if: ${{ success() && env.VIZZLY_TOKEN != '' }}
+        if: success()
         working-directory: ./clients/storybook
         run: ../../bin/vizzly.js preview example-storybook/dist
         env:
@@ -218,8 +214,6 @@ jobs:
     name: Static-Site SDK
     runs-on: ubuntu-latest
     timeout-minutes: 8
-    env:
-      VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -274,7 +268,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/static-site
-        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
@@ -282,7 +276,6 @@ jobs:
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
       - name: Upload preview
-        if: ${{ success() && env.VIZZLY_TOKEN != '' }}
         working-directory: ./clients/static-site
         run: ../../bin/vizzly.js preview ../../test-site
         env:
@@ -332,7 +325,7 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.playwright-version.outputs.version }}-ember-chromium-v5
+          key: playwright-${{ steps.playwright-version.outputs.version }}-ember-chromium-headless-shell-v6
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
@@ -351,7 +344,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/ember/test-app
-        run: ../../../bin/vizzly.js run "pnpm exec testem ci --file testem.cjs" --allow-no-token
+        run: ../../../bin/vizzly.js run "pnpm exec testem ci --file testem.cjs"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_EMBER_CLIENT_TOKEN }}
@@ -408,7 +401,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/ruby
-        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb" --allow-no-token
+        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_RUBY_CLIENT_TOKEN }}
@@ -453,7 +446,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/swift
-        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests" --allow-no-token
+        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_SWIFT_CLIENT_TOKEN }}

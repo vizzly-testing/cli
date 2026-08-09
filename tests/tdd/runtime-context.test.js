@@ -2,7 +2,6 @@ import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import {
   buildTddDependencyOps,
-  resolveTddPaths,
   resolveTddWorkingDirectory,
 } from '../../src/tdd/runtime-context.js';
 
@@ -69,17 +68,5 @@ describe('tdd/runtime-context', () => {
       /Working directory validation failed: bad path/
     );
     assert.strictEqual(logged, 'Invalid working directory: bad path');
-  });
-
-  it('delegates path initialization', () => {
-    let paths = resolveTddPaths('/tmp/work', dir => ({
-      baselinePath: `${dir}/.vizzly/baselines`,
-      currentPath: `${dir}/.vizzly/current`,
-      diffPath: `${dir}/.vizzly/diffs`,
-    }));
-
-    assert.strictEqual(paths.baselinePath, '/tmp/work/.vizzly/baselines');
-    assert.strictEqual(paths.currentPath, '/tmp/work/.vizzly/current');
-    assert.strictEqual(paths.diffPath, '/tmp/work/.vizzly/diffs');
   });
 });

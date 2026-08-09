@@ -10,22 +10,6 @@ export function useConfig(options = {}) {
   });
 }
 
-export function useProjectConfig(options = {}) {
-  return useQuery({
-    queryKey: queryKeys.projectConfig(),
-    queryFn: config.getProject,
-    ...options,
-  });
-}
-
-export function useGlobalConfig(options = {}) {
-  return useQuery({
-    queryKey: queryKeys.globalConfig(),
-    queryFn: config.getGlobal,
-    ...options,
-  });
-}
-
 export function useUpdateProjectConfig() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -33,21 +17,5 @@ export function useUpdateProjectConfig() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
     },
-  });
-}
-
-export function useUpdateGlobalConfig() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: config.updateGlobal,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.config });
-    },
-  });
-}
-
-export function useValidateConfig() {
-  return useMutation({
-    mutationFn: config.validate,
   });
 }

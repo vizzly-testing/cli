@@ -211,15 +211,3 @@ export async function whoamiCommand(
     }
   }
 }
-
-/**
- * Validate whoami options
- * @param {Object} options - Command options
- */
-export function validateWhoamiOptions() {
-  let errors = [];
-
-  // No specific validation needed for whoami command
-
-  return errors;
-}

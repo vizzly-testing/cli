@@ -83,15 +83,3 @@ export async function logoutCommand(
     exit(1);
   }
 }
-
-/**
- * Validate logout options
- * @param {Object} options - Command options
- */
-export function validateLogoutOptions() {
-  let errors = [];
-
-  // No specific validation needed for logout command
-
-  return errors;
-}

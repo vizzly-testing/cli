@@ -165,5 +165,3 @@ export function configure(userConfig = {}, playwrightOptions = {}) {
 
   return config;
 }
-
-export { browserMappings };

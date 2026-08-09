@@ -3,16 +3,13 @@ import 'dotenv/config';
 import { existsSync, statSync } from 'node:fs';
 import { Option, program } from 'commander';
 import { apiCommand, validateApiOptions } from './commands/api.js';
-import {
-  baselinesCommand,
-  validateBaselinesOptions,
-} from './commands/baselines.js';
+import { baselinesCommand } from './commands/baselines.js';
 import { buildsCommand, validateBuildsOptions } from './commands/builds.js';
 import {
   comparisonsCommand,
   validateComparisonsOptions,
 } from './commands/comparisons.js';
-import { configCommand, validateConfigOptions } from './commands/config-cmd.js';
+import { configCommand } from './commands/config-cmd.js';
 import {
   contextBuildCommand,
   contextComparisonCommand,
@@ -25,15 +22,15 @@ import {
   validateContextScreenshotOptions,
   validateContextSimilarOptions,
 } from './commands/context.js';
-import { doctorCommand, validateDoctorOptions } from './commands/doctor.js';
+import { doctorCommand } from './commands/doctor.js';
 import {
   finalizeCommand,
   validateFinalizeOptions,
 } from './commands/finalize.js';
 import { init } from './commands/init.js';
-import { loginCommand, validateLoginOptions } from './commands/login.js';
-import { logoutCommand, validateLogoutOptions } from './commands/logout.js';
-import { orgsCommand, validateOrgsOptions } from './commands/orgs.js';
+import { loginCommand } from './commands/login.js';
+import { logoutCommand } from './commands/logout.js';
+import { orgsCommand } from './commands/orgs.js';
 import { previewCommand, validatePreviewOptions } from './commands/preview.js';
 import {
   projectLinkCommand,
@@ -63,7 +60,7 @@ import {
   validateTddStartOptions,
 } from './commands/tdd-daemon.js';
 import { uploadCommand, validateUploadOptions } from './commands/upload.js';
-import { validateWhoamiOptions, whoamiCommand } from './commands/whoami.js';
+import { whoamiCommand } from './commands/whoami.js';
 import { createPluginServices } from './plugin-api.js';
 import { loadPlugins } from './plugin-loader.js';
 import { createServices } from './services/index.js';
@@ -1159,12 +1156,6 @@ program
   .action(async (key, options) => {
     let globalOptions = getGlobalOptions();
 
-    // Validate options
-    const validationErrors = validateConfigOptions(options);
-    if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
-    }
-
     await configCommand(key, options, globalOptions);
   });
 
@@ -1187,12 +1178,6 @@ Note: Baselines are stored locally in .vizzly/baselines/ during TDD mode.
   )
   .action(async options => {
     let globalOptions = getGlobalOptions();
-
-    // Validate options
-    const validationErrors = validateBaselinesOptions(options);
-    if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
-    }
 
     await baselinesCommand(options, globalOptions);
   });
@@ -1355,11 +1340,6 @@ or the single organization for a project token.
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    const validationErrors = validateOrgsOptions(options);
-    if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
-    }
-
     await orgsCommand(options, globalOptions);
   });
 
@@ -1501,12 +1481,6 @@ program
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    // Validate options
-    const validationErrors = validateDoctorOptions(options);
-    if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
-    }
-
     await doctorCommand(options, globalOptions);
   });
 
@@ -1516,12 +1490,6 @@ program
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
     let globalOptions = getGlobalOptions();
-
-    // Validate options
-    const validationErrors = validateLoginOptions(options);
-    if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
-    }
 
     await loginCommand(options, globalOptions);
   });
@@ -1533,12 +1501,6 @@ program
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    // Validate options
-    const validationErrors = validateLogoutOptions(options);
-    if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
-    }
-
     await logoutCommand(options, globalOptions);
   });
 
@@ -1548,12 +1510,6 @@ program
   .option('--api-url <url>', 'API URL override')
   .action(async options => {
     let globalOptions = getGlobalOptions();
-
-    // Validate options
-    const validationErrors = validateWhoamiOptions(options);
-    if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
-    }
 
     await whoamiCommand(options, globalOptions);
   });

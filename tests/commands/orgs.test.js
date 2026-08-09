@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { orgsCommand, validateOrgsOptions } from '../../src/commands/orgs.js';
+import { orgsCommand } from '../../src/commands/orgs.js';
 
 /**
  * Create mock output object that tracks calls
@@ -48,13 +48,6 @@ let mockOrgs = [
 ];
 
 describe('commands/orgs', () => {
-  describe('validateOrgsOptions', () => {
-    it('returns no errors', () => {
-      let errors = validateOrgsOptions({});
-      assert.deepStrictEqual(errors, []);
-    });
-  });
-
   describe('orgsCommand', () => {
     it('requires API token when no auth exists', async () => {
       let output = createMockOutput();

@@ -242,31 +242,27 @@ describe('server/routers/events', () => {
     });
 
     it('cleans up on connection close', async () => {
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
-      // Simulate connection close
       req.emit('close');
 
-      // Connection should be cleaned up (no error)
-      assert.ok(true);
+      assert.strictEqual(harness.cleanupCalled, true);
     });
 
     it('cleans up on connection error', async () => {
-      let handler = createEventsRouter({ workingDir: testDir });
+      let harness = createEventsHarness(testDir);
       let req = createMockRequest('GET');
       let res = createMockResponse();
 
-      await handler(req, res, '/api/events');
+      await harness.handler(req, res, '/api/events');
 
-      // Simulate connection error
       req.emit('error', new Error('Connection reset'));
 
-      // Connection should be cleaned up (no error)
-      assert.ok(true);
+      assert.strictEqual(harness.cleanupCalled, true);
     });
 
     it('handles invalid JSON in report-data.json gracefully', async () => {

@@ -56,16 +56,6 @@ describe('services/config-service', () => {
     delete process.env.VIZZLY_HOME;
   });
 
-  describe('createConfigService', () => {
-    it('creates a config service with all methods', () => {
-      let service = createConfigService({ workingDir: tempDir });
-
-      assert.ok(service.getConfig, 'Should have getConfig method');
-      assert.ok(service.updateConfig, 'Should have updateConfig method');
-      assert.ok(service.validateConfig, 'Should have validateConfig method');
-    });
-  });
-
   describe('getConfig - merged', () => {
     it('returns default config when no config files exist', async () => {
       let service = createConfigService({ workingDir: tempDir });

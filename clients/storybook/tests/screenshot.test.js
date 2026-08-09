@@ -5,7 +5,6 @@
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
 import {
-  _setVizzlyScreenshot,
   captureAndSendScreenshot,
   captureScreenshot,
   generateScreenshotName,
@@ -152,7 +151,6 @@ describe('captureScreenshot', () => {
 describe('captureAndSendScreenshot', () => {
   it('should send story and viewport metadata for isolated story preview', async () => {
     let mockVizzly = mock.fn(async () => {});
-    _setVizzlyScreenshot(mockVizzly);
 
     let mockBuffer = Buffer.from('fake-screenshot');
     let iframeUrl =
@@ -164,7 +162,13 @@ describe('captureAndSendScreenshot', () => {
     let story = { id: 'button--primary', title: 'Button', name: 'Primary' };
     let viewport = { name: 'desktop', width: 1920, height: 1080 };
 
-    await captureAndSendScreenshot(mockPage, story, viewport);
+    await captureAndSendScreenshot(
+      mockPage,
+      story,
+      viewport,
+      {},
+      { vizzlyScreenshot: mockVizzly }
+    );
 
     assert.equal(mockVizzly.mock.calls.length, 1);
     let [name, , options] = mockVizzly.mock.calls[0].arguments;
@@ -182,7 +186,6 @@ describe('captureAndSendScreenshot', () => {
 
   it('should pass screenshot options through', async () => {
     let mockVizzly = mock.fn(async () => {});
-    _setVizzlyScreenshot(mockVizzly);
 
     let mockBuffer = Buffer.from('fake-screenshot');
     let mockScreenshot = mock.fn(() => mockBuffer);
@@ -194,9 +197,13 @@ describe('captureAndSendScreenshot', () => {
     let story = { id: 'card--default', title: 'Card', name: 'Default' };
     let viewport = { name: 'mobile' };
 
-    await captureAndSendScreenshot(mockPage, story, viewport, {
-      fullPage: false,
-    });
+    await captureAndSendScreenshot(
+      mockPage,
+      story,
+      viewport,
+      { fullPage: false },
+      { vizzlyScreenshot: mockVizzly }
+    );
 
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
       fullPage: false,
@@ -207,7 +214,6 @@ describe('captureAndSendScreenshot', () => {
 
   it('passes request timeout to the Vizzly client transport', async () => {
     let mockVizzly = mock.fn(async () => {});
-    _setVizzlyScreenshot(mockVizzly);
 
     let mockBuffer = Buffer.from('fake-screenshot');
     let mockScreenshot = mock.fn(() => mockBuffer);
@@ -219,10 +225,16 @@ describe('captureAndSendScreenshot', () => {
     let story = { id: 'card--default', title: 'Card', name: 'Default' };
     let viewport = { name: 'desktop', width: 1920, height: 1080 };
 
-    await captureAndSendScreenshot(mockPage, story, viewport, {
-      timeout: 30_000,
-      requestTimeout: 60_000,
-    });
+    await captureAndSendScreenshot(
+      mockPage,
+      story,
+      viewport,
+      {
+        timeout: 30_000,
+        requestTimeout: 60_000,
+      },
+      { vizzlyScreenshot: mockVizzly }
+    );
 
     assert.deepEqual(mockScreenshot.mock.calls[0].arguments[0], {
       fullPage: true,

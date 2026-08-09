@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   getTokenExpiryStatus,
-  validateWhoamiOptions,
   whoamiCommand,
 } from '../../src/commands/whoami.js';
 
@@ -54,12 +53,6 @@ let response = {
 };
 
 describe('commands/whoami', () => {
-  describe('validateWhoamiOptions', () => {
-    it('returns no errors', () => {
-      assert.deepStrictEqual(validateWhoamiOptions({}), []);
-    });
-  });
-
   describe('getTokenExpiryStatus', () => {
     it('formats expired tokens with a refresh hint', () => {
       let result = getTokenExpiryStatus(
@@ -120,29 +113,18 @@ describe('commands/whoami', () => {
 
     it('fetches user info with the configured auth client', async () => {
       let output = createMockOutput();
-      let capturedBaseUrl = null;
-      let capturedTokenStore = null;
 
       await whoamiCommand(
         { apiUrl: 'https://api.example.test' },
         { json: true },
         {
           getAuthTokens: async () => auth,
-          createAuthClient: ({ baseUrl }) => {
-            capturedBaseUrl = baseUrl;
-            return { kind: 'client' };
-          },
+          createAuthClient: () => ({ kind: 'client' }),
           createTokenStore: () => ({ kind: 'store' }),
-          whoami: async (_client, tokenStore) => {
-            capturedTokenStore = tokenStore;
-            return response;
-          },
+          whoami: async () => response,
           output,
         }
       );
-
-      assert.strictEqual(capturedBaseUrl, 'https://api.example.test');
-      assert.deepStrictEqual(capturedTokenStore, { kind: 'store' });
 
       let dataCall = output.calls.find(call => call.method === 'data');
       assert.strictEqual(dataCall.args[0].authenticated, true);

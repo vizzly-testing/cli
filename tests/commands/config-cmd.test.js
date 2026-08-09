@@ -1,9 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import {
-  configCommand,
-  validateConfigOptions,
-} from '../../src/commands/config-cmd.js';
+import { configCommand } from '../../src/commands/config-cmd.js';
 
 /**
  * Create mock output object that tracks calls
@@ -26,13 +23,6 @@ function createMockOutput() {
 }
 
 describe('commands/config', () => {
-  describe('validateConfigOptions', () => {
-    it('returns no errors', () => {
-      let errors = validateConfigOptions({});
-      assert.deepStrictEqual(errors, []);
-    });
-  });
-
   describe('configCommand', () => {
     it('outputs full config as JSON', async () => {
       let output = createMockOutput();

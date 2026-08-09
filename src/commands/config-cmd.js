@@ -180,10 +180,3 @@ function getNestedValue(obj, path) {
 
   return current;
 }
-
-/**
- * Validate config command options
- */
-export function validateConfigOptions() {
-  return [];
-}

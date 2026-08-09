@@ -15,11 +15,6 @@ try {
   vizzlyScreenshot = async () => {};
 }
 
-/** @internal Replace vizzlyScreenshot for testing */
-export function _setVizzlyScreenshot(fn) {
-  vizzlyScreenshot = fn;
-}
-
 /**
  * Generate screenshot name from story and viewport
  * Format: "ComponentName-StoryName@viewportName"
@@ -111,14 +106,18 @@ export async function captureScreenshot(page, options = {}) {
  * @param {Object} story - Story object
  * @param {Object} viewport - Viewport object
  * @param {Object} screenshotOptions - Screenshot options
+ * @param {Object} deps - External dependencies
+ * @param {Function} deps.vizzlyScreenshot - Screenshot transport
  * @returns {Promise<void>}
  */
 export async function captureAndSendScreenshot(
   page,
   story,
   viewport,
-  screenshotOptions = {}
+  screenshotOptions = {},
+  deps = {}
 ) {
+  let sendScreenshot = deps.vizzlyScreenshot || vizzlyScreenshot;
   let name = generateScreenshotName(story, viewport);
   let verbose = process.env.VIZZLY_LOG_LEVEL === 'debug';
 
@@ -140,7 +139,7 @@ export async function captureAndSendScreenshot(
     vizzlyOptions.requestTimeout = screenshotOptions.requestTimeout;
   }
 
-  await vizzlyScreenshot(name, screenshot, vizzlyOptions);
+  await sendScreenshot(name, screenshot, vizzlyOptions);
   let sendTime = Date.now() - t1;
 
   if (verbose) {

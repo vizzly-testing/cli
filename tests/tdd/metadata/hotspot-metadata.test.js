@@ -127,14 +127,6 @@ describe('tdd/metadata/hotspot-metadata', () => {
     });
   });
 
-  describe('createHotspotCache', () => {
-    it('creates empty cache object', () => {
-      let cache = createHotspotCache();
-
-      assert.deepStrictEqual(cache, { data: null, loaded: false });
-    });
-  });
-
   describe('getHotspotForScreenshot', () => {
     it('returns null when cache is empty and no file exists', () => {
       let cache = createHotspotCache();

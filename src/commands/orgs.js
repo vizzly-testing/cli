@@ -106,12 +106,3 @@ export async function orgsCommand(
     exit(1);
   }
 }
-
-/**
- * Validate orgs options
- * @param {Object} _options - Command options
- * @returns {string[]} Validation errors
- */
-export function validateOrgsOptions(_options = {}) {
-  return [];
-}

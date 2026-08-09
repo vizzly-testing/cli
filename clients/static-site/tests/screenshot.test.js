@@ -6,7 +6,6 @@ import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
 import { buildScreenshotCheckObject } from '../../../src/api/core.js';
 import {
-  _setVizzlyScreenshot,
   captureAndSendScreenshot,
   generateScreenshotName,
   generateScreenshotProperties,
@@ -192,8 +191,6 @@ describe('captureAndSendScreenshot', () => {
       url: () => 'http://localhost:3000/docs',
     };
 
-    _setVizzlyScreenshot(mockVizzlyScreenshot);
-
     await captureAndSendScreenshot(
       page,
       { path: '/docs' },
@@ -203,7 +200,8 @@ describe('captureAndSendScreenshot', () => {
         fullPage: false,
         requestTimeout: 120000,
         properties: { page: 'docs', test: 'static-site' },
-      }
+      },
+      { vizzlyScreenshot: mockVizzlyScreenshot }
     );
 
     assert.strictEqual(mockVizzlyScreenshot.mock.callCount(), 1);
@@ -234,8 +232,6 @@ describe('captureAndSendScreenshot', () => {
       url: () => 'http://localhost:3000/docs',
     };
 
-    _setVizzlyScreenshot(mockVizzlyScreenshot);
-
     await captureAndSendScreenshot(
       page,
       { path: '/docs' },
@@ -244,7 +240,8 @@ describe('captureAndSendScreenshot', () => {
         browser: 'chromium',
         fullPage: true,
         timeout: 45_000,
-      }
+      },
+      { vizzlyScreenshot: mockVizzlyScreenshot }
     );
 
     let [, , options] = mockVizzlyScreenshot.mock.calls[0].arguments;

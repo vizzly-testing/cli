@@ -18,23 +18,11 @@ export const SORT_TYPES = {
   TIME: 'time',
 };
 
-export const CONNECTION_STATUS = {
-  CONNECTING: 'connecting',
-  CONNECTED: 'connected',
-  DISCONNECTED: 'disconnected',
-};
-
 export const COMPARISON_STATUS = {
   PASSED: 'passed',
   FAILED: 'failed',
   NEW: 'new',
   BASELINE_CREATED: 'baseline-created',
   ERROR: 'error',
-  REJECTED: 'rejected',
-};
-
-export const USER_ACTION = {
-  ACCEPTING: 'accepting',
-  ACCEPTED: 'accepted',
   REJECTED: 'rejected',
 };

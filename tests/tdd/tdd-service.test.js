@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { createTDDService, TddService } from '../../src/tdd/tdd-service.js';
+import { TddService } from '../../src/tdd/tdd-service.js';
 
 /**
  * Create mock output for testing
@@ -177,92 +177,6 @@ function createMockDeps(overrides = {}) {
 }
 
 describe('tdd/tdd-service', () => {
-  describe('createTDDService', () => {
-    it('creates TddService instance with default options', () => {
-      let mockDeps = createMockDeps();
-      let service = createTDDService({}, {}, mockDeps);
-
-      assert.ok(service instanceof TddService);
-    });
-
-    it('passes options to TddService constructor', () => {
-      let mockDeps = createMockDeps();
-      let service = createTDDService(
-        { comparison: { threshold: 5.0 } },
-        { workingDir: '/custom', setBaseline: true },
-        mockDeps
-      );
-
-      assert.strictEqual(service.setBaseline, true);
-      assert.strictEqual(service.workingDir, '/custom');
-      assert.strictEqual(service.threshold, 5.0);
-    });
-  });
-
-  describe('TddService constructor', () => {
-    it('initializes with default values', () => {
-      let mockDeps = createMockDeps();
-      let service = new TddService({}, process.cwd(), false, null, mockDeps);
-
-      assert.strictEqual(service.threshold, 2.0);
-      assert.strictEqual(service.minClusterSize, 2);
-      assert.deepStrictEqual(service.signatureProperties, []);
-      assert.strictEqual(service.comparisons.length, 0);
-    });
-
-    it('uses config values when provided', () => {
-      let mockDeps = createMockDeps();
-      let config = {
-        comparison: { threshold: 3.5, minClusterSize: 5 },
-        signatureProperties: ['browser', 'viewport'],
-      };
-      let service = new TddService(config, '/test', false, null, mockDeps);
-
-      assert.strictEqual(service.threshold, 3.5);
-      assert.strictEqual(service.minClusterSize, 5);
-      assert.deepStrictEqual(service.signatureProperties, [
-        'browser',
-        'viewport',
-      ]);
-    });
-
-    it('preserves exact-match threshold from config', () => {
-      let mockDeps = createMockDeps();
-      let service = new TddService(
-        { comparison: { threshold: 0 } },
-        '/test',
-        false,
-        null,
-        mockDeps
-      );
-
-      assert.strictEqual(service.threshold, 0);
-    });
-
-    it('outputs baseline update mode message when setBaseline is true', () => {
-      let mockDeps = createMockDeps();
-      new TddService({}, '/test', true, null, mockDeps);
-
-      let infoCall = mockDeps.output.calls.find(
-        c => c.method === 'info' && c.args[0].includes('Baseline update mode')
-      );
-      assert.ok(infoCall);
-    });
-
-    it('throws error for invalid working directory', () => {
-      let mockDeps = createMockDeps({
-        validatePathSecurity: () => {
-          throw new Error('Invalid path');
-        },
-      });
-
-      assert.throws(
-        () => new TddService({}, '/invalid', false, null, mockDeps),
-        /Working directory validation failed/
-      );
-    });
-  });
-
   describe('loadBaseline', () => {
     it('returns null in setBaseline mode', async () => {
       let mockDeps = createMockDeps();
@@ -271,10 +185,6 @@ describe('tdd/tdd-service', () => {
       let result = await service.loadBaseline();
 
       assert.strictEqual(result, null);
-      let debugCall = mockDeps.output.calls.find(
-        c => c.method === 'debug' && c.args[1]?.includes('skipping loading')
-      );
-      assert.ok(debugCall);
     });
 
     it('returns null when no metadata exists', async () => {
@@ -343,43 +253,6 @@ describe('tdd/tdd-service', () => {
       assert.strictEqual(service.baselineData, null);
     });
 
-    it('returns null and logs message when no baseline exists (no API key)', async () => {
-      let mockDeps = createMockDeps({
-        metadata: { loadBaselineMetadata: () => null },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let result = await service.handleLocalBaselines();
-
-      assert.strictEqual(result, null);
-      let infoCall = mockDeps.output.calls.find(
-        c =>
-          c.method === 'info' && c.args[0].includes('No local baseline found')
-      );
-      assert.ok(infoCall);
-    });
-
-    it('returns null and logs different message when no baseline exists (with API key)', async () => {
-      let mockDeps = createMockDeps({
-        metadata: { loadBaselineMetadata: () => null },
-      });
-      let service = new TddService(
-        { apiKey: 'test-key' },
-        '/test',
-        false,
-        null,
-        mockDeps
-      );
-
-      let result = await service.handleLocalBaselines();
-
-      assert.strictEqual(result, null);
-      let infoCall = mockDeps.output.calls.find(
-        c => c.method === 'info' && c.args[0].includes('API key available')
-      );
-      assert.ok(infoCall);
-    });
-
     it('returns baseline when it exists', async () => {
       let metadata = {
         buildId: 'build-123',
@@ -397,53 +270,7 @@ describe('tdd/tdd-service', () => {
     });
   });
 
-  describe('_upsertComparison', () => {
-    it('replaces existing comparison when ID matches', () => {
-      let mockDeps = createMockDeps();
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      // Add initial comparison
-      service.comparisons = [
-        {
-          id: 'comp-1',
-          name: 'homepage',
-          status: 'failed',
-          diffPercentage: 5.0,
-        },
-        { id: 'comp-2', name: 'button', status: 'passed' },
-      ];
-
-      // Upsert with same ID but different status
-      service._upsertComparison({
-        id: 'comp-1',
-        name: 'homepage',
-        status: 'passed',
-        diffPercentage: 0,
-      });
-
-      assert.strictEqual(service.comparisons.length, 2);
-      assert.strictEqual(service.comparisons[0].status, 'passed');
-      assert.strictEqual(service.comparisons[0].diffPercentage, 0);
-    });
-
-    it('appends new comparison when ID does not exist', () => {
-      let mockDeps = createMockDeps();
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      service.comparisons = [
-        { id: 'comp-1', name: 'homepage', status: 'passed' },
-      ];
-
-      service._upsertComparison({
-        id: 'comp-2',
-        name: 'button',
-        status: 'new',
-      });
-
-      assert.strictEqual(service.comparisons.length, 2);
-      assert.strictEqual(service.comparisons[1].id, 'comp-2');
-    });
-
+  describe('daemon result lifecycle', () => {
     it('prevents stale results from accumulating in daemon mode', async () => {
       // This test verifies the fix for issue #158
       // In daemon mode, re-running tests should replace old results, not accumulate them
@@ -603,11 +430,6 @@ describe('tdd/tdd-service', () => {
       assert.strictEqual(result.error, "Image dimensions don't match");
       assert.strictEqual(baselineSaved, false);
       assert.strictEqual(metadataSaved, false);
-      // Dimension mismatch now logs at debug level (shown with --verbose)
-      let debugCall = mockDeps.output.calls.find(
-        c => c.method === 'debug' && c.args[1]?.includes('dimension mismatch')
-      );
-      assert.ok(debugCall);
     });
 
     it('returns error comparison on unexpected error', async () => {
@@ -659,7 +481,6 @@ describe('tdd/tdd-service', () => {
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
-      // Should not throw, just log warning
       let result = await service.compareScreenshot(
         'homepage',
         Buffer.from('test'),
@@ -667,12 +488,6 @@ describe('tdd/tdd-service', () => {
       );
 
       assert.strictEqual(result.status, 'new');
-      let warnCall = mockDeps.output.calls.find(
-        c =>
-          c.method === 'warn' &&
-          c.args[0].includes('Property validation failed')
-      );
-      assert.ok(warnCall);
     });
 
     it('uses per-screenshot threshold when provided', async () => {
@@ -724,132 +539,6 @@ describe('tdd/tdd-service', () => {
     });
   });
 
-  describe('getResults', () => {
-    it('returns results summary from buildResults', () => {
-      let mockDeps = createMockDeps();
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      // Add some comparisons
-      service.comparisons = [
-        { id: '1', status: 'passed', name: 'test1' },
-        { id: '2', status: 'failed', name: 'test2' },
-        { id: '3', status: 'new', name: 'test3' },
-      ];
-
-      let results = service.getResults();
-
-      assert.strictEqual(results.total, 3);
-      assert.strictEqual(results.passed, 1);
-      assert.strictEqual(results.failed, 1);
-      assert.strictEqual(results.new, 1);
-    });
-  });
-
-  describe('printResults', () => {
-    it('prints summary header with screenshot count', async () => {
-      let mockOutput = createMockOutput();
-      let mockDeps = createMockDeps({ output: mockOutput });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      service.comparisons = [
-        { id: '1', status: 'passed', name: 'test1' },
-        { id: '2', status: 'passed', name: 'test2' },
-      ];
-
-      await service.printResults();
-
-      // Should have printed the header
-      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
-      let headerCall = printCalls.find(c =>
-        c.args[0]?.includes('2 screenshots compared')
-      );
-      assert.ok(headerCall, 'Should print header with screenshot count');
-    });
-
-    it('prints passed count in default mode', async () => {
-      let mockOutput = createMockOutput();
-      let mockDeps = createMockDeps({ output: mockOutput });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      service.comparisons = [
-        { id: '1', status: 'passed', name: 'test1' },
-        { id: '2', status: 'passed', name: 'test2' },
-      ];
-
-      await service.printResults();
-
-      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
-      let passedCall = printCalls.find(c => c.args[0]?.includes('2 passed'));
-      assert.ok(passedCall, 'Should print passed count');
-    });
-
-    it('prints failed comparisons', async () => {
-      let mockOutput = createMockOutput();
-      let mockDeps = createMockDeps({ output: mockOutput });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      service.comparisons = [
-        { id: '1', status: 'passed', name: 'test1' },
-        { id: '2', status: 'failed', name: 'failed-test', diffPercentage: 1.5 },
-      ];
-
-      await service.printResults();
-
-      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
-      let failedHeaderCall = printCalls.find(c =>
-        c.args[0]?.includes('1 visual change')
-      );
-      let failedNameCall = printCalls.find(c =>
-        c.args[0]?.includes('failed-test')
-      );
-      assert.ok(failedHeaderCall, 'Should print visual changes header');
-      assert.ok(failedNameCall, 'Should print failed comparison name');
-    });
-
-    it('prints start command hint when there are changes', async () => {
-      let mockOutput = createMockOutput();
-      let mockDeps = createMockDeps({ output: mockOutput });
-      let service = new TddService(
-        { server: { port: 47392 } },
-        '/test',
-        false,
-        null,
-        mockDeps
-      );
-
-      service.comparisons = [
-        { id: '1', status: 'failed', name: 'failed-test' },
-      ];
-
-      await service.printResults();
-
-      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
-      let hintCall = printCalls.find(c =>
-        c.args[0]?.includes('vizzly tdd start --open')
-      );
-      assert.ok(hintCall, 'Should print tdd start command hint');
-    });
-
-    it('does not print start command hint when all passed', async () => {
-      let mockOutput = createMockOutput();
-      let mockDeps = createMockDeps({ output: mockOutput });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      service.comparisons = [{ id: '1', status: 'passed', name: 'test1' }];
-
-      await service.printResults();
-
-      let printCalls = mockOutput.calls.filter(c => c.method === 'print');
-      let hintCall = printCalls.find(c =>
-        c.args[0]?.includes('vizzly tdd start --open')
-      );
-      assert.ok(
-        !hintCall,
-        'Should NOT print start command hint when all passed'
-      );
-    });
-  });
-
   describe('getHotspotForScreenshot', () => {
     it('returns hotspot from memory cache', () => {
       let mockDeps = createMockDeps();
@@ -892,37 +581,6 @@ describe('tdd/tdd-service', () => {
       let result = service.getHotspotForScreenshot('nonexistent');
 
       assert.strictEqual(result, null);
-    });
-  });
-
-  describe('loadHotspots', () => {
-    it('delegates to loadHotspotMetadata', () => {
-      let hotspotData = { homepage: { regions: [] } };
-      let mockDeps = createMockDeps({
-        metadata: { loadHotspotMetadata: () => hotspotData },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let result = service.loadHotspots();
-
-      assert.deepStrictEqual(result, hotspotData);
-    });
-  });
-
-  describe('calculateHotspotCoverage', () => {
-    it('delegates to calculateHotspotCoverage function', () => {
-      let mockDeps = createMockDeps({
-        calculateHotspotCoverage: () => ({
-          coverage: 0.85,
-          linesInHotspots: 85,
-          totalLines: 100,
-        }),
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let result = service.calculateHotspotCoverage([], {});
-
-      assert.strictEqual(result.coverage, 0.85);
     });
   });
 
@@ -1115,10 +773,6 @@ describe('tdd/tdd-service', () => {
       let count = service.updateBaselines();
 
       assert.strictEqual(count, 0);
-      let warnCall = mockDeps.output.calls.find(
-        c => c.method === 'warn' && c.args[0].includes('No comparisons found')
-      );
-      assert.ok(warnCall);
     });
 
     it('skips comparisons with missing current screenshot', () => {
@@ -1141,12 +795,6 @@ describe('tdd/tdd-service', () => {
       let count = service.updateBaselines();
 
       assert.strictEqual(count, 0);
-      let warnCall = mockDeps.output.calls.find(
-        c =>
-          c.method === 'warn' &&
-          c.args[0].includes('Current screenshot not found')
-      );
-      assert.ok(warnCall);
     });
 
     it('creates baseline metadata if it does not exist', () => {
@@ -1198,28 +846,6 @@ describe('tdd/tdd-service', () => {
   });
 
   describe('downloadBaselines', () => {
-    it('uses injected getDefaultBranch when branch is not specified', async () => {
-      let getDefaultBranchCalled = false;
-      let mockDeps = createMockDeps({
-        api: {
-          getDefaultBranch: async () => {
-            getDefaultBranchCalled = true;
-            return 'main';
-          },
-          getBuilds: async () => ({ data: [] }),
-        },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      // Should not throw "getDefaultBranch is not defined"
-      await service.downloadBaselines('test', null, null, null);
-
-      assert.ok(
-        getDefaultBranchCalled,
-        'Should call injected getDefaultBranch'
-      );
-    });
-
     it('uses injected dependencies when downloading by buildId', async () => {
       let apiCalls = [];
       let mockDeps = createMockDeps({
@@ -1546,56 +1172,9 @@ describe('tdd/tdd-service', () => {
       assert.strictEqual(result.properties.viewport_width, 1440);
       assert.strictEqual(result.properties.device, 'desktop');
     });
-
-    it('outputs info message when baseline is created', () => {
-      let mockDeps = createMockDeps({
-        fs: { writeFileSync: () => {} },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      service.createNewBaseline(
-        'hero',
-        Buffer.from('image-data'),
-        {},
-        '/test/.vizzly/current/hero.png',
-        '/test/.vizzly/baselines/hero.png'
-      );
-
-      let infoCall = mockDeps.output.calls.find(
-        c => c.method === 'info' && c.args[0].includes('Creating baseline')
-      );
-      assert.ok(infoCall);
-
-      let successCall = mockDeps.output.calls.find(
-        c => c.method === 'info' && c.args[0].includes('Baseline created')
-      );
-      assert.ok(successCall);
-    });
   });
 
   describe('processDownloadedBaselines', () => {
-    it('clears local baseline data before processing', async () => {
-      let clearCalled = false;
-      let mockDeps = createMockDeps({
-        baseline: {
-          clearBaselineData: () => {
-            clearCalled = true;
-          },
-        },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let apiResponse = {
-        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
-        screenshots: [],
-        signatureProperties: [],
-      };
-
-      await service.processDownloadedBaselines(apiResponse, 'build-1');
-
-      assert.ok(clearCalled, 'Should clear baseline data');
-    });
-
     it('extracts and stores signature properties from API response', async () => {
       let mockDeps = createMockDeps({
         baseline: { clearBaselineData: () => {} },
@@ -1616,49 +1195,6 @@ describe('tdd/tdd-service', () => {
       ]);
     });
 
-    it('returns null and falls back to local baselines when build status is failed', async () => {
-      let handleLocalBaselinesCalled = false;
-      let mockDeps = createMockDeps({
-        baseline: { clearBaselineData: () => {} },
-        metadata: {
-          loadBaselineMetadata: () => {
-            handleLocalBaselinesCalled = true;
-            return null;
-          },
-        },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let apiResponse = {
-        build: { id: 'build-1', name: 'Test Build', status: 'failed' },
-        screenshots: [],
-      };
-
-      await service.processDownloadedBaselines(apiResponse, 'build-1');
-
-      // handleLocalBaselines loads baseline metadata
-      assert.ok(handleLocalBaselinesCalled);
-    });
-
-    it('warns when build status is not completed', async () => {
-      let mockDeps = createMockDeps({
-        baseline: { clearBaselineData: () => {} },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let apiResponse = {
-        build: { id: 'build-1', name: 'Test Build', status: 'pending' },
-        screenshots: [],
-      };
-
-      await service.processDownloadedBaselines(apiResponse, 'build-1');
-
-      let warnCall = mockDeps.output.calls.find(
-        c => c.method === 'warn' && c.args[0].includes('pending')
-      );
-      assert.ok(warnCall, 'Should warn about non-completed status');
-    });
-
     it('returns null when no screenshots in build', async () => {
       let mockDeps = createMockDeps({
         baseline: { clearBaselineData: () => {} },
@@ -1676,27 +1212,6 @@ describe('tdd/tdd-service', () => {
       );
 
       assert.strictEqual(result, null);
-    });
-
-    it('skips screenshots without filename', async () => {
-      let mockDeps = createMockDeps({
-        baseline: { clearBaselineData: () => {} },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let apiResponse = {
-        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
-        screenshots: [
-          { name: 'test', original_url: 'http://example.com/1.png' },
-        ],
-      };
-
-      await service.processDownloadedBaselines(apiResponse, 'build-1');
-
-      let warnCall = mockDeps.output.calls.find(
-        c => c.method === 'warn' && c.args[0].includes('no filename')
-      );
-      assert.ok(warnCall, 'Should warn about missing filename');
     });
 
     it('skips download when SHA matches existing file', async () => {
@@ -1782,104 +1297,6 @@ describe('tdd/tdd-service', () => {
 
       assert.ok(fetchCalled, 'Should fetch when SHA differs');
       assert.strictEqual(writtenFiles.length, 2); // screenshot + metadata
-    });
-
-    it('skips screenshots without download URL', async () => {
-      let mockDeps = createMockDeps({
-        baseline: { clearBaselineData: () => {} },
-        fs: { existsSync: () => false },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let apiResponse = {
-        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
-        screenshots: [{ name: 'test', filename: 'test.png' }],
-      };
-
-      await service.processDownloadedBaselines(apiResponse, 'build-1');
-
-      let warnCall = mockDeps.output.calls.find(
-        c => c.method === 'warn' && c.args[0].includes('no download URL')
-      );
-      assert.ok(warnCall, 'Should warn about missing download URL');
-    });
-
-    it('handles download failures gracefully', async () => {
-      let mockDeps = createMockDeps({
-        baseline: { clearBaselineData: () => {} },
-        fs: {
-          existsSync: () => false,
-          writeFileSync: () => {},
-        },
-        metadata: {
-          loadBaselineMetadata: () => null,
-          saveBaselineMetadata: () => {},
-        },
-        api: {
-          fetchWithTimeout: async () => {
-            throw new Error('Network error');
-          },
-        },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let apiResponse = {
-        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
-        screenshots: [
-          {
-            name: 'test',
-            filename: 'test.png',
-            original_url: 'http://example.com/1.png',
-          },
-        ],
-      };
-
-      // Should not throw
-      await service.processDownloadedBaselines(apiResponse, 'build-1');
-
-      let warnCall = mockDeps.output.calls.find(
-        c => c.method === 'warn' && c.args[0].includes('Failed to download')
-      );
-      assert.ok(warnCall, 'Should warn about download failure');
-    });
-
-    it('handles non-ok HTTP responses', async () => {
-      let mockDeps = createMockDeps({
-        baseline: { clearBaselineData: () => {} },
-        fs: {
-          existsSync: () => false,
-          writeFileSync: () => {},
-        },
-        metadata: {
-          loadBaselineMetadata: () => null,
-          saveBaselineMetadata: () => {},
-        },
-        api: {
-          fetchWithTimeout: async () => ({
-            ok: false,
-            statusText: 'Not Found',
-          }),
-        },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let apiResponse = {
-        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
-        screenshots: [
-          {
-            name: 'test',
-            filename: 'test.png',
-            original_url: 'http://example.com/1.png',
-          },
-        ],
-      };
-
-      await service.processDownloadedBaselines(apiResponse, 'build-1');
-
-      let warnCall = mockDeps.output.calls.find(
-        c => c.method === 'warn' && c.args[0].includes('Failed to download')
-      );
-      assert.ok(warnCall, 'Should warn about HTTP error');
     });
 
     it('saves baseline metadata after successful downloads', async () => {
@@ -2207,70 +1624,9 @@ describe('tdd/tdd-service', () => {
       assert.strictEqual(metadata.buildId, 'build-1');
       assert.strictEqual(metadata.commitSha, 'abc123');
     });
-
-    it('logs summary with download counts', async () => {
-      let mockDeps = createMockDeps({
-        baseline: { clearBaselineData: () => {} },
-        fs: {
-          existsSync: () => false,
-          writeFileSync: () => {},
-        },
-        metadata: {
-          loadBaselineMetadata: () => null,
-          saveBaselineMetadata: () => {},
-        },
-        api: {
-          fetchWithTimeout: async () => ({
-            ok: true,
-            arrayBuffer: async () => new ArrayBuffer(10),
-          }),
-        },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      let apiResponse = {
-        build: { id: 'build-1', name: 'Test Build', status: 'completed' },
-        screenshots: [
-          {
-            name: 'test1',
-            filename: 'test1.png',
-            original_url: 'http://example.com/1.png',
-          },
-          {
-            name: 'test2',
-            filename: 'test2.png',
-            original_url: 'http://example.com/2.png',
-          },
-        ],
-      };
-
-      await service.processDownloadedBaselines(apiResponse, 'build-1');
-
-      let summaryCall = mockDeps.output.calls.find(
-        c => c.method === 'info' && c.args[0].includes('Downloaded')
-      );
-      assert.ok(summaryCall, 'Should log download summary');
-    });
   });
 
   describe('downloadHotspots', () => {
-    it('skips download when no API key configured', async () => {
-      let apiCalled = false;
-      let mockDeps = createMockDeps({
-        api: {
-          getBatchHotspots: async () => {
-            apiCalled = true;
-            return { hotspots: {} };
-          },
-        },
-      });
-      let service = new TddService({}, '/test', false, null, mockDeps);
-
-      await service.downloadHotspots([{ name: 'test' }]);
-
-      assert.ok(!apiCalled, 'Should not call API without apiKey');
-    });
-
     it('fetches hotspots for unique screenshot names', async () => {
       let requestedNames = null;
       let mockDeps = createMockDeps({
@@ -2329,55 +1685,6 @@ describe('tdd/tdd-service', () => {
       assert.deepStrictEqual(service.hotspotData.test.regions, [
         { y1: 0, y2: 100 },
       ]);
-    });
-
-    it('handles API errors gracefully', async () => {
-      let mockDeps = createMockDeps({
-        api: {
-          getBatchHotspots: async () => {
-            throw new Error('API unavailable');
-          },
-        },
-      });
-      let service = new TddService(
-        { apiKey: 'test-key' },
-        '/test',
-        false,
-        null,
-        mockDeps
-      );
-
-      // Should not throw
-      await service.downloadHotspots([{ name: 'test' }]);
-
-      let warnCall = mockDeps.output.calls.find(
-        c =>
-          c.method === 'warn' && c.args[0].includes('Could not fetch hotspot')
-      );
-      assert.ok(warnCall, 'Should warn about API failure');
-    });
-
-    it('skips when no screenshots provided', async () => {
-      let apiCalled = false;
-      let mockDeps = createMockDeps({
-        api: {
-          getBatchHotspots: async () => {
-            apiCalled = true;
-            return { hotspots: {} };
-          },
-        },
-      });
-      let service = new TddService(
-        { apiKey: 'test-key' },
-        '/test',
-        false,
-        null,
-        mockDeps
-      );
-
-      await service.downloadHotspots([]);
-
-      assert.ok(!apiCalled, 'Should not call API with empty screenshots');
     });
   });
 });

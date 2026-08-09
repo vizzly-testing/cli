@@ -21,7 +21,7 @@ let defaultTimers = {
 /**
  * Read and parse JSON from disk, returning null on missing or invalid files.
  */
-export function readJsonFile(path) {
+function readJsonFile(path) {
   if (!existsSync(path)) {
     return null;
   }

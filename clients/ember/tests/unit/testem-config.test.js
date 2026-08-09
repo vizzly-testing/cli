@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
-import { configure } from '../../src/testem-config.js';
+import { browserMappings, configure } from '../../src/testem-config.js';
 
 describe('testem-config', () => {
   afterEach(() => {
@@ -11,6 +11,19 @@ describe('testem-config', () => {
     if (existsSync(playwrightConfig)) {
       rmSync(playwrightConfig);
     }
+  });
+
+  it('preserves the public browser mappings', () => {
+    assert.deepStrictEqual(browserMappings, {
+      Chrome: 'VizzlyChrome',
+      chrome: 'VizzlyChrome',
+      Firefox: 'VizzlyFirefox',
+      firefox: 'VizzlyFirefox',
+      Safari: 'VizzlyWebKit',
+      safari: 'VizzlyWebKit',
+      WebKit: 'VizzlyWebKit',
+      webkit: 'VizzlyWebKit',
+    });
   });
 
   describe('configure()', () => {

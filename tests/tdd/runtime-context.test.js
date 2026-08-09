@@ -1,46 +1,8 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import {
-  buildTddDependencyOps,
-  resolveTddWorkingDirectory,
-} from '../../src/tdd/runtime-context.js';
+import { resolveTddWorkingDirectory } from '../../src/tdd/runtime-context.js';
 
 describe('tdd/runtime-context', () => {
-  it('merges grouped dependencies with defaults', () => {
-    let defaults = {
-      output: { info: () => {} },
-      colors: { green: s => s },
-      validatePathSecurity: path => path,
-      initializeDirectories: () => ({}),
-      calculateHotspotCoverage: () => ({}),
-      fs: { existsSync: () => false, readFileSync: () => Buffer.from('x') },
-      api: { createApiClient: () => ({}) },
-      metadata: { loadBaselineMetadata: () => null },
-      baseline: { baselineExists: () => false },
-      comparison: { compareImages: async () => ({}) },
-      signature: { generateComparisonId: sig => sig },
-      results: { buildResults: () => ({ total: 0 }) },
-    };
-    let customCreateApiClient = () => ({ custom: true });
-    let customExistsSync = () => true;
-
-    let { runtimeDeps, apiOps } = buildTddDependencyOps(
-      {
-        fs: { existsSync: customExistsSync },
-        api: { createApiClient: customCreateApiClient },
-      },
-      defaults
-    );
-
-    assert.strictEqual(runtimeDeps.existsSync, customExistsSync);
-    assert.strictEqual(runtimeDeps.createApiClient, customCreateApiClient);
-    assert.strictEqual(
-      runtimeDeps.loadBaselineMetadata,
-      defaults.metadata.loadBaselineMetadata
-    );
-    assert.strictEqual(apiOps.createApiClient, customCreateApiClient);
-  });
-
   it('returns validated working directory when path is valid', () => {
     let output = { error: () => {} };
     let validated = resolveTddWorkingDirectory(

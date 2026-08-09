@@ -25,6 +25,8 @@ let browserMappings = {
   webkit: 'VizzlyWebKit',
 };
 
+export { browserMappings };
+
 /**
  * Remap browser names to Vizzly launcher names
  * @param {string[]} browsers - Array of browser names

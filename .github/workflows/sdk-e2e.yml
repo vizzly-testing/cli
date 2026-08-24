@@ -61,7 +61,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./test-site
-        run: node ../bin/vizzly.js run "pnpm test" --allow-no-token
+        run: node ../bin/vizzly.js run "pnpm test"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
@@ -123,7 +123,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/vitest
-        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_VITEST_CLIENT_TOKEN }}
@@ -194,7 +194,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/storybook
-        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_LOG_LEVEL: debug
@@ -205,12 +205,7 @@ jobs:
       - name: Upload preview
         if: success()
         working-directory: ./clients/storybook
-        run: |
-          if [ -n "$VIZZLY_TOKEN" ]; then
-            ../../bin/vizzly.js preview example-storybook/dist
-          else
-            echo "Skipping preview upload without VIZZLY_TOKEN"
-          fi
+        run: ../../bin/vizzly.js preview example-storybook/dist
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STORYBOOK_CLIENT_TOKEN }}
 
@@ -273,7 +268,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/static-site
-        run: ../../bin/vizzly.js run "pnpm run test:e2e" --allow-no-token
+        run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
@@ -282,12 +277,7 @@ jobs:
 
       - name: Upload preview
         working-directory: ./clients/static-site
-        run: |
-          if [ -n "$VIZZLY_TOKEN" ]; then
-            ../../bin/vizzly.js preview ../../test-site
-          else
-            echo "Skipping preview upload without VIZZLY_TOKEN"
-          fi
+        run: ../../bin/vizzly.js preview ../../test-site
         env:
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_STATIC_SITE_CLIENT_TOKEN }}
 
@@ -354,7 +344,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/ember/test-app
-        run: ../../../bin/vizzly.js run "pnpm exec testem ci --file testem.cjs" --allow-no-token
+        run: ../../../bin/vizzly.js run "pnpm exec testem ci --file testem.cjs"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_EMBER_CLIENT_TOKEN }}
@@ -411,7 +401,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/ruby
-        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb" --allow-no-token
+        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_RUBY_CLIENT_TOKEN }}
@@ -456,7 +446,7 @@ jobs:
 
       - name: Run E2E tests (Cloud mode)
         working-directory: ./clients/swift
-        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests" --allow-no-token
+        run: ../../bin/vizzly.js run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests"
         env:
           CI: true
           VIZZLY_TOKEN: ${{ secrets.VIZZLY_SWIFT_CLIENT_TOKEN }}

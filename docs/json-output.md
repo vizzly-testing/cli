@@ -264,7 +264,6 @@ cloud data or your local `.vizzly` workspace.
 ```bash
 vizzly context build abc123 --source cloud --json
 vizzly context build abc123 --source cloud --agent --json
-vizzly context build abc123 --source cloud --agent --json --cursor eyJ2IjoxfQ
 vizzly context build abc123 --source cloud --agent --json --include diffs
 vizzly context build abc123 --source cloud --agent --json --full
 vizzly context build current --source local --json
@@ -320,7 +319,7 @@ Compact agent JSON:
         "id": "cmp-1",
         "screenshot_name": "Dashboard",
         "result": "changed",
-        "review_state": "pending",
+        "approval_status": "pending",
         "needs_review": true,
         "screenshot": {
           "id": "current-1",
@@ -348,7 +347,7 @@ Compact agent JSON:
       "returned": 1,
       "total": 12,
       "has_more": true,
-      "next_cursor": "eyJ2IjoxfQ"
+      "next_cursor": "opaque-cursor-returned-by-api"
     }
   },
   "suggested_commands": [
@@ -366,7 +365,7 @@ Compact agent JSON:
     },
     {
       "label": "Load next evidence page",
-      "command": "vizzly --json context build abc123 --agent --cursor eyJ2IjoxfQ --source cloud"
+      "command": "vizzly --json context build abc123 --agent --cursor opaque-cursor-returned-by-api --source cloud"
     }
   ]
 }
@@ -452,7 +451,6 @@ Full build context JSON:
 ```bash
 vizzly context comparison cmp-1 --source cloud --json
 vizzly context comparison cmp-1 --source cloud --agent --json
-vizzly context comparison cmp-1 --source cloud --agent --json --cursor eyJ2IjoxfQ
 vizzly context comparison cmp-1 --source cloud --agent --json --include diffs
 vizzly context comparison build-detail-screenshots --source local --json
 ```
@@ -471,7 +469,7 @@ Agent comparison JSON:
     "id": "cmp-1",
     "screenshot_name": "Dashboard",
     "result": "changed",
-    "review_state": "pending",
+    "approval_status": "pending",
     "screenshot": {
       "url": "https://.../current.png"
     },

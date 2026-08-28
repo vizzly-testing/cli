@@ -995,7 +995,6 @@ Examples:
   $ vizzly context build current --source local
   $ vizzly context build current --source local --agent
   $ vizzly context build abc123 --source cloud --agent --json
-  $ vizzly context build abc123 --source cloud --agent --json --cursor eyJ2IjoxfQ
   $ vizzly context build abc123 --source cloud --agent --json --include diffs
   $ vizzly context build abc123 --source cloud --agent --json --full
 `
@@ -1031,7 +1030,6 @@ contextCmd
 Examples:
   $ vizzly context comparison def456 --source cloud
   $ vizzly context comparison def456 --source local
-  $ vizzly context comparison def456 --source cloud --cursor eyJ2IjoxfQ
   $ vizzly context comparison def456 --source cloud --json
   $ vizzly context comparison def456 --source cloud --agent --json
 `

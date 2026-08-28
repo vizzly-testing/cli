@@ -424,6 +424,9 @@ describe('context/local-workspace-provider', () => {
     assert.strictEqual(buildSummary.evidence.items.length, 10);
     assert.strictEqual(buildSummary.evidence.page.has_more, true);
     assert.ok(!buildSummary.evidence.items[0].diff.regions);
+    assert.strictEqual(buildSummary.preview, null);
+    assert.deepStrictEqual(buildSummary.signature_properties, []);
+    assert.strictEqual(buildSummary.comments.build.total, 0);
 
     let nextBuildPage = provider.getBuildContext('current', {
       details: 'summary',
@@ -460,6 +463,13 @@ describe('context/local-workspace-provider', () => {
       comparisonSummary.history.recent_by_name.page.has_more,
       true
     );
+    assert.strictEqual(comparisonSummary.details, 'summary');
+    assert.strictEqual(comparisonSummary.history.active_stream, null);
+    assert.deepStrictEqual(comparisonSummary.signature_properties, []);
+    assert.strictEqual(
+      comparisonSummary.dynamic_regions.confirmed_regions.total,
+      0
+    );
 
     let comparisonDiffs = provider.getComparisonContext('comp-0', {
       details: 'diffs',
@@ -476,6 +486,51 @@ describe('context/local-workspace-provider', () => {
           details: 'summary',
           limit: 10,
           cursor: comparisonSummary.history.recent_by_name.page.next_cursor,
+        }),
+      /cursor is invalid|results changed/
+    );
+  });
+
+  it('invalidates a cursor when local evidence changes without a new timestamp', () => {
+    let projectRoot = '/tmp/vizzly-local-changing-context';
+    let paths = createWorkspacePaths(projectRoot);
+    let revision = 1;
+    let readJsonIfExists = path => {
+      if (path === paths.report) {
+        return {
+          timestamp: 1234,
+          comparisons: Array.from({ length: 11 }, (_, index) => ({
+            id: `comp-${index}`,
+            name: `Screenshot ${index}`,
+            status: index === 0 && revision === 2 ? 'passed' : 'failed',
+            properties: {},
+          })),
+        };
+      }
+      if (path === paths.comparisonDetails) return {};
+      return null;
+    };
+    let firstProvider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      { readJsonIfExists }
+    );
+    let firstPage = firstProvider.getBuildContext('current', {
+      details: 'summary',
+      limit: 10,
+    });
+
+    revision = 2;
+    let changedProvider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      { readJsonIfExists }
+    );
+
+    assert.throws(
+      () =>
+        changedProvider.getBuildContext('current', {
+          details: 'summary',
+          limit: 10,
+          cursor: firstPage.evidence.page.next_cursor,
         }),
       /cursor is invalid|results changed/
     );

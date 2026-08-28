@@ -179,6 +179,22 @@ describe('api/core', () => {
 
       assert.strictEqual(result.code, 'SERVER_ERROR');
     });
+
+    it('preserves structured API error codes and messages', () => {
+      let result = parseApiError(
+        409,
+        JSON.stringify({
+          error: 'Context evidence changed; request the first page again',
+          details: { code: 'CONTEXT_CURSOR_STALE' },
+        }),
+        'https://api.test/context'
+      );
+
+      assert.strictEqual(result.code, 'CONTEXT_CURSOR_STALE');
+      assert.strictEqual(result.details.code, 'CONTEXT_CURSOR_STALE');
+      assert.match(result.message, /Context evidence changed/);
+      assert.ok(!result.message.includes('{"error"'));
+    });
   });
 
   describe('isAuthError', () => {

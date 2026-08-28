@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync as defaultExistsSync, readFileSync } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -253,35 +254,6 @@ function buildReviewState(build, reviewSummary) {
   };
 }
 
-function mapLocalScreenshot(snapshot, comparison) {
-  let mapped = mapLocalComparison(snapshot, comparison);
-  let baselineBuildId = snapshot.baselineMetadata?.buildId || null;
-
-  return {
-    id: mapped.screenshot.id,
-    name: mapped.screenshot.name,
-    browser: mapped.screenshot.browser,
-    viewport: {
-      width: mapped.screenshot.viewport_width,
-      height: mapped.screenshot.viewport_height,
-    },
-    url: mapped.screenshot.original_url,
-    baseline: mapped.baseline
-      ? {
-          id: mapped.baseline.id,
-          build_id: baselineBuildId,
-          name: mapped.baseline.name,
-          browser: mapped.baseline.browser,
-          viewport: {
-            width: mapped.baseline.viewport_width,
-            height: mapped.baseline.viewport_height,
-          },
-          url: mapped.baseline.original_url,
-        }
-      : null,
-  };
-}
-
 function mapLocalComparison(snapshot, comparison) {
   let details = snapshot.comparisonDetails[comparison.id] || {};
   let comparisonName = comparison.originalName || comparison.name;
@@ -485,6 +457,56 @@ function projectLocalHistoryItem(comparison) {
         : null,
     },
   };
+}
+
+function compactLocalCollection(items) {
+  return {
+    total: Array.isArray(items) ? items.length : null,
+    included: false,
+    details_available: Array.isArray(items) && items.length > 0,
+  };
+}
+
+function createLocalDynamicRegions(comparison = null) {
+  let confirmedRegions = comparison?.analysis?.confirmed_regions;
+  let hotspotAnalysis = comparison?.analysis?.hotspot_analysis;
+
+  return {
+    decision: null,
+    patterns: compactLocalCollection([]),
+    confirmed_regions: compactLocalCollection(confirmedRegions),
+    exclusions: {
+      total: null,
+      included: false,
+      details_available: false,
+    },
+    hotspot_analysis: hotspotAnalysis
+      ? {
+          total_builds_analyzed: hotspotAnalysis.total_builds_analyzed ?? null,
+          confidence: hotspotAnalysis.confidence ?? null,
+          confidence_score: hotspotAnalysis.confidence_score ?? null,
+          data_source: hotspotAnalysis.data_source ?? null,
+          coverage: hotspotAnalysis.coverage ?? null,
+          confirmed_region_coverage:
+            hotspotAnalysis.confirmed_region_coverage ?? null,
+        }
+      : null,
+  };
+}
+
+function createLocalSnapshotRevision(snapshot) {
+  let revisionInput = {
+    serverInfo: snapshot.serverInfo,
+    reportData: snapshot.reportData,
+    comparisonDetails: snapshot.comparisonDetails,
+    baselineMetadata: snapshot.baselineMetadata,
+    hotspotFile: snapshot.hotspotFile,
+    regionFile: snapshot.regionFile,
+  };
+
+  return createHash('sha256')
+    .update(JSON.stringify(revisionInput))
+    .digest('base64url');
 }
 
 function buildReviewSummary(comparisons = []) {
@@ -737,8 +759,8 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
     let mappedComparisons = snapshot.reportData.comparisons.map(comparison =>
       mapLocalComparison(snapshot, comparison)
     );
-    let mappedScreenshots = snapshot.reportData.comparisons.map(comparison =>
-      mapLocalScreenshot(snapshot, comparison)
+    let mappedScreenshots = mappedComparisons.map(comparison =>
+      projectLocalScreenshot(comparison.screenshot, comparison.baseline)
     );
     let reviewSummary = buildReviewSummary(snapshot.reportData.comparisons);
     let reviewState = buildReviewState(resolvedBuild, reviewSummary);
@@ -781,7 +803,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
 
     if (!query.details) return context;
 
-    let revision = String(snapshot.reportData.timestamp || resolvedBuild.id);
+    let revision = createLocalSnapshotRevision(snapshot);
     let limit = query.limit || 10;
     let cursorQuery = `${query.details}:${limit}`;
     let cursor = readLocalCursor(
@@ -805,6 +827,16 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       baseline: context.baseline,
       status: context.status,
       summary: context.summary,
+      preview: null,
+      signature_properties: [],
+      dynamic_regions: {
+        exclusions: {
+          total: null,
+          included: false,
+          details_available: false,
+        },
+        item_details_included: false,
+      },
       evidence: createLocalPage(evidence, {
         limit,
         offset: cursor?.offset || 0,
@@ -814,6 +846,10 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
         stream: 'evidence',
         revision,
       }),
+      comments: {
+        build: compactLocalCollection(context.comments.build),
+        screenshot_count: context.comments.screenshot_count,
+      },
       links: context.links,
     };
   }
@@ -878,7 +914,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
 
     if (!query.details) return context;
 
-    let revision = String(snapshot.reportData.timestamp || context.build.id);
+    let revision = createLocalSnapshotRevision(snapshot);
     let limit = query.limit || 10;
     let cursorQuery = `${query.details}:${limit}`;
     let cursor = readLocalCursor(
@@ -899,11 +935,14 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       source: LOCAL_CONTEXT_SOURCE,
       scope: context.scope,
       build: context.build,
+      signature_properties: [],
       comparison: projectLocalFocusedComparison(
         context.comparison,
         query.details === 'diffs'
       ),
+      dynamic_regions: createLocalDynamicRegions(context.comparison),
       history: {
+        active_stream: activeStream || null,
         similar_by_fingerprint: createLocalPage([], {
           limit,
           offset: similarOffset,
@@ -923,8 +962,16 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
           revision,
         }),
       },
-      review: context.review,
+      review: {
+        review_summary: context.review.review_summary,
+        assignments: compactLocalCollection(context.review.assignments),
+        build_comments: compactLocalCollection(context.review.build_comments),
+        screenshot_comments: compactLocalCollection(
+          context.review.screenshot_comments
+        ),
+      },
       links: context.links,
+      details: query.details,
     };
   }
 

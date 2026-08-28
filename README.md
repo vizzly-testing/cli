@@ -101,7 +101,6 @@ evidence in one place.
 ```bash
 # Cloud context for a build or comparison
 vizzly context build abc123 --source cloud
-vizzly context build abc123 --source cloud --agent --json --cursor eyJ2IjoxfQ
 vizzly context comparison def456 --source cloud --agent --json
 
 # Local workspace context from .vizzly/
@@ -113,7 +112,8 @@ vizzly context review-queue --source local --json
 
 `--json` is the durable automation path. `--agent` gives you the compact API
 handoff for prompt assembly. Build handoffs contain up to 10 records; use the
-returned next-page command or opaque `--cursor` to continue safely. Add
+exact next-page command returned in `suggested_commands` to continue safely.
+That command carries the API's opaque `--cursor`. Add
 `--include diffs` for raw diff diagnostics, or `--full` when you need the whole
 payload.
 

@@ -324,6 +324,29 @@ async function withBuildContextApi(callback) {
       return;
     }
 
+    if (req.url.startsWith('/api/sdk/context/builds/near-limit')) {
+      let payload = {
+        resource: 'build_context',
+        build: { id: 'near-limit' },
+        evidence: {
+          items: [],
+          page: {
+            limit: 10,
+            returned: 0,
+            total: 0,
+            has_more: false,
+            next_cursor: null,
+          },
+        },
+        padding: '',
+      };
+      let remainingBytes =
+        64 * 1024 - Buffer.byteLength(JSON.stringify(payload)) - 16;
+      payload.padding = 'x'.repeat(remainingBytes);
+      res.end(JSON.stringify(payload));
+      return;
+    }
+
     if (req.url.startsWith('/api/sdk/context/builds/invalid')) {
       res.end(JSON.stringify({ resource: 'build_context' }));
       return;
@@ -462,6 +485,7 @@ async function withBuildContextApi(callback) {
     res.end(
       JSON.stringify({
         resource: 'build_context',
+        source: 'local_workspace',
         review_flow: 'legacy',
         scope: {
           organization: { slug: 'acme' },
@@ -739,6 +763,10 @@ describe('context CLI integration', () => {
         ['--json', 'context', 'build', 'invalid', '--agent'],
         { cwd, env }
       );
+      let nearLimit = await runCLI(
+        ['--json', 'context', 'build', 'near-limit', '--agent'],
+        { cwd, env }
+      );
 
       assert.strictEqual(oversized.code, 1);
       assert.strictEqual(
@@ -749,6 +777,11 @@ describe('context CLI integration', () => {
       assert.strictEqual(
         JSON.parse(invalid.stderr).error.code,
         'COMPACT_CONTEXT_INVALID'
+      );
+      assert.strictEqual(nearLimit.code, 1);
+      assert.strictEqual(
+        JSON.parse(nearLimit.stderr).error.code,
+        'COMPACT_CONTEXT_OVERSIZED'
       );
     });
   });

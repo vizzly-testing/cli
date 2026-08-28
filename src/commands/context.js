@@ -136,8 +136,15 @@ function getCompactPage(collection, label) {
   return collection;
 }
 
-function validateCompactContext(context, resource, details) {
+function validateCompactContext(context, resource) {
   if (!context || typeof context !== 'object') {
+    throw new VizzlyError(
+      `Vizzly returned an invalid compact ${resource} context`,
+      'COMPACT_CONTEXT_INVALID'
+    );
+  }
+
+  if (context.resource !== `${resource}_context` || !context[resource]?.id) {
     throw new VizzlyError(
       `Vizzly returned an invalid compact ${resource} context`,
       'COMPACT_CONTEXT_INVALID'
@@ -152,19 +159,23 @@ function validateCompactContext(context, resource, details) {
     getCompactPage(history.recent_by_name, 'recent history');
   }
 
-  let { source: _source, ...providerContext } = context;
-  let bytes = Buffer.byteLength(JSON.stringify(providerContext));
+  return context;
+}
+
+function validateCompactOutputSize(payload, resource, details) {
+  let bytes = Buffer.byteLength(JSON.stringify(payload));
   let maxBytes =
     details === 'diffs' ? COMPACT_DIFFS_MAX_BYTES : COMPACT_SUMMARY_MAX_BYTES;
+
   if (bytes > maxBytes) {
     throw new VizzlyError(
-      `Vizzly returned an oversized compact ${resource} context`,
+      `Vizzly produced an oversized compact ${resource} context`,
       'COMPACT_CONTEXT_OVERSIZED',
       { bytes, max_bytes: maxBytes }
     );
   }
 
-  return context;
+  return payload;
 }
 
 function validateSourceOption(value) {
@@ -253,7 +264,7 @@ function createClient(config, createApiClient) {
  * @returns {Object} Context payload with explicit source provenance.
  */
 function attachContextSource(context, source) {
-  return { ...context, source: context?.source || source };
+  return { ...context, source };
 }
 
 async function loadContextConfig(globalOptions, options, deps) {
@@ -755,6 +766,13 @@ function displayCompactComparisonContext(output, context) {
     printComparisonList(output, similar);
   }
 
+  let recent = context.history?.recent_by_name?.items || [];
+  if (recent.length > 0) {
+    output.blank();
+    output.print('  Recent Diffs');
+    printComparisonList(output, recent);
+  }
+
   if (context.links?.comparison_url) {
     output.labelValue('Comparison URL', context.links.comparison_url);
   }
@@ -1244,11 +1262,11 @@ export async function contextBuildCommand(
     output.stopSpinner();
 
     if (compact) {
-      let compactContext = validateCompactContext(context, 'build', details);
-      let payload = buildCompactBuildPayload(
-        compactContext,
-        include,
-        options.cursor
+      let compactContext = validateCompactContext(context, 'build');
+      let payload = validateCompactOutputSize(
+        buildCompactBuildPayload(compactContext, include, options.cursor),
+        'build',
+        details
       );
 
       if (globalOptions.json) {
@@ -1318,12 +1336,12 @@ export async function contextComparisonCommand(
     output.stopSpinner();
 
     if (compact) {
-      let compactContext = validateCompactContext(
-        context,
+      let compactContext = validateCompactContext(context, 'comparison');
+      let payload = validateCompactOutputSize(
+        buildCompactComparisonPayload(compactContext, include),
         'comparison',
         details
       );
-      let payload = buildCompactComparisonPayload(compactContext, include);
 
       if (globalOptions.json) {
         output.data(payload);

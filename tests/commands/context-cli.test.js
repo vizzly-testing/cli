@@ -303,19 +303,108 @@ async function withBuildContextApi(callback) {
     requests.push(req.url);
     res.setHeader('content-type', 'application/json');
 
+    if (req.url.startsWith('/api/sdk/context/builds/oversized')) {
+      res.end(
+        JSON.stringify({
+          resource: 'build_context',
+          build: { id: 'oversized' },
+          evidence: {
+            items: [],
+            page: {
+              limit: 10,
+              returned: 0,
+              total: 0,
+              has_more: false,
+              next_cursor: null,
+            },
+          },
+          padding: 'x'.repeat(70 * 1024),
+        })
+      );
+      return;
+    }
+
+    if (req.url.startsWith('/api/sdk/context/builds/invalid')) {
+      res.end(JSON.stringify({ resource: 'build_context' }));
+      return;
+    }
+
+    if (req.url.startsWith('/api/sdk/context/comparisons/partial')) {
+      res.end(
+        JSON.stringify({
+          resource: 'comparison_context',
+          comparison: { id: 'partial' },
+          history: {
+            similar_by_fingerprint: {
+              items: [],
+              page: {
+                limit: 10,
+                returned: 0,
+                total: 0,
+                has_more: false,
+                next_cursor: null,
+              },
+            },
+            recent_by_name: {
+              items: [],
+              page: {
+                limit: 10,
+                returned: 0,
+                total: null,
+                has_more: false,
+                next_cursor: null,
+              },
+            },
+          },
+        })
+      );
+      return;
+    }
+
     if (req.url.startsWith('/api/sdk/context/comparisons/')) {
       let comparison = {
         ...comparisons[0],
         diff: undefined,
         analysis: comparisons[0].diff,
       };
+      let url = new URL(req.url, 'http://127.0.0.1');
+      let compact = url.searchParams.has('details');
 
       res.end(
         JSON.stringify({
           resource: 'comparison_context',
           review_flow: 'cricket_v1',
+          scope: {
+            organization: { slug: 'acme' },
+            project: { slug: 'web', name: 'Web' },
+          },
+          build: { id: 'build-123', status: 'completed' },
           comparison,
           dynamic_regions: createDynamicRegionResolutionContext(),
+          history: compact
+            ? {
+                similar_by_fingerprint: {
+                  items: [comparisons[1]],
+                  page: {
+                    limit: 10,
+                    returned: 1,
+                    total: 2,
+                    has_more: true,
+                    next_cursor: 'similar-page-2',
+                  },
+                },
+                recent_by_name: {
+                  items: [comparisons[2]],
+                  page: {
+                    limit: 10,
+                    returned: 1,
+                    total: 1,
+                    has_more: false,
+                    next_cursor: null,
+                  },
+                },
+              }
+            : undefined,
         })
       );
       return;
@@ -355,6 +444,21 @@ async function withBuildContextApi(callback) {
       return;
     }
 
+    let url = new URL(req.url, 'http://127.0.0.1');
+    let details = url.searchParams.get('details');
+    let cursor = url.searchParams.get('cursor');
+    let pageComparisons = cursor
+      ? comparisons.slice(10)
+      : comparisons.slice(0, 10);
+    let evidence = pageComparisons.map(comparison => ({
+      ...comparison,
+      type: 'comparison',
+      diff: {
+        ...comparison.diff,
+        regions: details === 'diffs' ? comparison.diff.regions : undefined,
+      },
+    }));
+
     res.end(
       JSON.stringify({
         resource: 'build_context',
@@ -366,11 +470,23 @@ async function withBuildContextApi(callback) {
         build: { id: 'build-123', status: 'completed' },
         status: { needs_review: true, pending_comparisons: 11 },
         summary: { comparisons: { total: 11, changed: 11 } },
-        dynamic_regions: req.url.includes('details=')
+        dynamic_regions: details
           ? diagnosticDynamicRegions
           : completeDynamicRegions,
-        groups,
-        comparisons,
+        evidence: details
+          ? {
+              items: evidence,
+              page: {
+                limit: 10,
+                returned: evidence.length,
+                total: comparisons.length,
+                has_more: !cursor,
+                next_cursor: cursor ? null : 'build-page-2',
+              },
+            }
+          : undefined,
+        groups: details ? undefined : groups,
+        comparisons: details ? undefined : comparisons,
       })
     );
   });
@@ -445,30 +561,36 @@ describe('context CLI integration', () => {
 
       assert.strictEqual(compact.code, 0);
       let compactPayload = JSON.parse(compact.stdout).data;
-      assert.strictEqual(compactPayload.evidence_returned, 10);
-      assert.strictEqual(compactPayload.evidence_truncated, true);
+      assert.strictEqual(compactPayload.evidence.page.returned, 10);
+      assert.strictEqual(compactPayload.evidence.page.has_more, true);
       assert.strictEqual(compactPayload.source, 'cloud');
       assert.strictEqual(compactPayload.review_flow, 'legacy');
-      assert.strictEqual(compactPayload.evidence[0].review_state, 'pending');
-      assert.strictEqual(compactPayload.evidence[0].id, 'comparison-1');
-      assert.strictEqual(compactPayload.evidence[0].name, 'Screenshot 1');
-      assert.strictEqual(compactPayload.evidence[0].is_flaky, false);
+      assert.strictEqual(compactPayload.evidence.items[0].id, 'comparison-1');
+      assert.strictEqual(
+        compactPayload.evidence.items[0].screenshot_name,
+        'Screenshot 1'
+      );
       assert.deepStrictEqual(
         compactPayload.dynamic_regions,
         diagnosticDynamicRegions
       );
-      assert.strictEqual(compactPayload.evidence[0].screenshot.id, 'current-1');
-      assert.strictEqual(compactPayload.evidence[0].baseline.id, 'baseline-1');
-      assert.strictEqual(compactPayload.evidence[0].diff.total_pixels, 5184000);
       assert.strictEqual(
-        compactPayload.evidence[0].screenshot.url,
+        compactPayload.evidence.items[0].screenshot.id,
+        'current-1'
+      );
+      assert.strictEqual(
+        compactPayload.evidence.items[0].diff.total_pixels,
+        5184000
+      );
+      assert.strictEqual(
+        compactPayload.evidence.items[0].screenshot.url,
         'https://cdn.test/current-1.png'
       );
       assert.strictEqual(
-        compactPayload.evidence[0].diff.image_url,
+        compactPayload.evidence.items[0].diff.image_url,
         'https://cdn.test/diff-1.png'
       );
-      assert.deepStrictEqual(compactPayload.evidence[0].diff.artifacts, {
+      assert.deepStrictEqual(compactPayload.evidence.items[0].diff.artifacts, {
         analysis: {
           available: true,
           schema_version: 2,
@@ -494,7 +616,7 @@ describe('context CLI integration', () => {
           coordinate_space_version: 'bitmap-top-left-v1',
         },
       });
-      assert.ok(!compactPayload.evidence[0].diff.regions);
+      assert.ok(!compactPayload.evidence.items[0].diff.regions);
       assert.ok(!compactPayload.groups);
       assert.ok(!compactPayload.next_actions);
 
@@ -505,18 +627,17 @@ describe('context CLI integration', () => {
           'build',
           'build-123',
           '--agent',
-          '--offset',
-          '10',
+          '--cursor',
+          'build-page-2',
         ],
         { cwd, env }
       );
 
       assert.strictEqual(nextPage.code, 0);
       let nextPagePayload = JSON.parse(nextPage.stdout).data;
-      assert.strictEqual(nextPagePayload.evidence_offset, 10);
-      assert.strictEqual(nextPagePayload.evidence_returned, 1);
-      assert.strictEqual(nextPagePayload.evidence_has_more, false);
-      assert.strictEqual(nextPagePayload.evidence[0].id, 'comparison-11');
+      assert.strictEqual(nextPagePayload.evidence.page.returned, 1);
+      assert.strictEqual(nextPagePayload.evidence.page.has_more, false);
+      assert.strictEqual(nextPagePayload.evidence.items[0].id, 'comparison-11');
 
       let withDiffs = await runCLI(
         [
@@ -533,7 +654,7 @@ describe('context CLI integration', () => {
 
       assert.strictEqual(withDiffs.code, 0);
       let diffPayload = JSON.parse(withDiffs.stdout).data;
-      assert.deepStrictEqual(diffPayload.evidence[0].diff.regions, [
+      assert.deepStrictEqual(diffPayload.evidence.items[0].diff.regions, [
         { x: 10, y: 20, width: 30, height: 40 },
       ]);
 
@@ -549,11 +670,86 @@ describe('context CLI integration', () => {
         completeDynamicRegions
       );
       assert.deepStrictEqual(requests, [
-        '/api/sdk/context/builds/build-123?details=summary',
-        '/api/sdk/context/builds/build-123?details=summary',
-        '/api/sdk/context/builds/build-123?details=diffs',
+        '/api/sdk/context/builds/build-123?details=summary&limit=10',
+        '/api/sdk/context/builds/build-123?details=summary&limit=10&cursor=build-page-2',
+        '/api/sdk/context/builds/build-123?details=diffs&limit=10',
         '/api/sdk/context/builds/build-123',
       ]);
+    });
+  });
+
+  it('renders the same compact build facts for a human', async () => {
+    await withBuildContextApi(async ({ apiUrl, requests }) => {
+      let result = await runCLI(
+        ['context', 'build', 'build-123', '--source', 'cloud', '--no-color'],
+        {
+          cwd: mkdtempSync(join(tmpdir(), 'vizzly-context-human-')),
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+
+      assert.strictEqual(result.code, 0, result.stderr);
+      assert.match(result.stdout, /Attention:\s+yes/);
+      assert.match(result.stdout, /Evidence:\s+10 of 11 · more available/);
+      assert.match(result.stdout, /--cursor build-page-2 --source cloud/);
+      assert.ok(!result.stdout.includes('Eyes'));
+      assert.ok(!result.stdout.includes('Memory'));
+      assert.deepStrictEqual(requests, [
+        '/api/sdk/context/builds/build-123?details=summary&limit=10',
+      ]);
+    });
+  });
+
+  it('keeps partial compact comparison facts honest and readable', async () => {
+    await withBuildContextApi(async ({ apiUrl }) => {
+      let result = await runCLI(
+        ['context', 'comparison', 'partial', '--source', 'cloud', '--no-color'],
+        {
+          cwd: mkdtempSync(join(tmpdir(), 'vizzly-context-partial-')),
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+
+      assert.strictEqual(result.code, 0, result.stderr);
+      assert.match(result.stdout, /@unknown\/unknown/);
+      assert.match(result.stdout, /Images:\s+unavailable/);
+      assert.match(result.stdout, /Similar history:\s+0 of 0/);
+      assert.match(result.stdout, /Recent history:\s+0/);
+    });
+  });
+
+  it('fails loudly when compact API output breaks its bounds or schema', async () => {
+    await withBuildContextApi(async ({ apiUrl }) => {
+      let env = {
+        VIZZLY_API_URL: apiUrl,
+        VIZZLY_TOKEN: 'vzt_test_token',
+      };
+      let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-guard-'));
+      let oversized = await runCLI(
+        ['--json', 'context', 'build', 'oversized', '--agent'],
+        { cwd, env }
+      );
+      let invalid = await runCLI(
+        ['--json', 'context', 'build', 'invalid', '--agent'],
+        { cwd, env }
+      );
+
+      assert.strictEqual(oversized.code, 1);
+      assert.strictEqual(
+        JSON.parse(oversized.stderr).error.code,
+        'COMPACT_CONTEXT_OVERSIZED'
+      );
+      assert.strictEqual(invalid.code, 1);
+      assert.strictEqual(
+        JSON.parse(invalid.stderr).error.code,
+        'COMPACT_CONTEXT_INVALID'
+      );
     });
   });
 
@@ -583,10 +779,10 @@ describe('context CLI integration', () => {
       let payload = JSON.parse(result.stdout).data;
       assert.strictEqual(payload.resource, 'comparison_agent_context');
       assert.strictEqual(payload.comparison.id, 'comparison-1');
-      assert.deepStrictEqual(payload.comparison.diff.regions, [
+      assert.deepStrictEqual(payload.comparison.analysis.regions, [
         { x: 10, y: 20, width: 30, height: 40 },
       ]);
-      assert.deepStrictEqual(payload.comparison.diff.artifacts.diff_mask, {
+      assert.deepStrictEqual(payload.comparison.analysis.artifacts.diff_mask, {
         evidence_status: 'complete',
         available: true,
         complete: true,
@@ -608,6 +804,59 @@ describe('context CLI integration', () => {
         payload.dynamic_regions,
         createDynamicRegionResolutionContext()
       );
+
+      let withDiffs = await runCLI(
+        [
+          '--json',
+          'context',
+          'comparison',
+          'comparison-1',
+          '--agent',
+          '--source',
+          'cloud',
+          '--include',
+          'diffs',
+        ],
+        {
+          cwd,
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+      let withDiffsPayload = JSON.parse(withDiffs.stdout).data;
+      assert.ok(
+        withDiffsPayload.suggested_commands.some(command =>
+          command.command.includes(
+            '--cursor similar-page-2 --include diffs --source cloud'
+          )
+        )
+      );
+
+      let full = await runCLI(
+        [
+          '--json',
+          'context',
+          'comparison',
+          'comparison-1',
+          '--agent',
+          '--source',
+          'cloud',
+          '--full',
+        ],
+        {
+          cwd,
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+      let fullPayload = JSON.parse(full.stdout).data;
+      assert.strictEqual(fullPayload.resource, 'comparison_context');
+      assert.ok(!fullPayload.suggested_commands);
+      assert.strictEqual(fullPayload.comparison.analysis.regions.length, 1);
     });
   });
 
@@ -685,9 +934,9 @@ describe('context CLI integration', () => {
       let payload = JSON.parse(result.stdout).data;
       assert.strictEqual(payload.source, 'cloud');
       assert.strictEqual(payload.build.id, 'build-123');
-      assert.strictEqual(payload.evidence[0].id, 'comparison-1');
+      assert.strictEqual(payload.evidence.items[0].id, 'comparison-1');
       assert.deepStrictEqual(requests, [
-        '/api/sdk/context/builds/build-123?details=summary',
+        '/api/sdk/context/builds/build-123?details=summary&limit=10',
       ]);
     });
   });

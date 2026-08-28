@@ -264,20 +264,18 @@ cloud data or your local `.vizzly` workspace.
 ```bash
 vizzly context build abc123 --source cloud --json
 vizzly context build abc123 --source cloud --agent --json
-vizzly context build abc123 --source cloud --agent --json --offset 10
-vizzly context build abc123 --source cloud --agent --json --include diffs,comments
+vizzly context build abc123 --source cloud --agent --json --cursor eyJ2IjoxfQ
+vizzly context build abc123 --source cloud --agent --json --include diffs
 vizzly context build abc123 --source cloud --agent --json --full
 vizzly context build current --source local --json
 vizzly context build current --source local --agent
 ```
 
 Use `--json` for durable automation. Use `--agent --json` when you want the compact handoff that
-agents should read first. It returns at most 10 actionable evidence records while preserving API
-order, with failed captures first and one variant from each screenshot group before additional
-variants. Follow the returned next-page command or use `--offset` to continue through that order.
-Add `--include diffs` for raw Honeydiff diagnostics on those selected records. Explicit
-`screenshots` and `comments` includes return those API collections, and `--full` returns the
-complete build context payload unchanged.
+agents should read first. The API chooses and orders up to 10 evidence records, then returns an
+opaque cursor when more evidence is available. Follow the suggested next-page command or pass that
+cursor to `--cursor`. Add `--include diffs` for raw Honeydiff diagnostics on the same page.
+`--full` returns the complete build context payload unchanged.
 
 Compact agent JSON:
 
@@ -285,10 +283,9 @@ Compact agent JSON:
 {
   "resource": "build_agent_context",
   "source": "cloud",
-  "project": {
-    "organization": "acme",
-    "slug": "storybook",
-    "name": "Storybook"
+  "scope": {
+    "organization": { "slug": "acme" },
+    "project": { "slug": "storybook", "name": "Storybook" }
   },
   "build": {
     "id": "abc123",
@@ -316,51 +313,44 @@ Compact agent JSON:
       "new": 1
     }
   },
-  "evidence_limit": 10,
-  "evidence_offset": 0,
-  "evidence_total": 1,
-  "evidence_returned": 1,
-  "evidence_has_more": false,
-  "evidence_truncated": false,
-  "evidence": [
-    {
-      "kind": "comparison",
-      "id": "cmp-1",
-      "name": "Dashboard",
-      "result": "changed",
-      "review_state": "pending",
-      "needs_review": true,
-      "group": {
-        "name": "Dashboard",
-        "variant_count": 2,
-        "needs_review_count": 1,
-        "failed_count": 0,
-        "max_diff_percentage": 0.42
-      },
-      "screenshot": {
-        "id": "current-1",
-        "browser": "chrome",
-        "viewport": { "width": 1440, "height": 900 },
-        "bitmap": { "width": 2880, "height": 1800 },
-        "signature": "Dashboard|1440|chrome",
-        "url": "https://.../current.png"
-      },
-      "baseline": {
-        "id": "baseline-1",
-        "build_id": "baseline-build",
-        "url": "https://.../baseline.png"
-      },
-      "diff": {
-        "percentage": 0.42,
-        "fingerprint_hash": "00000000001ec127",
-        "region_count": 12,
-        "projection": {
-          "clusters": { "count": 12 }
+  "evidence": {
+    "items": [
+      {
+        "type": "comparison",
+        "id": "cmp-1",
+        "screenshot_name": "Dashboard",
+        "result": "changed",
+        "review_state": "pending",
+        "needs_review": true,
+        "screenshot": {
+          "id": "current-1",
+          "browser": "chrome",
+          "viewport": { "width": 1440, "height": 900 },
+          "bitmap": { "width": 2880, "height": 1800 },
+          "signature": "Dashboard|1440|chrome",
+          "url": "https://.../current.png",
+          "baseline": {
+            "id": "baseline-1",
+            "build_id": "baseline-build",
+            "url": "https://.../baseline.png"
+          }
         },
-        "image_url": "https://..."
+        "diff": {
+          "percentage": 0.42,
+          "fingerprint_hash": "00000000001ec127",
+          "region_count": 12,
+          "image_url": "https://..."
+        }
       }
+    ],
+    "page": {
+      "limit": 10,
+      "returned": 1,
+      "total": 12,
+      "has_more": true,
+      "next_cursor": "eyJ2IjoxfQ"
     }
-  ],
+  },
   "suggested_commands": [
     {
       "label": "Inspect comparison context",
@@ -373,16 +363,20 @@ Compact agent JSON:
     {
       "label": "Load raw diff diagnostics",
       "command": "vizzly --json context build abc123 --agent --include diffs --source cloud"
+    },
+    {
+      "label": "Load next evidence page",
+      "command": "vizzly --json context build abc123 --agent --cursor eyJ2IjoxfQ --source cloud"
     }
   ]
 }
 ```
 
-`status`, `summary`, review state, asset URLs, and Honeydiff values come from the API. The compact
-client does not estimate processing progress or rebuild server aggregates. Its local work is
-limited to normalization, API-ordered evidence paging, truncation facts, and executable
-`suggested_commands`. When more records follow the current page, the suggestions include the exact
-next `--offset`. When the page omits any records, they also include a `--full` command.
+`status`, `summary`, evidence order, pagination, asset URLs, and Honeydiff values come from the API.
+The CLI does not estimate processing progress, rebuild server aggregates, or rank evidence. It adds
+source-pinned `suggested_commands` so follow-up requests stay on the same provider. When another page
+exists, the next command carries the API's opaque cursor. A `--full` command is always available when
+you need the raw payload.
 
 Full build context JSON:
 
@@ -458,11 +452,14 @@ Full build context JSON:
 ```bash
 vizzly context comparison cmp-1 --source cloud --json
 vizzly context comparison cmp-1 --source cloud --agent --json
+vizzly context comparison cmp-1 --source cloud --agent --json --cursor eyJ2IjoxfQ
+vizzly context comparison cmp-1 --source cloud --agent --json --include diffs
 vizzly context comparison build-detail-screenshots --source local --json
 ```
 
-Raw JSON preserves the provider response. Add `--agent` to normalize current, baseline, diff, and
-Honeydiff fields into the same evidence shape used by compact build context.
+Raw JSON preserves the provider response. Add `--agent` to request the compact API shape. The focal
+comparison stays in its API-native shape, including `analysis`; the CLI does not rename those facts.
+Similar fingerprint history and recent same-name history stay in separate paged collections.
 
 Agent comparison JSON:
 
@@ -472,7 +469,7 @@ Agent comparison JSON:
   "source": "cloud",
   "comparison": {
     "id": "cmp-1",
-    "name": "Dashboard",
+    "screenshot_name": "Dashboard",
     "result": "changed",
     "review_state": "pending",
     "screenshot": {
@@ -481,18 +478,37 @@ Agent comparison JSON:
     "baseline": {
       "url": "https://.../baseline.png"
     },
-    "diff": {
-      "image_url": "https://.../diff.png",
+    "analysis": {
+      "diff_image_url": "https://.../diff.png",
       "fingerprint_hash": "00000000001ec127",
-      "regions": [],
+      "diff_regions": [],
       "cluster_metadata": {
         "classification": "dynamic_content"
       }
     }
   },
   "history": {
-    "similar_by_fingerprint": [],
-    "recent_by_name": []
+    "active_stream": null,
+    "similar_by_fingerprint": {
+      "items": [],
+      "page": {
+        "limit": 10,
+        "returned": 0,
+        "total": 0,
+        "has_more": false,
+        "next_cursor": null
+      }
+    },
+    "recent_by_name": {
+      "items": [],
+      "page": {
+        "limit": 10,
+        "returned": 0,
+        "total": 0,
+        "has_more": false,
+        "next_cursor": null
+      }
+    }
   }
 }
 ```

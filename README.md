@@ -101,7 +101,7 @@ evidence in one place.
 ```bash
 # Cloud context for a build or comparison
 vizzly context build abc123 --source cloud
-vizzly context build abc123 --source cloud --agent --json --offset 10
+vizzly context build abc123 --source cloud --agent --json --cursor eyJ2IjoxfQ
 vizzly context comparison def456 --source cloud --agent --json
 
 # Local workspace context from .vizzly/
@@ -111,11 +111,11 @@ vizzly context screenshot build-detail-screenshots --source local --json
 vizzly context review-queue --source local --json
 ```
 
-`--json` is the durable automation path. `--agent` gives a normalized handoff
-for prompt assembly. Build handoffs contain up to 10 records; use the returned
-next-page command or `--offset` to continue without loading the full build. Add
-`--full` when you need the whole payload, or
-`--include screenshots,diffs,comments` when compact JSON needs selected detail.
+`--json` is the durable automation path. `--agent` gives you the compact API
+handoff for prompt assembly. Build handoffs contain up to 10 records; use the
+returned next-page command or opaque `--cursor` to continue safely. Add
+`--include diffs` for raw diff diagnostics, or `--full` when you need the whole
+payload.
 
 Local context is read-only and file-backed. It reads your existing `.vizzly`
 workspace state from TDD runs, including screenshots, diffs, and saved hotspot

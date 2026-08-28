@@ -372,6 +372,121 @@ function mapLocalComparison(snapshot, comparison) {
   };
 }
 
+function projectLocalScreenshot(screenshot, baseline) {
+  if (!screenshot) return null;
+
+  return {
+    id: screenshot.id,
+    name: screenshot.name,
+    browser: screenshot.browser,
+    viewport: {
+      width: screenshot.viewport_width,
+      height: screenshot.viewport_height,
+    },
+    url: screenshot.original_url,
+    baseline: baseline
+      ? {
+          id: baseline.id,
+          build_id: baseline.build_id,
+          name: baseline.name,
+          browser: baseline.browser,
+          viewport: {
+            width: baseline.viewport_width,
+            height: baseline.viewport_height,
+          },
+          url: baseline.original_url,
+        }
+      : null,
+  };
+}
+
+function projectLocalDiff(diff, includeDiffs) {
+  let projected = {
+    percentage: diff?.percentage ?? null,
+    changed_pixels: diff?.changed_pixels ?? null,
+    total_pixels: diff?.total_pixels ?? null,
+    threshold: diff?.threshold ?? null,
+    image_url: diff?.image_url ?? null,
+    fingerprint_hash: diff?.fingerprint_hash ?? null,
+    region_count: Array.isArray(diff?.regions) ? diff.regions.length : null,
+  };
+
+  if (includeDiffs) {
+    projected.regions = diff?.regions || [];
+    projected.cluster_metadata = diff?.cluster_metadata ?? null;
+    projected.fingerprint_data = diff?.fingerprint_data ?? null;
+    projected.diff_lines = diff?.diff_lines ?? [];
+  }
+
+  return projected;
+}
+
+function projectLocalEvidence(comparison, includeDiffs) {
+  return {
+    type: 'comparison',
+    id: comparison.id,
+    screenshot_name: comparison.screenshot_name,
+    status: comparison.status,
+    result: comparison.result,
+    approval_status: comparison.approval_status,
+    needs_review: comparison.needs_review,
+    build_id: comparison.build_id,
+    build_name: comparison.build_name,
+    build_branch: comparison.build_branch,
+    build_commit_sha: comparison.build_commit_sha,
+    build_created_at: comparison.build_created_at,
+    screenshot: projectLocalScreenshot(
+      comparison.screenshot,
+      comparison.baseline
+    ),
+    diff: projectLocalDiff(comparison.diff, includeDiffs),
+  };
+}
+
+function projectLocalFocusedComparison(comparison, includeDiffs) {
+  if (includeDiffs) return comparison;
+
+  let analysis = comparison.analysis || {};
+  let {
+    diff_regions: _diffRegions,
+    cluster_metadata: _clusterMetadata,
+    fingerprint_data: _fingerprintData,
+    diff_lines: _diffLines,
+    ...summaryAnalysis
+  } = analysis;
+
+  return {
+    ...comparison,
+    diff: projectLocalDiff(comparison.diff, false),
+    analysis: summaryAnalysis,
+  };
+}
+
+function projectLocalHistoryItem(comparison) {
+  return {
+    id: comparison.id,
+    screenshot_name: comparison.screenshot_name,
+    result: comparison.result,
+    status: comparison.status,
+    needs_review: comparison.needs_review,
+    build_id: comparison.build_id,
+    build_name: comparison.build_name,
+    build_branch: comparison.build_branch,
+    build_created_at: comparison.build_created_at,
+    screenshot: projectLocalScreenshot(
+      comparison.screenshot,
+      comparison.baseline
+    ),
+    diff: {
+      percentage: comparison.diff?.percentage ?? null,
+      fingerprint_hash: comparison.diff?.fingerprint_hash ?? null,
+      region_count: Array.isArray(comparison.diff?.regions)
+        ? comparison.diff.regions.length
+        : null,
+    },
+  };
+}
+
 function buildReviewSummary(comparisons = []) {
   let approved = comparisons.filter(
     comparison => mapApprovalStatus(comparison.status) === 'approved'
@@ -522,7 +637,88 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
     };
   }
 
-  function getBuildContext(buildId) {
+  function createLocalCursor(
+    resource,
+    target,
+    query,
+    stream,
+    offset,
+    revision
+  ) {
+    return Buffer.from(
+      JSON.stringify({
+        version: 1,
+        resource,
+        target,
+        query,
+        stream,
+        offset,
+        revision,
+      })
+    ).toString('base64url');
+  }
+
+  function readLocalCursor(cursor, resource, target, query, revision, streams) {
+    if (!cursor) return null;
+
+    try {
+      let parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString());
+      if (
+        parsed.version !== 1 ||
+        parsed.resource !== resource ||
+        parsed.target !== target ||
+        parsed.query !== query ||
+        parsed.revision !== revision ||
+        !streams.includes(parsed.stream) ||
+        !Number.isInteger(parsed.offset) ||
+        parsed.offset < 0
+      ) {
+        throw new Error('mismatch');
+      }
+      return parsed;
+    } catch {
+      throw createLocalWorkspaceError(
+        'The local context cursor is invalid or the local results changed. Start again without --cursor.'
+      );
+    }
+  }
+
+  function createLocalPage(
+    items,
+    { limit, offset, resource, target, query, stream, revision }
+  ) {
+    if (offset > items.length) {
+      throw createLocalWorkspaceError(
+        'The local context cursor is invalid or the local results changed. Start again without --cursor.'
+      );
+    }
+
+    let pageItems = items.slice(offset, offset + limit);
+    let nextOffset = offset + pageItems.length;
+    let hasMore = nextOffset < items.length;
+
+    return {
+      items: pageItems,
+      page: {
+        limit,
+        returned: pageItems.length,
+        total: items.length,
+        has_more: hasMore,
+        next_cursor: hasMore
+          ? createLocalCursor(
+              resource,
+              target,
+              query,
+              stream,
+              nextOffset,
+              revision
+            )
+          : null,
+      },
+    };
+  }
+
+  function getBuildContext(buildId, query = {}) {
     let snapshot = loadSnapshot();
     let resolvedBuild = buildBuildSnapshot(snapshot);
 
@@ -547,7 +743,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
     let reviewSummary = buildReviewSummary(snapshot.reportData.comparisons);
     let reviewState = buildReviewState(resolvedBuild, reviewSummary);
 
-    return {
+    let context = {
       resource: 'build_context',
       source: LOCAL_CONTEXT_SOURCE,
       scope: createScope(),
@@ -582,9 +778,47 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       },
       links: createBuildLinks(snapshot),
     };
+
+    if (!query.details) return context;
+
+    let revision = String(snapshot.reportData.timestamp || resolvedBuild.id);
+    let limit = query.limit || 10;
+    let cursorQuery = `${query.details}:${limit}`;
+    let cursor = readLocalCursor(
+      query.cursor,
+      'build_context',
+      resolvedBuild.id,
+      cursorQuery,
+      revision,
+      ['evidence']
+    );
+    let includeDiffs = query.details === 'diffs';
+    let evidence = mappedComparisons.map(comparison =>
+      projectLocalEvidence(comparison, includeDiffs)
+    );
+
+    return {
+      resource: 'build_context',
+      source: LOCAL_CONTEXT_SOURCE,
+      scope: context.scope,
+      build: context.build,
+      baseline: context.baseline,
+      status: context.status,
+      summary: context.summary,
+      evidence: createLocalPage(evidence, {
+        limit,
+        offset: cursor?.offset || 0,
+        resource: 'build_context',
+        target: resolvedBuild.id,
+        query: cursorQuery,
+        stream: 'evidence',
+        revision,
+      }),
+      links: context.links,
+    };
   }
 
-  function getComparisonContext(comparisonId) {
+  function getComparisonContext(comparisonId, query = {}) {
     let snapshot = loadSnapshot();
     let comparison = findComparison(snapshot, comparisonId);
 
@@ -604,7 +838,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       )
       .map(candidate => mapLocalComparison(snapshot, candidate));
 
-    return {
+    let context = {
       resource: 'comparison_context',
       source: LOCAL_CONTEXT_SOURCE,
       scope: createScope(),
@@ -640,6 +874,57 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
         screenshot_comments: [],
       },
       links: buildComparisonLinks(snapshot, comparison.id),
+    };
+
+    if (!query.details) return context;
+
+    let revision = String(snapshot.reportData.timestamp || context.build.id);
+    let limit = query.limit || 10;
+    let cursorQuery = `${query.details}:${limit}`;
+    let cursor = readLocalCursor(
+      query.cursor,
+      'comparison_context',
+      comparison.id,
+      cursorQuery,
+      revision,
+      ['similar_by_fingerprint', 'recent_by_name']
+    );
+    let activeStream = cursor?.stream;
+    let similarOffset =
+      activeStream === 'similar_by_fingerprint' ? cursor.offset : 0;
+    let recentOffset = activeStream === 'recent_by_name' ? cursor.offset : 0;
+
+    return {
+      resource: 'comparison_context',
+      source: LOCAL_CONTEXT_SOURCE,
+      scope: context.scope,
+      build: context.build,
+      comparison: projectLocalFocusedComparison(
+        context.comparison,
+        query.details === 'diffs'
+      ),
+      history: {
+        similar_by_fingerprint: createLocalPage([], {
+          limit,
+          offset: similarOffset,
+          resource: 'comparison_context',
+          target: comparison.id,
+          query: cursorQuery,
+          stream: 'similar_by_fingerprint',
+          revision,
+        }),
+        recent_by_name: createLocalPage(history.map(projectLocalHistoryItem), {
+          limit,
+          offset: recentOffset,
+          resource: 'comparison_context',
+          target: comparison.id,
+          query: cursorQuery,
+          stream: 'recent_by_name',
+          revision,
+        }),
+      },
+      review: context.review,
+      links: context.links,
     };
   }
 

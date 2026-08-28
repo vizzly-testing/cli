@@ -14,8 +14,8 @@ describe('commands/context', () => {
       assert.deepStrictEqual(
         validateContextBuildOptions({
           source: 'cloud',
-          include: 'screenshots,diffs,comments',
-          offset: 0,
+          include: 'diffs',
+          cursor: 'opaque-page-2',
         }),
         []
       );
@@ -25,24 +25,19 @@ describe('commands/context', () => {
       assert.deepStrictEqual(
         validateContextBuildOptions({
           source: 'moon',
-          include: 'screenshots,logs',
+          include: 'screenshots',
         }),
         [
           '--source must be one of: auto, cloud, local',
-          '--include must contain only: screenshots, diffs, comments',
+          '--include must contain only: diffs',
         ]
       );
     });
 
-    it('rejects invalid context limits and offsets', () => {
+    it('rejects invalid cursors, review offsets, and result limits', () => {
       assert.ok(
-        validateContextComparisonOptions({ similarLimit: 51 }).includes(
-          '--similar-limit must be an integer between 1 and 50'
-        )
-      );
-      assert.ok(
-        validateContextComparisonOptions({ recentLimit: 4.5 }).includes(
-          '--recent-limit must be an integer between 1 and 50'
+        validateContextComparisonOptions({ cursor: '' }).includes(
+          '--cursor must be a non-empty opaque cursor'
         )
       );
       assert.ok(

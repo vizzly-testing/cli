@@ -12,13 +12,11 @@ import {
 } from '../api/index.js';
 import { createLocalWorkspaceContextProvider as defaultCreateLocalWorkspaceContextProvider } from '../context/local-workspace-provider.js';
 import { resolveContextSource as defaultResolveContextSource } from '../context/provider-resolver.js';
+import { VizzlyError } from '../errors/vizzly-error.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 import { readSession as defaultReadSession } from '../utils/session.js';
-import {
-  normalizeBuildContext,
-  normalizeComparisonRecord,
-} from '../utils/visual-context-normalizers.js';
+import { normalizeBuildContext } from '../utils/visual-context-normalizers.js';
 
 function buildAuthErrorMessage() {
   return 'Authentication required. Use --token, set VIZZLY_TOKEN, run "vizzly login", or link a project.';
@@ -29,7 +27,7 @@ function buildSourceErrorMessage() {
 }
 
 function buildIncludeErrorMessage() {
-  return '--include must contain only: screenshots, diffs, comments';
+  return '--include must contain only: diffs';
 }
 
 function validateLimitRange(value, flagName, { min = 1, max }) {
@@ -44,16 +42,129 @@ function validateLimitRange(value, flagName, { min = 1, max }) {
   return [];
 }
 
-function validateOffset(value) {
+function validateCursor(value) {
   if (value == null) {
     return [];
   }
 
-  if (!Number.isInteger(value) || value < 0) {
-    return ['--offset must be a non-negative integer'];
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return ['--cursor must be a non-empty opaque cursor'];
   }
 
   return [];
+}
+
+function validateOffset(value) {
+  if (value == null) return [];
+  if (!Number.isInteger(value) || value < 0) {
+    return ['--offset must be a non-negative integer'];
+  }
+  return [];
+}
+
+let COMPACT_CONTEXT_LIMIT = 10;
+let COMPACT_SUMMARY_MAX_BYTES = 64 * 1024;
+let COMPACT_DIFFS_MAX_BYTES = 512 * 1024;
+
+function getCompactPage(collection, label) {
+  if (!collection || !Array.isArray(collection.items) || !collection.page) {
+    throw new VizzlyError(
+      `Vizzly returned an invalid compact ${label} collection`,
+      'COMPACT_CONTEXT_INVALID'
+    );
+  }
+
+  if (collection.items.length > COMPACT_CONTEXT_LIMIT) {
+    throw new VizzlyError(
+      `Vizzly returned more than ${COMPACT_CONTEXT_LIMIT} compact ${label} items`,
+      'COMPACT_CONTEXT_INVALID'
+    );
+  }
+
+  if (collection.items.some(item => !item || typeof item !== 'object')) {
+    throw new VizzlyError(
+      `Vizzly returned an invalid item in compact ${label}`,
+      'COMPACT_CONTEXT_INVALID'
+    );
+  }
+
+  let { page } = collection;
+  let validLimit =
+    Number.isInteger(page.limit) &&
+    page.limit >= 1 &&
+    page.limit <= COMPACT_CONTEXT_LIMIT;
+  let validReturned =
+    Number.isInteger(page.returned) &&
+    page.returned === collection.items.length;
+  let validTotal =
+    page.total == null ||
+    (Number.isInteger(page.total) &&
+      page.total >= 0 &&
+      page.total >= page.returned);
+  let validHasMore = typeof page.has_more === 'boolean';
+  let validCursor =
+    page.next_cursor == null ||
+    (typeof page.next_cursor === 'string' && page.next_cursor.length > 0);
+
+  if (
+    !validLimit ||
+    !validReturned ||
+    !validTotal ||
+    !validHasMore ||
+    !validCursor
+  ) {
+    throw new VizzlyError(
+      `Vizzly returned invalid pagination facts for compact ${label}`,
+      'COMPACT_CONTEXT_INVALID'
+    );
+  }
+
+  if (page.included === false && collection.items.length > 0) {
+    throw new VizzlyError(
+      `Vizzly returned items for an omitted compact ${label} collection`,
+      'COMPACT_CONTEXT_INVALID'
+    );
+  }
+
+  if (page.has_more !== Boolean(page.next_cursor)) {
+    throw new VizzlyError(
+      `Vizzly returned contradictory pagination facts for compact ${label}`,
+      'COMPACT_CONTEXT_INVALID'
+    );
+  }
+
+  return collection;
+}
+
+function validateCompactContext(context, resource, details) {
+  if (!context || typeof context !== 'object') {
+    throw new VizzlyError(
+      `Vizzly returned an invalid compact ${resource} context`,
+      'COMPACT_CONTEXT_INVALID'
+    );
+  }
+
+  if (resource === 'build') {
+    getCompactPage(context.evidence, 'build evidence');
+  } else {
+    let history = context.history || {};
+    getCompactPage(history.similar_by_fingerprint, 'similar history');
+    getCompactPage(history.recent_by_name, 'recent history');
+  }
+
+  let { source: _source, ...providerContext } = context;
+  let bytes = Buffer.byteLength(JSON.stringify(providerContext));
+  let maxBytes =
+    details === 'diffs' ? COMPACT_DIFFS_MAX_BYTES : COMPACT_SUMMARY_MAX_BYTES;
+  if (bytes > maxBytes) {
+    throw new VizzlyError(
+      `Vizzly returned an oversized compact ${resource} context`,
+      'COMPACT_CONTEXT_OVERSIZED',
+      { bytes, max_bytes: maxBytes }
+    );
+  }
+
+  return context;
 }
 
 function validateSourceOption(value) {
@@ -77,8 +188,27 @@ function parseIncludeOption(value) {
   return rawItems.map(item => item.trim()).filter(Boolean);
 }
 
+function buildCompactContextRequest(options = {}, globalOptions = {}) {
+  let include = parseIncludeOption(options.include);
+  let compact = !options.full && (!globalOptions.json || options.agent);
+  let details = include.includes('diffs') ? 'diffs' : 'summary';
+
+  return {
+    compact,
+    details,
+    include,
+    query: compact
+      ? {
+          details,
+          limit: COMPACT_CONTEXT_LIMIT,
+          cursor: options.cursor,
+        }
+      : undefined,
+  };
+}
+
 function validateIncludeOption(value) {
-  let allowed = new Set(['screenshots', 'diffs', 'comments']);
+  let allowed = new Set(['diffs']);
   let invalid = parseIncludeOption(value).filter(item => !allowed.has(item));
 
   return invalid.length > 0 ? [buildIncludeErrorMessage()] : [];
@@ -332,16 +462,6 @@ function getComparisonDisplayState(comparison = {}) {
   return comparison.result || comparison.status || 'unknown';
 }
 
-function isChangedComparison(comparison = {}) {
-  return ['changed', 'failed', 'pending'].includes(
-    getComparisonDisplayState(comparison)
-  );
-}
-
-function isNewComparison(comparison = {}) {
-  return getComparisonDisplayState(comparison) === 'new';
-}
-
 function getComparisonName(comparison = {}) {
   return (
     comparison.screenshot_name ||
@@ -362,142 +482,6 @@ function getComparisonFingerprint(comparison = {}) {
     comparison.analysis?.fingerprint_hash ||
     null
   );
-}
-
-/**
- * Decide whether a comparison belongs in the agent handoff.
- *
- * Explicit API review state wins because an already-reviewed visual change is
- * not actionable. Legacy result fallback keeps older flat responses useful
- * only when the server did not supply that review fact.
- *
- * @param {Object} comparison - Normalized comparison record.
- * @returns {boolean} Whether the record is actionable evidence.
- */
-function isEvidenceCandidate(comparison = {}) {
-  if (comparison.needs_review != null) {
-    return comparison.needs_review === true;
-  }
-
-  return ['changed', 'new', 'failed', 'error'].includes(comparison.result);
-}
-
-/**
- * Keep the group facts needed to understand one comparison in isolation.
- *
- * Repeating this small server-owned summary on each record avoids returning
- * the full, potentially unbounded group tree in compact agent output.
- *
- * @param {Object} group - Normalized screenshot group.
- * @returns {Object} Compact API-backed aggregate facts for the group.
- */
-function buildEvidenceGroup(group = {}) {
-  let aggregate = group.aggregate_status || {};
-
-  return {
-    name: group.name || null,
-    variant_count: group.variant_count ?? null,
-    needs_review_count: aggregate.needs_review_count ?? null,
-    failed_count: aggregate.failed_count ?? null,
-    max_diff_percentage: aggregate.max_diff_percentage ?? null,
-  };
-}
-
-/**
- * Shape one normalized comparison for the bounded evidence queue.
- *
- * The projection keeps visual result, review state, render assets, and
- * Honeydiff facts together so an agent can reason about a diff without
- * joining separate collections client-side.
- *
- * @param {Object} comparison - Normalized comparison record.
- * @param {Object} group - Normalized group containing the comparison.
- * @returns {Object} One self-contained comparison evidence record.
- */
-function buildComparisonEvidence(comparison = {}, group = {}) {
-  return {
-    kind: 'comparison',
-    id: comparison.id,
-    name: comparison.name,
-    result: comparison.result,
-    status: comparison.status,
-    review_state: comparison.review_state,
-    visual_review: comparison.visual_review,
-    approval_status: comparison.approval_status,
-    needs_review: comparison.needs_review,
-    is_flaky: comparison.is_flaky,
-    group: buildEvidenceGroup(group),
-    screenshot: comparison.screenshot,
-    baseline: comparison.baseline,
-    diff: comparison.diff,
-  };
-}
-
-/**
- * Represent a capture failure without pretending it is a comparison.
- *
- * Failed screenshots have useful render evidence but no comparison ID. The
- * explicit kind and null ID prevent suggested commands from sending a
- * screenshot identifier to the comparison endpoint.
- *
- * @param {Object} capture - Normalized failed screenshot capture.
- * @returns {Object} One failed-capture evidence record.
- */
-function buildFailedCaptureEvidence(capture = {}) {
-  return {
-    ...buildComparisonEvidence(capture, { name: capture.name }),
-    kind: 'failed_capture',
-    id: null,
-    error_message: capture.error_message,
-  };
-}
-
-/**
- * Read actionable variants without overriding a server-reviewed group.
- *
- * A false aggregate is authoritative even when a partial variant payload
- * appears pending, which prevents the client from reopening completed work.
- *
- * @param {Object} group - Normalized screenshot group.
- * @returns {Object[]} Actionable variants in API order.
- */
-function getGroupEvidence(group = {}) {
-  if (group.aggregate_status?.needs_review === false) {
-    return [];
-  }
-
-  return (group.variants || []).filter(isEvidenceCandidate);
-}
-
-/**
- * Interleave actionable variants across groups in their original API order.
- *
- * Taking one variant per group before taking second variants preserves useful
- * breadth when the final handoff is capped and one screenshot has many device
- * or browser variants.
- *
- * @param {Object[]} groups - Normalized screenshot groups.
- * @returns {Object[]} Self-contained evidence records in breadth-first order.
- */
-function selectBreadthFirstEvidence(groups = []) {
-  let candidatesByGroup = groups.map(getGroupEvidence);
-  let evidence = [];
-  let variantIndex = 0;
-  let remaining = candidatesByGroup.some(candidates => candidates.length > 0);
-
-  while (remaining) {
-    remaining = false;
-    for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
-      let comparison = candidatesByGroup[groupIndex][variantIndex];
-      if (comparison) {
-        evidence.push(buildComparisonEvidence(comparison, groups[groupIndex]));
-        remaining = true;
-      }
-    }
-    variantIndex += 1;
-  }
-
-  return evidence;
 }
 
 /**
@@ -544,37 +528,19 @@ function appendContextSource(command, context = {}) {
   return `${command} --source ${source}`;
 }
 
-/**
- * Build concrete drill-down paths from the evidence actually returned.
- *
- * Executable commands replace generic client-authored advice. They let an
- * agent ask the API for deeper comparison, history, or raw diff context, and
- * only suggest the full build when the bounded queue omitted records.
- *
- * @param {Object} context - Normalized build context.
- * @param {Object[]} evidence - Evidence included in the compact handoff.
- * @param {Object} options - Evidence page and include options.
- * @param {number} [options.evidenceOffset] - API-ordered records already skipped.
- * @param {number} [options.evidenceTotal] - Total actionable evidence records.
- * @param {string[]} [options.include] - Detail collections to preserve when paging.
- * @returns {{label: string, command: string}[]} Suggested CLI commands.
- */
-function buildSuggestedCommands(context = {}, evidence = [], options = {}) {
-  let {
-    evidenceOffset = 0,
-    evidenceTotal = evidence.length,
-    include = [],
-  } = options;
+function buildCompactBuildCommands(context = {}, include = [], cursor = null) {
+  let evidence = context.evidence?.items || [];
+  let page = context.evidence?.page || {};
   let commands = [];
-  let firstComparison = evidence.find(
-    item => item.kind === 'comparison' && item.id
-  );
-  let firstNamedEvidence = evidence.find(item => item.name);
   let buildTarget = isLocalContext(context)
     ? 'current'
     : context.build?.id || null;
+  let firstComparison = evidence.find(
+    item => item.type === 'comparison' && item.id
+  );
+  let firstNamedEvidence = evidence.find(item => item.screenshot_name);
 
-  if (firstComparison?.id) {
+  if (firstComparison) {
     commands.push({
       label: 'Inspect comparison context',
       command: appendContextSource(
@@ -584,41 +550,41 @@ function buildSuggestedCommands(context = {}, evidence = [], options = {}) {
     });
   }
 
-  if (firstNamedEvidence?.name) {
+  if (firstNamedEvidence) {
+    let screenshotName = firstNamedEvidence.screenshot_name;
     commands.push({
       label: 'Inspect screenshot history',
       command: appendContextSource(
-        `vizzly --json context screenshot ${quoteCommandArgument(firstNamedEvidence.name)}`,
+        `vizzly --json context screenshot ${quoteCommandArgument(screenshotName)}`,
         context
       ),
     });
   }
 
   if (buildTarget && evidence.length > 0) {
-    let offsetFlag = evidenceOffset > 0 ? ` --offset ${evidenceOffset}` : '';
+    let cursorFlag = cursor ? ` --cursor ${quoteCommandArgument(cursor)}` : '';
     commands.push({
       label: 'Load raw diff diagnostics',
       command: appendContextSource(
-        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --include diffs${offsetFlag}`,
+        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --include diffs${cursorFlag}`,
         context
       ),
     });
   }
 
-  let nextOffset = evidenceOffset + evidence.length;
-  if (buildTarget && nextOffset < evidenceTotal) {
+  if (buildTarget && page.has_more && page.next_cursor) {
     let includeFlag =
       include.length > 0 ? ` --include ${include.join(',')}` : '';
     commands.push({
       label: 'Load next evidence page',
       command: appendContextSource(
-        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --offset ${nextOffset}${includeFlag}`,
+        `vizzly --json context build ${quoteCommandArgument(buildTarget)} --agent --cursor ${quoteCommandArgument(page.next_cursor)}${includeFlag}`,
         context
       ),
     });
   }
 
-  if (buildTarget && evidenceTotal > evidence.length) {
+  if (buildTarget) {
     commands.push({
       label: 'Load full build context',
       command: appendContextSource(
@@ -631,129 +597,167 @@ function buildSuggestedCommands(context = {}, evidence = [], options = {}) {
   return commands;
 }
 
-/**
- * Create the compact agent presentation without rewriting API truth.
- *
- * Status, summaries, review facts, assets, and Honeydiff values pass through
- * normalization from the server. The client owns only the bounded selection,
- * truthful truncation facts, explicit includes, and follow-up commands.
- *
- * @param {Object} context - Raw build context returned by the provider.
- * @param {Object} options - Compact presentation options.
- * @param {string|null} [options.source] - Resolved source fallback.
- * @param {string[]} [options.include] - Explicit detail collections.
- * @param {number} [options.evidenceLimit] - Maximum evidence record count.
- * @param {number} [options.evidenceOffset] - API-ordered records to skip.
- * @returns {Object} Bounded agent build context.
- */
-function buildAgentBuildPayload(
-  context,
-  { source = null, include = [], evidenceLimit = 10, evidenceOffset = 0 } = {}
-) {
-  let includeSet = new Set(include);
-  let includeDiffs = includeSet.has('diffs');
-  let normalized = normalizeBuildContext(context, { includeDiffs });
-  let candidates = [
-    ...normalized.failed_captures.map(buildFailedCaptureEvidence),
-    ...selectBreadthFirstEvidence(normalized.groups),
-  ];
-  let evidence = candidates.slice(
-    evidenceOffset,
-    evidenceOffset + evidenceLimit
-  );
-  let evidenceHasMore = evidenceOffset + evidence.length < candidates.length;
-  let evidenceTruncated = candidates.length > evidence.length;
-  let payload = {
-    resource: 'build_agent_context',
-    source: normalized.source || source,
-    review_flow: normalized.review_flow,
-    scope: normalized.scope || null,
-    project: {
-      organization: normalized.scope?.organization?.slug || null,
-      slug: normalized.scope?.project?.slug || null,
-      name: normalized.scope?.project?.name || null,
-      visibility: normalized.scope?.project?.visibility || null,
-    },
-    build: normalized.build || null,
-    baseline: {
-      selected: normalized.baseline?.selected || null,
-      selection_reason: normalized.baseline?.selection_reason || null,
-    },
-    status: normalized.status || null,
-    summary: normalized.summary || null,
-    dynamic_regions: normalized.dynamic_regions ?? null,
-    signature_properties: normalized.signature_properties ?? null,
-    evidence_limit: evidenceLimit,
-    evidence_offset: evidenceOffset,
-    evidence_total: candidates.length,
-    evidence_returned: evidence.length,
-    evidence_has_more: evidenceHasMore,
-    evidence_truncated: evidenceTruncated,
-    evidence,
-    links: normalized.links || {},
-    preview: normalized.preview || null,
-    suggested_commands: buildSuggestedCommands(normalized, evidence, {
-      evidenceOffset,
-      evidenceTotal: candidates.length,
-      include,
-    }),
-  };
-
-  if (includeSet.has('screenshots')) {
-    payload.screenshots = normalized.screenshots || [];
-  }
-
-  if (includeSet.has('comments')) {
-    payload.comments = normalized.comments || {};
-  }
-
-  return payload;
-}
-
-/** Preserve an omitted history collection instead of inventing an empty one. */
-function normalizeComparisonHistory(comparisons) {
-  if (!Array.isArray(comparisons)) {
-    return comparisons ?? null;
-  }
-
-  return comparisons.map(comparison => normalizeComparisonRecord(comparison));
-}
-
-/**
- * Normalize a focused comparison and its history without changing API facts.
- *
- * The build handoff and comparison endpoint use different field names for the
- * same Honeydiff evidence. Agents should not need to know that raw regions are
- * `analysis.diff_regions` in one response and `diff.regions` in another.
- *
- * @param {Object} context - Raw comparison context returned by the provider.
- * @returns {Object} Stable, API-backed evidence for an agent.
- */
-function buildAgentComparisonPayload(context = {}) {
-  let history = context.history || {};
-
+function buildCompactBuildPayload(context, include = [], cursor = null) {
   return {
-    resource: 'comparison_agent_context',
-    source: context.source || null,
-    review_flow: context.review_flow || null,
-    scope: context.scope || null,
-    build: context.build || null,
-    signature_properties: context.signature_properties ?? null,
-    comparison: normalizeComparisonRecord(context.comparison || {}, {
-      includeDiffs: true,
-    }),
-    dynamic_regions: context.dynamic_regions ?? null,
-    dynamic_content: context.dynamic_content ?? null,
-    history: {
-      ...history,
-      similar_by_fingerprint: normalizeComparisonHistory(
-        history.similar_by_fingerprint
-      ),
-      recent_by_name: normalizeComparisonHistory(history.recent_by_name),
-    },
-    review: context.review || null,
-    links: context.links || {},
+    ...context,
+    resource: 'build_agent_context',
+    suggested_commands: buildCompactBuildCommands(context, include, cursor),
   };
+}
+
+function buildCompactComparisonCommands(context = {}, include = []) {
+  let commands = [];
+  let comparisonId = context.comparison?.id;
+  let streams = [
+    ['similar_by_fingerprint', 'similar history'],
+    ['recent_by_name', 'recent history'],
+  ];
+  let includeFlag = include.length > 0 ? ` --include ${include.join(',')}` : '';
+
+  for (let [stream, label] of streams) {
+    let page = context.history?.[stream]?.page;
+    if (!comparisonId || !page?.has_more || !page.next_cursor) {
+      continue;
+    }
+
+    commands.push({
+      label: `Load next ${label} page`,
+      command: appendContextSource(
+        `vizzly --json context comparison ${quoteCommandArgument(comparisonId)} --agent --cursor ${quoteCommandArgument(page.next_cursor)}${includeFlag}`,
+        context
+      ),
+    });
+  }
+
+  if (comparisonId) {
+    commands.push({
+      label: 'Load full comparison context',
+      command: appendContextSource(
+        `vizzly --json context comparison ${quoteCommandArgument(comparisonId)} --agent --full`,
+        context
+      ),
+    });
+  }
+
+  return commands;
+}
+
+function buildCompactComparisonPayload(context, include = []) {
+  return {
+    ...context,
+    resource: 'comparison_agent_context',
+    suggested_commands: buildCompactComparisonCommands(context, include),
+  };
+}
+
+function formatKnownBoolean(value) {
+  if (value === true) return 'yes';
+  if (value === false) return 'no';
+  return 'unknown';
+}
+
+function formatCompactPage(collection) {
+  let page = collection?.page || {};
+  let returned = page.returned ?? collection?.items?.length;
+  let total = page.total;
+
+  if (returned == null) return 'unknown';
+  if (total == null) return String(returned);
+  return `${returned} of ${total}${page.has_more ? ' · more available' : ''}`;
+}
+
+function displayCompactHeading(output, context, title, status) {
+  let colors = output.getColors();
+  let tone = getStatusTone(colors, status);
+  let organization = context.scope?.organization?.slug || 'unknown';
+  let project = context.scope?.project?.slug || 'unknown';
+
+  output.print(`  ${colors.bold(title)} ${tone(status.toUpperCase())}`);
+  output.print(`  ${colors.dim(`@${organization}/${project}`)}`);
+  output.blank();
+}
+
+function displayCompactBuildContext(output, context) {
+  output.header('context', 'build');
+  let colors = output.getColors();
+  let build = context.build || {};
+  let displayStatus = build.status || context.status?.state || 'unknown';
+  displayCompactHeading(
+    output,
+    context,
+    build.name || build.id || 'unknown build',
+    displayStatus
+  );
+  output.labelValue(
+    'Attention',
+    formatKnownBoolean(context.status?.needs_review)
+  );
+  output.labelValue('Evidence', formatCompactPage(context.evidence));
+
+  let items = context.evidence?.items || [];
+  if (items.length > 0) {
+    output.blank();
+    output.print('  Evidence');
+    for (let item of items) {
+      let result = item.result || item.status || 'unknown';
+      let percentage = getComparisonDiffPercentage(item);
+      let detail = percentage == null ? '' : ` · ${percentage}% diff`;
+      output.print(
+        `  ${colors.dim('•')} ${getComparisonName(item)}: ${result}${detail}`
+      );
+    }
+  }
+
+  if (context.evidence?.page?.has_more) {
+    let next = context.suggested_commands?.find(
+      command => command.label === 'Load next evidence page'
+    );
+    if (next) {
+      output.blank();
+      output.labelValue('Next', next.command);
+    }
+  }
+
+  if (context.links?.build_url) {
+    output.labelValue('Build URL', context.links.build_url);
+  }
+}
+
+function displayCompactComparisonContext(output, context) {
+  output.header('context', 'comparison');
+  let comparison = context.comparison || {};
+  let displayState = getComparisonDisplayState(comparison);
+  displayCompactHeading(
+    output,
+    context,
+    getComparisonName(comparison),
+    displayState
+  );
+  output.labelValue(
+    'Images',
+    comparison.diff?.image_url || comparison.analysis?.diff_image_url
+      ? 'baseline/current/diff available'
+      : 'unavailable'
+  );
+  output.labelValue(
+    'Similar history',
+    formatCompactPage(context.history?.similar_by_fingerprint)
+  );
+  output.labelValue(
+    'Recent history',
+    formatCompactPage(context.history?.recent_by_name)
+  );
+
+  let similar = context.history?.similar_by_fingerprint?.items || [];
+  if (similar.length > 0) {
+    output.blank();
+    output.print('  Similar Diffs');
+    printComparisonList(output, similar);
+  }
+
+  if (context.links?.comparison_url) {
+    output.labelValue('Comparison URL', context.links.comparison_url);
+  }
 }
 
 function getBuildCommentsCount(context = {}) {
@@ -1054,93 +1058,6 @@ function displayBuildContext(output, context) {
   }
 }
 
-function formatAgentBuildContext(context) {
-  let comparisons = context.comparisons || [];
-  let changed = comparisons.filter(isChangedComparison);
-  let fresh = comparisons.filter(isNewComparison);
-  let needsReview = comparisons.filter(comparison => comparison.needs_review);
-  let baseline = context.baseline?.selected;
-  let lines = [
-    `# Vizzly Visual Context: ${context.build?.name || context.build?.id || 'Build'}`,
-    '',
-    `Project: ${context.scope?.organization?.slug || 'unknown'}/${context.scope?.project?.slug || 'unknown'}`,
-    `Build: ${context.build?.id || 'unknown'} (${context.build?.status || 'unknown'})`,
-  ];
-
-  if (baseline) {
-    lines.push(
-      `Approved baseline: ${baseline.name || baseline.id || 'selected'} (${baseline.approval_status || 'unknown'})`
-    );
-  }
-
-  if (context.status) {
-    lines.push(
-      `Needs review: ${context.status.needs_review ? 'yes' : 'no'} (${context.status.pending_comparisons || 0} pending comparisons)`
-    );
-  }
-
-  if (context.preview?.url || context.preview?.preview_url) {
-    lines.push(
-      `Preview: ${context.preview.url || context.preview.preview_url}`
-    );
-  }
-
-  if (context.links?.build_url) {
-    lines.push(`Build URL: ${context.links.build_url}`);
-  }
-
-  if (context.links?.report_url) {
-    lines.push(`Report: ${context.links.report_url}`);
-  }
-
-  lines.push('');
-  lines.push('## Diff Summary');
-  lines.push(`- Total comparisons: ${comparisons.length}`);
-  lines.push(`- Changed: ${changed.length}`);
-  lines.push(`- New: ${fresh.length}`);
-  lines.push(`- Needs review: ${needsReview.length}`);
-
-  if (changed.length > 0 || fresh.length > 0) {
-    lines.push('');
-    lines.push('## Evidence To Inspect');
-
-    for (let comparison of [...changed, ...fresh].slice(0, 10)) {
-      let diffPercentage = getComparisonDiffPercentage(comparison);
-      let detail = diffPercentage == null ? '' : ` · ${diffPercentage}% diff`;
-      let diffUrl =
-        comparison.diff?.image_url || comparison.analysis?.diff_image_url;
-      lines.push(
-        `- ${getComparisonName(comparison)}: ${getComparisonDisplayState(comparison)}${detail}`
-      );
-      if (diffUrl) {
-        lines.push(`  Diff: ${diffUrl}`);
-      }
-    }
-  }
-
-  if (comparisons.length > 0 && changed.length === 0 && fresh.length === 0) {
-    lines.push('');
-    lines.push('## Reviewed Screenshots');
-
-    for (let comparison of comparisons.slice(0, 10)) {
-      lines.push(
-        `- ${getComparisonName(comparison)}: ${getComparisonDisplayState(comparison)}`
-      );
-    }
-
-    if (comparisons.length > 10) {
-      lines.push(`- ...${comparisons.length - 10} more`);
-    }
-  }
-
-  lines.push('');
-  lines.push(
-    'Use this as reviewed UI context. Treat approved baselines as visual truth, inspect meaningful diffs, and leave approval decisions to humans.'
-  );
-
-  return lines.join('\n');
-}
-
 function countScreenshotCommentEntries(groups = []) {
   return groups.reduce(
     (total, group) => total + (group.comments?.length || 0),
@@ -1314,11 +1231,10 @@ export async function contextBuildCommand(
     }
 
     let resolvedBuildId = resolveBuildContextId(buildId, runtime, deps);
-    let include = parseIncludeOption(options.include);
-    let query =
-      globalOptions.json && options.agent && !options.full
-        ? { details: include.includes('diffs') ? 'diffs' : 'summary' }
-        : undefined;
+    let { compact, details, include, query } = buildCompactContextRequest(
+      options,
+      globalOptions
+    );
 
     output.startSpinner('Fetching build context...');
     let context = await runtime.provider.getBuildContext(
@@ -1327,26 +1243,25 @@ export async function contextBuildCommand(
     );
     output.stopSpinner();
 
-    if (globalOptions.json && options.agent && !options.full) {
-      output.data(
-        buildAgentBuildPayload(context, {
-          source: runtime.source,
-          include,
-          evidenceOffset: options.offset,
-        })
+    if (compact) {
+      let compactContext = validateCompactContext(context, 'build', details);
+      let payload = buildCompactBuildPayload(
+        compactContext,
+        include,
+        options.cursor
       );
+
+      if (globalOptions.json) {
+        output.data(payload);
+      } else {
+        displayCompactBuildContext(output, payload);
+      }
       output.cleanup();
       return;
     }
 
     if (globalOptions.json) {
       output.data(context);
-      output.cleanup();
-      return;
-    }
-
-    if (options.agent) {
-      output.print(formatAgentBuildContext(context));
       output.cleanup();
       return;
     }
@@ -1390,11 +1305,10 @@ export async function contextComparisonCommand(
     if (!runtime) {
       return;
     }
-    let query = {
-      similarLimit: options.similarLimit,
-      recentLimit: options.recentLimit,
-      windowSize: options.windowSize,
-    };
+    let { compact, details, include, query } = buildCompactContextRequest(
+      options,
+      globalOptions
+    );
 
     output.startSpinner('Fetching comparison context...');
     let context = await runtime.provider.getComparisonContext(
@@ -1403,8 +1317,19 @@ export async function contextComparisonCommand(
     );
     output.stopSpinner();
 
-    if (globalOptions.json && options.agent) {
-      output.data(buildAgentComparisonPayload(context));
+    if (compact) {
+      let compactContext = validateCompactContext(
+        context,
+        'comparison',
+        details
+      );
+      let payload = buildCompactComparisonPayload(compactContext, include);
+
+      if (globalOptions.json) {
+        output.data(payload);
+      } else {
+        displayCompactComparisonContext(output, payload);
+      }
       output.cleanup();
       return;
     }
@@ -1594,28 +1519,15 @@ export async function contextReviewQueueCommand(
 export function validateContextBuildOptions(_options = {}) {
   let errors = validateSourceOption(_options.source);
   errors.push(...validateIncludeOption(_options.include));
-  errors.push(...validateOffset(_options.offset));
+  errors.push(...validateCursor(_options.cursor));
   return errors;
 }
 
 export function validateContextComparisonOptions(options = {}) {
   let errors = [];
   errors.push(...validateSourceOption(options.source));
-  errors.push(
-    ...validateLimitRange(options.similarLimit, '--similar-limit', {
-      max: 50,
-    })
-  );
-  errors.push(
-    ...validateLimitRange(options.recentLimit, '--recent-limit', {
-      max: 50,
-    })
-  );
-  errors.push(
-    ...validateLimitRange(options.windowSize, '--window-size', {
-      max: 50,
-    })
-  );
+  errors.push(...validateIncludeOption(options.include));
+  errors.push(...validateCursor(options.cursor));
   return errors;
 }
 

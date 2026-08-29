@@ -63,11 +63,11 @@
     "vitest": ">=4.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.8",
-    "@vitest/browser": "^4.0.0",
-    "@vitest/browser-playwright": "^4.0.2",
+    "@biomejs/biome": "^2.5.10",
+    "@vitest/browser": "^4.1.11",
+    "@vitest/browser-playwright": "^4.1.11",
     "playwright": "^1.49.1",
     "serve-handler": "^6.1.6",
-    "vitest": "^4.0.0"
+    "vitest": "^4.1.11"
   }
 }

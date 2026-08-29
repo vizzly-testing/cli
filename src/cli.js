@@ -978,16 +978,14 @@ contextCmd
   .argument('<build-id>', 'Build ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option('--agent', 'Output compact context for LLM agents')
-  .option('--full', 'Return the full build context payload with --agent --json')
+  .option('--full', 'Return the full build context instead of compact context')
   .option(
-    '--offset <n>',
-    'Skip the first N evidence records with --agent --json',
-    Number,
-    0
+    '--cursor <cursor>',
+    'Continue compact evidence from an opaque API cursor'
   )
   .option(
     '--include <items>',
-    'Add detail to compact agent JSON: screenshots,diffs,comments'
+    'Add raw diff diagnostics to compact context: diffs'
   )
   .addHelpText(
     'after',
@@ -997,8 +995,7 @@ Examples:
   $ vizzly context build current --source local
   $ vizzly context build current --source local --agent
   $ vizzly context build abc123 --source cloud --agent --json
-  $ vizzly context build abc123 --source cloud --agent --json --offset 10
-  $ vizzly context build abc123 --source cloud --agent --json --include diffs,comments
+  $ vizzly context build abc123 --source cloud --agent --json --include diffs
   $ vizzly context build abc123 --source cloud --agent --json --full
 `
   )
@@ -1017,29 +1014,22 @@ contextCmd
   .description('Fetch a comparison context bundle')
   .argument('<comparison-id>', 'Comparison ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
-  .option('--agent', 'Normalize JSON evidence for LLM agents')
+  .option('--agent', 'Output compact context for LLM agents')
   .option(
-    '--similar-limit <n>',
-    'Maximum similar fingerprint matches to return (1-50)',
-    Number
+    '--full',
+    'Return the full comparison context instead of compact context'
   )
   .option(
-    '--recent-limit <n>',
-    'Maximum recent same-name comparisons to return (1-50)',
-    Number
+    '--cursor <cursor>',
+    'Continue compact history from an opaque API cursor'
   )
-  .option(
-    '--window-size <n>',
-    'Historical hotspot analysis window size (1-50)',
-    Number
-  )
+  .option('--include <items>', 'Add detail to compact context: diffs')
   .addHelpText(
     'after',
     `
 Examples:
   $ vizzly context comparison def456 --source cloud
   $ vizzly context comparison def456 --source local
-  $ vizzly context comparison def456 --source cloud --similar-limit 5 --recent-limit 5
   $ vizzly context comparison def456 --source cloud --json
   $ vizzly context comparison def456 --source cloud --agent --json
 `

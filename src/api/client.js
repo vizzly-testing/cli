@@ -130,6 +130,7 @@ export function createApiClient(options = {}) {
       let error = parseApiError(response.status, errorBody, url);
       throw new VizzlyError(error.message, error.code, {
         status: error.status,
+        details: error.details,
       });
     }
 

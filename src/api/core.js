@@ -254,9 +254,23 @@ export function shouldRetryWithRefresh(status, isRetry, hasRefreshToken) {
  */
 export function parseApiError(status, body, url) {
   let message = `API request failed: ${status}`;
+  let responseDetails = null;
+  let responseCode = null;
+  let responseMessage = body;
 
   if (body) {
-    message += ` - ${body}`;
+    try {
+      let parsedBody = JSON.parse(body);
+      responseDetails = parsedBody.details ?? null;
+      responseCode = parsedBody.code ?? parsedBody.details?.code ?? null;
+      responseMessage = parsedBody.error ?? parsedBody.message ?? body;
+    } catch {
+      // Plain-text API errors remain valid and are surfaced unchanged.
+    }
+  }
+
+  if (responseMessage) {
+    message += ` - ${responseMessage}`;
   }
 
   message += ` (URL: ${url})`;
@@ -268,7 +282,12 @@ export function parseApiError(status, body, url) {
   if (status === 429) code = 'RATE_LIMITED';
   if (status >= 500) code = 'SERVER_ERROR';
 
-  return { message, code, status };
+  return {
+    message,
+    code: responseCode || code,
+    status,
+    details: responseDetails,
+  };
 }
 
 /**

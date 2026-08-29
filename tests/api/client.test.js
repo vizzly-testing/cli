@@ -265,6 +265,36 @@ describe('api/client', () => {
       );
     });
 
+    it('surfaces typed context errors from the API', async () => {
+      let client = createApiClient({
+        token: 'test-token',
+        baseUrl: 'https://api.test',
+      });
+
+      mockFetch.mock.mockImplementation(async () => ({
+        ok: false,
+        status: 409,
+        headers: new Map(),
+        text: async () =>
+          JSON.stringify({
+            error: 'Context evidence changed; request the first page again',
+            details: { code: 'CONTEXT_CURSOR_STALE' },
+          }),
+      }));
+
+      await assert.rejects(
+        () => client.request('/api/sdk/context/builds/build-123'),
+        error => {
+          assert.strictEqual(error.code, 'CONTEXT_CURSOR_STALE');
+          assert.strictEqual(
+            error.context.details.code,
+            'CONTEXT_CURSOR_STALE'
+          );
+          return true;
+        }
+      );
+    });
+
     it('includes status code in error context for 5xx errors', async () => {
       let client = createApiClient({
         token: 'test-token',

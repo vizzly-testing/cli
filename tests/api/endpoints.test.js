@@ -132,11 +132,15 @@ describe('api/endpoints', () => {
     it('includes build context detail params when provided', async () => {
       let client = createMockClient({ resource: 'build_context' });
 
-      await getBuildContext(client, 'build-123', { details: 'summary' });
+      await getBuildContext(client, 'build-123', {
+        details: 'summary',
+        limit: 10,
+        cursor: 'opaque-page-2',
+      });
 
       assert.strictEqual(
         client.getLastCall().endpoint,
-        '/api/sdk/context/builds/build-123?details=summary'
+        '/api/sdk/context/builds/build-123?details=summary&limit=10&cursor=opaque-page-2'
       );
     });
 
@@ -144,14 +148,14 @@ describe('api/endpoints', () => {
       let client = createMockClient({ resource: 'comparison_context' });
 
       await getComparisonContext(client, 'comparison-123', {
-        similarLimit: 5,
-        recentLimit: 4,
-        windowSize: 12,
+        details: 'diffs',
+        limit: 10,
+        cursor: 'opaque-similar-page-2',
       });
 
       assert.strictEqual(
         client.getLastCall().endpoint,
-        '/api/sdk/context/comparisons/comparison-123?similarLimit=5&recentLimit=4&windowSize=12'
+        '/api/sdk/context/comparisons/comparison-123?details=diffs&limit=10&cursor=opaque-similar-page-2'
       );
     });
 

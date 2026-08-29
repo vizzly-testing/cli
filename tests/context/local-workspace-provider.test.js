@@ -383,4 +383,156 @@ describe('context/local-workspace-provider', () => {
     assert.strictEqual(context.comparisons[0].needs_review, true);
     assert.strictEqual(context.comparisons[0].diff.regions.length, 1);
   });
+
+  it('pages bounded local context and keeps cursors tied to their target', () => {
+    let projectRoot = '/tmp/vizzly-local-compact-context';
+    let paths = createWorkspacePaths(projectRoot);
+    let comparisons = Array.from({ length: 12 }, (_, index) => ({
+      id: `comp-${index}`,
+      name: 'Dashboard',
+      originalName: 'Dashboard',
+      status: 'failed',
+      current: `/images/current/${index}.png`,
+      baseline: `/images/baselines/${index}.png`,
+      diff: `/images/diffs/${index}.png`,
+      diffPercentage: index + 0.5,
+      properties: { browser: 'chrome' },
+    }));
+    let comparisonDetails = Object.fromEntries(
+      comparisons.map(comparison => [
+        comparison.id,
+        { diffClusters: [{ x: 1, y: 2, width: 3, height: 4 }] },
+      ])
+    );
+    let provider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      {
+        readJsonIfExists: path => {
+          if (path === paths.report) {
+            return { timestamp: 1234, comparisons };
+          }
+          if (path === paths.comparisonDetails) return comparisonDetails;
+          return null;
+        },
+      }
+    );
+
+    let buildSummary = provider.getBuildContext('current', {
+      details: 'summary',
+      limit: 10,
+    });
+    assert.strictEqual(buildSummary.evidence.items.length, 10);
+    assert.strictEqual(buildSummary.evidence.page.has_more, true);
+    assert.ok(!buildSummary.evidence.items[0].diff.regions);
+    assert.strictEqual(buildSummary.preview, null);
+    assert.deepStrictEqual(buildSummary.signature_properties, []);
+    assert.strictEqual(buildSummary.comments.build.total, 0);
+
+    let nextBuildPage = provider.getBuildContext('current', {
+      details: 'summary',
+      limit: 10,
+      cursor: buildSummary.evidence.page.next_cursor,
+    });
+    assert.deepStrictEqual(
+      nextBuildPage.evidence.items.map(item => item.id),
+      ['comp-10', 'comp-11']
+    );
+
+    let buildDiffs = provider.getBuildContext('current', {
+      details: 'diffs',
+      limit: 10,
+    });
+    assert.strictEqual(buildDiffs.evidence.items[0].diff.regions.length, 1);
+    assert.throws(
+      () =>
+        provider.getBuildContext('current', {
+          details: 'diffs',
+          limit: 10,
+          cursor: buildSummary.evidence.page.next_cursor,
+        }),
+      /cursor is invalid|results changed/
+    );
+
+    let comparisonSummary = provider.getComparisonContext('comp-0', {
+      details: 'summary',
+      limit: 10,
+    });
+    assert.ok(!comparisonSummary.comparison.analysis.diff_regions);
+    assert.ok(!comparisonSummary.history.recent_by_name.items[0].analysis);
+    assert.strictEqual(
+      comparisonSummary.history.recent_by_name.page.has_more,
+      true
+    );
+    assert.strictEqual(comparisonSummary.details, 'summary');
+    assert.strictEqual(comparisonSummary.history.active_stream, null);
+    assert.deepStrictEqual(comparisonSummary.signature_properties, []);
+    assert.strictEqual(
+      comparisonSummary.dynamic_regions.confirmed_regions.total,
+      0
+    );
+
+    let comparisonDiffs = provider.getComparisonContext('comp-0', {
+      details: 'diffs',
+      limit: 10,
+    });
+    assert.strictEqual(
+      comparisonDiffs.comparison.analysis.diff_regions.length,
+      1
+    );
+
+    assert.throws(
+      () =>
+        provider.getComparisonContext('comp-1', {
+          details: 'summary',
+          limit: 10,
+          cursor: comparisonSummary.history.recent_by_name.page.next_cursor,
+        }),
+      /cursor is invalid|results changed/
+    );
+  });
+
+  it('invalidates a cursor when local evidence changes without a new timestamp', () => {
+    let projectRoot = '/tmp/vizzly-local-changing-context';
+    let paths = createWorkspacePaths(projectRoot);
+    let revision = 1;
+    let readJsonIfExists = path => {
+      if (path === paths.report) {
+        return {
+          timestamp: 1234,
+          comparisons: Array.from({ length: 11 }, (_, index) => ({
+            id: `comp-${index}`,
+            name: `Screenshot ${index}`,
+            status: index === 0 && revision === 2 ? 'passed' : 'failed',
+            properties: {},
+          })),
+        };
+      }
+      if (path === paths.comparisonDetails) return {};
+      return null;
+    };
+    let firstProvider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      { readJsonIfExists }
+    );
+    let firstPage = firstProvider.getBuildContext('current', {
+      details: 'summary',
+      limit: 10,
+    });
+
+    revision = 2;
+    let changedProvider = createLocalWorkspaceContextProvider(
+      { projectRoot },
+      { readJsonIfExists }
+    );
+
+    assert.throws(
+      () =>
+        changedProvider.getBuildContext('current', {
+          details: 'summary',
+          limit: 10,
+          cursor: firstPage.evidence.page.next_cursor,
+        }),
+      /cursor is invalid|results changed/
+    );
+  });
 });

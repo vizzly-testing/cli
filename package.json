@@ -140,5 +140,10 @@
     "typescript": "^7.0.2",
     "vite": "^8.0.0",
     "wouter": "^3.7.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "js-yaml": "4.3.1"
+    }
   }
 }

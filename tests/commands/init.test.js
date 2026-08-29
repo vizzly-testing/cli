@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -382,14 +382,8 @@ describe('commands/init', () => {
       assert.strictEqual(result.status, 'created');
       assert.match(installedSkill, /name: vizzly/);
       assert.match(agentsContent, /Visual Testing With Vizzly/);
-      assert.match(
-        agentsContent,
-        /npx vizzly context build current --source local --agent/
-      );
-      assert.match(
-        agentsContent,
-        /npx vizzly tdd run "<test command>" --no-open/
-      );
+      assert.match(agentsContent, /.agents\/skills\/vizzly\/SKILL.md/);
+      assert.match(agentsContent, /--agent --json/);
       assert.ok(
         output.calls.some(
           call =>
@@ -543,6 +537,115 @@ describe('commands/init', () => {
 
       assert.strictEqual(result.status, 'exists');
       assert.strictEqual(existingSkill, 'local skill\n');
+    });
+
+    it('refreshes managed agent guidance when explicitly requested', async () => {
+      let cwd = await createTempProject();
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let targetPath = getProjectAgentSkillPath(cwd);
+      let agentsPath = getProjectAgentsPath(cwd);
+      let output = createMockOutput();
+
+      await mkdir(skillSourcePath, { recursive: true });
+      await mkdir(path.join(targetPath, 'agents'), { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Current guidance.\n---\n'
+      );
+      await writeFile(path.join(targetPath, 'SKILL.md'), 'stale skill\n');
+      await writeFile(path.join(targetPath, 'project-notes.md'), 'keep me\n');
+      await writeFile(
+        path.join(targetPath, 'agents', 'openai.yaml'),
+        'stale vendor metadata\n'
+      );
+      await writeFile(
+        agentsPath,
+        '# Repo Guidance\n\n<!-- vizzly-agent-guidance -->\nstale guidance\n<!-- /vizzly-agent-guidance -->\n'
+      );
+
+      await init(
+        { agentGuidance: true, plugins: [] },
+        {
+          cwd: () => cwd,
+          output,
+          skillSourcePath,
+        }
+      );
+
+      let installedSkill = await readFile(
+        path.join(targetPath, 'SKILL.md'),
+        'utf8'
+      );
+      let projectNotes = await readFile(
+        path.join(targetPath, 'project-notes.md'),
+        'utf8'
+      );
+      let agentsContent = await readFile(agentsPath, 'utf8');
+
+      assert.match(installedSkill, /description: Current guidance/);
+      assert.strictEqual(projectNotes, 'keep me\n');
+      assert.match(agentsContent, /# Repo Guidance/);
+      assert.match(agentsContent, /Inspect existing visual evidence/);
+      assert.doesNotMatch(agentsContent, /stale guidance/);
+      await assert.rejects(
+        access(path.join(targetPath, 'agents', 'openai.yaml')),
+        error => error.code === 'ENOENT'
+      );
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'complete' &&
+            call.args[0] === 'Refreshed Vizzly agent skill'
+        )
+      );
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'complete' &&
+            call.args[0] === 'Refreshed Vizzly guidance in AGENTS.md'
+        )
+      );
+    });
+
+    it('leaves incomplete AGENTS.md markers for the user to repair', async () => {
+      let cwd = await createTempProject();
+      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
+      let agentsPath = getProjectAgentsPath(cwd);
+      let output = createMockOutput();
+
+      await mkdir(skillSourcePath, { recursive: true });
+      await writeFile(
+        path.join(skillSourcePath, 'SKILL.md'),
+        '---\nname: vizzly\ndescription: Current guidance.\n---\n'
+      );
+      await writeFile(
+        agentsPath,
+        '# Repo Guidance\n\n<!-- vizzly-agent-guidance -->\ncustom text\n'
+      );
+
+      await init(
+        { agentGuidance: true, plugins: [] },
+        {
+          cwd: () => cwd,
+          output,
+          skillSourcePath,
+        }
+      );
+
+      let agentsContent = await readFile(agentsPath, 'utf8');
+      assert.match(agentsContent, /custom text/);
+      assert.strictEqual(
+        agentsContent.split('vizzly-agent-guidance').length - 1,
+        1
+      );
+      assert.ok(
+        output.calls.some(
+          call =>
+            call.method === 'warn' &&
+            call.args[0] ===
+              'Vizzly guidance markers in AGENTS.md are incomplete'
+        )
+      );
     });
   });
 });

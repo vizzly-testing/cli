@@ -1,9 +1,10 @@
-# SDK Capture Patterns
+# SDK Capture
 
-Prefer the repository's existing Vizzly integration and user journey. Add a new
-capture path only when the task requires it.
+Use the repository's existing Vizzly integration and user journey. The
+JavaScript example applies only when no framework-specific capture path already
+owns the workflow.
 
-## JavaScript Client
+## JavaScript
 
 ```javascript
 import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
@@ -13,37 +14,28 @@ await vizzlyScreenshot('settings-profile-edit-mode', screenshot);
 ```
 
 `vizzlyScreenshot(name, image, options)` accepts PNG bytes or a file path.
-Available options include:
+Options include `properties`, `threshold`, `minClusterSize`, and
+`fullPage`. Preserve existing tuning unless visual evidence justifies changing
+it.
 
-- `properties`: metadata attached to the screenshot.
-- `threshold`: per-screenshot CIEDE2000 Delta E tolerance.
-- `minClusterSize`: minimum changed-pixel cluster size.
-- `fullPage`: whether the screenshot represents a full-page capture.
+## Keep Identity Stable
 
-Do not add arbitrary tuning values. Preserve the repository's existing values
-unless visual evidence justifies changing them.
+Use a descriptive name. Identity always includes the name, viewport width, and
+browser. Configured `signatureProperties` add custom identity fields; other
+properties are metadata.
 
-## Screenshot Identity
+Do not assume theme, locale, or state creates a separate baseline unless the
+configuration says so. Avoid generic names such as `screenshot1` and names
+with slashes.
 
-Use a stable, descriptive name. Vizzly's signature always includes the name,
-viewport width, and browser. Only properties named in the project's
-`signatureProperties` configuration participate in baseline identity.
+## Follow Existing Integrations
 
-Treat other `properties` as metadata. Do not assume values such as theme,
-locale, or state create separate baselines unless the configuration says so.
-
-## Existing Integrations
-
-- Use the Vizzly Vitest matcher when the project already configures the plugin:
+- Keep the Vizzly Vitest matcher when it is already configured:
 
   ```javascript
   await expect(page).toMatchScreenshot('hero-section.png');
   ```
 
-- Prefer existing Storybook, static-site, or Ember capture flows over adding a
-  parallel Playwright path.
-- For Swift/XCTest, inspect the repository's Vizzly Swift package documentation
-  and existing `VizzlyXCTest` usage before changing capture code.
-
-Use properties for searchable metadata and configured variants. Avoid generic
-names such as `screenshot1` or `test`, and avoid names with slashes.
+- Prefer existing Storybook, static-site, Ember, or Swift capture flows over a
+  parallel test path.
+- Inspect the repository's integration setup before changing capture code.

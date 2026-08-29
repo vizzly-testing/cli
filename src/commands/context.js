@@ -572,7 +572,7 @@ function buildCompactBuildCommands(context = {}, include = [], cursor = null) {
     });
   }
 
-  if (buildTarget && evidence.length > 0) {
+  if (buildTarget && evidence.length > 0 && !include.includes('diffs')) {
     let cursorFlag = cursor ? ` --cursor ${quoteCommandArgument(cursor)}` : '';
     commands.push({
       label: 'Load raw diff diagnostics',
@@ -624,6 +624,16 @@ function buildCompactComparisonCommands(context = {}, include = []) {
     ['recent_by_name', 'recent history'],
   ];
   let includeFlag = include.length > 0 ? ` --include ${include.join(',')}` : '';
+
+  if (comparisonId && !include.includes('diffs')) {
+    commands.push({
+      label: 'Load raw diff diagnostics',
+      command: appendContextSource(
+        `vizzly --json context comparison ${quoteCommandArgument(comparisonId)} --agent --include diffs`,
+        context
+      ),
+    });
+  }
 
   for (let [stream, label] of streams) {
     let page = context.history?.[stream]?.page;
@@ -1143,6 +1153,7 @@ function displayScreenshotContext(output, context) {
   let confirmedRegionLabels = formatConfirmedRegionLabels(
     context.confirmed_regions
   );
+  let hotspotAnalysis = context.hotspot_analysis;
 
   output.print(`  ${colors.bold(context.screenshot.name)}`);
   output.print(
@@ -1154,10 +1165,14 @@ function displayScreenshotContext(output, context) {
     'Memory',
     `${context.history.recent_comparisons.length} recent comparisons · ${context.confirmed_regions.length} confirmed regions`
   );
-  output.labelValue(
-    'Hotspots',
-    `${context.hotspot_analysis.total_builds_analyzed} builds analyzed · ${context.hotspot_analysis.confidence}`
-  );
+  if (hotspotAnalysis) {
+    output.labelValue(
+      'Hotspots',
+      `${hotspotAnalysis.total_builds_analyzed ?? 'unknown'} builds analyzed · ${hotspotAnalysis.confidence ?? 'unknown'}`
+    );
+  } else {
+    output.labelValue('Hotspots', 'unavailable');
+  }
 
   if (confirmedRegionLabels) {
     output.labelValue('Known Regions', confirmedRegionLabels);

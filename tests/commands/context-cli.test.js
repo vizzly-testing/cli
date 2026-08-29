@@ -438,7 +438,14 @@ async function withBuildContextApi(callback) {
         JSON.stringify({
           resource: 'screenshot_context',
           review_flow: 'legacy',
+          scope: {
+            organization: { slug: 'acme' },
+            project: { slug: 'web', name: 'Web' },
+          },
           screenshot: { name: 'Screenshot 1' },
+          history: { recent_comparisons: [] },
+          confirmed_regions: [],
+          hotspot_analysis: null,
         })
       );
       return;
@@ -681,6 +688,11 @@ describe('context CLI integration', () => {
       assert.deepStrictEqual(diffPayload.evidence.items[0].diff.regions, [
         { x: 10, y: 20, width: 30, height: 40 },
       ]);
+      assert.ok(
+        !diffPayload.suggested_commands.some(
+          command => command.label === 'Load raw diff diagnostics'
+        )
+      );
 
       let full = await runCLI(
         ['--json', 'context', 'build', 'build-123', '--agent', '--full'],
@@ -812,6 +824,13 @@ describe('context CLI integration', () => {
       let payload = JSON.parse(result.stdout).data;
       assert.strictEqual(payload.resource, 'comparison_agent_context');
       assert.strictEqual(payload.comparison.id, 'comparison-1');
+      assert.ok(
+        payload.suggested_commands.some(command =>
+          command.command.includes(
+            'context comparison comparison-1 --agent --include diffs --source cloud'
+          )
+        )
+      );
       assert.deepStrictEqual(payload.comparison.analysis.regions, [
         { x: 10, y: 20, width: 30, height: 40 },
       ]);
@@ -864,6 +883,11 @@ describe('context CLI integration', () => {
           command.command.includes(
             '--cursor similar-page-2 --include diffs --source cloud'
           )
+        )
+      );
+      assert.ok(
+        !withDiffsPayload.suggested_commands.some(
+          command => command.label === 'Load raw diff diagnostics'
         )
       );
 
@@ -921,6 +945,32 @@ describe('context CLI integration', () => {
           command[0] === 'comparison' ? 'cricket_v1' : 'legacy'
         );
       }
+    });
+  });
+
+  it('renders human screenshot context when hotspot analysis is unavailable', async () => {
+    await withBuildContextApi(async ({ apiUrl }) => {
+      let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-human-'));
+      let result = await runCLI(
+        [
+          '--no-color',
+          'context',
+          'screenshot',
+          'Screenshot 1',
+          '--source',
+          'cloud',
+        ],
+        {
+          cwd,
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+
+      assert.strictEqual(result.code, 0, result.stderr);
+      assert.match(result.stdout, /Hotspots:\s+unavailable/);
     });
   });
 

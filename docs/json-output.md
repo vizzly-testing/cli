@@ -1126,6 +1126,11 @@ vizzly init --agent-guidance --json
 }
 ```
 
+Run `vizzly init --agent-guidance --json` again after upgrading the CLI to
+refresh the portable skill and Vizzly-owned `AGENTS.md` block. Existing output
+then reports `"status": "refreshed"` for each updated artifact; unrelated
+guidance and an existing Vizzly config remain unchanged.
+
 ### `vizzly project link`
 
 ```bash

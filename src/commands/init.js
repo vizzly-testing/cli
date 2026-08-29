@@ -37,6 +37,7 @@ function createInitDeps(deps = {}) {
     output: deps.output || output,
     promptAgentSkill: deps.promptAgentSkill || promptAgentSkill,
     readFile: deps.readFile || fs.readFile,
+    remove: deps.remove || fs.rm,
     skillSourcePath: deps.skillSourcePath || getPackagedAgentSkillPath(),
     writeFile: deps.writeFile || fs.writeFile,
   };
@@ -283,16 +284,20 @@ let agentGuidanceStart = '<!-- vizzly-agent-guidance -->';
 let agentGuidanceEnd = '<!-- /vizzly-agent-guidance -->';
 
 function createAgentGuidanceContent() {
+  let skillPath = '.agents/skills/vizzly/SKILL.md';
   return `${agentGuidanceStart}
 ## Visual Testing With Vizzly
 
-Use Vizzly for user-facing UI changes when this repo has Vizzly configured.
+For user-facing changes, use the repo-local Vizzly skill at
+\`${skillPath}\`.
 
-- Read visual history before changing UI: \`npx vizzly context build current --source local --agent\`
-- Inspect named screenshot history when useful: \`npx vizzly context screenshot "<screenshot-name>" --source local --json\`
-- Verify visual changes through the existing user workflow that owns the surface: \`npx vizzly tdd run "<test command>" --no-open\`
+- Inspect existing visual evidence before and after the change.
+- Use the repository's established Vizzly command and owning user workflow.
+- Read bounded JSON with \`--agent --json\`, then inspect baseline, current, and
+  diff images together.
 
-Prefer existing E2E/user journeys over narrow screenshot-only specs. Treat Vizzly diffs as review evidence; do not approve or reject changes unless asked.
+Treat Vizzly diffs as review evidence. Do not approve, reject, or replace
+evidence unless the task explicitly asks for that mutation.
 ${agentGuidanceEnd}
 `;
 }
@@ -323,9 +328,36 @@ async function upsertProjectAgentGuidance({
   }
 
   let existingContent = await readFile(agentsPath, 'utf8');
-  if (existingContent.includes(agentGuidanceStart)) {
+  let startIndex = existingContent.indexOf(agentGuidanceStart);
+  let endIndex = existingContent.indexOf(agentGuidanceEnd);
+  let startCount = existingContent.split(agentGuidanceStart).length - 1;
+  let endCount = existingContent.split(agentGuidanceEnd).length - 1;
+
+  if (
+    startCount !== endCount ||
+    startCount > 1 ||
+    (startCount === 1 && endIndex < startIndex)
+  ) {
     return {
-      status: 'exists',
+      status: 'malformed',
+      agentsPath,
+    };
+  }
+
+  if (startIndex >= 0 && endIndex >= startIndex) {
+    let blockEnd = endIndex + agentGuidanceEnd.length;
+    let refreshedContent = `${existingContent.slice(0, startIndex)}${guidance.trimEnd()}${existingContent.slice(blockEnd)}`;
+
+    if (refreshedContent === existingContent) {
+      return {
+        status: 'exists',
+        agentsPath,
+      };
+    }
+
+    await writeFile(agentsPath, refreshedContent, 'utf8');
+    return {
+      status: 'refreshed',
       agentsPath,
     };
   }
@@ -340,9 +372,11 @@ async function upsertProjectAgentGuidance({
 export async function installProjectAgentSkill({
   cwd,
   sourcePath,
+  refresh = false,
   access = fs.access,
   copy = fs.cp,
   mkdir = fs.mkdir,
+  remove = fs.rm,
 }) {
   let targetPath = getProjectAgentSkillPath(cwd);
 
@@ -354,7 +388,8 @@ export async function installProjectAgentSkill({
     };
   }
 
-  if (await fileExists(targetPath, access)) {
+  let targetExists = await fileExists(targetPath, access);
+  if (targetExists && !refresh) {
     return {
       status: 'exists',
       sourcePath,
@@ -365,12 +400,18 @@ export async function installProjectAgentSkill({
   await mkdir(path.dirname(targetPath), { recursive: true });
   await copy(sourcePath, targetPath, {
     recursive: true,
-    errorOnExist: true,
-    force: false,
+    errorOnExist: !targetExists,
+    force: targetExists,
   });
 
+  if (targetExists) {
+    await remove(path.join(targetPath, 'agents', 'openai.yaml'), {
+      force: true,
+    });
+  }
+
   return {
-    status: 'installed',
+    status: targetExists ? 'refreshed' : 'installed',
     sourcePath,
     targetPath,
   };
@@ -384,6 +425,12 @@ function writeAgentSkillOutput(output, result) {
   if (result.status === 'installed') {
     output.complete('Added Vizzly agent skill');
     output.hint(`Installed at ${result.targetPath}`);
+    return;
+  }
+
+  if (result.status === 'refreshed') {
+    output.complete('Refreshed Vizzly agent skill');
+    output.hint(`Updated ${result.targetPath}`);
     return;
   }
 
@@ -414,8 +461,20 @@ function writeAgentGuidanceOutput(output, result) {
     return;
   }
 
+  if (result.status === 'refreshed') {
+    output.complete('Refreshed Vizzly guidance in AGENTS.md');
+    output.hint(`Updated ${result.agentsPath}`);
+    return;
+  }
+
   if (result.status === 'exists') {
     output.hint('Vizzly guidance already exists in AGENTS.md');
+    return;
+  }
+
+  if (result.status === 'malformed') {
+    output.warn('Vizzly guidance markers in AGENTS.md are incomplete');
+    output.hint(`Repair the managed block in ${result.agentsPath}`);
   }
 }
 
@@ -480,6 +539,8 @@ export async function init(options = {}, deps = {}) {
       access: resolvedDeps.access,
       copy: resolvedDeps.copy,
       mkdir: resolvedDeps.mkdir,
+      refresh: options.agentGuidance || options.agentSkill,
+      remove: resolvedDeps.remove,
     });
   }
 

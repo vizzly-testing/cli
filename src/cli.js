@@ -594,10 +594,13 @@ program
   .command('init')
   .description('Initialize Vizzly in your project')
   .option('--force', 'Overwrite existing configuration')
-  .option('--agent-skill', 'Install the repo-local Vizzly agent skill')
+  .option(
+    '--agent-skill',
+    'Install or refresh the repo-local Vizzly agent skill'
+  )
   .option(
     '--agent-guidance',
-    'Add Vizzly guidance to this project AGENTS.md and install the agent skill'
+    'Install or refresh the repo-local Vizzly skill and AGENTS.md guidance'
   )
   .option('--skip-agent-skill', 'Skip the Vizzly agent skill prompt')
   .action(async options => {

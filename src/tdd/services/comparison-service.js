@@ -4,7 +4,7 @@
  * Wraps honeydiff for image comparison and builds comparison result objects.
  */
 
-import { compare } from '@vizzly-testing/honeydiff';
+import { analyze } from '@vizzly-testing/honeydiff';
 import { calculateHotspotCoverage } from '../core/hotspot-coverage.js';
 import {
   calculateRegionCoverage,
@@ -32,17 +32,51 @@ export async function compareImages(
 ) {
   let { threshold = 2.0, minClusterSize = 2 } = options;
 
-  return compare(baselinePath, currentPath, {
-    threshold,
-    antialiasing: true,
-    diffPath,
-    overwrite: true,
-    includeClusters: true,
-    includeSSIM: true,
-    includeGMSD: true,
-    clusterMerge: true,
-    minClusterSize,
-  });
+  let analysis = await analyze(
+    baselinePath,
+    currentPath,
+    {
+      threshold,
+      antialiasing: true,
+      minimumRegionPixels: minClusterSize,
+    },
+    { diffPath, overwrite: true }
+  );
+  let comparison = analysis.comparison;
+  let perception = analysis.perception;
+  let changedPixels = comparison.pixels.changed.total;
+  let totalPixels = comparison.pixels.total;
+  let heightChange = comparison.heightChange;
+
+  return {
+    isDifferent: comparison.different,
+    diffPercentage: totalPixels > 0 ? (changedPixels / totalPixels) * 100 : 0,
+    diffPixels: changedPixels,
+    totalPixels,
+    aaPixelsIgnored: comparison.pixels.suppressed.antialiasing.count,
+    aaPercentage:
+      totalPixels > 0
+        ? (comparison.pixels.suppressed.antialiasing.count / totalPixels) * 100
+        : 0,
+    boundingBox: comparison.difference.spatial?.bounds || null,
+    heightDiff: heightChange
+      ? heightChange.direction === 'added'
+        ? heightChange.rowCount
+        : -heightChange.rowCount
+      : 0,
+    intensityStats: comparison.difference.appearance,
+    diffClusters: comparison.difference.regions.map(region => ({
+      boundingBox: region.spatial.bounds,
+      pixelCount: region.spatial.pixelCount,
+      visualPixels: region.visualPixels,
+      addedPixels: region.addedPixels,
+      removedPixels: region.removedPixels,
+      appearance: region.appearance,
+    })),
+    perceptualScore: perception?.ssim,
+    ssimScore: perception?.ssim,
+    gmsdScore: perception?.gmsd,
+  };
 }
 
 /**

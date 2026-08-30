@@ -44,7 +44,6 @@ function reviewResponse(state) {
       build: {
         id: state.buildId,
         state: state.decision,
-        reviewVersion: state.reviewVersion,
       },
       comparisons: [
         {
@@ -69,8 +68,6 @@ function createReviewState() {
     history: [],
     organizationSlug: 'acme',
     refreshRequests: 0,
-    reviewVersion: 0,
-    staleNextDecision: false,
   };
 }
 
@@ -78,7 +75,6 @@ function sameCommand(left, right) {
   return (
     left.commandId === right.commandId &&
     left.decision === right.decision &&
-    left.expectedReviewVersion === right.expectedReviewVersion &&
     left.annotation === right.annotation
   );
 }
@@ -105,26 +101,11 @@ async function handleDecision(req, res, state) {
     return;
   }
 
-  if (state.staleNextDecision) {
-    state.reviewVersion += 1;
-    state.staleNextDecision = false;
-  }
-
-  if (body.expectedReviewVersion !== state.reviewVersion) {
-    sendJson(res, 409, {
-      code: 'REVIEW_VERSION_CONFLICT',
-      error: `Expected review version ${body.expectedReviewVersion}, current version is ${state.reviewVersion}`,
-    });
-    return;
-  }
-
-  state.reviewVersion += 1;
   state.decision = body.decision;
   state.annotation = body.annotation ?? null;
   state.history.push({
     annotation: state.annotation,
     decision: state.decision,
-    reviewVersion: state.reviewVersion,
   });
 
   let response = {
@@ -160,14 +141,6 @@ async function withReviewApiServer(callback) {
             organization_slug: state.organizationSlug,
           },
         });
-        return;
-      }
-
-      if (
-        req.method === 'GET' &&
-        req.url === `/api/visual-review/builds/${state.buildId}`
-      ) {
-        sendJson(res, 200, reviewResponse(state));
         return;
       }
 
@@ -229,7 +202,7 @@ describe('commands/review CLI', () => {
     assert.doesNotMatch(comment.stdout, /UUID format/);
   });
 
-  it('changes review decisions, safely retries, and reports stale review state', async () => {
+  it('changes review decisions and safely retries the same command', async () => {
     await withReviewApiServer(async ({ apiUrl, state }) => {
       let { cwd, vizzlyHome } = createWorkspace();
       let env = { VIZZLY_API_URL: apiUrl, VIZZLY_HOME: vizzlyHome };
@@ -257,7 +230,6 @@ describe('commands/review CLI', () => {
         {
           annotation: 'Ready to ship',
           decision: 'approved',
-          reviewVersion: 1,
         },
       ]);
       assert.strictEqual(state.decisionRequests.length, 2);
@@ -295,33 +267,27 @@ describe('commands/review CLI', () => {
       assert.deepStrictEqual(state.history[1], {
         annotation: 'Header moved',
         decision: 'rejected',
-        reviewVersion: 2,
       });
 
-      state.staleNextDecision = true;
-      let stale = await runCLI(
+      let approveAgain = await runCLI(
         [
           '--no-color',
           '--json',
           'approve',
           state.comparisonId,
           '--comment',
-          'This should not overwrite the rejection',
+          'Updated review is ready',
         ],
         { cwd, env }
       );
 
-      assert.strictEqual(stale.code, 1);
-      let staleData = parseResult(stale);
-      assert.strictEqual(staleData.comparisonId, state.comparisonId);
-      assert.strictEqual(staleData.error.code, 'REVIEW_VERSION_CONFLICT');
-      assert.match(
-        staleData.error.message,
-        /Expected review version 2, current version is 3/
-      );
-      assert.strictEqual(state.decision, 'rejected');
-      assert.strictEqual(state.annotation, 'Header moved');
-      assert.strictEqual(state.history.length, 2);
+      assert.strictEqual(approveAgain.code, 0, approveAgain.stderr);
+      let approveAgainData = parseResult(approveAgain);
+      assert.strictEqual(approveAgainData.eventId, 'event-3');
+      assert.strictEqual(approveAgainData.review.build.state, 'approved');
+      assert.strictEqual(state.decision, 'approved');
+      assert.strictEqual(state.annotation, 'Updated review is ready');
+      assert.strictEqual(state.history.length, 3);
     });
   });
 });

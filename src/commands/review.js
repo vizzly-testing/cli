@@ -235,19 +235,6 @@ async function runComparisonDecision({
     let organizationHeaders = {
       'X-Organization': locator.organization_slug,
     };
-    let reviewResponse = await client.request(
-      `/api/visual-review/builds/${locator.build_id}`,
-      { headers: organizationHeaders }
-    );
-    let expectedReviewVersion = reviewResponse?.review?.build?.reviewVersion;
-    if (!Number.isInteger(expectedReviewVersion)) {
-      let error = new Error(
-        'Visual review response did not include a review version'
-      );
-      error.code = 'INVALID_REVIEW_CONTEXT';
-      throw error;
-    }
-
     let commandId = randomUUID();
     let response = await client.request(
       `/api/visual-review/builds/${locator.build_id}/comparisons/${comparisonId}/decision`,
@@ -260,7 +247,6 @@ async function runComparisonDecision({
         body: JSON.stringify({
           commandId,
           decision,
-          expectedReviewVersion,
           ...(annotation ? { annotation } : {}),
         }),
       }

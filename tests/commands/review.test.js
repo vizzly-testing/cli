@@ -71,9 +71,6 @@ function createReviewHarness(response = {}) {
                 },
               };
             }
-            if (endpoint === '/api/visual-review/builds/build-1') {
-              return { review: { build: { reviewVersion: 7 } } };
-            }
             return response;
           },
         };
@@ -146,7 +143,7 @@ describe('commands/review', () => {
   });
 
   describe('approveCommand', () => {
-    it('finds the review context and approves the current version', async () => {
+    it('finds the review context and approves the comparison', async () => {
       let harness = createReviewHarness({
         eventId: 'event-1',
         idempotent: false,
@@ -166,10 +163,6 @@ describe('commands/review', () => {
           options: undefined,
         },
         {
-          endpoint: '/api/visual-review/builds/build-1',
-          options: { headers: { 'X-Organization': 'acme' } },
-        },
-        {
           endpoint:
             '/api/visual-review/builds/build-1/comparisons/comparison-1/decision',
           options: {
@@ -177,7 +170,6 @@ describe('commands/review', () => {
             body: JSON.stringify({
               commandId: 'command-1',
               decision: 'approved',
-              expectedReviewVersion: 7,
             }),
             headers: {
               'Content-Type': 'application/json',
@@ -209,12 +201,11 @@ describe('commands/review', () => {
         harness.deps
       );
 
-      assert.deepStrictEqual(harness.clientCalls[2].options, {
+      assert.deepStrictEqual(harness.clientCalls[1].options, {
         method: 'POST',
         body: JSON.stringify({
           commandId: 'command-1',
           decision: 'approved',
-          expectedReviewVersion: 7,
           annotation: 'LGTM',
         }),
         headers: {
@@ -257,10 +248,6 @@ describe('commands/review', () => {
           options: undefined,
         },
         {
-          endpoint: '/api/visual-review/builds/build-1',
-          options: { headers: { 'X-Organization': 'acme' } },
-        },
-        {
           endpoint:
             '/api/visual-review/builds/build-1/comparisons/comparison-1/decision',
           options: {
@@ -268,7 +255,6 @@ describe('commands/review', () => {
             body: JSON.stringify({
               commandId: 'command-1',
               decision: 'rejected',
-              expectedReviewVersion: 7,
               annotation: 'Visual regression',
             }),
             headers: {

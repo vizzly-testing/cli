@@ -5,12 +5,6 @@ import { join, resolve } from 'node:path';
 import { runPreviewCapture } from '../src/preview-runner.js';
 
 let device = process.env.VIZZLY_SIMULATOR_UDID;
-if (!device) {
-  throw new Error(
-    'Set VIZZLY_SIMULATOR_UDID to an already-booted iOS Simulator UDID'
-  );
-}
-
 let outputPath = await mkdtemp(join(tmpdir(), 'vizzly-preview-e2e-'));
 
 try {

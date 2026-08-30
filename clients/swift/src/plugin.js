@@ -18,7 +18,10 @@ export default {
         'Render screenshots from stock SwiftUI #Preview declarations'
       )
       .option('--scheme <scheme>', 'Xcode scheme to build')
-      .option('--device <udid>', 'Booted iOS Simulator UDID')
+      .option(
+        '--device <udid>',
+        'Simulator UDID (auto-detected when exactly one iOS Simulator is booted)'
+      )
       .option('--configuration <name>', 'Build configuration', 'Debug')
       .option('--output <path>', 'Screenshot output directory')
       .option('--json', 'Print the capture manifest as JSON')

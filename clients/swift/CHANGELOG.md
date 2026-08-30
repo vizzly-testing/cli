@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that render existing stock SwiftUI `#Preview` declarations without Xcode MCP.
 - Added a two-preview iOS fixture that exercises app-module discovery, a named
   asset, runtime injection, PNG capture, and manifest generation.
+- Added conservative booted iOS Simulator detection, with an explicit choice
+  required when more than one Simulator is booted.
 
 ## [0.1.0] - 2026-06-01
 

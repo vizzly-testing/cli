@@ -1,12 +1,113 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  parseBootedIOSSimulators,
   parseRegistryTypes,
   parseRuntimeEvents,
   readPngMetadata,
+  selectBootedIOSSimulator,
 } from '../src/preview-runner.js';
 
+let simulatorList = JSON.stringify({
+  devices: {
+    'com.apple.CoreSimulator.SimRuntime.iOS-26-5': [
+      {
+        isAvailable: true,
+        name: 'iPhone 17 Pro',
+        state: 'Booted',
+        udid: 'PHONE-17-PRO',
+      },
+    ],
+    'com.apple.CoreSimulator.SimRuntime.tvOS-26-5': [
+      {
+        isAvailable: true,
+        name: 'Apple TV 4K',
+        state: 'Booted',
+        udid: 'APPLE-TV',
+      },
+    ],
+    'com.apple.CoreSimulator.SimRuntime.iOS-18-5': [
+      {
+        isAvailable: true,
+        name: 'iPhone 16',
+        state: 'Shutdown',
+        udid: 'SHUTDOWN-PHONE',
+      },
+      {
+        isAvailable: false,
+        name: 'Unavailable iPhone',
+        state: 'Booted',
+        udid: 'UNAVAILABLE-PHONE',
+      },
+    ],
+  },
+});
+
 describe('Swift preview runner contracts', () => {
+  it('finds only available, booted iOS Simulators', () => {
+    assert.deepEqual(parseBootedIOSSimulators(simulatorList), [
+      {
+        name: 'iPhone 17 Pro',
+        runtime: 'iOS 26.5',
+        udid: 'PHONE-17-PRO',
+      },
+    ]);
+  });
+
+  it('auto-selects the only booted iOS Simulator', () => {
+    assert.deepEqual(
+      selectBootedIOSSimulator(parseBootedIOSSimulators(simulatorList)),
+      {
+        name: 'iPhone 17 Pro',
+        runtime: 'iOS 26.5',
+        selection: 'automatic',
+        udid: 'PHONE-17-PRO',
+      }
+    );
+  });
+
+  it('requires an explicit choice when multiple iOS Simulators are booted', () => {
+    let simulators = [
+      {
+        name: 'iPhone 17 Pro',
+        runtime: 'iOS 26.5',
+        udid: 'PHONE-17-PRO',
+      },
+      {
+        name: 'iPad Pro 13-inch',
+        runtime: 'iOS 26.5',
+        udid: 'IPAD-PRO',
+      },
+    ];
+
+    assert.throws(
+      () => selectBootedIOSSimulator(simulators),
+      error =>
+        error.message.includes('More than one iOS Simulator is booted') &&
+        error.message.includes('iPad Pro 13-inch (iOS 26.5, IPAD-PRO)') &&
+        error.message.includes('Pass --device <udid> to choose one')
+    );
+  });
+
+  it('explains how to recover when no iOS Simulator is booted', () => {
+    assert.throws(
+      () => selectBootedIOSSimulator([]),
+      /No booted iOS Simulator was found.*Open Simulator or boot one from Xcode/
+    );
+  });
+
+  it('honors an explicitly selected booted Simulator', () => {
+    let simulators = parseBootedIOSSimulators(simulatorList);
+    assert.equal(
+      selectBootedIOSSimulator(simulators, 'PHONE-17-PRO').selection,
+      'explicit'
+    );
+    assert.throws(
+      () => selectBootedIOSSimulator(simulators, 'NOT-BOOTED'),
+      /NOT-BOOTED is not a booted iOS Simulator/
+    );
+  });
+
   it('discovers generated stock #Preview registry types from Mach-O symbols', () => {
     let output = [
       '_$s13PreviewFixture0017PreviewFixtureswift_tAFJhfMX1_0_15RegistryfMu_VMn',

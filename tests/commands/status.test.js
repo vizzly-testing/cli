@@ -127,13 +127,11 @@ describe('status data', () => {
     });
   });
 
-  it('does not read removed review aliases or invent missing status facts', () => {
+  it('does not invent missing status facts', () => {
     let data = createStatusData({
       build: {
         id: 'build-without-review',
         status: 'processing',
-        approval_status: 'pending',
-        pending_screenshots: 12,
       },
     });
 

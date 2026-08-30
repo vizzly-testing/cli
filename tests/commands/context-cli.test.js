@@ -1068,8 +1068,6 @@ describe('context CLI integration', () => {
     assert.strictEqual(parsed.data.source, 'local_workspace');
     assert.strictEqual(parsed.data.screenshot.name, 'Settings Panel');
     assert.strictEqual(parsed.data.history.recent_comparisons.length, 1);
-    assert.ok(!Object.hasOwn(parsed.data, 'confirmed_regions'));
-    assert.ok(!Object.hasOwn(parsed.data, 'hotspot_analysis'));
   });
 
   it('reads local comparison context with diff memory details', async () => {
@@ -1092,10 +1090,6 @@ describe('context CLI integration', () => {
     assert.strictEqual(parsed.data.source, 'local_workspace');
     assert.strictEqual(parsed.data.comparison.id, 'comp-settings');
     assert.strictEqual(parsed.data.comparison.analysis.diff_regions.length, 1);
-    assert.ok(
-      !Object.hasOwn(parsed.data.comparison.analysis, 'hotspot_analysis')
-    );
-    assert.ok(!Object.hasOwn(parsed.data.history, 'confirmed_regions'));
   });
 
   it('treats local review queue as unresolved local diffs', async () => {

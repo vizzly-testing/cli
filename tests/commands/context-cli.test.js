@@ -137,50 +137,6 @@ function createWorkspaceFixture() {
     JSON.stringify({
       'comp-settings': {
         diffClusters: [{ x: 120, y: 96, width: 520, height: 164 }],
-        confirmedRegions: [
-          {
-            id: 'region-1',
-            label: 'Known settings header band',
-            x1: 120,
-            y1: 96,
-            x2: 640,
-            y2: 260,
-          },
-        ],
-        hotspotAnalysis: { confidence: 'high', confidenceScore: 92 },
-      },
-    })
-  );
-  writeFileSync(
-    join(vizzlyDir, 'hotspots.json'),
-    JSON.stringify({
-      summary: { total_regions: 1 },
-      hotspots: {
-        'Settings Panel': {
-          regions: [{ y1: 96, y2: 260 }],
-          confidence: 'high',
-        },
-      },
-    })
-  );
-  writeFileSync(
-    join(vizzlyDir, 'regions.json'),
-    JSON.stringify({
-      summary: { total_regions: 1 },
-      regions: {
-        'Settings Panel': {
-          confirmed: [
-            {
-              id: 'region-1',
-              label: 'Known settings header band',
-              x1: 120,
-              y1: 96,
-              x2: 640,
-              y2: 260,
-            },
-          ],
-          candidates: [],
-        },
       },
     })
   );
@@ -227,7 +183,6 @@ async function withBuildContextApi(callback) {
     result: 'changed',
     needs_review: true,
     visual_review: { state: 'pending' },
-    is_flaky: false,
     screenshot: {
       id: `current-${index + 1}`,
       name: `Screenshot ${index + 1}`,
@@ -282,13 +237,13 @@ async function withBuildContextApi(callback) {
   }));
   let groups = Array.from({ length: 11 }, (_, index) => ({
     name: `Screenshot ${index + 1}`,
-    variant_count: 1,
+    total_variants: 1,
     aggregate_status: {
       needs_review: true,
       needs_review_count: 1,
       max_diff_percentage: index + 0.5,
     },
-    variants: [
+    comparisons: [
       {
         id: `comparison-${index + 1}`,
         result: 'changed',

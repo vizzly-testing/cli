@@ -137,8 +137,18 @@ describe('commands/comparisons', () => {
         id: 'build-1',
         name: 'Build 1',
         comparisons: [
-          { id: 'comp-1', name: 'button-primary', status: 'identical' },
-          { id: 'comp-2', name: 'button-secondary', status: 'changed' },
+          {
+            id: 'comp-1',
+            status: 'completed',
+            result: 'identical',
+            screenshot: { name: 'button-primary' },
+          },
+          {
+            id: 'comp-2',
+            status: 'completed',
+            result: 'changed',
+            screenshot: { name: 'button-secondary' },
+          },
         ],
       };
 
@@ -178,9 +188,11 @@ describe('commands/comparisons', () => {
             result: 'changed',
             diff_percentage: 0.025,
             visual_review: { state: 'pending', decision: null },
-            current_browser: 'chromium',
-            current_viewport_width: 1440,
-            current_viewport_height: 900,
+            screenshot: {
+              name: 'checkout',
+              browser: 'chromium',
+              viewport: { width: 1440, height: 900 },
+            },
             baseline_original_url: 'https://cdn.test/baseline.png',
             current_original_url: 'https://cdn.test/current.png',
             diff_image_url: 'https://cdn.test/diff.png',
@@ -219,9 +231,6 @@ describe('commands/comparisons', () => {
         state: 'pending',
         decision: null,
       });
-      assert.strictEqual(comparison.approvalStatus, undefined);
-      assert.strictEqual(comparison.reviewState, undefined);
-      assert.strictEqual(comparison.visualReview, undefined);
       assert.strictEqual(comparison.browser, 'chromium');
       assert.deepStrictEqual(comparison.viewport, {
         width: 1440,
@@ -276,9 +285,21 @@ describe('commands/comparisons', () => {
         id: 'build-1',
         name: 'Build 1',
         comparisons: [
-          { id: 'comp-1', name: 'button-primary', status: 'identical' },
-          { id: 'comp-2', name: 'button-secondary', status: 'changed' },
-          { id: 'comp-3', name: 'button-tertiary', status: 'identical' },
+          {
+            id: 'comp-1',
+            result: 'identical',
+            screenshot: { name: 'button-primary' },
+          },
+          {
+            id: 'comp-2',
+            result: 'changed',
+            screenshot: { name: 'button-secondary' },
+          },
+          {
+            id: 'comp-3',
+            result: 'identical',
+            screenshot: { name: 'button-tertiary' },
+          },
         ],
       };
 
@@ -309,8 +330,18 @@ describe('commands/comparisons', () => {
       let mockBuild = {
         id: 'build-1',
         comparisons: [
-          { id: 'comp-1', status: 'completed', result: 'identical' },
-          { id: 'comp-2', status: 'completed', result: 'changed' },
+          {
+            id: 'comp-1',
+            status: 'completed',
+            result: 'identical',
+            screenshot: { name: 'button-primary' },
+          },
+          {
+            id: 'comp-2',
+            status: 'completed',
+            result: 'changed',
+            screenshot: { name: 'button-secondary' },
+          },
         ],
       };
 
@@ -340,8 +371,16 @@ describe('commands/comparisons', () => {
         id: 'build-1',
         name: 'Build 1',
         comparisons: [
-          { id: 'comp-1', name: 'card[primary].png', status: 'changed' },
-          { id: 'comp-2', name: 'cardp.png', status: 'changed' },
+          {
+            id: 'comp-1',
+            result: 'changed',
+            screenshot: { name: 'card[primary].png' },
+          },
+          {
+            id: 'comp-2',
+            result: 'changed',
+            screenshot: { name: 'cardp.png' },
+          },
         ],
       };
 
@@ -369,8 +408,9 @@ describe('commands/comparisons', () => {
       let output = createMockOutput();
       let mockComparison = {
         id: 'comp-1',
-        name: 'button-primary',
-        status: 'changed',
+        status: 'completed',
+        result: 'changed',
+        screenshot: { name: 'button-primary' },
         diff_percentage: 0.05,
       };
 
@@ -407,9 +447,11 @@ describe('commands/comparisons', () => {
             status: 'completed',
             result: 'changed',
             visual_review: { state: 'pending' },
-            current_browser: 'chromium',
-            current_viewport_width: 1440,
-            current_viewport_height: 900,
+            screenshot: {
+              name: 'checkout',
+              browser: 'chromium',
+              viewport: { width: 1440, height: 900 },
+            },
           }),
           output,
           exit: () => {},

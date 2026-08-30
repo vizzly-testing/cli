@@ -63,7 +63,7 @@ export function normalizeBuildStatus(buildStatus) {
  * Read the processing counts from the status response.
  *
  * @param {Object} status - Status response.
- * @returns {Object|undefined} API-provided processing facts when available.
+ * @returns {Object} API-provided processing facts.
  */
 export function getProcessingStatus(status = {}) {
   return status.processing;
@@ -73,7 +73,7 @@ export function getProcessingStatus(status = {}) {
  * Read comparison totals without deriving them from screenshot counts.
  *
  * @param {Object} status - Status response.
- * @returns {Object|undefined} API-provided comparison facts when available.
+ * @returns {Object} API-provided comparison facts.
  */
 export function getComparisonStatus(status = {}) {
   return status.comparisons;
@@ -115,8 +115,7 @@ export function createStatusSuggestedCommands(build = {}) {
 
 /**
  * Every lifecycle, processing, comparison, and review value comes directly
- * from the API. Undefined values intentionally disappear during JSON encoding
- * rather than being presented as false certainty.
+ * from the API.
  *
  * @param {Object} status - Status response.
  * @param {Object|null} previewInfo - Optional preview response.
@@ -141,13 +140,13 @@ export function createStatusData(status, previewInfo = null) {
     branch: build.branch,
     commit: build.commit_sha,
     commitMessage: build.commit_message,
-    screenshotsTotal: processing?.total ?? build.screenshot_count,
+    screenshotsTotal: processing.total,
     processing,
-    comparisonsTotal: comparisons?.total ?? build.total_comparisons,
+    comparisonsTotal: comparisons.total,
     comparisons,
-    newComparisons: comparisons?.new ?? build.new_comparisons,
-    changedComparisons: comparisons?.changed ?? build.changed_comparisons,
-    identicalComparisons: comparisons?.identical ?? build.identical_comparisons,
+    newComparisons: comparisons.new,
+    changedComparisons: comparisons.changed,
+    identicalComparisons: comparisons.identical,
     visual_review: build.visual_review || null,
     executionTime: build.execution_time_ms,
     isBaseline: build.is_baseline,
@@ -185,19 +184,18 @@ export function createBuildInfo(build) {
 }
 
 /**
- * Format API comparison outcomes without filling missing buckets with zeroes.
+ * Format API comparison outcomes.
  *
  * @param {Object} status - Status response.
  * @param {Object} colors - Output color helpers.
  * @returns {string} Human-readable comparison summary.
  */
 export function createComparisonStats(status, colors) {
-  let build = normalizeBuildStatus(status);
-  let comparisons = getComparisonStatus(status) || {};
+  let comparisons = getComparisonStatus(status);
   let stats = [];
-  let newCount = comparisons.new ?? build.new_comparisons;
-  let changedCount = comparisons.changed ?? build.changed_comparisons;
-  let identicalCount = comparisons.identical ?? build.identical_comparisons;
+  let newCount = comparisons.new;
+  let changedCount = comparisons.changed;
+  let identicalCount = comparisons.identical;
 
   if (newCount > 0) {
     stats.push(`${colors.brand.info(newCount)} new`);
@@ -251,7 +249,7 @@ export function shouldFailStatus(status) {
   return (
     build.status === 'failed' ||
     ['build_failed', 'processing_failed'].includes(status.conclusion) ||
-    (processing?.failed ?? 0) > 0
+    processing.failed > 0
   );
 }
 
@@ -392,7 +390,7 @@ function writeHumanStatus({
   let colors = output.getColors();
   let comparisonStats = createComparisonStats(status, colors);
   let processing = getProcessingStatus(status);
-  let screenshotsTotal = processing?.total ?? build.screenshot_count;
+  let screenshotsTotal = processing.total;
   let processingSummary = formatProcessingStatus(processing);
 
   if (screenshotsTotal != null) {

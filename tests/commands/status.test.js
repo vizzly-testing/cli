@@ -26,11 +26,6 @@ function createBuild(overrides = {}) {
     branch: 'main',
     commit_sha: 'abcdef1234567890',
     commit_message: 'Update homepage',
-    screenshot_count: 3,
-    total_comparisons: 3,
-    new_comparisons: 1,
-    changed_comparisons: 1,
-    identical_comparisons: 1,
     execution_time_ms: 4250,
     is_baseline: false,
     user_agent: 'vizzly-test',
@@ -53,7 +48,7 @@ function createStatusBundle(overrides = {}) {
       pending: 0,
     },
     comparisons: { total: 3, new: 1, changed: 1, identical: 1 },
-    review: { pending: 2, approved: 1, rejected: 0, auto_approved: 0 },
+    review: { pending: 2, approved: 1, rejected: 0 },
     scope: {
       organization: { id: 'org-1', slug: 'acme' },
       project: { id: 'project-123', slug: 'web' },
@@ -119,26 +114,23 @@ describe('status data', () => {
       active: 0,
       pending: 0,
     });
+    assert.strictEqual(data.screenshotsTotal, 3);
+    assert.deepStrictEqual(data.comparisons, {
+      total: 3,
+      new: 1,
+      changed: 1,
+      identical: 1,
+    });
+    assert.strictEqual(data.comparisonsTotal, 3);
+    assert.strictEqual(data.newComparisons, 1);
+    assert.strictEqual(data.changedComparisons, 1);
+    assert.strictEqual(data.identicalComparisons, 1);
     assert.deepStrictEqual(data.preview, {
       url: 'https://preview.test',
       status: 'ready',
       fileCount: 12,
       expiresAt: '2026-05-19T12:00:00.000Z',
     });
-  });
-
-  it('does not invent missing status facts', () => {
-    let data = createStatusData({
-      build: {
-        id: 'build-without-review',
-        status: 'processing',
-      },
-    });
-
-    assert.strictEqual(data.visual_review, null);
-    assert.strictEqual(data.processing, undefined);
-    assert.strictEqual(data.screenshotsTotal, undefined);
-    assert.strictEqual(data.comparisons, undefined);
   });
 
   it('keeps processing facts separate from review facts', () => {

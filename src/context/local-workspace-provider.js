@@ -274,7 +274,7 @@ function mapLocalComparison(snapshot, comparison) {
   };
 }
 
-function projectLocalScreenshot(screenshot, baseline) {
+function formatLocalScreenshot(screenshot, baseline) {
   if (!screenshot) return null;
 
   return {
@@ -323,7 +323,7 @@ function formatLocalDiff(diff, includeDiffs) {
   return formatted;
 }
 
-function projectLocalEvidence(comparison, includeDiffs) {
+function formatLocalEvidence(comparison, includeDiffs) {
   return {
     type: 'comparison',
     id: comparison.id,
@@ -337,7 +337,7 @@ function projectLocalEvidence(comparison, includeDiffs) {
     build_branch: comparison.build_branch,
     build_commit_sha: comparison.build_commit_sha,
     build_created_at: comparison.build_created_at,
-    screenshot: projectLocalScreenshot(
+    screenshot: formatLocalScreenshot(
       comparison.screenshot,
       comparison.baseline
     ),
@@ -345,7 +345,7 @@ function projectLocalEvidence(comparison, includeDiffs) {
   };
 }
 
-function projectLocalFocusedComparison(comparison, includeDiffs) {
+function formatLocalFocusedComparison(comparison, includeDiffs) {
   if (includeDiffs) return comparison;
 
   let analysis = comparison.analysis || {};
@@ -364,7 +364,7 @@ function projectLocalFocusedComparison(comparison, includeDiffs) {
   };
 }
 
-function projectLocalHistoryItem(comparison) {
+function formatLocalHistoryItem(comparison) {
   return {
     id: comparison.id,
     screenshot_name: comparison.screenshot_name,
@@ -375,7 +375,7 @@ function projectLocalHistoryItem(comparison) {
     build_name: comparison.build_name,
     build_branch: comparison.build_branch,
     build_created_at: comparison.build_created_at,
-    screenshot: projectLocalScreenshot(
+    screenshot: formatLocalScreenshot(
       comparison.screenshot,
       comparison.baseline
     ),
@@ -654,7 +654,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       mapLocalComparison(snapshot, comparison)
     );
     let mappedScreenshots = mappedComparisons.map(comparison =>
-      projectLocalScreenshot(comparison.screenshot, comparison.baseline)
+      formatLocalScreenshot(comparison.screenshot, comparison.baseline)
     );
     let reviewSummary = buildReviewSummary(snapshot.reportData.comparisons);
     let reviewState = buildReviewState(resolvedBuild, reviewSummary);
@@ -710,7 +710,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
     );
     let includeDiffs = query.details === 'diffs';
     let evidence = mappedComparisons.map(comparison =>
-      projectLocalEvidence(comparison, includeDiffs)
+      formatLocalEvidence(comparison, includeDiffs)
     );
 
     return {
@@ -812,7 +812,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       scope: context.scope,
       build: context.build,
       signature_properties: [],
-      comparison: projectLocalFocusedComparison(
+      comparison: formatLocalFocusedComparison(
         context.comparison,
         query.details === 'diffs'
       ),
@@ -827,7 +827,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
           stream: 'similar_by_fingerprint',
           revision,
         }),
-        recent_by_name: createLocalPage(history.map(projectLocalHistoryItem), {
+        recent_by_name: createLocalPage(history.map(formatLocalHistoryItem), {
           limit,
           offset: recentOffset,
           resource: 'comparison_context',

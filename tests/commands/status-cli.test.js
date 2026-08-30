@@ -121,8 +121,15 @@ describe('commands/status CLI', () => {
         active: 0,
         pending: 0,
       });
+      assert.strictEqual(payload.data.screenshotsTotal, 1);
+      assert.deepStrictEqual(payload.data.comparisons, {
+        total: 1,
+        new: 1,
+        changed: 0,
+        identical: 0,
+      });
+      assert.strictEqual(payload.data.comparisonsTotal, 1);
       assert.deepStrictEqual(payload.data.visual_review, { state: 'pending' });
-      assert.ok(!Object.hasOwn(payload.data, 'approvalStatus'));
       assert.strictEqual(
         payload.data.links.web,
         'https://app.test/acme/web/builds/build-123'

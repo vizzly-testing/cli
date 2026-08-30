@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import {
+  applicationBinaryCandidates,
   parseBootedIOSSimulators,
   parseRegistryTypes,
   parseRuntimeEvents,
+  parseSchemes,
   readPngMetadata,
+  runtimeDeploymentTarget,
   selectBootedIOSSimulator,
+  selectScheme,
 } from '../src/preview-runner.js';
 
 let simulatorList = JSON.stringify({
@@ -44,6 +49,28 @@ let simulatorList = JSON.stringify({
 });
 
 describe('Swift preview runner contracts', () => {
+  it('auto-selects the only shared Xcode scheme', () => {
+    let schemes = parseSchemes(
+      JSON.stringify({ project: { schemes: ['PreviewFixture'] } })
+    );
+
+    assert.deepEqual(selectScheme(schemes), {
+      name: 'PreviewFixture',
+      selection: 'automatic',
+    });
+  });
+
+  it('requires an explicit scheme when an Xcode container has several', () => {
+    assert.throws(
+      () => selectScheme(['App', 'AppTests']),
+      /More than one Xcode scheme is available.*--scheme <scheme>/s
+    );
+    assert.throws(
+      () => selectScheme(['App'], 'Missing'),
+      /Missing is not an available Xcode scheme/
+    );
+  });
+
   it('finds only available, booted iOS Simulators', () => {
     assert.deepEqual(parseBootedIOSSimulators(simulatorList), [
       {
@@ -122,6 +149,27 @@ describe('Swift preview runner contracts', () => {
     ]);
   });
 
+  it('finds the built app executable with or without a debug dylib', () => {
+    let appPath = '/tmp/Build/PreviewFixture.app';
+    let settings = {
+      EXECUTABLE_NAME: 'PreviewFixture',
+      EXECUTABLE_PATH: 'PreviewFixture.app/PreviewFixture',
+      PRODUCT_NAME: 'PreviewFixture',
+      TARGET_BUILD_DIR: '/tmp/Build',
+    };
+
+    assert.deepEqual(applicationBinaryCandidates(appPath, settings), [
+      join(appPath, 'PreviewFixture'),
+      join(appPath, 'PreviewFixture.debug.dylib'),
+    ]);
+  });
+
+  it('compiles the injected runtime for at least iOS 17', () => {
+    assert.equal(runtimeDeploymentTarget('13.0'), '17.0');
+    assert.equal(runtimeDeploymentTarget('17.0'), '17.0');
+    assert.equal(runtimeDeploymentTarget('26.0'), '26.0');
+  });
+
   it('ignores app logs and reads versioned runtime completion events', () => {
     let output = [
       'ordinary app log',
@@ -136,10 +184,14 @@ describe('Swift preview runner contracts', () => {
   });
 
   it('validates observable PNG dimensions and content hash', () => {
-    let png = Buffer.alloc(24);
+    let png = Buffer.alloc(45);
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(png);
+    png.writeUInt32BE(13, 8);
+    png.write('IHDR', 12, 'ascii');
     png.writeUInt32BE(393, 16);
     png.writeUInt32BE(852, 20);
+    png.writeUInt32BE(0, 33);
+    png.write('IEND', 37, 'ascii');
 
     let metadata = readPngMetadata(png);
     assert.equal(metadata.width, 393);
@@ -149,5 +201,11 @@ describe('Swift preview runner contracts', () => {
 
   it('rejects a non-PNG capture', () => {
     assert.throws(() => readPngMetadata(Buffer.from('not a png')), /valid PNG/);
+    let truncated = Buffer.concat([
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      Buffer.from([0, 0, 0, 13]),
+      Buffer.from('IHDR'),
+    ]);
+    assert.throws(() => readPngMetadata(truncated), /valid PNG/);
   });
 });

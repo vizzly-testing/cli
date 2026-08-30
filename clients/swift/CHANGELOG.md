@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   asset, runtime injection, PNG capture, and manifest generation.
 - Added conservative booted iOS Simulator detection, with an explicit choice
   required when more than one Simulator is booted.
+- Added conservative Xcode scheme detection, repeatable managed output, a
+  per-preview capture timeout, and clearer unsupported-preview failures.
+- Added npm packaging, CI checks, and release publishing for the Swift preview
+  CLI plugin.
+
+### Fixed
+
+- Fixed app executable discovery when Xcode does not emit a debug dylib.
+- Fixed Swift preview configuration so command options only override values
+  explicitly provided in `vizzly.config.js`.
+- Fixed the Simulator runtime's platform and scene lifecycle boundaries.
 
 ## [0.1.0] - 2026-06-01
 

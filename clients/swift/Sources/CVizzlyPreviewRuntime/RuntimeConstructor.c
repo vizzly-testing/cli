@@ -1,5 +1,10 @@
 #include "CVizzlyPreviewRuntime.h"
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+
+#if defined(TARGET_OS_IOS) && TARGET_OS_IOS && TARGET_OS_SIMULATOR
 extern void vizzly_preview_replacement(void)
   __asm("_VizzlyPreviewInitializerReplacement");
 extern void swiftui_preview_initializer(void)
@@ -17,6 +22,7 @@ static struct {
 void *VizzlyOriginalPreviewInitializer(void) {
   return (void *)interposers[0].replacee;
 }
+#endif
 
 __attribute__((constructor))
 static void start_vizzly_preview_runtime(void) {

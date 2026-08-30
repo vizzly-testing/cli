@@ -1,17 +1,23 @@
 import { runPreviewCapture } from './preview-runner.js';
 
-export async function run(container, options = {}, context = {}) {
-  let config = context.config?.swiftPreviews ?? {};
-  let scheme = options.scheme ?? config.scheme;
-  let device = options.device ?? config.device;
-  let outputPath = options.output ?? config.output ?? '.vizzly/previews';
+export function resolvePreviewOptions(options, config) {
+  return {
+    captureTimeout: options.captureTimeout ?? config.captureTimeout ?? 30_000,
+    configuration: options.configuration ?? config.configuration ?? 'Debug',
+    device: options.device ?? config.device,
+    outputPath: options.output ?? config.output ?? '.vizzly/previews',
+    scheme: options.scheme ?? config.scheme,
+  };
+}
 
-  if (!scheme) {
-    throw new Error('Swift preview capture requires --scheme <scheme>');
-  }
+export async function run(container, options = {}, context = {}) {
+  let previewOptions = resolvePreviewOptions(
+    options,
+    context.config?.swiftPreviews ?? {}
+  );
 
   let output = context.output ?? {
-    info: message => process.stdout.write(`${message}\n`),
+    info: message => process.stderr.write(`${message}\n`),
   };
 
   output.info(
@@ -19,10 +25,7 @@ export async function run(container, options = {}, context = {}) {
   );
   let manifest = await runPreviewCapture({
     container,
-    scheme,
-    device,
-    configuration: options.configuration ?? config.configuration ?? 'Debug',
-    outputPath,
+    ...previewOptions,
     onProgress: message => output.info(message),
   });
 
@@ -37,5 +40,4 @@ export async function run(container, options = {}, context = {}) {
   return manifest;
 }
 
-export { runPreviewCapture } from './preview-runner.js';
-export { run as default };
+export { run as default, runPreviewCapture };

@@ -523,16 +523,12 @@ Raw comparison JSON remains available without `--agent`:
     "result": "changed",
     "analysis": {
       "diff_image_url": ".vizzly/diffs/dashboard.png",
-      "diff_regions": [],
-      "confirmed_regions": []
+      "diff_regions": []
     }
   },
   "history": {
     "similar_by_fingerprint": [],
-    "recent_by_name": [],
-    "hotspot_analysis": {
-      "confidence": "no_data"
-    }
+    "recent_by_name": []
   }
 }
 ```
@@ -551,11 +547,6 @@ vizzly context screenshot Dashboard --source local --json
   "screenshot": {
     "name": "Dashboard"
   },
-  "confirmed_regions": [
-    {
-      "label": "Known header copy band"
-    }
-  ],
   "history": {
     "recent_comparisons": []
   }

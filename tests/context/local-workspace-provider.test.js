@@ -152,7 +152,7 @@ describe('context/local-workspace-provider', () => {
     assert.strictEqual(provider.canHandle('comparison', 'comp-1'), true);
     provider.getBuildContext('local-build');
 
-    assert.strictEqual(readCount, 6);
+    assert.strictEqual(readCount, 4);
   });
 
   it('does not treat a cloud session as local evidence', () => {
@@ -466,10 +466,7 @@ describe('context/local-workspace-provider', () => {
     assert.strictEqual(comparisonSummary.details, 'summary');
     assert.strictEqual(comparisonSummary.history.active_stream, null);
     assert.deepStrictEqual(comparisonSummary.signature_properties, []);
-    assert.strictEqual(
-      comparisonSummary.dynamic_regions.confirmed_regions.total,
-      0
-    );
+    assert.ok(!Object.hasOwn(comparisonSummary, 'dynamic_regions'));
 
     let comparisonDiffs = provider.getComparisonContext('comp-0', {
       details: 'diffs',

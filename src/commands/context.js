@@ -836,14 +836,6 @@ function formatNeedsReview(status = {}) {
   return details.length > 0 ? `yes · ${details.join(' · ')}` : 'yes';
 }
 
-function formatConfirmedRegionLabels(regions = []) {
-  return regions
-    .map(region => region.label)
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(' · ');
-}
-
 function printComparisonList(output, comparisons = [], { limit = 5 } = {}) {
   let colors = output.getColors();
 
@@ -1102,9 +1094,6 @@ function displayComparisonContext(output, context) {
   let screenshotName =
     context.comparison.screenshot?.name || context.comparison.id;
   let analysis = context.comparison.analysis || {};
-  let confirmedRegionLabels = formatConfirmedRegionLabels(
-    context.history.confirmed_regions
-  );
 
   output.print(
     `  ${colors.bold(screenshotName)} ${statusTone(displayState.toUpperCase())}`
@@ -1120,7 +1109,7 @@ function displayComparisonContext(output, context) {
   );
   output.labelValue(
     'Memory',
-    `${context.history.similar_by_fingerprint.length} similar · ${context.history.recent_by_name.length} recent · ${context.history.confirmed_regions.length} confirmed regions`
+    `${context.history.similar_by_fingerprint.length} similar · ${context.history.recent_by_name.length} recent`
   );
   output.labelValue(
     'Review',
@@ -1129,10 +1118,6 @@ function displayComparisonContext(output, context) {
 
   if (analysis.fingerprint_hash) {
     output.labelValue('Fingerprint', analysis.fingerprint_hash);
-  }
-
-  if (confirmedRegionLabels) {
-    output.labelValue('Known Regions', confirmedRegionLabels);
   }
 
   if (context.links?.comparison_url) {
@@ -1150,10 +1135,6 @@ function displayScreenshotContext(output, context) {
   output.header('context', 'screenshot');
 
   let colors = output.getColors();
-  let confirmedRegionLabels = formatConfirmedRegionLabels(
-    context.confirmed_regions
-  );
-  let hotspotAnalysis = context.hotspot_analysis;
 
   output.print(`  ${colors.bold(context.screenshot.name)}`);
   output.print(
@@ -1163,20 +1144,8 @@ function displayScreenshotContext(output, context) {
 
   output.labelValue(
     'Memory',
-    `${context.history.recent_comparisons.length} recent comparisons · ${context.confirmed_regions.length} confirmed regions`
+    `${context.history.recent_comparisons.length} recent comparisons`
   );
-  if (hotspotAnalysis) {
-    output.labelValue(
-      'Hotspots',
-      `${hotspotAnalysis.total_builds_analyzed ?? 'unknown'} builds analyzed · ${hotspotAnalysis.confidence ?? 'unknown'}`
-    );
-  } else {
-    output.labelValue('Hotspots', 'unavailable');
-  }
-
-  if (confirmedRegionLabels) {
-    output.labelValue('Known Regions', confirmedRegionLabels);
-  }
 
   if (context.history.recent_comparisons.length > 0) {
     output.blank();
@@ -1414,7 +1383,6 @@ export async function contextScreenshotCommand(
     }
     let query = buildScopeQuery(options, {
       recentLimit: options.recentLimit,
-      windowSize: options.windowSize,
     });
 
     output.startSpinner('Fetching screenshot context...');
@@ -1569,11 +1537,6 @@ export function validateContextScreenshotOptions(options = {}) {
   errors.push(...validateSourceOption(options.source));
   errors.push(
     ...validateLimitRange(options.recentLimit, '--recent-limit', {
-      max: 50,
-    })
-  );
-  errors.push(
-    ...validateLimitRange(options.windowSize, '--window-size', {
       max: 50,
     })
   );

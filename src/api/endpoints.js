@@ -376,52 +376,6 @@ export async function searchComparisons(client, name, filters = {}) {
 }
 
 // ============================================================================
-// Hotspot Endpoints
-// ============================================================================
-
-/**
- * Get hotspot analysis for a single screenshot
- * @param {Object} client - API client
- * @param {string} screenshotName - Screenshot name
- * @param {Object} options - Optional settings
- * @returns {Promise<Object>} Hotspot analysis data
- */
-export async function getScreenshotHotspots(
-  client,
-  screenshotName,
-  options = {}
-) {
-  let { windowSize = 20 } = options;
-  let encodedName = encodeURIComponent(screenshotName);
-  let endpoint = buildEndpointWithParams(
-    `/api/sdk/screenshots/${encodedName}/hotspots`,
-    {
-      windowSize: String(windowSize),
-    }
-  );
-  return client.request(endpoint);
-}
-
-/**
- * Batch get hotspot analysis for multiple screenshots
- * @param {Object} client - API client
- * @param {string[]} screenshotNames - Array of screenshot names
- * @param {Object} options - Optional settings
- * @returns {Promise<Object>} Hotspots keyed by screenshot name
- */
-export async function getBatchHotspots(client, screenshotNames, options = {}) {
-  let { windowSize = 20 } = options;
-  return client.request('/api/sdk/screenshots/hotspots', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      screenshot_names: screenshotNames,
-      windowSize,
-    }),
-  });
-}
-
-// ============================================================================
 // Auth/Token Endpoints
 // ============================================================================
 

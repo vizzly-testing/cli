@@ -1020,9 +1020,6 @@ describe('server/handlers/tdd-handler', () => {
               ],
               intensityStats: { mean: 0.3, max: 0.8 },
               boundingBox: { x: 0, y: 0, width: 1920, height: 1080 },
-              regionAnalysis: { totalRegions: 1 },
-              hotspotAnalysis: { coverage: 0.9 },
-              confirmedRegions: [{ id: 'r1', label: 'header' }],
             }),
           },
         });
@@ -1038,13 +1035,7 @@ describe('server/handlers/tdd-handler', () => {
         assert.strictEqual(comparison.diffClusters, undefined);
         assert.strictEqual(comparison.intensityStats, undefined);
         assert.strictEqual(comparison.boundingBox, undefined);
-        assert.strictEqual(comparison.regionAnalysis, undefined);
-        assert.strictEqual(comparison.hotspotAnalysis, undefined);
-        assert.strictEqual(comparison.confirmedRegions, undefined);
-
-        // But should have boolean hints
         assert.strictEqual(comparison.hasDiffClusters, true);
-        assert.strictEqual(comparison.hasConfirmedRegions, true);
 
         // And should still have lightweight fields
         assert.strictEqual(comparison.diffPercentage, 5.5);
@@ -1057,7 +1048,6 @@ describe('server/handlers/tdd-handler', () => {
         );
         assert.ok(details['comp-test']);
         assert.strictEqual(details['comp-test'].diffClusters.length, 1);
-        assert.strictEqual(details['comp-test'].confirmedRegions.length, 1);
         assert.deepStrictEqual(details['comp-test'].intensityStats, {
           mean: 0.3,
           max: 0.8,

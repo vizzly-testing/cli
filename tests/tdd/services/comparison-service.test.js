@@ -74,7 +74,7 @@ describe('tdd/services/comparison-service', () => {
   });
 
   describe('buildFailedComparison', () => {
-    it('builds failed comparison with diff info', () => {
+    it('builds a failed comparison with Honeydiff evidence', () => {
       let result = buildFailedComparison({
         name: 'login',
         signature: 'login|1920|chrome',
@@ -95,7 +95,6 @@ describe('tdd/services/comparison-service', () => {
           intensityStats: { mean: 45.2 },
           diffClusters: [],
         },
-        hotspotAnalysis: null,
       });
 
       assert.strictEqual(result.status, 'failed');
@@ -110,16 +109,16 @@ describe('tdd/services/comparison-service', () => {
         width: 300,
         height: 400,
       });
-      assert.strictEqual(result.hotspotAnalysis, null);
+      assert.deepStrictEqual(result.diffClusters, []);
     });
 
-    it('filters as passed when hotspot coverage is high', () => {
+    it('ignores stale hotspot and region inputs instead of auto-passing a diff', () => {
       let result = buildFailedComparison({
-        name: 'dynamic-content',
-        signature: 'dynamic-content|1920|chrome',
-        baselinePath: '/baselines/dynamic.png',
-        currentPath: '/current/dynamic.png',
-        diffPath: '/diffs/dynamic.png',
+        name: 'stale-cache',
+        signature: 'stale-cache|1920|chrome',
+        baselinePath: '/baselines/stale-cache.png',
+        currentPath: '/current/stale-cache.png',
+        diffPath: '/diffs/stale-cache.png',
         properties: {},
         threshold: 2.0,
         minClusterSize: 2,
@@ -128,172 +127,24 @@ describe('tdd/services/comparison-service', () => {
           diffPixels: 20000,
           totalPixels: 1000000,
           diffClusters: [
-            { boundingBox: { y: 100, height: 50 } }, // Line 100-149
+            { boundingBox: { x: 10, y: 100, width: 50, height: 50 } },
           ],
         },
         hotspotAnalysis: {
           confidence: 'high',
-          regions: [{ y1: 50, y2: 250 }], // Covers lines 50-250
+          confidence_score: 100,
+          regions: [{ y1: 0, y2: 1000 }],
         },
-      });
-
-      // Should be filtered as passed because hotspot coverage >= 80%
-      assert.strictEqual(result.status, 'passed');
-      assert.strictEqual(result.reason, 'hotspot-filtered');
-      assert.ok(result.hotspotAnalysis);
-      assert.strictEqual(result.hotspotAnalysis.isFiltered, true);
-    });
-
-    it('remains failed when hotspot coverage is low', () => {
-      let result = buildFailedComparison({
-        name: 'real-diff',
-        signature: 'real-diff|1920|chrome',
-        baselinePath: '/baselines/real.png',
-        currentPath: '/current/real.png',
-        diffPath: '/diffs/real.png',
-        properties: {},
-        threshold: 2.0,
-        minClusterSize: 2,
-        honeydiffResult: {
-          diffPercentage: 10.0,
-          diffPixels: 100000,
-          totalPixels: 1000000,
-          diffClusters: [
-            { boundingBox: { y: 500, height: 100 } }, // Line 500-599 (outside hotspot)
-          ],
-        },
-        hotspotAnalysis: {
-          confidence: 'high',
-          regions: [{ y1: 50, y2: 100 }], // Only covers lines 50-100
+        regionData: {
+          confirmed: [{ id: 'region-1', x1: 0, y1: 0, x2: 1000, y2: 1000 }],
         },
       });
 
       assert.strictEqual(result.status, 'failed');
       assert.strictEqual(result.reason, 'pixel-diff');
-      assert.ok(result.hotspotAnalysis);
-      assert.strictEqual(result.hotspotAnalysis.isFiltered, false);
-    });
-
-    it('remains failed when hotspot confidence is low', () => {
-      let result = buildFailedComparison({
-        name: 'low-confidence',
-        signature: 'low-confidence|1920|chrome',
-        baselinePath: '/baselines/low.png',
-        currentPath: '/current/low.png',
-        diffPath: '/diffs/low.png',
-        properties: {},
-        threshold: 2.0,
-        minClusterSize: 2,
-        honeydiffResult: {
-          diffPercentage: 2.0,
-          diffPixels: 20000,
-          totalPixels: 1000000,
-          diffClusters: [{ boundingBox: { y: 100, height: 50 } }],
-        },
-        hotspotAnalysis: {
-          confidence: 'low', // Not high confidence
-          regions: [{ y1: 50, y2: 250 }],
-        },
-      });
-
-      assert.strictEqual(result.status, 'failed');
-    });
-
-    it('uses confidence_score when available', () => {
-      let result = buildFailedComparison({
-        name: 'score-based',
-        signature: 'score-based|1920|chrome',
-        baselinePath: '/baselines/score.png',
-        currentPath: '/current/score.png',
-        diffPath: '/diffs/score.png',
-        properties: {},
-        threshold: 2.0,
-        minClusterSize: 2,
-        honeydiffResult: {
-          diffPercentage: 2.0,
-          diffPixels: 20000,
-          totalPixels: 1000000,
-          diffClusters: [{ boundingBox: { y: 100, height: 50 } }],
-        },
-        hotspotAnalysis: {
-          confidence_score: 75, // >= 70 is high
-          regions: [{ y1: 50, y2: 250 }],
-        },
-      });
-
-      assert.strictEqual(result.status, 'passed');
-      assert.strictEqual(result.reason, 'hotspot-filtered');
-    });
-
-    it('filters as passed when confirmed region coverage and SSIM match cloud rules', () => {
-      let result = buildFailedComparison({
-        name: 'timestamp',
-        signature: 'timestamp|1920|chrome',
-        baselinePath: '/baselines/timestamp.png',
-        currentPath: '/current/timestamp.png',
-        diffPath: '/diffs/timestamp.png',
-        properties: {},
-        threshold: 2.0,
-        minClusterSize: 2,
-        honeydiffResult: {
-          diffPercentage: 1.0,
-          diffPixels: 1000,
-          totalPixels: 1000000,
-          perceptualScore: 0.98,
-          diffClusters: [
-            {
-              boundingBox: { x: 20, y: 20, width: 100, height: 20 },
-              pixelCount: 900,
-            },
-            {
-              boundingBox: { x: 500, y: 500, width: 10, height: 10 },
-              pixelCount: 100,
-            },
-          ],
-        },
-        regionData: {
-          confirmed: [{ id: 'region-1', x1: 15, y1: 15, x2: 125, y2: 45 }],
-        },
-      });
-
-      assert.strictEqual(result.status, 'passed');
-      assert.strictEqual(result.reason, 'region-filtered');
-      assert.strictEqual(result.regionAnalysis.coverage, 0.9);
-      assert.strictEqual(result.regionAnalysis.ssimScore, 0.98);
-      assert.strictEqual(result.regionAnalysis.isFiltered, true);
-    });
-
-    it('keeps confirmed-region diffs failed when SSIM indicates structural change', () => {
-      let result = buildFailedComparison({
-        name: 'layout-shift',
-        signature: 'layout-shift|1920|chrome',
-        baselinePath: '/baselines/layout.png',
-        currentPath: '/current/layout.png',
-        diffPath: '/diffs/layout.png',
-        properties: {},
-        threshold: 2.0,
-        minClusterSize: 2,
-        honeydiffResult: {
-          diffPercentage: 1.0,
-          diffPixels: 1000,
-          totalPixels: 1000000,
-          perceptualScore: 0.9,
-          diffClusters: [
-            {
-              boundingBox: { x: 20, y: 20, width: 100, height: 20 },
-              pixelCount: 1000,
-            },
-          ],
-        },
-        regionData: {
-          confirmed: [{ id: 'region-1', x1: 15, y1: 15, x2: 125, y2: 45 }],
-        },
-      });
-
-      assert.strictEqual(result.status, 'failed');
-      assert.strictEqual(result.reason, 'pixel-diff');
-      assert.strictEqual(result.regionAnalysis.coverage, 1);
-      assert.strictEqual(result.regionAnalysis.isFiltered, false);
+      assert.ok(!Object.hasOwn(result, 'hotspotAnalysis'));
+      assert.ok(!Object.hasOwn(result, 'regionAnalysis'));
+      assert.ok(!Object.hasOwn(result, 'confirmedRegions'));
     });
   });
 

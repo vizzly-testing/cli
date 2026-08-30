@@ -948,7 +948,7 @@ describe('context CLI integration', () => {
     });
   });
 
-  it('renders human screenshot context when hotspot analysis is unavailable', async () => {
+  it('renders human screenshot context without v1 cache summaries', async () => {
     await withBuildContextApi(async ({ apiUrl }) => {
       let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-human-'));
       let result = await runCLI(
@@ -970,7 +970,8 @@ describe('context CLI integration', () => {
       );
 
       assert.strictEqual(result.code, 0, result.stderr);
-      assert.match(result.stdout, /Hotspots:\s+unavailable/);
+      assert.match(result.stdout, /Memory:\s+0 recent comparisons/);
+      assert.doesNotMatch(result.stdout, /Hotspots|Known Regions/);
     });
   });
 
@@ -1078,10 +1079,9 @@ describe('context CLI integration', () => {
     let parsed = JSON.parse(result.stdout);
     assert.strictEqual(parsed.data.source, 'local_workspace');
     assert.strictEqual(parsed.data.screenshot.name, 'Settings Panel');
-    assert.strictEqual(
-      parsed.data.confirmed_regions[0].label,
-      'Known settings header band'
-    );
+    assert.strictEqual(parsed.data.history.recent_comparisons.length, 1);
+    assert.ok(!Object.hasOwn(parsed.data, 'confirmed_regions'));
+    assert.ok(!Object.hasOwn(parsed.data, 'hotspot_analysis'));
   });
 
   it('reads local comparison context with diff memory details', async () => {
@@ -1103,14 +1103,11 @@ describe('context CLI integration', () => {
     let parsed = JSON.parse(result.stdout);
     assert.strictEqual(parsed.data.source, 'local_workspace');
     assert.strictEqual(parsed.data.comparison.id, 'comp-settings');
-    assert.strictEqual(
-      parsed.data.comparison.analysis.hotspot_analysis.confidence,
-      'high'
+    assert.strictEqual(parsed.data.comparison.analysis.diff_regions.length, 1);
+    assert.ok(
+      !Object.hasOwn(parsed.data.comparison.analysis, 'hotspot_analysis')
     );
-    assert.strictEqual(
-      parsed.data.history.confirmed_regions[0].label,
-      'Known settings header band'
-    );
+    assert.ok(!Object.hasOwn(parsed.data.history, 'confirmed_regions'));
   });
 
   it('treats local review queue as unresolved local diffs', async () => {

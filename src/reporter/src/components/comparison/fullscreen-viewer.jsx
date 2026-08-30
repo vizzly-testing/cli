@@ -20,7 +20,6 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon,
   ListBulletIcon,
-  MapPinIcon,
 } from '@heroicons/react/24/outline';
 import { Badge } from '@vizzly-testing/bear-den';
 import {
@@ -104,7 +103,6 @@ function FullscreenViewerInner({
   let [showInspector, setShowInspector] = useState(false);
   let [queueFilter, setQueueFilter] = useState('needs-review');
   let [showBaseline, setShowBaseline] = useState(true);
-  let [showRegions, setShowRegions] = useState(false);
 
   let { zoom, setZoom } = useZoom('fit');
   let { isActive: isReviewMode } = useReviewMode();
@@ -356,12 +354,6 @@ function FullscreenViewerInner({
             toggleInspector();
           }
           break;
-        case 'g':
-          if (!e.metaKey && !e.ctrlKey) {
-            e.preventDefault();
-            setShowRegions(prev => !prev);
-          }
-          break;
       }
     };
 
@@ -537,21 +529,6 @@ function FullscreenViewerInner({
               <ListBulletIcon className="w-5 h-5 pointer-events-none" />
             </button>
 
-            {/* Regions toggle - only show if comparison has regions */}
-            {(comparison?.confirmedRegions?.length > 0 ||
-              comparison?.hasConfirmedRegions) && (
-              <button
-                type="button"
-                onClick={() => setShowRegions(!showRegions)}
-                className={`p-2 rounded-md transition-colors ${showRegions ? 'bg-[var(--accent-success-muted)] text-[var(--accent-success)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)]'}`}
-                title="Show Regions (G)"
-                aria-label="Toggle regions"
-                data-testid="toggle-regions-btn"
-              >
-                <MapPinIcon className="w-5 h-5 pointer-events-none" />
-              </button>
-            )}
-
             <button
               type="button"
               onClick={toggleInspector}
@@ -708,7 +685,6 @@ function FullscreenViewerInner({
             onOnionSkinChange={setOnionSkinPosition}
             zoom={zoom}
             disableLoadingOverlay={true}
-            showRegions={showRegions}
             className="w-full h-full"
           />
         </main>
@@ -855,20 +831,6 @@ function FullscreenViewerInner({
           >
             <InformationCircleIcon className="w-5 h-5 pointer-events-none" />
           </button>
-
-          {/* Regions toggle - mobile */}
-          {(comparison?.confirmedRegions?.length > 0 ||
-            comparison?.hasConfirmedRegions) && (
-            <button
-              type="button"
-              onClick={() => setShowRegions(!showRegions)}
-              className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showRegions ? 'bg-[var(--accent-success-muted)] text-[var(--accent-success)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)] active:bg-[var(--vz-elevated)]'}`}
-              aria-label="Toggle regions"
-              data-testid="mobile-toggle-regions-btn"
-            >
-              <MapPinIcon className="w-5 h-5 pointer-events-none" />
-            </button>
-          )}
 
           {canDelete && onDelete && (
             <button

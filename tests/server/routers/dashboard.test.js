@@ -159,7 +159,7 @@ describe('server/routers/dashboard', () => {
         assert.strictEqual(body.diffPercentage, 0.5);
         // Heavy fields merged in
         assert.strictEqual(body.diffClusters.length, 1);
-        assert.strictEqual(body.confirmedRegions.length, 1);
+        assert.ok(!Object.hasOwn(body, 'confirmedRegions'));
         assert.deepStrictEqual(body.intensityStats, { mean: 0.3 });
       });
 

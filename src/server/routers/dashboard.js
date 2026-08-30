@@ -10,6 +10,19 @@ import { sendError, sendHtml, sendSuccess } from '../middleware/response.js';
 
 // SPA routes that should serve the dashboard HTML
 const SPA_ROUTES = ['/', '/stats', '/settings', '/projects', '/builds'];
+let COMPARISON_DETAIL_FIELDS = new Set([
+  'boundingBox',
+  'diffClusters',
+  'intensityStats',
+]);
+
+function presentComparisonDetails(details = {}) {
+  return Object.fromEntries(
+    Object.entries(details).filter(([field]) =>
+      COMPARISON_DETAIL_FIELDS.has(field)
+    )
+  );
+}
 
 /**
  * Create dashboard router
@@ -110,7 +123,10 @@ export function createDashboardRouter(context) {
             let details = JSON.parse(readFileSync(detailsPath, 'utf8'));
             let heavy = details[comparison.id];
             if (heavy) {
-              comparison = { ...comparison, ...heavy };
+              comparison = {
+                ...comparison,
+                ...presentComparisonDetails(heavy),
+              };
             }
           } catch (error) {
             output.debug('Failed to read comparison details:', {

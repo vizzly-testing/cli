@@ -1059,11 +1059,6 @@ contextCmd
     'Maximum recent comparisons to return (1-50)',
     Number
   )
-  .option(
-    '--window-size <n>',
-    'Historical hotspot analysis window size (1-50)',
-    Number
-  )
   .addHelpText(
     'after',
     `

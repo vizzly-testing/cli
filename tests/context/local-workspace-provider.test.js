@@ -12,8 +12,6 @@ function createWorkspacePaths(projectRoot) {
     report: join(vizzlyDir, 'report-data.json'),
     comparisonDetails: join(vizzlyDir, 'comparison-details.json'),
     baselineMetadata: join(vizzlyDir, 'baselines', 'metadata.json'),
-    hotspots: join(vizzlyDir, 'hotspots.json'),
-    regions: join(vizzlyDir, 'regions.json'),
   };
 }
 

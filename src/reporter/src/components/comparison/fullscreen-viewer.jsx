@@ -117,7 +117,7 @@ function FullscreenViewerInner({
 
   // Transform comparisons for queue display
   // Map CLI status to BearDen result format
-  // QueueItem expects: name, result, approval_status, diff_percentage, status
+  // Queue items use the local review result, independent of cloud review state.
   let queueItems = useMemo(() => {
     return comparisons.map(comp => ({
       ...comp,
@@ -127,8 +127,7 @@ function FullscreenViewerInner({
       result: mapStatusToResult(comp.status),
       // Keep original status so QueueItem can check both formats
       status: comp.status,
-      // Map approval_status from userAction
-      approval_status:
+      review_state:
         comp.userAction === 'accepted'
           ? 'approved'
           : comp.userAction === 'rejected'
@@ -176,8 +175,8 @@ function FullscreenViewerInner({
       'needs-review': item => {
         return (
           (item.result === 'changed' || item.result === 'new') &&
-          item.approval_status !== 'approved' &&
-          item.approval_status !== 'rejected'
+          item.review_state !== 'approved' &&
+          item.review_state !== 'rejected'
         );
       },
       changes: item => item.result === 'changed',
@@ -406,9 +405,9 @@ function FullscreenViewerInner({
     );
   }
 
-  // Determine result and approval status for current comparison
+  // Determine the local review result for the current comparison.
   let result = mapStatusToResult(comparison.status);
-  let approvalStatus =
+  let reviewState =
     comparison.userAction === 'accepted'
       ? 'approved'
       : comparison.userAction === 'rejected'
@@ -509,7 +508,7 @@ function FullscreenViewerInner({
               </button>
             ) : null}
             <ApprovalButtonGroup
-              status={approvalStatus}
+              status={reviewState}
               onApprove={onAccept ? handleApprove : null}
               onReject={onReject ? handleReject : null}
               compact
@@ -707,15 +706,15 @@ function FullscreenViewerInner({
               )}
               <Badge
                 variant={
-                  approvalStatus === 'approved'
+                  reviewState === 'approved'
                     ? 'success'
-                    : approvalStatus === 'rejected'
+                    : reviewState === 'rejected'
                       ? 'danger'
                       : 'default'
                 }
                 size="sm"
               >
-                {approvalStatus}
+                {reviewState}
               </Badge>
             </div>
           </InspectorPanel.Section>
@@ -805,7 +804,7 @@ function FullscreenViewerInner({
       <div className="sm:hidden flex-shrink-0 bg-[var(--vz-bg)] border-t border-[var(--vz-border-subtle)] safe-area-pb">
         {/* Approval buttons */}
         <MobileApprovalBar
-          status={approvalStatus}
+          status={reviewState}
           onApprove={onAccept ? handleApprove : null}
           onReject={onReject ? handleReject : null}
         />

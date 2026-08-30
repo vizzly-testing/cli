@@ -396,7 +396,6 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'comparison_context',
-          review_flow: 'cricket_v1',
           scope: {
             organization: { slug: 'acme' },
             project: { slug: 'web', name: 'Web' },
@@ -437,15 +436,12 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'screenshot_context',
-          review_flow: 'legacy',
           scope: {
             organization: { slug: 'acme' },
             project: { slug: 'web', name: 'Web' },
           },
           screenshot: { name: 'Screenshot 1' },
           history: { recent_comparisons: [] },
-          confirmed_regions: [],
-          hotspot_analysis: null,
         })
       );
       return;
@@ -455,7 +451,6 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'fingerprint_context',
-          review_flow: 'legacy',
           fingerprint: { hash: 'fingerprint-1' },
           matches: [],
         })
@@ -467,7 +462,6 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'review_queue_context',
-          review_flow: 'legacy',
           comparisons: [],
         })
       );
@@ -493,7 +487,6 @@ async function withBuildContextApi(callback) {
       JSON.stringify({
         resource: 'build_context',
         source: 'local_workspace',
-        review_flow: 'legacy',
         scope: {
           organization: { slug: 'acme' },
           project: { slug: 'web', name: 'Web' },
@@ -595,7 +588,6 @@ describe('context CLI integration', () => {
       assert.strictEqual(compactPayload.evidence.page.returned, 10);
       assert.strictEqual(compactPayload.evidence.page.has_more, true);
       assert.strictEqual(compactPayload.source, 'cloud');
-      assert.strictEqual(compactPayload.review_flow, 'legacy');
       assert.strictEqual(compactPayload.evidence.items[0].id, 'comparison-1');
       assert.strictEqual(
         compactPayload.evidence.items[0].screenshot_name,
@@ -940,15 +932,11 @@ describe('context CLI integration', () => {
         assert.strictEqual(result.code, 0, result.stderr);
         let payload = JSON.parse(result.stdout).data;
         assert.strictEqual(payload.source, 'cloud');
-        assert.strictEqual(
-          payload.review_flow,
-          command[0] === 'comparison' ? 'cricket_v1' : 'legacy'
-        );
       }
     });
   });
 
-  it('renders human screenshot context without v1 cache summaries', async () => {
+  it('renders human screenshot context from canonical review evidence', async () => {
     await withBuildContextApi(async ({ apiUrl }) => {
       let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-human-'));
       let result = await runCLI(

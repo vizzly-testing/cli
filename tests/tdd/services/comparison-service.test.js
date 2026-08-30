@@ -111,41 +111,6 @@ describe('tdd/services/comparison-service', () => {
       });
       assert.deepStrictEqual(result.diffClusters, []);
     });
-
-    it('ignores stale hotspot and region inputs instead of auto-passing a diff', () => {
-      let result = buildFailedComparison({
-        name: 'stale-cache',
-        signature: 'stale-cache|1920|chrome',
-        baselinePath: '/baselines/stale-cache.png',
-        currentPath: '/current/stale-cache.png',
-        diffPath: '/diffs/stale-cache.png',
-        properties: {},
-        threshold: 2.0,
-        minClusterSize: 2,
-        honeydiffResult: {
-          diffPercentage: 2.0,
-          diffPixels: 20000,
-          totalPixels: 1000000,
-          diffClusters: [
-            { boundingBox: { x: 10, y: 100, width: 50, height: 50 } },
-          ],
-        },
-        hotspotAnalysis: {
-          confidence: 'high',
-          confidence_score: 100,
-          regions: [{ y1: 0, y2: 1000 }],
-        },
-        regionData: {
-          confirmed: [{ id: 'region-1', x1: 0, y1: 0, x2: 1000, y2: 1000 }],
-        },
-      });
-
-      assert.strictEqual(result.status, 'failed');
-      assert.strictEqual(result.reason, 'pixel-diff');
-      assert.ok(!Object.hasOwn(result, 'hotspotAnalysis'));
-      assert.ok(!Object.hasOwn(result, 'regionAnalysis'));
-      assert.ok(!Object.hasOwn(result, 'confirmedRegions'));
-    });
   });
 
   describe('buildErrorComparison', () => {

@@ -165,7 +165,7 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].summary.failed, 1);
     });
 
-    it('preserves existing JSON fields while exposing current comparison evidence', async () => {
+    it('exposes canonical review state with current comparison evidence', async () => {
       let output = createMockOutput();
       let mockBuild = {
         id: 'build-1',
@@ -177,7 +177,6 @@ describe('commands/comparisons', () => {
             status: 'completed',
             result: 'changed',
             diff_percentage: 0.025,
-            approval_status: 'approved',
             visual_review: { state: 'pending', decision: null },
             current_browser: 'chromium',
             current_viewport_width: 1440,
@@ -216,12 +215,13 @@ describe('commands/comparisons', () => {
       assert.strictEqual(comparison.name, 'checkout');
       assert.strictEqual(comparison.status, 'completed');
       assert.strictEqual(comparison.result, 'changed');
-      assert.strictEqual(comparison.approvalStatus, 'approved');
-      assert.strictEqual(comparison.reviewState, 'pending');
-      assert.deepStrictEqual(comparison.visualReview, {
+      assert.deepStrictEqual(comparison.visual_review, {
         state: 'pending',
         decision: null,
       });
+      assert.strictEqual(comparison.approvalStatus, undefined);
+      assert.strictEqual(comparison.reviewState, undefined);
+      assert.strictEqual(comparison.visualReview, undefined);
       assert.strictEqual(comparison.browser, 'chromium');
       assert.deepStrictEqual(comparison.viewport, {
         width: 1440,

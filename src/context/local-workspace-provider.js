@@ -53,7 +53,7 @@ function mapComparisonResult(status) {
   return status || 'unknown';
 }
 
-function mapApprovalStatus(status) {
+function mapReviewState(status) {
   if (status === 'failed' || status === 'new') {
     return 'pending';
   }
@@ -140,7 +140,7 @@ function buildBuildSnapshot(snapshot) {
     branch: 'local',
     commit_sha: null,
     commit_message: null,
-    approval_status: snapshot.serverInfo ? 'pending' : 'approved',
+    review_state: snapshot.serverInfo ? 'pending' : 'approved',
     status: snapshot.serverInfo ? 'running' : 'completed',
     created_at: null,
   };
@@ -164,7 +164,7 @@ function buildBaselineSnapshot(snapshot) {
       branch: metadata.branch || 'local',
       commit_sha: metadata.buildInfo?.commitSha || null,
       commit_message: metadata.buildInfo?.commitMessage || null,
-      approval_status: metadata.buildInfo?.approvalStatus || 'approved',
+      review_state: metadata.buildInfo?.visual_review?.state || 'approved',
       status: metadata.buildInfo?.completedAt ? 'completed' : 'local',
       created_at: metadata.createdAt || null,
       completed_at: metadata.buildInfo?.completedAt || null,
@@ -177,7 +177,7 @@ function buildBaselineSnapshot(snapshot) {
 function buildReviewState(build, reviewSummary) {
   let reasons = [];
 
-  if (build.approval_status === 'pending') {
+  if (build.review_state === 'pending') {
     reasons.push('build_pending_approval');
   }
 
@@ -199,7 +199,7 @@ function mapLocalComparison(snapshot, comparison) {
   let properties = comparison.properties || {};
   let buildSnapshot = buildBuildSnapshot(snapshot);
   let result = mapComparisonResult(comparison.status);
-  let approvalStatus = mapApprovalStatus(comparison.status);
+  let reviewState = mapReviewState(comparison.status);
   let baselineBuildId = snapshot.baselineMetadata?.buildId || null;
   let diffImageUrl = resolveAssetReference(comparison.diff, snapshot);
   let diffRegions = details.diffClusters || [];
@@ -210,9 +210,9 @@ function mapLocalComparison(snapshot, comparison) {
     screenshot_name: comparisonName,
     status: comparison.status,
     result,
-    approval_status: approvalStatus,
+    review_state: reviewState,
     needs_review:
-      approvalStatus === 'pending' && ['changed', 'new'].includes(result),
+      reviewState === 'pending' && ['changed', 'new'].includes(result),
     build_id: buildSnapshot.id,
     build_name: buildSnapshot.name,
     build_branch: buildSnapshot.branch,
@@ -330,7 +330,7 @@ function projectLocalEvidence(comparison, includeDiffs) {
     screenshot_name: comparison.screenshot_name,
     status: comparison.status,
     result: comparison.result,
-    approval_status: comparison.approval_status,
+    review_state: comparison.review_state,
     needs_review: comparison.needs_review,
     build_id: comparison.build_id,
     build_name: comparison.build_name,
@@ -412,13 +412,13 @@ function createLocalSnapshotRevision(snapshot) {
 
 function buildReviewSummary(comparisons = []) {
   let approved = comparisons.filter(
-    comparison => mapApprovalStatus(comparison.status) === 'approved'
+    comparison => mapReviewState(comparison.status) === 'approved'
   ).length;
   let rejected = comparisons.filter(
-    comparison => mapApprovalStatus(comparison.status) === 'rejected'
+    comparison => mapReviewState(comparison.status) === 'rejected'
   ).length;
   let pending = comparisons.filter(
-    comparison => mapApprovalStatus(comparison.status) === 'pending'
+    comparison => mapReviewState(comparison.status) === 'pending'
   ).length;
 
   return {

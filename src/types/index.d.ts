@@ -210,7 +210,7 @@ export interface BuildResult {
   failedComparisons?: number;
   newComparisons?: number;
   identicalComparisons?: number;
-  approvalStatus?: string;
+  visual_review: unknown | null;
   url?: string;
 }
 

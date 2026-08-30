@@ -254,9 +254,9 @@ describe('uploader/createUploader', () => {
             id: 'build-123',
             status: 'completed',
             url: 'https://app.test/builds/build-123',
-            comparisonsTotal: 3,
-            comparisonsPassed: 2,
-            comparisonsFailed: 1,
+            total_comparisons: 3,
+            identical_comparisons: 2,
+            changed_comparisons: 1,
           },
         };
       },

@@ -56,87 +56,38 @@ async function fetchOptionalPreviewInfo(getPreviewInfo, client, buildId) {
 }
 
 export function normalizeBuildStatus(buildStatus) {
-  return buildStatus.build || buildStatus;
+  return buildStatus.build;
 }
 
 /**
- * Read exact processing counts from canonical or legacy status responses.
+ * Read exact processing counts from the canonical status response.
  *
- * Legacy `pending_screenshots` is review state, not queue state, so it is
- * deliberately excluded. Missing processing fields remain missing instead of
- * becoming client-authored zeroes.
- *
- * @param {Object} status - Canonical status bundle or legacy build record.
+ * @param {Object} status - Canonical status bundle.
  * @returns {Object|undefined} API-provided processing facts when available.
  */
 export function getProcessingStatus(status = {}) {
-  if (status.processing) {
-    return status.processing;
-  }
-
-  let build = normalizeBuildStatus(status);
-  let processing = {};
-  let fields = [
-    ['total', build.screenshot_count],
-    ['completed', build.completed_jobs],
-    ['failed', build.failed_jobs],
-    ['active', build.processing_screenshots],
-  ];
-
-  for (let [name, value] of fields) {
-    if (value != null) {
-      processing[name] = value;
-    }
-  }
-
-  return Object.keys(processing).length > 0 ? processing : undefined;
+  return status.processing;
 }
 
 /**
  * Read comparison totals without deriving them from screenshot counts.
  *
- * @param {Object} status - Canonical status bundle or legacy build record.
+ * @param {Object} status - Canonical status bundle.
  * @returns {Object|undefined} API-provided comparison facts when available.
  */
 export function getComparisonStatus(status = {}) {
-  if (status.comparisons) {
-    return status.comparisons;
-  }
-
-  let build = normalizeBuildStatus(status);
-  let comparisons = {};
-  let fields = [
-    ['total', build.total_comparisons],
-    ['new', build.new_comparisons],
-    ['changed', build.changed_comparisons],
-    ['identical', build.identical_comparisons],
-  ];
-
-  for (let [name, value] of fields) {
-    if (value != null) {
-      comparisons[name] = value;
-    }
-  }
-
-  return Object.keys(comparisons).length > 0 ? comparisons : undefined;
+  return status.comparisons;
 }
 
 /**
- * Prefer canonical Cricket review state while retaining the legacy fallback.
+ * Read canonical build review state without mixing it with processing status.
  *
- * Processing status stays separate: a pending review never means a screenshot
- * is still being processed.
- *
- * @param {Object} status - Canonical status bundle or legacy build record.
+ * @param {Object} status - Canonical status bundle.
  * @returns {string|null} API-provided review state when available.
  */
 export function getBuildReviewState(status = {}) {
   let build = normalizeBuildStatus(status);
-  return (
-    getVisualReviewState(build) ||
-    getVisualReviewState(status.visualReview?.build || status.visual_review) ||
-    null
-  );
+  return getVisualReviewState(build);
 }
 
 /**
@@ -163,13 +114,11 @@ export function createStatusSuggestedCommands(build = {}) {
 }
 
 /**
- * Preserve the established JSON fields while exposing canonical status facts.
- *
  * Every lifecycle, processing, comparison, and review value comes directly
  * from the API. Undefined values intentionally disappear during JSON encoding
  * rather than being presented as false certainty.
  *
- * @param {Object} status - Canonical status bundle or legacy build record.
+ * @param {Object} status - Canonical status bundle.
  * @param {Object|null} previewInfo - Optional preview response.
  * @returns {Object} Machine-readable status payload.
  */
@@ -177,8 +126,6 @@ export function createStatusData(status, previewInfo = null) {
   let build = normalizeBuildStatus(status);
   let processing = getProcessingStatus(status);
   let comparisons = getComparisonStatus(status);
-  let visualReview =
-    build.visual_review || status.visualReview?.build || status.visual_review;
 
   return {
     resource: status.resource,
@@ -201,11 +148,7 @@ export function createStatusData(status, previewInfo = null) {
     newComparisons: comparisons?.new ?? build.new_comparisons,
     changedComparisons: comparisons?.changed ?? build.changed_comparisons,
     identicalComparisons: comparisons?.identical ?? build.identical_comparisons,
-    reviewState: getBuildReviewState(status),
-    review: status.review,
-    reviewFlow: status.reviewFlow,
-    visualReview,
-    approvalStatus: build.approval_status,
+    visual_review: build.visual_review || null,
     executionTime: build.execution_time_ms,
     isBaseline: build.is_baseline,
     userAgent: build.user_agent,
@@ -244,7 +187,7 @@ export function createBuildInfo(build) {
 /**
  * Format API comparison outcomes without filling missing buckets with zeroes.
  *
- * @param {Object} status - Canonical status bundle or legacy build record.
+ * @param {Object} status - Canonical status bundle.
  * @param {Object} colors - Output color helpers.
  * @returns {string} Human-readable comparison summary.
  */
@@ -270,10 +213,7 @@ export function createComparisonStats(status, colors) {
 }
 
 /**
- * Build the best available legacy link when the API did not return one.
- *
- * Slug routes match the current app, while the project-ID route remains as a
- * compatibility fallback for older build responses.
+ * Build the scoped app link when the API did not return one.
  *
  * @param {string} baseUrl - API or app base URL.
  * @param {Object} build - Build record.
@@ -285,17 +225,12 @@ export function createBuildUrl(baseUrl, build, scope = null) {
     return null;
   }
 
-  let organizationSlug =
-    scope?.organization?.slug || build.organization_slug || build.org_slug;
-  let projectSlug = scope?.project?.slug || build.project_slug;
+  let organizationSlug = scope?.organization?.slug;
+  let projectSlug = scope?.project?.slug;
   let appBaseUrl = getAppBaseUrl(baseUrl);
 
   if (organizationSlug && projectSlug) {
     return `${appBaseUrl}/${organizationSlug}/${projectSlug}/builds/${build.id}`;
-  }
-
-  if (build.project_id) {
-    return `${appBaseUrl}/projects/${build.project_id}/builds/${build.id}`;
   }
 
   return null;
@@ -307,7 +242,7 @@ export function createBuildUrl(baseUrl, build, scope = null) {
  * Review-required and rejected builds keep their existing successful command
  * exit behavior. Only build or processing failures produce a failing status.
  *
- * @param {Object} status - Canonical status bundle or legacy build record.
+ * @param {Object} status - Canonical status bundle.
  * @returns {boolean} Whether human status should exit non-zero.
  */
 export function shouldFailStatus(status) {
@@ -365,7 +300,7 @@ function writeSuggestedCommands({ build, output }) {
 /**
  * Add optional API facts without inventing placeholders for missing metadata.
  *
- * @param {Object} status - Canonical status bundle or legacy build record.
+ * @param {Object} status - Canonical status bundle.
  * @returns {Object} Available verbose fields.
  */
 function createVerboseInfo(status) {

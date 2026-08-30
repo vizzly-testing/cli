@@ -31,7 +31,6 @@ function createBuild(overrides = {}) {
     new_comparisons: 1,
     changed_comparisons: 1,
     identical_comparisons: 1,
-    approval_status: 'pending',
     execution_time_ms: 4250,
     is_baseline: false,
     user_agent: 'vizzly-test',
@@ -55,8 +54,6 @@ function createStatusBundle(overrides = {}) {
     },
     comparisons: { total: 3, new: 1, changed: 1, identical: 1 },
     review: { pending: 2, approved: 1, rejected: 0, auto_approved: 0 },
-    reviewFlow: 'cricket',
-    visualReview: { build: { state: 'pending' } },
     scope: {
       organization: { id: 'org-1', slug: 'acme' },
       project: { id: 'project-123', slug: 'web' },
@@ -97,11 +94,11 @@ describe('validateStatusOptions', () => {
 });
 
 describe('status data', () => {
-  it('normalizes wrapped and unwrapped build responses', () => {
+  it('reads the build from the canonical status response', () => {
     let build = createBuild();
 
     assert.strictEqual(normalizeBuildStatus({ build }), build);
-    assert.strictEqual(normalizeBuildStatus(build), build);
+    assert.strictEqual(normalizeBuildStatus(build), undefined);
   });
 
   it('preserves canonical processing, review, and preview facts in JSON data', () => {
@@ -114,7 +111,7 @@ describe('status data', () => {
 
     assert.strictEqual(data.resource, 'build_status');
     assert.strictEqual(data.buildId, 'build-123');
-    assert.strictEqual(data.reviewState, 'pending');
+    assert.deepStrictEqual(data.visual_review, { state: 'pending' });
     assert.deepStrictEqual(data.processing, {
       total: 3,
       completed: 3,
@@ -130,17 +127,17 @@ describe('status data', () => {
     });
   });
 
-  it('does not invent missing legacy status facts', () => {
+  it('does not read removed review aliases or invent missing status facts', () => {
     let data = createStatusData({
       build: {
-        id: 'legacy-build',
+        id: 'build-without-canonical-review',
         status: 'processing',
         approval_status: 'pending',
         pending_screenshots: 12,
       },
     });
 
-    assert.strictEqual(data.reviewState, 'pending');
+    assert.strictEqual(data.visual_review, null);
     assert.strictEqual(data.processing, undefined);
     assert.strictEqual(data.screenshotsTotal, undefined);
     assert.strictEqual(data.comparisons, undefined);
@@ -148,14 +145,17 @@ describe('status data', () => {
 
   it('keeps processing facts separate from review facts', () => {
     let canonical = createStatusBundle();
-    let legacy = createBuild({
-      completed_jobs: 2,
-      processing_screenshots: 1,
-      pending_screenshots: 9,
+    let processing = createStatusBundle({
+      processing: {
+        total: 3,
+        completed: 2,
+        failed: 0,
+        active: 1,
+      },
     });
 
     assert.strictEqual(getBuildReviewState(canonical), 'pending');
-    assert.deepStrictEqual(getProcessingStatus(legacy), {
+    assert.deepStrictEqual(getProcessingStatus(processing), {
       total: 3,
       completed: 2,
       failed: 0,
@@ -190,12 +190,12 @@ describe('status display decisions', () => {
       Commit: 'abcdef12 - Update homepage',
     });
     assert.strictEqual(
-      createComparisonStats(createBuild(), colors),
+      createComparisonStats(createStatusBundle(), colors),
       '1 new · 1 changed · 1 identical'
     );
   });
 
-  it('prefers scoped build URLs and retains the legacy fallback', () => {
+  it('creates scoped build URLs from the canonical response', () => {
     assert.strictEqual(
       createBuildUrl('https://app.test/api', createBuild(), {
         organization: { slug: 'acme' },
@@ -205,18 +205,23 @@ describe('status display decisions', () => {
     );
     assert.strictEqual(
       createBuildUrl('https://app.test/api', createBuild()),
-      'https://app.test/projects/project-123/builds/build-123'
+      null
     );
     assert.strictEqual(createBuildUrl(null, createBuild()), null);
   });
 
   it('fails only for processing failures, not review-required builds', () => {
     assert.strictEqual(
-      shouldFailStatus(createBuild({ status: 'failed' })),
+      shouldFailStatus(createStatusBundle({ build: { status: 'failed' } })),
       true
     );
-    assert.strictEqual(shouldFailStatus(createBuild({ failed_jobs: 1 })), true);
-    assert.strictEqual(shouldFailStatus(createBuild()), false);
+    assert.strictEqual(
+      shouldFailStatus(
+        createStatusBundle({ processing: { total: 3, failed: 1 } })
+      ),
+      true
+    );
+    assert.strictEqual(shouldFailStatus(createStatusBundle()), false);
     assert.strictEqual(
       shouldFailStatus(createStatusBundle({ conclusion: 'processing_failed' })),
       true

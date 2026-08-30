@@ -16,7 +16,6 @@ import {
   getComparisonName,
   getComparisonResult,
   getComparisonViewport,
-  getVisualReviewState,
 } from '../utils/visual-context-normalizers.js';
 
 /**
@@ -242,9 +241,7 @@ function formatComparisonForJson(comparison) {
     status: comparison.status,
     result: getComparisonResult(comparison),
     diffPercentage: comparison.diff_percentage ?? null,
-    approvalStatus: comparison.approval_status,
-    reviewState: getVisualReviewState(comparison),
-    visualReview: comparison.visual_review || null,
+    visual_review: comparison.visual_review || null,
     viewport: getComparisonViewport(comparison),
     browser: getComparisonBrowser(comparison),
     urls: {
@@ -300,7 +297,7 @@ function displayComparison(output, comparison, verbose) {
       comparison.diff_percentage != null
         ? `${(comparison.diff_percentage * 100).toFixed(2)}%`
         : 'N/A',
-    Review: formatted.reviewState || 'unknown',
+    Review: formatted.visual_review?.state || 'unknown',
   });
 
   output.blank();

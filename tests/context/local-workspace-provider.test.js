@@ -346,7 +346,7 @@ describe('context/local-workspace-provider', () => {
               createdAt: '2026-05-20T12:00:00Z',
               buildInfo: {
                 commitSha: 'abc123',
-                approvalStatus: 'approved',
+                visual_review: { state: 'approved' },
                 completedAt: '2026-05-20T12:01:00Z',
               },
             };
@@ -373,7 +373,7 @@ describe('context/local-workspace-provider', () => {
     let context = provider.getBuildContext('current');
 
     assert.strictEqual(context.baseline.selected.id, 'approved-main');
-    assert.strictEqual(context.baseline.selected.approval_status, 'approved');
+    assert.strictEqual(context.baseline.selected.review_state, 'approved');
     assert.strictEqual(context.status.needs_review, true);
     assert.strictEqual(context.status.pending_comparisons, 1);
     assert.strictEqual(

@@ -1531,7 +1531,7 @@ describe('tdd/tdd-service', () => {
           name: 'Test Build',
           status: 'completed',
           commit_sha: 'abc123',
-          approval_status: 'approved',
+          visual_review: { state: 'approved' },
         },
         screenshots: [
           {

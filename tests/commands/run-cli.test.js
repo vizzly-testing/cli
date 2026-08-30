@@ -74,7 +74,7 @@ async function withApiServer(callback, options = {}) {
             new_comparisons: 0,
             failed_comparisons: 0,
             identical_comparisons: 0,
-            approval_status: 'pending',
+            visual_review: { state: 'pending' },
           },
         })
       );

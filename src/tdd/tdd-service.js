@@ -560,7 +560,7 @@ export class TddService {
         buildInfo: {
           commitSha: baselineBuild.commit_sha,
           commitMessage: baselineBuild.commit_message,
-          approvalStatus: baselineBuild.approval_status,
+          visual_review: baselineBuild.visual_review || null,
           completedAt: baselineBuild.completed_at,
         },
         screenshots: buildDetails.screenshots
@@ -598,7 +598,7 @@ export class TddService {
             environment,
             commitSha: baselineBuild.commit_sha,
             commitMessage: baselineBuild.commit_message,
-            approvalStatus: baselineBuild.approval_status,
+            visual_review: baselineBuild.visual_review || null,
             completedAt: baselineBuild.completed_at,
             downloadedAt: new Date().toISOString(),
           },
@@ -842,7 +842,7 @@ export class TddService {
       buildInfo: {
         commitSha: baselineBuild.commit_sha,
         commitMessage: baselineBuild.commit_message,
-        approvalStatus: baselineBuild.approval_status,
+        visual_review: baselineBuild.visual_review || null,
         completedAt: baselineBuild.completed_at,
       },
       screenshots: buildDetails.screenshots
@@ -880,7 +880,7 @@ export class TddService {
           environment: 'test',
           commitSha: baselineBuild.commit_sha,
           commitMessage: baselineBuild.commit_message,
-          approvalStatus: baselineBuild.approval_status,
+          visual_review: baselineBuild.visual_review || null,
           completedAt: baselineBuild.completed_at,
           downloadedAt: new Date().toISOString(),
         },

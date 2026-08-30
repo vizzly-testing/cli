@@ -310,7 +310,7 @@ export async function uploadCommand(
             failed: buildResult.failedComparisons || 0,
             new: buildResult.newComparisons || 0,
           },
-          approvalStatus: buildResult.approvalStatus || 'pending',
+          visual_review: buildResult.visual_review,
           executionTimeMs,
         });
         output.cleanup();

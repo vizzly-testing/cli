@@ -7,14 +7,14 @@ import {
 } from '../../src/utils/visual-context-normalizers.js';
 
 describe('visual context normalizers', () => {
-  it('groups complete legacy comparisons without losing visual evidence', () => {
+  it('groups complete comparisons without losing visual evidence', () => {
     let context = normalizeBuildContext({
       comparisons: [
         {
           id: 'comparison-mobile',
           screenshot_name: 'Checkout',
           result: 'changed',
-          approval_status: 'pending',
+          visual_review: { state: 'pending' },
           current_screenshot_id: 'current-mobile',
           current_browser: 'chromium',
           current_viewport_width: 375,
@@ -116,7 +116,6 @@ describe('visual context normalizers', () => {
         needs_review_count: 0,
         failed_count: 0,
         has_rejected: false,
-        has_flaky: false,
         max_diff_percentage: 0,
       },
       variants: [
@@ -137,7 +136,6 @@ describe('visual context normalizers', () => {
       needs_review_count: 0,
       failed_count: 0,
       has_rejected: false,
-      has_flaky: false,
       max_diff_percentage: 0,
     });
 
@@ -178,7 +176,7 @@ describe('visual context normalizers', () => {
               id: 'comparison-1',
               result: 'changed',
               status: 'completed',
-              approval_status: 'pending',
+              visual_review: { state: 'pending' },
               diff_percentage: 0.52,
             },
           ],
@@ -189,9 +187,8 @@ describe('visual context normalizers', () => {
           id: 'comparison-1',
           screenshot_name: 'public-build-detail-approved',
           result: 'changed',
-          approval_status: 'pending',
+          visual_review: { state: 'pending' },
           needs_review: true,
-          is_flaky: false,
           screenshot: {
             id: 'screenshot-1',
             name: 'public-build-detail-approved',
@@ -219,7 +216,6 @@ describe('visual context normalizers', () => {
     assert.strictEqual(comparison.id, 'comparison-1');
     assert.strictEqual(comparison.name, 'public-build-detail-approved');
     assert.strictEqual(comparison.status, 'completed');
-    assert.strictEqual(comparison.is_flaky, false);
     assert.strictEqual(comparison.screenshot.id, 'screenshot-1');
     assert.strictEqual(
       comparison.screenshot.signature,

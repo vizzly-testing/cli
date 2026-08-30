@@ -544,9 +544,7 @@ export async function runCommand(
           if (Object.keys(comparisons).length > 0) {
             jsonResult.comparisons = comparisons;
           }
-          if (buildResult.approvalStatus !== undefined) {
-            jsonResult.approvalStatus = buildResult.approvalStatus;
-          }
+          jsonResult.visual_review = buildResult.visual_review;
           if (buildResult.build?.conclusion !== undefined) {
             jsonResult.conclusion = buildResult.build.conclusion;
           }

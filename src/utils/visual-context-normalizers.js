@@ -1,16 +1,11 @@
 /**
- * Read the API's canonical visual-review state with legacy approval fallbacks.
+ * Read the API's canonical visual-review state.
  *
  * @param {Object} record - Comparison or review record from the API.
  * @returns {string|null} The review state when the API supplied one.
  */
 export function getVisualReviewState(record = {}) {
-  return (
-    record.visual_review?.state ||
-    record.review_state ||
-    record.approval_status ||
-    null
-  );
+  return record.visual_review?.state || null;
 }
 
 /**
@@ -347,10 +342,8 @@ export function normalizeComparisonRecord(comparison = {}, options = {}) {
     status: comparison.status || null,
     review_state: reviewState,
     visual_review: comparison.visual_review || null,
-    approval_status: comparison.approval_status || null,
     build_branch: comparison.build_branch || null,
     needs_review: comparisonNeedsReview(comparison, reviewState),
-    is_flaky: comparison.is_flaky == null ? null : comparison.is_flaky === true,
     browser: getComparisonBrowser(comparison),
     viewport: getComparisonViewport(comparison),
     screenshot: getCurrentScreenshot(comparison),
@@ -395,7 +388,7 @@ function hasCompleteVariants(
 /**
  * Derive only facts backed by a complete variant set and complete source fields.
  *
- * Unknown review, flaky, result, or diff values stay null instead of becoming
+ * Unknown review, result, or diff values stay null instead of becoming
  * client-authored false or zero values.
  *
  * @param {Object[]} variants - Complete normalized variants for one screenshot.
@@ -410,14 +403,12 @@ function deriveAggregateFacts(variants = [], complete = false) {
   let results = variants.map(variant => variant.result);
   let reviewStates = variants.map(variant => variant.review_state);
   let needsReview = variants.map(variant => variant.needs_review);
-  let flaky = variants.map(variant => variant.is_flaky);
   let percentages = variants
     .map(variant => variant.diff.percentage)
     .filter(value => value != null);
   let allResultsKnown = results.every(value => value != null);
   let allReviewStatesKnown = reviewStates.every(value => value != null);
   let allNeedsReviewKnown = needsReview.every(value => value != null);
-  let allFlakyKnown = flaky.every(value => value != null);
 
   return {
     has_changes: results.includes('changed')
@@ -444,7 +435,6 @@ function deriveAggregateFacts(variants = [], complete = false) {
       : allReviewStatesKnown
         ? false
         : null,
-    has_flaky: flaky.includes(true) ? true : allFlakyKnown ? false : null,
     max_diff_percentage:
       percentages.length === variants.length && percentages.length > 0
         ? Math.max(...percentages)
@@ -497,7 +487,6 @@ export function normalizeComparisonGroup(group = {}, options = {}) {
       needs_review_count: needsReviewCount,
       failed_count: aggregate.failed_count ?? derived.failed_count ?? null,
       has_rejected: aggregate.has_rejected ?? derived.has_rejected ?? null,
-      has_flaky: aggregate.has_flaky ?? derived.has_flaky ?? null,
       max_diff_percentage:
         aggregate.max_diff_percentage ?? derived.max_diff_percentage ?? null,
     },

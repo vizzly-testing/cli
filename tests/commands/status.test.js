@@ -94,14 +94,14 @@ describe('validateStatusOptions', () => {
 });
 
 describe('status data', () => {
-  it('reads the build from the canonical status response', () => {
+  it('reads the build from the status response', () => {
     let build = createBuild();
 
     assert.strictEqual(normalizeBuildStatus({ build }), build);
     assert.strictEqual(normalizeBuildStatus(build), undefined);
   });
 
-  it('preserves canonical processing, review, and preview facts in JSON data', () => {
+  it('preserves processing, review, and preview facts in JSON data', () => {
     let data = createStatusData(createStatusBundle(), {
       preview_url: 'https://preview.test',
       status: 'ready',
@@ -130,7 +130,7 @@ describe('status data', () => {
   it('does not read removed review aliases or invent missing status facts', () => {
     let data = createStatusData({
       build: {
-        id: 'build-without-canonical-review',
+        id: 'build-without-review',
         status: 'processing',
         approval_status: 'pending',
         pending_screenshots: 12,
@@ -144,7 +144,7 @@ describe('status data', () => {
   });
 
   it('keeps processing facts separate from review facts', () => {
-    let canonical = createStatusBundle();
+    let statusBundle = createStatusBundle();
     let processing = createStatusBundle({
       processing: {
         total: 3,
@@ -154,14 +154,14 @@ describe('status data', () => {
       },
     });
 
-    assert.strictEqual(getBuildReviewState(canonical), 'pending');
+    assert.strictEqual(getBuildReviewState(statusBundle), 'pending');
     assert.deepStrictEqual(getProcessingStatus(processing), {
       total: 3,
       completed: 2,
       failed: 0,
       active: 1,
     });
-    assert.deepStrictEqual(getComparisonStatus(canonical), {
+    assert.deepStrictEqual(getComparisonStatus(statusBundle), {
       total: 3,
       new: 1,
       changed: 1,
@@ -195,7 +195,7 @@ describe('status display decisions', () => {
     );
   });
 
-  it('creates scoped build URLs from the canonical response', () => {
+  it('creates scoped build URLs from the status response', () => {
     assert.strictEqual(
       createBuildUrl('https://app.test/api', createBuild(), {
         organization: { slug: 'acme' },

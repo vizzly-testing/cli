@@ -60,9 +60,9 @@ export function normalizeBuildStatus(buildStatus) {
 }
 
 /**
- * Read exact processing counts from the canonical status response.
+ * Read the processing counts from the status response.
  *
- * @param {Object} status - Canonical status bundle.
+ * @param {Object} status - Status response.
  * @returns {Object|undefined} API-provided processing facts when available.
  */
 export function getProcessingStatus(status = {}) {
@@ -72,7 +72,7 @@ export function getProcessingStatus(status = {}) {
 /**
  * Read comparison totals without deriving them from screenshot counts.
  *
- * @param {Object} status - Canonical status bundle.
+ * @param {Object} status - Status response.
  * @returns {Object|undefined} API-provided comparison facts when available.
  */
 export function getComparisonStatus(status = {}) {
@@ -80,9 +80,9 @@ export function getComparisonStatus(status = {}) {
 }
 
 /**
- * Read canonical build review state without mixing it with processing status.
+ * Read the build review state without mixing it with processing status.
  *
- * @param {Object} status - Canonical status bundle.
+ * @param {Object} status - Status response.
  * @returns {string|null} API-provided review state when available.
  */
 export function getBuildReviewState(status = {}) {
@@ -118,7 +118,7 @@ export function createStatusSuggestedCommands(build = {}) {
  * from the API. Undefined values intentionally disappear during JSON encoding
  * rather than being presented as false certainty.
  *
- * @param {Object} status - Canonical status bundle.
+ * @param {Object} status - Status response.
  * @param {Object|null} previewInfo - Optional preview response.
  * @returns {Object} Machine-readable status payload.
  */
@@ -187,7 +187,7 @@ export function createBuildInfo(build) {
 /**
  * Format API comparison outcomes without filling missing buckets with zeroes.
  *
- * @param {Object} status - Canonical status bundle.
+ * @param {Object} status - Status response.
  * @param {Object} colors - Output color helpers.
  * @returns {string} Human-readable comparison summary.
  */
@@ -217,7 +217,7 @@ export function createComparisonStats(status, colors) {
  *
  * @param {string} baseUrl - API or app base URL.
  * @param {Object} build - Build record.
- * @param {Object|null} scope - Canonical organization and project scope.
+ * @param {Object|null} scope - Organization and project details.
  * @returns {string|null} Build URL when the response has enough identity.
  */
 export function createBuildUrl(baseUrl, build, scope = null) {
@@ -237,12 +237,12 @@ export function createBuildUrl(baseUrl, build, scope = null) {
 }
 
 /**
- * Preserve status failure behavior while accepting the canonical conclusion.
+ * Preserve status failure behavior while using the server's conclusion.
  *
  * Review-required and rejected builds keep their existing successful command
  * exit behavior. Only build or processing failures produce a failing status.
  *
- * @param {Object} status - Canonical status bundle.
+ * @param {Object} status - Status response.
  * @returns {boolean} Whether human status should exit non-zero.
  */
 export function shouldFailStatus(status) {
@@ -300,7 +300,7 @@ function writeSuggestedCommands({ build, output }) {
 /**
  * Add optional API facts without inventing placeholders for missing metadata.
  *
- * @param {Object} status - Canonical status bundle.
+ * @param {Object} status - Status response.
  * @returns {Object} Available verbose fields.
  */
 function createVerboseInfo(status) {
@@ -347,7 +347,7 @@ function createVerboseInfo(status) {
 /**
  * Format only the processing facts supplied by the API.
  *
- * @param {Object|undefined} processing - Canonical processing counts.
+ * @param {Object|undefined} processing - Processing counts.
  * @returns {string} Human-readable processing summary.
  */
 function formatProcessingStatus(processing) {

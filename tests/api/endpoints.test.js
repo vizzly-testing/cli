@@ -103,7 +103,7 @@ describe('api/endpoints', () => {
   });
 
   describe('getBuildStatus', () => {
-    it('requests the canonical build status endpoint', async () => {
+    it('requests the build status endpoint', async () => {
       let client = createMockClient({ resource: 'build_status' });
 
       await getBuildStatus(client, 'build-123');

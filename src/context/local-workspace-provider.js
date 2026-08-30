@@ -302,8 +302,8 @@ function projectLocalScreenshot(screenshot, baseline) {
   };
 }
 
-function projectLocalDiff(diff, includeDiffs) {
-  let projected = {
+function formatLocalDiff(diff, includeDiffs) {
+  let formatted = {
     percentage: diff?.percentage ?? null,
     changed_pixels: diff?.changed_pixels ?? null,
     total_pixels: diff?.total_pixels ?? null,
@@ -314,13 +314,13 @@ function projectLocalDiff(diff, includeDiffs) {
   };
 
   if (includeDiffs) {
-    projected.regions = diff?.regions || [];
-    projected.cluster_metadata = diff?.cluster_metadata ?? null;
-    projected.fingerprint_data = diff?.fingerprint_data ?? null;
-    projected.diff_lines = diff?.diff_lines ?? [];
+    formatted.regions = diff?.regions || [];
+    formatted.cluster_metadata = diff?.cluster_metadata ?? null;
+    formatted.fingerprint_data = diff?.fingerprint_data ?? null;
+    formatted.diff_lines = diff?.diff_lines ?? [];
   }
 
-  return projected;
+  return formatted;
 }
 
 function projectLocalEvidence(comparison, includeDiffs) {
@@ -341,7 +341,7 @@ function projectLocalEvidence(comparison, includeDiffs) {
       comparison.screenshot,
       comparison.baseline
     ),
-    diff: projectLocalDiff(comparison.diff, includeDiffs),
+    diff: formatLocalDiff(comparison.diff, includeDiffs),
   };
 }
 
@@ -359,7 +359,7 @@ function projectLocalFocusedComparison(comparison, includeDiffs) {
 
   return {
     ...comparison,
-    diff: projectLocalDiff(comparison.diff, false),
+    diff: formatLocalDiff(comparison.diff, false),
     analysis: summaryAnalysis,
   };
 }

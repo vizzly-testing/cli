@@ -12,7 +12,7 @@ We migrated from Puppeteer to Playwright because:
 
 ## Source of Truth
 
-The authoritative reference for Chrome flags is maintained by the Chrome team:
+The Chrome team maintains the reference for Chrome flags:
 
 - **Primary**: [Chrome Flags for Tools](https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md) - Curated list for automation tools
 - **Complete list**: [peter.sh/experiments/chromium-command-line-switches](https://peter.sh/experiments/chromium-command-line-switches/) - All Chromium switches

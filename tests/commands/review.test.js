@@ -146,7 +146,7 @@ describe('commands/review', () => {
   });
 
   describe('approveCommand', () => {
-    it('discovers canonical review context and approves the current version', async () => {
+    it('finds the review context and approves the current version', async () => {
       let harness = createReviewHarness({
         eventId: 'event-1',
         idempotent: false,

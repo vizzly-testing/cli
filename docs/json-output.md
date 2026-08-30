@@ -689,7 +689,7 @@ vizzly comparisons --build <id> --status changed --json
         "honeydiff": {
           "fingerprintHash": "00000000001ec127",
           "regionCount": 12,
-          "projection": {
+          "details": {
             "clusters": { "count": 12, "average_density": 0.81 }
           }
         }
@@ -945,7 +945,7 @@ vizzly approve <comparison-id> --json
   "data": {
     "eventId": "event_123",
     "idempotent": false,
-    "review": { /* canonical visual review */ }
+    "review": { /* visual review */ }
   }
 }
 ```
@@ -962,7 +962,7 @@ vizzly reject <comparison-id> --reason "Unexpected regression" --json
   "data": {
     "eventId": "event_124",
     "idempotent": false,
-    "review": { /* canonical visual review */ }
+    "review": { /* visual review */ }
   }
 }
 ```

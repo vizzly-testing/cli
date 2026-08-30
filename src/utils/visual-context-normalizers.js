@@ -1,5 +1,5 @@
 /**
- * Read the API's canonical visual-review state.
+ * Read the API's visual-review state.
  *
  * @param {Object} record - Comparison or review record from the API.
  * @returns {string|null} The review state when the API supplied one.
@@ -120,7 +120,7 @@ function getRecordViewport(record = {}, fallback = {}) {
  * Normalize current screenshot identity, render facts, metadata, and asset URL.
  *
  * @param {Object} comparison - Comparison record from the API.
- * @returns {Object} A stable current screenshot projection.
+ * @returns {Object} Current screenshot details.
  */
 function getCurrentScreenshot(comparison = {}) {
   let screenshot = comparison.current_screenshot || comparison.screenshot || {};
@@ -169,7 +169,7 @@ function getCurrentScreenshot(comparison = {}) {
  * Normalize the baseline screenshot without inventing missing render facts.
  *
  * @param {Object} comparison - Comparison record from the API.
- * @returns {Object} A stable baseline screenshot projection.
+ * @returns {Object} Baseline screenshot details.
  */
 function getBaselineScreenshot(comparison = {}) {
   let current = comparison.current_screenshot || comparison.screenshot || {};
@@ -199,12 +199,10 @@ function getBaselineScreenshot(comparison = {}) {
 }
 
 /**
- * Project compact Honeydiff facts without making raw geometry the default.
+ * Keep the useful Honeydiff facts without including raw geometry by default.
  *
- * Agents need stable counts, fingerprints, URLs, the API projection, and the
- * server's authoritative artifact manifest for first-pass diagnosis. Keeping
- * that manifest intact prevents the CLI from becoming less authoritative than
- * the API. Raw regions and scoring details stay behind an explicit include
+ * Agents need counts, fingerprints, URLs, analysis details, and the server's
+ * artifact list for first-pass diagnosis. Raw regions and scoring details stay behind an explicit include
  * because they can dominate an otherwise bounded handoff.
  *
  * @param {Object} comparison - Comparison record from the API.
@@ -220,14 +218,8 @@ function getComparisonDiff(comparison = {}, includeDiffs = false) {
     diff.diff_regions ||
     analysis.diff_regions ||
     comparison.diff_regions;
-  let projection =
-    diff.projection ||
-    diff.analysis_projection ||
-    analysis.projection ||
-    analysis.analysis_projection ||
-    comparison.analysis_projection ||
-    comparison.projection ||
-    null;
+  let details =
+    diff.details || analysis.details || comparison.analysis_details || null;
   let artifacts =
     diff.artifacts ?? analysis.artifacts ?? comparison.artifacts ?? null;
 
@@ -259,9 +251,9 @@ function getComparisonDiff(comparison = {}, includeDiffs = false) {
       diff.region_count ??
       analysis.region_count ??
       comparison.region_count ??
-      projection?.clusters?.count ??
+      details?.clusters?.count ??
       (Array.isArray(regions) ? regions.length : null),
-    projection,
+    details,
     image_url:
       diff.image_url ||
       diff.url ||
@@ -299,7 +291,7 @@ function getComparisonDiff(comparison = {}, includeDiffs = false) {
  * Prefer explicit review need and return null when the API supplied no review fact.
  *
  * @param {Object} comparison - Comparison record from the API.
- * @param {string|null} reviewState - Canonical review state for the record.
+ * @param {string|null} reviewState - Review state for the record.
  * @returns {boolean|null} Whether the comparison needs review, when known.
  */
 function comparisonNeedsReview(comparison = {}, reviewState = null) {
@@ -443,7 +435,7 @@ function deriveAggregateFacts(variants = [], complete = false) {
 }
 
 /**
- * Normalize a screenshot group while keeping explicit server aggregates authoritative.
+ * Normalize a screenshot group while keeping explicit server totals unchanged.
  *
  * @param {Object} group - Grouped visual-review record from the API.
  * @param {Object} options - Normalization options.

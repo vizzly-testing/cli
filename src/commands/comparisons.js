@@ -214,17 +214,13 @@ function formatComparisonForJson(comparison) {
   let gmsdScore = comparison.gmsd_score ?? diffImage.gmsd_score ?? null;
   let fingerprintHash =
     comparison.fingerprint_hash || diffImage.fingerprint_hash || null;
-  let projection =
-    comparison.analysis_projection ||
-    comparison.projection ||
-    diffImage.analysis_projection ||
-    diffImage.projection ||
-    null;
+  let analysisDetails =
+    comparison.analysis_details || diffImage.analysis_details || null;
   let diffRegions = comparison.diff_regions ?? diffImage.diff_regions ?? null;
   let regionCount =
     comparison.region_count ??
     diffImage.region_count ??
-    projection?.clusters?.count ??
+    analysisDetails?.clusters?.count ??
     (Array.isArray(diffRegions) ? diffRegions.length : null);
 
   let hasHoneydiff =
@@ -232,7 +228,7 @@ function formatComparisonForJson(comparison) {
     ssimScore != null ||
     gmsdScore != null ||
     fingerprintHash ||
-    projection ||
+    analysisDetails ||
     regionCount != null;
 
   return {
@@ -269,7 +265,7 @@ function formatComparisonForJson(comparison) {
           clusterMetadata,
           fingerprintHash,
           regionCount,
-          projection,
+          details: analysisDetails,
           diffRegions,
           diffLines: comparison.diff_lines ?? diffImage.diff_lines ?? null,
           fingerprintData:

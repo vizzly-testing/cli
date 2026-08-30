@@ -165,7 +165,7 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].summary.failed, 1);
     });
 
-    it('exposes canonical review state with current comparison evidence', async () => {
+    it('exposes review state with current comparison evidence', async () => {
       let output = createMockOutput();
       let mockBuild = {
         id: 'build-1',
@@ -184,7 +184,7 @@ describe('commands/comparisons', () => {
             baseline_original_url: 'https://cdn.test/baseline.png',
             current_original_url: 'https://cdn.test/current.png',
             diff_image_url: 'https://cdn.test/diff.png',
-            analysis_projection: {
+            analysis_details: {
               clusters: { count: 3, average_density: 0.81 },
             },
             fingerprint_hash: 'fp-checkout',
@@ -234,7 +234,7 @@ describe('commands/comparisons', () => {
       });
       assert.strictEqual(comparison.honeydiff.fingerprintHash, 'fp-checkout');
       assert.strictEqual(comparison.honeydiff.regionCount, 3);
-      assert.deepStrictEqual(comparison.honeydiff.projection, {
+      assert.deepStrictEqual(comparison.honeydiff.details, {
         clusters: { count: 3, average_density: 0.81 },
       });
     });
@@ -392,7 +392,7 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].name, 'button-primary');
     });
 
-    it('shows the visual result and canonical review state for current comparisons', async () => {
+    it('shows the visual result and review state for current comparisons', async () => {
       let output = createMockOutput();
 
       await comparisonsCommand(

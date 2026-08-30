@@ -429,7 +429,7 @@ describe('uploader/core', () => {
       assert.strictEqual(result.comparisons, undefined);
     });
 
-    it('preserves canonical review state from the API', () => {
+    it('preserves review state from the API', () => {
       let build = {
         id: 'build-123',
         status: 'completed',

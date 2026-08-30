@@ -44,7 +44,7 @@ export async function getBuild(client, buildId, include = null) {
  *
  * @param {Object} client - API client
  * @param {string} buildId - Build ID
- * @returns {Promise<Object>} Canonical build status bundle
+ * @returns {Promise<Object>} Build status response
  */
 export async function getBuildStatus(client, buildId) {
   return client.request(`/api/sdk/builds/${buildId}/status`);

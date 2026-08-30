@@ -168,7 +168,7 @@ function requireReviewLocator(response) {
     !locator?.organization_slug
   ) {
     let error = new Error(
-      'Comparison response did not include canonical review context'
+      'Comparison response did not include review location details'
     );
     error.code = 'INVALID_REVIEW_CONTEXT';
     throw error;

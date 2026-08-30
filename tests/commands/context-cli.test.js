@@ -250,7 +250,7 @@ async function withBuildContextApi(callback) {
       total_pixels: 5184000,
       image_url: `https://cdn.test/diff-${index + 1}.png`,
       fingerprint_hash: `fingerprint-${index + 1}`,
-      projection: { clusters: { count: 1 } },
+      details: { clusters: { count: 1 } },
       artifacts: {
         analysis: {
           available: true,
@@ -936,7 +936,7 @@ describe('context CLI integration', () => {
     });
   });
 
-  it('renders human screenshot context from canonical review evidence', async () => {
+  it('renders human screenshot context from review evidence', async () => {
     await withBuildContextApi(async ({ apiUrl }) => {
       let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-human-'));
       let result = await runCLI(

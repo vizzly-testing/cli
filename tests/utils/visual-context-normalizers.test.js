@@ -42,7 +42,7 @@ describe('visual context normalizers', () => {
           diff_image_url: 'https://cdn.test/diff.png',
           diff_percentage: 2.5,
           fingerprint_hash: 'fp-checkout',
-          analysis_projection: { clusters: { count: 2 } },
+          analysis_details: { clusters: { count: 2 } },
         },
         {
           id: 'comparison-desktop',
@@ -89,7 +89,7 @@ describe('visual context normalizers', () => {
     assert.strictEqual(comparison.diff.image_url, 'https://cdn.test/diff.png');
     assert.strictEqual(comparison.diff.fingerprint_hash, 'fp-checkout');
     assert.strictEqual(comparison.diff.region_count, 2);
-    assert.deepStrictEqual(comparison.diff.projection, {
+    assert.deepStrictEqual(comparison.diff.details, {
       clusters: { count: 2 },
     });
     assert.deepStrictEqual(comparison.diff.artifacts, {
@@ -104,7 +104,7 @@ describe('visual context normalizers', () => {
     });
   });
 
-  it('keeps explicit grouped aggregate false and zero values authoritative', () => {
+  it('keeps explicit grouped false and zero values unchanged', () => {
     let group = normalizeComparisonGroup({
       name: 'Checkout',
       variant_count: 8,

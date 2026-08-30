@@ -72,7 +72,7 @@
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",
     "test:types": "tsd",
     "prepublishOnly": "pnpm run build",
-    "test": "node --experimental-test-coverage --test --test-concurrency=1 --test-reporter=spec $(find tests -name '*.test.js')",
+    "test": "node --experimental-test-coverage --test --test-concurrency=1 --test-reporter=spec $(find tests clients/swift/tests-js -name '*.test.js')",
     "test:watch": "node --test --test-reporter=spec --watch $(find tests -name '*.test.js')",
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",
     "test:reporter:visual": "node bin/vizzly.js tdd run \"pnpm run test:reporter\" --no-open",
@@ -80,10 +80,10 @@
     "test:swift:previews:e2e": "node clients/swift/scripts/run-preview-e2e.js",
     "test:tui": "node --test --test-reporter=spec tests/tui/*.test.js",
     "test:tui:docker": "./tests/tui/run-tui-tests.sh",
-    "lint": "biome check src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
-    "lint:fix": "biome check --write --unsafe src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
-    "format": "biome format --write src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
-    "format:check": "biome format src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",
+    "lint": "biome check src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts",
+    "lint:fix": "biome check --write --unsafe src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts",
+    "format": "biome format --write src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts",
+    "format:check": "biome format src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts",
     "fix": "pnpm run format && pnpm run lint:fix"
   },
   "engines": {

@@ -9,7 +9,10 @@ public enum VizzlyPreviewRuntime {
     public static func link() {}
 }
 
+@available(iOS 17.0, *)
 public typealias VizzlyPreviewBody = @MainActor () -> any View
+
+@available(iOS 17.0, *)
 public typealias VizzlyPreviewInitializer = @convention(thin) @MainActor (
     String?,
     [PreviewTrait<Preview.ViewTraits>],
@@ -19,15 +22,28 @@ public typealias VizzlyPreviewInitializer = @convention(thin) @MainActor (
 @_silgen_name("VizzlyOriginalPreviewInitializer")
 private func originalPreviewInitializerPointer() -> UnsafeRawPointer
 
+@available(iOS 17.0, *)
 @MainActor
 private var capturedPreviewBody: VizzlyPreviewBody?
 
+@available(iOS 17.0, *)
 @MainActor
 private var capturedPreviewName = "Unnamed Preview"
 
+@available(iOS 17.0, *)
+@MainActor
+private var capturedPreviewTraitCount = 0
+
+@available(iOS 17.0, *)
+@MainActor
 private var activationObserver: NSObjectProtocol?
 
+@available(iOS 17.0, *)
+@MainActor
+private var didInstallPreview = false
+
 @_silgen_name("VizzlyPreviewInitializerReplacement")
+@available(iOS 17.0, *)
 @MainActor
 public func interceptPreviewInitializer(
     _ name: String?,
@@ -36,6 +52,7 @@ public func interceptPreviewInitializer(
 ) -> Preview {
     capturedPreviewBody = body
     capturedPreviewName = name ?? "Unnamed Preview"
+    capturedPreviewTraitCount = traits.count
 
     let original = unsafeBitCast(
         originalPreviewInitializerPointer(),
@@ -44,6 +61,7 @@ public func interceptPreviewInitializer(
     return original(name, traits, body)
 }
 
+@available(iOS 17.0, *)
 @MainActor
 private func emitEvent(_ event: [String: Any]) {
     guard
@@ -58,6 +76,7 @@ private func emitEvent(_ event: [String: Any]) {
     fflush(stdout)
 }
 
+@available(iOS 17.0, *)
 @MainActor
 private func resolvePreview() throws -> AnyView {
     guard
@@ -72,6 +91,10 @@ private func resolvePreview() throws -> AnyView {
 
     _ = try registry.makePreview()
 
+    guard capturedPreviewTraitCount == 0 else {
+        throw PreviewRuntimeError.unsupportedTraits(capturedPreviewTraitCount)
+    }
+
     guard let body = capturedPreviewBody else {
         throw PreviewRuntimeError.bodyUnavailable
     }
@@ -82,11 +105,13 @@ private func resolvePreview() throws -> AnyView {
         "type": "preview-resolved",
         "name": capturedPreviewName,
         "registryType": registryName,
+        "traitCount": capturedPreviewTraitCount,
         "viewType": String(reflecting: type(of: view)),
     ])
     return AnyView(view)
 }
 
+@available(iOS 17.0, *)
 private struct InjectedPreviewRoot: View {
     let preview: AnyView
 
@@ -97,6 +122,7 @@ private struct InjectedPreviewRoot: View {
     }
 }
 
+@available(iOS 17.0, *)
 private struct CaptureProbe: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> CaptureController {
         CaptureController()
@@ -181,15 +207,21 @@ private struct CaptureProbe: UIViewControllerRepresentable {
     }
 }
 
+@available(iOS 17.0, *)
 @MainActor
-private func installPreview() {
+private func installPreview(in scene: UIWindowScene) {
+    guard !didInstallPreview else { return }
+    didInstallPreview = true
+
+    if let observer = activationObserver {
+        NotificationCenter.default.removeObserver(observer)
+        activationObserver = nil
+    }
+
     do {
-        guard
-            let scene = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first,
-            let window = scene.windows.first
-        else {
+        guard let window = scene.windows.first(where: \.isKeyWindow)
+            ?? scene.windows.first(where: { !$0.isHidden && $0.alpha > 0 })
+            ?? scene.windows.first else {
             throw PreviewRuntimeError.windowUnavailable
         }
 
@@ -204,6 +236,7 @@ private func installPreview() {
     }
 }
 
+@available(iOS 17.0, *)
 @MainActor
 private func emitFailure(_ error: Error) {
     emitEvent([
@@ -213,22 +246,35 @@ private func emitFailure(_ error: Error) {
     ])
 }
 
-@_cdecl("VizzlyPreviewRuntimeStart")
-public func startVizzlyPreviewRuntime() {
-    guard
-        ProcessInfo.processInfo.environment["VIZZLY_REGISTRY_TYPE"] != nil
-    else {
-        return
-    }
-
+@available(iOS 17.0, *)
+@MainActor
+private func startPreviewObservation() {
+    guard activationObserver == nil, !didInstallPreview else { return }
     activationObserver = NotificationCenter.default.addObserver(
         forName: UIScene.didActivateNotification,
         object: nil,
         queue: .main
-    ) { _ in
+    ) { notification in
         MainActor.assumeIsolated {
-            installPreview()
+            guard let scene = notification.object as? UIWindowScene else {
+                return
+            }
+            installPreview(in: scene)
         }
+    }
+}
+
+@_cdecl("VizzlyPreviewRuntimeStart")
+public func startVizzlyPreviewRuntime() {
+    guard
+        ProcessInfo.processInfo.environment["VIZZLY_REGISTRY_TYPE"] != nil,
+        #available(iOS 17.0, *)
+    else {
+        return
+    }
+
+    MainActor.assumeIsolated {
+        startPreviewObservation()
     }
 }
 
@@ -236,6 +282,7 @@ private enum PreviewRuntimeError: LocalizedError {
     case bodyUnavailable
     case pngEncodingFailed
     case registryUnavailable
+    case unsupportedTraits(Int)
     case windowUnavailable
 
     var errorDescription: String? {
@@ -246,6 +293,8 @@ private enum PreviewRuntimeError: LocalizedError {
             return "The rendered preview could not be encoded as PNG"
         case .registryUnavailable:
             return "The generated #Preview registry could not be loaded"
+        case .unsupportedTraits(let count):
+            return "This preview uses \(count) trait(s), which are not supported yet"
         case .windowUnavailable:
             return "The app did not create a window for preview capture"
         }

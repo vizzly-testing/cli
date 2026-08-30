@@ -13,6 +13,8 @@ Unlike tools that render components in isolation, Vizzly captures screenshots di
 - **TDD Mode** - Local visual testing with instant feedback
 - **Cloud Mode** - Team collaboration via Vizzly dashboard
 - **Graceful Degradation** - Tests pass even if Vizzly is unavailable
+- **Stock SwiftUI Previews** - Render existing `#Preview` declarations from the
+  app target without adding a second preview API
 
 ## Installation
 
@@ -45,6 +47,66 @@ targets: [
 
 Vizzly does not currently ship a CocoaPods podspec. Use Swift Package Manager
 for native app integration.
+
+## SwiftUI `#Preview` Capture
+
+Preview capture is a Vizzly CLI plugin. It does not require adding a runtime to
+the app target or replacing stock `#Preview` declarations.
+
+Install the CLI and Swift plugin in the iOS project:
+
+```bash
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
+```
+
+With one Xcode project or workspace in the current directory, one shared
+scheme, and one booted iOS Simulator, the complete command is:
+
+```bash
+vizzly previews
+```
+
+The CLI only auto-selects when there is exactly one safe choice. Otherwise,
+pass the project, scheme, or Simulator explicitly:
+
+```bash
+vizzly previews MyApp.xcworkspace \
+  --scheme MyApp \
+  --device B40B976E-CD70-45F2-830C-48E8ED9B7EE7 \
+  --output .vizzly/previews
+```
+
+Each run builds the real app target, discovers its generated preview
+registries, launches one fresh app process per preview, and writes PNGs plus a
+versioned `manifest.json`. A successful rerun safely replaces only an output
+directory previously created by this command. If the directory contains other
+files, the command refuses to delete them.
+
+Optional defaults live under `swiftPreviews` in `vizzly.config.js`:
+
+```js
+import { defineConfig } from '@vizzly-testing/cli/config';
+
+export default defineConfig({
+  swiftPreviews: {
+    scheme: 'MyApp',
+    configuration: 'Debug',
+    output: '.vizzly/previews',
+    captureTimeout: 30_000,
+  },
+});
+```
+
+The native renderer currently supports Xcode 26.6, arm64 iOS Simulators, iOS
+17 or newer, scene-based SwiftUI apps, and previews compiled into the app
+executable or debug dylib. Preview traits such as fixed layouts and device
+orientation fail explicitly until their Xcode semantics can be reproduced.
+The exact Xcode version is checked before capture because the implementation
+intercepts a version-specific Swift ABI symbol. It does not use Xcode MCP,
+`mcpbridge`, private Xcode actions, or source rewriting.
+
+Preview capture currently produces local artifacts. Sending the resulting
+manifest and PNGs through a Vizzly build is the next integration layer.
 
 ## Quick Start
 

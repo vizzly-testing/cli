@@ -7,14 +7,20 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  rename,
   rm,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 
 let eventPrefix = 'VIZZLY_PREVIEW_EVENT ';
+let minimumRuntimeDeploymentTarget = '17.0';
 let supportedXcodeVersion = '26.6';
+
+function invalidPng() {
+  throw new Error('Preview capture did not produce a valid PNG');
+}
 
 export function parseRegistryTypes(output) {
   let registries = new Set();
@@ -49,15 +55,81 @@ export function parseRuntimeEvents(output) {
 
 export function readPngMetadata(buffer) {
   let signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  if (buffer.length < 24 || !buffer.subarray(0, 8).equals(signature)) {
-    throw new Error('Preview capture did not produce a valid PNG');
+  if (buffer.length < 45 || !buffer.subarray(0, 8).equals(signature)) {
+    invalidPng();
+  }
+
+  let offset = 8;
+  let width;
+  let height;
+  let foundEnd = false;
+  while (offset + 12 <= buffer.length) {
+    let length = buffer.readUInt32BE(offset);
+    let type = buffer.toString('ascii', offset + 4, offset + 8);
+    let nextOffset = offset + 12 + length;
+    if (nextOffset > buffer.length) {
+      invalidPng();
+    }
+
+    if (offset === 8) {
+      if (type !== 'IHDR' || length !== 13) {
+        invalidPng();
+      }
+      width = buffer.readUInt32BE(offset + 8);
+      height = buffer.readUInt32BE(offset + 12);
+    }
+
+    if (type === 'IEND') {
+      foundEnd = length === 0;
+      break;
+    }
+    offset = nextOffset;
+  }
+
+  if (!foundEnd || !width || !height) {
+    invalidPng();
   }
 
   return {
-    width: buffer.readUInt32BE(16),
-    height: buffer.readUInt32BE(20),
+    width,
+    height,
     sha256: createHash('sha256').update(buffer).digest('hex'),
   };
+}
+
+export function parseSchemes(output) {
+  let payload = JSON.parse(output);
+  return [...(payload.project?.schemes ?? payload.workspace?.schemes ?? [])]
+    .filter(scheme => typeof scheme === 'string' && scheme.length > 0)
+    .sort();
+}
+
+export function selectScheme(schemes, requestedScheme) {
+  if (requestedScheme) {
+    if (!schemes.includes(requestedScheme)) {
+      throw new Error(
+        `${requestedScheme} is not an available Xcode scheme. ` +
+          `Available schemes: ${schemes.join(', ') || 'none'}`
+      );
+    }
+    return { name: requestedScheme, selection: 'explicit' };
+  }
+
+  if (schemes.length === 0) {
+    throw new Error(
+      'No shared Xcode schemes are available. Share a scheme in Xcode or ' +
+        'pass --scheme <scheme>.'
+    );
+  }
+
+  if (schemes.length > 1) {
+    throw new Error(
+      `More than one Xcode scheme is available: ${schemes.join(', ')}. ` +
+        'Pass --scheme <scheme> to choose one.'
+    );
+  }
+
+  return { name: schemes[0], selection: 'automatic' };
 }
 
 function displayRuntime(runtimeIdentifier) {
@@ -134,9 +206,13 @@ export function selectBootedIOSSimulator(simulators, requestedDevice) {
 
 function runCommand(executable, args, options = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
+    let signal = options.timeoutMs
+      ? AbortSignal.timeout(options.timeoutMs)
+      : undefined;
     let child = spawn(executable, args, {
       cwd: options.cwd,
       env: options.env ?? process.env,
+      signal,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = [];
@@ -144,11 +220,21 @@ function runCommand(executable, args, options = {}) {
 
     child.stdout.on('data', chunk => stdout.push(chunk));
     child.stderr.on('data', chunk => stderr.push(chunk));
-    child.once('error', rejectPromise);
-    child.once('close', (exitCode, signal) => {
+    child.once('error', error => {
+      if (error.name === 'AbortError') {
+        rejectPromise(
+          new Error(
+            `${basename(executable)} timed out after ${options.timeoutMs}ms`
+          )
+        );
+        return;
+      }
+      rejectPromise(error);
+    });
+    child.once('close', (exitCode, terminationSignal) => {
       let result = {
         exitCode,
-        signal,
+        signal: terminationSignal,
         stdout: Buffer.concat(stdout).toString('utf8'),
         stderr: Buffer.concat(stderr).toString('utf8'),
       };
@@ -209,12 +295,23 @@ function containerArguments(container) {
     : ['-project', container];
 }
 
+async function resolveScheme(container, requestedScheme) {
+  let result = await runCommand('xcodebuild', [
+    ...containerArguments(container),
+    '-list',
+    '-json',
+  ]);
+  return selectScheme(parseSchemes(result.stdout), requestedScheme);
+}
+
 async function assertSupportedToolchain() {
   let result = await runCommand('xcodebuild', ['-version']);
   let match = result.stdout.match(/^Xcode (\S+)/m);
   if (!match || match[1] !== supportedXcodeVersion) {
+    let detectedVersion = match?.[1] ?? 'unknown';
     throw new Error(
-      `Unsupported preview ABI. This spike requires Xcode ${supportedXcodeVersion}`
+      `Unsupported preview ABI for Xcode ${detectedVersion}. ` +
+        `This release supports Xcode ${supportedXcodeVersion}`
     );
   }
   return match[1];
@@ -232,15 +329,70 @@ async function resolveSimulator(requestedDevice) {
   return selectBootedIOSSimulator(simulators, requestedDevice);
 }
 
-async function ensureEmptyOutput(outputPath) {
+async function validateOutputPath(outputPath) {
   if (!(await pathExists(outputPath))) {
-    await mkdir(outputPath, { recursive: true });
     return;
   }
 
-  let entries = await readdir(outputPath);
-  if (entries.length > 0) {
-    throw new Error(`Preview output directory must be empty: ${outputPath}`);
+  let entries = await readdir(outputPath, { withFileTypes: true });
+  if (entries.length === 0) {
+    return;
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(
+      await readFile(join(outputPath, 'manifest.json'), 'utf8')
+    );
+  } catch {
+    throw unmanagedOutputError(outputPath);
+  }
+
+  let previewFiles = manifest.previews?.map(preview => preview.file);
+  if (
+    manifest.protocolVersion !== 1 ||
+    !Array.isArray(previewFiles) ||
+    previewFiles.some(file => !file || basename(file) !== file)
+  ) {
+    throw unmanagedOutputError(outputPath);
+  }
+
+  let expectedEntries = new Set(['manifest.json', ...previewFiles]);
+  if (
+    entries.some(entry => !entry.isFile() || !expectedEntries.has(entry.name))
+  ) {
+    throw unmanagedOutputError(outputPath);
+  }
+}
+
+function unmanagedOutputError(outputPath) {
+  return new Error(
+    `Preview output contains files not created by Vizzly: ${outputPath}`
+  );
+}
+
+function selectionAction(selection) {
+  return selection === 'automatic' ? 'Auto-selected' : 'Using';
+}
+
+async function replaceOutputDirectory(stagingPath, outputPath) {
+  let hadPreviousOutput = await pathExists(outputPath);
+  let backupPath = `${stagingPath}-previous`;
+  if (hadPreviousOutput) {
+    await rename(outputPath, backupPath);
+  }
+
+  try {
+    await rename(stagingPath, outputPath);
+  } catch (error) {
+    if (hadPreviousOutput) {
+      await rename(backupPath, outputPath);
+    }
+    throw error;
+  }
+
+  if (hadPreviousOutput) {
+    await rm(backupPath, { recursive: true, force: true });
   }
 }
 
@@ -293,11 +445,22 @@ async function buildApplication(options) {
   return { appPath, settings };
 }
 
+export function applicationBinaryCandidates(appPath, settings) {
+  let candidates = [];
+  if (settings.EXECUTABLE_NAME) {
+    candidates.push(join(appPath, settings.EXECUTABLE_NAME));
+  }
+  if (settings.TARGET_BUILD_DIR && settings.EXECUTABLE_PATH) {
+    candidates.push(join(settings.TARGET_BUILD_DIR, settings.EXECUTABLE_PATH));
+  }
+  if (settings.PRODUCT_NAME) {
+    candidates.push(join(appPath, `${settings.PRODUCT_NAME}.debug.dylib`));
+  }
+  return [...new Set(candidates)];
+}
+
 async function applicationBinaries(appPath, settings) {
-  let candidates = [
-    join(appPath, settings.EXECUTABLE_PATH ?? settings.EXECUTABLE_NAME),
-    join(appPath, `${settings.PRODUCT_NAME}.debug.dylib`),
-  ];
+  let candidates = applicationBinaryCandidates(appPath, settings);
   let entries = await readdir(appPath, { withFileTypes: true });
   for (let entry of entries) {
     if (entry.isFile() && entry.name.endsWith('.dylib')) {
@@ -307,11 +470,18 @@ async function applicationBinaries(appPath, settings) {
 
   let binaries = [];
   for (let candidate of new Set(candidates)) {
-    if (candidate && (await pathExists(candidate))) {
+    if (await pathExists(candidate)) {
       binaries.push(candidate);
     }
   }
   return binaries;
+}
+
+export function runtimeDeploymentTarget(deploymentTarget) {
+  let version = Number.parseFloat(deploymentTarget);
+  return version >= Number.parseFloat(minimumRuntimeDeploymentTarget)
+    ? deploymentTarget
+    : minimumRuntimeDeploymentTarget;
 }
 
 async function discoverRegistries(appPath, settings) {
@@ -355,7 +525,7 @@ async function compileRuntime(clientRoot, buildPath, deploymentTarget) {
     'VizzlyPreviewRuntime',
     'VizzlyPreviewRuntime.swift'
   );
-  let target = `arm64-apple-ios${deploymentTarget}-simulator`;
+  let target = `arm64-apple-ios${runtimeDeploymentTarget(deploymentTarget)}-simulator`;
 
   await mkdir(moduleCache, { recursive: true });
   await runCommand('xcrun', [
@@ -419,6 +589,7 @@ async function captureRegistry({
   bundleId,
   containerPath,
   outputPath,
+  captureTimeout,
 }) {
   let runtimeFilename = 'vizzly-preview.png';
   let runtimePath = join(containerPath, 'Documents', runtimeFilename);
@@ -436,6 +607,7 @@ async function captureRegistry({
     ],
     {
       allowFailure: true,
+      timeoutMs: captureTimeout,
       env: {
         ...process.env,
         SIMCTL_CHILD_DYLD_INSERT_LIBRARIES:
@@ -476,51 +648,60 @@ export async function runPreviewCapture({
   device,
   configuration = 'Debug',
   outputPath: outputInput,
+  captureTimeout = 30_000,
   onProgress = () => {},
 }) {
-  let clientRoot = resolve(import.meta.dirname, '..');
-  let container = await resolveContainer(containerInput);
-  let outputPath = resolve(outputInput);
-  await ensureEmptyOutput(outputPath);
-  let temporaryPath = await mkdtemp(join(tmpdir(), 'vizzly-previews-'));
+  let temporaryPath;
+  let stagingPath;
 
   try {
+    let clientRoot = resolve(import.meta.dirname, '..');
+    let container = await resolveContainer(containerInput);
+    let outputPath = resolve(outputInput);
+    let outputParent = dirname(outputPath);
+    await mkdir(outputParent, { recursive: true });
+    await validateOutputPath(outputPath);
+    temporaryPath = await mkdtemp(join(tmpdir(), 'vizzly-previews-'));
+    stagingPath = await mkdtemp(join(outputParent, '.vizzly-previews-'));
+
     let xcodeVersion = await assertSupportedToolchain();
+    let selectedScheme = await resolveScheme(container, scheme);
+    let resolvedScheme = selectedScheme.name;
+    let schemeAction = selectionAction(selectedScheme.selection);
+    onProgress(`${schemeAction} Xcode scheme: ${resolvedScheme}`);
     let simulator = await resolveSimulator(device);
     let resolvedDevice = simulator.udid;
-    let simulatorAction =
-      simulator.selection === 'automatic' ? 'Auto-selected' : 'Using';
+    let simulatorAction = selectionAction(simulator.selection);
     onProgress(
       `${simulatorAction} booted iOS Simulator: ${formatSimulator(simulator)}`
     );
     let derivedDataPath = join(temporaryPath, 'DerivedData');
-    let build = await buildApplication({
+    let { appPath, settings } = await buildApplication({
       container,
-      scheme,
+      scheme: resolvedScheme,
       device: resolvedDevice,
       configuration,
       derivedDataPath,
     });
-    let registries = await discoverRegistries(build.appPath, build.settings);
-    if (registries.length === 0) {
-      throw new Error(`No stock #Preview declarations were found in ${scheme}`);
+    let registryTypes = await discoverRegistries(appPath, settings);
+    if (registryTypes.length === 0) {
+      throw new Error(
+        `No stock #Preview declarations were found in ${resolvedScheme}`
+      );
     }
-    onProgress(`Discovered ${registries.length} stock #Preview declarations`);
+    onProgress(
+      `Discovered ${registryTypes.length} stock #Preview declarations`
+    );
 
     let runtimePath = await compileRuntime(
       clientRoot,
       temporaryPath,
-      build.settings.IPHONEOS_DEPLOYMENT_TARGET ?? '18.0'
+      settings.IPHONEOS_DEPLOYMENT_TARGET ?? minimumRuntimeDeploymentTarget
     );
-    await embedRuntime(build.appPath, runtimePath);
-    await runCommand('xcrun', [
-      'simctl',
-      'install',
-      resolvedDevice,
-      build.appPath,
-    ]);
+    await embedRuntime(appPath, runtimePath);
+    await runCommand('xcrun', ['simctl', 'install', resolvedDevice, appPath]);
 
-    let bundleId = build.settings.PRODUCT_BUNDLE_IDENTIFIER;
+    let bundleId = settings.PRODUCT_BUNDLE_IDENTIFIER;
     let containerResult = await runCommand('xcrun', [
       'simctl',
       'get_app_container',
@@ -528,16 +709,17 @@ export async function runPreviewCapture({
       bundleId,
       'data',
     ]);
-    let containerPath = containerResult.stdout.trim();
+    let dataContainerPath = containerResult.stdout.trim();
     let previews = [];
-    for (let [index, registryType] of registries.entries()) {
+    for (let [index, registryType] of registryTypes.entries()) {
       let preview = await captureRegistry({
         registryType,
         index,
         device: resolvedDevice,
         bundleId,
-        containerPath,
-        outputPath,
+        containerPath: dataContainerPath,
+        outputPath: stagingPath,
+        captureTimeout,
       });
       previews.push(preview);
       onProgress(`Captured ${preview.name}`);
@@ -547,7 +729,7 @@ export async function runPreviewCapture({
       protocolVersion: 1,
       xcodeVersion,
       container,
-      scheme,
+      scheme: resolvedScheme,
       device: resolvedDevice,
       simulator,
       configuration,
@@ -555,14 +737,22 @@ export async function runPreviewCapture({
       previews,
     };
     await writeFile(
-      join(outputPath, 'manifest.json'),
+      join(stagingPath, 'manifest.json'),
       `${JSON.stringify(manifest, null, 2)}\n`
     );
+    await replaceOutputDirectory(stagingPath, outputPath);
+    stagingPath = undefined;
     return manifest;
   } catch (error) {
-    error.message = `Swift preview capture failed: ${error.message}`;
-    throw error;
+    throw new Error(`Swift preview capture failed: ${error.message}`, {
+      cause: error,
+    });
   } finally {
-    await rm(temporaryPath, { recursive: true, force: true });
+    if (temporaryPath) {
+      await rm(temporaryPath, { recursive: true, force: true });
+    }
+    if (stagingPath) {
+      await rm(stagingPath, { recursive: true, force: true });
+    }
   }
 }

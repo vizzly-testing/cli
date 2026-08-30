@@ -8,20 +8,21 @@ let device = process.env.VIZZLY_SIMULATOR_UDID;
 let outputPath = await mkdtemp(join(tmpdir(), 'vizzly-preview-e2e-'));
 
 try {
-  let manifest = await runPreviewCapture({
-    container: resolve(
-      import.meta.dirname,
-      '..',
-      'Fixtures',
-      'PreviewFixture',
-      'PreviewFixture.xcodeproj'
-    ),
-    scheme: 'PreviewFixture',
-    device,
-    configuration: 'Debug',
-    outputPath,
-    onProgress: message => process.stdout.write(`${message}\n`),
-  });
+  let capture = () =>
+    runPreviewCapture({
+      container: resolve(
+        import.meta.dirname,
+        '..',
+        'Fixtures',
+        'PreviewFixture',
+        'PreviewFixture.xcodeproj'
+      ),
+      device,
+      configuration: 'Debug',
+      outputPath,
+      onProgress: message => process.stdout.write(`${message}\n`),
+    });
+  let manifest = await capture();
 
   assert.deepEqual(manifest.previews.map(preview => preview.name).sort(), [
     'Card / Dark',
@@ -37,8 +38,14 @@ try {
   );
   assert.notEqual(manifest.previews[0].sha256, manifest.previews[1].sha256);
 
+  let repeatedManifest = await capture();
+  assert.deepEqual(
+    repeatedManifest.previews.map(preview => preview.sha256),
+    manifest.previews.map(preview => preview.sha256)
+  );
+
   process.stdout.write(
-    `Verified ${manifest.previews.length} stock #Preview screenshots\n`
+    `Verified ${manifest.previews.length} repeatable stock #Preview screenshots\n`
   );
 } finally {
   await rm(outputPath, { recursive: true, force: true });

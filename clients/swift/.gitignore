@@ -1,6 +1,8 @@
 # Swift Package Manager
 .build/
 *.xcodeproj
+!Fixtures/PreviewFixture/PreviewFixture.xcodeproj/
+!Fixtures/PreviewFixture/PreviewFixture.xcodeproj/project.pbxproj
 .swiftpm/
 
 # Xcode

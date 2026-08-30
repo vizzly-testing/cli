@@ -54,11 +54,26 @@ function createReviewHarness(response = {}) {
         apiUrl: 'https://api.example.test',
       }),
       getAccessToken: async () => null,
+      randomUUID: () => 'command-1',
       createApiClient: config => {
         clientConfig = config;
         return {
           request: async (endpoint, options) => {
             clientCalls.push({ endpoint, options });
+            if (endpoint === '/api/sdk/comparisons/comparison-1') {
+              return {
+                comparison: { id: 'comparison-1' },
+                review_locator: {
+                  comparison_id: 'comparison-1',
+                  build_id: 'build-1',
+                  organization_slug: 'acme',
+                  project_slug: 'website',
+                },
+              };
+            }
+            if (endpoint === '/api/visual-review/builds/build-1') {
+              return { review: { build: { reviewVersion: 7 } } };
+            }
             return response;
           },
         };
@@ -111,10 +126,10 @@ describe('commands/review', () => {
     it('creates review payloads from command options', () => {
       assert.deepStrictEqual(createApprovalBody({}), {});
       assert.deepStrictEqual(createApprovalBody({ comment: 'LGTM' }), {
-        comment: 'LGTM',
+        annotation: 'LGTM',
       });
       assert.deepStrictEqual(createRejectionBody({ reason: 'Regression' }), {
-        reason: 'Regression',
+        annotation: 'Regression',
       });
       assert.deepStrictEqual(createCommentBody('Needs follow-up', {}), {
         content: 'Needs follow-up',
@@ -131,9 +146,11 @@ describe('commands/review', () => {
   });
 
   describe('approveCommand', () => {
-    it('approves a comparison without sending an empty JSON body', async () => {
+    it('discovers canonical review context and approves the current version', async () => {
       let harness = createReviewHarness({
-        comparison: { id: 'comparison-1', status: 'approved' },
+        eventId: 'event-1',
+        idempotent: false,
+        review: { build: { state: 'approved' } },
       });
 
       await approveCommand('comparison-1', {}, { json: true }, harness.deps);
@@ -145,21 +162,45 @@ describe('commands/review', () => {
       });
       assert.deepStrictEqual(harness.clientCalls, [
         {
-          endpoint: '/api/sdk/comparisons/comparison-1/approve',
-          options: { method: 'POST' },
+          endpoint: '/api/sdk/comparisons/comparison-1',
+          options: undefined,
+        },
+        {
+          endpoint: '/api/visual-review/builds/build-1',
+          options: { headers: { 'X-Organization': 'acme' } },
+        },
+        {
+          endpoint:
+            '/api/visual-review/builds/build-1/comparisons/comparison-1/decision',
+          options: {
+            method: 'POST',
+            body: JSON.stringify({
+              commandId: 'command-1',
+              decision: 'approved',
+              expectedReviewVersion: 7,
+            }),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Organization': 'acme',
+            },
+          },
         },
       ]);
 
       let dataCall = harness.output.calls.find(call => call.method === 'data');
       assert.deepStrictEqual(dataCall.args[0], {
-        approved: true,
-        comparisonId: 'comparison-1',
-        comparison: { id: 'comparison-1', status: 'approved' },
+        eventId: 'event-1',
+        idempotent: false,
+        review: { build: { state: 'approved' } },
       });
     });
 
     it('sends an approval comment when provided', async () => {
-      let harness = createReviewHarness({ comparison: { id: 'comparison-1' } });
+      let harness = createReviewHarness({
+        eventId: 'event-1',
+        idempotent: false,
+        review: { build: { state: 'approved' } },
+      });
 
       await approveCommand(
         'comparison-1',
@@ -168,10 +209,18 @@ describe('commands/review', () => {
         harness.deps
       );
 
-      assert.deepStrictEqual(harness.clientCalls[0].options, {
+      assert.deepStrictEqual(harness.clientCalls[2].options, {
         method: 'POST',
-        body: JSON.stringify({ comment: 'LGTM' }),
-        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commandId: 'command-1',
+          decision: 'approved',
+          expectedReviewVersion: 7,
+          annotation: 'LGTM',
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Organization': 'acme',
+        },
       });
       assert.ok(
         harness.output.calls.some(
@@ -190,7 +239,9 @@ describe('commands/review', () => {
   describe('rejectCommand', () => {
     it('rejects a comparison with a required reason', async () => {
       let harness = createReviewHarness({
-        comparison: { id: 'comparison-1', status: 'rejected' },
+        eventId: 'event-2',
+        idempotent: false,
+        review: { build: { state: 'rejected' } },
       });
 
       await rejectCommand(
@@ -202,21 +253,37 @@ describe('commands/review', () => {
 
       assert.deepStrictEqual(harness.clientCalls, [
         {
-          endpoint: '/api/sdk/comparisons/comparison-1/reject',
+          endpoint: '/api/sdk/comparisons/comparison-1',
+          options: undefined,
+        },
+        {
+          endpoint: '/api/visual-review/builds/build-1',
+          options: { headers: { 'X-Organization': 'acme' } },
+        },
+        {
+          endpoint:
+            '/api/visual-review/builds/build-1/comparisons/comparison-1/decision',
           options: {
             method: 'POST',
-            body: JSON.stringify({ reason: 'Visual regression' }),
-            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              commandId: 'command-1',
+              decision: 'rejected',
+              expectedReviewVersion: 7,
+              annotation: 'Visual regression',
+            }),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Organization': 'acme',
+            },
           },
         },
       ]);
 
       let dataCall = harness.output.calls.find(call => call.method === 'data');
       assert.deepStrictEqual(dataCall.args[0], {
-        rejected: true,
-        comparisonId: 'comparison-1',
-        reason: 'Visual regression',
-        comparison: { id: 'comparison-1', status: 'rejected' },
+        eventId: 'event-2',
+        idempotent: false,
+        review: { build: { state: 'rejected' } },
       });
     });
 

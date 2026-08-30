@@ -104,11 +104,11 @@ describe('commands/api', () => {
     it('allows only selected POST endpoints', () => {
       assert.strictEqual(
         isAllowedPostEndpoint('/api/sdk/comparisons/cmp-1/approve'),
-        true
+        false
       );
       assert.strictEqual(
         isAllowedPostEndpoint('/api/sdk/comparisons/cmp-1/reject'),
-        true
+        false
       );
       assert.strictEqual(
         isAllowedPostEndpoint('/api/sdk/builds/build-1/comments'),
@@ -139,16 +139,16 @@ describe('commands/api', () => {
 
       assert.deepStrictEqual(
         buildApiRequest({
-          endpoint: '/api/sdk/comparisons/cmp-1/approve',
-          options: { method: 'POST', data: '{"ok":true}' },
+          endpoint: '/api/sdk/builds/build-1/comments',
+          options: { method: 'POST', data: '{"content":"LGTM"}' },
         }),
         {
           errors: [],
           method: 'POST',
-          normalizedEndpoint: '/api/sdk/comparisons/cmp-1/approve',
+          normalizedEndpoint: '/api/sdk/builds/build-1/comments',
           requestOptions: {
             method: 'POST',
-            body: '{"ok":true}',
+            body: '{"content":"LGTM"}',
             headers: { 'Content-Type': 'application/json' },
           },
         }
@@ -162,7 +162,7 @@ describe('commands/api', () => {
           method: 'POST',
         }),
         [
-          'POST not allowed for /api/sdk/builds. Only approve, reject, and comment endpoints support POST.',
+          'POST not allowed for /api/sdk/builds. Only build comment endpoints support POST.',
         ]
       );
       assert.deepStrictEqual(
@@ -171,7 +171,7 @@ describe('commands/api', () => {
           method: 'DELETE',
         }),
         [
-          'Method DELETE not allowed. Use GET for queries or POST for approve/reject/comment.',
+          'Method DELETE not allowed. Use GET for queries or POST for build comments.',
         ]
       );
       assert.deepStrictEqual(
@@ -195,13 +195,13 @@ describe('commands/api', () => {
       assert.deepStrictEqual(
         validateApiOptions('/api/sdk/builds', { method: 'POST' }),
         [
-          'POST not allowed for /api/sdk/builds. Only approve, reject, and comment endpoints support POST.',
+          'POST not allowed for /api/sdk/builds. Only build comment endpoints support POST.',
         ]
       );
       assert.deepStrictEqual(
         validateApiOptions('/api/sdk/builds', { method: 'PATCH' }),
         [
-          'Method PATCH not allowed. Use GET for queries or POST for approve/reject/comment.',
+          'Method PATCH not allowed. Use GET for queries or POST for build comments.',
         ]
       );
       assert.deepStrictEqual(
@@ -241,13 +241,13 @@ describe('commands/api', () => {
     });
 
     it('performs an allowed POST request with headers and body', async () => {
-      let harness = createApiHarness({ comparison: { id: 'cmp-1' } });
+      let harness = createApiHarness({ comment: { id: 'comment-1' } });
 
       await apiCommand(
-        '/api/sdk/comparisons/cmp-1/approve',
+        '/api/sdk/builds/build-1/comments',
         {
           method: 'POST',
-          data: '{"comment":"LGTM"}',
+          data: '{"content":"LGTM"}',
           header: 'X-Trace: trace-1',
         },
         {},
@@ -255,10 +255,10 @@ describe('commands/api', () => {
       );
 
       assert.deepStrictEqual(harness.request, {
-        endpoint: '/api/sdk/comparisons/cmp-1/approve',
+        endpoint: '/api/sdk/builds/build-1/comments',
         options: {
           method: 'POST',
-          body: '{"comment":"LGTM"}',
+          body: '{"content":"LGTM"}',
           headers: {
             'X-Trace': 'trace-1',
             'Content-Type': 'application/json',

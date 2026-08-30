@@ -955,9 +955,9 @@ vizzly approve <comparison-id> --json
 {
   "status": "data",
   "data": {
-    "approved": true,
-    "comparisonId": "comp_123",
-    "comparison": { /* updated comparison */ }
+    "eventId": "event_123",
+    "idempotent": false,
+    "review": { /* canonical visual review */ }
   }
 }
 ```
@@ -972,10 +972,9 @@ vizzly reject <comparison-id> --reason "Unexpected regression" --json
 {
   "status": "data",
   "data": {
-    "rejected": true,
-    "comparisonId": "comp_123",
-    "reason": "Unexpected regression",
-    "comparison": { /* updated comparison */ }
+    "eventId": "event_124",
+    "idempotent": false,
+    "review": { /* canonical visual review */ }
   }
 }
 ```

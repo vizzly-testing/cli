@@ -302,6 +302,18 @@ importers:
         specifier: ^6.0.1
         version: 6.1.3
 
+  clients/swift:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.5.10
+        version: 2.5.10
+      '@vizzly-testing/cli':
+        specifier: workspace:*
+        version: link:../..
+      commander:
+        specifier: ^15.0.0
+        version: 15.0.0
+
   clients/storybook:
     dependencies:
       '@vizzly-testing/cli':

@@ -77,6 +77,7 @@
     "test:reporter": "playwright test --config=tests/reporter/playwright.config.js",
     "test:reporter:visual": "node bin/vizzly.js tdd run \"pnpm run test:reporter\" --no-open",
     "test:swift:e2e": "pnpm run build && node clients/swift/scripts/run-e2e.js",
+    "test:swift:previews:e2e": "node clients/swift/scripts/run-preview-e2e.js",
     "test:tui": "node --test --test-reporter=spec tests/tui/*.test.js",
     "test:tui:docker": "./tests/tui/run-tui-tests.sh",
     "lint": "biome check src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin",

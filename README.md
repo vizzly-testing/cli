@@ -35,7 +35,12 @@ For agent-friendly repos, install the Vizzly skill and add a short project
 vizzly init --agent-guidance
 ```
 
-Use `vizzly init --agent-skill` to install only the local skill, or
+This installs the portable Agent Skills bundle in `.agents/skills/vizzly` and
+adds a small managed block to `AGENTS.md`. Run the same command again after a
+CLI upgrade to refresh both without replacing the rest of `AGENTS.md` or an
+existing Vizzly config.
+
+Use `vizzly init --agent-skill` to install or refresh only the local skill, or
 `vizzly init --skip-agent-skill` when you want config without the agent prompt.
 
 ### Start Local TDD
@@ -202,8 +207,8 @@ Generate a config file:
 vizzly init
 ```
 
-To teach project agents about Vizzly screenshot memory and the local visual TDD
-loop, add the repo-local skill and AGENTS.md guidance:
+To teach project agents the Vizzly evidence workflow, add the repo-local skill
+and AGENTS.md guidance:
 
 ```bash
 vizzly init --agent-guidance

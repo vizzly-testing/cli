@@ -1,39 +1,28 @@
 # Dynamic Content
 
-Treat dates, timers, randomized data, API-backed content, generated images, and
-responsive text as possible causes of change, not automatic explanations.
+Dates, timers, random data, API content, generated images, and responsive text
+can cause a diff. They are possible explanations, not conclusions.
 
 ## Diagnose Before Tuning
 
-1. Inspect screenshot history and the actual image evidence:
+1. Inspect the actual images and screenshot history:
 
    ```bash
    vizzly context screenshot "<screenshot-name>" --source <local-or-cloud> --json
    ```
 
-2. Replace `<local-or-cloud>` with the source of the evidence being diagnosed.
-   Record the observed region, recurrence, render metadata, and whether the
-   same change appears across builds or variants.
-3. Check whether deterministic fixtures can remove irrelevant variation.
-4. Treat hotspots and confirmed regions as server- or user-owned evidence.
-   They can affect comparison results, but this CLI exposes them for inspection
-   rather than authoring.
-5. Preserve existing per-screenshot `threshold` and `minClusterSize` values
-   unless the task and repeated evidence justify a change. Do not invent new
-   tolerance values from one diff.
+2. Record the visible region, recurrence, render metadata, and whether the same
+   change appears across builds or variants.
+3. Prefer deterministic fixtures when they can remove irrelevant variation.
+4. Treat hotspots and confirmed regions as server- or user-authored evidence.
+   This CLI exposes them for inspection, not authoring.
+5. Preserve `threshold` and `minClusterSize` unless repeated evidence
+   justifies a change.
 
-## Avoid
+Avoid broad masks, global threshold changes for one region, and claims based on
+metadata alone. A recurring change can still be a bug, especially when content
+movement affects nearby layout.
 
-- Raising a global threshold for one unstable area.
-- Masking a whole page when only a small region changes.
-- Assuming a recurring change is harmless without inspecting it.
-- Ignoring structural movement because a region contains dynamic content.
-- Claiming a cause when only metadata, rather than images or history, is
-  available.
-
-## Report Findings
-
-State the observed change first. Then distinguish a likely explanation—such as
-fixture drift, content disappearance, layout shift, capture timing, or baseline
-mismatch—from unresolved alternatives. Include the screenshot identity and the
-context command or link used.
+Report the observed change first. Label fixture drift, layout shift, capture
+timing, or baseline mismatch as a possible cause until the evidence establishes
+it.

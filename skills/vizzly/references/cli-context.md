@@ -1,16 +1,25 @@
-# CLI And Context
+# CLI Context
 
-Use the repository's existing CLI invocation. The examples use `vizzly` for
-brevity; substitute the repository's package script or package-manager command
-when needed.
+Use the repository's established CLI invocation and existing authentication.
+If cloud authentication is unavailable, report the blocker. Do not start an
+interactive login unless setup is in scope.
 
-Use existing authentication and project configuration. If cloud authentication
-is missing, report the blocker. Do not start an interactive login or change
-credentials unless the task includes setup.
+## Choose The Evidence
 
-## Inspect Existing Local Evidence
+Use an ID supplied by the task. If no cloud build is supplied, list recent
+builds and select the one matching the branch, commit, or pull request:
 
-Request structured local evidence with both `--agent` and `--json`:
+```bash
+vizzly builds --branch <branch> --limit 5 --json
+vizzly status <build-id> --json
+vizzly context build <build-id> --source cloud --agent --json
+```
+
+Use status for lifecycle facts and build context for visual evidence. Do not
+assume the first returned comparison is the most important; preserve API order
+and inspect the records relevant to the task.
+
+For saved local evidence:
 
 ```bash
 vizzly context build current --source local --agent --json
@@ -18,83 +27,71 @@ vizzly context screenshot "<screenshot-name>" --source local --json
 vizzly context review-queue --source local --json
 ```
 
-Pin hand-written local drill-downs with `--source local`. Without it, automatic
-source resolution may fall back to cloud data when a local item is unavailable.
+Confirm the stored build, branch, timestamp, and baseline are current enough
+for the task.
 
-Local context reads persisted `.vizzly` artifacts. Confirm that their build,
-branch, timestamp, and baseline match the task before treating them as current.
+## Generate Fresh Evidence
 
-## Generate Fresh Local Evidence
-
-For a one-off run, let Vizzly own the complete local session:
+For one run, let Vizzly own the local session:
 
 ```bash
 vizzly tdd run "<existing visual test command>" --no-open
-vizzly context build current --source local --agent --json
 ```
 
-For repeated test runs, start the detached daemon once:
+For repeated runs, start the detached daemon once:
 
 ```bash
 vizzly tdd start --json
 vizzly tdd status --json
 <existing visual test command>
-vizzly context build current --source local --agent --json
 vizzly tdd stop --json
 ```
 
-Treat `tdd run` and `tdd start` as alternatives. Do not shell-background
-`tdd start`; it already launches a detached daemon. Stop only a server started
-for the current task, and reuse the printed port for status or stop commands
-when Vizzly selects a non-default port.
+`tdd run` and `tdd start` are alternatives. Stop only a daemon started for the
+current task.
 
-## Inspect Cloud Evidence
-
-When the task already has a build ID:
-
-```bash
-vizzly status <build-id> --json
-vizzly context build <build-id> --source cloud --agent --json
-```
-
-Use status for server-owned lifecycle, processing, comparison, and review
-facts. Use build context for visual debugging.
-
-When creating a cloud build is in scope, wrap the repository's existing test
-command:
+When a cloud build is in scope:
 
 ```bash
 vizzly run "<existing visual test command>" --wait --json
 vizzly context build <build-id> --source cloud --agent --json
 ```
 
-## Read And Drill Into Evidence
+## Inspect A Comparison
 
-For each evidence record:
-
-1. Inspect the current, baseline, and diff images with an available harness
-   capability. State the limitation if an image cannot be accessed.
-2. Read render metadata, review state, and compact Honeydiff diagnostics next
-   to the images.
-3. Run the returned `suggested_commands` instead of reconstructing identifiers
-   or URLs.
-4. Add `--include diffs` only when raw Honeydiff region geometry is needed.
-   Request comments only when human review context matters.
-
-Useful manual drill-downs are:
+Follow the build response's `suggested_commands`. The direct form is:
 
 ```bash
 vizzly context comparison <comparison-id> --source <local-or-cloud> --agent --json
+vizzly context comparison <comparison-id> --source <local-or-cloud> --agent --include diffs --json
+```
+
+Open all three images together. Prefer `original_url` and fall back to `url`:
+
+- Current: `comparison.screenshot.original_url` or
+  `comparison.screenshot.url`
+- Baseline: `comparison.baseline.original_url` or `comparison.baseline.url`
+- Diff: `comparison.analysis.diff_image_url`
+
+Then compare the visible change with diff regions, fingerprint, and the
+separate `similar_by_fingerprint` and `recent_by_name` history streams.
+Previous review decisions help explain recurring evidence but do not decide the
+current review.
+
+Useful supporting commands:
+
+```bash
 vizzly context screenshot "<screenshot-name>" --source <local-or-cloud> --json
 vizzly context similar <fingerprint-hash> --source cloud --json
 vizzly context review-queue --source <local-or-cloud> --json
 ```
 
-Use the source from the evidence you are inspecting in place of
-`<local-or-cloud>`. `context similar` is cloud-only. Keep missing values
-unknown, and do not turn metadata into a visual conclusion when the underlying
-images are unavailable.
+Use `--include diffs` only when compact diagnostics are insufficient. Request
+comments only when human review context matters.
 
-When a build has more than 10 actionable records, run its returned next-page
-command. The command uses `--offset` to preserve API order without pulling the
-full build context into the agent handoff.
+## Continue Without Guessing
+
+Run returned `suggested_commands` rather than reconstructing IDs, sources, or
+pagination. When more evidence exists, the next-page command carries the API's
+opaque `--cursor`; do not edit or interpret it. Keep follow-up commands pinned
+to the source that produced the evidence.

@@ -60,6 +60,78 @@ export function readPngMetadata(buffer) {
   };
 }
 
+function displayRuntime(runtimeIdentifier) {
+  let identifier = runtimeIdentifier.split('.').at(-1);
+  return identifier.replace(/^iOS-/, 'iOS ').replaceAll('-', '.');
+}
+
+export function parseBootedIOSSimulators(output) {
+  let payload = JSON.parse(output);
+  let simulators = [];
+
+  for (let [runtimeIdentifier, devices] of Object.entries(
+    payload.devices ?? {}
+  )) {
+    if (!runtimeIdentifier.includes('.SimRuntime.iOS-')) {
+      continue;
+    }
+
+    for (let device of devices) {
+      if (device.state !== 'Booted' || device.isAvailable !== true) {
+        continue;
+      }
+
+      simulators.push({
+        name: device.name,
+        runtime: displayRuntime(runtimeIdentifier),
+        udid: device.udid,
+      });
+    }
+  }
+
+  return simulators.sort((left, right) =>
+    `${left.name}\0${left.udid}`.localeCompare(`${right.name}\0${right.udid}`)
+  );
+}
+
+function formatSimulator(simulator) {
+  return `${simulator.name} (${simulator.runtime}, ${simulator.udid})`;
+}
+
+export function selectBootedIOSSimulator(simulators, requestedDevice) {
+  if (requestedDevice) {
+    let selected = simulators.find(
+      simulator => simulator.udid === requestedDevice
+    );
+    if (!selected) {
+      throw new Error(
+        `${requestedDevice} is not a booted iOS Simulator. ` +
+          'Boot it first or omit --device to auto-select.'
+      );
+    }
+    return { ...selected, selection: 'explicit' };
+  }
+
+  if (simulators.length === 0) {
+    throw new Error(
+      'No booted iOS Simulator was found. ' +
+        'Open Simulator or boot one from Xcode, then rerun the command.'
+    );
+  }
+
+  if (simulators.length > 1) {
+    let choices = simulators
+      .map(simulator => `  - ${formatSimulator(simulator)}`)
+      .join('\n');
+    throw new Error(
+      `More than one iOS Simulator is booted:\n${choices}\n` +
+        'Pass --device <udid> to choose one.'
+    );
+  }
+
+  return { ...simulators[0], selection: 'automatic' };
+}
+
 function runCommand(executable, args, options = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
     let child = spawn(executable, args, {
@@ -146,6 +218,18 @@ async function assertSupportedToolchain() {
     );
   }
   return match[1];
+}
+
+async function resolveSimulator(requestedDevice) {
+  let result = await runCommand('xcrun', [
+    'simctl',
+    'list',
+    'devices',
+    'booted',
+    '--json',
+  ]);
+  let simulators = parseBootedIOSSimulators(result.stdout);
+  return selectBootedIOSSimulator(simulators, requestedDevice);
 }
 
 async function ensureEmptyOutput(outputPath) {
@@ -402,11 +486,18 @@ export async function runPreviewCapture({
 
   try {
     let xcodeVersion = await assertSupportedToolchain();
+    let simulator = await resolveSimulator(device);
+    let resolvedDevice = simulator.udid;
+    let simulatorAction =
+      simulator.selection === 'automatic' ? 'Auto-selected' : 'Using';
+    onProgress(
+      `${simulatorAction} booted iOS Simulator: ${formatSimulator(simulator)}`
+    );
     let derivedDataPath = join(temporaryPath, 'DerivedData');
     let build = await buildApplication({
       container,
       scheme,
-      device,
+      device: resolvedDevice,
       configuration,
       derivedDataPath,
     });
@@ -422,13 +513,18 @@ export async function runPreviewCapture({
       build.settings.IPHONEOS_DEPLOYMENT_TARGET ?? '18.0'
     );
     await embedRuntime(build.appPath, runtimePath);
-    await runCommand('xcrun', ['simctl', 'install', device, build.appPath]);
+    await runCommand('xcrun', [
+      'simctl',
+      'install',
+      resolvedDevice,
+      build.appPath,
+    ]);
 
     let bundleId = build.settings.PRODUCT_BUNDLE_IDENTIFIER;
     let containerResult = await runCommand('xcrun', [
       'simctl',
       'get_app_container',
-      device,
+      resolvedDevice,
       bundleId,
       'data',
     ]);
@@ -438,7 +534,7 @@ export async function runPreviewCapture({
       let preview = await captureRegistry({
         registryType,
         index,
-        device,
+        device: resolvedDevice,
         bundleId,
         containerPath,
         outputPath,
@@ -452,7 +548,8 @@ export async function runPreviewCapture({
       xcodeVersion,
       container,
       scheme,
-      device,
+      device: resolvedDevice,
+      simulator,
       configuration,
       outputPath,
       previews,

@@ -14,9 +14,14 @@ writes a PNG. The CLI copies each PNG to the requested host directory and writes
 ```sh
 vizzly previews MyApp.xcodeproj \
   --scheme MyApp \
-  --device B40B976E-CD70-45F2-830C-48E8ED9B7EE7 \
   --output .vizzly/previews
 ```
+
+When exactly one available iOS Simulator is booted, the CLI selects it. If
+more than one is booted, it lists the choices and asks for `--device <udid>`
+instead of guessing. Passing `--device` still validates that the selected iOS
+Simulator is booted. `VIZZLY_SIMULATOR_UDID` remains useful for the E2E script
+when a machine intentionally has multiple booted Simulators.
 
 The current cutline is deliberately narrow:
 

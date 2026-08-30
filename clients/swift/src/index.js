@@ -10,16 +10,12 @@ export async function run(container, options = {}, context = {}) {
     throw new Error('Swift preview capture requires --scheme <scheme>');
   }
 
-  if (!device) {
-    throw new Error('Swift preview capture requires --device <simulator-udid>');
-  }
-
   let output = context.output ?? {
     info: message => process.stdout.write(`${message}\n`),
   };
 
   output.info(
-    'Building the iOS app and discovering stock #Preview declarations'
+    'Preparing to build the iOS app and discover stock #Preview declarations'
   );
   let manifest = await runPreviewCapture({
     container,

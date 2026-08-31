@@ -1,25 +1,44 @@
 /**
  * Type tests for @vizzly-testing/cli/client
  */
-import { expectType, expectError } from 'tsd';
+import { expectError, expectType } from 'tsd';
+import type {
+  FlushResult,
+  ScreenshotClient,
+  ScreenshotResult,
+} from '../src/types/client';
 import {
   autoDiscoverTddServer,
-  vizzlyScreenshot,
-  vizzlyFlush,
-  isVizzlyReady,
   configure,
-  setEnabled,
+  createScreenshotClient,
   getVizzlyInfo,
+  isVizzlyReady,
   LOG_LEVELS,
+  setEnabled,
   shouldLogClient,
+  vizzlyFlush,
+  vizzlyScreenshot,
 } from '../src/types/client';
-import type { ScreenshotResult } from '../src/types/client';
 
 let screenshotResult: ScreenshotResult = {
   success: true,
   status: 'diff',
 };
 expectType<ScreenshotResult>(screenshotResult);
+
+let isolatedClient = createScreenshotClient({
+  serverUrl: 'http://localhost:47392',
+  failOnDiff: true,
+});
+expectType<ScreenshotClient>(isolatedClient);
+expectType<Promise<ScreenshotResult | null>>(
+  isolatedClient.screenshot('preview', './preview.png', {
+    buildId: 'build-123',
+    properties: { platform: 'iOS' },
+  })
+);
+expectType<Promise<FlushResult | null>>(isolatedClient.flush());
+expectError(createScreenshotClient({}));
 
 // ============================================================================
 // vizzlyScreenshot
@@ -59,7 +78,9 @@ expectError(vizzlyScreenshot(123, Buffer.from('test')));
 expectError(vizzlyScreenshot('test', 123));
 
 // Should error on wrong options type
-expectError(vizzlyScreenshot('test', Buffer.from('test'), { threshold: 'high' }));
+expectError(
+  vizzlyScreenshot('test', Buffer.from('test'), { threshold: 'high' })
+);
 expectError(
   vizzlyScreenshot('test', Buffer.from('test'), { requestTimeout: 'fast' })
 );
@@ -72,7 +93,6 @@ expectError(
 // ============================================================================
 
 // Should return Promise<FlushResult | null>
-import type { FlushResult } from '../src/types/client';
 expectType<Promise<FlushResult | null>>(vizzlyFlush());
 let flushResult: FlushResult = {
   success: true,

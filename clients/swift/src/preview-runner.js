@@ -348,20 +348,35 @@ async function validateOutputPath(outputPath) {
     throw unmanagedOutputError(outputPath);
   }
 
-  let previewFiles = manifest.previews?.map(preview => preview.file);
+  if (manifest.protocolVersion !== 1 || !Array.isArray(manifest.previews)) {
+    throw unmanagedOutputError(outputPath);
+  }
+
+  let previewFiles = manifest.previews.map(preview => preview?.file);
+  let uniquePreviewFiles = new Set(previewFiles);
   if (
-    manifest.protocolVersion !== 1 ||
-    !Array.isArray(previewFiles) ||
-    previewFiles.some(file => !file || basename(file) !== file)
+    previewFiles.some(
+      file => !file || file === 'manifest.json' || basename(file) !== file
+    ) ||
+    uniquePreviewFiles.size !== previewFiles.length
   ) {
     throw unmanagedOutputError(outputPath);
   }
 
-  let expectedEntries = new Set(['manifest.json', ...previewFiles]);
+  let expectedEntries = new Set(['manifest.json', ...uniquePreviewFiles]);
   if (
+    entries.length !== expectedEntries.size ||
     entries.some(entry => !entry.isFile() || !expectedEntries.has(entry.name))
   ) {
     throw unmanagedOutputError(outputPath);
+  }
+
+  for (let preview of manifest.previews) {
+    let contents = await readFile(join(outputPath, preview.file));
+    let sha256 = createHash('sha256').update(contents).digest('hex');
+    if (preview.sha256 !== sha256) {
+      throw unmanagedOutputError(outputPath);
+    }
   }
 }
 

@@ -47,7 +47,7 @@
     "node": ">=22.0.0"
   },
   "peerDependencies": {
-    "@vizzly-testing/cli": ">=0.35.3-beta.1"
+    "@vizzly-testing/cli": ">=0.35.3-beta.3"
   },
   "publishConfig": {
     "access": "public",
@@ -55,7 +55,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.10",
-    "@vizzly-testing/cli": "workspace:*",
-    "commander": "^15.0.0"
+    "@vizzly-testing/cli": "workspace:*"
   }
 }

@@ -180,6 +180,17 @@ Or upload an existing folder of screenshots:
 vizzly upload ./screenshots --threshold 2 --min-cluster-size 4 --batch-size 10 --upload-timeout 60000
 ```
 
+For iOS apps, the Swift plugin can render the stock SwiftUI `#Preview`
+declarations already in the app target:
+
+```bash
+pnpm add --save-dev @vizzly-testing/swift
+pnpm exec vizzly previews
+```
+
+See the [SwiftUI preview guide](clients/swift/PREVIEWS.md) for the supported
+Xcode and Simulator setup.
+
 `--batch-size` controls how many screenshots are uploaded per request.
 `--upload-timeout` controls the upload client's timeout, including how long
 `--wait` polls for build processing.
@@ -237,6 +248,7 @@ export default {
 | `vizzly run "cmd"` | Run tests with cloud build and review integration. |
 | `vizzly context ...` | Fetch visual context for builds, comparisons, screenshots, and review queues. |
 | `vizzly upload <dir>` | Upload an existing folder of screenshots. |
+| `vizzly previews [container]` | Render and upload stock SwiftUI previews. |
 | `vizzly preview <dir>` | Upload static build output for in-context review. |
 | `vizzly approve <comparison-id>` | Approve a visual comparison. |
 | `vizzly reject <comparison-id>` | Reject a visual comparison with a reason. |

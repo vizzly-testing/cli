@@ -310,9 +310,6 @@ importers:
       '@vizzly-testing/cli':
         specifier: workspace:*
         version: link:../..
-      commander:
-        specifier: ^15.0.0
-        version: 15.0.0
 
   clients/storybook:
     dependencies:

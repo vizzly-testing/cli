@@ -27,12 +27,17 @@ async function saveManifest(manifest) {
 }
 
 function requireCloudServices(services) {
-  if (
-    !services?.git?.detect ||
-    !services?.screenshots?.createClient ||
-    !services?.testRunner ||
-    !services?.serverManager
-  ) {
+  let requiredMethods = [
+    services?.git?.detect,
+    services?.screenshots?.createClient,
+    services?.testRunner?.once,
+    services?.testRunner?.createBuild,
+    services?.testRunner?.finalizeBuild,
+    services?.serverManager?.start,
+    services?.serverManager?.stop,
+  ];
+
+  if (requiredMethods.some(method => typeof method !== 'function')) {
     throw new Error(
       'Cloud preview uploads require a current @vizzly-testing/cli installation'
     );

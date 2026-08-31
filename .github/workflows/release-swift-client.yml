@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-latest
+    runs-on: macos-26
     permissions:
       contents: write
       id-token: write
@@ -47,7 +47,7 @@ jobs:
           corepack prepare pnpm@11.3.0 --activate
 
       - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app
 
       - name: Configure git
         run: |
@@ -192,6 +192,28 @@ jobs:
       - name: Check preview CLI package
         working-directory: ./clients/swift
         run: pnpm run check
+
+      - name: Run stock preview capture test
+        working-directory: ./clients/swift
+        run: |
+          xcrun simctl shutdown all
+          DEVICE_UDID="$(xcrun simctl list devices available --json | node --input-type=module -e '
+            let input = "";
+            process.stdin.setEncoding("utf8");
+            process.stdin.on("data", chunk => input += chunk);
+            process.stdin.on("end", () => {
+              let payload = JSON.parse(input);
+              let device = Object.entries(payload.devices)
+                .filter(([runtime]) => runtime.includes(".SimRuntime.iOS-"))
+                .flatMap(([, devices]) => devices)
+                .find(candidate => candidate.isAvailable !== false);
+              if (!device) process.exit(1);
+              process.stdout.write(device.udid);
+            });
+          ')"
+          xcrun simctl boot "$DEVICE_UDID"
+          xcrun simctl bootstatus "$DEVICE_UDID" -b
+          VIZZLY_SIMULATOR_UDID="$DEVICE_UDID" pnpm run test:previews:e2e
 
       - name: Verify npm package version is unpublished
         working-directory: ./clients/swift

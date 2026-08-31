@@ -17,11 +17,7 @@ let servers = [];
 
 afterEach(async () => {
   await Promise.all(
-    servers
-      .splice(0)
-      .map(
-        server => new Promise(resolvePromise => server.close(resolvePromise))
-      )
+    servers.splice(0).map(server => server[Symbol.asyncDispose]())
   );
   await Promise.all(
     temporaryPaths
@@ -186,7 +182,7 @@ describe('Swift preview uploads', () => {
       `http://localhost:${port}`
     );
 
-    await new Promise(resolvePromise => servers.pop().close(resolvePromise));
+    await servers.pop()[Symbol.asyncDispose]();
     assert.equal(await findLocalTddServer([nested]), null);
   });
 
@@ -231,5 +227,42 @@ describe('Swift preview uploads', () => {
     assert.equal(requests[0].body.type, 'file-path');
     assert.equal(requests[0].body.properties.threshold, 2.5);
     assert.equal(requests[0].body.properties.minClusterSize, 3);
+  });
+
+  it('honors both supported fail-on-diff environment values', async () => {
+    let receivedValues = [];
+    let screenshots = {
+      createClient(options) {
+        receivedValues.push(options.failOnDiff);
+        return {
+          async flush() {
+            return { success: true };
+          },
+          async screenshot() {
+            return { success: true };
+          },
+        };
+      },
+    };
+    let originalValue = process.env.VIZZLY_FAIL_ON_DIFF;
+
+    try {
+      for (let value of ['true', '1']) {
+        process.env.VIZZLY_FAIL_ON_DIFF = value;
+        await uploadCapturedPreviews({
+          manifest: previewManifest('/tmp/previews'),
+          screenshots,
+          serverUrl: 'http://localhost:47392',
+        });
+      }
+    } finally {
+      if (originalValue === undefined) {
+        delete process.env.VIZZLY_FAIL_ON_DIFF;
+      } else {
+        process.env.VIZZLY_FAIL_ON_DIFF = originalValue;
+      }
+    }
+
+    assert.deepEqual(receivedValues, [true, true]);
   });
 });

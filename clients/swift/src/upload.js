@@ -138,6 +138,10 @@ function runtimeVersion(runtime) {
   return runtime?.replace(/^iOS\s+/, '') ?? null;
 }
 
+function shouldFailOnDiff(env = process.env) {
+  return env.VIZZLY_FAIL_ON_DIFF === 'true' || env.VIZZLY_FAIL_ON_DIFF === '1';
+}
+
 export function buildPreviewUploadRecords(manifest) {
   let names = previewNames(manifest).map((name, index) =>
     safeScreenshotName(name, manifest.previews[index].id)
@@ -182,7 +186,7 @@ export async function uploadCapturedPreviews({
   }
 
   let client = screenshots.createClient({
-    failOnDiff: process.env.VIZZLY_FAIL_ON_DIFF === 'true',
+    failOnDiff: shouldFailOnDiff(),
     serverUrl,
   });
   let records = buildPreviewUploadRecords(manifest);

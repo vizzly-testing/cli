@@ -1,56 +1,195 @@
-# Stock `#Preview` capture
+# SwiftUI `#Preview` capture
 
-The `@vizzly-testing/swift` CLI plugin builds an actual iOS app for an already
-booted Simulator, discovers generated `DeveloperToolsSupport.PreviewRegistry`
-types in the built Mach-O, and launches the app once per registry.
+Vizzly renders the stock `#Preview` declarations already in your app. You do
+not need a Vizzly macro, a catalog, or changes to the app target.
 
-A small native Swift dylib is compiled for the selected Simulator and injected
-only into those capture launches. It intercepts the stock
-`DeveloperToolsSupport.Preview` initializer, keeps the original
-`@MainActor () -> any View` closure, mounts that view in the active app window,
-and writes a PNG. The CLI copies the completed artifacts into the requested
-host directory, writes `manifest.json`, and sends each screenshot through the
-same Vizzly client used by the other SDKs.
+## Requirements
 
-```sh
-vizzly previews MyApp.xcodeproj --scheme MyApp
+- Xcode 26.6
+- Node.js 22+
+- An arm64 Mac
+- An iOS 17+ Simulator
+- A scene-based iOS app
+- A shared Xcode scheme that builds the app in Debug
+
+The current renderer does not support preview traits such as fixed layouts or
+orientation. It stops with an error when it finds a trait instead of capturing
+something that differs from Xcode.
+
+## Install
+
+Add the CLI and Swift plugin to the iOS project:
+
+```bash
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
 ```
 
-Upload routing stays simple:
+The plugin is discovered automatically. It is not linked into the app target.
 
-1. A live local TDD server wins.
-2. Otherwise, an available Vizzly token creates and finalizes a cloud build.
-3. With neither available, the PNGs and manifest stay local and the command
-   tells you how to enable uploads.
+## Capture previews
 
-For a complete one-off local review, let the TDD command own the server for the
-whole capture:
+Boot an iOS Simulator, then run this from a directory containing one Xcode
+project or workspace:
 
-```sh
-vizzly tdd run "vizzly previews" --no-open
+```bash
+pnpm exec vizzly previews
 ```
 
-Use `vizzly previews --no-upload` when you deliberately want only the local
-artifacts. The manifest records `tdd`, `cloud`, `local-only`, or `disabled` so
-automation never has to guess what happened.
+Vizzly auto-selects a project, shared scheme, or booted Simulator only when
+there is exactly one choice. Pass ambiguous values explicitly:
 
-The CLI auto-selects a project, shared scheme, or booted iOS Simulator only
-when exactly one choice exists. Ambiguous choices are listed and require an
-explicit argument instead of relying on heuristics.
+```bash
+pnpm exec vizzly previews MyApp.xcworkspace \
+  --scheme MyApp \
+  --device B40B976E-CD70-45F2-830C-48E8ED9B7EE7
+```
 
-The supported cutline is deliberately narrow:
+Use `xcrun simctl list devices booted` to find the Simulator UDID.
 
-- Xcode 26.6 and Swift 6.3.3
-- Debug iOS apps on an arm64 iOS Simulator running iOS 17 or newer
-- stock SwiftUI `#Preview` declarations in the app executable or debug dylib
-- scene-based app lifecycle
-- previews without `PreviewTrait` values
-- one fresh app process per preview
-- local PNG and manifest output on every successful capture
-- local TDD uploads and Vizzly cloud build uploads
+## Local review
 
-The implementation fails closed on another Xcode version because the
-interceptor uses a Swift ABI symbol. It also fails when preview traits are
-present rather than producing a screenshot that silently differs from Xcode.
-It does not use Xcode MCP, `mcpbridge`, Xcode's private preview action, source
-rewriting, or a `#VizzlyPreview` macro.
+For one capture and report:
+
+```bash
+pnpm exec vizzly tdd run "pnpm exec vizzly previews" --no-open
+```
+
+If `vizzly tdd start` is already running in this project, plain
+`vizzly previews` finds its `.vizzly/server.json` file and sends screenshots to
+that server.
+
+## Cloud upload
+
+Set `VIZZLY_TOKEN` and run the same command. The plugin creates a cloud build,
+uploads every preview, finalizes the build, and prints the result URL.
+
+```bash
+VIZZLY_TOKEN=... pnpm exec vizzly previews --scheme MyApp
+```
+
+Upload routing is predictable:
+
+1. A live project-local TDD server wins.
+2. Otherwise, `VIZZLY_TOKEN` or `apiKey` creates a cloud build.
+3. Without either one, screenshots stay local.
+
+Pass `--no-upload` when local artifacts are the intended result.
+
+## Configuration
+
+Put shared defaults under `swiftPreviews` in `vizzly.config.js`:
+
+```javascript
+import { defineConfig } from '@vizzly-testing/cli/config';
+
+export default defineConfig({
+  swiftPreviews: {
+    scheme: 'MyApp',
+    device: 'B40B976E-CD70-45F2-830C-48E8ED9B7EE7',
+    configuration: 'Debug',
+    captureTimeout: 30_000,
+    output: '.vizzly/previews',
+    upload: true,
+  },
+});
+```
+
+Command options override the config file:
+
+- `--scheme <scheme>`: shared Xcode scheme
+- `--device <udid>`: booted iOS Simulator
+- `--configuration <name>`: build configuration
+- `--capture-timeout <ms>`: limit for each preview launch
+- `--output <path>`: PNG and manifest directory
+- `--no-upload`: keep artifacts local
+- `--json`: print the manifest as JSON
+
+## Output
+
+The default output is `.vizzly/previews`:
+
+```text
+.vizzly/previews/
+├── 001-card-dark.png
+├── 002-stateful-counter.png
+└── manifest.json
+```
+
+The manifest records the Xcode version, scheme, Simulator, preview names,
+image dimensions, hashes, and upload result. `upload.mode` is one of `tdd`,
+`cloud`, `local-only`, or `disabled`.
+
+A successful rerun replaces an output directory previously created by Vizzly.
+If the directory has missing, changed, or unrelated files, Vizzly refuses to
+delete it.
+
+## CI
+
+Preview CI needs an arm64 macOS runner with Xcode 26.6 and a booted iOS
+Simulator. Keep the scheme shared in source control.
+
+```yaml
+- name: Boot Simulator
+  run: |
+    xcrun simctl boot "$VIZZLY_SIMULATOR_UDID"
+    xcrun simctl bootstatus "$VIZZLY_SIMULATOR_UDID" -b
+
+- name: Capture SwiftUI previews
+  env:
+    VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+    VIZZLY_SIMULATOR_UDID: ${{ vars.VIZZLY_SIMULATOR_UDID }}
+  run: |
+    pnpm exec vizzly previews \
+      MyApp.xcodeproj \
+      --scheme MyApp \
+      --device "$VIZZLY_SIMULATOR_UDID"
+```
+
+`simctl bootstatus` waits for a concrete Simulator boot event; no fixed delay is
+needed.
+
+## Troubleshooting
+
+### More than one project, scheme, or Simulator is available
+
+Pass the project path, `--scheme`, or `--device`. Vizzly lists the ambiguous
+choices in the error.
+
+### No shared scheme is available
+
+In Xcode, choose **Product → Scheme → Manage Schemes**, mark the app scheme as
+shared, and commit the scheme file.
+
+### No booted Simulator is found
+
+Boot one from Xcode or Simulator. Confirm it appears under:
+
+```bash
+xcrun simctl list devices booted
+```
+
+### Xcode is unsupported
+
+Run `xcodebuild -version`. This release supports exactly Xcode 26.6 because the
+renderer depends on that release's Swift preview ABI.
+
+### No previews are found
+
+Make sure the selected scheme builds the app target containing the `#Preview`
+declarations in Debug. Vizzly looks in the app executable and debug dylibs.
+
+### The output directory is rejected
+
+Choose a new `--output` path, or move the existing directory yourself. Vizzly
+will not remove files it cannot prove it created.
+
+## How it works
+
+The CLI builds the real app for the selected Simulator, finds generated
+`DeveloperToolsSupport.PreviewRegistry` types in the Mach-O, and launches one
+fresh app process per preview. A small native runtime captures the preview body,
+mounts it in the app window, and writes a PNG.
+
+This path does not use Xcode MCP, `mcpbridge`, private Xcode actions, or source
+rewriting. The exact Xcode check is the safety boundary around the private Swift
+ABI used for preview discovery.

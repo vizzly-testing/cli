@@ -2,10 +2,15 @@
  * Type tests for @vizzly-testing/cli/client
  */
 import { expectError, expectType } from 'tsd';
-import type { ScreenshotResult } from '../src/types/client';
+import type {
+  FlushResult,
+  ScreenshotClient,
+  ScreenshotResult,
+} from '../src/types/client';
 import {
   autoDiscoverTddServer,
   configure,
+  createScreenshotClient,
   getVizzlyInfo,
   isVizzlyReady,
   LOG_LEVELS,
@@ -20,6 +25,20 @@ let screenshotResult: ScreenshotResult = {
   status: 'diff',
 };
 expectType<ScreenshotResult>(screenshotResult);
+
+let isolatedClient = createScreenshotClient({
+  serverUrl: 'http://localhost:47392',
+  failOnDiff: true,
+});
+expectType<ScreenshotClient>(isolatedClient);
+expectType<Promise<ScreenshotResult | null>>(
+  isolatedClient.screenshot('preview', './preview.png', {
+    buildId: 'build-123',
+    properties: { platform: 'iOS' },
+  })
+);
+expectType<Promise<FlushResult | null>>(isolatedClient.flush());
+expectError(createScreenshotClient({}));
 
 // ============================================================================
 // vizzlyScreenshot
@@ -74,8 +93,6 @@ expectError(
 // ============================================================================
 
 // Should return Promise<FlushResult | null>
-import type { FlushResult } from '../src/types/client';
-
 expectType<Promise<FlushResult | null>>(vizzlyFlush());
 let flushResult: FlushResult = {
   success: true,

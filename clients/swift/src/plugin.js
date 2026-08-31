@@ -16,7 +16,9 @@ export default {
     swiftPreviews: {
       captureTimeout: 30_000,
       configuration: 'Debug',
+      device: null,
       output: '.vizzly/previews',
+      scheme: null,
       upload: true,
     },
   },

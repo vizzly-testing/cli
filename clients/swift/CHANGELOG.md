@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added an experimental `vizzly previews` plugin and native Simulator runtime
+- Added a `vizzly previews` plugin and native Simulator runtime
   that render existing stock SwiftUI `#Preview` declarations without Xcode MCP.
 - Added a two-preview iOS fixture that exercises app-module discovery, a named
   asset, runtime injection, PNG capture, and manifest generation.
@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the Simulator runtime's platform and scene lifecycle boundaries.
 - Fixed preview upload discovery for the TDD daemon's serialized port format
   and normalized stock preview names for Vizzly's screenshot contract.
+- Fixed managed output validation so missing or duplicate preview files are
+  never treated as safe to replace.
+- Fixed preview uploads so both supported `VIZZLY_FAIL_ON_DIFF` values, `true`
+  and `1`, behave consistently.
 
 ## [0.1.0] - 2026-06-01
 

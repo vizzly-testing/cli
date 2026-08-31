@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { runPreviewCapture } from '../src/preview-runner.js';
@@ -44,8 +44,19 @@ try {
     manifest.previews.map(preview => preview.sha256)
   );
 
+  let missingPreviewPath = join(outputPath, repeatedManifest.previews[0].file);
+  await writeFile(missingPreviewPath, 'changed outside Vizzly');
+  await assert.rejects(capture, /output contains files not created by Vizzly/);
+  await unlink(missingPreviewPath);
+  await assert.rejects(capture, /output contains files not created by Vizzly/);
+  assert.equal(
+    JSON.parse(await readFile(join(outputPath, 'manifest.json'), 'utf8'))
+      .previews.length,
+    2
+  );
+
   process.stdout.write(
-    `Verified ${manifest.previews.length} repeatable stock #Preview screenshots\n`
+    `Verified ${manifest.previews.length} repeatable stock #Preview screenshots and safe output replacement\n`
   );
 } finally {
   await rm(outputPath, { recursive: true, force: true });

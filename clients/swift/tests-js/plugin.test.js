@@ -12,7 +12,7 @@ describe('Swift preview plugin package', () => {
     assert.ok(!packageJson.files.includes('Package.swift'));
     assert.equal(
       packageJson.peerDependencies['@vizzly-testing/cli'],
-      '>=0.35.3-beta.1'
+      '>=0.35.3-beta.3'
     );
   });
 
@@ -20,7 +20,9 @@ describe('Swift preview plugin package', () => {
     assert.deepEqual(plugin.configSchema.swiftPreviews, {
       captureTimeout: 30_000,
       configuration: 'Debug',
+      device: null,
       output: '.vizzly/previews',
+      scheme: null,
       upload: true,
     });
   });

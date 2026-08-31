@@ -6,6 +6,7 @@ import SwiftUI
 import UIKit
 
 public enum VizzlyPreviewRuntime {
+    /// Keeps this runtime linked when it is used as a static SwiftPM product.
     public static func link() {}
 }
 
@@ -159,7 +160,7 @@ private struct CaptureProbe: UIViewControllerRepresentable {
 
         @MainActor
         private func captureWindow() throws -> String {
-            awaitOneRenderPass()
+            flushPendingRenderTransactions()
 
             guard let window = view.window else {
                 throw PreviewRuntimeError.windowUnavailable
@@ -201,7 +202,7 @@ private struct CaptureProbe: UIViewControllerRepresentable {
         }
 
         @MainActor
-        private func awaitOneRenderPass() {
+        private func flushPendingRenderTransactions() {
             CATransaction.flush()
         }
     }
@@ -302,6 +303,7 @@ private enum PreviewRuntimeError: LocalizedError {
 }
 #else
 public enum VizzlyPreviewRuntime {
+    /// Keeps this runtime linked when it is used as a static SwiftPM product.
     public static func link() {}
 }
 

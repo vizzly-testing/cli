@@ -1,125 +1,66 @@
-# Vizzly Swift SDK - Quick Start
+# XCTest quick start
 
-Get visual regression testing in your iOS app in 5 minutes.
+This guide gets one iOS UI test into local Vizzly TDD.
 
-## 1. Install Vizzly CLI
+## 1. Install the CLI
 
-```bash
-pnpm install -g @vizzly-testing/cli
-```
-
-## 2. Add Swift SDK to Xcode
-
-1. Open your iOS project in Xcode
-2. **File → Add Package Dependencies**
-3. Paste: `https://github.com/vizzly-testing/cli`
-4. Add the `VizzlyXCTest` product to your **UI Test target**
-
-## 3. Start TDD Server
-
-In your iOS project directory:
+From your iOS project:
 
 ```bash
-vizzly tdd start --open
+pnpm add --save-dev @vizzly-testing/cli
 ```
 
-Vizzly uses port `47392` by default. If that port is busy, it prints the
-dashboard URL with the auto-assigned port.
+## 2. Add the Swift package
 
-## 4. Write a Visual Test
+In Xcode:
+
+1. Choose **File → Add Package Dependencies**.
+2. Enter `https://github.com/vizzly-testing/cli`.
+3. Add `VizzlyXCTest` to the UI test target.
+
+## 3. Start local TDD
+
+```bash
+pnpm exec vizzly tdd start --open
+```
+
+The command prints the dashboard URL. Keep it running while the UI test runs.
+
+## 4. Capture a screenshot
 
 ```swift
 import XCTest
 import Vizzly
 import VizzlyXCTest
 
-class MyAppUITests: XCTestCase {
-    let app = XCUIApplication()
-
+final class HomeScreenTests: XCTestCase {
     func testHomeScreen() {
+        let app = XCUIApplication()
         app.launch()
 
-        // Wait for screen to load
         let title = app.navigationBars["Home"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
 
-        // 📸 Capture screenshot
-        app.vizzlyScreenshot(name: "home-screen")
+        app.vizzlyScreenshot(name: "home")
     }
 }
 ```
 
-## 5. Run Tests
+Run the test with `Cmd+U` or `xcodebuild`. The screenshot appears in the local
+dashboard.
 
-Press `Cmd+U` in Xcode, or:
-
-```bash
-xcodebuild test \
-  -scheme MyApp \
-  -destination 'platform=iOS Simulator,name=iPhone 15'
-```
-
-## 6. Review Results
-
-Open the dashboard URL printed by `vizzly tdd start`.
-
-- ✅ Green = Screenshots match baselines
-- ⚠️ Yellow = Visual differences detected
-- 🆕 Blue = New screenshots (first run)
-
-Click any screenshot to see side-by-side comparison and approve/reject changes.
-
-For a one-off local check, wrap the test command instead:
+For a one-off run, let Vizzly own the server lifecycle:
 
 ```bash
-vizzly tdd run \
-  "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15'" \
+pnpm exec vizzly tdd run \
+  "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro'" \
   --no-open
 ```
 
-That writes review data under `.vizzly/` and creates `.vizzly/report/index.html`
-when screenshots are captured.
+Vizzly writes the static report to `.vizzly/report/index.html`.
 
-## Next Steps
+## Next steps
 
-- **More Examples**: See [Example/ExampleUITests.swift](Example/ExampleUITests.swift)
-- **Full Docs**: Read [README.md](README.md)
-- **Integration Guide**: Check [INTEGRATION.md](INTEGRATION.md) for CI/CD, dark mode, multiple devices
-- **Website**: https://vizzly.dev
-
-## Common API Usage
-
-### Screenshot with Properties
-
-```swift
-app.vizzlyScreenshot(
-    name: "checkout-flow",
-    properties: [
-        "theme": "dark",
-        "user": "premium"
-    ]
-)
-```
-
-### Screenshot an Element
-
-```swift
-let button = app.buttons["Submit"]
-button.vizzlyScreenshot(name: "submit-button")
-```
-
-### Custom Threshold
-
-```swift
-// Allow a higher comparison threshold for animated content
-app.vizzlyScreenshot(
-    name: "animated-view",
-    threshold: 5
-)
-```
-
-## Questions?
-
-- **Docs**: https://docs.vizzly.dev
-- **GitHub**: https://github.com/vizzly-testing/cli
-- **Support**: support@vizzly.dev
+- [XCTest options and CI](INTEGRATION.md)
+- [Stock SwiftUI preview capture](PREVIEWS.md)
+- [Complete UI test example](Example/ExampleUITests.swift)

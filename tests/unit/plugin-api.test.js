@@ -54,8 +54,19 @@ describe('Plugin API', () => {
 
       assert.ok(Object.isFrozen(services), 'services should be frozen');
       assert.ok(services.git, 'should have git property');
+      assert.ok(services.screenshots, 'should have screenshots property');
       assert.ok(services.testRunner, 'should have testRunner property');
       assert.ok(services.serverManager, 'should have serverManager property');
+    });
+
+    it('exposes a screenshot client factory', () => {
+      let services = createPluginServices(mockServices);
+      let client = services.screenshots.createClient({
+        serverUrl: 'http://localhost:47392',
+      });
+
+      assert.strictEqual(typeof client.screenshot, 'function');
+      assert.strictEqual(typeof client.flush, 'function');
     });
 
     it('exposes git.detect as a function', () => {

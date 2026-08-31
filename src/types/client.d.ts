@@ -46,6 +46,28 @@ export interface ScreenshotResult {
   [key: string]: unknown;
 }
 
+export interface ScreenshotClient {
+  screenshot(
+    name: string,
+    imageBuffer: Buffer | string,
+    options?: {
+      properties?: Record<string, unknown>;
+      threshold?: number;
+      minClusterSize?: number;
+      fullPage?: boolean;
+      buildId?: string;
+      requestTimeout?: number;
+    }
+  ): Promise<ScreenshotResult | null>;
+  flush(): Promise<FlushResult | null>;
+}
+
+/** Create an isolated client connected to one screenshot server. */
+export function createScreenshotClient(options: {
+  serverUrl: string;
+  failOnDiff?: boolean;
+}): ScreenshotClient;
+
 /**
  * Take a screenshot for visual regression testing
  *

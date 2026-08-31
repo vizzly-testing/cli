@@ -13,6 +13,7 @@ describe('Swift preview CLI options', () => {
           device: 'CONFIGURED-DEVICE',
           output: 'configured-output',
           scheme: 'ConfiguredScheme',
+          upload: false,
         }
       ),
       {
@@ -21,6 +22,7 @@ describe('Swift preview CLI options', () => {
         device: 'CONFIGURED-DEVICE',
         outputPath: 'configured-output',
         scheme: 'ConfiguredScheme',
+        upload: false,
       }
     );
   });
@@ -42,5 +44,6 @@ describe('Swift preview CLI options', () => {
     assert.equal(resolved.captureTimeout, 5_000);
     assert.equal(resolved.configuration, 'Debug');
     assert.equal(resolved.outputPath, 'command-output');
+    assert.equal(resolved.upload, true);
   });
 });

@@ -17,6 +17,7 @@ export default {
       captureTimeout: 30_000,
       configuration: 'Debug',
       output: '.vizzly/previews',
+      upload: true,
     },
   },
 
@@ -41,6 +42,10 @@ export default {
         parsePositiveInteger
       )
       .option('--output <path>', 'Screenshot output directory')
+      .option(
+        '--no-upload',
+        'Capture local PNGs without sending them to Vizzly'
+      )
       .option('--json', 'Print the capture manifest as JSON')
       .action(async (container = '.', options) => {
         let mergedOptions = { ...program.opts(), ...options };

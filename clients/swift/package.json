@@ -47,7 +47,7 @@
     "node": ">=22.0.0"
   },
   "peerDependencies": {
-    "@vizzly-testing/cli": ">=0.35.0-0"
+    "@vizzly-testing/cli": ">=0.35.3-beta.1"
   },
   "publishConfig": {
     "access": "public",

@@ -10,6 +10,10 @@ describe('Swift preview plugin package', () => {
     assert.ok(packageJson.files.includes('Sources/VizzlyPreviewRuntime'));
     assert.ok(packageJson.files.includes('Sources/CVizzlyPreviewRuntime'));
     assert.ok(!packageJson.files.includes('Package.swift'));
+    assert.equal(
+      packageJson.peerDependencies['@vizzly-testing/cli'],
+      '>=0.35.3-beta.1'
+    );
   });
 
   it('documents conservative capture defaults for vizzly init', () => {
@@ -17,6 +21,7 @@ describe('Swift preview plugin package', () => {
       captureTimeout: 30_000,
       configuration: 'Debug',
       output: '.vizzly/previews',
+      upload: true,
     });
   });
 });

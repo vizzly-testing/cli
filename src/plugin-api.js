@@ -9,6 +9,7 @@
  * exposed to plugins to prevent coupling to implementation details.
  */
 
+import { createScreenshotClient } from './client/index.js';
 import {
   detectBranch,
   detectCommit,
@@ -22,6 +23,7 @@ import {
  *
  * Only exposes:
  * - git: Git information detection (branch, commit, PR number, etc.)
+ * - screenshots: Screenshot delivery to a Vizzly server
  * - testRunner: Build lifecycle management (createBuild, finalizeBuild, events)
  * - serverManager: Screenshot server control (start, stop)
  *
@@ -58,6 +60,22 @@ export function createPluginServices(services) {
           prNumber,
           buildName,
         };
+      },
+    }),
+
+    screenshots: Object.freeze({
+      /**
+       * Create an isolated screenshot client for a local TDD or cloud proxy
+       * server. Plugins pass build IDs per screenshot when cloud routing is
+       * required.
+       *
+       * @param {Object} options - Client options
+       * @param {string} options.serverUrl - Vizzly screenshot server URL
+       * @param {boolean} [options.failOnDiff] - Fail local TDD on visual diffs
+       * @returns {Object} Screenshot client with screenshot and flush methods
+       */
+      createClient(options) {
+        return createScreenshotClient(options);
       },
     }),
 

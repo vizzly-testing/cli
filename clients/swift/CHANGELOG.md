@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-preview capture timeout, and clearer unsupported-preview failures.
 - Added npm packaging, CI checks, and release publishing for the Swift preview
   CLI plugin.
+- Added automatic local TDD delivery for rendered preview PNGs, including
+  comparison metadata for the Simulator, viewport, SwiftUI view, Xcode, and
+  scheme.
+- Added cloud build creation, screenshot upload, flush, finalization, and build
+  URL reporting through the stable Vizzly plugin API.
+- Added `--no-upload`, local-only fallback, and upload outcomes in the preview
+  manifest.
 
 ### Fixed
 
@@ -26,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Swift preview configuration so command options only override values
   explicitly provided in `vizzly.config.js`.
 - Fixed the Simulator runtime's platform and scene lifecycle boundaries.
+- Fixed preview upload discovery for the TDD daemon's serialized port format
+  and normalized stock preview names for Vizzly's screenshot contract.
 
 ## [0.1.0] - 2026-06-01
 

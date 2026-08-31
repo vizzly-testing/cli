@@ -82,6 +82,29 @@ versioned `manifest.json`. A successful rerun safely replaces only an output
 directory previously created by this command. If the directory contains other
 files, the command refuses to delete them.
 
+After capture, the command uses the first available upload target:
+
+- A live local TDD server receives the screenshots immediately.
+- Otherwise, a configured Vizzly token creates, uploads, and finalizes a cloud
+  build.
+- Without either one, the command keeps the local artifacts and prints a clear
+  next step.
+
+The easiest local workflow is one command:
+
+```bash
+vizzly tdd run "vizzly previews" --no-open
+```
+
+That keeps the TDD server alive for the full Xcode build and capture, then
+writes the normal local comparison report. If you already have
+`vizzly tdd start` running, plain `vizzly previews` finds it automatically.
+
+In CI, set `VIZZLY_TOKEN` and run the same preview command. The plugin uses the
+CLI's existing cloud lifecycle: create a build, start its screenshot proxy,
+upload every PNG, flush pending work, finalize the build, and print the result
+URL.
+
 Optional defaults live under `swiftPreviews` in `vizzly.config.js`:
 
 ```js
@@ -93,9 +116,14 @@ export default defineConfig({
     configuration: 'Debug',
     output: '.vizzly/previews',
     captureTimeout: 30_000,
+    upload: true,
   },
 });
 ```
+
+Pass `--no-upload` for an intentional artifact-only run. Whether uploads went
+to TDD, cloud, nowhere, or were disabled is recorded in `manifest.json` under
+`upload.mode`.
 
 The native renderer currently supports Xcode 26.6, arm64 iOS Simulators, iOS
 17 or newer, scene-based SwiftUI apps, and previews compiled into the app
@@ -104,9 +132,6 @@ orientation fail explicitly until their Xcode semantics can be reproduced.
 The exact Xcode version is checked before capture because the implementation
 intercepts a version-specific Swift ABI symbol. It does not use Xcode MCP,
 `mcpbridge`, private Xcode actions, or source rewriting.
-
-Preview capture currently produces local artifacts. Sending the resulting
-manifest and PNGs through a Vizzly build is the next integration layer.
 
 ## Quick Start
 

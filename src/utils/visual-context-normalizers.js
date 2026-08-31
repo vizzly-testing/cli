@@ -1,122 +1,81 @@
 /**
- * Read the API's canonical visual-review state with legacy approval fallbacks.
+ * Read the API's visual-review state.
  *
  * @param {Object} record - Comparison or review record from the API.
  * @returns {string|null} The review state when the API supplied one.
  */
 export function getVisualReviewState(record = {}) {
-  return (
-    record.visual_review?.state ||
-    record.review_state ||
-    record.approval_status ||
-    null
-  );
+  return record.visual_review?.state || null;
 }
 
 /**
- * Keep visual outcome separate from processing status when both are available.
+ * Read the visual comparison result.
  *
  * @param {Object} comparison - Comparison record from the API.
- * @returns {string|null} The visual result, or the legacy status fallback.
+ * @returns {string|null} The visual result when the API supplied one.
  */
 export function getComparisonResult(comparison = {}) {
-  return comparison.result || comparison.status || null;
+  return comparison.result || null;
 }
 
 /**
- * Resolve a screenshot name across current and legacy response shapes.
+ * Read the current screenshot name.
  *
  * @param {Object} comparison - Comparison record from the API.
- * @returns {string|null} The first API-provided name or identity fallback.
+ * @returns {string|null} The screenshot name when the API supplied one.
  */
 export function getComparisonName(comparison = {}) {
-  return (
-    comparison.name ||
-    comparison.screenshot_name ||
-    comparison.current_screenshot?.name ||
-    comparison.screenshot?.name ||
-    comparison.current_name ||
-    comparison.id ||
-    null
-  );
+  return comparison.screenshot?.name || null;
 }
 
 /**
- * Resolve CSS viewport dimensions without confusing them with bitmap size.
+ * Read CSS viewport dimensions without confusing them with bitmap size.
  *
  * @param {Object} comparison - Comparison record from the API.
  * @returns {{width: number|null, height: number|null}|null} Viewport dimensions.
  */
 export function getComparisonViewport(comparison = {}) {
-  let current = comparison.current_screenshot || comparison.screenshot || {};
-  let viewport = comparison.viewport || current.viewport || {};
-  let width =
-    viewport.width ??
-    comparison.viewport_width ??
-    current.viewport_width ??
-    comparison.current_viewport_width ??
-    null;
-  let height =
-    viewport.height ??
-    comparison.viewport_height ??
-    current.viewport_height ??
-    comparison.current_viewport_height ??
-    null;
+  let viewport = comparison.screenshot?.viewport || {};
+  let width = viewport.width ?? null;
+  let height = viewport.height ?? null;
 
   return width != null || height != null ? { width, height } : null;
 }
 
 /**
- * Resolve the browser from nested current screenshot or legacy metadata fields.
+ * Read the browser from the current screenshot.
  *
  * @param {Object} comparison - Comparison record from the API.
  * @returns {string|null} The browser name when present.
  */
 export function getComparisonBrowser(comparison = {}) {
-  return (
-    comparison.browser ||
-    comparison.current_screenshot?.browser ||
-    comparison.screenshot?.browser ||
-    comparison.current_browser ||
-    comparison.current_metadata?.browser ||
-    comparison.current_metadata?.properties?.browser ||
-    null
-  );
+  return comparison.screenshot?.browser || null;
 }
 
 /**
- * Resolve bitmap dimensions from nested or flat screenshot fields.
+ * Read bitmap dimensions from a screenshot record.
  *
- * @param {Object} record - Preferred screenshot record.
- * @param {Object} fallback - Legacy fields to use when the record is incomplete.
+ * @param {Object} record - Screenshot record from the API.
  * @returns {{width: number|null, height: number|null}|null} Bitmap dimensions.
  */
-function getBitmap(record = {}, fallback = {}) {
-  let bitmap = record.bitmap || fallback.bitmap || {};
-  let width =
-    bitmap.width ?? record.bitmap_width ?? fallback.bitmap_width ?? null;
-  let height =
-    bitmap.height ?? record.bitmap_height ?? fallback.bitmap_height ?? null;
+function getBitmap(record = {}) {
+  let bitmap = record.bitmap || {};
+  let width = bitmap.width ?? null;
+  let height = bitmap.height ?? null;
 
   return width != null || height != null ? { width, height } : null;
 }
 
 /**
- * Resolve viewport dimensions from one screenshot-shaped record.
+ * Read viewport dimensions from a screenshot record.
  *
- * @param {Object} record - Preferred screenshot record.
- * @param {Object} fallback - Legacy fields to use when the record is incomplete.
+ * @param {Object} record - Screenshot record from the API.
  * @returns {{width: number|null, height: number|null}|null} Viewport dimensions.
  */
-function getRecordViewport(record = {}, fallback = {}) {
-  let viewport = record.viewport || fallback.viewport || {};
-  let width =
-    viewport.width ?? record.viewport_width ?? fallback.viewport_width ?? null;
-  let height =
-    viewport.height ??
-    record.viewport_height ??
-    fallback.viewport_height ??
-    null;
+function getRecordViewport(record = {}) {
+  let viewport = record.viewport || {};
+  let width = viewport.width ?? null;
+  let height = viewport.height ?? null;
 
   return width != null || height != null ? { width, height } : null;
 }
@@ -125,48 +84,23 @@ function getRecordViewport(record = {}, fallback = {}) {
  * Normalize current screenshot identity, render facts, metadata, and asset URL.
  *
  * @param {Object} comparison - Comparison record from the API.
- * @returns {Object} A stable current screenshot projection.
+ * @returns {Object} Current screenshot details.
  */
 function getCurrentScreenshot(comparison = {}) {
-  let screenshot = comparison.current_screenshot || comparison.screenshot || {};
+  let screenshot = comparison.screenshot || {};
 
   return {
-    id: screenshot.id || comparison.current_screenshot_id || null,
-    name: screenshot.name || getComparisonName(comparison),
-    status: screenshot.status || comparison.screenshot_status || null,
-    browser: screenshot.browser || getComparisonBrowser(comparison),
-    device: screenshot.device || comparison.device || null,
-    viewport:
-      getRecordViewport(screenshot, {
-        viewport: comparison.viewport,
-        viewport_width:
-          comparison.current_viewport_width ?? comparison.viewport_width,
-        viewport_height:
-          comparison.current_viewport_height ?? comparison.viewport_height,
-      }) || getComparisonViewport(comparison),
-    bitmap: getBitmap(screenshot, {
-      bitmap: comparison.bitmap,
-      bitmap_width: comparison.current_width ?? comparison.bitmap_width,
-      bitmap_height: comparison.current_height ?? comparison.bitmap_height,
-    }),
-    metadata:
-      screenshot.metadata ||
-      comparison.current_metadata ||
-      comparison.metadata ||
-      null,
-    signature:
-      screenshot.signature ||
-      comparison.current_signature ||
-      comparison.signature ||
-      null,
-    url:
-      screenshot.url ||
-      screenshot.original_url ||
-      comparison.current_url ||
-      comparison.current_original_url ||
-      comparison.current_screenshot_url ||
-      null,
-    error_message: screenshot.error_message || comparison.error_message || null,
+    id: screenshot.id || null,
+    name: screenshot.name || null,
+    status: screenshot.status || null,
+    browser: screenshot.browser || null,
+    device: screenshot.device || null,
+    viewport: getRecordViewport(screenshot),
+    bitmap: getBitmap(screenshot),
+    metadata: screenshot.metadata || null,
+    signature: screenshot.signature || null,
+    url: screenshot.url || null,
+    error_message: screenshot.error_message || null,
   };
 }
 
@@ -174,42 +108,29 @@ function getCurrentScreenshot(comparison = {}) {
  * Normalize the baseline screenshot without inventing missing render facts.
  *
  * @param {Object} comparison - Comparison record from the API.
- * @returns {Object} A stable baseline screenshot projection.
+ * @returns {Object} Baseline screenshot details.
  */
 function getBaselineScreenshot(comparison = {}) {
-  let current = comparison.current_screenshot || comparison.screenshot || {};
-  let baseline =
-    comparison.baseline_screenshot ||
-    comparison.baseline ||
-    current.baseline ||
-    {};
+  let baseline = comparison.screenshot?.baseline || {};
 
   return {
-    id: baseline.id || comparison.baseline_screenshot_id || null,
-    build_id: baseline.build_id || comparison.baseline_build_id || null,
-    name: baseline.name || comparison.baseline_name || null,
+    id: baseline.id || null,
+    build_id: baseline.build_id || null,
+    name: baseline.name || null,
     browser: baseline.browser || null,
     viewport: getRecordViewport(baseline),
     bitmap: getBitmap(baseline),
-    metadata: baseline.metadata || comparison.baseline_metadata || null,
-    signature: baseline.signature || comparison.baseline_signature || null,
-    url:
-      baseline.url ||
-      baseline.original_url ||
-      comparison.baseline_url ||
-      comparison.baseline_original_url ||
-      comparison.baseline_screenshot_url ||
-      null,
+    metadata: baseline.metadata || null,
+    signature: baseline.signature || null,
+    url: baseline.url || null,
   };
 }
 
 /**
- * Project compact Honeydiff facts without making raw geometry the default.
+ * Keep the useful Honeydiff facts without including raw geometry by default.
  *
- * Agents need stable counts, fingerprints, URLs, the API projection, and the
- * server's authoritative artifact manifest for first-pass diagnosis. Keeping
- * that manifest intact prevents the CLI from becoming less authoritative than
- * the API. Raw regions and scoring details stay behind an explicit include
+ * Agents need counts, fingerprints, URLs, analysis details, and the server's
+ * artifact list for first-pass diagnosis. Raw regions and scoring details stay behind an explicit include
  * because they can dominate an otherwise bounded handoff.
  *
  * @param {Object} comparison - Comparison record from the API.
@@ -217,63 +138,23 @@ function getBaselineScreenshot(comparison = {}) {
  * @returns {Object} Compact diff evidence suitable for context summaries.
  */
 function getComparisonDiff(comparison = {}, includeDiffs = false) {
-  let diff =
-    comparison.diff || comparison.diff_image || comparison.analysis || {};
-  let analysis = comparison.analysis || {};
-  let regions =
-    diff.regions ||
-    diff.diff_regions ||
-    analysis.diff_regions ||
-    comparison.diff_regions;
-  let projection =
-    diff.projection ||
-    diff.analysis_projection ||
-    analysis.projection ||
-    analysis.analysis_projection ||
-    comparison.analysis_projection ||
-    comparison.projection ||
-    null;
-  let artifacts =
-    diff.artifacts ?? analysis.artifacts ?? comparison.artifacts ?? null;
+  let diff = comparison.diff || {};
+  let regions = diff.regions;
+  let details = diff.details || null;
+  let artifacts = diff.artifacts ?? null;
 
   let compact = {
-    percentage:
-      diff.percentage ??
-      analysis.percentage ??
-      analysis.diff_percentage ??
-      comparison.diff_percentage ??
-      null,
-    changed_pixels:
-      diff.changed_pixels ??
-      analysis.changed_pixels ??
-      comparison.changed_pixels ??
-      null,
-    total_pixels:
-      diff.total_pixels ??
-      analysis.total_pixels ??
-      comparison.total_pixels ??
-      null,
-    threshold:
-      diff.threshold ?? analysis.threshold ?? comparison.threshold ?? null,
-    fingerprint_hash:
-      diff.fingerprint_hash ||
-      analysis.fingerprint_hash ||
-      comparison.fingerprint_hash ||
-      null,
+    percentage: diff.percentage ?? null,
+    changed_pixels: diff.changed_pixels ?? null,
+    total_pixels: diff.total_pixels ?? null,
+    threshold: diff.threshold ?? null,
+    fingerprint_hash: diff.fingerprint_hash || null,
     region_count:
       diff.region_count ??
-      analysis.region_count ??
-      comparison.region_count ??
-      projection?.clusters?.count ??
+      details?.clusters?.count ??
       (Array.isArray(regions) ? regions.length : null),
-    projection,
-    image_url:
-      diff.image_url ||
-      diff.url ||
-      analysis.diff_image_url ||
-      comparison.diff_url ||
-      comparison.diff_image_url ||
-      null,
+    details,
+    image_url: diff.image_url || null,
   };
 
   // Preserve server-owned evidence exactly so agents can verify and download
@@ -284,17 +165,10 @@ function getComparisonDiff(comparison = {}, includeDiffs = false) {
 
   if (includeDiffs) {
     compact.regions = regions || [];
-    compact.cluster_metadata =
-      diff.cluster_metadata ||
-      analysis.cluster_metadata ||
-      comparison.cluster_metadata ||
-      null;
-    compact.ssim_score =
-      diff.ssim_score ?? analysis.ssim_score ?? comparison.ssim_score ?? null;
-    compact.gmsd_score =
-      diff.gmsd_score ?? analysis.gmsd_score ?? comparison.gmsd_score ?? null;
-    compact.diff_lines =
-      diff.diff_lines || analysis.diff_lines || comparison.diff_lines || [];
+    compact.cluster_metadata = diff.cluster_metadata || null;
+    compact.ssim_score = diff.ssim_score ?? null;
+    compact.gmsd_score = diff.gmsd_score ?? null;
+    compact.diff_lines = diff.diff_lines || [];
   }
 
   return compact;
@@ -304,7 +178,7 @@ function getComparisonDiff(comparison = {}, includeDiffs = false) {
  * Prefer explicit review need and return null when the API supplied no review fact.
  *
  * @param {Object} comparison - Comparison record from the API.
- * @param {string|null} reviewState - Canonical review state for the record.
+ * @param {string|null} reviewState - Review state for the record.
  * @returns {boolean|null} Whether the comparison needs review, when known.
  */
 function comparisonNeedsReview(comparison = {}, reviewState = null) {
@@ -320,37 +194,25 @@ function comparisonNeedsReview(comparison = {}, reviewState = null) {
 }
 
 /**
- * Normalize one comparison across grouped and legacy flat API response shapes.
+ * Normalize one comparison from the current build-context API.
  *
  * @param {Object} comparison - Comparison record from the API.
  * @param {Object} options - Normalization options.
- * @param {string|null} [options.fallbackName] - Group name for unnamed variants.
  * @param {boolean} [options.includeDiffs] - Include raw Honeydiff diagnostics.
  * @returns {Object} A stable comparison evidence record.
  */
 export function normalizeComparisonRecord(comparison = {}, options = {}) {
   let reviewState = getVisualReviewState(comparison);
-  let name =
-    comparison.name ||
-    comparison.screenshot_name ||
-    comparison.current_screenshot?.name ||
-    comparison.screenshot?.name ||
-    comparison.current_name ||
-    options.fallbackName ||
-    comparison.id ||
-    null;
 
   return {
     id: comparison.id || null,
-    name,
+    name: getComparisonName(comparison),
     result: getComparisonResult(comparison),
     status: comparison.status || null,
     review_state: reviewState,
     visual_review: comparison.visual_review || null,
-    approval_status: comparison.approval_status || null,
     build_branch: comparison.build_branch || null,
     needs_review: comparisonNeedsReview(comparison, reviewState),
-    is_flaky: comparison.is_flaky == null ? null : comparison.is_flaky === true,
     browser: getComparisonBrowser(comparison),
     viewport: getComparisonViewport(comparison),
     screenshot: getCurrentScreenshot(comparison),
@@ -360,15 +222,13 @@ export function normalizeComparisonRecord(comparison = {}, options = {}) {
 }
 
 /**
- * Read the server's total variant count across supported response shapes.
+ * Read the server's total variant count.
  *
  * @param {Object} group - Screenshot group from the API.
  * @returns {number|null} The explicit total when present.
  */
 function getExplicitVariantCount(group = {}) {
-  return (
-    group.variant_count ?? group.total_variants ?? group.totalVariants ?? null
-  );
+  return group.total_variants ?? null;
 }
 
 /**
@@ -376,18 +236,9 @@ function getExplicitVariantCount(group = {}) {
  *
  * @param {Object} group - Screenshot group from the API.
  * @param {Object[]} variants - Returned normalized variants.
- * @param {boolean} forcedComplete - Whether the caller owns the complete set.
  * @returns {boolean} Whether aggregate derivation is safe.
  */
-function hasCompleteVariants(
-  group = {},
-  variants = [],
-  forcedComplete = false
-) {
-  if (forcedComplete || group.variants_complete === true) {
-    return true;
-  }
-
+function hasCompleteVariants(group = {}, variants = []) {
   let explicitCount = getExplicitVariantCount(group);
   return explicitCount != null && explicitCount === variants.length;
 }
@@ -395,7 +246,7 @@ function hasCompleteVariants(
 /**
  * Derive only facts backed by a complete variant set and complete source fields.
  *
- * Unknown review, flaky, result, or diff values stay null instead of becoming
+ * Unknown review, result, or diff values stay null instead of becoming
  * client-authored false or zero values.
  *
  * @param {Object[]} variants - Complete normalized variants for one screenshot.
@@ -410,14 +261,12 @@ function deriveAggregateFacts(variants = [], complete = false) {
   let results = variants.map(variant => variant.result);
   let reviewStates = variants.map(variant => variant.review_state);
   let needsReview = variants.map(variant => variant.needs_review);
-  let flaky = variants.map(variant => variant.is_flaky);
   let percentages = variants
     .map(variant => variant.diff.percentage)
     .filter(value => value != null);
   let allResultsKnown = results.every(value => value != null);
   let allReviewStatesKnown = reviewStates.every(value => value != null);
   let allNeedsReviewKnown = needsReview.every(value => value != null);
-  let allFlakyKnown = flaky.every(value => value != null);
 
   return {
     has_changes: results.includes('changed')
@@ -444,7 +293,6 @@ function deriveAggregateFacts(variants = [], complete = false) {
       : allReviewStatesKnown
         ? false
         : null,
-    has_flaky: flaky.includes(true) ? true : allFlakyKnown ? false : null,
     max_diff_percentage:
       percentages.length === variants.length && percentages.length > 0
         ? Math.max(...percentages)
@@ -453,27 +301,21 @@ function deriveAggregateFacts(variants = [], complete = false) {
 }
 
 /**
- * Normalize a screenshot group while keeping explicit server aggregates authoritative.
+ * Normalize a screenshot group while keeping explicit server totals unchanged.
  *
  * @param {Object} group - Grouped visual-review record from the API.
  * @param {Object} options - Normalization options.
- * @param {boolean} [options.variantsComplete] - Marks a caller-owned complete set.
  * @returns {Object} A normalized screenshot group and its variants.
  */
 export function normalizeComparisonGroup(group = {}, options = {}) {
-  let rawVariants = group.variants || group.comparisons || [];
-  let groupName = group.name || group.test_name || group.testName || null;
+  let rawVariants = group.comparisons || [];
+  let groupName = group.name || null;
   let variants = rawVariants.map(variant =>
     normalizeComparisonRecord(variant, {
-      fallbackName: groupName,
       includeDiffs: options.includeDiffs,
     })
   );
-  let complete = hasCompleteVariants(
-    group,
-    variants,
-    options.variantsComplete === true
-  );
+  let complete = hasCompleteVariants(group, variants);
   let derived = deriveAggregateFacts(variants, complete);
   let aggregate = group.aggregate_status || {};
   let needsReviewCount =
@@ -497,33 +339,10 @@ export function normalizeComparisonGroup(group = {}, options = {}) {
       needs_review_count: needsReviewCount,
       failed_count: aggregate.failed_count ?? derived.failed_count ?? null,
       has_rejected: aggregate.has_rejected ?? derived.has_rejected ?? null,
-      has_flaky: aggregate.has_flaky ?? derived.has_flaky ?? null,
       max_diff_percentage:
         aggregate.max_diff_percentage ?? derived.max_diff_percentage ?? null,
     },
   };
-}
-
-/**
- * Group a complete legacy flat comparison list by screenshot name.
- *
- * @param {Object[]} comparisons - Complete flat comparisons from build context.
- * @param {Object} options - Normalization options passed to each comparison.
- * @returns {Object[]} Normalized screenshot groups in API order.
- */
-function groupFlatComparisons(comparisons = [], options = {}) {
-  let grouped = new Map();
-
-  for (let comparison of comparisons) {
-    let name = getComparisonName(comparison) || 'unknown screenshot';
-    let group = grouped.get(name) || { name, variants: [] };
-    group.variants.push(comparison);
-    grouped.set(name, group);
-  }
-
-  return [...grouped.values()].map(group =>
-    normalizeComparisonGroup(group, { ...options, variantsComplete: true })
-  );
 }
 
 /**
@@ -547,12 +366,11 @@ function joinGroupComparisons(groups = [], comparisons = []) {
   );
 
   return groups.map(group => {
-    let variantKey = Array.isArray(group.variants) ? 'variants' : 'comparisons';
-    let variants = Array.isArray(group[variantKey]) ? group[variantKey] : [];
+    let comparisons = Array.isArray(group.comparisons) ? group.comparisons : [];
 
     return {
       ...group,
-      [variantKey]: variants.map(variant => ({
+      comparisons: comparisons.map(variant => ({
         ...variant,
         ...(comparisonsById.get(variant.id) || {}),
       })),
@@ -573,9 +391,10 @@ function joinGroupComparisons(groups = [], comparisons = []) {
 function normalizeFailedCapture(screenshot = {}, options = {}) {
   let normalized = normalizeComparisonRecord(
     {
-      ...screenshot,
       screenshot,
-      result: screenshot.result || screenshot.status || 'failed',
+      result: 'failed',
+      status: screenshot.status || null,
+      visual_review: screenshot.comparison?.visual_review || null,
     },
     options
   );
@@ -588,7 +407,7 @@ function normalizeFailedCapture(screenshot = {}, options = {}) {
 }
 
 /**
- * Collect failed captures from explicit and screenshot-list response shapes.
+ * Collect failed captures from the build context response.
  *
  * @param {Object} context - Raw build context response.
  * @param {Object} options - Normalization options passed to each capture.
@@ -597,9 +416,7 @@ function normalizeFailedCapture(screenshot = {}, options = {}) {
 function getFailedCaptures(context = {}, options = {}) {
   let explicit = Array.isArray(context.failed_captures)
     ? context.failed_captures
-    : Array.isArray(context.failed_screenshots)
-      ? context.failed_screenshots
-      : [];
+    : [];
   let screenshots = (context.screenshots || []).filter(screenshot =>
     ['failed', 'error'].includes(screenshot.status)
   );
@@ -619,7 +436,7 @@ function getFailedCaptures(context = {}, options = {}) {
 }
 
 /**
- * Adapt raw build context for human presentation across current and legacy APIs.
+ * Adapt raw build context for human presentation.
  *
  * Raw JSON output intentionally bypasses this lossy presentation boundary.
  *
@@ -634,10 +451,9 @@ export function normalizeBuildContext(context = {}, options = {}) {
     normalizeComparisonRecord(comparison, options)
   );
   let joinedGroups = joinGroupComparisons(context.groups || [], rawComparisons);
-  let groups =
-    joinedGroups.length > 0
-      ? joinedGroups.map(group => normalizeComparisonGroup(group, options))
-      : groupFlatComparisons(rawComparisons, options);
+  let groups = joinedGroups.map(group =>
+    normalizeComparisonGroup(group, options)
+  );
 
   return {
     ...context,

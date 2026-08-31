@@ -6,11 +6,7 @@ import { createApiClient as defaultCreateApiClient } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 
-let ALLOWED_POST_ENDPOINTS = [
-  /^\/api\/sdk\/comparisons\/[^/]+\/approve$/,
-  /^\/api\/sdk\/comparisons\/[^/]+\/reject$/,
-  /^\/api\/sdk\/builds\/[^/]+\/comments$/,
-];
+let ALLOWED_POST_ENDPOINTS = [/^\/api\/sdk\/builds\/[^/]+\/comments$/];
 
 function createApiCommandDeps(deps = {}) {
   return {
@@ -89,14 +85,14 @@ export function validateApiRequest({ endpoint, method, hasData = false }) {
 
   if (method !== 'GET' && method !== 'POST') {
     errors.push(
-      `Method ${method} not allowed. Use GET for queries or POST for approve/reject/comment.`
+      `Method ${method} not allowed. Use GET for queries or POST for build comments.`
     );
     return errors;
   }
 
   if (method === 'POST' && !isAllowedPostEndpoint(endpoint)) {
     errors.push(
-      `POST not allowed for ${endpoint}. Only approve, reject, and comment endpoints support POST.`
+      `POST not allowed for ${endpoint}. Only build comment endpoints support POST.`
     );
   }
 

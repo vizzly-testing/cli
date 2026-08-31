@@ -536,9 +536,7 @@ export const createTddHandler = (
       warnings,
       originalName: name,
       timestamp: Date.now(),
-      // Boolean hints so UI can show toggle buttons without fetching heavy data
       hasDiffClusters: comparison.diffClusters?.length > 0,
-      hasConfirmedRegions: comparison.confirmedRegions?.length > 0,
     };
 
     // Update lightweight comparison in report-data.json (triggers SSE broadcast)
@@ -549,9 +547,6 @@ export const createTddHandler = (
       diffClusters: comparison.diffClusters,
       intensityStats: comparison.intensityStats,
       boundingBox: comparison.boundingBox,
-      regionAnalysis: comparison.regionAnalysis,
-      hotspotAnalysis: comparison.hotspotAnalysis,
-      confirmedRegions: comparison.confirmedRegions,
     });
 
     // Log screenshot event for menubar

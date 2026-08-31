@@ -20,7 +20,6 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon,
   ListBulletIcon,
-  MapPinIcon,
 } from '@heroicons/react/24/outline';
 import { Badge } from '@vizzly-testing/bear-den';
 import {
@@ -104,7 +103,6 @@ function FullscreenViewerInner({
   let [showInspector, setShowInspector] = useState(false);
   let [queueFilter, setQueueFilter] = useState('needs-review');
   let [showBaseline, setShowBaseline] = useState(true);
-  let [showRegions, setShowRegions] = useState(false);
 
   let { zoom, setZoom } = useZoom('fit');
   let { isActive: isReviewMode } = useReviewMode();
@@ -119,7 +117,7 @@ function FullscreenViewerInner({
 
   // Transform comparisons for queue display
   // Map CLI status to BearDen result format
-  // QueueItem expects: name, result, approval_status, diff_percentage, status
+  // Queue items use the local review result, independent of cloud review state.
   let queueItems = useMemo(() => {
     return comparisons.map(comp => ({
       ...comp,
@@ -129,8 +127,7 @@ function FullscreenViewerInner({
       result: mapStatusToResult(comp.status),
       // Keep original status so QueueItem can check both formats
       status: comp.status,
-      // Map approval_status from userAction
-      approval_status:
+      review_state:
         comp.userAction === 'accepted'
           ? 'approved'
           : comp.userAction === 'rejected'
@@ -178,8 +175,8 @@ function FullscreenViewerInner({
       'needs-review': item => {
         return (
           (item.result === 'changed' || item.result === 'new') &&
-          item.approval_status !== 'approved' &&
-          item.approval_status !== 'rejected'
+          item.review_state !== 'approved' &&
+          item.review_state !== 'rejected'
         );
       },
       changes: item => item.result === 'changed',
@@ -356,12 +353,6 @@ function FullscreenViewerInner({
             toggleInspector();
           }
           break;
-        case 'g':
-          if (!e.metaKey && !e.ctrlKey) {
-            e.preventDefault();
-            setShowRegions(prev => !prev);
-          }
-          break;
       }
     };
 
@@ -414,9 +405,9 @@ function FullscreenViewerInner({
     );
   }
 
-  // Determine result and approval status for current comparison
+  // Determine the local review result for the current comparison.
   let result = mapStatusToResult(comparison.status);
-  let approvalStatus =
+  let reviewState =
     comparison.userAction === 'accepted'
       ? 'approved'
       : comparison.userAction === 'rejected'
@@ -517,7 +508,7 @@ function FullscreenViewerInner({
               </button>
             ) : null}
             <ApprovalButtonGroup
-              status={approvalStatus}
+              status={reviewState}
               onApprove={onAccept ? handleApprove : null}
               onReject={onReject ? handleReject : null}
               compact
@@ -536,21 +527,6 @@ function FullscreenViewerInner({
             >
               <ListBulletIcon className="w-5 h-5 pointer-events-none" />
             </button>
-
-            {/* Regions toggle - only show if comparison has regions */}
-            {(comparison?.confirmedRegions?.length > 0 ||
-              comparison?.hasConfirmedRegions) && (
-              <button
-                type="button"
-                onClick={() => setShowRegions(!showRegions)}
-                className={`p-2 rounded-md transition-colors ${showRegions ? 'bg-[var(--accent-success-muted)] text-[var(--accent-success)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)]'}`}
-                title="Show Regions (G)"
-                aria-label="Toggle regions"
-                data-testid="toggle-regions-btn"
-              >
-                <MapPinIcon className="w-5 h-5 pointer-events-none" />
-              </button>
-            )}
 
             <button
               type="button"
@@ -708,7 +684,6 @@ function FullscreenViewerInner({
             onOnionSkinChange={setOnionSkinPosition}
             zoom={zoom}
             disableLoadingOverlay={true}
-            showRegions={showRegions}
             className="w-full h-full"
           />
         </main>
@@ -731,15 +706,15 @@ function FullscreenViewerInner({
               )}
               <Badge
                 variant={
-                  approvalStatus === 'approved'
+                  reviewState === 'approved'
                     ? 'success'
-                    : approvalStatus === 'rejected'
+                    : reviewState === 'rejected'
                       ? 'danger'
                       : 'default'
                 }
                 size="sm"
               >
-                {approvalStatus}
+                {reviewState}
               </Badge>
             </div>
           </InspectorPanel.Section>
@@ -829,7 +804,7 @@ function FullscreenViewerInner({
       <div className="sm:hidden flex-shrink-0 bg-[var(--vz-bg)] border-t border-[var(--vz-border-subtle)] safe-area-pb">
         {/* Approval buttons */}
         <MobileApprovalBar
-          status={approvalStatus}
+          status={reviewState}
           onApprove={onAccept ? handleApprove : null}
           onReject={onReject ? handleReject : null}
         />
@@ -855,20 +830,6 @@ function FullscreenViewerInner({
           >
             <InformationCircleIcon className="w-5 h-5 pointer-events-none" />
           </button>
-
-          {/* Regions toggle - mobile */}
-          {(comparison?.confirmedRegions?.length > 0 ||
-            comparison?.hasConfirmedRegions) && (
-            <button
-              type="button"
-              onClick={() => setShowRegions(!showRegions)}
-              className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showRegions ? 'bg-[var(--accent-success-muted)] text-[var(--accent-success)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)] active:bg-[var(--vz-elevated)]'}`}
-              aria-label="Toggle regions"
-              data-testid="mobile-toggle-regions-btn"
-            >
-              <MapPinIcon className="w-5 h-5 pointer-events-none" />
-            </button>
-          )}
 
           {canDelete && onDelete && (
             <button

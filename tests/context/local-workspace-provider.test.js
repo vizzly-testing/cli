@@ -12,8 +12,6 @@ function createWorkspacePaths(projectRoot) {
     report: join(vizzlyDir, 'report-data.json'),
     comparisonDetails: join(vizzlyDir, 'comparison-details.json'),
     baselineMetadata: join(vizzlyDir, 'baselines', 'metadata.json'),
-    hotspots: join(vizzlyDir, 'hotspots.json'),
-    regions: join(vizzlyDir, 'regions.json'),
   };
 }
 
@@ -152,7 +150,7 @@ describe('context/local-workspace-provider', () => {
     assert.strictEqual(provider.canHandle('comparison', 'comp-1'), true);
     provider.getBuildContext('local-build');
 
-    assert.strictEqual(readCount, 6);
+    assert.strictEqual(readCount, 4);
   });
 
   it('does not treat a cloud session as local evidence', () => {
@@ -346,7 +344,7 @@ describe('context/local-workspace-provider', () => {
               createdAt: '2026-05-20T12:00:00Z',
               buildInfo: {
                 commitSha: 'abc123',
-                approvalStatus: 'approved',
+                visual_review: { state: 'approved' },
                 completedAt: '2026-05-20T12:01:00Z',
               },
             };
@@ -373,7 +371,7 @@ describe('context/local-workspace-provider', () => {
     let context = provider.getBuildContext('current');
 
     assert.strictEqual(context.baseline.selected.id, 'approved-main');
-    assert.strictEqual(context.baseline.selected.approval_status, 'approved');
+    assert.strictEqual(context.baseline.selected.review_state, 'approved');
     assert.strictEqual(context.status.needs_review, true);
     assert.strictEqual(context.status.pending_comparisons, 1);
     assert.strictEqual(
@@ -466,10 +464,7 @@ describe('context/local-workspace-provider', () => {
     assert.strictEqual(comparisonSummary.details, 'summary');
     assert.strictEqual(comparisonSummary.history.active_stream, null);
     assert.deepStrictEqual(comparisonSummary.signature_properties, []);
-    assert.strictEqual(
-      comparisonSummary.dynamic_regions.confirmed_regions.total,
-      0
-    );
+    assert.ok(!Object.hasOwn(comparisonSummary, 'dynamic_regions'));
 
     let comparisonDiffs = provider.getComparisonContext('comp-0', {
       details: 'diffs',

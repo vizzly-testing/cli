@@ -137,8 +137,18 @@ describe('commands/comparisons', () => {
         id: 'build-1',
         name: 'Build 1',
         comparisons: [
-          { id: 'comp-1', name: 'button-primary', status: 'identical' },
-          { id: 'comp-2', name: 'button-secondary', status: 'changed' },
+          {
+            id: 'comp-1',
+            status: 'completed',
+            result: 'identical',
+            screenshot: { name: 'button-primary' },
+          },
+          {
+            id: 'comp-2',
+            status: 'completed',
+            result: 'changed',
+            screenshot: { name: 'button-secondary' },
+          },
         ],
       };
 
@@ -165,7 +175,7 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].summary.failed, 1);
     });
 
-    it('preserves existing JSON fields while exposing current comparison evidence', async () => {
+    it('exposes review state with current comparison evidence', async () => {
       let output = createMockOutput();
       let mockBuild = {
         id: 'build-1',
@@ -177,15 +187,16 @@ describe('commands/comparisons', () => {
             status: 'completed',
             result: 'changed',
             diff_percentage: 0.025,
-            approval_status: 'approved',
             visual_review: { state: 'pending', decision: null },
-            current_browser: 'chromium',
-            current_viewport_width: 1440,
-            current_viewport_height: 900,
+            screenshot: {
+              name: 'checkout',
+              browser: 'chromium',
+              viewport: { width: 1440, height: 900 },
+            },
             baseline_original_url: 'https://cdn.test/baseline.png',
             current_original_url: 'https://cdn.test/current.png',
             diff_image_url: 'https://cdn.test/diff.png',
-            analysis_projection: {
+            analysis_details: {
               clusters: { count: 3, average_density: 0.81 },
             },
             fingerprint_hash: 'fp-checkout',
@@ -216,9 +227,7 @@ describe('commands/comparisons', () => {
       assert.strictEqual(comparison.name, 'checkout');
       assert.strictEqual(comparison.status, 'completed');
       assert.strictEqual(comparison.result, 'changed');
-      assert.strictEqual(comparison.approvalStatus, 'approved');
-      assert.strictEqual(comparison.reviewState, 'pending');
-      assert.deepStrictEqual(comparison.visualReview, {
+      assert.deepStrictEqual(comparison.visual_review, {
         state: 'pending',
         decision: null,
       });
@@ -234,7 +243,7 @@ describe('commands/comparisons', () => {
       });
       assert.strictEqual(comparison.honeydiff.fingerprintHash, 'fp-checkout');
       assert.strictEqual(comparison.honeydiff.regionCount, 3);
-      assert.deepStrictEqual(comparison.honeydiff.projection, {
+      assert.deepStrictEqual(comparison.honeydiff.details, {
         clusters: { count: 3, average_density: 0.81 },
       });
     });
@@ -276,9 +285,21 @@ describe('commands/comparisons', () => {
         id: 'build-1',
         name: 'Build 1',
         comparisons: [
-          { id: 'comp-1', name: 'button-primary', status: 'identical' },
-          { id: 'comp-2', name: 'button-secondary', status: 'changed' },
-          { id: 'comp-3', name: 'button-tertiary', status: 'identical' },
+          {
+            id: 'comp-1',
+            result: 'identical',
+            screenshot: { name: 'button-primary' },
+          },
+          {
+            id: 'comp-2',
+            result: 'changed',
+            screenshot: { name: 'button-secondary' },
+          },
+          {
+            id: 'comp-3',
+            result: 'identical',
+            screenshot: { name: 'button-tertiary' },
+          },
         ],
       };
 
@@ -309,8 +330,18 @@ describe('commands/comparisons', () => {
       let mockBuild = {
         id: 'build-1',
         comparisons: [
-          { id: 'comp-1', status: 'completed', result: 'identical' },
-          { id: 'comp-2', status: 'completed', result: 'changed' },
+          {
+            id: 'comp-1',
+            status: 'completed',
+            result: 'identical',
+            screenshot: { name: 'button-primary' },
+          },
+          {
+            id: 'comp-2',
+            status: 'completed',
+            result: 'changed',
+            screenshot: { name: 'button-secondary' },
+          },
         ],
       };
 
@@ -340,8 +371,16 @@ describe('commands/comparisons', () => {
         id: 'build-1',
         name: 'Build 1',
         comparisons: [
-          { id: 'comp-1', name: 'card[primary].png', status: 'changed' },
-          { id: 'comp-2', name: 'cardp.png', status: 'changed' },
+          {
+            id: 'comp-1',
+            result: 'changed',
+            screenshot: { name: 'card[primary].png' },
+          },
+          {
+            id: 'comp-2',
+            result: 'changed',
+            screenshot: { name: 'cardp.png' },
+          },
         ],
       };
 
@@ -369,8 +408,9 @@ describe('commands/comparisons', () => {
       let output = createMockOutput();
       let mockComparison = {
         id: 'comp-1',
-        name: 'button-primary',
-        status: 'changed',
+        status: 'completed',
+        result: 'changed',
+        screenshot: { name: 'button-primary' },
         diff_percentage: 0.05,
       };
 
@@ -392,7 +432,7 @@ describe('commands/comparisons', () => {
       assert.strictEqual(dataCall.args[0].name, 'button-primary');
     });
 
-    it('shows the visual result and canonical review state for current comparisons', async () => {
+    it('shows the visual result and review state for current comparisons', async () => {
       let output = createMockOutput();
 
       await comparisonsCommand(
@@ -407,9 +447,11 @@ describe('commands/comparisons', () => {
             status: 'completed',
             result: 'changed',
             visual_review: { state: 'pending' },
-            current_browser: 'chromium',
-            current_viewport_width: 1440,
-            current_viewport_height: 900,
+            screenshot: {
+              name: 'checkout',
+              browser: 'chromium',
+              viewport: { width: 1440, height: 900 },
+            },
           }),
           output,
           exit: () => {},

@@ -52,11 +52,8 @@ export default function ComparisonDetailView() {
     return {
       ...lightComparison,
       diffClusters: fullComparison.diffClusters,
-      confirmedRegions: fullComparison.confirmedRegions,
       intensityStats: fullComparison.intensityStats,
       boundingBox: fullComparison.boundingBox,
-      regionAnalysis: fullComparison.regionAnalysis,
-      hotspotAnalysis: fullComparison.hotspotAnalysis,
     };
   }, [lightComparison, fullComparison]);
 

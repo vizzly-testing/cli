@@ -1059,11 +1059,6 @@ contextCmd
     'Maximum recent comparisons to return (1-50)',
     Number
   )
-  .option(
-    '--window-size <n>',
-    'Historical hotspot analysis window size (1-50)',
-    Number
-  )
   .addHelpText(
     'after',
     `
@@ -1181,7 +1176,7 @@ program
   .argument('<endpoint>', 'API endpoint (e.g., /api/sdk/builds)')
   .option(
     '-X, --method <method>',
-    'HTTP method (GET or POST for approve/reject/comment)',
+    'HTTP method (GET or POST for build comments)',
     'GET'
   )
   .option('-d, --data <json>', 'Request body (JSON)')
@@ -1202,10 +1197,10 @@ Examples:
   $ vizzly api /api/sdk/builds                    # List builds
   $ vizzly api /api/sdk/builds -q limit=5         # With query params
   $ vizzly api /api/sdk/builds/abc123             # Get specific build
-  $ vizzly api /api/sdk/comparisons/abc123/approve -X POST
+  $ vizzly api /api/sdk/builds/abc123/comments -X POST -d '{"content":"Looks good"}'
   $ vizzly api /api/sdk/builds/abc123/comments -X POST -d '{"content":"Nice!"}'
 
-Note: POST is restricted to approve, reject, and comment endpoints.
+Note: POST is restricted to build comment endpoints. Use dedicated approve/reject commands for review decisions.
 Most operations have dedicated commands (builds, comparisons, approve, etc.).
 `
   )

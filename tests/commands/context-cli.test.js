@@ -137,50 +137,6 @@ function createWorkspaceFixture() {
     JSON.stringify({
       'comp-settings': {
         diffClusters: [{ x: 120, y: 96, width: 520, height: 164 }],
-        confirmedRegions: [
-          {
-            id: 'region-1',
-            label: 'Known settings header band',
-            x1: 120,
-            y1: 96,
-            x2: 640,
-            y2: 260,
-          },
-        ],
-        hotspotAnalysis: { confidence: 'high', confidenceScore: 92 },
-      },
-    })
-  );
-  writeFileSync(
-    join(vizzlyDir, 'hotspots.json'),
-    JSON.stringify({
-      summary: { total_regions: 1 },
-      hotspots: {
-        'Settings Panel': {
-          regions: [{ y1: 96, y2: 260 }],
-          confidence: 'high',
-        },
-      },
-    })
-  );
-  writeFileSync(
-    join(vizzlyDir, 'regions.json'),
-    JSON.stringify({
-      summary: { total_regions: 1 },
-      regions: {
-        'Settings Panel': {
-          confirmed: [
-            {
-              id: 'region-1',
-              label: 'Known settings header band',
-              x1: 120,
-              y1: 96,
-              x2: 640,
-              y2: 260,
-            },
-          ],
-          candidates: [],
-        },
       },
     })
   );
@@ -227,7 +183,6 @@ async function withBuildContextApi(callback) {
     result: 'changed',
     needs_review: true,
     visual_review: { state: 'pending' },
-    is_flaky: false,
     screenshot: {
       id: `current-${index + 1}`,
       name: `Screenshot ${index + 1}`,
@@ -250,7 +205,7 @@ async function withBuildContextApi(callback) {
       total_pixels: 5184000,
       image_url: `https://cdn.test/diff-${index + 1}.png`,
       fingerprint_hash: `fingerprint-${index + 1}`,
-      projection: { clusters: { count: 1 } },
+      details: { clusters: { count: 1 } },
       artifacts: {
         analysis: {
           available: true,
@@ -282,13 +237,13 @@ async function withBuildContextApi(callback) {
   }));
   let groups = Array.from({ length: 11 }, (_, index) => ({
     name: `Screenshot ${index + 1}`,
-    variant_count: 1,
+    total_variants: 1,
     aggregate_status: {
       needs_review: true,
       needs_review_count: 1,
       max_diff_percentage: index + 0.5,
     },
-    variants: [
+    comparisons: [
       {
         id: `comparison-${index + 1}`,
         result: 'changed',
@@ -396,7 +351,6 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'comparison_context',
-          review_flow: 'cricket_v1',
           scope: {
             organization: { slug: 'acme' },
             project: { slug: 'web', name: 'Web' },
@@ -437,15 +391,12 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'screenshot_context',
-          review_flow: 'legacy',
           scope: {
             organization: { slug: 'acme' },
             project: { slug: 'web', name: 'Web' },
           },
           screenshot: { name: 'Screenshot 1' },
           history: { recent_comparisons: [] },
-          confirmed_regions: [],
-          hotspot_analysis: null,
         })
       );
       return;
@@ -455,7 +406,6 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'fingerprint_context',
-          review_flow: 'legacy',
           fingerprint: { hash: 'fingerprint-1' },
           matches: [],
         })
@@ -467,7 +417,6 @@ async function withBuildContextApi(callback) {
       res.end(
         JSON.stringify({
           resource: 'review_queue_context',
-          review_flow: 'legacy',
           comparisons: [],
         })
       );
@@ -493,7 +442,6 @@ async function withBuildContextApi(callback) {
       JSON.stringify({
         resource: 'build_context',
         source: 'local_workspace',
-        review_flow: 'legacy',
         scope: {
           organization: { slug: 'acme' },
           project: { slug: 'web', name: 'Web' },
@@ -595,7 +543,6 @@ describe('context CLI integration', () => {
       assert.strictEqual(compactPayload.evidence.page.returned, 10);
       assert.strictEqual(compactPayload.evidence.page.has_more, true);
       assert.strictEqual(compactPayload.source, 'cloud');
-      assert.strictEqual(compactPayload.review_flow, 'legacy');
       assert.strictEqual(compactPayload.evidence.items[0].id, 'comparison-1');
       assert.strictEqual(
         compactPayload.evidence.items[0].screenshot_name,
@@ -940,15 +887,11 @@ describe('context CLI integration', () => {
         assert.strictEqual(result.code, 0, result.stderr);
         let payload = JSON.parse(result.stdout).data;
         assert.strictEqual(payload.source, 'cloud');
-        assert.strictEqual(
-          payload.review_flow,
-          command[0] === 'comparison' ? 'cricket_v1' : 'legacy'
-        );
       }
     });
   });
 
-  it('renders human screenshot context when hotspot analysis is unavailable', async () => {
+  it('renders human screenshot context from review evidence', async () => {
     await withBuildContextApi(async ({ apiUrl }) => {
       let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-human-'));
       let result = await runCLI(
@@ -970,7 +913,8 @@ describe('context CLI integration', () => {
       );
 
       assert.strictEqual(result.code, 0, result.stderr);
-      assert.match(result.stdout, /Hotspots:\s+unavailable/);
+      assert.match(result.stdout, /Memory:\s+0 recent comparisons/);
+      assert.doesNotMatch(result.stdout, /Hotspots|Known Regions/);
     });
   });
 
@@ -1078,10 +1022,7 @@ describe('context CLI integration', () => {
     let parsed = JSON.parse(result.stdout);
     assert.strictEqual(parsed.data.source, 'local_workspace');
     assert.strictEqual(parsed.data.screenshot.name, 'Settings Panel');
-    assert.strictEqual(
-      parsed.data.confirmed_regions[0].label,
-      'Known settings header band'
-    );
+    assert.strictEqual(parsed.data.history.recent_comparisons.length, 1);
   });
 
   it('reads local comparison context with diff memory details', async () => {
@@ -1103,14 +1044,7 @@ describe('context CLI integration', () => {
     let parsed = JSON.parse(result.stdout);
     assert.strictEqual(parsed.data.source, 'local_workspace');
     assert.strictEqual(parsed.data.comparison.id, 'comp-settings');
-    assert.strictEqual(
-      parsed.data.comparison.analysis.hotspot_analysis.confidence,
-      'high'
-    );
-    assert.strictEqual(
-      parsed.data.history.confirmed_regions[0].label,
-      'Known settings header band'
-    );
+    assert.strictEqual(parsed.data.comparison.analysis.diff_regions.length, 1);
   });
 
   it('treats local review queue as unresolved local diffs', async () => {

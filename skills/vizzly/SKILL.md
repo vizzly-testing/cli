@@ -1,6 +1,6 @@
 ---
 name: vizzly
-description: Inspect and explain Vizzly visual regression evidence, verify UI changes, troubleshoot local or cloud builds, adjust screenshot capture, or configure Vizzly CI. Use when a task mentions Vizzly, screenshot baselines, comparisons, Honeydiff, visual review, dynamic regions, or an existing Vizzly workflow.
+description: Inspect and explain Vizzly visual regression evidence, verify UI changes, troubleshoot local or cloud builds, adjust screenshot capture, or configure Vizzly CI. Use when a task mentions Vizzly, screenshot baselines, comparisons, Honeydiff, visual review, or an existing Vizzly workflow.
 ---
 
 # Vizzly
@@ -47,8 +47,8 @@ test workflow in charge of how the UI is exercised.
   values.
 - Do not approve, reject, comment on, publish, or replace evidence unless the
   task explicitly asks for that mutation.
-- Preserve thresholds, cluster sizes, signature properties, and dynamic-region
-  behavior unless repeated evidence justifies a change.
+- Preserve thresholds, cluster sizes, signature properties, and other capture
+  settings unless repeated evidence justifies a change.
 - Prefer deterministic fixtures and existing user journeys over hiding a diff
   with broader tolerances or a new screenshot-only test.
 - Report the comparison or screenshot identity, observed evidence, access
@@ -60,5 +60,5 @@ test workflow in charge of how the UI is exercised.
   discovery, drill-downs, images, and TDD lifecycle.
 - [SDK capture](references/sdks.md): add or change screenshot capture code.
 - [Dynamic content](references/dynamic-content.md): investigate unstable
-  content, hotspots, or confirmed regions.
+  content and screenshot-specific tolerances.
 - [Setup and CI](references/setup-ci.md): initialize Vizzly or change CI.

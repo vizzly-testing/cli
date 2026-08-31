@@ -5,11 +5,6 @@
  */
 
 import { analyze } from '@vizzly-testing/honeydiff';
-import { calculateHotspotCoverage } from '../core/hotspot-coverage.js';
-import {
-  calculateRegionCoverage,
-  shouldAutoApproveFromRegions,
-} from '../core/region-coverage.js';
 import { generateComparisonId } from '../core/signature.js';
 
 /**
@@ -161,8 +156,6 @@ export function buildNewComparison(params) {
  * @param {number} params.threshold - Effective threshold used
  * @param {number} params.minClusterSize - Effective minClusterSize used
  * @param {Object} params.honeydiffResult - Result from honeydiff
- * @param {Object} params.hotspotAnalysis - Hotspot data for this screenshot (optional)
- * @param {Object} params.regionData - User-defined region data { confirmed: [], candidates: [] } (optional)
  * @returns {Object} Comparison result
  */
 export function buildFailedComparison(params) {
@@ -176,63 +169,14 @@ export function buildFailedComparison(params) {
     threshold,
     minClusterSize,
     honeydiffResult,
-    hotspotAnalysis,
-    regionData,
   } = params;
 
   let diffClusters = honeydiffResult.diffClusters || [];
-  let ssimScore =
-    honeydiffResult.perceptualScore ??
-    honeydiffResult.ssimScore ??
-    honeydiffResult.ssim_score ??
-    null;
-  let isFiltered = false;
-  let filterReason = 'pixel-diff';
-
-  // Region analysis (user-confirmed 2D boxes) - check FIRST (takes priority)
-  let regionCoverage = null;
-  let isRegionFiltered = false;
-  let confirmedRegions = regionData?.confirmed || [];
-
-  if (confirmedRegions.length > 0 && diffClusters.length > 0) {
-    regionCoverage = calculateRegionCoverage(diffClusters, confirmedRegions);
-
-    if (
-      shouldAutoApproveFromRegions(confirmedRegions, regionCoverage, {
-        ssimScore,
-      })
-    ) {
-      isRegionFiltered = true;
-      isFiltered = true;
-      filterReason = 'region-filtered';
-    }
-  }
-
-  // Hotspot analysis (1D Y-bands from historical data) - check SECOND
-  let hotspotCoverage = null;
-  let isHotspotFiltered = false;
-
-  if (!isFiltered && hotspotAnalysis && diffClusters.length > 0) {
-    hotspotCoverage = calculateHotspotCoverage(diffClusters, hotspotAnalysis);
-
-    // Check if diff should be filtered as hotspot noise
-    // (cloud uses confidence_score >= 70 which is >0.7 when normalized)
-    let isHighConfidence =
-      hotspotAnalysis.confidence === 'high' ||
-      (hotspotAnalysis.confidence_score !== undefined &&
-        hotspotAnalysis.confidence_score >= 70);
-
-    if (isHighConfidence && hotspotCoverage.coverage >= 0.8) {
-      isHotspotFiltered = true;
-      isFiltered = true;
-      filterReason = 'hotspot-filtered';
-    }
-  }
 
   return {
     id: generateComparisonId(signature),
     name,
-    status: isFiltered ? 'passed' : 'failed',
+    status: 'failed',
     baseline: baselinePath,
     current: currentPath,
     diff: diffPath,
@@ -242,7 +186,7 @@ export function buildFailedComparison(params) {
     minClusterSize,
     diffPercentage: honeydiffResult.diffPercentage,
     diffCount: honeydiffResult.diffPixels,
-    reason: filterReason,
+    reason: 'pixel-diff',
     totalPixels: honeydiffResult.totalPixels,
     aaPixelsIgnored: honeydiffResult.aaPixelsIgnored,
     aaPercentage: honeydiffResult.aaPercentage,
@@ -250,34 +194,6 @@ export function buildFailedComparison(params) {
     heightDiff: honeydiffResult.heightDiff,
     intensityStats: honeydiffResult.intensityStats,
     diffClusters,
-    // User-defined region analysis (2D boxes)
-    regionAnalysis: regionCoverage
-      ? {
-          coverage: regionCoverage.coverage,
-          clustersInRegions: regionCoverage.clustersInRegions,
-          totalClusters: regionCoverage.totalClusters,
-          pixelsInRegions: regionCoverage.pixelsInRegions,
-          totalPixels: regionCoverage.totalPixels,
-          matchedRegions: regionCoverage.matchedRegions,
-          confirmedCount: confirmedRegions.length,
-          ssimScore,
-          isFiltered: isRegionFiltered,
-        }
-      : null,
-    // Include confirmed regions for visualization in UI
-    confirmedRegions: confirmedRegions.length > 0 ? confirmedRegions : null,
-    // Historical hotspot analysis (1D Y-bands)
-    hotspotAnalysis: hotspotCoverage
-      ? {
-          coverage: hotspotCoverage.coverage,
-          linesInHotspots: hotspotCoverage.linesInHotspots,
-          totalLines: hotspotCoverage.totalLines,
-          confidence: hotspotAnalysis?.confidence,
-          confidenceScore: hotspotAnalysis?.confidence_score,
-          regionCount: hotspotAnalysis?.regions?.length || 0,
-          isFiltered: isHotspotFiltered,
-        }
-      : null,
   };
 }
 

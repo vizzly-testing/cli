@@ -14,8 +14,8 @@ can cause a diff. They are possible explanations, not conclusions.
 2. Record the visible region, recurrence, render metadata, and whether the same
    change appears across builds or variants.
 3. Prefer deterministic fixtures when they can remove irrelevant variation.
-4. Treat hotspots and confirmed regions as server- or user-authored evidence.
-   This CLI exposes them for inspection, not authoring.
+4. Use diff regions only to locate changed pixels; they do not approve a
+   comparison or explain why it changed.
 5. Preserve `threshold` and `minClusterSize` unless repeated evidence
    justifies a change.
 

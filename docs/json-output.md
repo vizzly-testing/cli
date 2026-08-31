@@ -105,7 +105,7 @@ With `--wait`, includes comparison results:
       "changed": 1,
       "identical": 12
     },
-    "approvalStatus": "pending",
+    "visual_review": { "state": "pending" },
     "contextCommand": "vizzly context build abc123-def456 --agent --json --source cloud",
     "exitCode": 1
   }
@@ -289,13 +289,13 @@ Compact agent JSON:
   "build": {
     "id": "abc123",
     "status": "completed",
-    "approval_status": "pending"
+    "review_state": "pending"
   },
   "baseline": {
     "selected": {
       "id": "baseline-build",
       "name": "Approved Main",
-      "approval_status": "approved"
+      "review_state": "approved"
     },
     "selection_reason": "latest approved build"
   },
@@ -319,7 +319,7 @@ Compact agent JSON:
         "id": "cmp-1",
         "screenshot_name": "Dashboard",
         "result": "changed",
-        "approval_status": "pending",
+        "review_state": "pending",
         "needs_review": true,
         "screenshot": {
           "id": "current-1",
@@ -390,13 +390,13 @@ Full build context JSON:
   "build": {
     "id": "abc123",
     "status": "completed",
-    "approval_status": "pending"
+    "review_state": "pending"
   },
   "baseline": {
     "selected": {
       "id": "baseline-build",
       "name": "Approved Main",
-      "approval_status": "approved"
+      "review_state": "approved"
     },
     "selection_reason": "common_ancestor",
     "comparison_baseline_build_ids": ["baseline-build"]
@@ -469,7 +469,7 @@ Agent comparison JSON:
     "id": "cmp-1",
     "screenshot_name": "Dashboard",
     "result": "changed",
-    "approval_status": "pending",
+    "review_state": "pending",
     "screenshot": {
       "url": "https://.../current.png"
     },
@@ -523,16 +523,12 @@ Raw comparison JSON remains available without `--agent`:
     "result": "changed",
     "analysis": {
       "diff_image_url": ".vizzly/diffs/dashboard.png",
-      "diff_regions": [],
-      "confirmed_regions": []
+      "diff_regions": []
     }
   },
   "history": {
     "similar_by_fingerprint": [],
-    "recent_by_name": [],
-    "hotspot_analysis": {
-      "confidence": "no_data"
-    }
+    "recent_by_name": []
   }
 }
 ```
@@ -551,11 +547,6 @@ vizzly context screenshot Dashboard --source local --json
   "screenshot": {
     "name": "Dashboard"
   },
-  "confirmed_regions": [
-    {
-      "label": "Known header copy band"
-    }
-  ],
   "history": {
     "recent_comparisons": []
   }
@@ -643,7 +634,7 @@ vizzly builds --branch main --status completed --limit 10 --json
           "changed": 1,
           "identical": 12
         },
-        "approvalStatus": "approved",
+        "visual_review": { "state": "approved" },
         "createdAt": "2025-01-15T10:30:00Z",
         "completedAt": "2025-01-15T10:32:00Z"
       }
@@ -687,9 +678,7 @@ vizzly comparisons --build <id> --status changed --json
         "status": "completed",
         "result": "changed",
         "diffPercentage": 0.042,
-        "approvalStatus": "pending",
-        "reviewState": "pending",
-        "visualReview": { "state": "pending" },
+        "visual_review": { "state": "pending" },
         "viewport": { "width": 1920, "height": 1080 },
         "browser": "chromium",
         "urls": {
@@ -700,7 +689,7 @@ vizzly comparisons --build <id> --status changed --json
         "honeydiff": {
           "fingerprintHash": "00000000001ec127",
           "regionCount": 12,
-          "projection": {
+          "details": {
             "clusters": { "count": 12, "average_density": 0.81 }
           }
         }
@@ -717,9 +706,8 @@ vizzly comparisons --build <id> --status changed --json
 ```
 
 `status` preserves the processing value returned by the API. Use `result` for
-the visual outcome (`identical`, `changed`, or `new`) and `reviewState` for the
-current review decision. Older responses that only provide `status` and
-`approvalStatus` keep working with the same fields.
+the visual outcome (`identical`, `changed`, or `new`) and `visual_review.state`
+for the current review state.
 
 Search by name across builds:
 
@@ -913,7 +901,7 @@ vizzly upload ./screenshots --wait --json
       "failed": 2,
       "new": 1
     },
-    "approvalStatus": "pending",
+    "visual_review": { "state": "pending" },
     "executionTimeMs": 9876
   }
 }
@@ -955,9 +943,9 @@ vizzly approve <comparison-id> --json
 {
   "status": "data",
   "data": {
-    "approved": true,
-    "comparisonId": "comp_123",
-    "comparison": { /* updated comparison */ }
+    "eventId": "event_123",
+    "idempotent": false,
+    "review": { /* visual review */ }
   }
 }
 ```
@@ -972,10 +960,9 @@ vizzly reject <comparison-id> --reason "Unexpected regression" --json
 {
   "status": "data",
   "data": {
-    "rejected": true,
-    "comparisonId": "comp_123",
-    "reason": "Unexpected regression",
-    "comparison": { /* updated comparison */ }
+    "eventId": "event_124",
+    "idempotent": false,
+    "review": { /* visual review */ }
   }
 }
 ```
@@ -1040,15 +1027,7 @@ vizzly status <build-id> --json
     "newComparisons": 2,
     "changedComparisons": 1,
     "identicalComparisons": 12,
-    "reviewState": "pending",
-    "review": {
-      "pending": 3,
-      "approved": 12,
-      "rejected": 0,
-      "auto_approved": 0
-    },
-    "reviewFlow": "cricket",
-    "visualReview": { "state": "pending" },
+    "visual_review": { "state": "pending" },
     "executionTime": 4500,
     "scope": {
       "organization": { "id": "org-1", "slug": "acme" },
@@ -1080,9 +1059,7 @@ vizzly status <build-id> --json
 The status command reads the API status bundle directly. Processing counts,
 comparison counts, conclusion, and review state stay separate; a pending review
 is never treated as unfinished screenshot processing. Fields the API does not
-provide are omitted instead of becoming client-authored zeroes. Legacy review
-responses continue to expose `approvalStatus`, and legacy build links continue
-to use the project-ID route when slug scope is unavailable.
+provide are omitted instead of becoming client-authored zeroes.
 
 ### `vizzly init`
 

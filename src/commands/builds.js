@@ -132,14 +132,13 @@ export async function buildsCommand(
       let statusColor = getStatusColor(colors, build.status);
       let statusBadge = statusColor(build.status.toUpperCase());
 
-      // Approval badge
-      let approvalBadge = '';
-      if (build.approval_status && build.status === 'completed') {
-        approvalBadge = ` ${getApprovalBadge(colors, build.approval_status)}`;
+      let reviewBadge = '';
+      if (build.visual_review?.state && build.status === 'completed') {
+        reviewBadge = ` ${getReviewBadge(colors, build.visual_review.state)}`;
       }
 
       output.print(
-        `  ${colors.bold(build.name || build.id)} ${statusBadge}${approvalBadge}`
+        `  ${colors.bold(build.name || build.id)} ${statusBadge}${reviewBadge}`
       );
 
       let details = [];
@@ -207,7 +206,7 @@ function formatBuildForJson(build, includeComparisons = false) {
       changed: build.changed_comparisons || 0,
       identical: build.identical_comparisons || 0,
     },
-    approvalStatus: build.approval_status,
+    visual_review: build.visual_review || null,
     createdAt: build.created_at,
     completedAt: build.completed_at,
   };
@@ -233,7 +232,7 @@ function formatBuildForJson(build, includeComparisons = false) {
         name: c.name || c.current_name,
         status: c.status,
         diffPercentage: c.diff_percentage,
-        approvalStatus: c.approval_status,
+        visual_review: c.visual_review || null,
         urls: {
           baseline:
             c.baseline_screenshot?.original_url ||
@@ -301,8 +300,8 @@ function displayBuild(output, build, verbose) {
     output.labelValue('Comparisons', stats.join(colors.dim(' · ')));
   }
 
-  if (build.approval_status) {
-    output.labelValue('Approval', build.approval_status);
+  if (build.visual_review?.state) {
+    output.labelValue('Review', build.visual_review.state);
   }
 
   output.blank();
@@ -364,19 +363,18 @@ function getStatusColor(colors, status) {
 }
 
 /**
- * Get colored approval badge
+ * Get colored review badge
  */
-function getApprovalBadge(colors, approvalStatus) {
-  switch (approvalStatus) {
+function getReviewBadge(colors, reviewState) {
+  switch (reviewState) {
     case 'approved':
-    case 'auto_approved':
       return colors.brand.success('APPROVED');
     case 'rejected':
       return colors.brand.error('REJECTED');
     case 'pending':
       return colors.brand.warning('PENDING');
     default:
-      return colors.dim(approvalStatus?.toUpperCase() || '');
+      return colors.dim(reviewState?.toUpperCase() || '');
   }
 }
 

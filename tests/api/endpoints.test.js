@@ -13,7 +13,6 @@ import {
   createBuild,
   finalizeBuild,
   finalizeParallelBuild,
-  getBatchHotspots,
   getBuild,
   getBuildContext,
   getBuildStatus,
@@ -23,7 +22,6 @@ import {
   getPreviewInfo,
   getReviewQueueContext,
   getScreenshotContext,
-  getScreenshotHotspots,
   getSimilarFingerprintContext,
   getTddBaselines,
   getTokenContext,
@@ -105,7 +103,7 @@ describe('api/endpoints', () => {
   });
 
   describe('getBuildStatus', () => {
-    it('requests the canonical build status endpoint', async () => {
+    it('requests the build status endpoint', async () => {
       let client = createMockClient({ resource: 'build_status' });
 
       await getBuildStatus(client, 'build-123');
@@ -570,81 +568,6 @@ describe('api/endpoints', () => {
       let endpoint = client.getLastCall().endpoint;
       assert.ok(endpoint.includes('limit=50'));
       assert.ok(endpoint.includes('offset=0'));
-    });
-  });
-
-  describe('getScreenshotHotspots', () => {
-    it('fetches hotspots for screenshot', async () => {
-      let client = createMockClient({ hotspots: [] });
-
-      await getScreenshotHotspots(client, 'my-screenshot');
-
-      let endpoint = client.getLastCall().endpoint;
-      assert.ok(endpoint.includes('/api/sdk/screenshots/'));
-      assert.ok(endpoint.includes('/hotspots'));
-    });
-
-    it('includes window size option', async () => {
-      let client = createMockClient({});
-
-      await getScreenshotHotspots(client, 'my-screenshot', { windowSize: 30 });
-
-      let endpoint = client.getLastCall().endpoint;
-      assert.ok(endpoint.includes('windowSize=30'));
-    });
-
-    it('uses default window size', async () => {
-      let client = createMockClient({});
-
-      await getScreenshotHotspots(client, 'my-screenshot');
-
-      let endpoint = client.getLastCall().endpoint;
-      assert.ok(endpoint.includes('windowSize=20'));
-    });
-
-    it('encodes screenshot name', async () => {
-      let client = createMockClient({});
-
-      await getScreenshotHotspots(client, 'screenshot with spaces');
-
-      let endpoint = client.getLastCall().endpoint;
-      assert.ok(endpoint.includes('screenshot%20with%20spaces'));
-    });
-  });
-
-  describe('getBatchHotspots', () => {
-    it('fetches hotspots for multiple screenshots', async () => {
-      let client = createMockClient({});
-
-      await getBatchHotspots(client, ['screenshot1', 'screenshot2']);
-
-      let call = client.getLastCall();
-      assert.strictEqual(call.endpoint, '/api/sdk/screenshots/hotspots');
-      assert.strictEqual(call.options.method, 'POST');
-
-      let body = JSON.parse(call.options.body);
-      assert.deepStrictEqual(body.screenshot_names, [
-        'screenshot1',
-        'screenshot2',
-      ]);
-    });
-
-    it('includes window size', async () => {
-      let client = createMockClient({});
-
-      await getBatchHotspots(client, ['screenshot1'], { windowSize: 50 });
-
-      let body = JSON.parse(client.getLastCall().options.body);
-      assert.strictEqual(body.windowSize, 50);
-    });
-
-    it('uses default window size', async () => {
-      let client = createMockClient({});
-
-      await getBatchHotspots(client, ['screenshot1']);
-
-      let body = JSON.parse(client.getLastCall().options.body);
-      assert.strictEqual(body.windowSize, 20);
     });
   });
 

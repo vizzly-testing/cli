@@ -53,7 +53,7 @@ function mapComparisonResult(status) {
   return status || 'unknown';
 }
 
-function mapApprovalStatus(status) {
+function mapReviewState(status) {
   if (status === 'failed' || status === 'new') {
     return 'pending';
   }
@@ -110,67 +110,6 @@ function resolveAssetReference(assetPath, snapshot) {
   return assetPath;
 }
 
-function normalizeConfirmedRegions(regions = []) {
-  return regions.map((region, index) => ({
-    id: region.id || `local-region-${index}`,
-    x1: region.x1 ?? region.x ?? null,
-    y1: region.y1 ?? region.y ?? null,
-    x2:
-      region.x2 ??
-      (region.x != null && region.width != null
-        ? region.x + region.width
-        : null),
-    y2:
-      region.y2 ??
-      (region.y != null && region.height != null
-        ? region.y + region.height
-        : null),
-    label: region.label || null,
-  }));
-}
-
-function mergeConfirmedRegions(snapshot, comparisonName, details = {}) {
-  let workspaceRegions = snapshot.regions?.[comparisonName]?.confirmed || [];
-  let detailRegions = details.confirmedRegions || [];
-  let merged = [...workspaceRegions, ...detailRegions];
-  let seen = new Set();
-
-  return normalizeConfirmedRegions(merged).filter(region => {
-    let key = `${region.label || ''}:${region.x1}:${region.y1}:${region.x2}:${region.y2}`;
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
-function buildHotspotAnalysis(snapshot, comparisonName, details = {}) {
-  let hotspotMetadata = snapshot.hotspots?.[comparisonName] || null;
-  let hotspotAnalysis = details.hotspotAnalysis || null;
-
-  if (!hotspotMetadata && !hotspotAnalysis) {
-    return {
-      regions: [],
-      total_builds_analyzed: 0,
-      confidence: 'no_data',
-      confidence_score: null,
-      data_source: 'local_workspace',
-    };
-  }
-
-  return {
-    regions: hotspotMetadata?.regions || [],
-    total_builds_analyzed: 1,
-    confidence:
-      hotspotAnalysis?.confidence || hotspotMetadata?.confidence || 'workspace',
-    confidence_score: hotspotAnalysis?.confidenceScore || null,
-    data_source: 'local_workspace',
-  };
-}
-
 function buildComparisonLinks(snapshot, comparisonId) {
   if (!snapshot.serverInfo?.port) {
     return {};
@@ -201,7 +140,7 @@ function buildBuildSnapshot(snapshot) {
     branch: 'local',
     commit_sha: null,
     commit_message: null,
-    approval_status: snapshot.serverInfo ? 'pending' : 'approved',
+    review_state: snapshot.serverInfo ? 'pending' : 'approved',
     status: snapshot.serverInfo ? 'running' : 'completed',
     created_at: null,
   };
@@ -225,7 +164,7 @@ function buildBaselineSnapshot(snapshot) {
       branch: metadata.branch || 'local',
       commit_sha: metadata.buildInfo?.commitSha || null,
       commit_message: metadata.buildInfo?.commitMessage || null,
-      approval_status: metadata.buildInfo?.approvalStatus || 'approved',
+      review_state: metadata.buildInfo?.visual_review?.state || 'approved',
       status: metadata.buildInfo?.completedAt ? 'completed' : 'local',
       created_at: metadata.createdAt || null,
       completed_at: metadata.buildInfo?.completedAt || null,
@@ -238,7 +177,7 @@ function buildBaselineSnapshot(snapshot) {
 function buildReviewState(build, reviewSummary) {
   let reasons = [];
 
-  if (build.approval_status === 'pending') {
+  if (build.review_state === 'pending') {
     reasons.push('build_pending_approval');
   }
 
@@ -257,16 +196,10 @@ function buildReviewState(build, reviewSummary) {
 function mapLocalComparison(snapshot, comparison) {
   let details = snapshot.comparisonDetails[comparison.id] || {};
   let comparisonName = comparison.originalName || comparison.name;
-  let confirmedRegions = mergeConfirmedRegions(
-    snapshot,
-    comparisonName,
-    details
-  );
-  let hotspotAnalysis = buildHotspotAnalysis(snapshot, comparisonName, details);
   let properties = comparison.properties || {};
   let buildSnapshot = buildBuildSnapshot(snapshot);
   let result = mapComparisonResult(comparison.status);
-  let approvalStatus = mapApprovalStatus(comparison.status);
+  let reviewState = mapReviewState(comparison.status);
   let baselineBuildId = snapshot.baselineMetadata?.buildId || null;
   let diffImageUrl = resolveAssetReference(comparison.diff, snapshot);
   let diffRegions = details.diffClusters || [];
@@ -277,9 +210,9 @@ function mapLocalComparison(snapshot, comparison) {
     screenshot_name: comparisonName,
     status: comparison.status,
     result,
-    approval_status: approvalStatus,
+    review_state: reviewState,
     needs_review:
-      approvalStatus === 'pending' && ['changed', 'new'].includes(result),
+      reviewState === 'pending' && ['changed', 'new'].includes(result),
     build_id: buildSnapshot.id,
     build_name: buildSnapshot.name,
     build_branch: buildSnapshot.branch,
@@ -337,14 +270,11 @@ function mapLocalComparison(snapshot, comparison) {
       diff_lines: null,
       fingerprint_hash: null,
       fingerprint_data: null,
-      hotspot_analysis: hotspotAnalysis,
-      region_analysis: details.regionAnalysis || null,
-      confirmed_regions: confirmedRegions,
     },
   };
 }
 
-function projectLocalScreenshot(screenshot, baseline) {
+function formatLocalScreenshot(screenshot, baseline) {
   if (!screenshot) return null;
 
   return {
@@ -372,8 +302,8 @@ function projectLocalScreenshot(screenshot, baseline) {
   };
 }
 
-function projectLocalDiff(diff, includeDiffs) {
-  let projected = {
+function formatLocalDiff(diff, includeDiffs) {
+  let formatted = {
     percentage: diff?.percentage ?? null,
     changed_pixels: diff?.changed_pixels ?? null,
     total_pixels: diff?.total_pixels ?? null,
@@ -384,38 +314,38 @@ function projectLocalDiff(diff, includeDiffs) {
   };
 
   if (includeDiffs) {
-    projected.regions = diff?.regions || [];
-    projected.cluster_metadata = diff?.cluster_metadata ?? null;
-    projected.fingerprint_data = diff?.fingerprint_data ?? null;
-    projected.diff_lines = diff?.diff_lines ?? [];
+    formatted.regions = diff?.regions || [];
+    formatted.cluster_metadata = diff?.cluster_metadata ?? null;
+    formatted.fingerprint_data = diff?.fingerprint_data ?? null;
+    formatted.diff_lines = diff?.diff_lines ?? [];
   }
 
-  return projected;
+  return formatted;
 }
 
-function projectLocalEvidence(comparison, includeDiffs) {
+function formatLocalEvidence(comparison, includeDiffs) {
   return {
     type: 'comparison',
     id: comparison.id,
     screenshot_name: comparison.screenshot_name,
     status: comparison.status,
     result: comparison.result,
-    approval_status: comparison.approval_status,
+    review_state: comparison.review_state,
     needs_review: comparison.needs_review,
     build_id: comparison.build_id,
     build_name: comparison.build_name,
     build_branch: comparison.build_branch,
     build_commit_sha: comparison.build_commit_sha,
     build_created_at: comparison.build_created_at,
-    screenshot: projectLocalScreenshot(
+    screenshot: formatLocalScreenshot(
       comparison.screenshot,
       comparison.baseline
     ),
-    diff: projectLocalDiff(comparison.diff, includeDiffs),
+    diff: formatLocalDiff(comparison.diff, includeDiffs),
   };
 }
 
-function projectLocalFocusedComparison(comparison, includeDiffs) {
+function formatLocalFocusedComparison(comparison, includeDiffs) {
   if (includeDiffs) return comparison;
 
   let analysis = comparison.analysis || {};
@@ -429,12 +359,12 @@ function projectLocalFocusedComparison(comparison, includeDiffs) {
 
   return {
     ...comparison,
-    diff: projectLocalDiff(comparison.diff, false),
+    diff: formatLocalDiff(comparison.diff, false),
     analysis: summaryAnalysis,
   };
 }
 
-function projectLocalHistoryItem(comparison) {
+function formatLocalHistoryItem(comparison) {
   return {
     id: comparison.id,
     screenshot_name: comparison.screenshot_name,
@@ -445,7 +375,7 @@ function projectLocalHistoryItem(comparison) {
     build_name: comparison.build_name,
     build_branch: comparison.build_branch,
     build_created_at: comparison.build_created_at,
-    screenshot: projectLocalScreenshot(
+    screenshot: formatLocalScreenshot(
       comparison.screenshot,
       comparison.baseline
     ),
@@ -467,41 +397,12 @@ function compactLocalCollection(items) {
   };
 }
 
-function createLocalDynamicRegions(comparison = null) {
-  let confirmedRegions = comparison?.analysis?.confirmed_regions;
-  let hotspotAnalysis = comparison?.analysis?.hotspot_analysis;
-
-  return {
-    decision: null,
-    patterns: compactLocalCollection([]),
-    confirmed_regions: compactLocalCollection(confirmedRegions),
-    exclusions: {
-      total: null,
-      included: false,
-      details_available: false,
-    },
-    hotspot_analysis: hotspotAnalysis
-      ? {
-          total_builds_analyzed: hotspotAnalysis.total_builds_analyzed ?? null,
-          confidence: hotspotAnalysis.confidence ?? null,
-          confidence_score: hotspotAnalysis.confidence_score ?? null,
-          data_source: hotspotAnalysis.data_source ?? null,
-          coverage: hotspotAnalysis.coverage ?? null,
-          confirmed_region_coverage:
-            hotspotAnalysis.confirmed_region_coverage ?? null,
-        }
-      : null,
-  };
-}
-
 function createLocalSnapshotRevision(snapshot) {
   let revisionInput = {
     serverInfo: snapshot.serverInfo,
     reportData: snapshot.reportData,
     comparisonDetails: snapshot.comparisonDetails,
     baselineMetadata: snapshot.baselineMetadata,
-    hotspotFile: snapshot.hotspotFile,
-    regionFile: snapshot.regionFile,
   };
 
   return createHash('sha256')
@@ -511,13 +412,13 @@ function createLocalSnapshotRevision(snapshot) {
 
 function buildReviewSummary(comparisons = []) {
   let approved = comparisons.filter(
-    comparison => mapApprovalStatus(comparison.status) === 'approved'
+    comparison => mapReviewState(comparison.status) === 'approved'
   ).length;
   let rejected = comparisons.filter(
-    comparison => mapApprovalStatus(comparison.status) === 'rejected'
+    comparison => mapReviewState(comparison.status) === 'rejected'
   ).length;
   let pending = comparisons.filter(
-    comparison => mapApprovalStatus(comparison.status) === 'pending'
+    comparison => mapReviewState(comparison.status) === 'pending'
   ).length;
 
   return {
@@ -567,12 +468,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       comparisonDetails:
         readJson(join(vizzlyDir, 'comparison-details.json')) || {},
       baselineMetadata: readJson(join(vizzlyDir, 'baselines', 'metadata.json')),
-      hotspotFile: readJson(join(vizzlyDir, 'hotspots.json')),
-      regionFile: readJson(join(vizzlyDir, 'regions.json')),
     };
-
-    snapshotCache.hotspots = snapshotCache.hotspotFile?.hotspots || null;
-    snapshotCache.regions = snapshotCache.regionFile?.regions || null;
     return snapshotCache;
   }
 
@@ -621,9 +517,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       return Boolean(
         snapshot.reportData.comparisons.some(
           comparison => (comparison.originalName || comparison.name) === target
-        ) ||
-          snapshot.regions?.[target] ||
-          snapshot.hotspots?.[target]
+        )
       );
     }
 
@@ -760,7 +654,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       mapLocalComparison(snapshot, comparison)
     );
     let mappedScreenshots = mappedComparisons.map(comparison =>
-      projectLocalScreenshot(comparison.screenshot, comparison.baseline)
+      formatLocalScreenshot(comparison.screenshot, comparison.baseline)
     );
     let reviewSummary = buildReviewSummary(snapshot.reportData.comparisons);
     let reviewState = buildReviewState(resolvedBuild, reviewSummary);
@@ -816,7 +710,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
     );
     let includeDiffs = query.details === 'diffs';
     let evidence = mappedComparisons.map(comparison =>
-      projectLocalEvidence(comparison, includeDiffs)
+      formatLocalEvidence(comparison, includeDiffs)
     );
 
     return {
@@ -829,14 +723,6 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       summary: context.summary,
       preview: null,
       signature_properties: [],
-      dynamic_regions: {
-        exclusions: {
-          total: null,
-          included: false,
-          details_available: false,
-        },
-        item_details_included: false,
-      },
       evidence: createLocalPage(evidence, {
         limit,
         offset: cursor?.offset || 0,
@@ -883,16 +769,6 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       history: {
         similar_by_fingerprint: [],
         recent_by_name: history,
-        hotspot_analysis: buildHotspotAnalysis(
-          snapshot,
-          comparisonName,
-          snapshot.comparisonDetails[comparison.id] || {}
-        ),
-        confirmed_regions: mergeConfirmedRegions(
-          snapshot,
-          comparisonName,
-          snapshot.comparisonDetails[comparison.id] || {}
-        ),
       },
       review: {
         review_summary: {
@@ -936,11 +812,10 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       scope: context.scope,
       build: context.build,
       signature_properties: [],
-      comparison: projectLocalFocusedComparison(
+      comparison: formatLocalFocusedComparison(
         context.comparison,
         query.details === 'diffs'
       ),
-      dynamic_regions: createLocalDynamicRegions(context.comparison),
       history: {
         active_stream: activeStream || null,
         similar_by_fingerprint: createLocalPage([], {
@@ -952,7 +827,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
           stream: 'similar_by_fingerprint',
           revision,
         }),
-        recent_by_name: createLocalPage(history.map(projectLocalHistoryItem), {
+        recent_by_name: createLocalPage(history.map(formatLocalHistoryItem), {
           limit,
           offset: recentOffset,
           resource: 'comparison_context',
@@ -984,11 +859,7 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       )
       .map(comparison => mapLocalComparison(snapshot, comparison));
 
-    if (
-      matches.length === 0 &&
-      !snapshot.regions?.[screenshotName] &&
-      !snapshot.hotspots?.[screenshotName]
-    ) {
+    if (matches.length === 0) {
       throw createLocalWorkspaceError(
         `No local screenshot context found for "${screenshotName}"`
       );
@@ -1001,8 +872,6 @@ export function createLocalWorkspaceContextProvider(options = {}, deps = {}) {
       screenshot: {
         name: screenshotName,
       },
-      hotspot_analysis: buildHotspotAnalysis(snapshot, screenshotName),
-      confirmed_regions: mergeConfirmedRegions(snapshot, screenshotName),
       history: {
         recent_comparisons: matches,
       },

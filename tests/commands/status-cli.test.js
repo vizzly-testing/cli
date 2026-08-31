@@ -50,8 +50,6 @@ async function withApiServer(callback) {
           },
           comparisons: { total: 1, new: 1, changed: 0, identical: 0 },
           review: { pending: 1, approved: 0, rejected: 0 },
-          reviewFlow: 'cricket',
-          visualReview: { build: { state: 'pending' } },
           scope: {
             organization: { id: 'org-1', slug: 'acme' },
             project: { id: 'project-1', slug: 'web' },
@@ -123,8 +121,15 @@ describe('commands/status CLI', () => {
         active: 0,
         pending: 0,
       });
-      assert.strictEqual(payload.data.reviewState, 'pending');
-      assert.ok(!Object.hasOwn(payload.data, 'approvalStatus'));
+      assert.strictEqual(payload.data.screenshotsTotal, 1);
+      assert.deepStrictEqual(payload.data.comparisons, {
+        total: 1,
+        new: 1,
+        changed: 0,
+        identical: 0,
+      });
+      assert.strictEqual(payload.data.comparisonsTotal, 1);
+      assert.deepStrictEqual(payload.data.visual_review, { state: 'pending' });
       assert.strictEqual(
         payload.data.links.web,
         'https://app.test/acme/web/builds/build-123'

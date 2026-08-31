@@ -16,7 +16,6 @@ import {
   getComparisonName,
   getComparisonResult,
   getComparisonViewport,
-  getVisualReviewState,
 } from '../utils/visual-context-normalizers.js';
 
 /**
@@ -215,17 +214,13 @@ function formatComparisonForJson(comparison) {
   let gmsdScore = comparison.gmsd_score ?? diffImage.gmsd_score ?? null;
   let fingerprintHash =
     comparison.fingerprint_hash || diffImage.fingerprint_hash || null;
-  let projection =
-    comparison.analysis_projection ||
-    comparison.projection ||
-    diffImage.analysis_projection ||
-    diffImage.projection ||
-    null;
+  let analysisDetails =
+    comparison.analysis_details || diffImage.analysis_details || null;
   let diffRegions = comparison.diff_regions ?? diffImage.diff_regions ?? null;
   let regionCount =
     comparison.region_count ??
     diffImage.region_count ??
-    projection?.clusters?.count ??
+    analysisDetails?.clusters?.count ??
     (Array.isArray(diffRegions) ? diffRegions.length : null);
 
   let hasHoneydiff =
@@ -233,7 +228,7 @@ function formatComparisonForJson(comparison) {
     ssimScore != null ||
     gmsdScore != null ||
     fingerprintHash ||
-    projection ||
+    analysisDetails ||
     regionCount != null;
 
   return {
@@ -242,9 +237,7 @@ function formatComparisonForJson(comparison) {
     status: comparison.status,
     result: getComparisonResult(comparison),
     diffPercentage: comparison.diff_percentage ?? null,
-    approvalStatus: comparison.approval_status,
-    reviewState: getVisualReviewState(comparison),
-    visualReview: comparison.visual_review || null,
+    visual_review: comparison.visual_review || null,
     viewport: getComparisonViewport(comparison),
     browser: getComparisonBrowser(comparison),
     urls: {
@@ -272,7 +265,7 @@ function formatComparisonForJson(comparison) {
           clusterMetadata,
           fingerprintHash,
           regionCount,
-          projection,
+          details: analysisDetails,
           diffRegions,
           diffLines: comparison.diff_lines ?? diffImage.diff_lines ?? null,
           fingerprintData:
@@ -300,7 +293,7 @@ function displayComparison(output, comparison, verbose) {
       comparison.diff_percentage != null
         ? `${(comparison.diff_percentage * 100).toFixed(2)}%`
         : 'N/A',
-    Review: formatted.reviewState || 'unknown',
+    Review: formatted.visual_review?.state || 'unknown',
   });
 
   output.blank();

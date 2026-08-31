@@ -314,34 +314,15 @@ export function buildUploadResult({ buildId, url, total, uploaded, skipped }) {
  * @returns {Object} Wait result
  */
 export function buildWaitResult(build) {
-  let totalComparisons = build.comparisonsTotal ?? build.total_comparisons;
-  let passedComparisons =
-    build.comparisonsPassed ??
-    build.passed_comparisons ??
-    build.identicalComparisons ??
-    build.identical_comparisons;
-  let failedComparisons =
-    build.comparisonsFailed ??
-    build.failed_comparisons ??
-    build.changedComparisons ??
-    build.changed_comparisons;
-  let newComparisons =
-    build.comparisonsNew ?? build.newComparisons ?? build.new_comparisons;
-  let identicalComparisons =
-    build.identicalComparisons ??
-    build.identical_comparisons ??
-    passedComparisons;
-  let approvalStatus = build.approvalStatus ?? build.approval_status;
+  let totalComparisons = build.total_comparisons;
+  let passedComparisons = build.identical_comparisons;
+  let failedComparisons = build.changed_comparisons;
+  let newComparisons = build.new_comparisons;
+  let identicalComparisons = build.identical_comparisons;
   let hasComparisonCounts =
-    build.comparisonsTotal !== undefined ||
     build.total_comparisons !== undefined ||
-    build.comparisonsPassed !== undefined ||
-    build.passed_comparisons !== undefined ||
-    build.comparisonsFailed !== undefined ||
-    build.failed_comparisons !== undefined ||
-    build.comparisonsNew !== undefined ||
     build.new_comparisons !== undefined ||
-    build.identicalComparisons !== undefined ||
+    build.changed_comparisons !== undefined ||
     build.identical_comparisons !== undefined;
 
   let result = {
@@ -351,7 +332,7 @@ export function buildWaitResult(build) {
     failedComparisons,
     newComparisons,
     identicalComparisons,
-    approvalStatus,
+    visual_review: build.visual_review || null,
     totalComparisons,
   };
 

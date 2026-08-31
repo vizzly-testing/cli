@@ -44,7 +44,7 @@ export async function getBuild(client, buildId, include = null) {
  *
  * @param {Object} client - API client
  * @param {string} buildId - Build ID
- * @returns {Promise<Object>} Canonical build status bundle
+ * @returns {Promise<Object>} Build status response
  */
 export async function getBuildStatus(client, buildId) {
   return client.request(`/api/sdk/builds/${buildId}/status`);
@@ -373,52 +373,6 @@ export async function searchComparisons(client, name, filters = {}) {
 
   let endpoint = buildEndpointWithParams('/api/sdk/comparisons/search', params);
   return client.request(endpoint);
-}
-
-// ============================================================================
-// Hotspot Endpoints
-// ============================================================================
-
-/**
- * Get hotspot analysis for a single screenshot
- * @param {Object} client - API client
- * @param {string} screenshotName - Screenshot name
- * @param {Object} options - Optional settings
- * @returns {Promise<Object>} Hotspot analysis data
- */
-export async function getScreenshotHotspots(
-  client,
-  screenshotName,
-  options = {}
-) {
-  let { windowSize = 20 } = options;
-  let encodedName = encodeURIComponent(screenshotName);
-  let endpoint = buildEndpointWithParams(
-    `/api/sdk/screenshots/${encodedName}/hotspots`,
-    {
-      windowSize: String(windowSize),
-    }
-  );
-  return client.request(endpoint);
-}
-
-/**
- * Batch get hotspot analysis for multiple screenshots
- * @param {Object} client - API client
- * @param {string[]} screenshotNames - Array of screenshot names
- * @param {Object} options - Optional settings
- * @returns {Promise<Object>} Hotspots keyed by screenshot name
- */
-export async function getBatchHotspots(client, screenshotNames, options = {}) {
-  let { windowSize = 20 } = options;
-  return client.request('/api/sdk/screenshots/hotspots', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      screenshot_names: screenshotNames,
-      windowSize,
-    }),
-  });
 }
 
 // ============================================================================

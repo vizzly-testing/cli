@@ -140,7 +140,6 @@ describe('server/routers/dashboard', () => {
           JSON.stringify({
             'comp-1': {
               diffClusters: [{ x: 10, y: 20, width: 100, height: 50 }],
-              confirmedRegions: [{ id: 'r1', label: 'header' }],
               intensityStats: { mean: 0.3 },
             },
           })
@@ -159,7 +158,6 @@ describe('server/routers/dashboard', () => {
         assert.strictEqual(body.diffPercentage, 0.5);
         // Heavy fields merged in
         assert.strictEqual(body.diffClusters.length, 1);
-        assert.strictEqual(body.confirmedRegions.length, 1);
         assert.deepStrictEqual(body.intensityStats, { mean: 0.3 });
       });
 

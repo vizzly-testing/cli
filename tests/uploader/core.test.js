@@ -393,9 +393,11 @@ describe('uploader/core', () => {
       let build = {
         id: 'build-123',
         status: 'completed',
-        comparisonsTotal: 10,
-        comparisonsPassed: 8,
-        comparisonsFailed: 2,
+        total_comparisons: 10,
+        changed_comparisons: 2,
+        new_comparisons: 1,
+        identical_comparisons: 7,
+        visual_review: { state: 'pending' },
         url: 'https://example.com/builds/123',
       };
 
@@ -404,13 +406,13 @@ describe('uploader/core', () => {
       assert.deepStrictEqual(result, {
         status: 'completed',
         build,
-        comparisons: 10,
-        totalComparisons: 10,
-        passedComparisons: 8,
+        passedComparisons: 7,
         failedComparisons: 2,
-        newComparisons: undefined,
-        identicalComparisons: 8,
-        approvalStatus: undefined,
+        newComparisons: 1,
+        identicalComparisons: 7,
+        visual_review: { state: 'pending' },
+        totalComparisons: 10,
+        comparisons: 10,
         url: 'https://example.com/builds/123',
       });
     });
@@ -423,20 +425,19 @@ describe('uploader/core', () => {
       assert.strictEqual(result.failedComparisons, undefined);
       assert.strictEqual(result.totalComparisons, undefined);
       assert.strictEqual(result.newComparisons, undefined);
-      assert.strictEqual(result.approvalStatus, undefined);
+      assert.strictEqual(result.visual_review, null);
       assert.strictEqual(result.comparisons, undefined);
     });
 
-    it('supports snake_case comparison fields from the API', () => {
+    it('preserves review state from the API', () => {
       let build = {
         id: 'build-123',
         status: 'completed',
         total_comparisons: 4,
-        passed_comparisons: 1,
         changed_comparisons: 2,
         new_comparisons: 1,
         identical_comparisons: 1,
-        approval_status: 'approved',
+        visual_review: { state: 'approved' },
         url: 'https://example.com/builds/123',
       };
 
@@ -448,7 +449,7 @@ describe('uploader/core', () => {
       assert.strictEqual(result.failedComparisons, 2);
       assert.strictEqual(result.newComparisons, 1);
       assert.strictEqual(result.identicalComparisons, 1);
-      assert.strictEqual(result.approvalStatus, 'approved');
+      assert.deepStrictEqual(result.visual_review, { state: 'approved' });
       assert.strictEqual(result.url, 'https://example.com/builds/123');
     });
 

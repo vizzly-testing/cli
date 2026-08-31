@@ -2,6 +2,8 @@
  * Review commands - approve, reject, and comment on comparisons/builds
  */
 
+import { randomUUID as defaultRandomUUID } from 'node:crypto';
+
 import { createApiClient as defaultCreateApiClient } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import { getAccessToken as defaultGetAccessToken } from '../utils/global-config.js';
@@ -12,6 +14,7 @@ function createReviewDeps(deps = {}) {
     loadConfig: deps.loadConfig || defaultLoadConfig,
     createApiClient: deps.createApiClient || defaultCreateApiClient,
     getAccessToken: deps.getAccessToken || defaultGetAccessToken,
+    randomUUID: deps.randomUUID || defaultRandomUUID,
     output: deps.output || defaultOutput,
     exit: deps.exit || (code => process.exit(code)),
   };
@@ -143,11 +146,11 @@ async function runReviewMutation({
 }
 
 export function createApprovalBody(options = {}) {
-  return options.comment ? { comment: options.comment } : {};
+  return options.comment ? { annotation: options.comment.trim() } : {};
 }
 
 export function createRejectionBody(options = {}) {
-  return { reason: options.reason };
+  return { annotation: options.reason.trim() };
 }
 
 export function createCommentBody(message, options = {}) {
@@ -155,6 +158,129 @@ export function createCommentBody(message, options = {}) {
     content: message,
     type: options.type || 'general',
   };
+}
+
+function requireReviewLocator(response) {
+  let locator = response?.review_locator;
+  if (
+    !locator?.comparison_id ||
+    !locator?.build_id ||
+    !locator?.organization_slug
+  ) {
+    let error = new Error(
+      'Comparison response did not include review location details'
+    );
+    error.code = 'INVALID_REVIEW_CONTEXT';
+    throw error;
+  }
+  return locator;
+}
+
+async function runComparisonDecision({
+  command,
+  comparisonId,
+  decision,
+  annotation,
+  failureMessage,
+  globalOptions,
+  options,
+  spinnerMessage,
+  writeHumanSuccess,
+  deps,
+  configure = true,
+}) {
+  let {
+    loadConfig,
+    createApiClient,
+    getAccessToken,
+    randomUUID,
+    output,
+    exit,
+  } = createReviewDeps(deps);
+
+  if (configure) {
+    configureOutput(output, globalOptions);
+  }
+
+  try {
+    let config = await loadReviewConfig({ loadConfig, options, globalOptions });
+    let token = await getReviewToken(config, getAccessToken);
+    if (!token) {
+      output.error('User login required for review actions');
+      output.hint('Run "vizzly login" to approve, reject, or comment');
+      output.cleanup();
+      exit(1);
+      return;
+    }
+
+    output.startSpinner(spinnerMessage);
+    let client = createReviewClient({
+      createApiClient,
+      config,
+      command,
+      token,
+    });
+    let comparisonResponse = await client.request(
+      `/api/sdk/comparisons/${comparisonId}`
+    );
+    let locator = requireReviewLocator(comparisonResponse);
+    if (locator.comparison_id !== comparisonId) {
+      let error = new Error(
+        'Comparison response did not match the requested comparison'
+      );
+      error.code = 'INVALID_REVIEW_CONTEXT';
+      throw error;
+    }
+
+    let organizationHeaders = {
+      'X-Organization': locator.organization_slug,
+    };
+    let commandId = randomUUID();
+    let response = await client.request(
+      `/api/visual-review/builds/${locator.build_id}/comparisons/${comparisonId}/decision`,
+      {
+        method: 'POST',
+        headers: {
+          ...organizationHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          commandId,
+          decision,
+          ...(annotation ? { annotation } : {}),
+        }),
+      }
+    );
+
+    output.stopSpinner();
+    if (globalOptions.json) {
+      output.data({
+        eventId: response.eventId,
+        idempotent: response.idempotent,
+        review: response.review,
+      });
+      output.cleanup();
+      return;
+    }
+
+    writeHumanSuccess(output);
+    output.cleanup();
+  } catch (error) {
+    output.stopSpinner();
+    if (globalOptions.json) {
+      output.data({
+        comparisonId,
+        error: { message: error.message, code: error.code },
+      });
+      output.cleanup();
+      exit(1);
+      return;
+    }
+
+    output.error(failureMessage, error);
+    output.cleanup();
+    exit(1);
+  }
 }
 
 /**
@@ -170,26 +296,15 @@ export async function approveCommand(
   globalOptions = {},
   deps = {}
 ) {
-  return await runReviewMutation({
+  return await runComparisonDecision({
     command: 'approve',
-    endpoint: `/api/sdk/comparisons/${comparisonId}/approve`,
+    comparisonId,
+    decision: 'approved',
+    annotation: createApprovalBody(options).annotation,
     failureMessage: 'Failed to approve comparison',
     globalOptions,
     options,
-    requestBody: createApprovalBody(options),
     spinnerMessage: 'Approving comparison...',
-    writeJsonError: (output, error) =>
-      output.data({
-        approved: false,
-        comparisonId,
-        error: { message: error.message, code: error.code },
-      }),
-    writeJsonSuccess: (output, response) =>
-      output.data({
-        approved: true,
-        comparisonId,
-        comparison: response.comparison,
-      }),
     writeHumanSuccess: output => {
       output.complete(`Comparison ${comparisonId} approved`);
       if (options.comment) {
@@ -224,27 +339,15 @@ export async function rejectCommand(
     return;
   }
 
-  return await runReviewMutation({
+  return await runComparisonDecision({
     command: 'reject',
-    endpoint: `/api/sdk/comparisons/${comparisonId}/reject`,
+    comparisonId,
+    decision: 'rejected',
+    annotation: createRejectionBody(options).annotation,
     failureMessage: 'Failed to reject comparison',
     globalOptions,
     options,
-    requestBody: createRejectionBody(options),
     spinnerMessage: 'Rejecting comparison...',
-    writeJsonError: (output, error) =>
-      output.data({
-        rejected: false,
-        comparisonId,
-        error: { message: error.message, code: error.code },
-      }),
-    writeJsonSuccess: (output, response) =>
-      output.data({
-        rejected: true,
-        comparisonId,
-        reason: options.reason,
-        comparison: response.comparison,
-      }),
     writeHumanSuccess: output => {
       output.complete(`Comparison ${comparisonId} rejected`);
       output.hint(`Reason: "${options.reason}"`);

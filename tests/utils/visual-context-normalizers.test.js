@@ -7,27 +7,43 @@ import {
 } from '../../src/utils/visual-context-normalizers.js';
 
 describe('visual context normalizers', () => {
-  it('groups complete legacy comparisons without losing visual evidence', () => {
+  it('groups complete comparisons without losing visual evidence', () => {
     let context = normalizeBuildContext({
+      groups: [
+        {
+          name: 'Checkout',
+          total_variants: 2,
+          comparisons: [
+            { id: 'comparison-mobile' },
+            { id: 'comparison-desktop' },
+          ],
+        },
+      ],
       comparisons: [
         {
           id: 'comparison-mobile',
-          screenshot_name: 'Checkout',
           result: 'changed',
-          approval_status: 'pending',
-          current_screenshot_id: 'current-mobile',
-          current_browser: 'chromium',
-          current_viewport_width: 375,
-          current_viewport_height: 667,
-          current_width: 398,
-          current_height: 2942,
-          current_metadata: { properties: { scenario: 'long-cart' } },
-          current_signature: 'Checkout|375|chromium|long-cart',
-          current_original_url: 'https://cdn.test/current.png',
-          baseline_screenshot_id: 'baseline-mobile',
-          baseline_build_id: 'baseline-build',
-          baseline_original_url: 'https://cdn.test/baseline.png',
-          analysis: {
+          visual_review: { state: 'pending' },
+          screenshot: {
+            id: 'current-mobile',
+            name: 'Checkout',
+            browser: 'chromium',
+            viewport: { width: 375, height: 667 },
+            bitmap: { width: 398, height: 2942 },
+            metadata: { properties: { scenario: 'long-cart' } },
+            signature: 'Checkout|375|chromium|long-cart',
+            url: 'https://cdn.test/current.png',
+            baseline: {
+              id: 'baseline-mobile',
+              build_id: 'baseline-build',
+              url: 'https://cdn.test/baseline.png',
+            },
+          },
+          diff: {
+            image_url: 'https://cdn.test/diff.png',
+            percentage: 2.5,
+            fingerprint_hash: 'fp-checkout',
+            details: { clusters: { count: 2 } },
             artifacts: {
               diff_mask: {
                 available: true,
@@ -39,16 +55,17 @@ describe('visual context normalizers', () => {
               },
             },
           },
-          diff_image_url: 'https://cdn.test/diff.png',
-          diff_percentage: 2.5,
-          fingerprint_hash: 'fp-checkout',
-          analysis_projection: { clusters: { count: 2 } },
         },
         {
           id: 'comparison-desktop',
-          screenshot_name: 'Checkout',
           result: 'identical',
           visual_review: { state: 'approved' },
+          screenshot: {
+            id: 'current-desktop',
+            name: 'Checkout',
+            baseline: {},
+          },
+          diff: {},
         },
       ],
     });
@@ -89,7 +106,7 @@ describe('visual context normalizers', () => {
     assert.strictEqual(comparison.diff.image_url, 'https://cdn.test/diff.png');
     assert.strictEqual(comparison.diff.fingerprint_hash, 'fp-checkout');
     assert.strictEqual(comparison.diff.region_count, 2);
-    assert.deepStrictEqual(comparison.diff.projection, {
+    assert.deepStrictEqual(comparison.diff.details, {
       clusters: { count: 2 },
     });
     assert.deepStrictEqual(comparison.diff.artifacts, {
@@ -104,10 +121,10 @@ describe('visual context normalizers', () => {
     });
   });
 
-  it('keeps explicit grouped aggregate false and zero values authoritative', () => {
+  it('keeps explicit grouped false and zero values unchanged', () => {
     let group = normalizeComparisonGroup({
       name: 'Checkout',
-      variant_count: 8,
+      total_variants: 8,
       aggregate_status: {
         has_changes: false,
         has_new: false,
@@ -116,14 +133,15 @@ describe('visual context normalizers', () => {
         needs_review_count: 0,
         failed_count: 0,
         has_rejected: false,
-        has_flaky: false,
         max_diff_percentage: 0,
       },
-      variants: [
+      comparisons: [
         {
           id: 'partial-variant',
           result: 'changed',
           visual_review: { state: 'pending' },
+          screenshot: { name: 'Checkout', baseline: {} },
+          diff: {},
         },
       ],
     });
@@ -137,18 +155,19 @@ describe('visual context normalizers', () => {
       needs_review_count: 0,
       failed_count: 0,
       has_rejected: false,
-      has_flaky: false,
       max_diff_percentage: 0,
     });
 
     let partialWithoutAggregates = normalizeComparisonGroup({
       name: 'Partial checkout',
-      variant_count: 8,
-      variants: [
+      total_variants: 8,
+      comparisons: [
         {
           id: 'partial-variant',
           result: 'changed',
           visual_review: { state: 'pending' },
+          screenshot: { name: 'Partial checkout', baseline: {} },
+          diff: {},
         },
       ],
     });
@@ -176,10 +195,6 @@ describe('visual context normalizers', () => {
           comparisons: [
             {
               id: 'comparison-1',
-              result: 'changed',
-              status: 'completed',
-              approval_status: 'pending',
-              diff_percentage: 0.52,
             },
           ],
         },
@@ -187,11 +202,10 @@ describe('visual context normalizers', () => {
       comparisons: [
         {
           id: 'comparison-1',
-          screenshot_name: 'public-build-detail-approved',
           result: 'changed',
-          approval_status: 'pending',
+          status: 'completed',
+          visual_review: { state: 'pending' },
           needs_review: true,
-          is_flaky: false,
           screenshot: {
             id: 'screenshot-1',
             name: 'public-build-detail-approved',
@@ -219,7 +233,6 @@ describe('visual context normalizers', () => {
     assert.strictEqual(comparison.id, 'comparison-1');
     assert.strictEqual(comparison.name, 'public-build-detail-approved');
     assert.strictEqual(comparison.status, 'completed');
-    assert.strictEqual(comparison.is_flaky, false);
     assert.strictEqual(comparison.screenshot.id, 'screenshot-1');
     assert.strictEqual(
       comparison.screenshot.signature,
@@ -239,13 +252,13 @@ describe('visual context normalizers', () => {
       groups: [
         {
           name: 'Payment',
-          variant_count: 8,
+          total_variants: 8,
           aggregate_status: {
             needs_review: true,
             needs_review_count: 3,
             failed_count: 2,
           },
-          variants: [],
+          comparisons: [],
         },
       ],
       screenshots: [

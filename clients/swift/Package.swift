@@ -18,7 +18,7 @@ let package = Package(
             targets: ["VizzlyXCTest"]),
         .library(
             name: "VizzlyPreviewRuntime",
-            type: .static,
+            type: .dynamic,
             targets: ["VizzlyPreviewRuntime"]),
     ],
     targets: [

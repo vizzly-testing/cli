@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a `vizzly previews` plugin and native Simulator runtime
   that render existing stock SwiftUI `#Preview` declarations without Xcode MCP.
 - Added a two-preview iOS fixture that exercises app-module discovery, a named
-  asset, runtime injection, PNG capture, and manifest generation.
+  asset, linked-runtime capture, PNG output, and manifest generation.
+- Added a dynamic `VizzlyPreviewRuntime` Swift Package product that Xcode builds,
+  embeds, and signs as part of the app target.
 - Added conservative booted iOS Simulator detection, with an explicit choice
   required when more than one Simulator is booted.
 - Added conservative Xcode scheme detection, repeatable managed output, a
@@ -29,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Replaced CLI-side runtime compilation, app-bundle mutation, ad hoc re-signing,
+  and `DYLD_INSERT_LIBRARIES` with a normal Swift Package integration.
 - Fixed app executable discovery when Xcode does not emit a debug dylib.
 - Fixed Swift preview configuration so command options only override values
   explicitly provided in `vizzly.config.js`.

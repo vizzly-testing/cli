@@ -1,5 +1,3 @@
-#include "CVizzlyPreviewRuntime.h"
-
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #endif
@@ -23,8 +21,3 @@ void *VizzlyOriginalPreviewInitializer(void) {
   return (void *)interposers[0].replacee;
 }
 #endif
-
-__attribute__((constructor))
-static void start_vizzly_preview_runtime(void) {
-  VizzlyPreviewRuntimeStart();
-}

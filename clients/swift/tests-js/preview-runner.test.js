@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import {
   applicationBinaryCandidates,
+  assertPreviewRuntimeIntegrated,
   parseBootedIOSSimulators,
   parseRegistryTypes,
   parseRuntimeEvents,
   parseSchemes,
   readPngMetadata,
-  runtimeDeploymentTarget,
+  schemeBuildsApplication,
   selectBootedIOSSimulator,
   selectScheme,
 } from '../src/preview-runner.js';
@@ -58,6 +61,20 @@ describe('Swift preview runner contracts', () => {
       name: 'PreviewFixture',
       selection: 'automatic',
     });
+  });
+
+  it('distinguishes app schemes from Swift package library schemes', () => {
+    let appSettings = JSON.stringify([
+      { buildSettings: { FULL_PRODUCT_NAME: 'PreviewFixture.app' } },
+    ]);
+    let librarySettings = JSON.stringify([
+      {
+        buildSettings: { FULL_PRODUCT_NAME: 'VizzlyPreviewRuntime.framework' },
+      },
+    ]);
+
+    assert.equal(schemeBuildsApplication(appSettings), true);
+    assert.equal(schemeBuildsApplication(librarySettings), false);
   });
 
   it('requires an explicit scheme when an Xcode container has several', () => {
@@ -164,10 +181,24 @@ describe('Swift preview runner contracts', () => {
     ]);
   });
 
-  it('compiles the injected runtime for at least iOS 17', () => {
-    assert.equal(runtimeDeploymentTarget('13.0'), '17.0');
-    assert.equal(runtimeDeploymentTarget('17.0'), '17.0');
-    assert.equal(runtimeDeploymentTarget('26.0'), '26.0');
+  it('explains how to integrate a missing app-linked preview runtime', async () => {
+    let appPath = await mkdtemp(join(tmpdir(), 'vizzly-unlinked-app-'));
+
+    try {
+      await assert.rejects(
+        assertPreviewRuntimeIntegrated(appPath, {}),
+        error =>
+          error.message.includes(
+            'VizzlyPreviewRuntime is not linked and embedded in the app'
+          ) &&
+          error.message.includes(
+            'Add the VizzlyPreviewRuntime Swift package'
+          ) &&
+          error.message.includes('VizzlyPreviewRuntime.install()')
+      );
+    } finally {
+      await rm(appPath, { recursive: true, force: true });
+    }
   });
 
   it('ignores app logs and reads versioned runtime completion events', () => {

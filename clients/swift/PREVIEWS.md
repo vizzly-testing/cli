@@ -1,7 +1,7 @@
 # SwiftUI `#Preview` capture
 
 Vizzly renders the stock `#Preview` declarations already in your app. You do
-not need a Vizzly macro, a catalog, or changes to the app target.
+not need a Vizzly macro, a catalog, or a second set of preview definitions.
 
 ## Requirements
 
@@ -24,7 +24,36 @@ Add the CLI and Swift plugin to the iOS project:
 pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
 ```
 
-The plugin is discovered automatically. It is not linked into the app target.
+Then add this repository as a Swift Package dependency in Xcode:
+
+```text
+https://github.com/vizzly-testing/cli
+```
+
+Add the dynamic `VizzlyPreviewRuntime` product to the app target and choose
+**Embed & Sign**. Install it once from the app initializer:
+
+```swift
+import SwiftUI
+import VizzlyPreviewRuntime
+
+@main
+struct MyApp: App {
+    init() {
+        VizzlyPreviewRuntime.install()
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+```
+
+That is the complete app integration. Keep writing normal `#Preview`
+declarations. The runtime does nothing during an ordinary app launch and
+compiles to a no-op outside the iOS Simulator.
 
 ## Capture previews
 
@@ -178,6 +207,14 @@ renderer depends on that release's Swift preview ABI.
 Make sure the selected scheme builds the app target containing the `#Preview`
 declarations in Debug. Vizzly looks in the app executable and debug dylibs.
 
+### VizzlyPreviewRuntime is not linked and embedded
+
+In the app target's **General** settings, confirm that
+`VizzlyPreviewRuntime.framework` appears under **Frameworks, Libraries, and
+Embedded Content** with **Embed & Sign** selected. Also confirm the app imports
+`VizzlyPreviewRuntime` and calls `VizzlyPreviewRuntime.install()` from its
+initializer.
+
 ### The output directory is rejected
 
 Choose a new `--output` path, or move the existing directory yourself. Vizzly
@@ -187,9 +224,12 @@ will not remove files it cannot prove it created.
 
 The CLI builds the real app for the selected Simulator, finds generated
 `DeveloperToolsSupport.PreviewRegistry` types in the Mach-O, and launches one
-fresh app process per preview. A small native runtime captures the preview body,
-mounts it in the app window, and writes a PNG.
+fresh app process per preview. The normally linked native runtime captures the
+preview body, mounts it in the app window, and writes a PNG.
 
 This path does not use Xcode MCP, `mcpbridge`, private Xcode actions, or source
-rewriting. The exact Xcode check is the safety boundary around the private Swift
-ABI used for preview discovery.
+rewriting. It also does not inject a library, copy code into the built app,
+change the app's signature, or pass credentials to the app process. Xcode owns
+the runtime's build, embedding, and signing like any other Swift Package
+dependency. The exact Xcode check is the safety boundary around the private
+Swift ABI used for preview discovery.

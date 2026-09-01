@@ -6,8 +6,11 @@ import SwiftUI
 import UIKit
 
 public enum VizzlyPreviewRuntime {
-    /// Keeps this runtime linked when it is used as a static SwiftPM product.
-    public static func link() {}
+    /// Enables Vizzly capture when the app is launched by `vizzly previews`.
+    @MainActor
+    public static func install() {
+        startVizzlyPreviewRuntime()
+    }
 }
 
 @available(iOS 17.0, *)
@@ -303,8 +306,11 @@ private enum PreviewRuntimeError: LocalizedError {
 }
 #else
 public enum VizzlyPreviewRuntime {
-    /// Keeps this runtime linked when it is used as a static SwiftPM product.
-    public static func link() {}
+    /// Has no effect outside an iOS Simulator capture launch.
+    @MainActor
+    public static func install() {
+        startVizzlyPreviewRuntime()
+    }
 }
 
 @_cdecl("VizzlyPreviewRuntimeStart")

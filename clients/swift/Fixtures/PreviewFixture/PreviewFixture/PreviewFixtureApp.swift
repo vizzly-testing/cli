@@ -1,4 +1,5 @@
 import SwiftUI
+import VizzlyPreviewRuntime
 
 struct PreviewCard: View {
     let title: String
@@ -44,6 +45,10 @@ struct StatefulCounter: View {
 
 @main
 struct PreviewFixtureApp: App {
+    init() {
+        VizzlyPreviewRuntime.install()
+    }
+
     var body: some Scene {
         WindowGroup {
             Text("Ordinary app root")

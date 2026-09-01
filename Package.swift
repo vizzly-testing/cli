@@ -16,6 +16,10 @@ let package = Package(
         .library(
             name: "VizzlyXCTest",
             targets: ["VizzlyXCTest"]),
+        .library(
+            name: "VizzlyPreviewRuntime",
+            type: .dynamic,
+            targets: ["VizzlyPreviewRuntime"]),
     ],
     targets: [
         .target(
@@ -26,6 +30,15 @@ let package = Package(
             name: "VizzlyXCTest",
             dependencies: ["Vizzly"],
             path: "clients/swift/Sources/VizzlyXCTest"),
+        .target(
+            name: "CVizzlyPreviewRuntime",
+            dependencies: [],
+            path: "clients/swift/Sources/CVizzlyPreviewRuntime",
+            publicHeadersPath: "include"),
+        .target(
+            name: "VizzlyPreviewRuntime",
+            dependencies: ["CVizzlyPreviewRuntime"],
+            path: "clients/swift/Sources/VizzlyPreviewRuntime"),
         .testTarget(
             name: "VizzlyTests",
             dependencies: ["Vizzly", "VizzlyXCTest"],

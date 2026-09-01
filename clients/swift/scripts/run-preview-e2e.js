@@ -56,7 +56,7 @@ try {
   );
 
   process.stdout.write(
-    `Verified ${manifest.previews.length} repeatable stock #Preview screenshots and safe output replacement\n`
+    `Verified ${manifest.previews.length} repeatable stock #Preview screenshots through the linked runtime and safe output replacement\n`
   );
 } finally {
   await rm(outputPath, { recursive: true, force: true });

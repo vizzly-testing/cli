@@ -7,9 +7,23 @@
 
 		A10000000000000000000001 /* PreviewFixtureApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* PreviewFixtureApp.swift */; };
 		A10000000000000000000012 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* Assets.xcassets */; };
+		A10000000000000000000014 /* VizzlyPreviewRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000015 /* VizzlyPreviewRuntime */; };
+		A10000000000000000000017 /* VizzlyPreviewRuntime in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000015 /* VizzlyPreviewRuntime */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A10000000000000000000002 /* PreviewFixtureApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFixtureApp.swift; sourceTree = "<group>"; };
 		A10000000000000000000003 /* PreviewFixture.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PreviewFixture.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+
+		A10000000000000000000018 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				A10000000000000000000017 /* VizzlyPreviewRuntime in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 
 		A10000000000000000000004 = {
 			isa = PBXGroup;
@@ -48,7 +62,9 @@
 		A10000000000000000000008 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
-			files = ();
+			files = (
+				A10000000000000000000014 /* VizzlyPreviewRuntime in Frameworks */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A10000000000000000000009 /* Resources */ = {
@@ -66,11 +82,15 @@
 			buildPhases = (
 				A10000000000000000000007 /* Sources */,
 				A10000000000000000000008 /* Frameworks */,
+				A10000000000000000000018 /* Embed Frameworks */,
 				A10000000000000000000009 /* Resources */,
 			);
 			buildRules = ();
 			dependencies = ();
 			name = PreviewFixture;
+			packageProductDependencies = (
+				A10000000000000000000015 /* VizzlyPreviewRuntime */,
+			);
 			productName = PreviewFixture;
 			productReference = A10000000000000000000003 /* PreviewFixture.app */;
 			productType = "com.apple.product-type.application";
@@ -92,6 +112,9 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (en, Base);
 			mainGroup = A10000000000000000000004;
+			packageReferences = (
+				A10000000000000000000016 /* XCLocalSwiftPackageReference "../.." */,
+			);
 			productRefGroup = A10000000000000000000006 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -185,6 +208,15 @@
 			buildConfigurations = (A1000000000000000000000E /* Debug */, A1000000000000000000000F /* Release */);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+		A10000000000000000000016 /* XCLocalSwiftPackageReference "../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+		A10000000000000000000015 /* VizzlyPreviewRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000016 /* XCLocalSwiftPackageReference "../.." */;
+			productName = VizzlyPreviewRuntime;
 		};
 	};
 	rootObject = A1000000000000000000000C /* Project object */;

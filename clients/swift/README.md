@@ -18,6 +18,30 @@ Install the CLI and preview plugin in your iOS project:
 pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
 ```
 
+Add this repository as a Swift Package dependency, then add the dynamic
+`VizzlyPreviewRuntime` product to the app target with **Embed & Sign**:
+
+```text
+https://github.com/vizzly-testing/cli
+```
+
+Install the runtime once from the app initializer:
+
+```swift
+import VizzlyPreviewRuntime
+
+@main
+struct MyApp: App {
+    init() {
+        VizzlyPreviewRuntime.install()
+    }
+
+    var body: some Scene {
+        WindowGroup { ContentView() }
+    }
+}
+```
+
 Boot an iOS Simulator, then run:
 
 ```bash
@@ -25,8 +49,9 @@ pnpm exec vizzly previews
 ```
 
 Vizzly builds the app, finds its existing `#Preview` declarations, renders each
-one in the Simulator, and writes PNGs to `.vizzly/previews`. It does not require
-a Vizzly macro or changes to your app target.
+one in the Simulator, and writes PNGs to `.vizzly/previews`. Your previews stay
+as stock Apple `#Preview` declarations; there is no Vizzly preview API to keep
+in sync.
 
 See [PREVIEWS.md](PREVIEWS.md) for requirements, configuration, CI, and
 troubleshooting.
@@ -77,6 +102,7 @@ See [QUICKSTART.md](QUICKSTART.md) for the shortest setup path and
 | Cloud builds | Yes | Yes |
 | Exact Xcode requirement | No | Xcode 26.6 |
 | SwiftUI preview traits | Not applicable | Not yet supported |
+| App integration | UI test target | One app initializer call |
 
 Preview capture intentionally has a narrow compatibility range because it uses
 the preview ABI shipped with Xcode. The command checks the Xcode version and

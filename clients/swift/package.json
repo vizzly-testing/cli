@@ -28,8 +28,6 @@
   "vizzlyPlugin": "./src/plugin.js",
   "files": [
     "src",
-    "Sources/VizzlyPreviewRuntime",
-    "Sources/CVizzlyPreviewRuntime",
     "PREVIEWS.md",
     "README.md",
     "CHANGELOG.md",

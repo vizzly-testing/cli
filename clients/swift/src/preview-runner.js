@@ -15,8 +15,9 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 
 let eventPrefix = 'VIZZLY_PREVIEW_EVENT ';
-let minimumRuntimeDeploymentTarget = '17.0';
 let supportedXcodeVersion = '26.6';
+let previewRuntimeInstallName =
+  '@rpath/VizzlyPreviewRuntime.framework/VizzlyPreviewRuntime';
 
 function invalidPng() {
   throw new Error('Preview capture did not produce a valid PNG');
@@ -102,6 +103,13 @@ export function parseSchemes(output) {
   return [...(payload.project?.schemes ?? payload.workspace?.schemes ?? [])]
     .filter(scheme => typeof scheme === 'string' && scheme.length > 0)
     .sort();
+}
+
+export function schemeBuildsApplication(output) {
+  let settingsGroups = JSON.parse(output);
+  return settingsGroups.some(item =>
+    item.buildSettings?.FULL_PRODUCT_NAME?.endsWith('.app')
+  );
 }
 
 export function selectScheme(schemes, requestedScheme) {
@@ -301,7 +309,30 @@ async function resolveScheme(container, requestedScheme) {
     '-list',
     '-json',
   ]);
-  return selectScheme(parseSchemes(result.stdout), requestedScheme);
+  let schemes = parseSchemes(result.stdout);
+  if (requestedScheme) {
+    return selectScheme(schemes, requestedScheme);
+  }
+
+  let schemeChecks = await Promise.all(
+    schemes.map(async scheme => {
+      let settings = await runCommand(
+        'xcodebuild',
+        [
+          ...containerArguments(container),
+          '-scheme',
+          scheme,
+          '-showBuildSettings',
+          '-json',
+        ],
+        { allowFailure: true }
+      );
+      return settings.exitCode === 0 && schemeBuildsApplication(settings.stdout)
+        ? scheme
+        : undefined;
+    })
+  );
+  return selectScheme(schemeChecks.filter(Boolean));
 }
 
 async function assertSupportedToolchain() {
@@ -492,13 +523,6 @@ async function applicationBinaries(appPath, settings) {
   return binaries;
 }
 
-export function runtimeDeploymentTarget(deploymentTarget) {
-  let version = Number.parseFloat(deploymentTarget);
-  return version >= Number.parseFloat(minimumRuntimeDeploymentTarget)
-    ? deploymentTarget
-    : minimumRuntimeDeploymentTarget;
-}
-
 async function discoverRegistries(appPath, settings) {
   let registries = new Set();
   for (let binary of await applicationBinaries(appPath, settings)) {
@@ -512,81 +536,52 @@ async function discoverRegistries(appPath, settings) {
   return [...registries].sort();
 }
 
-async function compileRuntime(clientRoot, buildPath, deploymentTarget) {
-  let sdkResult = await runCommand('xcrun', [
-    '--sdk',
-    'iphonesimulator',
-    '--show-sdk-path',
-  ]);
-  let sdkPath = sdkResult.stdout.trim();
-  let moduleCache = join(buildPath, 'module-cache');
-  let objectPath = join(buildPath, 'RuntimeConstructor.o');
-  let dylibPath = join(buildPath, 'libVizzlyPreviewRuntime.dylib');
-  let cSource = join(
-    clientRoot,
-    'Sources',
-    'CVizzlyPreviewRuntime',
-    'RuntimeConstructor.c'
+function previewRuntimeSetupError() {
+  return new Error(
+    'VizzlyPreviewRuntime is not linked and embedded in the app. Add the ' +
+      'VizzlyPreviewRuntime Swift package product to the app target, choose ' +
+      'Embed & Sign, import VizzlyPreviewRuntime, and call ' +
+      'VizzlyPreviewRuntime.install() from the app initializer.'
   );
-  let headerPath = join(
-    clientRoot,
-    'Sources',
-    'CVizzlyPreviewRuntime',
-    'include'
-  );
-  let swiftSource = join(
-    clientRoot,
-    'Sources',
-    'VizzlyPreviewRuntime',
-    'VizzlyPreviewRuntime.swift'
-  );
-  let target = `arm64-apple-ios${runtimeDeploymentTarget(deploymentTarget)}-simulator`;
-
-  await mkdir(moduleCache, { recursive: true });
-  await runCommand('xcrun', [
-    '--sdk',
-    'iphonesimulator',
-    'clang',
-    '-c',
-    cSource,
-    '-I',
-    headerPath,
-    '-target',
-    target,
-    '-isysroot',
-    sdkPath,
-    '-o',
-    objectPath,
-  ]);
-  await runCommand('xcrun', [
-    '--toolchain',
-    'XcodeDefault',
-    'swiftc',
-    '-emit-library',
-    swiftSource,
-    objectPath,
-    '-module-name',
-    'VizzlyPreviewRuntime',
-    '-target',
-    target,
-    '-sdk',
-    sdkPath,
-    '-parse-as-library',
-    '-module-cache-path',
-    moduleCache,
-    '-o',
-    dylibPath,
-  ]);
-  return dylibPath;
 }
 
-async function embedRuntime(appPath, dylibPath) {
-  let frameworksPath = join(appPath, 'Frameworks');
-  let embeddedPath = join(frameworksPath, basename(dylibPath));
-  await mkdir(frameworksPath, { recursive: true });
-  await copyFile(dylibPath, embeddedPath);
-  await runCommand('codesign', ['--force', '--sign', '-', embeddedPath]);
-  await runCommand('codesign', ['--force', '--deep', '--sign', '-', appPath]);
+export async function assertPreviewRuntimeIntegrated(appPath, settings) {
+  let frameworkBinary = join(
+    appPath,
+    'Frameworks',
+    'VizzlyPreviewRuntime.framework',
+    'VizzlyPreviewRuntime'
+  );
+  if (!(await pathExists(frameworkBinary))) {
+    throw previewRuntimeSetupError();
+  }
+
+  let linked = false;
+  for (let binary of await applicationBinaries(appPath, settings)) {
+    let result = await runCommand('otool', ['-L', binary], {
+      allowFailure: true,
+    });
+    if (result.stdout.includes(previewRuntimeInstallName)) {
+      linked = true;
+      break;
+    }
+  }
+  if (!linked) {
+    throw previewRuntimeSetupError();
+  }
+
+  let symbols = await runCommand('nm', ['-j', frameworkBinary], {
+    allowFailure: true,
+  });
+  if (
+    !symbols.stdout.includes('_VizzlyPreviewRuntimeStart') ||
+    !symbols.stdout.includes('_VizzlyPreviewInitializerReplacement')
+  ) {
+    throw new Error(
+      'The embedded VizzlyPreviewRuntime is not compatible with preview ' +
+        'capture. Update the Vizzly Swift package dependency and rebuild.'
+    );
+  }
 }
 
 function slug(value) {
@@ -625,8 +620,6 @@ async function captureRegistry({
       timeoutMs: captureTimeout,
       env: {
         ...process.env,
-        SIMCTL_CHILD_DYLD_INSERT_LIBRARIES:
-          '@executable_path/Frameworks/libVizzlyPreviewRuntime.dylib',
         SIMCTL_CHILD_VIZZLY_REGISTRY_TYPE: registryType,
         SIMCTL_CHILD_VIZZLY_OUTPUT_FILENAME: runtimeFilename,
       },
@@ -670,7 +663,6 @@ export async function runPreviewCapture({
   let stagingPath;
 
   try {
-    let clientRoot = resolve(import.meta.dirname, '..');
     let container = await resolveContainer(containerInput);
     let outputPath = resolve(outputInput);
     let outputParent = dirname(outputPath);
@@ -698,6 +690,8 @@ export async function runPreviewCapture({
       configuration,
       derivedDataPath,
     });
+    await assertPreviewRuntimeIntegrated(appPath, settings);
+    onProgress('Verified linked Vizzly preview runtime');
     let registryTypes = await discoverRegistries(appPath, settings);
     if (registryTypes.length === 0) {
       throw new Error(
@@ -708,12 +702,6 @@ export async function runPreviewCapture({
       `Discovered ${registryTypes.length} stock #Preview declarations`
     );
 
-    let runtimePath = await compileRuntime(
-      clientRoot,
-      temporaryPath,
-      settings.IPHONEOS_DEPLOYMENT_TARGET ?? minimumRuntimeDeploymentTarget
-    );
-    await embedRuntime(appPath, runtimePath);
     await runCommand('xcrun', ['simctl', 'install', resolvedDevice, appPath]);
 
     let bundleId = settings.PRODUCT_BUNDLE_IDENTIFIER;

@@ -1,532 +1,117 @@
 # Vizzly Swift SDK
 
-A lightweight Swift SDK for capturing screenshots from iOS and macOS UI tests and sending them to Vizzly for visual regression testing.
+Vizzly brings visual testing to Swift in two ways:
 
-Unlike tools that render components in isolation, Vizzly captures screenshots directly from your **real UI tests**. Test your actual app, get visual regression testing for free.
+| Workflow | Use it for | Runs on |
+| --- | --- | --- |
+| SwiftUI previews | Render the stock `#Preview` declarations already in your app | arm64 iOS Simulator |
+| XCTest screenshots | Capture an app or element during a UI test | iOS or macOS |
 
-## Features
+Both workflows send screenshots to the same local TDD and cloud review tools.
+You can use either one or both.
 
-- **Zero Configuration** - Auto-discovers Vizzly TDD server
-- **Native XCTest Integration** - Simple extensions for `XCUIApplication` and `XCUIElement` via the `VizzlyXCTest` helper product
-- **iOS & macOS Support** - Works on both platforms
-- **Automatic Metadata** - Captures device, screen size, and platform info
-- **TDD Mode** - Local visual testing with instant feedback
-- **Cloud Mode** - Team collaboration via Vizzly dashboard
-- **Graceful Degradation** - Tests pass even if Vizzly is unavailable
+## SwiftUI previews
 
-## Installation
-
-### Swift Package Manager
-
-Add Vizzly to your test target using Xcode:
-
-1. File → Add Package Dependencies
-2. Enter repository URL: `https://github.com/vizzly-testing/cli`
-3. Select version and add the `VizzlyXCTest` product to your UI test target
-
-The core `Vizzly` product has no XCTest dependency and can also be used from
-native app or test-support code when you want to send PNG data directly.
-
-Or add to your `Package.swift`:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/vizzly-testing/cli", branch: "main")
-],
-targets: [
-    .testTarget(
-        name: "MyAppUITests",
-        dependencies: [
-            .product(name: "VizzlyXCTest", package: "cli")
-        ]
-    )
-]
-```
-
-Vizzly does not currently ship a CocoaPods podspec. Use Swift Package Manager
-for native app integration.
-
-## Quick Start
-
-### 1. Start Vizzly TDD Server
+Install the CLI and preview plugin in your iOS project:
 
 ```bash
-cd /path/to/your/ios/project
-vizzly tdd start --open
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
 ```
 
-This starts a local server that receives screenshots and performs visual
-comparisons. Vizzly uses `http://localhost:47392` by default; if that port is
-busy, use the URL printed by the command.
+Add this repository as a Swift Package dependency, then add the dynamic
+`VizzlyPreviewRuntime` product to the app target with **Embed & Sign**:
 
-### 2. Add Vizzly to Your UI Tests
+```text
+https://github.com/vizzly-testing/cli
+```
+
+Install the runtime once from the app initializer:
+
+```swift
+import VizzlyPreviewRuntime
+
+@main
+struct MyApp: App {
+    init() {
+        VizzlyPreviewRuntime.install()
+    }
+
+    var body: some Scene {
+        WindowGroup { ContentView() }
+    }
+}
+```
+
+Boot an iOS Simulator, then run:
+
+```bash
+pnpm exec vizzly previews
+```
+
+Vizzly builds the app, finds its existing `#Preview` declarations, renders each
+one in the Simulator, and writes PNGs to `.vizzly/previews`. Your previews stay
+as stock Apple `#Preview` declarations; there is no Vizzly preview API to keep
+in sync.
+
+See [PREVIEWS.md](PREVIEWS.md) for requirements, configuration, CI, and
+troubleshooting.
+
+## XCTest screenshots
+
+Add this repository as a Swift Package dependency:
+
+```text
+https://github.com/vizzly-testing/cli
+```
+
+Add the `VizzlyXCTest` product to your UI test target. Then capture the app or a
+single element from a test:
 
 ```swift
 import XCTest
 import Vizzly
 import VizzlyXCTest
 
-class MyUITests: XCTestCase {
-    let app = XCUIApplication()
-
+final class HomeScreenTests: XCTestCase {
     func testHomeScreen() {
+        let app = XCUIApplication()
         app.launch()
 
-        // Capture screenshot - that's it!
-        app.vizzlyScreenshot(name: "home-screen")
+        XCTAssertTrue(app.navigationBars["Home"].waitForExistence(timeout: 5))
+        app.vizzlyScreenshot(name: "home")
     }
 }
 ```
 
-### 3. Run Your Tests
+Start a local review session before running the test:
 
 ```bash
-# Via Xcode: Cmd+U
-# Or via command line:
-xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15'
+pnpm exec vizzly tdd start --open
 ```
 
-### 4. View Results
-
-Open the dashboard URL printed by `vizzly tdd start` to see visual comparisons,
-accept/reject changes, and review differences.
-
-For a one-off local run, wrap your `xcodebuild` command:
-
-```bash
-vizzly tdd run \
-  "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15'" \
-  --no-open
-```
-
-That writes local review data under `.vizzly/`. If screenshots were captured,
-Vizzly also creates `.vizzly/report/index.html`; omit `--no-open` when you want
-the report opened automatically.
-
-## Usage Examples
-
-### Basic Screenshot
-
-```swift
-func testLoginScreen() {
-    app.launch()
-    app.buttons["Login"].tap()
-
-    // Capture full screen
-    app.vizzlyScreenshot(name: "login-screen")
-}
-```
-
-### Screenshot with Properties
-
-```swift
-func testDarkMode() {
-    app.launch()
-    enableDarkMode()
-
-    app.vizzlyScreenshot(
-        name: "home-dark",
-        properties: [
-            "theme": "dark",
-            "feature": "dark-mode"
-        ]
-    )
-}
-```
-
-### Element Screenshot
-
-```swift
-func testNavigationBar() {
-    let navbar = app.navigationBars.firstMatch
-
-    // Capture just the navbar
-    navbar.vizzlyScreenshot(
-        name: "navbar",
-        properties: ["component": "navbar"]
-    )
-}
-```
-
-### Custom Threshold
-
-```swift
-func testAnimatedContent() {
-    // Allow a higher Delta E comparison threshold for animated content
-    app.vizzlyScreenshot(
-        name: "animated-banner",
-        threshold: 5
-    )
-}
-```
-
-If `threshold` or `minClusterSize` is omitted, the server's configured
-comparison settings are used.
-
-### Multiple Device Orientations
-
-```swift
-func testResponsiveLayout() {
-    app.launch()
-
-    // Portrait
-    XCUIDevice.shared.orientation = .portrait
-    app.vizzlyScreenshot(
-        name: "home-portrait",
-        properties: ["orientation": "portrait"]
-    )
-
-    // Landscape
-    XCUIDevice.shared.orientation = .landscapeLeft
-    app.vizzlyScreenshot(
-        name: "home-landscape",
-        properties: ["orientation": "landscape"]
-    )
-}
-```
-
-### Using the Client Directly
-
-```swift
-import Vizzly
-
-func testWithDirectClient() {
-    let screenshot = app.screenshot()
-
-    VizzlyClient.shared.screenshot(
-        name: "custom-screenshot",
-        image: screenshot.pngRepresentation,
-        properties: [
-            "customProperty": "value",
-            "browser": "Safari"
-        ],
-        threshold: 0
-    )
-}
-```
-
-## API Reference
-
-### XCUIApplication Extensions
-
-```swift
-extension XCUIApplication {
-    func vizzlyScreenshot(
-        name: String,
-        properties: [String: Any]? = nil,
-        threshold: Double? = nil,
-        minClusterSize: Int? = nil,
-        fullPage: Bool? = nil,
-        buildId: String? = nil,
-        requestTimeout: Double? = nil
-    ) -> [String: Any]?
-}
-```
-
-### XCUIElement Extensions
-
-```swift
-extension XCUIElement {
-    func vizzlyScreenshot(
-        name: String,
-        properties: [String: Any]? = nil,
-        threshold: Double? = nil,
-        minClusterSize: Int? = nil,
-        buildId: String? = nil,
-        requestTimeout: Double? = nil
-    ) -> [String: Any]?
-}
-```
-
-### XCTestCase Extensions
-
-```swift
-extension XCTestCase {
-    func vizzlyScreenshot(
-        name: String,
-        app: XCUIApplication,
-        properties: [String: Any]? = nil,
-        threshold: Double? = nil,
-        minClusterSize: Int? = nil,
-        fullPage: Bool? = nil,
-        buildId: String? = nil,
-        requestTimeout: Double? = nil
-    ) -> [String: Any]?
-
-    func vizzlyScreenshot(
-        name: String,
-        element: XCUIElement,
-        properties: [String: Any]? = nil,
-        threshold: Double? = nil,
-        minClusterSize: Int? = nil,
-        buildId: String? = nil,
-        requestTimeout: Double? = nil
-    ) -> [String: Any]?
-}
-```
-
-### VizzlyClient
-
-```swift
-class VizzlyClient {
-    static let shared: VizzlyClient
-
-    init(
-        serverUrl: String? = nil,
-        autoDiscover: Bool = true,
-        failOnDiff: Bool? = nil
-    )
-
-    func screenshot(
-        name: String,
-        image: Data,
-        properties: [String: Any]? = nil,
-        threshold: Double? = nil,
-        minClusterSize: Int? = nil,
-        fullPage: Bool? = nil,
-        buildId: String? = nil,
-        requestTimeout: Double? = nil
-    ) -> [String: Any]?
-
-    var isReady: Bool { get }
-    var info: [String: Any] { get }
-    func flush()
-    func disable(reason: String)
-}
-```
-
-## Configuration
-
-### Auto-Discovery
-
-The SDK automatically discovers a running Vizzly TDD server using this priority order:
-
-1. **VIZZLY_SERVER_URL environment variable** - Explicitly set server URL
-2. **Project server file** - `.vizzly/server.json` in the current directory
-3. **Default port health check** - Tests `http://localhost:47392/health`
-
-When you run `vizzly tdd start`, the CLI writes server info to
-`.vizzly/server.json` in your project. Run UI tests from the project checkout,
-or set `VIZZLY_SERVER_URL` explicitly when your test process starts elsewhere.
-
-### Environment Variables
-
-- `VIZZLY_SERVER_URL` - Server URL (e.g., `http://localhost:47392`)
-- `VIZZLY_BUILD_ID` - Build identifier for grouping screenshots. The SDK also
-  auto-discovers `buildId` from `.vizzly/server.json` when present.
-- `VIZZLY_FAIL_ON_DIFF` - Set to `true` or `1` to fail when a local TDD
-  comparison returns a visual diff. The SDK also honors `failOnDiff: true` from
-  discovered `.vizzly/server.json`.
-
-Swift screenshot calls intentionally expose comparison metadata (`properties`,
-`threshold`, `minClusterSize`, and `fullPage`). They also accept per-call
-`buildId` and `requestTimeout` overrides; `requestTimeout` is measured in
-milliseconds to match the JavaScript and Ruby SDKs.
-
-### Manual Configuration
-
-```swift
-// Override auto-discovery
-let client = VizzlyClient(serverUrl: "http://localhost:47392")
-
-// Fail the SDK call when local TDD mode reports a visual diff
-let strictClient = VizzlyClient(
-    serverUrl: "http://localhost:47392",
-    failOnDiff: true
-)
-```
-
-## TDD Mode vs Cloud Mode
-
-### TDD Mode (Local Development)
-
-Start the TDD server locally:
-
-```bash
-vizzly tdd start
-```
-
-- Screenshots compared locally using high-performance Rust diffing
-- Instant feedback via dashboard at `http://localhost:47392/dashboard`
-- No API token required
-- Fast iteration cycle
-
-### Cloud Mode (CI/CD)
-
-Set your API token and run in CI:
-
-```bash
-export VIZZLY_TOKEN="your-token-here"
-vizzly run "xcodebuild test -scheme MyApp" --wait
-```
-
-- Screenshots uploaded to Vizzly cloud
-- Team collaboration via web dashboard
-- Supports parallel test execution
-- Returns exit codes for CI integration
-
-## Automatic Metadata
-
-The SDK automatically captures:
-
-- **Platform**: iOS or macOS
-- **Device**: iPhone model, iPad model, or Mac
-- **OS Version**: iOS/macOS version
-- **Viewport**: Screen dimensions and scale factor
-- **Element Type**: When screenshotting elements
-
-This metadata helps differentiate screenshots across devices and configurations.
-
-## Best Practices
-
-### Naming Screenshots
-
-Use descriptive, hierarchical names with dashes:
-
-```swift
-// ✅ Good - Use dashes for hierarchy
-app.vizzlyScreenshot(name: "checkout-payment-form-valid-card")
-app.vizzlyScreenshot(name: "settings-profile-edit-mode")
-
-// ❌ Avoid - Generic names or slashes
-app.vizzlyScreenshot(name: "screenshot1")
-app.vizzlyScreenshot(name: "test")
-app.vizzlyScreenshot(name: "checkout/payment/form")  // slashes cause validation errors
-```
-
-### Use Properties for Context
-
-```swift
-app.vizzlyScreenshot(
-    name: "product-list",
-    properties: [
-        "theme": "dark",
-        "user": "premium",
-        "itemCount": 50
-    ]
-)
-```
-
-### Wait for Content
-
-```swift
-func testDynamicContent() {
-    let element = app.buttons["Submit"]
-
-    // Wait for element to exist
-    XCTAssertTrue(element.waitForExistence(timeout: 5))
-
-    // Now screenshot
-    app.vizzlyScreenshot(name: "submit-button-visible")
-}
-```
-
-### Isolate Visual Tests
-
-Keep visual regression tests separate from functional tests for clarity:
-
-```swift
-// Good structure:
-// - MyAppFunctionalTests.swift (no screenshots)
-// - MyAppVisualTests.swift (Vizzly screenshots)
-```
-
-## CI/CD Integration
-
-### GitHub Actions
-
-```yaml
-name: Visual Tests
-
-on: [push, pull_request]
-
-jobs:
-  ios-tests:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Run UI tests with Vizzly
-        env:
-          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
-        run: |
-          pnpm exec vizzly run "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 15' -resultBundlePath TestResults"
-```
-
-### Fastlane
-
-```ruby
-lane :visual_tests do
-  sh "pnpm exec vizzly run \"bundle exec fastlane scan scheme:MyApp devices:'iPhone 15'\""
-end
-```
-
-## Troubleshooting
-
-### Screenshots Not Being Captured
-
-Check if Vizzly is ready:
-
-```swift
-override func setUpWithError() throws {
-    if VizzlyClient.shared.isReady {
-        print("✓ Vizzly ready: \(VizzlyClient.shared.info)")
-    } else {
-        print("⚠️  Vizzly not available")
-    }
-}
-```
-
-### Server Not Found
-
-1. Ensure TDD server is running: `vizzly tdd start`
-2. Check `.vizzly/server.json` exists in your project checkout
-3. Verify the printed server URL is reachable, for example:
-   `curl http://localhost:47392/health`
-4. Or explicitly set the printed URL:
-   `export VIZZLY_SERVER_URL=http://localhost:47392`
-
-### Visual Differences Not Showing
-
-1. Open dashboard: `http://localhost:47392/dashboard`
-2. Check console output for error messages
-3. Verify screenshot names are consistent across runs
-4. Look for threshold settings that might be too high
-
-## Examples
-
-Check out the `Example/` directory for:
-
-- Basic screenshot tests
-- Component-level screenshots
-- Dark mode testing
-- Orientation changes
-- Custom properties and thresholds
-- Direct client usage
-
-## SDK E2E Tests
-
-The Swift SDK has an end-to-end test path that runs against a real local
-Vizzly TDD server and uploads real PNG bytes through `VizzlyClient`:
-
-```bash
-pnpm run test:swift:e2e
-```
-
-This command builds the CLI, starts an isolated TDD run in a temp directory,
-and executes the `VizzlyE2ETests` SwiftPM suite.
-
-## Contributing
-
-Bug reports and pull requests are welcome at https://github.com/vizzly-testing/cli
-
-## License
-
-This SDK is available as open source under the terms of the MIT License.
-
-## Learn More
-
-- **Website**: https://vizzly.dev
-- **Documentation**: https://docs.vizzly.dev
-- **GitHub**: https://github.com/vizzly-testing/cli
-- **Support**: support@vizzly.dev
+See [QUICKSTART.md](QUICKSTART.md) for the shortest setup path and
+[INTEGRATION.md](INTEGRATION.md) for options and CI.
+
+## Support
+
+| Capability | XCTest SDK | Preview capture |
+| --- | --- | --- |
+| iOS | iOS 13+ | iOS 17+ Simulator |
+| macOS | macOS 10.15+ | Not supported |
+| Local TDD | Yes | Yes |
+| Cloud builds | Yes | Yes |
+| Exact Xcode requirement | No | Xcode 26.6 |
+| SwiftUI preview traits | Not applicable | Not yet supported |
+| App integration | UI test target | One app initializer call |
+
+Preview capture intentionally has a narrow compatibility range because it uses
+the preview ABI shipped with Xcode. The command checks the Xcode version and
+stops instead of producing screenshots with unknown behavior.
+
+## More
+
+- [XCTest quick start](QUICKSTART.md)
+- [XCTest integration guide](INTEGRATION.md)
+- [SwiftUI preview guide](PREVIEWS.md)
+- [Example UI test](Example/ExampleUITests.swift)
+- [Changelog](CHANGELOG.md)

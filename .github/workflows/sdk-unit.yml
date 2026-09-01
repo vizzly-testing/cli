@@ -259,7 +259,8 @@ jobs:
   # Swift SDK - runs on multiple Xcode versions
   swift:
     name: Swift SDK
-    runs-on: macos-latest
+    # Xcode 16.2 and 16.4 are both installed on this pinned image.
+    runs-on: macos-15-arm64
     timeout-minutes: 8
     needs: changes
     if: needs.changes.outputs.swift == 'true'

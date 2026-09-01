@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added a `vizzly previews` plugin and native Simulator runtime
+  that render existing stock SwiftUI `#Preview` declarations without Xcode MCP.
+- Added a two-preview iOS fixture that exercises app-module discovery, a named
+  asset, linked-runtime capture, PNG output, and manifest generation.
+- Added a dynamic `VizzlyPreviewRuntime` Swift Package product that Xcode builds,
+  embeds, and signs as part of the app target.
+- Added conservative booted iOS Simulator detection, with an explicit choice
+  required when more than one Simulator is booted.
+- Added conservative Xcode scheme detection, repeatable managed output, a
+  per-preview capture timeout, and clearer unsupported-preview failures.
+- Added npm packaging, CI checks, and release publishing for the Swift preview
+  CLI plugin.
+- Added automatic local TDD delivery for rendered preview PNGs, including
+  comparison metadata for the Simulator, viewport, SwiftUI view, Xcode, and
+  scheme.
+- Added cloud build creation, screenshot upload, flush, finalization, and build
+  URL reporting through the stable Vizzly plugin API.
+- Added `--no-upload`, local-only fallback, and upload outcomes in the preview
+  manifest.
+
+### Fixed
+
+- Replaced CLI-side runtime compilation, app-bundle mutation, ad hoc re-signing,
+  and `DYLD_INSERT_LIBRARIES` with a normal Swift Package integration.
+- Fixed app executable discovery when Xcode does not emit a debug dylib.
+- Fixed Swift preview configuration so command options only override values
+  explicitly provided in `vizzly.config.js`.
+- Fixed the Simulator runtime's platform and scene lifecycle boundaries.
+- Fixed preview upload discovery for the TDD daemon's serialized port format
+  and normalized stock preview names for Vizzly's screenshot contract.
+- Fixed managed output validation so missing or duplicate preview files are
+  never treated as safe to replace.
+- Fixed preview uploads so both supported `VIZZLY_FAIL_ON_DIFF` values, `true`
+  and `1`, behave consistently.
+
 ## [0.1.0] - 2026-06-01
 
 ### What's Changed

@@ -1,0 +1,58 @@
+{
+  "name": "@vizzly-testing/swift",
+  "version": "0.1.0",
+  "description": "Native Swift and SwiftUI preview integration for Vizzly",
+  "keywords": [
+    "vizzly",
+    "swift",
+    "swiftui",
+    "xcode",
+    "visual-testing",
+    "screenshot-testing",
+    "plugin"
+  ],
+  "homepage": "https://vizzly.dev",
+  "bugs": "https://github.com/vizzly-testing/cli/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vizzly-testing/cli.git",
+    "directory": "clients/swift"
+  },
+  "license": "MIT",
+  "author": "Stubborn Mule Software <support@vizzly.dev>",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./plugin": "./src/plugin.js"
+  },
+  "vizzlyPlugin": "./src/plugin.js",
+  "files": [
+    "src",
+    "PREVIEWS.md",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "pnpm run lint && pnpm test",
+    "test": "node --test --test-reporter=spec tests-js/*.test.js",
+    "test:previews:e2e": "node scripts/run-preview-e2e.js",
+    "lint": "biome check src tests-js scripts package.json",
+    "format": "biome format --write src tests-js scripts package.json",
+    "prepublishOnly": "pnpm run check"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "peerDependencies": {
+    "@vizzly-testing/cli": ">=0.35.3-beta.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.10",
+    "@vizzly-testing/cli": "workspace:*"
+  }
+}

@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-latest
+    runs-on: macos-26
     permissions:
       contents: write
       id-token: write
@@ -35,9 +35,19 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '22.13.1'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm for Trusted Publishers
+        run: npm install -g npm@11.5.1
+
+      - name: Install pnpm
+        run: |
+          npm install -g corepack@latest
+          corepack enable
+          corepack prepare pnpm@11.3.0 --activate
 
       - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app
 
       - name: Configure git
         run: |
@@ -96,6 +106,13 @@ jobs:
 
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "tag=swift/v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update npm package version
+        working-directory: ./clients/swift
+        run: npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Generate changelog
         continue-on-error: true
@@ -172,6 +189,47 @@ jobs:
         working-directory: ./clients/swift
         run: swift test
 
+      - name: Check preview CLI package
+        working-directory: ./clients/swift
+        run: pnpm run check
+
+      - name: Run stock preview capture test
+        working-directory: ./clients/swift
+        run: |
+          xcrun simctl shutdown all
+          DEVICE_UDID="$(xcrun simctl list devices available --json | node --input-type=module -e '
+            let input = "";
+            process.stdin.setEncoding("utf8");
+            process.stdin.on("data", chunk => input += chunk);
+            process.stdin.on("end", () => {
+              let payload = JSON.parse(input);
+              let device = Object.entries(payload.devices)
+                .filter(([runtime]) => runtime.includes(".SimRuntime.iOS-"))
+                .flatMap(([, devices]) => devices)
+                .find(candidate => candidate.isAvailable !== false);
+              if (!device) process.exit(1);
+              process.stdout.write(device.udid);
+            });
+          ')"
+          xcrun simctl boot "$DEVICE_UDID"
+          xcrun simctl bootstatus "$DEVICE_UDID" -b
+          VIZZLY_SIMULATOR_UDID="$DEVICE_UDID" pnpm run test:previews:e2e
+
+      - name: Verify npm package version is unpublished
+        working-directory: ./clients/swift
+        run: |
+          if npm view @vizzly-testing/swift@${{ steps.new_version.outputs.version }} version >/dev/null 2>&1; then
+            echo "@vizzly-testing/swift@${{ steps.new_version.outputs.version }} is already published"
+            exit 1
+          fi
+
+      - name: Pack npm package
+        id: pack
+        working-directory: ./clients/swift
+        run: |
+          PACK_FILE=$(npm pack --ignore-scripts)
+          echo "file=$PACK_FILE" >> $GITHUB_OUTPUT
+
       - name: Configure git identity
         run: |
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
@@ -179,11 +237,19 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git add clients/swift/CHANGELOG.md
+          git add clients/swift/package.json clients/swift/CHANGELOG.md
           git commit -m "🔖 Swift client v${{ steps.new_version.outputs.version }}"
           git push origin main
           git tag "${{ steps.new_version.outputs.tag }}"
           git push origin "${{ steps.new_version.outputs.tag }}"
+
+      - name: Publish preview CLI package to npm
+        working-directory: ./clients/swift
+        run: |
+          npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
+          rm -f ~/.npmrc 2>/dev/null || true
+          npm config set registry https://registry.npmjs.org/
+          npm publish "${{ steps.pack.outputs.file }}" --provenance --access public
 
       - name: Read changelog for release
         id: release_notes
@@ -203,6 +269,7 @@ jobs:
           tag_name: ${{ steps.new_version.outputs.tag }}
           name: 📱 Swift SDK v${{ steps.new_version.outputs.version }}
           body: ${{ steps.release_notes.outputs.notes }}
+          files: ./clients/swift/${{ steps.pack.outputs.file }}
           draft: false
           prerelease: false
         env:

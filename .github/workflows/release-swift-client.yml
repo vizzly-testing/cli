@@ -102,6 +102,7 @@ jobs:
         uses: openai/codex-action@a26d2d4d8b78a694338b8e3715c3630254340b2c # v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5.6-luna
           sandbox: workspace-write
           safety-strategy: drop-sudo
           prompt: |

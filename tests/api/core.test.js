@@ -283,6 +283,31 @@ describe('api/core', () => {
       assert.strictEqual(result.sha256, 'abc123');
     });
 
+    it('sends operational options outside the user metadata bag', () => {
+      let result = buildScreenshotPayload(
+        'homepage',
+        Buffer.from('image'),
+        { theme: 'dark' },
+        null,
+        {
+          threshold: 0.1,
+          minClusterSize: 4,
+          fullPage: true,
+          captureMode: 'full_page',
+          deviceScaleFactor: 2,
+          selector: '#app',
+        }
+      );
+
+      assert.deepStrictEqual(result.properties, { theme: 'dark' });
+      assert.strictEqual(result.threshold, 0.1);
+      assert.strictEqual(result.minClusterSize, 4);
+      assert.strictEqual(result.fullPage, true);
+      assert.strictEqual(result.captureMode, 'full_page');
+      assert.strictEqual(result.deviceScaleFactor, 2);
+      assert.strictEqual(result.selector, '#app');
+    });
+
     it('defaults metadata to empty object', () => {
       let buffer = Buffer.from('image');
       let result = buildScreenshotPayload('test', buffer);

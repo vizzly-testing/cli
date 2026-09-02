@@ -4,6 +4,7 @@
  */
 
 import * as output from '../../utils/output.js';
+import { normalizeScreenshotOptions } from '../../utils/screenshot-options.js';
 import { parseJsonBody } from '../middleware/json-parser.js';
 import { sendError, sendJson } from '../middleware/response.js';
 
@@ -24,7 +25,20 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
     if (pathname === '/screenshot') {
       try {
         const body = await parseJsonBody(req);
-        const { buildId, name, properties, image, type, warnings } = body;
+        const {
+          buildId,
+          name,
+          properties,
+          image,
+          type,
+          warnings,
+          threshold,
+          minClusterSize,
+          fullPage,
+          captureMode,
+          deviceScaleFactor,
+          selector,
+        } = body;
 
         if (!name || !image) {
           sendError(res, 400, 'name and image are required');
@@ -33,14 +47,31 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
 
         // Use buildId from request body, or fall back to server's buildId
         const effectiveBuildId = buildId || defaultBuildId;
+        const normalizedOptions = normalizeScreenshotOptions({
+          properties,
+          threshold,
+          minClusterSize,
+          fullPage,
+          captureMode,
+          deviceScaleFactor,
+          selector,
+        });
 
         const result = await screenshotHandler.handleScreenshot(
           effectiveBuildId,
           name,
           image,
-          properties,
+          normalizedOptions.properties,
           type,
-          warnings
+          [...(warnings || []), ...normalizedOptions.warnings],
+          {
+            threshold: normalizedOptions.threshold,
+            minClusterSize: normalizedOptions.minClusterSize,
+            fullPage: normalizedOptions.fullPage,
+            captureMode: normalizedOptions.captureMode,
+            deviceScaleFactor: normalizedOptions.deviceScaleFactor,
+            selector: normalizedOptions.selector,
+          }
         );
 
         sendJson(res, result.statusCode, result.body);

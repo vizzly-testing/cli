@@ -13,7 +13,10 @@ import {
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
-import { normalizeScreenshotOptions } from '../utils/screenshot-options.js';
+import {
+  getScreenshotOptionsPayload,
+  normalizeScreenshotOptions,
+} from '../utils/screenshot-options.js';
 
 // Internal client state
 let currentClient = null;
@@ -234,6 +237,10 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
           type,
           properties: normalizedOptions.properties,
         };
+        Object.assign(
+          screenshotData,
+          getScreenshotOptionsPayload(normalizedOptions)
+        );
         if (normalizedOptions.warnings.length > 0) {
           screenshotData.warnings = normalizedOptions.warnings;
         }

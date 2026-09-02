@@ -65,9 +65,6 @@ describe('generateScreenshotProperties', () => {
       viewport_height: 667,
       url: 'http://localhost:6006/iframe.html?id=button--primary',
       browser: 'webkit',
-      threshold: 0,
-      minClusterSize: 4,
-      fullPage: false,
     });
   });
 
@@ -210,6 +207,7 @@ describe('captureAndSendScreenshot', () => {
       omitBackground: false,
       timeout: 45000,
     });
+    assert.strictEqual(mockVizzly.mock.calls[0].arguments[2].fullPage, false);
   });
 
   it('passes request timeout to the Vizzly client transport', async () => {

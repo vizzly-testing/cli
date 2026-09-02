@@ -401,7 +401,11 @@ export interface TddService {
   compareScreenshot(
     name: string,
     imageBuffer: Buffer,
-    properties?: Record<string, unknown>
+    properties?: Record<string, unknown>,
+    screenshotOptions?: Pick<
+      ScreenshotOptions,
+      'threshold' | 'minClusterSize' | 'fullPage'
+    >
   ): Promise<ComparisonResult>;
 
   getResults(): TddResults;

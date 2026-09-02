@@ -10,6 +10,7 @@ import { getDimensionsSync as defaultGetDimensionsSync } from '@vizzly-testing/h
 import { TddService as DefaultTddService } from '../../tdd/tdd-service.js';
 import { detectImageInputType as defaultDetectImageInputType } from '../../utils/image-input-detector.js';
 import * as defaultOutput from '../../utils/output.js';
+import { normalizeScreenshotOptions } from '../../utils/screenshot-options.js';
 import {
   safePath as defaultSafePath,
   sanitizeScreenshotName as defaultSanitizeScreenshotName,
@@ -378,7 +379,8 @@ export const createTddHandler = (
     image,
     properties = {},
     type,
-    warnings = []
+    warnings = [],
+    screenshotOptions = {}
   ) => {
     let handlerStart = Date.now();
     output.debug('tdd', `${name} received`);
@@ -398,13 +400,20 @@ export const createTddHandler = (
       };
     }
 
-    // Unwrap double-nested properties if needed (client SDK wraps options in properties field)
+    // Preserve the old nested wrapper for older clients, then filter user
+    // properties before local comparison/report serialization.
     let unwrappedProperties = unwrapProperties(properties);
+    let normalizedProperties = normalizeScreenshotOptions({
+      properties: unwrappedProperties,
+    });
+    warnings = [...(warnings || []), ...normalizedProperties.warnings];
 
     // Validate and sanitize properties
     let validatedProperties;
     try {
-      validatedProperties = validateScreenshotProperties(unwrappedProperties);
+      validatedProperties = validateScreenshotProperties(
+        normalizedProperties.properties
+      );
     } catch (error) {
       return {
         statusCode: 400,
@@ -504,7 +513,8 @@ export const createTddHandler = (
     const comparison = await tddService.compareScreenshot(
       sanitizedName,
       imageBuffer,
-      extractedProperties
+      extractedProperties,
+      screenshotOptions
     );
 
     // Comparison tracked by tdd.js event handler

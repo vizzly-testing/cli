@@ -10,6 +10,27 @@ module Vizzly
 
   # Default port for local TDD server
   DEFAULT_TDD_PORT = 47392
+  RESERVED_PROPERTY_OPTIONS = %w[
+    threshold
+    min_cluster_size
+    minClusterSize
+    full_page
+    fullPage
+    capture_mode
+    captureMode
+    device_scale_factor
+    deviceScaleFactor
+    pixelRatio
+    dpr
+    selector
+    component
+    element_selector
+    elementSelector
+    build_id
+    buildId
+    request_timeout
+    requestTimeout
+  ].freeze
 
   # rubocop:disable Metrics/ClassLength
   class Client
@@ -75,6 +96,9 @@ module Vizzly
         type: 'base64',
         buildId: build_id,
         properties: normalized[:properties],
+        threshold: normalized[:threshold],
+        minClusterSize: normalized[:minClusterSize],
+        fullPage: normalized[:fullPage],
         warnings: normalized[:warnings]
       }.compact
 
@@ -248,40 +272,25 @@ module Vizzly
       full_page = options.key?(:full_page) ? options[:full_page] : options[:fullPage]
       build_id = option_value(options, :build_id, :buildId)
       request_timeout = option_value(options, :request_timeout, :requestTimeout)
-      properties = {}
+      properties = options[:properties] || {}
       warnings = []
 
-      (options[:properties] || {}).each do |key, value|
+      properties = properties.each_with_object({}) do |(key, value), normalized_properties|
         option = key.to_s
-        case option
-        when 'threshold'
-          threshold = value if threshold.nil?
-        when 'min_cluster_size', 'minClusterSize'
-          min_cluster_size = value if min_cluster_size.nil?
-        when 'full_page', 'fullPage'
-          full_page = value if full_page.nil?
-        when 'build_id', 'buildId'
-          build_id = value if build_id.nil?
-        when 'request_timeout', 'requestTimeout'
-          request_timeout = value if request_timeout.nil?
+        if RESERVED_PROPERTY_OPTIONS.include?(option)
+          warnings << reserved_property_warning(option)
         else
-          properties[key] = value
-          next
+          normalized_properties[key] = value
         end
-
-        warnings << reserved_property_warning(option)
       end
-
-      properties = properties.merge(
-        threshold: threshold,
-        minClusterSize: min_cluster_size,
-        fullPage: full_page
-      ).compact
 
       {
         build_id: build_id,
         request_timeout: request_timeout,
         properties: properties,
+        threshold: threshold,
+        minClusterSize: min_cluster_size,
+        fullPage: full_page,
         warnings: warnings
       }
     end

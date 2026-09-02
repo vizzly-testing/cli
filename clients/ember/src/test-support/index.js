@@ -293,24 +293,20 @@ export async function vizzlyScreenshot(name, options = {}) {
     screenshotProperties.viewport_height = customViewportHeight;
   }
 
-  if (threshold !== null) {
-    screenshotProperties.threshold = threshold;
-  }
-
-  if (minClusterSize !== null) {
-    screenshotProperties.minClusterSize = minClusterSize;
-  }
-
-  if (!captureSelector && effectiveFullPage !== null) {
-    screenshotProperties.fullPage = effectiveFullPage;
-  }
-
   // Build request payload
   let payload = {
     buildId: buildId || window.__VIZZLY_BUILD_ID__ || null,
     name,
     selector: captureSelector,
     fullPage: effectiveFullPage,
+    threshold: threshold === null ? undefined : threshold,
+    minClusterSize: minClusterSize === null ? undefined : minClusterSize,
+    captureMode: captureSelector
+      ? 'element'
+      : effectiveFullPage
+        ? 'full_page'
+        : 'viewport',
+    deviceScaleFactor: window.devicePixelRatio,
     viewport: {
       width,
       height,

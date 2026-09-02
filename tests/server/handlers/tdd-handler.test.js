@@ -221,6 +221,53 @@ describe('server/handlers/tdd-handler', () => {
     });
   });
 
+  describe('handleScreenshot', () => {
+    it('does not serialize operational fields as local comparison properties', async () => {
+      let comparisonProperties;
+      let deps = createMockDeps({
+        tddServiceOverrides: {
+          compareScreenshot: async (_name, _imageBuffer, properties) => {
+            comparisonProperties = properties;
+            return {
+              id: 'comparison-1',
+              name: 'homepage',
+              status: 'passed',
+              signature: 'homepage|1920|chrome',
+              baseline: null,
+              current: null,
+              diff: null,
+              threshold: 0.1,
+              minClusterSize: 4,
+              diffPercentage: 0,
+              diffCount: 0,
+            };
+          },
+        },
+      });
+      let handler = createTddHandler({}, '/test', null, null, false, deps);
+
+      await handler.handleScreenshot(
+        null,
+        'homepage',
+        'fake-image',
+        {
+          browser: 'chrome',
+          threshold: 0.1,
+          properties: {
+            theme: 'dark',
+            minClusterSize: 4,
+          },
+        },
+        'base64'
+      );
+
+      assert.deepStrictEqual(comparisonProperties.theme, 'dark');
+      assert.strictEqual(comparisonProperties.threshold, undefined);
+      assert.strictEqual(comparisonProperties.minClusterSize, undefined);
+      assert.strictEqual(comparisonProperties.properties, undefined);
+    });
+  });
+
   describe('convertPathToUrl', () => {
     it('returns null for null/undefined path', () => {
       assert.strictEqual(convertPathToUrl(null, '/path'), null);

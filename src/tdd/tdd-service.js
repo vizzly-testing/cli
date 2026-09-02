@@ -993,7 +993,12 @@ export class TddService {
   /**
    * Compare a screenshot against baseline
    */
-  async compareScreenshot(name, imageBuffer, properties = {}) {
+  async compareScreenshot(
+    name,
+    imageBuffer,
+    properties = {},
+    screenshotOptions = {}
+  ) {
     // Destructure dependencies
     let {
       output,
@@ -1113,15 +1118,15 @@ export class TddService {
 
     // Baseline exists - compare
     let effectiveThreshold =
-      typeof validatedProperties.threshold === 'number' &&
-      validatedProperties.threshold >= 0
-        ? validatedProperties.threshold
+      typeof screenshotOptions.threshold === 'number' &&
+      screenshotOptions.threshold >= 0
+        ? screenshotOptions.threshold
         : this.threshold;
 
     let effectiveMinClusterSize =
-      Number.isInteger(validatedProperties.minClusterSize) &&
-      validatedProperties.minClusterSize >= 1
-        ? validatedProperties.minClusterSize
+      Number.isInteger(screenshotOptions.minClusterSize) &&
+      screenshotOptions.minClusterSize >= 1
+        ? screenshotOptions.minClusterSize
         : this.minClusterSize;
 
     try {

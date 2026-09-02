@@ -11,19 +11,92 @@ export let RESERVED_PROPERTY_OPTIONS = Object.freeze({
     message:
       'Move "minClusterSize" out of properties; properties is only for user metadata.',
   },
+  min_cluster_size: {
+    message:
+      'Move "min_cluster_size" out of properties; properties is only for user metadata.',
+  },
   fullPage: {
     message:
       'Move "fullPage" out of properties; properties is only for user metadata.',
+  },
+  full_page: {
+    message:
+      'Move "full_page" out of properties; properties is only for user metadata.',
+  },
+  captureMode: {
+    message:
+      'Move "captureMode" out of properties; properties is only for user metadata.',
+  },
+  capture_mode: {
+    message:
+      'Move "capture_mode" out of properties; properties is only for user metadata.',
+  },
+  deviceScaleFactor: {
+    message:
+      'Move "deviceScaleFactor" out of properties; properties is only for user metadata.',
+  },
+  device_scale_factor: {
+    message:
+      'Move "device_scale_factor" out of properties; properties is only for user metadata.',
+  },
+  pixelRatio: {
+    message:
+      'Move "pixelRatio" out of properties; properties is only for user metadata.',
+  },
+  dpr: {
+    message:
+      'Move "dpr" out of properties; properties is only for user metadata.',
+  },
+  selector: {
+    message:
+      'Move "selector" out of properties; properties is only for user metadata.',
+  },
+  component: {
+    message:
+      'Move "component" out of properties; properties is only for user metadata.',
+  },
+  elementSelector: {
+    message:
+      'Move "elementSelector" out of properties; properties is only for user metadata.',
+  },
+  element_selector: {
+    message:
+      'Move "element_selector" out of properties; properties is only for user metadata.',
   },
   buildId: {
     message:
       'Move "buildId" out of properties; properties is only for user metadata.',
   },
+  build_id: {
+    message:
+      'Move "build_id" out of properties; properties is only for user metadata.',
+  },
   requestTimeout: {
     message:
       'Move "requestTimeout" out of properties; properties is only for user metadata.',
   },
+  request_timeout: {
+    message:
+      'Move "request_timeout" out of properties; properties is only for user metadata.',
+  },
 });
+
+export let SCREENSHOT_OPTION_NAMES = Object.freeze([
+  'threshold',
+  'minClusterSize',
+  'fullPage',
+  'captureMode',
+  'deviceScaleFactor',
+  'selector',
+]);
+
+export function getScreenshotOptionsPayload(options = {}) {
+  return Object.fromEntries(
+    SCREENSHOT_OPTION_NAMES.filter(option => options[option] !== undefined).map(
+      option => [option, options[option]]
+    )
+  );
+}
 
 function createReservedPropertyWarning(option) {
   return {
@@ -34,8 +107,9 @@ function createReservedPropertyWarning(option) {
 }
 
 /**
- * Normalize screenshot SDK options into the properties payload consumed by the
- * local TDD server and cloud-compatible comparison path.
+ * Normalize screenshot SDK options into the local and cloud upload payload.
+ * Reserved names found inside properties are discarded instead of being promoted
+ * into options.
  */
 export function normalizeScreenshotOptions(options = {}) {
   let {
@@ -45,46 +119,36 @@ export function normalizeScreenshotOptions(options = {}) {
     threshold,
     minClusterSize,
     fullPage,
+    captureMode,
+    deviceScaleFactor,
+    selector,
   } = options;
 
   let warnings = [];
   let normalizedProperties = {};
+  let sourceProperties =
+    properties && typeof properties === 'object' && !Array.isArray(properties)
+      ? properties
+      : {};
 
-  for (let [key, value] of Object.entries(properties || {})) {
+  for (let [key, value] of Object.entries(sourceProperties)) {
     if (RESERVED_PROPERTY_OPTIONS[key]) {
       warnings.push(createReservedPropertyWarning(key));
-
-      if (key === 'threshold' && threshold === undefined) threshold = value;
-      if (key === 'minClusterSize' && minClusterSize === undefined) {
-        minClusterSize = value;
-      }
-      if (key === 'fullPage' && fullPage === undefined) fullPage = value;
-      if (key === 'buildId' && buildId === undefined) buildId = value;
-      if (key === 'requestTimeout' && requestTimeout === undefined) {
-        requestTimeout = value;
-      }
-
       continue;
     }
 
     normalizedProperties[key] = value;
   }
 
-  if (threshold !== undefined) {
-    normalizedProperties.threshold = threshold;
-  }
-
-  if (minClusterSize !== undefined) {
-    normalizedProperties.minClusterSize = minClusterSize;
-  }
-
-  if (fullPage !== undefined) {
-    normalizedProperties.fullPage = fullPage;
-  }
-
   return {
     buildId,
     requestTimeout,
+    threshold,
+    minClusterSize,
+    fullPage,
+    captureMode,
+    deviceScaleFactor,
+    selector,
     properties: normalizedProperties,
     warnings,
   };

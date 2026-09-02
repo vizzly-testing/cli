@@ -496,9 +496,12 @@ describe('tdd/tdd-service', () => {
         mockDeps
       );
 
-      await service.compareScreenshot('homepage', Buffer.from('test'), {
-        threshold: 5.0,
-      });
+      await service.compareScreenshot(
+        'homepage',
+        Buffer.from('test'),
+        {},
+        { threshold: 5.0 }
+      );
 
       assert.strictEqual(capturedThreshold, 5.0);
     });

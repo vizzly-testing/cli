@@ -58,10 +58,6 @@ export function generateScreenshotProperties(viewport, options = {}) {
     properties.browser = options.browser;
   }
 
-  if (options.fullPage !== undefined) {
-    properties.fullPage = options.fullPage;
-  }
-
   if (options.url !== undefined) {
     properties.url = options.url;
   }
@@ -130,7 +126,18 @@ export async function captureAndSendScreenshot(
   });
   let screenshot = await captureScreenshot(page, screenshotOptions);
 
-  let vizzlyOptions = { properties };
+  let vizzlyOptions = {
+    properties,
+    ...(screenshotOptions.threshold !== undefined
+      ? { threshold: screenshotOptions.threshold }
+      : {}),
+    ...(screenshotOptions.minClusterSize !== undefined
+      ? { minClusterSize: screenshotOptions.minClusterSize }
+      : {}),
+    ...(screenshotOptions.fullPage !== undefined
+      ? { fullPage: screenshotOptions.fullPage }
+      : {}),
+  };
   if (screenshotOptions.requestTimeout !== undefined) {
     vizzlyOptions.requestTimeout = screenshotOptions.requestTimeout;
   }

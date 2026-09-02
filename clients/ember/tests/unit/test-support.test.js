@@ -64,7 +64,7 @@ describe('test-support', () => {
   });
 
   describe('vizzlyScreenshot()', () => {
-    it('forwards comparison options as screenshot properties', async () => {
+    it('forwards comparison options separately from screenshot properties', async () => {
       let capturedBody = null;
 
       installBrowserGlobals(async (_url, request) => {
@@ -105,10 +105,9 @@ describe('test-support', () => {
         viewport_height: 900,
         url: 'http://localhost:4200/dashboard',
         theme: 'dark',
-        threshold: 5,
-        minClusterSize: 10,
-        fullPage: true,
       });
+      assert.strictEqual(capturedBody.threshold, 5);
+      assert.strictEqual(capturedBody.minClusterSize, 10);
     });
 
     it('keeps reserved metadata stable while allowing custom viewport metadata', async () => {

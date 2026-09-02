@@ -256,7 +256,7 @@ jobs:
         env:
           CI: true
 
-  # Swift SDK - runs on multiple Xcode versions
+  # Swift SDK - uses the Xcode version configured by the hosted runner
   swift:
     name: Swift SDK
     runs-on: macos-latest
@@ -264,15 +264,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.swift == 'true'
 
-    strategy:
-      matrix:
-        xcode-version: ['16.2', '16.4']
-
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode-version }}.app
+      - name: Show Xcode version
+        run: xcodebuild -version
 
       - name: Build Swift package
         working-directory: ./clients/swift

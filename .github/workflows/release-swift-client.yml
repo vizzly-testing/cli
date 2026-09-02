@@ -36,8 +36,8 @@ jobs:
         with:
           node-version: '22.13.1'
 
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Show Xcode version
+        run: xcodebuild -version
 
       - name: Configure git
         run: |

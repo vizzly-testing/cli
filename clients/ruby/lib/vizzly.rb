@@ -32,8 +32,7 @@ module Vizzly
     requestTimeout
   ].freeze
 
-  # rubocop:disable Metrics/ClassLength
-  class Client
+  class Client # rubocop:disable Metrics/ClassLength
     attr_reader :server_url, :disabled
 
     def initialize(server_url: nil, fail_on_diff: nil)
@@ -70,8 +69,7 @@ module Vizzly
     #     properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } },
     #     threshold: 5
     #   )
-    # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
-    def screenshot(name, image_data, options = {})
+    def screenshot(name, image_data, options = {}) # rubocop:disable Metrics
       return nil if disabled?
 
       unless @server_url
@@ -201,7 +199,6 @@ module Vizzly
         nil
       end
     end
-    # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
     # Wait for all queued screenshots to be processed
     # (Simple client doesn't need explicit flushing)
@@ -353,7 +350,6 @@ module Vizzly
       nil
     end
   end
-  # rubocop:enable Metrics/ClassLength
 
   class << self
     # Get or create the shared client instance

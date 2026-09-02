@@ -6,8 +6,7 @@ require 'fileutils'
 require 'tmpdir'
 require_relative '../lib/vizzly'
 
-# rubocop:disable Metrics/ClassLength
-class VizzlyTest < Minitest::Test
+class VizzlyTest < Minitest::Test # rubocop:disable Metrics/ClassLength
   def setup
     Vizzly.reset!
     @original_dir = Dir.pwd
@@ -373,4 +372,3 @@ class VizzlyTest < Minitest::Test
     Net::HTTP.define_singleton_method(:start, original_start)
   end
 end
-# rubocop:enable Metrics/ClassLength

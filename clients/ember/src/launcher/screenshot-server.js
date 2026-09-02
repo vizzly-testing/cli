@@ -317,9 +317,13 @@ async function handleScreenshot(req, res) {
         imageBuffer = await pageRef.screenshot(screenshotOptions);
       }
 
-      let deviceScaleFactor =
-        requestedDeviceScaleFactor ??
-        (await pageRef.evaluate(() => window.devicePixelRatio));
+      let deviceScaleFactor = requestedDeviceScaleFactor;
+      if (deviceScaleFactor === null || deviceScaleFactor === undefined) {
+        deviceScaleFactor =
+          typeof pageRef.evaluate === 'function'
+            ? await pageRef.evaluate(() => window.devicePixelRatio)
+            : null;
+      }
 
       // Forward to Vizzly TDD server
       let result = await forwardToVizzly(name, imageBuffer, properties, {

@@ -1,6 +1,6 @@
 {
   "name": "@vizzly-testing/cli",
-  "version": "0.35.3-beta.3",
+  "version": "0.35.3-beta.4",
   "description": "Visual regression testing from your terminal",
   "keywords": [
     "llm-context",

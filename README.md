@@ -153,10 +153,9 @@ test('homepage looks correct', async ({ page }) => {
 
 `properties` is your metadata bag for baseline grouping, filtering, and
 debugging. SDK options such as `threshold`, `minClusterSize`, `fullPage`,
-`requestTimeout`, and `buildId` stay at the top level. If one of those reserved
-SDK options is accidentally placed inside `properties`, Vizzly removes it from
-metadata, applies it as an option when possible, and warns so the call site can
-be cleaned up.
+`requestTimeout`, and `buildId` stay at the top level. Reserved SDK and capture
+fields inside `properties` are ignored and produce a warning; they are never
+interpreted as options or stored as user metadata.
 
 The client SDK is lightweight. It posts screenshots to the local Vizzly server
 or the cloud build wrapper. It works with any test runner.

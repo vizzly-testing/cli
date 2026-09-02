@@ -196,11 +196,18 @@ export async function uploadScreenshot(
   name,
   buffer,
   metadata = {},
-  skipDedup = false
+  skipDedup = false,
+  screenshotOptions = {}
 ) {
   // Skip SHA deduplication if requested
   if (skipDedup) {
-    let payload = buildScreenshotPayload(name, buffer, metadata);
+    let payload = buildScreenshotPayload(
+      name,
+      buffer,
+      metadata,
+      null,
+      screenshotOptions
+    );
     return client.request(`/api/sdk/builds/${buildId}/screenshots`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -210,7 +217,12 @@ export async function uploadScreenshot(
 
   // Normal flow with server-side SHA resolution.
   let sha256 = computeSha256(buffer);
-  let resolvePayload = buildScreenshotResolvePayload(name, metadata, sha256);
+  let resolvePayload = buildScreenshotResolvePayload(
+    name,
+    metadata,
+    sha256,
+    screenshotOptions
+  );
   try {
     let resolveResult = await client.request(
       `/api/sdk/builds/${buildId}/screenshots`,
@@ -241,7 +253,13 @@ export async function uploadScreenshot(
   }
 
   // File doesn't exist, or resolve failed; proceed with upload.
-  let payload = buildScreenshotPayload(name, buffer, metadata, sha256);
+  let payload = buildScreenshotPayload(
+    name,
+    buffer,
+    metadata,
+    sha256,
+    screenshotOptions
+  );
   return client.request(`/api/sdk/builds/${buildId}/screenshots`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -244,9 +244,6 @@ describe('server/routers/screenshot', () => {
           browser: 'firefox',
           viewport_width: 1280,
           viewport_height: 720,
-          threshold: 0,
-          minClusterSize: 2,
-          fullPage: false,
         };
 
         let handler = createScreenshotRouter({
@@ -260,6 +257,9 @@ describe('server/routers/screenshot', () => {
           properties,
           type: 'base64',
           warnings: [{ code: 'reserved-property-option', option: 'threshold' }],
+          threshold: 0,
+          minClusterSize: 2,
+          fullPage: false,
         });
         let res = createMockResponse();
 
@@ -272,6 +272,14 @@ describe('server/routers/screenshot', () => {
           properties,
           'base64',
           [{ code: 'reserved-property-option', option: 'threshold' }],
+          {
+            threshold: 0,
+            minClusterSize: 2,
+            fullPage: false,
+            captureMode: undefined,
+            deviceScaleFactor: undefined,
+            selector: undefined,
+          },
         ]);
       });
 

@@ -4,6 +4,8 @@
  * No I/O, no side effects - just data transformations.
  */
 
+import { getScreenshotOptionsPayload } from '../utils/screenshot-options.js';
+
 // ============================================================================
 // Request Validation
 // ============================================================================
@@ -139,9 +141,13 @@ export function buildServerStoppedMessage() {
  * @returns {{ name: string, image: string, properties?: Object }}
  */
 export function extractScreenshotData(body) {
-  return {
+  let screenshotData = {
     name: body.name,
     image: body.image,
     properties: body.properties,
   };
+
+  Object.assign(screenshotData, getScreenshotOptionsPayload(body));
+
+  return screenshotData;
 }

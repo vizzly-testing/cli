@@ -168,13 +168,10 @@ describe('Vitest Plugin Integration', () => {
   });
 
   describe('Custom Matcher', () => {
-    it('sends comparison options as screenshot properties', () => {
+    it('keeps comparison options out of screenshot properties', () => {
       let properties = buildScreenshotProperties(
         {
           properties: { theme: 'dark' },
-          threshold: 5,
-          minClusterSize: 10,
-          fullPage: true,
         },
         'http://localhost/component',
         { viewport: { width: 1920, height: 1080 } }
@@ -189,9 +186,6 @@ describe('Vitest Plugin Integration', () => {
         viewport_width: 1920,
         viewport_height: 1080,
         theme: 'dark',
-        threshold: 5,
-        minClusterSize: 10,
-        fullPage: true,
       });
     });
 

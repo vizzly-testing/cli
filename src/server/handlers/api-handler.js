@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { uploadScreenshot as defaultUploadScreenshot } from '../../api/index.js';
 import { detectImageInputType } from '../../utils/image-input-detector.js';
 import * as output from '../../utils/output.js';
+import { normalizeScreenshotOptions } from '../../utils/screenshot-options.js';
 
 /**
  * API Handler - Non-blocking screenshot upload
@@ -55,9 +56,25 @@ export const createApiHandler = (
     image,
     properties = {},
     type,
-    warnings = []
+    warnings = [],
+    screenshotOptions = {}
   ) => {
     let handlerStart = Date.now();
+    let normalizedOptions = normalizeScreenshotOptions({
+      ...screenshotOptions,
+      properties,
+    });
+    properties = normalizedOptions.properties;
+    screenshotOptions = {
+      ...screenshotOptions,
+      threshold: normalizedOptions.threshold,
+      minClusterSize: normalizedOptions.minClusterSize,
+      fullPage: normalizedOptions.fullPage,
+      captureMode: normalizedOptions.captureMode,
+      deviceScaleFactor: normalizedOptions.deviceScaleFactor,
+      selector: normalizedOptions.selector,
+    };
+    warnings = [...(warnings || []), ...normalizedOptions.warnings];
     output.debug('upload', `${name} received`, {
       buildId: buildId?.slice(0, 8),
     });
@@ -151,7 +168,9 @@ export const createApiHandler = (
       buildId,
       name,
       imageBuffer,
-      properties ?? {}
+      properties ?? {},
+      false,
+      screenshotOptions
     )
       .then(result => {
         let duration = Date.now() - uploadStart;

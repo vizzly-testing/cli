@@ -280,10 +280,10 @@ describe('sdk/index', () => {
         type: 'base64',
         properties: {
           browser: 'firefox',
-          threshold: 0,
-          minClusterSize: 3,
-          fullPage: true,
         },
+        threshold: 0,
+        minClusterSize: 3,
+        fullPage: true,
       });
       assert.deepStrictEqual(capturedEvents, [
         {

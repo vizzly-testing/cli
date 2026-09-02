@@ -295,5 +295,25 @@ describe('screenshot-server/core', () => {
         properties: undefined,
       });
     });
+
+    it('keeps operational options separate from properties', () => {
+      let data = extractScreenshotData({
+        name: 'test',
+        image: 'data',
+        properties: { theme: 'dark' },
+        threshold: 0.1,
+        minClusterSize: 4,
+        fullPage: true,
+      });
+
+      assert.deepStrictEqual(data, {
+        name: 'test',
+        image: 'data',
+        properties: { theme: 'dark' },
+        threshold: 0.1,
+        minClusterSize: 4,
+        fullPage: true,
+      });
+    });
   });
 });

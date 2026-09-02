@@ -275,18 +275,6 @@ public final class VizzlyClient {
             }
         }
 
-        if let threshold = threshold {
-            mergedProperties["threshold"] = threshold
-        }
-
-        if let minClusterSize = minClusterSize {
-            mergedProperties["minClusterSize"] = minClusterSize
-        }
-
-        if let fullPage = fullPage {
-            mergedProperties["fullPage"] = fullPage
-        }
-
         var payload: [String: Any] = [
             "name": name,
             "image": image.base64EncodedString(),
@@ -294,6 +282,18 @@ public final class VizzlyClient {
         ]
 
         payload["properties"] = mergedProperties
+
+        if let threshold = threshold {
+            payload["threshold"] = threshold
+        }
+
+        if let minClusterSize = minClusterSize {
+            payload["minClusterSize"] = minClusterSize
+        }
+
+        if let fullPage = fullPage {
+            payload["fullPage"] = fullPage
+        }
 
         if let buildId = buildId {
             payload["buildId"] = buildId

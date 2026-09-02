@@ -6,8 +6,7 @@ require 'fileutils'
 require 'tmpdir'
 require_relative '../lib/vizzly'
 
-# rubocop:disable Metrics/ClassLength
-class VizzlyTest < Minitest::Test
+class VizzlyTest < Minitest::Test # rubocop:disable Metrics/ClassLength
   def setup
     Vizzly.reset!
     @original_dir = Dir.pwd
@@ -227,7 +226,7 @@ class VizzlyTest < Minitest::Test
     Net::HTTP.define_singleton_method(:start, original_start)
   end
 
-  def test_screenshot_serializes_fractional_threshold_in_properties
+  def test_screenshot_serializes_fractional_threshold_separately_from_properties
     captured_body = nil
     original_start = Net::HTTP.method(:start)
     response = Net::HTTPOK.new('1.1', '200', 'OK')
@@ -249,8 +248,8 @@ class VizzlyTest < Minitest::Test
     )
 
     assert_equal 'match', result['status']
-    assert_equal 1.5, captured_body['properties']['threshold']
-    refute_includes captured_body, 'threshold'
+    assert_equal 1.5, captured_body['threshold']
+    refute_includes captured_body['properties'], 'threshold'
   ensure
     Net::HTTP.define_singleton_method(:start, original_start)
   end
@@ -322,7 +321,8 @@ class VizzlyTest < Minitest::Test
 
     properties = captured_body['properties']
     assert_equal 'chrome', properties['browser']
-    assert_equal 0, properties['minClusterSize']
+    assert_equal 0, captured_body['minClusterSize']
+    refute_includes properties, 'minClusterSize'
     assert_equal 1920, properties['viewport']['width']
     assert_equal 1080, properties['viewport']['height']
     refute_includes properties, 'buildId'
@@ -330,7 +330,7 @@ class VizzlyTest < Minitest::Test
     Net::HTTP.define_singleton_method(:start, original_start)
   end
 
-  def test_screenshot_promotes_reserved_options_from_properties_with_warnings
+  def test_screenshot_does_not_promote_reserved_options_from_properties
     captured_body = nil
     original_start = Net::HTTP.method(:start)
     response = Net::HTTPOK.new('1.1', '200', 'OK')
@@ -359,10 +359,10 @@ class VizzlyTest < Minitest::Test
     end
 
     assert_match(/Move "threshold" out of properties/, result[1])
-    assert_equal 'build-from-properties', captured_body['buildId']
+    refute_equal 'build-from-properties', captured_body['buildId']
     assert_equal 'dark', captured_body['properties']['theme']
-    assert_equal 1.5, captured_body['properties']['threshold']
-    assert_equal 3, captured_body['properties']['minClusterSize']
+    refute_includes captured_body['properties'], 'threshold'
+    refute_includes captured_body['properties'], 'minClusterSize'
     refute_includes captured_body['properties'], 'buildId'
     assert_equal(
       %w[threshold minClusterSize buildId],
@@ -372,4 +372,3 @@ class VizzlyTest < Minitest::Test
     Net::HTTP.define_singleton_method(:start, original_start)
   end
 end
-# rubocop:enable Metrics/ClassLength

@@ -111,7 +111,6 @@ describe('generateScreenshotProperties', () => {
       viewport_width: 375,
       viewport_height: 667,
       browser: 'firefox',
-      fullPage: false,
       url: 'http://localhost:3000/mobile',
       page: 'homepage',
     });
@@ -126,13 +125,13 @@ describe('generateScreenshotProperties', () => {
     assert.strictEqual(properties.browser, 'firefox');
   });
 
-  it('includes full-page metadata when capture mode is explicit', () => {
+  it('does not include capture options in user properties', () => {
     let viewport = { name: 'desktop', width: 1920, height: 1080 };
     let properties = generateScreenshotProperties(viewport, {
       fullPage: false,
     });
 
-    assert.strictEqual(properties.fullPage, false);
+    assert.strictEqual(properties.fullPage, undefined);
   });
 
   it('generates viewport dimensions that cloud SHA checks consume', () => {
@@ -215,11 +214,11 @@ describe('captureAndSendScreenshot', () => {
         viewport_width: 1920,
         viewport_height: 1080,
         browser: 'chromium',
-        fullPage: false,
         url: 'http://localhost:3000/docs',
         page: 'docs',
         test: 'static-site',
       },
+      fullPage: false,
       requestTimeout: 120000,
     });
   });

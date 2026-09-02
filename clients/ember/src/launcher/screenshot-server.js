@@ -114,13 +114,28 @@ export function clearServerInfoCache() {
  * @param {Object} [options] - Forwarding options
  * @param {string|null} [options.buildId] - Build ID to attach to screenshot
  * @param {number|null} [options.requestTimeout] - HTTP request timeout in milliseconds
+ * @param {number|null} [options.threshold] - Screenshot comparison threshold
+ * @param {number|null} [options.minClusterSize] - Minimum changed cluster size
+ * @param {boolean|null} [options.fullPage] - Whether the screenshot captures the full page
+ * @param {string|null} [options.captureMode] - Normalized capture mode
+ * @param {number|null} [options.deviceScaleFactor] - Device scale factor used for capture
+ * @param {string|null} [options.selector] - Selector used for element capture
  * @returns {Promise<Object>} Response from TDD server
  */
 async function forwardToVizzly(
   name,
   imageBuffer,
   properties = {},
-  { buildId = null, requestTimeout = null } = {}
+  {
+    buildId = null,
+    requestTimeout = null,
+    threshold = null,
+    minClusterSize = null,
+    fullPage = null,
+    captureMode = null,
+    deviceScaleFactor = null,
+    selector = null,
+  } = {}
 ) {
   let serverInfo = autoDiscoverTddServer();
 
@@ -140,6 +155,12 @@ async function forwardToVizzly(
       ...properties,
       framework: 'ember',
     },
+    ...(threshold !== null ? { threshold } : {}),
+    ...(minClusterSize !== null ? { minClusterSize } : {}),
+    ...(fullPage !== null ? { fullPage } : {}),
+    ...(captureMode !== null ? { captureMode } : {}),
+    ...(deviceScaleFactor !== null ? { deviceScaleFactor } : {}),
+    ...(selector !== null ? { selector } : {}),
   };
 
   // Use node:http directly with Connection: close to prevent keep-alive hangs
@@ -236,6 +257,10 @@ async function handleScreenshot(req, res) {
         name,
         selector,
         fullPage,
+        threshold,
+        minClusterSize,
+        captureMode,
+        deviceScaleFactor: requestedDeviceScaleFactor,
         properties,
         viewport,
         requestTimeout,
@@ -292,10 +317,26 @@ async function handleScreenshot(req, res) {
         imageBuffer = await pageRef.screenshot(screenshotOptions);
       }
 
+      let deviceScaleFactor = requestedDeviceScaleFactor;
+      if (deviceScaleFactor === null || deviceScaleFactor === undefined) {
+        deviceScaleFactor =
+          typeof pageRef.evaluate === 'function'
+            ? await pageRef.evaluate(() => window.devicePixelRatio)
+            : null;
+      }
+
       // Forward to Vizzly TDD server
       let result = await forwardToVizzly(name, imageBuffer, properties, {
         buildId,
         requestTimeout,
+        threshold,
+        minClusterSize,
+        fullPage: selector ? false : Boolean(fullPage),
+        captureMode:
+          captureMode ||
+          (selector ? 'element' : fullPage ? 'full_page' : 'viewport'),
+        deviceScaleFactor,
+        selector,
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -23,7 +23,10 @@ import { createUploader } from '../uploader/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { resolveImageBuffer } from '../utils/file-helpers.js';
 import * as output from '../utils/output.js';
-import { normalizeScreenshotOptions } from '../utils/screenshot-options.js';
+import {
+  getScreenshotOptionsPayload,
+  normalizeScreenshotOptions,
+} from '../utils/screenshot-options.js';
 
 /**
  * Create a new Vizzly instance with custom configuration
@@ -341,6 +344,10 @@ export class VizzlySDK extends EventEmitter {
       type: 'base64',
       properties: normalizedOptions.properties,
     };
+    Object.assign(
+      screenshotData,
+      getScreenshotOptionsPayload(normalizedOptions)
+    );
     if (normalizedOptions.warnings.length > 0) {
       screenshotData.warnings = normalizedOptions.warnings;
     }

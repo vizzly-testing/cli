@@ -7,6 +7,10 @@
 
 import crypto from 'node:crypto';
 import { URLSearchParams } from 'node:url';
+import {
+  createScreenshotProperties,
+  getScreenshotOptionsPayload,
+} from '../utils/screenshot-options.js';
 
 // ============================================================================
 // Header Building
@@ -81,12 +85,15 @@ export function buildScreenshotPayload(
   name,
   buffer,
   metadata = {},
-  sha256 = null
+  sha256 = null,
+  screenshotOptions = {}
 ) {
   let payload = {
     name,
-    properties: metadata ?? {},
+    properties: createScreenshotProperties({ properties: metadata }),
   };
+
+  Object.assign(payload, getScreenshotOptionsPayload(screenshotOptions));
 
   if (buffer) {
     payload.image_data = buffer.toString('base64');
@@ -106,8 +113,19 @@ export function buildScreenshotPayload(
  * @param {string} sha256 - Pre-computed SHA256 hash
  * @returns {Object} Screenshot resolution payload
  */
-export function buildScreenshotResolvePayload(name, metadata = {}, sha256) {
-  return buildScreenshotPayload(name, null, metadata, sha256);
+export function buildScreenshotResolvePayload(
+  name,
+  metadata = {},
+  sha256,
+  screenshotOptions = {}
+) {
+  return buildScreenshotPayload(
+    name,
+    null,
+    metadata,
+    sha256,
+    screenshotOptions
+  );
 }
 
 /**
@@ -202,13 +220,14 @@ export function buildShaCheckPayload(screenshots, buildId) {
  */
 export function buildScreenshotCheckObject(sha256, name, metadata = {}) {
   let meta = metadata || {};
+  let properties = createScreenshotProperties({ properties: meta });
   return {
     sha256,
     name,
     browser: meta.browser || 'chrome',
     viewport_width: meta.viewport?.width || meta.viewport_width || 1920,
     viewport_height: meta.viewport?.height || meta.viewport_height || 1080,
-    properties: meta,
+    properties,
   };
 }
 

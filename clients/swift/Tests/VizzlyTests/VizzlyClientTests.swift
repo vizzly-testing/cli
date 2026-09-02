@@ -110,7 +110,7 @@ final class VizzlyClientTests: XCTestCase {
         XCTAssertEqual(properties?["deviceName"] as? String, "iPhone")
     }
 
-    func testComparisonOptionsAreSentAsProperties() {
+    func testComparisonOptionsAreSentOutsideProperties() {
         let payload = VizzlyClient.makeScreenshotPayload(
             name: "test",
             image: createTestImage(),
@@ -120,25 +120,27 @@ final class VizzlyClientTests: XCTestCase {
             fullPage: true
         )
 
-        XCTAssertNil(payload["threshold"])
-        XCTAssertNil(payload["minClusterSize"])
+        XCTAssertEqual(payload["threshold"] as? Double, 1.5)
+        XCTAssertEqual(payload["minClusterSize"] as? Int, 4)
+        XCTAssertEqual(payload["fullPage"] as? Bool, true)
 
         let properties = payload["properties"] as? [String: Any]
         XCTAssertEqual(properties?["theme"] as? String, "dark")
-        XCTAssertEqual(properties?["threshold"] as? Double, 1.5)
-        XCTAssertEqual(properties?["minClusterSize"] as? Int, 4)
-        XCTAssertEqual(properties?["fullPage"] as? Bool, true)
+        XCTAssertNil(properties?["threshold"])
+        XCTAssertNil(properties?["minClusterSize"])
+        XCTAssertNil(properties?["fullPage"])
     }
 
-    func testExplicitFullPageFalseIsSentAsProperty() {
+    func testExplicitFullPageFalseIsSentOutsideProperties() {
         let payload = VizzlyClient.makeScreenshotPayload(
             name: "test",
             image: createTestImage(),
             fullPage: false
         )
 
+        XCTAssertEqual(payload["fullPage"] as? Bool, false)
         let properties = payload["properties"] as? [String: Any]
-        XCTAssertEqual(properties?["fullPage"] as? Bool, false)
+        XCTAssertNil(properties?["fullPage"])
     }
 
     func testPerCallBuildIdIsSentOutsideProperties() {

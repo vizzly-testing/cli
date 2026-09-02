@@ -473,9 +473,12 @@ describe('client/index httpPost integration tests', () => {
     });
   });
 
-  it('sends comparison options in properties for the TDD server', async () => {
+  it('sends comparison options separately from user properties', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'), {
       fullPage: true,
+      captureMode: 'element',
+      deviceScaleFactor: 2,
+      selector: '#checkout',
       threshold: 0.1,
       minClusterSize: 4,
       properties: { url: 'http://localhost:3000' },
@@ -483,16 +486,22 @@ describe('client/index httpPost integration tests', () => {
     });
 
     assert.strictEqual(requests.length, 1);
-    let { properties, fullPage, threshold, minClusterSize } = requests[0].body;
-    assert.strictEqual(fullPage, undefined);
-    assert.strictEqual(threshold, undefined);
-    assert.strictEqual(minClusterSize, undefined);
-    assert.deepStrictEqual(properties, {
-      url: 'http://localhost:3000',
-      threshold: 0.1,
-      minClusterSize: 4,
-      fullPage: true,
-    });
+    let {
+      properties,
+      fullPage,
+      threshold,
+      minClusterSize,
+      captureMode,
+      deviceScaleFactor,
+      selector,
+    } = requests[0].body;
+    assert.strictEqual(fullPage, true);
+    assert.strictEqual(threshold, 0.1);
+    assert.strictEqual(minClusterSize, 4);
+    assert.strictEqual(captureMode, 'element');
+    assert.strictEqual(deviceScaleFactor, 2);
+    assert.strictEqual(selector, '#checkout');
+    assert.deepStrictEqual(properties, { url: 'http://localhost:3000' });
   });
 
   it('lets explicit comparison options override nested properties', async () => {
@@ -506,10 +515,9 @@ describe('client/index httpPost integration tests', () => {
     });
 
     assert.strictEqual(requests.length, 1);
-    assert.deepStrictEqual(requests[0].body.properties, {
-      threshold: 0,
-      minClusterSize: 2,
-    });
+    assert.strictEqual(requests[0].body.threshold, 0);
+    assert.strictEqual(requests[0].body.minClusterSize, 2);
+    assert.deepStrictEqual(requests[0].body.properties, {});
     assert.deepStrictEqual(
       requests[0].body.warnings.map(warning => warning.option),
       ['threshold', 'minClusterSize']
@@ -521,7 +529,7 @@ describe('client/index httpPost integration tests', () => {
     );
   });
 
-  it('promotes reserved property options and returns warnings', async () => {
+  it('does not promote reserved property options and returns warnings', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'), {
       properties: {
         theme: 'dark',
@@ -532,11 +540,9 @@ describe('client/index httpPost integration tests', () => {
     });
 
     assert.strictEqual(requests.length, 1);
-    assert.strictEqual(requests[0].body.buildId, 'build-from-properties');
-    assert.deepStrictEqual(requests[0].body.properties, {
-      theme: 'dark',
-      threshold: 1,
-    });
+    assert.strictEqual(requests[0].body.buildId, undefined);
+    assert.strictEqual(requests[0].body.threshold, undefined);
+    assert.deepStrictEqual(requests[0].body.properties, { theme: 'dark' });
     assert.deepStrictEqual(
       requests[0].body.warnings.map(warning => warning.option),
       ['buildId', 'requestTimeout', 'threshold']

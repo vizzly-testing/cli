@@ -53,18 +53,6 @@ export function generateScreenshotProperties(
     ...(screenshotOptions.properties || {}),
   };
 
-  if (screenshotOptions.threshold !== undefined) {
-    properties.threshold = screenshotOptions.threshold;
-  }
-
-  if (screenshotOptions.minClusterSize !== undefined) {
-    properties.minClusterSize = screenshotOptions.minClusterSize;
-  }
-
-  if (screenshotOptions.fullPage !== undefined) {
-    properties.fullPage = screenshotOptions.fullPage;
-  }
-
   return properties;
 }
 
@@ -134,6 +122,12 @@ export async function captureAndSendScreenshot(
       screenshotOptions
     ),
   };
+
+  for (let option of ['threshold', 'minClusterSize', 'fullPage']) {
+    if (screenshotOptions[option] !== undefined) {
+      vizzlyOptions[option] = screenshotOptions[option];
+    }
+  }
 
   if (screenshotOptions.requestTimeout !== undefined) {
     vizzlyOptions.requestTimeout = screenshotOptions.requestTimeout;

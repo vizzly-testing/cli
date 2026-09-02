@@ -41,18 +41,6 @@ export function buildScreenshotProperties(
     properties.viewport_height = customViewportHeight;
   }
 
-  if (options.threshold !== undefined) {
-    properties.threshold = options.threshold;
-  }
-
-  if (options.minClusterSize !== undefined) {
-    properties.minClusterSize = options.minClusterSize;
-  }
-
-  if (!context.element && options.fullPage !== undefined) {
-    properties.fullPage = options.fullPage;
-  }
-
   return properties;
 }
 
@@ -161,6 +149,7 @@ async function toMatchScreenshot(element, name, options = {}) {
       height: window.innerHeight,
     },
   });
+  let isElement = isElementScreenshotTarget(element, page);
 
   try {
     // Vitest browser mode saves screenshots to disk and returns the file path
@@ -177,6 +166,15 @@ async function toMatchScreenshot(element, name, options = {}) {
         type: 'file-path',
         buildId: buildId || null,
         properties,
+        threshold: options.threshold,
+        minClusterSize: options.minClusterSize,
+        fullPage: !isElement ? options.fullPage : undefined,
+        captureMode: isElement
+          ? 'element'
+          : options.fullPage === true
+            ? 'full_page'
+            : 'viewport',
+        deviceScaleFactor: window.devicePixelRatio,
       }),
     });
 

@@ -24,6 +24,8 @@
  * });
  */
 
+let SCREENSHOT_FORMAT_VERSION = 2;
+
 /**
  * Custom error class for intentional visual diff failures.
  * Only this error type will be re-thrown to fail tests.
@@ -269,33 +271,17 @@ export async function vizzlyScreenshot(name, options = {}) {
   // eslint-disable-next-line no-unused-expressions
   document.body.offsetHeight;
 
-  let customViewport = properties.viewport;
-  let customViewportWidth = properties.viewport_width;
-  let customViewportHeight = properties.viewport_height;
   let screenshotProperties = {
-    ...properties,
     framework: 'ember',
     browser: detectBrowser(),
-    viewport_width: width,
-    viewport_height: height,
     url: window.location.href,
+    ...properties,
   };
-
-  if (customViewport !== undefined) {
-    screenshotProperties.viewport = customViewport;
-  }
-
-  if (customViewportWidth !== undefined) {
-    screenshotProperties.viewport_width = customViewportWidth;
-  }
-
-  if (customViewportHeight !== undefined) {
-    screenshotProperties.viewport_height = customViewportHeight;
-  }
 
   // Build request payload
   let payload = {
     buildId: buildId || window.__VIZZLY_BUILD_ID__ || null,
+    screenshotFormatVersion: SCREENSHOT_FORMAT_VERSION,
     name,
     selector: captureSelector,
     fullPage: effectiveFullPage,

@@ -12,6 +12,8 @@ import { createServer, request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { dirname, join, parse } from 'node:path';
 
+let SCREENSHOT_FORMAT_VERSION = 2;
+
 /**
  * Reference to the Playwright page for screenshot capture
  * Set by the launcher after browser is ready
@@ -149,6 +151,7 @@ async function forwardToVizzly(
 
   let payload = {
     ...(buildId ? { buildId } : {}),
+    screenshotFormatVersion: SCREENSHOT_FORMAT_VERSION,
     name,
     image: imageBuffer.toString('base64'),
     properties: {

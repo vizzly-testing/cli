@@ -10,7 +10,7 @@ import { getDimensionsSync as defaultGetDimensionsSync } from '@vizzly-testing/h
 import { TddService as DefaultTddService } from '../../tdd/tdd-service.js';
 import { detectImageInputType as defaultDetectImageInputType } from '../../utils/image-input-detector.js';
 import * as defaultOutput from '../../utils/output.js';
-import { normalizeScreenshotOptions } from '../../utils/screenshot-options.js';
+import { readScreenshotProperties } from '../../utils/screenshot-compatibility.js';
 import {
   safePath as defaultSafePath,
   sanitizeScreenshotName as defaultSanitizeScreenshotName,
@@ -18,43 +18,19 @@ import {
 } from '../../utils/security.js';
 
 /**
- * Unwrap double-nested properties if needed
- * Client SDK wraps options in properties field, so we may get { properties: { properties: {...} } }
+ * Build the flat internal comparison shape. Width and height always come from
+ * the captured image. The untouched user bag remains available in metadata.
  */
-export const unwrapProperties = properties => {
-  if (!properties) return {};
-  if (properties.properties && typeof properties.properties === 'object') {
-    // Merge top-level properties with nested properties
-    let unwrapped = {
-      ...properties,
-      ...properties.properties,
-    };
-    // Remove the nested properties field to avoid confusion
-    delete unwrapped.properties;
-    return unwrapped;
-  }
-  return properties;
-};
-
-/**
- * Extract properties to top-level format matching cloud API
- * Normalizes viewport to viewport_width/height, ensures browser is set
- */
-export const extractProperties = validatedProperties => {
+export const extractProperties = (
+  validatedProperties,
+  imageDimensions = {}
+) => {
   if (!validatedProperties) return {};
   return {
     ...validatedProperties,
-    // Normalize viewport to top-level viewport_width/height (cloud format)
-    viewport_width:
-      validatedProperties.viewport?.width ??
-      validatedProperties.viewport_width ??
-      null,
-    viewport_height:
-      validatedProperties.viewport?.height ??
-      validatedProperties.viewport_height ??
-      null,
+    viewport_width: imageDimensions.width ?? null,
+    viewport_height: imageDimensions.height ?? null,
     browser: validatedProperties.browser ?? null,
-    // Preserve nested structure in metadata for backward compatibility
     metadata: validatedProperties,
   };
 };
@@ -400,20 +376,15 @@ export const createTddHandler = (
       };
     }
 
-    // Preserve the old nested wrapper for older clients, then filter user
-    // properties before local comparison/report serialization.
-    let unwrappedProperties = unwrapProperties(properties);
-    let normalizedProperties = normalizeScreenshotOptions({
-      properties: unwrappedProperties,
-    });
-    warnings = [...(warnings || []), ...normalizedProperties.warnings];
+    let userProperties = readScreenshotProperties(
+      properties,
+      screenshotOptions.screenshotFormatVersion
+    );
 
     // Validate and sanitize properties
     let validatedProperties;
     try {
-      validatedProperties = validateScreenshotProperties(
-        normalizedProperties.properties
-      );
+      validatedProperties = validateScreenshotProperties(userProperties);
     } catch (error) {
       return {
         statusCode: 400,
@@ -424,9 +395,6 @@ export const createTddHandler = (
         },
       };
     }
-
-    // Extract ALL properties to top-level (matching cloud API behavior)
-    const extractedProperties = extractProperties(validatedProperties);
 
     // Support both base64 encoded images and file paths
     // Vitest browser mode returns file paths, so we need to handle both
@@ -490,23 +458,16 @@ export const createTddHandler = (
       };
     }
 
-    // Auto-detect image dimensions if viewport not provided
-    if (
-      !extractedProperties.viewport_width ||
-      !extractedProperties.viewport_height
-    ) {
-      try {
-        const dimensions = getDimensionsSync(imageBuffer);
-        if (!extractedProperties.viewport_width) {
-          extractedProperties.viewport_width = dimensions.width;
-        }
-        if (!extractedProperties.viewport_height) {
-          extractedProperties.viewport_height = dimensions.height;
-        }
-      } catch {
-        // Dimensions will use defaults
-      }
+    let imageDimensions = {};
+    try {
+      imageDimensions = getDimensionsSync(imageBuffer);
+    } catch {
+      // Invalid images are handled by the comparison service.
     }
+    let extractedProperties = extractProperties(
+      validatedProperties,
+      imageDimensions
+    );
 
     // Use the sanitized name as-is (no modification with browser/viewport)
     // Baseline matching uses signature logic (name + viewport_width + browser)

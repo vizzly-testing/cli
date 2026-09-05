@@ -113,7 +113,7 @@ public final class VizzlyClient {
     /// - Parameters:
     ///   - name: Unique name for the screenshot
     ///   - image: PNG image data
-    ///   - properties: Additional properties to attach (browser, viewport, etc.)
+    ///   - properties: User properties to attach, such as theme, locale, or state
     ///   - threshold: Optional CIEDE2000 Delta E threshold. When nil, the
     ///     Vizzly server configuration is used.
     ///   - minClusterSize: Optional minimum changed-pixel cluster size to count

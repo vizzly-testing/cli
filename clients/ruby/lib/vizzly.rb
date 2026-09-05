@@ -10,28 +10,7 @@ module Vizzly
 
   # Default port for local TDD server
   DEFAULT_TDD_PORT = 47392
-  RESERVED_PROPERTY_OPTIONS = %w[
-    threshold
-    min_cluster_size
-    minClusterSize
-    full_page
-    fullPage
-    capture_mode
-    captureMode
-    device_scale_factor
-    deviceScaleFactor
-    pixelRatio
-    dpr
-    selector
-    component
-    element_selector
-    elementSelector
-    build_id
-    buildId
-    request_timeout
-    requestTimeout
-  ].freeze
-
+  SCREENSHOT_FORMAT_VERSION = 2
   class Client # rubocop:disable Metrics/ClassLength
     attr_reader :server_url, :disabled
 
@@ -66,7 +45,7 @@ module Vizzly
     #
     # @example With options
     #   client.screenshot('checkout', image_data,
-    #     properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } },
+    #     properties: { theme: 'dark', locale: 'en-US' },
     #     threshold: 5
     #   )
     def screenshot(name, image_data, options = {}) # rubocop:disable Metrics
@@ -82,22 +61,20 @@ module Vizzly
       options = normalize_options(options)
       normalized = normalize_screenshot_options(options)
 
-      normalized[:warnings].each { |warning| warn warning[:message] }
-
       request_timeout = normalized[:request_timeout]
       request_timeout_seconds = request_timeout ? request_timeout.to_f / 1000.0 : 30
       build_id = normalized[:build_id] || ENV.fetch('VIZZLY_BUILD_ID', nil)
 
       payload = {
         name: name,
+        screenshotFormatVersion: SCREENSHOT_FORMAT_VERSION,
         image: image_base64,
         type: 'base64',
         buildId: build_id,
         properties: normalized[:properties],
         threshold: normalized[:threshold],
         minClusterSize: normalized[:minClusterSize],
-        fullPage: normalized[:fullPage],
-        warnings: normalized[:warnings]
+        fullPage: normalized[:fullPage]
       }.compact
 
       uri = URI("#{@server_url}/screenshot")
@@ -270,16 +247,6 @@ module Vizzly
       build_id = option_value(options, :build_id, :buildId)
       request_timeout = option_value(options, :request_timeout, :requestTimeout)
       properties = options[:properties] || {}
-      warnings = []
-
-      properties = properties.each_with_object({}) do |(key, value), normalized_properties|
-        option = key.to_s
-        if RESERVED_PROPERTY_OPTIONS.include?(option)
-          warnings << reserved_property_warning(option)
-        else
-          normalized_properties[key] = value
-        end
-      end
 
       {
         build_id: build_id,
@@ -287,16 +254,7 @@ module Vizzly
         properties: properties,
         threshold: threshold,
         minClusterSize: min_cluster_size,
-        fullPage: full_page,
-        warnings: warnings
-      }
-    end
-
-    def reserved_property_warning(option)
-      {
-        code: 'reserved-property-option',
-        option: option,
-        message: "Move \"#{option}\" out of properties; properties is only for user metadata."
+        fullPage: full_page
       }
     end
 

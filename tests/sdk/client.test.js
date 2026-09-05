@@ -460,6 +460,7 @@ describe('client/index httpPost integration tests', () => {
       Buffer.from('fake-png-data').toString('base64')
     );
     assert.deepStrictEqual(req.body.properties, { browser: 'chrome' });
+    assert.strictEqual(req.body.screenshotFormatVersion, 2);
   });
 
   it('flattens nested properties into top-level properties', async () => {
@@ -504,7 +505,7 @@ describe('client/index httpPost integration tests', () => {
     assert.deepStrictEqual(properties, { url: 'http://localhost:3000' });
   });
 
-  it('lets explicit comparison options override nested properties', async () => {
+  it('keeps explicit comparison options separate from user properties', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'), {
       threshold: 0,
       minClusterSize: 2,
@@ -517,19 +518,15 @@ describe('client/index httpPost integration tests', () => {
     assert.strictEqual(requests.length, 1);
     assert.strictEqual(requests[0].body.threshold, 0);
     assert.strictEqual(requests[0].body.minClusterSize, 2);
-    assert.deepStrictEqual(requests[0].body.properties, {});
-    assert.deepStrictEqual(
-      requests[0].body.warnings.map(warning => warning.option),
-      ['threshold', 'minClusterSize']
-    );
-    assert.ok(
-      consoleWarnings.some(warning =>
-        warning.includes('Move "threshold" out of properties')
-      )
-    );
+    assert.deepStrictEqual(requests[0].body.properties, {
+      threshold: 5,
+      minClusterSize: 10,
+    });
+    assert.strictEqual(requests[0].body.warnings, undefined);
+    assert.deepStrictEqual(consoleWarnings, []);
   });
 
-  it('does not promote reserved property options and returns warnings', async () => {
+  it('preserves option-shaped user properties without promoting them', async () => {
     await vizzlyScreenshot('test', Buffer.from('data'), {
       properties: {
         theme: 'dark',
@@ -542,11 +539,13 @@ describe('client/index httpPost integration tests', () => {
     assert.strictEqual(requests.length, 1);
     assert.strictEqual(requests[0].body.buildId, undefined);
     assert.strictEqual(requests[0].body.threshold, undefined);
-    assert.deepStrictEqual(requests[0].body.properties, { theme: 'dark' });
-    assert.deepStrictEqual(
-      requests[0].body.warnings.map(warning => warning.option),
-      ['buildId', 'requestTimeout', 'threshold']
-    );
+    assert.deepStrictEqual(requests[0].body.properties, {
+      theme: 'dark',
+      buildId: 'build-from-properties',
+      requestTimeout: 30_000,
+      threshold: 1,
+    });
+    assert.strictEqual(requests[0].body.warnings, undefined);
   });
 
   it('ignores arbitrary top-level metadata outside the user properties bag', async () => {

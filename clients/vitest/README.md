@@ -147,12 +147,10 @@ await expect(page).toMatchScreenshot('screenshot.png', {
 - Playwright/Vitest screenshot options such as `animations`, `caret`, `mask`,
   `maskColor`, `omitBackground`, `scale`, and `timeout` are passed through to
   the browser screenshot capture.
-- Vizzly automatically adds `browser`, `url`, `viewport`, `viewport_width`, and
-  `viewport_height` metadata based on the current browser session.
-- `properties` (object) - Custom metadata for signature-based baseline matching.
-  Reserved runtime fields stay pinned to the current browser session; explicit
-  viewport fields are still allowed when a test intentionally needs a custom
-  signature.
+- Vizzly adds `browser` and `url` properties from the current browser session.
+  User properties with the same names take precedence.
+- `properties` (object) - Any user metadata used for baseline matching, such as
+  theme, locale, or state. Vizzly reads dimensions from the captured image.
 - `threshold` (number) - Vizzly diff sensitivity threshold. When omitted, the Vizzly server configuration is used.
 - `minClusterSize` (number) - Ignore connected diff clusters smaller than this size
 - `fullPage` (boolean) - Capture full scrollable page instead of viewport. This applies to page targets; locator targets stay element-sized.

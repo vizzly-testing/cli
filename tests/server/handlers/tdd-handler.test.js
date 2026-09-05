@@ -5,8 +5,11 @@ import {
   createTddHandler,
   extractProperties,
   groupComparisons,
-  unwrapProperties,
 } from '../../../src/server/handlers/tdd-handler.js';
+import {
+  CURRENT_SCREENSHOT_FORMAT_VERSION,
+  readScreenshotProperties,
+} from '../../../src/utils/screenshot-compatibility.js';
 
 /**
  * Create mock output for testing
@@ -118,15 +121,15 @@ function createMockDeps(overrides = {}) {
 }
 
 describe('server/handlers/tdd-handler', () => {
-  describe('unwrapProperties', () => {
+  describe('released screenshot property compatibility', () => {
     it('returns empty object for null/undefined', () => {
-      assert.deepStrictEqual(unwrapProperties(null), {});
-      assert.deepStrictEqual(unwrapProperties(undefined), {});
+      assert.deepStrictEqual(readScreenshotProperties(null), {});
+      assert.deepStrictEqual(readScreenshotProperties(undefined), {});
     });
 
     it('returns properties as-is when not double-nested', () => {
       let props = { browser: 'chrome', viewport: { width: 1920 } };
-      assert.deepStrictEqual(unwrapProperties(props), props);
+      assert.deepStrictEqual(readScreenshotProperties(props), props);
     });
 
     it('unwraps double-nested properties', () => {
@@ -137,7 +140,7 @@ describe('server/handlers/tdd-handler', () => {
         },
       };
 
-      let result = unwrapProperties(props);
+      let result = readScreenshotProperties(props);
 
       assert.strictEqual(result.browser, 'chrome');
       assert.strictEqual(result.viewport.width, 1920);
@@ -152,11 +155,26 @@ describe('server/handlers/tdd-handler', () => {
         },
       };
 
-      let result = unwrapProperties(props);
+      let result = readScreenshotProperties(props);
 
       assert.strictEqual(result.topLevel, 'value');
       assert.strictEqual(result.browser, 'firefox');
       assert.strictEqual(result.properties, undefined);
+    });
+
+    it('preserves every current user property', () => {
+      let props = {
+        properties: { component: 'checkout' },
+        threshold: 'user value',
+        viewport: 'wide',
+      };
+
+      let result = readScreenshotProperties(
+        props,
+        CURRENT_SCREENSHOT_FORMAT_VERSION
+      );
+
+      assert.deepStrictEqual(result, props);
     });
   });
 
@@ -166,20 +184,24 @@ describe('server/handlers/tdd-handler', () => {
       assert.deepStrictEqual(extractProperties(undefined), {});
     });
 
-    it('extracts viewport from nested structure', () => {
+    it('uses dimensions from the captured image', () => {
       let props = {
         browser: 'chrome',
         viewport: { width: 1920, height: 1080 },
       };
 
-      let result = extractProperties(props);
+      let result = extractProperties(props, { width: 800, height: 600 });
 
-      assert.strictEqual(result.viewport_width, 1920);
-      assert.strictEqual(result.viewport_height, 1080);
+      assert.strictEqual(result.viewport_width, 800);
+      assert.strictEqual(result.viewport_height, 600);
       assert.strictEqual(result.browser, 'chrome');
+      assert.deepStrictEqual(result.metadata.viewport, {
+        width: 1920,
+        height: 1080,
+      });
     });
 
-    it('uses top-level viewport_width/height if present', () => {
+    it('does not treat user dimension properties as image dimensions', () => {
       let props = {
         viewport_width: 1280,
         viewport_height: 720,
@@ -187,22 +209,10 @@ describe('server/handlers/tdd-handler', () => {
 
       let result = extractProperties(props);
 
-      assert.strictEqual(result.viewport_width, 1280);
-      assert.strictEqual(result.viewport_height, 720);
-    });
-
-    it('prefers nested viewport over top-level', () => {
-      let props = {
-        viewport: { width: 1920, height: 1080 },
-        viewport_width: 1280,
-        viewport_height: 720,
-      };
-
-      let result = extractProperties(props);
-
-      // Nested viewport.width takes precedence
-      assert.strictEqual(result.viewport_width, 1920);
-      assert.strictEqual(result.viewport_height, 1080);
+      assert.strictEqual(result.viewport_width, null);
+      assert.strictEqual(result.viewport_height, null);
+      assert.strictEqual(result.metadata.viewport_width, 1280);
+      assert.strictEqual(result.metadata.viewport_height, 720);
     });
 
     it('sets null for missing values', () => {
@@ -222,7 +232,7 @@ describe('server/handlers/tdd-handler', () => {
   });
 
   describe('handleScreenshot', () => {
-    it('does not serialize operational fields as local comparison properties', async () => {
+    it('does not reinterpret user properties as screenshot options', async () => {
       let comparisonProperties;
       let deps = createMockDeps({
         tddServiceOverrides: {
@@ -262,8 +272,8 @@ describe('server/handlers/tdd-handler', () => {
       );
 
       assert.deepStrictEqual(comparisonProperties.theme, 'dark');
-      assert.strictEqual(comparisonProperties.threshold, undefined);
-      assert.strictEqual(comparisonProperties.minClusterSize, undefined);
+      assert.strictEqual(comparisonProperties.threshold, 0.1);
+      assert.strictEqual(comparisonProperties.minClusterSize, 4);
       assert.strictEqual(comparisonProperties.properties, undefined);
     });
   });

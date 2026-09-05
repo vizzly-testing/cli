@@ -168,7 +168,7 @@ describe('Vitest Plugin Integration', () => {
   });
 
   describe('Custom Matcher', () => {
-    it('keeps comparison options out of screenshot properties', () => {
+    it('does not generate viewport properties from browser dimensions', () => {
       let properties = buildScreenshotProperties(
         {
           properties: { theme: 'dark' },
@@ -182,14 +182,11 @@ describe('Vitest Plugin Integration', () => {
         vitest: true,
         url: 'http://localhost/component',
         browser: 'unknown',
-        viewport: { width: 1920, height: 1080 },
-        viewport_width: 1920,
-        viewport_height: 1080,
         theme: 'dark',
       });
     });
 
-    it('keeps reserved screenshot metadata stable while preserving viewport overrides', () => {
+    it('preserves viewport keys when the user explicitly supplies them', () => {
       let properties = buildScreenshotProperties(
         {
           properties: {
@@ -207,10 +204,10 @@ describe('Vitest Plugin Integration', () => {
       );
 
       expect(properties).toMatchObject({
-        framework: 'vitest',
-        vitest: true,
-        url: 'http://localhost/component',
-        browser: 'unknown',
+        framework: 'custom-framework',
+        vitest: false,
+        url: 'http://evil.example',
+        browser: 'webkit',
         viewport: { width: 375, height: 667 },
         viewport_width: 375,
         viewport_height: 667,
@@ -282,7 +279,7 @@ describe('Vitest Plugin Integration', () => {
       });
     });
 
-    it('lets explicit user viewport properties override detected viewport metadata', () => {
+    it('does not reinterpret explicit user viewport properties', () => {
       let properties = buildScreenshotProperties(
         {
           properties: {

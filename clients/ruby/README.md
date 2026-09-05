@@ -41,7 +41,8 @@ Vizzly.screenshot('homepage', image_data)
 Vizzly.screenshot('checkout-page', image_data,
   properties: {
     browser: 'chrome',
-    viewport: { width: 1920, height: 1080 }
+    theme: 'dark',
+    locale: 'en-US'
   },
   threshold: 5,
   min_cluster_size: 3,
@@ -104,7 +105,8 @@ RSpec.describe 'Homepage', type: :feature do
     Vizzly.screenshot('checkout-form', image_data,
       properties: {
         browser: 'chrome',
-        viewport: { width: 1920, height: 1080 }
+        theme: 'dark',
+        locale: 'en-US'
       }
     )
   end

@@ -211,6 +211,7 @@ describe('screenshot-server', () => {
         assert.deepStrictEqual(viewportCalls, [{ width: 375, height: 667 }]);
         assert.strictEqual(screenshotCalls.length, 1);
         assert.strictEqual(forwardedPayload.buildId, 'build-from-ember');
+        assert.strictEqual(forwardedPayload.screenshotFormatVersion, 2);
         assert.strictEqual(forwardedPayload.name, 'mobile-dashboard');
         assert.deepStrictEqual(forwardedPayload.properties, {
           framework: 'ember',

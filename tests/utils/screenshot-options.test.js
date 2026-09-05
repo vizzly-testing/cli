@@ -22,7 +22,7 @@ describe('createScreenshotProperties', () => {
     assert.strictEqual(normalized.fullPage, true);
   });
 
-  it('does not interpret reserved property names as options', () => {
+  it('keeps identically named properties separate from Vizzly options', () => {
     let normalized = normalizeScreenshotOptions({
       threshold: 1,
       minClusterSize: 2,
@@ -32,16 +32,15 @@ describe('createScreenshotProperties', () => {
       },
     });
 
-    assert.deepStrictEqual(normalized.properties, {});
+    assert.deepStrictEqual(normalized.properties, {
+      threshold: 5,
+      minClusterSize: 10,
+    });
     assert.strictEqual(normalized.threshold, 1);
     assert.strictEqual(normalized.minClusterSize, 2);
-    assert.deepStrictEqual(
-      normalized.warnings.map(warning => warning.option),
-      ['threshold', 'minClusterSize']
-    );
   });
 
-  it('does not promote reserved properties into top-level options', () => {
+  it('preserves every property without promoting it into top-level options', () => {
     let normalized = normalizeScreenshotOptions({
       properties: {
         theme: 'dark',
@@ -54,23 +53,20 @@ describe('createScreenshotProperties', () => {
       },
     });
 
-    assert.deepStrictEqual(normalized.properties, { theme: 'dark' });
+    assert.deepStrictEqual(normalized.properties, {
+      theme: 'dark',
+      threshold: 0.2,
+      minClusterSize: 5,
+      fullPage: true,
+      dpr: 2,
+      buildId: 'build-from-properties',
+      requestTimeout: 60_000,
+    });
     assert.strictEqual(normalized.threshold, undefined);
     assert.strictEqual(normalized.minClusterSize, undefined);
     assert.strictEqual(normalized.fullPage, undefined);
     assert.strictEqual(normalized.buildId, undefined);
     assert.strictEqual(normalized.requestTimeout, undefined);
-    assert.deepStrictEqual(
-      normalized.warnings.map(warning => warning.option),
-      [
-        'threshold',
-        'minClusterSize',
-        'fullPage',
-        'dpr',
-        'buildId',
-        'requestTimeout',
-      ]
-    );
   });
 
   it('ignores arbitrary top-level metadata outside the user properties bag', () => {

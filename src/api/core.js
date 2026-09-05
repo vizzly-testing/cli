@@ -77,7 +77,7 @@ export function buildRequestHeaders({
  * Build payload for screenshot upload or SHA resolution
  * @param {string} name - Screenshot name
  * @param {Buffer|null} buffer - Image data, or null when resolving by SHA
- * @param {Object} metadata - Screenshot metadata (viewport, browser, etc.)
+ * @param {Object} metadata - User screenshot properties
  * @param {string|null} sha256 - Pre-computed SHA256 hash (optional)
  * @returns {Object} Screenshot upload payload
  */
@@ -109,7 +109,7 @@ export function buildScreenshotPayload(
 /**
  * Build payload for server-side screenshot resolution without sending image bytes
  * @param {string} name - Screenshot name
- * @param {Object} metadata - Screenshot metadata (viewport, browser, etc.)
+ * @param {Object} metadata - User screenshot properties
  * @param {string} sha256 - Pre-computed SHA256 hash
  * @returns {Object} Screenshot resolution payload
  */
@@ -224,9 +224,6 @@ export function buildScreenshotCheckObject(sha256, name, metadata = {}) {
   return {
     sha256,
     name,
-    browser: meta.browser || 'chrome',
-    viewport_width: meta.viewport?.width || meta.viewport_width || 1920,
-    viewport_height: meta.viewport?.height || meta.viewport_height || 1080,
     properties,
   };
 }

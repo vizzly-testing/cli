@@ -41,7 +41,7 @@ describe('generateScreenshotName', () => {
 });
 
 describe('generateScreenshotProperties', () => {
-  it('builds cloud-compatible story and viewport metadata', () => {
+  it('builds story metadata without serializing capture dimensions', () => {
     let story = { id: 'button--primary', title: 'Button', name: 'Primary' };
     let viewport = { name: 'mobile', width: 375, height: 667 };
     let properties = generateScreenshotProperties(
@@ -60,9 +60,6 @@ describe('generateScreenshotProperties', () => {
       storyId: 'button--primary',
       storyTitle: 'Button',
       storyName: 'Primary',
-      viewport: 'mobile',
-      viewport_width: 375,
-      viewport_height: 667,
       url: 'http://localhost:6006/iframe.html?id=button--primary',
       browser: 'webkit',
     });
@@ -146,7 +143,7 @@ describe('captureScreenshot', () => {
 });
 
 describe('captureAndSendScreenshot', () => {
-  it('should send story and viewport metadata for isolated story preview', async () => {
+  it('should send story metadata for the isolated story preview', async () => {
     let mockVizzly = mock.fn(async () => {});
 
     let mockBuffer = Buffer.from('fake-screenshot');
@@ -174,9 +171,6 @@ describe('captureAndSendScreenshot', () => {
       storyId: 'button--primary',
       storyTitle: 'Button',
       storyName: 'Primary',
-      viewport: 'desktop',
-      viewport_width: 1920,
-      viewport_height: 1080,
       url: iframeUrl,
     });
   });

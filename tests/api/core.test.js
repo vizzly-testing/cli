@@ -473,48 +473,43 @@ describe('api/core', () => {
   });
 
   describe('buildScreenshotCheckObject', () => {
-    it('builds check object with defaults', () => {
+    it('does not invent browser or image dimensions', () => {
       let result = buildScreenshotCheckObject('sha123', 'homepage');
 
       assert.deepStrictEqual(result, {
         sha256: 'sha123',
         name: 'homepage',
-        browser: 'chrome',
-        viewport_width: 1920,
-        viewport_height: 1080,
         properties: {},
       });
     });
 
-    it('uses metadata values when provided', () => {
+    it('keeps metadata inside properties', () => {
       let result = buildScreenshotCheckObject('sha123', 'homepage', {
         browser: 'firefox',
         viewport: { width: 1280, height: 720 },
       });
 
-      assert.strictEqual(result.browser, 'firefox');
-      assert.strictEqual(result.viewport_width, 1280);
-      assert.strictEqual(result.viewport_height, 720);
       assert.deepStrictEqual(result.properties, {
         browser: 'firefox',
         viewport: { width: 1280, height: 720 },
       });
     });
 
-    it('uses flat viewport_width/height from metadata', () => {
+    it('does not promote dimension-shaped properties', () => {
       let result = buildScreenshotCheckObject('sha123', 'homepage', {
         viewport_width: 800,
         viewport_height: 600,
       });
 
-      assert.strictEqual(result.viewport_width, 800);
-      assert.strictEqual(result.viewport_height, 600);
+      assert.deepStrictEqual(result.properties, {
+        viewport_width: 800,
+        viewport_height: 600,
+      });
     });
 
     it('handles null metadata', () => {
       let result = buildScreenshotCheckObject('sha123', 'homepage', null);
 
-      assert.strictEqual(result.browser, 'chrome');
       assert.deepStrictEqual(result.properties, {});
     });
   });

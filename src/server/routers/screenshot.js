@@ -35,6 +35,7 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
           image,
           type,
           warnings,
+          screenshotFormatVersion,
           threshold,
           minClusterSize,
           fullPage,
@@ -66,7 +67,7 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
           image,
           normalizedOptions.properties,
           type,
-          [...(warnings || []), ...normalizedOptions.warnings],
+          warnings || [],
           {
             threshold: normalizedOptions.threshold,
             minClusterSize: normalizedOptions.minClusterSize,
@@ -74,6 +75,7 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
             captureMode: normalizedOptions.captureMode,
             deviceScaleFactor: normalizedOptions.deviceScaleFactor,
             selector: normalizedOptions.selector,
+            screenshotFormatVersion,
           }
         );
 

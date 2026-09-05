@@ -32,7 +32,8 @@ class ScreenshotTest < Minitest::Test
     result = Vizzly.screenshot('vizzly-homepage', image_data,
                                properties: {
                                  browser: 'chrome',
-                                 viewport: { width: 1920, height: 1080 }
+                                 theme: 'light',
+                                 locale: 'en-US'
                                })
 
     puts "\n✓ Screenshot captured!"

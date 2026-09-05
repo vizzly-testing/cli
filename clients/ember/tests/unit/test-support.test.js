@@ -91,6 +91,7 @@ describe('test-support', () => {
 
       assert.strictEqual(result.status, 'match');
       assert.strictEqual(capturedBody.buildId, null);
+      assert.strictEqual(capturedBody.screenshotFormatVersion, 2);
       assert.strictEqual(capturedBody.name, 'dashboard');
       assert.strictEqual(capturedBody.fullPage, true);
       assert.strictEqual(capturedBody.requestTimeout, null);
@@ -101,8 +102,6 @@ describe('test-support', () => {
       assert.deepStrictEqual(capturedBody.properties, {
         framework: 'ember',
         browser: 'chromium',
-        viewport_width: 1440,
-        viewport_height: 900,
         url: 'http://localhost:4200/dashboard',
         theme: 'dark',
       });
@@ -110,7 +109,7 @@ describe('test-support', () => {
       assert.strictEqual(capturedBody.minClusterSize, 10);
     });
 
-    it('keeps reserved metadata stable while allowing custom viewport metadata', async () => {
+    it('preserves viewport keys when the user explicitly supplies them', async () => {
       let capturedBody = null;
 
       installBrowserGlobals(async (_url, request) => {
@@ -136,9 +135,9 @@ describe('test-support', () => {
       });
 
       assert.deepStrictEqual(capturedBody.properties, {
-        framework: 'ember',
-        browser: 'chromium',
-        url: 'http://localhost:4200/dashboard',
+        framework: 'custom-framework',
+        browser: 'webkit',
+        url: 'http://evil.example',
         theme: 'dark',
         viewport: { width: 375, height: 667 },
         viewport_width: 375,

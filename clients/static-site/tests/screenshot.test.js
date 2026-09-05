@@ -97,7 +97,7 @@ describe('generateScreenshotName', () => {
 });
 
 describe('generateScreenshotProperties', () => {
-  it('generates properties with viewport info', () => {
+  it('generates browser, URL, and user properties without capture dimensions', () => {
     let viewport = { name: 'mobile', width: 375, height: 667 };
     let properties = generateScreenshotProperties(viewport, {
       browser: 'firefox',
@@ -107,9 +107,6 @@ describe('generateScreenshotProperties', () => {
     });
 
     assert.deepStrictEqual(properties, {
-      viewport: 'mobile',
-      viewport_width: 375,
-      viewport_height: 667,
       browser: 'firefox',
       url: 'http://localhost:3000/mobile',
       page: 'homepage',
@@ -134,7 +131,7 @@ describe('generateScreenshotProperties', () => {
     assert.strictEqual(properties.fullPage, undefined);
   });
 
-  it('generates viewport dimensions that cloud SHA checks consume', () => {
+  it('does not add dimensions to cloud SHA checks', () => {
     let properties = generateScreenshotProperties({
       name: 'mobile',
       width: 375,
@@ -143,41 +140,21 @@ describe('generateScreenshotProperties', () => {
 
     let check = buildScreenshotCheckObject('sha-123', 'index', properties);
 
-    assert.strictEqual(check.viewport_width, 375);
-    assert.strictEqual(check.viewport_height, 667);
+    assert.deepStrictEqual(check, {
+      sha256: 'sha-123',
+      name: 'index',
+      properties: {},
+    });
   });
 
-  it('includes viewport dimensions', () => {
-    let viewport1 = { name: 'mobile', width: 375, height: 667 };
-    let viewport2 = { name: 'desktop', width: 1920, height: 1080 };
-    let viewport3 = { name: 'tablet', width: 768, height: 1024 };
+  it('does not serialize viewport names or dimensions', () => {
+    let properties = generateScreenshotProperties({
+      name: 'mobile',
+      width: 375,
+      height: 667,
+    });
 
-    let props1 = generateScreenshotProperties(viewport1);
-    let props2 = generateScreenshotProperties(viewport2);
-    let props3 = generateScreenshotProperties(viewport3);
-
-    assert.strictEqual(props1.viewport_width, 375);
-    assert.strictEqual(props1.viewport_height, 667);
-
-    assert.strictEqual(props2.viewport_width, 1920);
-    assert.strictEqual(props2.viewport_height, 1080);
-
-    assert.strictEqual(props3.viewport_width, 768);
-    assert.strictEqual(props3.viewport_height, 1024);
-  });
-
-  it('handles different viewport names', () => {
-    let viewport1 = { name: 'mobile', width: 375, height: 667 };
-    let viewport2 = { name: 'desktop', width: 1920, height: 1080 };
-
-    assert.strictEqual(
-      generateScreenshotProperties(viewport1).viewport,
-      'mobile'
-    );
-    assert.strictEqual(
-      generateScreenshotProperties(viewport2).viewport,
-      'desktop'
-    );
+    assert.deepStrictEqual(properties, {});
   });
 });
 
@@ -210,9 +187,6 @@ describe('captureAndSendScreenshot', () => {
     assert.strictEqual(image, screenshot);
     assert.deepStrictEqual(options, {
       properties: {
-        viewport: 'desktop',
-        viewport_width: 1920,
-        viewport_height: 1080,
         browser: 'chromium',
         url: 'http://localhost:3000/docs',
         page: 'docs',

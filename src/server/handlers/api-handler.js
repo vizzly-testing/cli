@@ -74,7 +74,7 @@ export const createApiHandler = (
       deviceScaleFactor: normalizedOptions.deviceScaleFactor,
       selector: normalizedOptions.selector,
     };
-    warnings = [...(warnings || []), ...normalizedOptions.warnings];
+    warnings = warnings || [];
     output.debug('upload', `${name} received`, {
       buildId: buildId?.slice(0, 8),
     });

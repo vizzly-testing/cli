@@ -67,16 +67,17 @@ export interface ScreenshotResult {
  * @example
  * // With properties and comparison settings
  * await vizzlyScreenshot('checkout-form', screenshot, {
- *   properties: { browser: 'chrome', viewport: { width: 1920, height: 1080 } },
+ *   properties: { browser: 'chrome', theme: 'dark', locale: 'en-US' },
  *   threshold: 5,
  *   minClusterSize: 10,
  *   fullPage: true,
  *   requestTimeout: 5000
  * });
  *
- * `properties` is the user metadata bag. Comparison options are normalized
- * into the server metadata payload, while `requestTimeout` stays on the
- * client request and `buildId` only routes the screenshot to a build.
+ * `properties` is the user metadata bag and every key is preserved. Vizzly
+ * reads width and height from the captured image. Comparison options are sent
+ * separately, while `requestTimeout` stays on the client request and `buildId`
+ * only routes the screenshot to a build.
  */
 export function vizzlyScreenshot(
   name: string,

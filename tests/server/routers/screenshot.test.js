@@ -256,6 +256,7 @@ describe('server/routers/screenshot', () => {
           image: 'base64data',
           properties,
           type: 'base64',
+          screenshotFormatVersion: 2,
           warnings: [{ code: 'reserved-property-option', option: 'threshold' }],
           threshold: 0,
           minClusterSize: 2,
@@ -279,6 +280,7 @@ describe('server/routers/screenshot', () => {
             captureMode: undefined,
             deviceScaleFactor: undefined,
             selector: undefined,
+            screenshotFormatVersion: 2,
           },
         ]);
       });

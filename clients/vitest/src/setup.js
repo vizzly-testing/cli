@@ -4,44 +4,21 @@
  */
 import { expect } from 'vitest';
 
+let SCREENSHOT_FORMAT_VERSION = 2;
+
 export function buildScreenshotProperties(
   options = {},
   locationHref = '',
   context = {}
 ) {
   let customProperties = options.properties ?? {};
-  let customViewport = customProperties.viewport;
-  let customViewportWidth = customProperties.viewport_width;
-  let customViewportHeight = customProperties.viewport_height;
-  let viewportWidth = context.viewport?.width;
-  let viewportHeight = context.viewport?.height;
-  let properties = {
-    ...customProperties,
+  return {
     framework: 'vitest',
     vitest: true,
     url: locationHref,
     browser: context.browser || detectBrowser(),
+    ...customProperties,
   };
-
-  if (Number.isFinite(viewportWidth) && Number.isFinite(viewportHeight)) {
-    properties.viewport = { width: viewportWidth, height: viewportHeight };
-    properties.viewport_width = viewportWidth;
-    properties.viewport_height = viewportHeight;
-  }
-
-  if (customViewport !== undefined) {
-    properties.viewport = customViewport;
-  }
-
-  if (customViewportWidth !== undefined) {
-    properties.viewport_width = customViewportWidth;
-  }
-
-  if (customViewportHeight !== undefined) {
-    properties.viewport_height = customViewportHeight;
-  }
-
-  return properties;
 }
 
 export function detectBrowser(userAgent = globalThis.navigator?.userAgent) {
@@ -144,10 +121,6 @@ async function toMatchScreenshot(element, name, options = {}) {
   // Prepare properties
   let properties = buildScreenshotProperties(options, window.location.href, {
     element: isElementScreenshotTarget(element, page),
-    viewport: {
-      width: window.innerWidth,
-      height: window.innerHeight,
-    },
   });
   let isElement = isElementScreenshotTarget(element, page);
 
@@ -162,6 +135,7 @@ async function toMatchScreenshot(element, name, options = {}) {
       },
       body: JSON.stringify({
         name: screenshotName,
+        screenshotFormatVersion: SCREENSHOT_FORMAT_VERSION,
         image: screenshotPath, // Send file path directly
         type: 'file-path',
         buildId: buildId || null,

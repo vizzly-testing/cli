@@ -144,18 +144,19 @@ test('homepage looks correct', async ({ page }) => {
     fullPage: true,
     requestTimeout: 5000,
     properties: {
-      browser: 'chrome',
-      viewport: { width: 1920, height: 1080 },
+      theme: 'dark',
+      locale: 'en-US',
     },
   });
 });
 ```
 
-`properties` is your metadata bag for baseline grouping, filtering, and
-debugging. SDK options such as `threshold`, `minClusterSize`, `fullPage`,
-`requestTimeout`, and `buildId` stay at the top level. Reserved SDK and capture
-fields inside `properties` are ignored and produce a warning; they are never
-interpreted as options or stored as user metadata.
+`properties` is your key/value metadata bag for baseline grouping, filtering,
+and debugging. Vizzly passes every property through as user metadata; property
+names are never interpreted as options. The supported top-level options are
+`threshold`, `minClusterSize`, `fullPage`, `requestTimeout`, and `buildId`.
+Vizzly reads width and height from the captured image, so viewport dimensions do
+not need to be included in `properties`.
 
 The client SDK is lightweight. It posts screenshots to the local Vizzly server
 or the cloud build wrapper. It works with any test runner.

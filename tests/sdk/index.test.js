@@ -275,6 +275,7 @@ describe('sdk/index', () => {
       assert.strictEqual(fetchCalls[0].url, 'http://localhost:8123/screenshot');
       assert.deepStrictEqual(JSON.parse(fetchCalls[0].options.body), {
         buildId: 'build-1',
+        screenshotFormatVersion: 2,
         name: 'homepage',
         image: Buffer.from('image-data').toString('base64'),
         type: 'base64',

@@ -180,12 +180,11 @@ export function buildFileMetadata(filePath, buffer) {
  * @returns {Object} Screenshot format for SHA check
  */
 export function fileToScreenshotFormat(file) {
+  let browser = extractBrowserFromFilename(file.filename);
   return {
     sha256: file.sha256,
     name: file.filename.replace(/\.png$/, ''),
-    browser: extractBrowserFromFilename(file.filename) || 'chrome',
-    viewport_width: 1920,
-    viewport_height: 1080,
+    properties: browser ? { browser } : {},
   };
 }
 

@@ -72,7 +72,7 @@ for (let scenario of [
       let url = process.env.VIZZLY_SERVER_URL;
       async function post(path, body = {}) {
         if (path === '/screenshot') {
-          body = { ...body, properties: { theme: 'dark' }, threshold: 2, fullPage: true };
+          body = { ...body, properties: { theme: 'dark', threshold: 'user threshold', properties: { component: 'Cart' } }, threshold: 2, fullPage: true, screenshotFormatVersion: 2 };
         }
         let response = await fetch(url + path, {
           method: 'POST', headers: { 'content-type': 'application/json' },
@@ -117,7 +117,11 @@ for (let scenario of [
     for (let request of screenshotRequests) {
       assert.equal(request.threshold, 2);
       assert.equal(request.fullPage, true);
-      assert.deepEqual(request.properties, { theme: 'dark' });
+      assert.deepEqual(request.properties, {
+        theme: 'dark',
+        threshold: 'user threshold',
+        properties: { component: 'Cart' },
+      });
     }
     assert.equal(finalized.length, 1);
     assert.equal(finalized[0].status, 'failed');

@@ -197,126 +197,45 @@ describe('utils/security', () => {
   });
 
   describe('validateScreenshotProperties', () => {
-    it('returns empty object for null input', () => {
-      let result = validateScreenshotProperties(null);
-      assert.deepStrictEqual(result, {});
+    it('preserves nested JSON metadata without rewriting user values', () => {
+      let properties = {
+        browser: 'Chrome/139.0',
+        viewport: { width: 1920.5, height: 20000, label: 'custom' },
+        'component label': '<button title="Buy">',
+        properties: { threshold: 5, values: [null, true, 2, 'dark'] },
+        description: 'a'.repeat(300),
+      };
+      assert.deepStrictEqual(
+        validateScreenshotProperties(properties),
+        properties
+      );
     });
 
-    it('returns empty object for non-object input', () => {
-      let result = validateScreenshotProperties('string');
-      assert.deepStrictEqual(result, {});
+    it('returns an empty bag for missing or non-object metadata', () => {
+      for (let value of [undefined, null, 'text', []]) {
+        assert.deepStrictEqual(validateScreenshotProperties(value), {});
+      }
     });
 
-    it('returns empty object for empty properties', () => {
-      let result = validateScreenshotProperties({});
-      assert.deepStrictEqual(result, {});
+    it('rejects unsafe keys at any depth', () => {
+      for (let key of ['__proto__', 'constructor', 'prototype']) {
+        let properties = { nested: JSON.parse(`{"${key}": "value"}`) };
+        assert.throws(
+          () => validateScreenshotProperties(properties),
+          /unsafe key/
+        );
+      }
     });
 
-    it('validates browser name', () => {
-      let result = validateScreenshotProperties({ browser: 'Chrome/139.0' });
-      assert.strictEqual(result.browser, 'Chrome');
-    });
-
-    it('skips invalid browser names', () => {
-      let result = validateScreenshotProperties({ browser: '../etc' });
-      assert.strictEqual(result.browser, undefined);
-    });
-
-    it('validates viewport dimensions', () => {
-      let result = validateScreenshotProperties({
-        viewport: { width: 1920, height: 1080 },
-      });
-      assert.strictEqual(result.viewport.width, 1920);
-      assert.strictEqual(result.viewport.height, 1080);
-    });
-
-    it('rejects invalid viewport dimensions', () => {
-      let result = validateScreenshotProperties({
-        viewport: { width: -100, height: 20000 },
-      });
-      assert.strictEqual(result.viewport, undefined);
-    });
-
-    it('floors viewport dimensions', () => {
-      let result = validateScreenshotProperties({
-        viewport: { width: 1920.5, height: 1080.7 },
-      });
-      assert.strictEqual(result.viewport.width, 1920);
-      assert.strictEqual(result.viewport.height, 1080);
-    });
-
-    it('validates custom string properties', () => {
-      let result = validateScreenshotProperties({
-        custom_key: 'value',
-      });
-      assert.strictEqual(result.custom_key, 'value');
-    });
-
-    it('preserves ampersands in safe string properties like URLs', () => {
-      let url =
-        'http://localhost:6006/iframe.html?id=button--primary&viewMode=story';
-      let result = validateScreenshotProperties({
-        url,
-      });
-      assert.strictEqual(result.url, url);
-    });
-
-    it('validates custom number properties', () => {
-      let result = validateScreenshotProperties({
-        count: 42,
-      });
-      assert.strictEqual(result.count, 42);
-    });
-
-    it('validates custom boolean properties', () => {
-      let result = validateScreenshotProperties({
-        enabled: true,
-      });
-      assert.strictEqual(result.enabled, true);
-    });
-
-    it('strips HTML entities from string values', () => {
-      let result = validateScreenshotProperties({
-        desc: '<script>alert("xss")</script>',
-      });
-      assert.ok(!result.desc.includes('<'));
-      assert.ok(!result.desc.includes('>'));
-    });
-
-    it('rejects invalid key names', () => {
-      let result = validateScreenshotProperties({
-        'invalid key!': 'value',
-      });
-      assert.strictEqual(result['invalid key!'], undefined);
-    });
-
-    it('rejects overly long keys', () => {
-      let longKey = 'a'.repeat(100);
-      let result = validateScreenshotProperties({
-        [longKey]: 'value',
-      });
-      assert.strictEqual(result[longKey], undefined);
-    });
-
-    it('rejects overly long string values', () => {
-      let result = validateScreenshotProperties({
-        key: 'a'.repeat(300),
-      });
-      assert.strictEqual(result.key, undefined);
-    });
-
-    it('rejects NaN numbers', () => {
-      let result = validateScreenshotProperties({
-        num: Number.NaN,
-      });
-      assert.strictEqual(result.num, undefined);
-    });
-
-    it('rejects Infinity numbers', () => {
-      let result = validateScreenshotProperties({
-        num: Number.POSITIVE_INFINITY,
-      });
-      assert.strictEqual(result.num, undefined);
+    it('rejects cycles and values that cannot be stored as JSON', () => {
+      let circular = {};
+      circular.self = circular;
+      for (let value of [NaN, Infinity, undefined, () => {}, circular]) {
+        assert.throws(
+          () => validateScreenshotProperties({ value }),
+          /JSON values/
+        );
+      }
     });
   });
 });

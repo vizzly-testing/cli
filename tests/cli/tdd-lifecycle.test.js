@@ -80,7 +80,7 @@ function parseSingleJson(stdout) {
   return parsed;
 }
 
-function screenshotCommand(name) {
+function screenshotCommand(name, properties = { browser: 'chromium' }) {
   let imagePath = join(
     process.cwd(),
     'tests/reporter/fixtures/images/screenshots/homepage-desktop.png'
@@ -88,7 +88,7 @@ function screenshotCommand(name) {
   let code = [
     "let fs = await import('node:fs');",
     `let image = fs.readFileSync(${JSON.stringify(imagePath)}, 'base64');`,
-    `let payload = { name: ${JSON.stringify(name)}, image, type: 'base64', properties: { viewport_width: 1280, viewport_height: 720, browser: 'chromium' } };`,
+    `let payload = { name: ${JSON.stringify(name)}, image, type: 'base64', screenshotFormatVersion: 2, properties: ${JSON.stringify(properties)} };`,
     "let response = await fetch(process.env.VIZZLY_SERVER_URL + '/screenshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });",
     'console.log(response.status, await response.text());',
   ].join(' ');
@@ -253,6 +253,36 @@ describe('cli/tdd lifecycle', () => {
     );
     assert.strictEqual(reportData.summary.passed, 1);
     assert.strictEqual(reportData.comparisons[0].status, 'passed');
+  });
+
+  it('preserves user metadata in the saved local visual report', async () => {
+    let cwd = createWorkspace();
+    let properties = {
+      browser: 'chromium',
+      threshold: 'user threshold',
+      component: '<Checkout title="Cart">',
+      viewport: { width: 23, height: 17, label: 'user viewport' },
+      properties: { nested: ['dark', null, true] },
+    };
+    let result = await runCLI(
+      [
+        '--no-color',
+        'tdd',
+        'run',
+        screenshotCommand('metadata-cart', properties),
+        '--port',
+        String(await getFreePort()),
+        '--no-open',
+      ],
+      { cwd }
+    );
+    assert.strictEqual(result.code, 0, JSON.stringify(result));
+    let report = JSON.parse(
+      readFileSync(join(cwd, '.vizzly', 'report-data.json'), 'utf8')
+    );
+    let comparison = report.comparisons[0];
+    assert.deepStrictEqual(comparison.properties.metadata, properties);
+    assert.notStrictEqual(comparison.properties.viewport_width, 23);
   });
 
   it('starts, reports, lists, and stops a daemon on an explicit port', async () => {

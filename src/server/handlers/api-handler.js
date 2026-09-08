@@ -1,56 +1,51 @@
 import { Buffer } from 'node:buffer';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { uploadScreenshot as defaultUploadScreenshot } from '../../api/index.js';
 import { detectImageInputType } from '../../utils/image-input-detector.js';
 import * as output from '../../utils/output.js';
 import { normalizeScreenshotOptions } from '../../utils/screenshot-options.js';
 
-/**
- * API Handler - Non-blocking screenshot upload
- *
- * Flow:
- * ┌─────────────────────────────────────────────────────────────┐
- * │ Test Suite                                                  │
- * │   ↓ vizzlyScreenshot()                                      │
- * │   ↓ HTTP POST to localhost                                 │
- * │   ↓                                                         │
- * │ Screenshot Server                                           │
- * │   ↓ handleScreenshot()                                      │
- * │   ├─→ Convert base64 to Buffer                             │
- * │   ├─→ Fire upload promise (NO AWAIT) ─────┐                │
- * │   └─→ Return 200 immediately              │                │
- * │                                             │                │
- * │ Test continues (NO BLOCKING) ✓             │                │
- * │                                             ↓                │
- * │                                   Background Upload         │
- * │                                   (to Vizzly API)           │
- * │                                             ↓                │
- * │                                   Promise resolves/rejects  │
- * │                                                             │
- * │ Build Finalization                                          │
- * │   ↓ flush()                                                 │
- * │   └─→ await Promise.allSettled(uploadPromises)             │
- * │        ↓                                                    │
- * │      All uploads complete ✓                                │
- * └─────────────────────────────────────────────────────────────┘
- */
-
-/**
- * Create an API handler for screenshot uploads.
- * @param {Object} client - API client with request method
- * @param {Object} options - Optional dependencies for testing
- * @param {Function} options.uploadScreenshot - Upload function (defaults to API uploadScreenshot)
- */
-export const createApiHandler = (
+// Captures return immediately; flush waits for uploads and retains their outcomes.
+export let createApiHandler = (
   client,
   { uploadScreenshot = defaultUploadScreenshot } = {}
 ) => {
-  let vizzlyDisabled = false;
-  let screenshotCount = 0;
+  let captures = [];
   let uploadPromises = [];
 
-  const handleScreenshot = async (
+  function recordFailure(capture, error) {
+    capture.status = 'failed';
+    capture.error = error.message;
+    output.warn(
+      `Screenshot "${capture.name}" failed to upload: ${error.message}`
+    );
+  }
+
+  async function upload(
+    capture,
+    buildId,
+    imageBuffer,
+    properties,
+    screenshotOptions
+  ) {
+    try {
+      let result = await uploadScreenshot(
+        client,
+        buildId,
+        capture.name,
+        imageBuffer,
+        properties ?? {},
+        false,
+        screenshotOptions
+      );
+      capture.status = result.skipped ? 'reused' : 'uploaded';
+    } catch (error) {
+      recordFailure(capture, error);
+    }
+  }
+
+  async function handleScreenshot(
     buildId,
     name,
     image,
@@ -58,8 +53,7 @@ export const createApiHandler = (
     type,
     warnings = [],
     screenshotOptions = {}
-  ) => {
-    let handlerStart = Date.now();
+  ) {
     let normalizedOptions = normalizeScreenshotOptions({
       ...screenshotOptions,
       properties,
@@ -75,186 +69,88 @@ export const createApiHandler = (
       selector: normalizedOptions.selector,
     };
     warnings = [...(warnings || []), ...normalizedOptions.warnings];
-    output.debug('upload', `${name} received`, {
-      buildId: buildId?.slice(0, 8),
-    });
-
-    if (vizzlyDisabled) {
-      output.debug('upload', `${name} (disabled)`);
-      return {
-        statusCode: 200,
-        body: {
-          success: true,
-          disabled: true,
-          count: ++screenshotCount,
-          message: `Vizzly disabled - ${screenshotCount} screenshots captured but not uploaded`,
-        },
-      };
-    }
-
-    // buildId is optional - API will handle it appropriately
-
-    if (!client) {
-      return {
-        statusCode: 500,
-        body: {
-          error: 'API client not available',
-        },
-      };
-    }
-
-    // Support both base64 encoded images and file paths
-    // Use explicit type from client if provided (fast path), otherwise detect (slow path)
-    // Only accept valid type values to prevent invalid types from bypassing detection
+    let capture = { name, status: 'pending' };
+    captures.push(capture);
+    let inputType = ['base64', 'file-path'].includes(type)
+      ? type
+      : detectImageInputType(image);
     let imageBuffer;
-    let validTypes = ['base64', 'file-path'];
-    const inputType =
-      type && validTypes.includes(type) ? type : detectImageInputType(image);
-
-    if (inputType === 'file-path') {
-      // It's a file path - resolve and read the file
-      const filePath = resolve(image.replace('file://', ''));
-
-      if (!existsSync(filePath)) {
-        return {
-          statusCode: 400,
-          body: {
-            error: `Screenshot file not found: ${filePath}`,
-            originalPath: image,
-          },
-        };
-      }
-
-      try {
-        imageBuffer = readFileSync(filePath);
-      } catch (error) {
-        return {
-          statusCode: 500,
-          body: {
-            error: `Failed to read screenshot file: ${error.message}`,
-            filePath,
-          },
-        };
-      }
-    } else if (inputType === 'base64') {
-      // It's base64 encoded
-      try {
+    try {
+      if (!client) throw new Error('API client not available');
+      if (inputType === 'file-path') {
+        let filePath = resolve(image.replace('file://', ''));
+        try {
+          imageBuffer = readFileSync(filePath);
+        } catch (error) {
+          throw new Error(
+            error.code === 'ENOENT'
+              ? `Screenshot file not found: ${filePath}`
+              : `Failed to read screenshot file: ${error.message}`
+          );
+        }
+      } else if (inputType === 'base64') {
         imageBuffer = Buffer.from(image, 'base64');
-      } catch (error) {
-        return {
-          statusCode: 400,
-          body: {
-            error: `Invalid base64 image data: ${error.message}`,
-          },
-        };
+      } else {
+        throw new Error(
+          'Invalid image input: must be a file path or base64 encoded image data'
+        );
       }
-    } else {
-      // Unknown input type
+    } catch (error) {
+      recordFailure(capture, error);
       return {
-        statusCode: 400,
-        body: {
-          error:
-            'Invalid image input: must be a file path or base64 encoded image data',
-          receivedType: typeof image,
-        },
+        statusCode: client ? 400 : 500,
+        body: { success: false, name, error: error.message },
       };
     }
-    screenshotCount++;
-    let uploadStart = Date.now();
 
-    // Fire upload in background - DON'T AWAIT!
-    let uploadPromise = uploadScreenshot(
-      client,
-      buildId,
-      name,
-      imageBuffer,
-      properties ?? {},
-      false,
-      screenshotOptions
-    )
-      .then(result => {
-        let duration = Date.now() - uploadStart;
-        if (!result.skipped) {
-          output.debug('upload', `${name} completed`, { ms: duration });
-        } else {
-          output.debug('upload', `${name} skipped (dedup)`, { ms: duration });
-        }
-        return { success: true, name, result, duration };
-      })
-      .catch(uploadError => {
-        let duration = Date.now() - uploadStart;
-        output.debug('upload', `${name} failed`, {
-          error: uploadError.message,
-          ms: duration,
-        });
-        vizzlyDisabled = true;
-        output.warn(
-          'Vizzly disabled due to upload error - continuing tests without visual testing'
-        );
-        return { success: false, name, error: uploadError, duration };
-      });
-
-    // Collect promise for later flushing
-    uploadPromises.push(uploadPromise);
-
-    // Return immediately - test continues without waiting!
-    let handlerMs = Date.now() - handlerStart;
-    output.debug('upload', `${name} handler returning`, { ms: handlerMs });
-
+    uploadPromises.push(
+      upload(capture, buildId, imageBuffer, properties, screenshotOptions)
+    );
     return {
       statusCode: 200,
       body: {
         success: true,
+        queued: true,
         name,
-        count: screenshotCount,
+        count: captures.length,
         warnings,
       },
     };
-  };
+  }
 
-  const getScreenshotCount = () => screenshotCount;
+  async function flush() {
+    // Include captures received while an earlier batch was finishing. Repeated
+    // flushes must retain failures so SDK flush cannot hide them from finalization.
+    let count;
+    do {
+      count = uploadPromises.length;
+      await Promise.all(uploadPromises);
+    } while (count !== uploadPromises.length);
 
-  /**
-   * Wait for all background uploads to complete
-   * Call this before build finalization to ensure all uploads finish
-   */
-  const flush = async () => {
-    if (uploadPromises.length === 0) {
-      return { uploaded: 0, failed: 0, total: 0 };
-    }
+    let uploaded = captures.filter(
+      capture => capture.status === 'uploaded'
+    ).length;
+    let reused = captures.filter(capture => capture.status === 'reused').length;
+    let failures = captures
+      .filter(capture => capture.status === 'failed')
+      .map(({ name, error }) => ({ name, error }));
+    return {
+      uploaded,
+      reused,
+      failed: failures.length,
+      total: captures.length,
+      failures,
+    };
+  }
 
-    output.debug('upload', `flushing ${uploadPromises.length} uploads`);
-    const results = await Promise.allSettled(uploadPromises);
-
-    let uploaded = 0;
-    let failed = 0;
-
-    results.forEach(result => {
-      if (result.status === 'fulfilled' && result.value.success) {
-        uploaded++;
-      } else {
-        failed++;
-      }
-    });
-
-    output.debug('upload', 'flush complete', { uploaded, failed });
-
-    // Clear promises array
+  function cleanup() {
+    captures = [];
     uploadPromises = [];
-
-    return { uploaded, failed, total: results.length };
-  };
-
-  const cleanup = () => {
-    vizzlyDisabled = false;
-    screenshotCount = 0;
-    uploadPromises = [];
-    // Silent cleanup
-  };
+  }
 
   return {
     handleScreenshot,
-    getScreenshotCount,
+    getScreenshotCount: () => captures.length,
     flush,
     cleanup,
   };

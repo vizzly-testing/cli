@@ -89,9 +89,11 @@ export async function updateBuildStatus(
   client,
   buildId,
   status,
-  executionTimeMs = null
+  executionTimeMs = null,
+  failureReason
 ) {
   let body = { status };
+  if (status === 'failed' && failureReason) body.failureReason = failureReason;
   if (executionTimeMs != null) {
     body.executionTimeMs = executionTimeMs;
   }
@@ -115,10 +117,17 @@ export async function finalizeBuild(
   client,
   buildId,
   success = true,
-  executionTimeMs = null
+  executionTimeMs = null,
+  failureReason
 ) {
   let status = success ? 'completed' : 'failed';
-  return updateBuildStatus(client, buildId, status, executionTimeMs);
+  return updateBuildStatus(
+    client,
+    buildId,
+    status,
+    executionTimeMs,
+    failureReason
+  );
 }
 
 /**

@@ -136,6 +136,7 @@ export async function finalizeBuild({
     return;
   }
 
+  let uploadStats = null;
   try {
     if (tdd) {
       // TDD mode: use server handler to finalize (local-only)
@@ -146,15 +147,25 @@ export async function finalizeBuild({
     } else {
       // API mode: flush uploads first, then finalize build
       if (serverManager.server?.finishBuild) {
-        await serverManager.server.finishBuild(buildId);
+        uploadStats = await serverManager.server.finishBuild(buildId);
       }
 
       // Then update build status via API
       let clientOptions = buildClientOptions(config);
       if (clientOptions) {
         let client = createApiClient(clientOptions);
-        await finalizeApiBuild(client, buildId, success, executionTime);
-        output.debug('build', 'finalized via api', { success });
+        let uploadsFailed = uploadStats?.failed > 0;
+        let buildSucceeded = success && !uploadsFailed;
+        await finalizeApiBuild(
+          client,
+          buildId,
+          buildSucceeded,
+          executionTime,
+          uploadsFailed
+            ? `${uploadStats.failed} screenshot(s) failed to upload. Visual testing is incomplete.`
+            : undefined
+        );
+        output.debug('build', 'finalized via api', { success: buildSucceeded });
       } else {
         output.warn(`No API service available to finalize build ${buildId}`);
       }
@@ -166,6 +177,7 @@ export async function finalizeBuild({
       onFinalizeFailed({ buildId, error: error.message, stack: error.stack });
     }
   }
+  return uploadStats;
 }
 
 // ============================================================================
@@ -298,6 +310,7 @@ export async function runTests({ runOptions, config, deps }) {
   let screenshotCount = 0;
   let testSuccess = false;
   let testError = null;
+  let uploadStats = null;
 
   let setBaseline;
   try {
@@ -393,7 +406,7 @@ export async function runTests({ runOptions, config, deps }) {
 
     if (buildId) {
       try {
-        await finalizeBuild({
+        uploadStats = await finalizeBuild({
           buildId,
           tdd,
           success: testSuccess,
@@ -435,6 +448,7 @@ export async function runTests({ runOptions, config, deps }) {
     if (!runOptions.json) {
       output.error('Test run failed:', testError);
     }
+    if (uploadStats) testError.uploads = uploadStats;
     throw testError;
   }
 
@@ -444,6 +458,7 @@ export async function runTests({ runOptions, config, deps }) {
     testSuccess,
     screenshotCount,
     tddResults,
+    uploadStats,
   });
 }
 

@@ -275,7 +275,7 @@ describe('server/handlers/api-handler', () => {
       assert.strictEqual(handler.getScreenshotCount(), 2);
     });
 
-    it('disables uploads after error', async () => {
+    it('continues uploads after error', async () => {
       let callCount = 0;
       let mockUploadScreenshot = async () => {
         callCount++;
@@ -296,18 +296,19 @@ describe('server/handlers/api-handler', () => {
       await handler.handleScreenshot('build-123', 'test1', base64Image);
       await handler.flush();
 
-      // Second call should be disabled
+      // Later captures still reach the API
       let result = await handler.handleScreenshot(
         'build-123',
         'test2',
         base64Image
       );
 
-      assert.strictEqual(result.body.disabled, true);
-      assert.strictEqual(callCount, 1); // Only first call made it through
+      assert.strictEqual(result.body.disabled, undefined);
+      await handler.flush();
+      assert.strictEqual(callCount, 2);
     });
 
-    it('returns disabled response with correct count', async () => {
+    it('counts later captures after an upload error', async () => {
       let mockUploadScreenshot = async () => {
         throw new Error('Upload failed');
       };
@@ -322,11 +323,11 @@ describe('server/handlers/api-handler', () => {
       ]);
       let base64Image = pngHeader.toString('base64');
 
-      // First call triggers error
+      // First upload fails
       await handler.handleScreenshot('build-123', 'test1', base64Image);
       await handler.flush();
 
-      // Disabled calls still increment count
+      // Later captures still increment count
       let result = await handler.handleScreenshot(
         'build-123',
         'test2',
@@ -334,7 +335,7 @@ describe('server/handlers/api-handler', () => {
       );
 
       assert.strictEqual(result.body.count, 2);
-      assert.ok(result.body.message.includes('2 screenshots'));
+      assert.strictEqual(result.body.queued, true);
     });
   });
 
@@ -344,7 +345,13 @@ describe('server/handlers/api-handler', () => {
 
       let result = await handler.flush();
 
-      assert.deepStrictEqual(result, { uploaded: 0, failed: 0, total: 0 });
+      assert.deepStrictEqual(result, {
+        uploaded: 0,
+        reused: 0,
+        failed: 0,
+        total: 0,
+        failures: [],
+      });
     });
 
     it('awaits all pending uploads', async () => {
@@ -411,7 +418,7 @@ describe('server/handlers/api-handler', () => {
       assert.strictEqual(result.total, 3);
     });
 
-    it('clears pending uploads after flush', async () => {
+    it('retains upload counts across flushes', async () => {
       let mockClient = { request: async () => ({}) };
       let handler = createApiHandler(mockClient, {
         uploadScreenshot: async () => ({ success: true }),
@@ -425,10 +432,16 @@ describe('server/handlers/api-handler', () => {
       await handler.handleScreenshot('build-123', 'test', base64Image);
       await handler.flush();
 
-      // Second flush should return zeros
+      // A prior SDK flush must not erase the final summary.
       let result = await handler.flush();
 
-      assert.deepStrictEqual(result, { uploaded: 0, failed: 0, total: 0 });
+      assert.deepStrictEqual(result, {
+        uploaded: 1,
+        reused: 0,
+        failed: 0,
+        total: 1,
+        failures: [],
+      });
     });
   });
 
@@ -448,17 +461,18 @@ describe('server/handlers/api-handler', () => {
       ]);
       let base64Image = pngHeader.toString('base64');
 
-      // Trigger disabled state
+      // Record an upload failure
       await handler.handleScreenshot('build-123', 'test', base64Image);
       await handler.flush();
 
-      // Verify disabled
+      // A later capture is still accepted
       let result1 = await handler.handleScreenshot(
         'build-123',
         'test2',
         base64Image
       );
-      assert.strictEqual(result1.body.disabled, true);
+      assert.strictEqual(result1.body.disabled, undefined);
+      await handler.flush();
 
       // Cleanup
       handler.cleanup();

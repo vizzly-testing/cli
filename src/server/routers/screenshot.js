@@ -92,7 +92,7 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
         if (screenshotHandler.flush) {
           let stats = await screenshotHandler.flush();
           sendJson(res, 200, {
-            success: true,
+            success: stats.failed === 0,
             ...stats,
           });
         } else if (screenshotHandler.getResults) {

@@ -141,6 +141,7 @@ export function buildRunResult({
   testSuccess,
   screenshotCount,
   tddResults,
+  uploadStats,
 }) {
   return {
     buildId,
@@ -148,6 +149,7 @@ export function buildRunResult({
     testsPassed: testSuccess ? 1 : 0,
     testsFailed: testSuccess ? 0 : 1,
     screenshotsCaptured: screenshotCount,
+    ...(uploadStats ? { uploads: uploadStats } : {}),
     comparisons: tddResults?.comparisons || null,
     failed: (tddResults?.failed || 0) > 0,
   };

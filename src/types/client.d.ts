@@ -33,6 +33,8 @@ export function autoDiscoverTddServer(
  */
 export interface ScreenshotResult {
   success: boolean;
+  /** Cloud capture accepted locally; upload completion is reported by flush. */
+  queued?: boolean;
   status?:
     | 'passed'
     | 'failed'
@@ -99,6 +101,8 @@ export function vizzlyScreenshot(
 export interface FlushResult {
   success: boolean;
   uploaded?: number;
+  reused?: number;
+  failures?: Array<{ name: string; error: string }>;
   flushed?: boolean;
   total?: number;
   passed?: number;

@@ -102,7 +102,10 @@ export async function fetchBuildUrl({ buildId, config, deps }) {
 }
 
 /**
- * Finalize a build
+ * Flush captures before saving the build's final status.
+ * Cloud builds fail when tests or uploads fail. Finalization errors are reported
+ * without replacing the test result; collected upload counts are still returned.
+ *
  * @param {Object} options - Options
  * @param {string} options.buildId - Build ID
  * @param {boolean} options.tdd - Whether in TDD mode
@@ -115,6 +118,8 @@ export async function fetchBuildUrl({ buildId, config, deps }) {
  * @param {Function} options.deps.finalizeApiBuild - API finalize function
  * @param {Object} options.deps.output - Output utilities
  * @param {Function} [options.deps.onFinalizeFailed] - Callback for finalize failure
+ * @returns {Promise<Object|null|undefined>} Cumulative cloud upload results when
+ * available; no upload results for local TDD or a run without a build.
  */
 export async function finalizeBuild({
   buildId,
@@ -267,7 +272,10 @@ async function executeDisabledTestRun({ testCommand, json, deps }) {
  * @param {Object} options.runOptions - Run options (testCommand, tdd, etc.)
  * @param {Object} options.config - Configuration object
  * @param {Object} options.deps - Dependencies
- * @returns {Promise<Object>} Run result
+ * @returns {Promise<Object>} Test result with cumulative cloud upload results
+ * when available. Upload failures alone do not reject the run.
+ * @throws {Error} Test execution failure, with upload results attached when
+ * available so callers can report both without losing the test exit code.
  */
 export async function runTests({ runOptions, config, deps }) {
   let {

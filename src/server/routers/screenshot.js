@@ -9,7 +9,10 @@ import { parseJsonBody } from '../middleware/json-parser.js';
 import { sendError, sendJson } from '../middleware/response.js';
 
 /**
- * Create screenshot router
+ * Route local capture and flush requests to the active cloud or TDD handler.
+ * A cloud flush returns HTTP 200 with cumulative results; its success field is
+ * false when any capture failed, even if that failure appeared in an earlier flush.
+ *
  * @param {Object} context - Router context
  * @param {Object} context.screenshotHandler - Screenshot handler
  * @param {string|null} context.defaultBuildId - Default build ID

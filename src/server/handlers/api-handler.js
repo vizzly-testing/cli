@@ -6,7 +6,18 @@ import { detectImageInputType } from '../../utils/image-input-detector.js';
 import * as output from '../../utils/output.js';
 import { normalizeScreenshotOptions } from '../../utils/screenshot-options.js';
 
-// Captures return immediately; flush waits for uploads and retains their outcomes.
+/**
+ * Create a cloud screenshot handler for one run.
+ *
+ * Captures queue uploads without waiting for the API. Each capture keeps its
+ * outcome so a rejection cannot disable later uploads or disappear after flush.
+ * Flush pending uploads before cleanup, which clears the run's records.
+ *
+ * @param {Object} client - API client used to upload screenshots.
+ * @param {Object} [options] - Upload dependencies.
+ * @param {typeof defaultUploadScreenshot} [options.uploadScreenshot] - Uploader.
+ * @returns {Object} Capture, count, flush, and cleanup methods for this run.
+ */
 export let createApiHandler = (
   client,
   { uploadScreenshot = defaultUploadScreenshot } = {}
@@ -22,6 +33,11 @@ export let createApiHandler = (
     );
   }
 
+  /**
+   * Upload one capture and record its outcome, including SHA reuse.
+   * API failures are recorded and logged rather than rejecting the background
+   * promise, so flush can collect every outcome and later uploads can continue.
+   */
   async function upload(
     capture,
     buildId,
@@ -45,6 +61,19 @@ export let createApiHandler = (
     }
   }
 
+  /**
+   * Read a capture and queue its cloud upload. Local input failures are included
+   * in the run's failed count; HTTP 200 means queued, not uploaded successfully.
+   *
+   * @param {string} buildId - Cloud build receiving the screenshot.
+   * @param {string} name - Stable screenshot name used for baseline matching.
+   * @param {string} image - Base64 image data or a file path.
+   * @param {Object} [properties={}] - Screenshot metadata.
+   * @param {string} [type] - Base64 or file-path hint; otherwise detected.
+   * @param {string[]} [warnings=[]] - Warnings already collected by the router.
+   * @param {Object} [screenshotOptions={}] - Capture and comparison options.
+   * @returns {Promise<{statusCode: number, body: Object}>} Local HTTP response.
+   */
   async function handleScreenshot(
     buildId,
     name,
@@ -118,9 +147,15 @@ export let createApiHandler = (
     };
   }
 
+  /**
+   * Wait for pending uploads, including captures queued while waiting.
+   * Results cover the whole run and remain available across repeated flushes.
+   * Uploaded and reused counts are separate; failed includes local input errors.
+   *
+   * @returns {Promise<Object>} Uploaded, reused, failed, and total counts, plus
+   * failed captures as `failures: [{ name, error }]`.
+   */
   async function flush() {
-    // Include captures received while an earlier batch was finishing. Repeated
-    // flushes must retain failures so SDK flush cannot hide them from finalization.
     let count;
     do {
       count = uploadPromises.length;

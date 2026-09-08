@@ -1,5 +1,10 @@
 /**
- * Run command implementation
+ * Run tests and report their visual results in terminal or JSON output.
+ *
+ * Incomplete uploads preserve the test exit code and skip comparison waiting.
+ * After successful uploads, --wait can still fail for visual comparison results.
+ * The returned success flag describes command success, not upload completeness.
+ *
  * Uses functional operations directly - no class wrappers needed
  */
 
@@ -90,7 +95,9 @@ function buildContextCommand(buildId, { structured = false } = {}) {
  * @param {string} testCommand - Test command to execute
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
- * @param {Object} deps - Dependencies for testing
+ * @param {Object} deps - Command services and process hooks.
+ * @returns {Promise<Object>} Command outcome with success, an optional exitCode,
+ * and run results when available.
  */
 export async function runCommand(
   testCommand,

@@ -31,14 +31,25 @@ export function buildAuthHeader(token) {
  * @param {string} version - CLI version
  * @param {string} command - Command being executed (run, upload, tdd, etc.)
  * @param {string|null} sdkUserAgent - Optional SDK user agent to append
+ * @param {string} nodeVersion - Node.js version to append
  * @returns {string} Complete User-Agent string
  */
-export function buildUserAgent(version, command, sdkUserAgent = null) {
+export function buildUserAgent(
+  version,
+  command,
+  sdkUserAgent = null,
+  nodeVersion = process.versions.node
+) {
   let baseUserAgent = `vizzly-cli/${version} (${command})`;
+  let userAgentParts = [baseUserAgent];
+
   if (sdkUserAgent) {
-    return `${baseUserAgent} ${sdkUserAgent}`;
+    userAgentParts.push(sdkUserAgent);
   }
-  return baseUserAgent;
+
+  if (nodeVersion) userAgentParts.push(`node/${nodeVersion}`);
+
+  return userAgentParts.join(' ');
 }
 
 /**

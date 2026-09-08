@@ -94,6 +94,8 @@ jobs:
           fi
 
       - name: Generate release notes
+        id: generate_notes
+        continue-on-error: true
         if: inputs.release_notes == ''
         uses: openai/codex-action@a26d2d4d8b78a694338b8e3715c3630254340b2c # v1
         with:
@@ -115,7 +117,9 @@ jobs:
                - If a previous release tag exists, inspect `${{ steps.prev_version.outputs.tag }}..HEAD`.
                - If there is no previous release tag, inspect the latest 10 commits.
             2. Read relevant diffs or files when commit messages are too vague.
-            3. Write concise, user-facing release notes. Keep it grounded in the real diff.
+            3. Write short, plain release notes grounded in the diff. Aim for 200 words,
+               adding only what users need to migrate. Skip marketing language,
+               introductory summaries, and routine tooling updates.
             4. Use Keep a Changelog-style sections, but omit empty sections.
             5. Prefer these headings when they apply: `### Added`, `### Changed`, `### Fixed`, `### Developer Experience`.
             6. Check public options, JSON output, SDK payloads, and removed commands for
@@ -144,10 +148,20 @@ jobs:
             **Full Changelog**: https://github.com/vizzly-testing/cli/compare/<previous-tag>...<new-tag>
 
       - name: Read release notes
+        env:
+          GENERATION_OUTCOME: ${{ steps.generate_notes.outcome }}
+          PREVIOUS_TAG: ${{ steps.prev_version.outputs.tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.new_version }}
         run: |
-          if [ ! -s RELEASE_NOTES.md ] || ! grep -q '[^[:space:]]' RELEASE_NOTES.md; then
-            echo "::error::Release notes are missing or empty. Rerun with release_notes supplied, or fix automatic generation before publishing."
-            exit 1
+          if [ "$GENERATION_OUTCOME" = "failure" ] || [ ! -s RELEASE_NOTES.md ] || ! grep -q '[^[:space:]]' RELEASE_NOTES.md; then
+            echo "::warning::Release notes were not generated. Publishing with a changelog link; check the generation step for the error and update the release notes afterward."
+            echo "Release-note generation did not complete. Publishing with a changelog link. Check the generation log; API billing errors require replenishing credits or supplying manual release_notes." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "$PREVIOUS_TAG" ]; then
+              CHANGELOG_URL="https://github.com/vizzly-testing/cli/compare/$PREVIOUS_TAG...$RELEASE_TAG"
+            else
+              CHANGELOG_URL="https://github.com/vizzly-testing/cli/releases/tag/$RELEASE_TAG"
+            fi
+            printf '**Full Changelog**: %s\n' "$CHANGELOG_URL" > RELEASE_NOTES.md
           fi
           cat RELEASE_NOTES.md >> "$GITHUB_STEP_SUMMARY"
 

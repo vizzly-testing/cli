@@ -23,7 +23,6 @@ import { createUploader } from '../uploader/index.js';
 import { loadConfig } from '../utils/config-loader.js';
 import { resolveImageBuffer } from '../utils/file-helpers.js';
 import * as output from '../utils/output.js';
-import { CURRENT_SCREENSHOT_FORMAT_VERSION } from '../utils/screenshot-compatibility.js';
 import {
   getScreenshotOptionsPayload,
   normalizeScreenshotOptions,
@@ -334,7 +333,6 @@ export class VizzlySDK extends EventEmitter {
 
     let screenshotData = {
       buildId,
-      screenshotFormatVersion: CURRENT_SCREENSHOT_FORMAT_VERSION,
       name,
       image: imageBase64,
       type: 'base64',

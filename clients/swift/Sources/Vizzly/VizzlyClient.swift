@@ -277,7 +277,6 @@ public final class VizzlyClient {
 
         var payload: [String: Any] = [
             "name": name,
-            "screenshotFormatVersion": 2,
             "image": image.base64EncodedString(),
             "type": "base64"
         ]

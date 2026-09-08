@@ -6,10 +6,6 @@ import {
   extractProperties,
   groupComparisons,
 } from '../../../src/server/handlers/tdd-handler.js';
-import {
-  CURRENT_SCREENSHOT_FORMAT_VERSION,
-  readScreenshotProperties,
-} from '../../../src/utils/screenshot-compatibility.js';
 
 /**
  * Create mock output for testing
@@ -121,63 +117,6 @@ function createMockDeps(overrides = {}) {
 }
 
 describe('server/handlers/tdd-handler', () => {
-  describe('released screenshot property compatibility', () => {
-    it('returns empty object for null/undefined', () => {
-      assert.deepStrictEqual(readScreenshotProperties(null), {});
-      assert.deepStrictEqual(readScreenshotProperties(undefined), {});
-    });
-
-    it('returns properties as-is when not double-nested', () => {
-      let props = { browser: 'chrome', viewport: { width: 1920 } };
-      assert.deepStrictEqual(readScreenshotProperties(props), props);
-    });
-
-    it('unwraps double-nested properties', () => {
-      let props = {
-        properties: {
-          browser: 'chrome',
-          viewport: { width: 1920, height: 1080 },
-        },
-      };
-
-      let result = readScreenshotProperties(props);
-
-      assert.strictEqual(result.browser, 'chrome');
-      assert.strictEqual(result.viewport.width, 1920);
-      assert.strictEqual(result.properties, undefined);
-    });
-
-    it('merges top-level and nested properties', () => {
-      let props = {
-        topLevel: 'value',
-        properties: {
-          browser: 'firefox',
-        },
-      };
-
-      let result = readScreenshotProperties(props);
-
-      assert.strictEqual(result.topLevel, 'value');
-      assert.strictEqual(result.browser, 'firefox');
-      assert.strictEqual(result.properties, undefined);
-    });
-
-    it('preserves every current user property', () => {
-      let props = {
-        properties: { component: 'checkout' },
-        threshold: 'user value',
-        viewport: 'wide',
-      };
-
-      let result = readScreenshotProperties(
-        props,
-        CURRENT_SCREENSHOT_FORMAT_VERSION
-      );
-
-      assert.deepStrictEqual(result, props);
-    });
-  });
-
   describe('extractProperties', () => {
     it('returns empty object for null/undefined', () => {
       assert.deepStrictEqual(extractProperties(null), {});
@@ -271,10 +210,12 @@ describe('server/handlers/tdd-handler', () => {
         'base64'
       );
 
-      assert.deepStrictEqual(comparisonProperties.theme, 'dark');
       assert.strictEqual(comparisonProperties.threshold, 0.1);
-      assert.strictEqual(comparisonProperties.minClusterSize, 4);
-      assert.strictEqual(comparisonProperties.properties, undefined);
+      assert.deepStrictEqual(comparisonProperties.properties, {
+        theme: 'dark',
+        minClusterSize: 4,
+      });
+      assert.strictEqual(comparisonProperties.minClusterSize, undefined);
     });
   });
 

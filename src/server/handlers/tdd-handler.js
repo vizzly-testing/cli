@@ -10,7 +10,6 @@ import { getDimensionsSync as defaultGetDimensionsSync } from '@vizzly-testing/h
 import { TddService as DefaultTddService } from '../../tdd/tdd-service.js';
 import { detectImageInputType as defaultDetectImageInputType } from '../../utils/image-input-detector.js';
 import * as defaultOutput from '../../utils/output.js';
-import { readScreenshotProperties } from '../../utils/screenshot-compatibility.js';
 import {
   safePath as defaultSafePath,
   sanitizeScreenshotName as defaultSanitizeScreenshotName,
@@ -376,15 +375,10 @@ export const createTddHandler = (
       };
     }
 
-    let userProperties = readScreenshotProperties(
-      properties,
-      screenshotOptions.screenshotFormatVersion
-    );
-
-    // Validate and sanitize properties
+    // Validate user metadata without unwrapping nested keys.
     let validatedProperties;
     try {
-      validatedProperties = validateScreenshotProperties(userProperties);
+      validatedProperties = validateScreenshotProperties(properties);
     } catch (error) {
       return {
         statusCode: 400,

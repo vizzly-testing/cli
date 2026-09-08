@@ -10,7 +10,6 @@ module Vizzly
 
   # Default port for local TDD server
   DEFAULT_TDD_PORT = 47392
-  SCREENSHOT_FORMAT_VERSION = 2
   class Client # rubocop:disable Metrics/ClassLength
     attr_reader :server_url, :disabled
 
@@ -67,7 +66,6 @@ module Vizzly
 
       payload = {
         name: name,
-        screenshotFormatVersion: SCREENSHOT_FORMAT_VERSION,
         image: image_base64,
         type: 'base64',
         buildId: build_id,

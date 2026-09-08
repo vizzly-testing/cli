@@ -460,7 +460,6 @@ describe('client/index httpPost integration tests', () => {
       Buffer.from('fake-png-data').toString('base64')
     );
     assert.deepStrictEqual(req.body.properties, { browser: 'chrome' });
-    assert.strictEqual(req.body.screenshotFormatVersion, 2);
   });
 
   it('flattens nested properties into top-level properties', async () => {

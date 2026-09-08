@@ -4,8 +4,6 @@
  */
 import { expect } from 'vitest';
 
-let SCREENSHOT_FORMAT_VERSION = 2;
-
 export function buildScreenshotProperties(
   options = {},
   locationHref = '',
@@ -135,7 +133,6 @@ async function toMatchScreenshot(element, name, options = {}) {
       },
       body: JSON.stringify({
         name: screenshotName,
-        screenshotFormatVersion: SCREENSHOT_FORMAT_VERSION,
         image: screenshotPath, // Send file path directly
         type: 'file-path',
         buildId: buildId || null,

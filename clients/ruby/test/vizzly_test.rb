@@ -249,7 +249,6 @@ class VizzlyTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     )
 
     assert_equal 'match', result['status']
-    assert_equal 2, captured_body['screenshotFormatVersion']
     assert_equal 1.5, captured_body['threshold']
     refute_includes captured_body['properties'], 'threshold'
   ensure

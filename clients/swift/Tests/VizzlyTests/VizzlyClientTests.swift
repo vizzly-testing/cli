@@ -173,7 +173,6 @@ final class VizzlyClientTests: XCTestCase {
 
         let properties = payload["properties"] as? [String: Any]
         XCTAssertEqual(properties?["browser"] as? String, "chrome")
-        XCTAssertEqual(payload["screenshotFormatVersion"] as? Int, 2)
         XCTAssertEqual((properties?["properties"] as? [String: Int])?["threshold"], 9)
 
         let viewport = properties?["viewport"] as? [String: Any]

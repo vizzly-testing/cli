@@ -88,7 +88,7 @@ function screenshotCommand(name, properties = { browser: 'chromium' }) {
   let code = [
     "let fs = await import('node:fs');",
     `let image = fs.readFileSync(${JSON.stringify(imagePath)}, 'base64');`,
-    `let payload = { name: ${JSON.stringify(name)}, image, type: 'base64', screenshotFormatVersion: 2, properties: ${JSON.stringify(properties)} };`,
+    `let payload = { name: ${JSON.stringify(name)}, image, type: 'base64', properties: ${JSON.stringify(properties)} };`,
     "let response = await fetch(process.env.VIZZLY_SERVER_URL + '/screenshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });",
     'console.log(response.status, await response.text());',
   ].join(' ');

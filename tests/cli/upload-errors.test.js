@@ -72,7 +72,7 @@ for (let scenario of [
       let url = process.env.VIZZLY_SERVER_URL;
       async function post(path, body = {}) {
         if (path === '/screenshot') {
-          body = { ...body, properties: { theme: 'dark', threshold: 'user threshold', properties: { component: 'Cart' } }, threshold: 2, fullPage: true, screenshotFormatVersion: 2 };
+          body = { ...body, properties: { theme: 'dark', threshold: 'user threshold', properties: { component: 'Cart' } }, threshold: 2, fullPage: true };
         }
         let response = await fetch(url + path, {
           method: 'POST', headers: { 'content-type': 'application/json' },

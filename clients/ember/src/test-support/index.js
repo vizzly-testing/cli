@@ -24,8 +24,6 @@
  * });
  */
 
-let SCREENSHOT_FORMAT_VERSION = 2;
-
 /**
  * Custom error class for intentional visual diff failures.
  * Only this error type will be re-thrown to fail tests.
@@ -281,7 +279,6 @@ export async function vizzlyScreenshot(name, options = {}) {
   // Build request payload
   let payload = {
     buildId: buildId || window.__VIZZLY_BUILD_ID__ || null,
-    screenshotFormatVersion: SCREENSHOT_FORMAT_VERSION,
     name,
     selector: captureSelector,
     fullPage: effectiveFullPage,

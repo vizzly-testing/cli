@@ -13,7 +13,6 @@ import {
   isTddMode,
   setVizzlyEnabled,
 } from '../utils/environment-config.js';
-import { CURRENT_SCREENSHOT_FORMAT_VERSION } from '../utils/screenshot-compatibility.js';
 import {
   getScreenshotOptionsPayload,
   normalizeScreenshotOptions,
@@ -229,7 +228,6 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
 
         let screenshotData = {
           buildId: normalizedOptions.buildId ?? getBuildId(),
-          screenshotFormatVersion: CURRENT_SCREENSHOT_FORMAT_VERSION,
           name,
           image,
           type,

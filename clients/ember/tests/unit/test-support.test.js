@@ -91,7 +91,6 @@ describe('test-support', () => {
 
       assert.strictEqual(result.status, 'match');
       assert.strictEqual(capturedBody.buildId, null);
-      assert.strictEqual(capturedBody.screenshotFormatVersion, 2);
       assert.strictEqual(capturedBody.name, 'dashboard');
       assert.strictEqual(capturedBody.fullPage, true);
       assert.strictEqual(capturedBody.requestTimeout, null);

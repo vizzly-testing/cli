@@ -82,16 +82,19 @@ export async function createBuild(client, metadata) {
  * @param {Object} client - API client
  * @param {string} buildId - Build ID
  * @param {string} status - Build status (pending|running|completed|failed)
- * @param {number|null} executionTimeMs - Execution time in milliseconds
+ * @param {number|null} [executionTimeMs=null] - Execution time in milliseconds
+ * @param {string} [failureReason] - Explanation sent only for a failed build
  * @returns {Promise<Object>} Updated build data
  */
 export async function updateBuildStatus(
   client,
   buildId,
   status,
-  executionTimeMs = null
+  executionTimeMs = null,
+  failureReason
 ) {
   let body = { status };
+  if (status === 'failed' && failureReason) body.failureReason = failureReason;
   if (executionTimeMs != null) {
     body.executionTimeMs = executionTimeMs;
   }
@@ -104,21 +107,29 @@ export async function updateBuildStatus(
 }
 
 /**
- * Finalize a build (convenience wrapper for updateBuildStatus)
+ * Mark a build completed or failed, with an optional failure explanation.
  * @param {Object} client - API client
  * @param {string} buildId - Build ID
- * @param {boolean} success - Whether the build succeeded
- * @param {number|null} executionTimeMs - Execution time in milliseconds
+ * @param {boolean} [success=true] - Whether tests and uploads succeeded
+ * @param {number|null} [executionTimeMs=null] - Execution time in milliseconds
+ * @param {string} [failureReason] - Explanation sent only for a failed build
  * @returns {Promise<Object>} Finalized build data
  */
 export async function finalizeBuild(
   client,
   buildId,
   success = true,
-  executionTimeMs = null
+  executionTimeMs = null,
+  failureReason
 ) {
   let status = success ? 'completed' : 'failed';
-  return updateBuildStatus(client, buildId, status, executionTimeMs);
+  return updateBuildStatus(
+    client,
+    buildId,
+    status,
+    executionTimeMs,
+    failureReason
+  );
 }
 
 /**

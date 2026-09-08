@@ -133,6 +133,8 @@ export function buildDisabledRunResult() {
  * @param {boolean} options.testSuccess - Whether tests passed
  * @param {number} options.screenshotCount - Number of screenshots
  * @param {Object|null} options.tddResults - TDD results (comparisons, etc.)
+ * @param {Object|null} [options.uploadStats] - Cumulative cloud upload outcomes,
+ * exposed as `uploads` independently of test and local comparison results.
  * @returns {Object} Final result object
  */
 export function buildRunResult({
@@ -141,6 +143,7 @@ export function buildRunResult({
   testSuccess,
   screenshotCount,
   tddResults,
+  uploadStats,
 }) {
   return {
     buildId,
@@ -148,6 +151,7 @@ export function buildRunResult({
     testsPassed: testSuccess ? 1 : 0,
     testsFailed: testSuccess ? 0 : 1,
     screenshotsCaptured: screenshotCount,
+    ...(uploadStats ? { uploads: uploadStats } : {}),
     comparisons: tddResults?.comparisons || null,
     failed: (tddResults?.failed || 0) > 0,
   };

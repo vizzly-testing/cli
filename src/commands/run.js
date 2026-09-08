@@ -1,5 +1,10 @@
 /**
- * Run command implementation
+ * Run tests and report their visual results in terminal or JSON output.
+ *
+ * Incomplete uploads preserve the test exit code and skip comparison waiting.
+ * After successful uploads, --wait can still fail for visual comparison results.
+ * The returned success flag describes command success, not upload completeness.
+ *
  * Uses functional operations directly - no class wrappers needed
  */
 
@@ -31,6 +36,10 @@ import {
 } from '../utils/git.js';
 import * as defaultOutput from '../utils/output.js';
 import { writeSession as defaultWriteSession } from '../utils/session.js';
+
+function formatUploadCounts({ total, uploaded, reused, failed }) {
+  return `${total} captured, ${uploaded} uploaded, ${reused} reused, ${failed} failed`;
+}
 
 export async function resolveBuildDisplayUrl({
   result,
@@ -86,7 +95,9 @@ function buildContextCommand(buildId, { structured = false } = {}) {
  * @param {string} testCommand - Test command to execute
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
- * @param {Object} deps - Dependencies for testing
+ * @param {Object} deps - Command services and process hooks.
+ * @returns {Promise<Object>} Command outcome with success, an optional exitCode,
+ * and run results when available.
  */
 export async function runCommand(
   testCommand,
@@ -367,6 +378,27 @@ export async function runCommand(
         buildId = result.buildId;
       }
 
+      if (result.uploads?.failed > 0) {
+        let message = `${result.uploads.failed} screenshot(s) failed to upload. Visual testing is incomplete.`;
+        if (globalOptions.json) {
+          output.data({
+            buildId: result.buildId,
+            status: 'incomplete',
+            screenshotsCaptured: result.screenshotsCaptured,
+            uploads: result.uploads,
+            error: { code: 'SCREENSHOT_UPLOAD_FAILED', message },
+            url: result.url,
+            exitCode: 0,
+          });
+        } else {
+          output.warn(message);
+          output.print(`Screenshots: ${formatUploadCounts(result.uploads)}`);
+          if (result.url) output.info(`Results: ${result.url}`);
+        }
+        output.cleanup();
+        return { success: true, exitCode: 0, result };
+      }
+
       // JSON output mode - output structured data and exit
       if (globalOptions.json && !runOptions.wait) {
         let executionTimeMs = Date.now() - startTime;
@@ -382,6 +414,7 @@ export async function runCommand(
           status: 'completed',
           url: displayUrl,
           screenshotsCaptured: result.screenshotsCaptured || 0,
+          ...(result.uploads ? { uploads: result.uploads } : {}),
           executionTimeMs,
           git: {
             branch,
@@ -407,8 +440,11 @@ export async function runCommand(
       if (result.buildId && !globalOptions.json) {
         output.blank();
         let colors = output.getColors();
+        let screenshotSummary = result.uploads
+          ? formatUploadCounts(result.uploads)
+          : result.screenshotsCaptured;
         output.print(
-          `  ${colors.brand.textTertiary('Screenshots')}  ${colors.white(result.screenshotsCaptured)}`
+          `  ${colors.brand.textTertiary('Screenshots')}  ${colors.white(screenshotSummary)}`
         );
 
         let displayUrl = await resolveBuildDisplayUrl({
@@ -451,6 +487,7 @@ export async function runCommand(
           output.data({
             buildId: buildId || null,
             status: 'failed',
+            ...(error.uploads ? { uploads: error.uploads } : {}),
             error: {
               code: error.code,
               message: error.message,
@@ -529,6 +566,7 @@ export async function runCommand(
             status: buildResult.status,
             url: displayUrl,
             screenshotsCaptured: result.screenshotsCaptured || 0,
+            ...(result.uploads ? { uploads: result.uploads } : {}),
             executionTimeMs,
             git: {
               branch,

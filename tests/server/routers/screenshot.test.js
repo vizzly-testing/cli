@@ -1,5 +1,8 @@
 import assert from 'node:assert';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
 import { describe, it } from 'node:test';
+import { createApiHandler } from '../../../src/server/handlers/api-handler.js';
 import { createScreenshotRouter } from '../../../src/server/routers/screenshot.js';
 import {
   createMockRequest,
@@ -332,34 +335,74 @@ describe('server/routers/screenshot', () => {
     });
 
     describe('/flush endpoint', () => {
-      it('flushes API-mode handlers before returning success', async () => {
-        let screenshotHandler = {
-          handleScreenshot: async () => ({
-            statusCode: 200,
-            body: { success: true },
-          }),
-          flush: async () => ({
-            uploaded: 2,
-            failed: 1,
-            total: 3,
-          }),
-        };
-        let handler = createScreenshotRouter({
+      it('reports complete and failed uploads through HTTP flush responses', async t => {
+        let screenshotHandler = createApiHandler({
+          request: async (_path, options) => {
+            let body = JSON.parse(options.body);
+            if (body.name === 'Checkout: empty cart') {
+              throw new Error('Image could not be decoded');
+            }
+            return body.image_data
+              ? { id: 'screenshot-1' }
+              : { upload_required: true };
+          },
+        });
+        let route = createScreenshotRouter({
           screenshotHandler,
           defaultBuildId: 'build-1',
         });
-        let req = createMockRequest('POST', {});
-        let res = createMockResponse();
+        let server = createServer(async (req, res) => {
+          await route(req, res, req.url);
+        });
+        server.listen(0, '127.0.0.1');
+        await once(server, 'listening');
+        t.after(async () => {
+          server.closeAllConnections();
+          await new Promise(resolve => server.close(resolve));
+          screenshotHandler.cleanup();
+        });
+        let url = `http://127.0.0.1:${server.address().port}`;
+        async function post(path, body = {}) {
+          let response = await fetch(url + path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          assert.strictEqual(response.status, 200);
+          return response.json();
+        }
 
-        let result = await handler(req, res, '/flush');
-
-        assert.strictEqual(result, true);
-        assert.strictEqual(res.statusCode, 200);
-        assert.deepStrictEqual(res.getParsedBody(), {
+        await post('/screenshot', {
+          name: 'Checkout: populated cart',
+          image: 'aGVsbG8=',
+          type: 'base64',
+        });
+        assert.deepStrictEqual(await post('/flush'), {
           success: true,
-          uploaded: 2,
+          uploaded: 1,
+          reused: 0,
+          failed: 0,
+          total: 1,
+          failures: [],
+        });
+
+        await post('/screenshot', {
+          name: 'Checkout: empty cart',
+          image: 'aGVsbG8=',
+          type: 'base64',
+        });
+        assert.deepStrictEqual(await post('/flush'), {
+          success: false,
+          uploaded: 1,
+          reused: 0,
           failed: 1,
-          total: 3,
+          total: 2,
+          failures: [
+            {
+              name: 'Checkout: empty cart',
+              error: 'Image could not be decoded',
+            },
+          ],
         });
       });
 

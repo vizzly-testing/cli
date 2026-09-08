@@ -42,17 +42,13 @@ export function generateScreenshotName(page) {
 }
 
 /**
- * Generate screenshot properties from viewport
- * Properties are used by Vizzly for grouping and identification
- * @param {Object} viewport - Viewport object with name, width, height
+ * Generate screenshot properties for the captured page.
+ * Image dimensions are read from the captured image by Vizzly.
+ * @param {Object} _viewport - Capture viewport, intentionally not serialized
  * @returns {Object} Screenshot properties
  */
-export function generateScreenshotProperties(viewport, options = {}) {
-  let properties = {
-    viewport: viewport.name,
-    viewport_width: viewport.width,
-    viewport_height: viewport.height,
-  };
+export function generateScreenshotProperties(_viewport, options = {}) {
+  let properties = {};
 
   if (options.browser) {
     properties.browser = options.browser;

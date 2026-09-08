@@ -252,23 +252,21 @@ Patterns support glob-like syntax:
 
 ## Screenshot Naming
 
-Screenshots are named based on the page path. The plugin records browser,
-viewport, viewport dimensions, page URL, and capture mode metadata
-automatically. You can add custom screenshot `properties` from config when you
-need extra signature dimensions such as theme, locale, or auth state:
+Screenshots are named based on the page path. The plugin records the browser and
+page URL automatically. Vizzly reads the image dimensions from the captured
+image. You can add custom screenshot `properties` from config when you need
+extra signature values such as theme, locale, or auth state:
 
 **Name format:** `path-to-page` (slashes replaced with hyphens)
 
-**Properties:** Browser, viewport, URL, capture-mode metadata, and any custom
-properties (`browser`, `viewport`, `viewport_width`, `viewport_height`, `url`,
-`fullPage`, plus user-defined fields)
+**Properties:** Browser, URL, and any custom user-defined fields
 
 Examples:
-- Name: `index`, Properties: `{ browser: 'chromium', viewport: 'mobile', viewport_width: 375, viewport_height: 667, url: 'http://localhost:3000/' }`
-- Name: `blog-post-1`, Properties: `{ browser: 'chromium', viewport: 'desktop', viewport_width: 1920, viewport_height: 1080, url: 'http://localhost:3000/blog/post-1' }`
-- Name: `docs-getting-started`, Properties: `{ browser: 'webkit', viewport: 'tablet', viewport_width: 768, viewport_height: 1024, url: 'http://localhost:3000/docs/getting-started' }`
+- Name: `index`, Properties: `{ browser: 'chromium', url: 'http://localhost:3000/' }`
+- Name: `blog-post-1`, Properties: `{ browser: 'chromium', url: 'http://localhost:3000/blog/post-1' }`
+- Name: `docs-getting-started`, Properties: `{ browser: 'webkit', url: 'http://localhost:3000/docs/getting-started' }`
 
-This approach allows Vizzly to group screenshots by viewport while keeping names clean and compatible with file system restrictions.
+Static-site screenshot names stay clean and compatible with file system restrictions.
 
 ## Visual Development Workflow
 

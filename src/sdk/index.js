@@ -323,12 +323,6 @@ export class VizzlySDK extends EventEmitter {
     let buffer = resolveImageBuffer(imageBuffer, 'screenshot');
 
     let normalizedOptions = normalizeScreenshotOptions(options);
-    for (let warning of normalizedOptions.warnings) {
-      output.warn(warning.message, {
-        code: warning.code,
-        option: warning.option,
-      });
-    }
 
     // Generate or use provided build ID
     let buildId = normalizedOptions.buildId || this.currentBuildId || 'default';
@@ -348,10 +342,6 @@ export class VizzlySDK extends EventEmitter {
       screenshotData,
       getScreenshotOptionsPayload(normalizedOptions)
     );
-    if (normalizedOptions.warnings.length > 0) {
-      screenshotData.warnings = normalizedOptions.warnings;
-    }
-
     // POST to the local screenshot server
     let serverUrl = `http://localhost:${this.config.server?.port || 3000}`;
     let fetchFn = this.services.fetch || fetch;

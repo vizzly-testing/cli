@@ -97,7 +97,7 @@ export let createApiHandler = (
       deviceScaleFactor: normalizedOptions.deviceScaleFactor,
       selector: normalizedOptions.selector,
     };
-    warnings = [...(warnings || []), ...normalizedOptions.warnings];
+    warnings = warnings || [];
     let capture = { name, status: 'pending' };
     captures.push(capture);
     let inputType = ['base64', 'file-path'].includes(type)

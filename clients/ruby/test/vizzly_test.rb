@@ -236,6 +236,7 @@ class VizzlyTest < Minitest::Test # rubocop:disable Metrics/ClassLength
       captured_body = JSON.parse(request.body)
       response
     end
+
     Net::HTTP.define_singleton_method(:start) do |_host, _port, **_options, &block|
       block.call(fake_http)
     end
@@ -330,7 +331,7 @@ class VizzlyTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     Net::HTTP.define_singleton_method(:start, original_start)
   end
 
-  def test_screenshot_does_not_promote_reserved_options_from_properties
+  def test_screenshot_preserves_option_shaped_user_properties_without_promoting_them
     captured_body = nil
     original_start = Net::HTTP.method(:start)
     response = Net::HTTPOK.new('1.1', '200', 'OK')
@@ -345,7 +346,7 @@ class VizzlyTest < Minitest::Test # rubocop:disable Metrics/ClassLength
     end
 
     client = Vizzly::Client.new(server_url: 'http://localhost:47392')
-    result = capture_io do
+    capture_io do
       client.screenshot(
         'reserved-properties',
         'fake_image_data',
@@ -358,16 +359,12 @@ class VizzlyTest < Minitest::Test # rubocop:disable Metrics/ClassLength
       )
     end
 
-    assert_match(/Move "threshold" out of properties/, result[1])
     refute_equal 'build-from-properties', captured_body['buildId']
     assert_equal 'dark', captured_body['properties']['theme']
-    refute_includes captured_body['properties'], 'threshold'
-    refute_includes captured_body['properties'], 'minClusterSize'
-    refute_includes captured_body['properties'], 'buildId'
-    assert_equal(
-      %w[threshold minClusterSize buildId],
-      captured_body['warnings'].map { |warning| warning['option'] }
-    )
+    assert_equal 1.5, captured_body['properties']['threshold']
+    assert_equal 3, captured_body['properties']['minClusterSize']
+    assert_equal 'build-from-properties', captured_body['properties']['buildId']
+    refute_includes captured_body, 'warnings'
   ensure
     Net::HTTP.define_singleton_method(:start, original_start)
   end

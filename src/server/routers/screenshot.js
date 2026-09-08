@@ -66,7 +66,7 @@ export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
           image,
           normalizedOptions.properties,
           type,
-          [...(warnings || []), ...normalizedOptions.warnings],
+          warnings || [],
           {
             threshold: normalizedOptions.threshold,
             minClusterSize: normalizedOptions.minClusterSize,

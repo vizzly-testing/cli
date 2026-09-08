@@ -185,76 +185,56 @@ export function safePath(workingDir, ...pathSegments) {
 }
 
 /**
- * Validates screenshot properties object for safe values
- * @param {Object} properties - Properties to validate
- * @returns {Object} Validated properties object
+ * Validate user metadata without interpreting names as Vizzly options or
+ * rewriting values. Rendering code must escape strings for its output context.
+ * Reject unsafe object keys and values that cannot be represented as JSON.
+ *
+ * @param {Object} [properties={}] - User screenshot metadata.
+ * @returns {Object} A copy preserving the supplied JSON values.
+ * @throws {Error} Metadata contains unsafe keys, cycles, or non-JSON values.
  */
 export function validateScreenshotProperties(properties = {}) {
-  if (properties === null || typeof properties !== 'object') {
+  if (
+    !properties ||
+    typeof properties !== 'object' ||
+    Array.isArray(properties)
+  ) {
     return {};
   }
 
-  const validated = {};
-
-  // Validate common properties with safe constraints
-  if (properties.browser && typeof properties.browser === 'string') {
-    try {
-      // Extract browser name without version (e.g., "Chrome/139.0.7258.138" -> "Chrome")
-      const browserName = properties.browser.split('/')[0];
-      validated.browser = sanitizeScreenshotName(browserName, 50);
-    } catch (error) {
-      // Skip invalid browser names, don't include them
-      output.warn(
-        `Invalid browser name '${properties.browser}': ${error.message}`
+  let ancestors = new Set();
+  function copy(value) {
+    if (
+      value === null ||
+      typeof value === 'string' ||
+      typeof value === 'boolean'
+    ) {
+      return value;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value !== 'object' || ancestors.has(value)) {
+      throw new Error('Screenshot properties must contain JSON values');
+    }
+    ancestors.add(value);
+    let result;
+    if (Array.isArray(value)) {
+      result = value.map(copy);
+    } else {
+      let entries = Object.entries(value);
+      if (
+        entries.some(([key]) =>
+          ['__proto__', 'constructor', 'prototype'].includes(key)
+        )
+      ) {
+        throw new Error('Screenshot properties contain an unsafe key');
+      }
+      result = Object.fromEntries(
+        entries.map(([key, item]) => [key, copy(item)])
       );
     }
+    ancestors.delete(value);
+    return result;
   }
 
-  if (properties.viewport && typeof properties.viewport === 'object') {
-    const viewport = {};
-    if (
-      typeof properties.viewport.width === 'number' &&
-      properties.viewport.width > 0 &&
-      properties.viewport.width <= 10000
-    ) {
-      viewport.width = Math.floor(properties.viewport.width);
-    }
-    if (
-      typeof properties.viewport.height === 'number' &&
-      properties.viewport.height > 0 &&
-      properties.viewport.height <= 10000
-    ) {
-      viewport.height = Math.floor(properties.viewport.height);
-    }
-    if (Object.keys(viewport).length > 0) {
-      validated.viewport = viewport;
-    }
-  }
-
-  // Allow other safe string properties but sanitize them
-  for (const [key, value] of Object.entries(properties)) {
-    if (key === 'browser' || key === 'viewport') continue; // Already handled
-
-    if (
-      typeof key === 'string' &&
-      key.length <= 50 &&
-      /^[a-zA-Z0-9_-]+$/.test(key)
-    ) {
-      if (typeof value === 'string' && value.length <= 200) {
-        // Preserve safe URL/query characters like '&' in metadata values.
-        // Rendering layers should escape for HTML instead of mutating payload data here.
-        validated[key] = value.replace(/[<>"']/g, '');
-      } else if (
-        typeof value === 'number' &&
-        !Number.isNaN(value) &&
-        Number.isFinite(value)
-      ) {
-        validated[key] = value;
-      } else if (typeof value === 'boolean') {
-        validated[key] = value;
-      }
-    }
-  }
-
-  return validated;
+  return copy(properties);
 }

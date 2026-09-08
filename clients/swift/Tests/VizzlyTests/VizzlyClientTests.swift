@@ -163,6 +163,7 @@ final class VizzlyClientTests: XCTestCase {
             image: createTestImage(),
             properties: [
                 "browser": "chrome",
+                "properties": ["threshold": 9],
                 "viewport": [
                     "width": 1920,
                     "height": 1080
@@ -172,6 +173,7 @@ final class VizzlyClientTests: XCTestCase {
 
         let properties = payload["properties"] as? [String: Any]
         XCTAssertEqual(properties?["browser"] as? String, "chrome")
+        XCTAssertEqual((properties?["properties"] as? [String: Int])?["threshold"], 9)
 
         let viewport = properties?["viewport"] as? [String: Any]
         XCTAssertEqual(viewport?["width"] as? Int, 1920)

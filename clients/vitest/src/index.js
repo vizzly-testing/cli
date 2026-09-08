@@ -40,7 +40,7 @@
  *   await expect(page).toMatchScreenshot('hero.png', {
  *     properties: {
  *       theme: 'dark',
- *       viewport: { width: 1920, height: 1080 }
+ *       locale: 'en-US'
  *     },
  *     threshold: 5
  *   })

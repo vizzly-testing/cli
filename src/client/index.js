@@ -219,10 +219,6 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
       let requestTimeout =
         normalizedOptions.requestTimeout || DEFAULT_TIMEOUT_MS;
 
-      for (let warning of normalizedOptions.warnings) {
-        console.warn(`[vizzly] ${warning.message}`);
-      }
-
       try {
         // If it's a string, assume it's a file path and send directly
         // Otherwise it's a Buffer, so convert to base64
@@ -241,10 +237,6 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
           screenshotData,
           getScreenshotOptionsPayload(normalizedOptions)
         );
-        if (normalizedOptions.warnings.length > 0) {
-          screenshotData.warnings = normalizedOptions.warnings;
-        }
-
         let httpStart = Date.now();
         let { status, json } = await httpPost(
           `${serverUrl}/screenshot`,

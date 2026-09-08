@@ -35,7 +35,7 @@ export function generateScreenshotName(story, viewport) {
 
 export function generateScreenshotProperties(
   story,
-  viewport,
+  _viewport,
   url,
   screenshotOptions = {}
 ) {
@@ -43,9 +43,6 @@ export function generateScreenshotProperties(
     storyId: story.id,
     storyTitle: story.title,
     storyName: story.name,
-    viewport: viewport.name,
-    viewport_width: viewport.width,
-    viewport_height: viewport.height,
     ...(screenshotOptions.browser !== undefined
       ? { browser: screenshotOptions.browser }
       : {}),

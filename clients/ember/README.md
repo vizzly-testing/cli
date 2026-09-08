@@ -222,9 +222,8 @@ await vizzlyScreenshot('screenshot-name', {
 setting injected from `VIZZLY_FAIL_ON_DIFF` or `.vizzly/server.json`, then
 non-failing mode.
 
-Each screenshot also includes Vizzly metadata for grouping and comparison:
-`browser`, `viewport_width`, `viewport_height`, `url`, and any custom
-`properties` you provide.
+Each screenshot also includes `browser`, `url`, and any custom `properties` you
+provide. Vizzly reads dimensions from the captured image.
 
 The function automatically:
 - Waits for Ember's `settled()` before capturing

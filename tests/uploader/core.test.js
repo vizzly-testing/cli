@@ -264,20 +264,18 @@ describe('uploader/core', () => {
       assert.deepStrictEqual(result, {
         sha256: 'abc123',
         name: 'homepage-chrome',
-        browser: 'chrome',
-        viewport_width: 1920,
-        viewport_height: 1080,
+        properties: { browser: 'chrome' },
       });
     });
 
-    it('defaults to chrome browser', () => {
+    it('does not invent a browser when the filename does not include one', () => {
       let file = {
         sha256: 'abc123',
         filename: 'screenshot.png',
       };
 
       let result = fileToScreenshotFormat(file);
-      assert.strictEqual(result.browser, 'chrome');
+      assert.deepStrictEqual(result.properties, {});
     });
   });
 

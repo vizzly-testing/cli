@@ -70,7 +70,7 @@ export let createApiHandler = (
    * @param {string} image - Base64 image data or a file path.
    * @param {Object} [properties={}] - Screenshot metadata.
    * @param {string} [type] - Base64 or file-path hint; otherwise detected.
-   * @param {string[]} [warnings=[]] - Warnings already collected by the router.
+   * @param {Object[]} [warnings=[]] - Warnings already collected by the router.
    * @param {Object} [screenshotOptions={}] - Capture and comparison options.
    * @returns {Promise<{statusCode: number, body: Object}>} Local HTTP response.
    */

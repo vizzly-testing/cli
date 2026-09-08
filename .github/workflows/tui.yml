@@ -35,7 +35,16 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - name: Run TUI visual tests
+      - name: Run TUI visual tests (Dependabot TDD mode)
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+        run: node bin/vizzly.js tdd run "pnpm run test:tui"
+        env:
+          CI: true
+          VIZZLY_COMMIT_MESSAGE: ${{ github.event.pull_request.head.commit.message || github.event.head_commit.message }}
+          VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
+
+      - name: Run TUI visual tests (Cloud mode)
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         run: node bin/vizzly.js run "pnpm run test:tui"
         env:
           CI: true

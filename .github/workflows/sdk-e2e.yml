@@ -60,6 +60,7 @@ jobs:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: ./test-site
         run: node ../bin/vizzly.js run "pnpm test"
         env:
@@ -122,6 +123,7 @@ jobs:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: ./clients/vitest
         run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
@@ -193,6 +195,7 @@ jobs:
           VIZZLY_LOG_LEVEL: debug
 
       - name: Run E2E tests (Cloud mode)
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: ./clients/storybook
         run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
@@ -203,7 +206,7 @@ jobs:
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
       - name: Upload preview
-        if: success()
+        if: success() && (github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]')
         working-directory: ./clients/storybook
         run: ../../bin/vizzly.js preview example-storybook/dist
         env:
@@ -267,6 +270,7 @@ jobs:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: ./clients/static-site
         run: ../../bin/vizzly.js run "pnpm run test:e2e"
         env:
@@ -276,6 +280,7 @@ jobs:
           VIZZLY_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.event.head_commit.id }}
 
       - name: Upload preview
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: ./clients/static-site
         run: ../../bin/vizzly.js preview ../../test-site
         env:
@@ -343,6 +348,7 @@ jobs:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: ./clients/ember/test-app
         run: ../../../bin/vizzly.js run "pnpm exec testem ci --file testem.cjs"
         env:
@@ -400,6 +406,7 @@ jobs:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: ./clients/ruby
         run: ../../bin/vizzly.js run "VIZZLY_E2E=1 ruby -Ilib:test test/e2e_test.rb"
         env:
@@ -445,6 +452,7 @@ jobs:
           CI: true
 
       - name: Run E2E tests (Cloud mode)
+        if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: ./clients/swift
         run: ../../bin/vizzly.js run "VIZZLY_E2E=1 swift test --filter VizzlyE2ETests"
         env:

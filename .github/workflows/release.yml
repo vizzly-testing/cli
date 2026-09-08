@@ -14,6 +14,11 @@ on:
           - major
           - beta
 
+      release_notes:
+        description: 'Optional Markdown release notes; skips automatic generation'
+        required: false
+        type: string
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -79,8 +84,17 @@ jobs:
           fi
           echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
 
+      - name: Prepare release notes
+        env:
+          MANUAL_RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          rm -f RELEASE_NOTES.md
+          if [ -n "$MANUAL_RELEASE_NOTES" ]; then
+            printf '%s\n' "$MANUAL_RELEASE_NOTES" > RELEASE_NOTES.md
+          fi
+
       - name: Generate release notes
-        continue-on-error: true
+        if: inputs.release_notes == ''
         uses: openai/codex-action@a26d2d4d8b78a694338b8e3715c3630254340b2c # v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -104,7 +118,10 @@ jobs:
             3. Write concise, user-facing release notes. Keep it grounded in the real diff.
             4. Use Keep a Changelog-style sections, but omit empty sections.
             5. Prefer these headings when they apply: `### Added`, `### Changed`, `### Fixed`, `### Developer Experience`.
-            6. Do not invent features, fixes, migration steps, or breaking changes.
+            6. Check public options, JSON output, SDK payloads, and removed commands for
+               breaking changes. When present, add a `## Breaking changes and migration`
+               section with concrete steps and before/after examples grounded in the diff.
+               Do not invent features, fixes, migration steps, or breaking changes.
             7. Do not include a raw list of commits or commands run.
             8. Include a full changelog link at the bottom:
                - If a previous release tag exists: `**Full Changelog**: https://github.com/vizzly-testing/cli/compare/${{ steps.prev_version.outputs.tag }}...${{ steps.version.outputs.new_version }}`
@@ -127,34 +144,12 @@ jobs:
             **Full Changelog**: https://github.com/vizzly-testing/cli/compare/<previous-tag>...<new-tag>
 
       - name: Read release notes
-        id: release_notes
         run: |
-          if [ ! -s RELEASE_NOTES.md ]; then
-            if [ -n "${{ steps.prev_version.outputs.tag }}" ]; then
-              CHANGELOG_URL="https://github.com/vizzly-testing/cli/compare/${{ steps.prev_version.outputs.tag }}...${{ steps.version.outputs.new_version }}"
-            else
-              CHANGELOG_URL="https://github.com/vizzly-testing/cli/releases/tag/${{ steps.version.outputs.new_version }}"
-            fi
-
-            {
-              echo "## What's Changed"
-              echo
-              if [ -n "${{ steps.prev_version.outputs.tag }}" ]; then
-                git log ${{ steps.prev_version.outputs.tag }}..HEAD --pretty=format:"- %s"
-              else
-                git log --pretty=format:"- %s" -10
-              fi
-              echo
-              echo
-              echo "**Full Changelog**: $CHANGELOG_URL"
-            } > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ] || ! grep -q '[^[:space:]]' RELEASE_NOTES.md; then
+            echo "::error::Release notes are missing or empty. Rerun with release_notes supplied, or fix automatic generation before publishing."
+            exit 1
           fi
-
-          {
-            echo 'notes<<RELEASE_EOF'
-            cat RELEASE_NOTES.md
-            echo 'RELEASE_EOF'
-          } >> "$GITHUB_OUTPUT"
+          cat RELEASE_NOTES.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Restore Node.js for publishing
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -198,7 +193,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.new_version }}
           name: ${{ github.event.inputs.version_type == 'beta' && '🧪' || '✨' }} ${{ steps.version.outputs.new_version }}
-          body: ${{ steps.release_notes.outputs.notes }}
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: ${{ github.event.inputs.version_type == 'beta' }}
         env:

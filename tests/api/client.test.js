@@ -68,6 +68,14 @@ describe('api/client', () => {
       assert.ok(userAgent.includes('upload'));
     });
 
+    it('includes the Node.js runtime version in the user agent', () => {
+      let client = createApiClient({ token: 'test-token' });
+
+      assert.ok(
+        client.getUserAgent().includes(`node/${process.versions.node}`)
+      );
+    });
+
     it('includes SDK user agent when provided', () => {
       let client = createApiClient({
         token: 'test-token',

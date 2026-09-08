@@ -52,21 +52,29 @@ describe('api/core', () => {
 
   describe('buildUserAgent', () => {
     it('builds user agent with version and command', () => {
-      let result = buildUserAgent('1.2.3', 'upload');
+      let result = buildUserAgent('1.2.3', 'upload', null, '22.13.1');
 
-      assert.strictEqual(result, 'vizzly-cli/1.2.3 (upload)');
+      assert.strictEqual(result, 'vizzly-cli/1.2.3 (upload) node/22.13.1');
     });
 
     it('appends SDK user agent when provided', () => {
-      let result = buildUserAgent('1.2.3', 'run', 'playwright/1.40.0');
+      let result = buildUserAgent(
+        '1.2.3',
+        'run',
+        'playwright/1.40.0',
+        '22.13.1'
+      );
 
-      assert.strictEqual(result, 'vizzly-cli/1.2.3 (run) playwright/1.40.0');
+      assert.strictEqual(
+        result,
+        'vizzly-cli/1.2.3 (run) playwright/1.40.0 node/22.13.1'
+      );
     });
 
     it('ignores null SDK user agent', () => {
-      let result = buildUserAgent('1.2.3', 'tdd', null);
+      let result = buildUserAgent('1.2.3', 'tdd', null, '22.13.1');
 
-      assert.strictEqual(result, 'vizzly-cli/1.2.3 (tdd)');
+      assert.strictEqual(result, 'vizzly-cli/1.2.3 (tdd) node/22.13.1');
     });
   });
 

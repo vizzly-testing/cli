@@ -97,7 +97,7 @@
     "@vizzly-testing/honeydiff": "^0.16.0",
     "ansis": "^4.2.0",
     "commander": "^15.0.0",
-    "cosmiconfig": "^9.0.0",
+    "cosmiconfig": "^10.0.0",
     "dotenv": "^17.2.1",
     "form-data": "^4.0.0",
     "glob": "^13.0.0",

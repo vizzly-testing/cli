@@ -15,7 +15,7 @@ You can use either one or both.
 Install the CLI and preview plugin in your iOS project:
 
 ```bash
-pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift@beta
+pnpm add --save-dev @vizzly-testing/cli@beta @vizzly-testing/swift@beta
 ```
 
 Add this repository as a Swift Package dependency, then add the dynamic

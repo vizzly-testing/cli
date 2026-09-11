@@ -41,7 +41,6 @@ async function saveManifest(manifest) {
 function requireCloudServices(services) {
   let requiredMethods = [
     services?.git?.detect,
-    services?.screenshots?.createClient,
     services?.testRunner?.once,
     services?.testRunner?.createBuild,
     services?.testRunner?.finalizeBuild,
@@ -67,6 +66,7 @@ export async function run(container, options = {}, context = {}) {
     warn: message => process.stderr.write(`${message}\n`),
   };
   let services = context.services;
+  let screenshotClient = context.screenshotClient;
   let vizzlyConfig = context.config ?? {};
   let serverManager = null;
   let testRunner = null;
@@ -74,6 +74,11 @@ export async function run(container, options = {}, context = {}) {
   let buildUrl = null;
   let finalizationAttempted = false;
   let startTime = Date.now();
+
+  async function resolveScreenshotClient() {
+    screenshotClient ??= await import('@vizzly-testing/cli/client');
+    return screenshotClient;
+  }
 
   try {
     output.info(
@@ -101,7 +106,7 @@ export async function run(container, options = {}, context = {}) {
         let result = await uploadCapturedPreviews({
           comparison: vizzlyConfig.comparison,
           manifest,
-          screenshots: services?.screenshots,
+          screenshotClient: await resolveScreenshotClient(),
           serverUrl: tddServerUrl,
         });
         upload = {
@@ -130,7 +135,7 @@ export async function run(container, options = {}, context = {}) {
           buildId,
           comparison: vizzlyConfig.comparison,
           manifest,
-          screenshots: services.screenshots,
+          screenshotClient: await resolveScreenshotClient(),
           serverUrl: `http://localhost:${runOptions.port}`,
         });
         finalizationAttempted = true;

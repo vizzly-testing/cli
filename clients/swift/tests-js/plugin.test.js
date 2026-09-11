@@ -12,7 +12,7 @@ describe('Swift preview plugin package', () => {
     assert.ok(!packageJson.files.includes('Package.swift'));
     assert.equal(
       packageJson.peerDependencies['@vizzly-testing/cli'],
-      '>=0.36.1-beta.0'
+      '>=0.36.0'
     );
   });
 

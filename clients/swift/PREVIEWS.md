@@ -22,7 +22,7 @@ in the capture manifest.
 Add the CLI and Swift plugin to the iOS project:
 
 ```bash
-pnpm add --save-dev @vizzly-testing/cli@beta @vizzly-testing/swift@beta
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift@beta
 ```
 
 Then add this repository as a Swift Package dependency in Xcode:

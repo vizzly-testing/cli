@@ -176,34 +176,44 @@ export async function uploadCapturedPreviews({
   buildId,
   comparison = {},
   manifest,
-  screenshots,
+  screenshotClient,
   serverUrl,
 }) {
-  if (!screenshots?.createClient) {
+  let requiredMethods = [
+    screenshotClient?.configure,
+    screenshotClient?.vizzlyFlush,
+    screenshotClient?.vizzlyScreenshot,
+  ];
+  if (requiredMethods.some(method => typeof method !== 'function')) {
     throw new Error(
-      'This Vizzly CLI does not provide screenshot uploads to plugins. Upgrade @vizzly-testing/cli.'
+      'This @vizzly-testing/cli installation does not provide screenshot uploads'
     );
   }
 
-  let client = screenshots.createClient({
+  screenshotClient.configure({
+    enabled: true,
     failOnDiff: shouldFailOnDiff(),
     serverUrl,
   });
   let records = buildPreviewUploadRecords(manifest);
 
   for (let record of records) {
-    let result = await client.screenshot(record.name, record.filePath, {
-      buildId,
-      minClusterSize: comparison.minClusterSize,
-      properties: record.properties,
-      threshold: comparison.threshold,
-    });
+    let result = await screenshotClient.vizzlyScreenshot(
+      record.name,
+      record.filePath,
+      {
+        buildId,
+        minClusterSize: comparison.minClusterSize,
+        properties: record.properties,
+        threshold: comparison.threshold,
+      }
+    );
     if (!result) {
       throw new Error(`Vizzly did not accept preview "${record.name}"`);
     }
   }
 
-  let flush = await client.flush();
+  let flush = await screenshotClient.vizzlyFlush();
   if (!flush && buildId) {
     throw new Error('Vizzly did not finish processing the preview screenshots');
   }

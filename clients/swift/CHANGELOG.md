@@ -35,8 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uploaded before an incomplete capture exits with a failure.
 - Added `VizzlyPreviewRuntime.isCapturing` so apps can skip unsafe or unwanted
   startup services during preview launches.
-- Added an explicit CLI peer version for the isolated screenshot service used
-  by preview uploads.
 
 ### Fixed
 

@@ -4,7 +4,11 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
-import { createPluginServices } from '../../../src/plugin-api.js';
+import {
+  configure,
+  vizzlyFlush,
+  vizzlyScreenshot,
+} from '../../../src/client/index.js';
 import {
   buildCloudRunOptions,
   buildPreviewUploadRecords,
@@ -56,22 +60,6 @@ function previewManifest(outputPath) {
       },
     ],
   };
-}
-
-function pluginServices() {
-  return createPluginServices({
-    testRunner: {
-      once() {},
-      on() {},
-      off() {},
-      createBuild() {},
-      finalizeBuild() {},
-    },
-    serverManager: {
-      start() {},
-      stop() {},
-    },
-  });
 }
 
 async function startServer(handler) {
@@ -186,7 +174,7 @@ describe('Swift preview uploads', () => {
     assert.equal(await findLocalTddServer([nested]), null);
   });
 
-  it('uploads every rendered PNG and flushes through the plugin service', async () => {
+  it('uploads every rendered PNG through the public CLI client', async () => {
     let requests = [];
     let serverUrl = await startServer((request, response) => {
       let chunks = [];
@@ -212,7 +200,7 @@ describe('Swift preview uploads', () => {
       buildId: 'build-123',
       comparison: { minClusterSize: 3, threshold: 2.5 },
       manifest,
-      screenshots: pluginServices().screenshots,
+      screenshotClient: { configure, vizzlyFlush, vizzlyScreenshot },
       serverUrl,
     });
 
@@ -233,17 +221,15 @@ describe('Swift preview uploads', () => {
 
   it('honors both supported fail-on-diff environment values', async () => {
     let receivedValues = [];
-    let screenshots = {
-      createClient(options) {
+    let screenshotClient = {
+      configure(options) {
         receivedValues.push(options.failOnDiff);
-        return {
-          async flush() {
-            return { success: true };
-          },
-          async screenshot() {
-            return { success: true };
-          },
-        };
+      },
+      async vizzlyFlush() {
+        return { success: true };
+      },
+      async vizzlyScreenshot() {
+        return { success: true };
       },
     };
     let originalValue = process.env.VIZZLY_FAIL_ON_DIFF;
@@ -253,7 +239,7 @@ describe('Swift preview uploads', () => {
         process.env.VIZZLY_FAIL_ON_DIFF = value;
         await uploadCapturedPreviews({
           manifest: previewManifest('/tmp/previews'),
-          screenshots,
+          screenshotClient,
           serverUrl: 'http://localhost:47392',
         });
       }

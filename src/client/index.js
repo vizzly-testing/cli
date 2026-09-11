@@ -138,10 +138,8 @@ function getClient() {
     // If we have a server URL, create the client (regardless of initial enabled state)
     if (serverUrl) {
       currentServerUrl = serverUrl;
-      currentClient = createScreenshotClient({
-        disableOnFailure: true,
+      currentClient = createSimpleClient(serverUrl, {
         failOnDiff: currentFailOnDiff,
-        serverUrl,
       });
     }
   }
@@ -209,14 +207,11 @@ function httpPost(url, body, timeoutMs) {
 }
 
 /**
- * Create a screenshot client connected to one Vizzly server.
+ * Create a simple HTTP client for screenshots
+ * @private
  */
-export function createScreenshotClient(options = {}) {
-  let { disableOnFailure = false, failOnDiff = false, serverUrl } = options;
-
-  if (!serverUrl) {
-    throw new Error('A Vizzly screenshot server URL is required');
-  }
+function createSimpleClient(serverUrl, clientOptions = {}) {
+  let { failOnDiff = false } = clientOptions;
 
   return {
     async screenshot(name, imageBuffer, options = {}) {
@@ -303,9 +298,7 @@ export function createScreenshotClient(options = {}) {
               `[vizzly] Screenshot timed out for "${name}" after ${requestTimeout / 1000}s`
             );
           }
-          if (disableOnFailure) {
-            disableVizzly();
-          }
+          disableVizzly();
           return null;
         }
 
@@ -335,9 +328,7 @@ export function createScreenshotClient(options = {}) {
         }
 
         // Disable the SDK after first failure to prevent spam
-        if (disableOnFailure) {
-          disableVizzly();
-        }
+        disableVizzly();
 
         // Don't throw - just return silently to not break tests
         return null;
@@ -460,17 +451,13 @@ export function configure(config = {}) {
   if ('serverUrl' in config) {
     currentServerUrl = config.serverUrl || null;
     currentClient = config.serverUrl
-      ? createScreenshotClient({
-          disableOnFailure: true,
+      ? createSimpleClient(config.serverUrl, {
           failOnDiff: currentFailOnDiff,
-          serverUrl: config.serverUrl,
         })
       : null;
   } else if ('failOnDiff' in config && currentClient && currentServerUrl) {
-    currentClient = createScreenshotClient({
-      disableOnFailure: true,
+    currentClient = createSimpleClient(currentServerUrl, {
       failOnDiff: currentFailOnDiff,
-      serverUrl: currentServerUrl,
     });
   }
 

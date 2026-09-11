@@ -225,8 +225,10 @@ describe('Swift preview uploads', () => {
     assert.equal(requests[0].body.buildId, 'build-123');
     assert.equal(requests[0].body.name, 'Example - Card - Example.Card');
     assert.equal(requests[0].body.type, 'file-path');
-    assert.equal(requests[0].body.properties.threshold, 2.5);
-    assert.equal(requests[0].body.properties.minClusterSize, 3);
+    assert.equal(requests[0].body.threshold, 2.5);
+    assert.equal(requests[0].body.minClusterSize, 3);
+    assert.equal(requests[0].body.properties.threshold, undefined);
+    assert.equal(requests[0].body.properties.minClusterSize, undefined);
   });
 
   it('honors both supported fail-on-diff environment values', async () => {

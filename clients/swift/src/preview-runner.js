@@ -230,11 +230,11 @@ function runCommand(executable, args, options = {}) {
     child.stderr.on('data', chunk => stderr.push(chunk));
     child.once('error', error => {
       if (error.name === 'AbortError') {
-        rejectPromise(
-          new Error(
-            `${basename(executable)} timed out after ${options.timeoutMs}ms`
-          )
+        let timeoutError = new Error(
+          `${basename(executable)} timed out after ${options.timeoutMs}ms`
         );
+        timeoutError.code = 'ETIMEDOUT';
+        rejectPromise(timeoutError);
         return;
       }
       rejectPromise(error);
@@ -605,33 +605,76 @@ async function captureRegistry({
   let runtimePath = join(containerPath, 'Documents', runtimeFilename);
   await rm(runtimePath, { force: true });
 
-  let result = await runCommand(
-    'xcrun',
-    [
-      'simctl',
-      'launch',
-      '--console',
-      '--terminate-running-process',
-      device,
-      bundleId,
-    ],
-    {
-      allowFailure: true,
-      timeoutMs: captureTimeout,
-      env: {
-        ...process.env,
-        SIMCTL_CHILD_VIZZLY_REGISTRY_TYPE: registryType,
-        SIMCTL_CHILD_VIZZLY_OUTPUT_FILENAME: runtimeFilename,
-      },
+  let result;
+  try {
+    result = await runCommand(
+      'xcrun',
+      [
+        'simctl',
+        'launch',
+        '--console',
+        '--terminate-running-process',
+        device,
+        bundleId,
+      ],
+      {
+        allowFailure: true,
+        timeoutMs: captureTimeout,
+        env: {
+          ...process.env,
+          SIMCTL_CHILD_VIZZLY_REGISTRY_TYPE: registryType,
+          SIMCTL_CHILD_VIZZLY_OUTPUT_FILENAME: runtimeFilename,
+        },
+      }
+    );
+  } catch (error) {
+    if (error.code !== 'ETIMEDOUT') {
+      throw error;
     }
-  );
+
+    return {
+      failure: {
+        exitCode: null,
+        id: createHash('sha256')
+          .update(registryType)
+          .digest('hex')
+          .slice(0, 16),
+        index: index + 1,
+        message: error.message,
+        name: null,
+        registryType,
+        signal: null,
+      },
+    };
+  }
   let events = parseRuntimeEvents(`${result.stdout}\n${result.stderr}`);
   let resolved = events.find(event => event.type === 'preview-resolved');
   let completed = events.find(event => event.type === 'capture-complete');
   let failed = events.find(event => event.type === 'capture-failed');
   if (failed || !resolved || !completed || !(await pathExists(runtimePath))) {
-    let reason = failed?.message ?? 'The app exited without capture completion';
-    throw new Error(`Preview ${index + 1} failed: ${reason}`);
+    let reason = failed?.message;
+    if (!reason && result.signal) {
+      reason = `The app was terminated by ${result.signal}`;
+    }
+    if (!reason && result.exitCode) {
+      reason = `The app exited with status ${result.exitCode}`;
+    }
+    reason ??= 'The app exited without capture completion';
+
+    return {
+      failure: {
+        exitCode: result.exitCode,
+        id: createHash('sha256')
+          .update(registryType)
+          .digest('hex')
+          .slice(0, 16),
+        index: index + 1,
+        message: reason,
+        name: failed?.name ?? resolved?.name ?? null,
+        registryType,
+        signal: result.signal,
+      },
+    };
   }
 
   let filename = `${String(index + 1).padStart(3, '0')}-${slug(resolved.name)}.png`;
@@ -641,12 +684,14 @@ async function captureRegistry({
   let metadata = readPngMetadata(buffer);
 
   return {
-    id: createHash('sha256').update(registryType).digest('hex').slice(0, 16),
-    name: resolved.name,
-    registryType,
-    viewType: resolved.viewType,
-    file: filename,
-    ...metadata,
+    preview: {
+      id: createHash('sha256').update(registryType).digest('hex').slice(0, 16),
+      name: resolved.name,
+      registryType,
+      viewType: resolved.viewType,
+      file: filename,
+      ...metadata,
+    },
   };
 }
 
@@ -658,6 +703,7 @@ export async function runPreviewCapture({
   outputPath: outputInput,
   captureTimeout = 30_000,
   onProgress = () => {},
+  onFailure = () => {},
 }) {
   let temporaryPath;
   let stagingPath;
@@ -714,8 +760,9 @@ export async function runPreviewCapture({
     ]);
     let dataContainerPath = containerResult.stdout.trim();
     let previews = [];
+    let failures = [];
     for (let [index, registryType] of registryTypes.entries()) {
-      let preview = await captureRegistry({
+      let capture = await captureRegistry({
         registryType,
         index,
         device: resolvedDevice,
@@ -724,6 +771,16 @@ export async function runPreviewCapture({
         outputPath: stagingPath,
         captureTimeout,
       });
+      if (capture.failure) {
+        failures.push(capture.failure);
+        let label = capture.failure.name
+          ? `"${capture.failure.name}"`
+          : String(capture.failure.index);
+        onFailure(`Preview ${label} failed: ${capture.failure.message}`);
+        continue;
+      }
+
+      let preview = capture.preview;
       previews.push(preview);
       onProgress(`Captured ${preview.name}`);
     }
@@ -738,6 +795,7 @@ export async function runPreviewCapture({
       configuration,
       outputPath,
       previews,
+      failures,
     };
     await writeFile(
       join(stagingPath, 'manifest.json'),

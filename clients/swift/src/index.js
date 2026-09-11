@@ -19,6 +19,18 @@ export function resolvePreviewOptions(options, config) {
   };
 }
 
+export function assertCompleteCapture(manifest) {
+  let failures = manifest.failures ?? [];
+  if (failures.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    `${failures.length} of ${manifest.previews.length + failures.length} ` +
+      `SwiftUI previews failed. See ${join(manifest.outputPath, 'manifest.json')}`
+  );
+}
+
 async function saveManifest(manifest) {
   await writeFile(
     join(manifest.outputPath, 'manifest.json'),
@@ -71,6 +83,7 @@ export async function run(container, options = {}, context = {}) {
       container,
       ...previewOptions,
       onProgress: message => output.info(message),
+      onFailure: message => output.warn(message),
     });
     let upload;
 
@@ -124,7 +137,7 @@ export async function run(container, options = {}, context = {}) {
         await testRunner.finalizeBuild(
           buildId,
           false,
-          true,
+          manifest.failures.length === 0,
           Date.now() - startTime
         );
         upload = {
@@ -166,6 +179,7 @@ export async function run(container, options = {}, context = {}) {
       }
     }
 
+    assertCompleteCapture(manifest);
     return manifest;
   } catch (error) {
     if (testRunner && buildId && !finalizationAttempted) {

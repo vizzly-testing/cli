@@ -15,7 +15,7 @@ You can use either one or both.
 Install the CLI and preview plugin in your iOS project:
 
 ```bash
-pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift@beta
 ```
 
 Add this repository as a Swift Package dependency, then add the dynamic
@@ -24,6 +24,8 @@ Add this repository as a Swift Package dependency, then add the dynamic
 ```text
 https://github.com/vizzly-testing/cli
 ```
+
+For the beta, choose **Exact Version** and enter `0.1.1-beta.0`.
 
 Install the runtime once from the app initializer:
 
@@ -53,8 +55,8 @@ one in the Simulator, and writes PNGs to `.vizzly/previews`. Your previews stay
 as stock Apple `#Preview` declarations; there is no Vizzly preview API to keep
 in sync.
 
-See [PREVIEWS.md](PREVIEWS.md) for requirements, configuration, CI, and
-troubleshooting.
+See [PREVIEWS.md](PREVIEWS.md) for package-version details, requirements,
+configuration, CI, and troubleshooting.
 
 ## XCTest screenshots
 
@@ -101,7 +103,8 @@ See [QUICKSTART.md](QUICKSTART.md) for the shortest setup path and
 | Local TDD | Yes | Yes |
 | Cloud builds | Yes | Yes |
 | Exact Xcode requirement | No | Xcode 26.6 |
-| SwiftUI preview traits | Not applicable | Not yet supported |
+| Fixed layout and orientation traits | Not applicable | Yes |
+| Other SwiftUI preview traits | Not applicable | Reported as capture failures |
 | App integration | UI test target | One app initializer call |
 
 Preview capture intentionally has a narrow compatibility range because it uses

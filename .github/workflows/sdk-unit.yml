@@ -260,7 +260,7 @@ jobs:
   swift:
     name: Swift SDK
     # Xcode 16.2 and 16.4 are both installed on this pinned image.
-    runs-on: macos-15-arm64
+    runs-on: macos-15
     timeout-minutes: 8
     needs: changes
     if: needs.changes.outputs.swift == 'true'

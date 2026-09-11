@@ -64,3 +64,14 @@ struct PreviewFixtureApp: App {
 #Preview("Stateful Counter") {
     StatefulCounter()
 }
+
+#Preview(
+    "Fixed Layout",
+    traits: .fixedLayout(width: 320, height: 200)
+) {
+    Text("This preview verifies trait rendering")
+}
+
+#Preview("Unsupported Size That Fits", traits: .sizeThatFitsLayout) {
+    Text("This preview verifies isolated failures")
+}

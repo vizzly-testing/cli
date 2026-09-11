@@ -12,16 +12,17 @@ not need a Vizzly macro, a catalog, or a second set of preview definitions.
 - A scene-based iOS app
 - A shared Xcode scheme that builds the app in Debug
 
-The current renderer does not support preview traits such as fixed layouts or
-orientation. It stops with an error when it finds a trait instead of capturing
-something that differs from Xcode.
+The current renderer supports fixed layouts and portrait or landscape
+orientation traits. Other traits, including `sizeThatFitsLayout`, custom
+preview modifiers, and Assistive Access, fail that preview with a clear entry
+in the capture manifest.
 
 ## Install
 
 Add the CLI and Swift plugin to the iOS project:
 
 ```bash
-pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift@beta
 ```
 
 Then add this repository as a Swift Package dependency in Xcode:
@@ -29,6 +30,10 @@ Then add this repository as a Swift Package dependency in Xcode:
 ```text
 https://github.com/vizzly-testing/cli
 ```
+
+For the beta, choose **Exact Version** and enter `0.1.1-beta.0`. This repository
+also contains the Vizzly CLI, so a broad version rule can select an unrelated
+CLI release tag.
 
 Add the dynamic `VizzlyPreviewRuntime` product to the app target and choose
 **Embed & Sign**. Install it once from the app initializer:
@@ -54,6 +59,30 @@ struct MyApp: App {
 That is the complete app integration. Keep writing normal `#Preview`
 declarations. The runtime does nothing during an ordinary app launch and
 compiles to a no-op outside the iOS Simulator.
+
+## Keep capture launches safe
+
+Vizzly launches the built app once per preview. Your app initializer and some
+scene lifecycle code can run before Vizzly replaces the app window with the
+preview. The process has the same Simulator data and network access as an
+ordinary app launch.
+
+Use a dedicated development Simulator. Keep destructive startup work out of app
+initializers, and gate services that should not run during capture:
+
+```swift
+init() {
+    VizzlyPreviewRuntime.install()
+
+    if !VizzlyPreviewRuntime.isCapturing {
+        startProductionServices()
+    }
+}
+```
+
+The CLI only adds the preview registry and output filename to the launched app
+environment. It does not pass `VIZZLY_TOKEN` or other Vizzly credentials into
+the app process.
 
 ## Capture previews
 
@@ -145,8 +174,13 @@ The default output is `.vizzly/previews`:
 ```
 
 The manifest records the Xcode version, scheme, Simulator, preview names,
-image dimensions, hashes, and upload result. `upload.mode` is one of `tdd`,
-`cloud`, `local-only`, or `disabled`.
+image dimensions, hashes, capture failures, and upload result. `upload.mode` is
+one of `tdd`, `cloud`, `local-only`, or `disabled`.
+
+Vizzly keeps rendering after one preview fails or times out. It saves and
+uploads successful captures, records each failure in `manifest.json`, then
+exits with a non-zero status so CI cannot mistake an incomplete run for a
+complete one.
 
 A successful rerun replaces an output directory previously created by Vizzly.
 If the directory has missing, changed, or unrelated files, Vizzly refuses to
@@ -219,6 +253,13 @@ initializer.
 
 Choose a new `--output` path, or move the existing directory yourself. Vizzly
 will not remove files it cannot prove it created.
+
+### One preview crashes
+
+Open `manifest.json` and check the failure's `registryType`. It contains the
+source filename and line used by the generated preview registry. A crash here
+usually means the preview body is missing an environment object or another
+dependency it also needs in Xcode's canvas.
 
 ## How it works
 

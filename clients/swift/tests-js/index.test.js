@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolvePreviewOptions } from '../src/index.js';
+import { assertCompleteCapture, resolvePreviewOptions } from '../src/index.js';
 
 describe('Swift preview CLI options', () => {
   it('uses configured defaults when command options are omitted', () => {
@@ -45,5 +45,27 @@ describe('Swift preview CLI options', () => {
     assert.equal(resolved.configuration, 'Debug');
     assert.equal(resolved.outputPath, 'command-output');
     assert.equal(resolved.upload, true);
+  });
+});
+
+describe('Swift preview capture completion', () => {
+  it('accepts a complete preview set', () => {
+    assert.doesNotThrow(() =>
+      assertCompleteCapture({ failures: [], previews: [{}] })
+    );
+  });
+
+  it('fails after preserving the manifest for incomplete preview sets', () => {
+    assert.throws(
+      () =>
+        assertCompleteCapture({
+          failures: [{ name: 'Broken preview' }],
+          outputPath: '/tmp/previews',
+          previews: [{ name: 'Working preview' }],
+        }),
+      error =>
+        error.message.includes('1 of 2 SwiftUI previews failed') &&
+        error.message.includes('/tmp/previews/manifest.json')
+    );
   });
 });

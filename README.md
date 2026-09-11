@@ -184,7 +184,7 @@ For iOS apps, the Swift plugin can render the stock SwiftUI `#Preview`
 declarations already in the app target:
 
 ```bash
-pnpm add --save-dev @vizzly-testing/swift
+pnpm add --save-dev @vizzly-testing/swift@beta
 pnpm exec vizzly previews
 ```
 

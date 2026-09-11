@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added a `vizzly previews` plugin and native Simulator runtime
   that render existing stock SwiftUI `#Preview` declarations without Xcode MCP.
-- Added a two-preview iOS fixture that exercises app-module discovery, a named
-  asset, linked-runtime capture, PNG output, and manifest generation.
+- Added an iOS fixture that exercises app-module discovery, a named asset,
+  linked-runtime capture, preview traits, isolated failures, PNG output, and
+  manifest generation.
 - Added a dynamic `VizzlyPreviewRuntime` Swift Package product that Xcode builds,
   embeds, and signs as part of the app target.
 - Added conservative booted iOS Simulator detection, with an explicit choice
@@ -28,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   URL reporting through the stable Vizzly plugin API.
 - Added `--no-upload`, local-only fallback, and upload outcomes in the preview
   manifest.
+- Added fixed-layout and portrait or landscape trait rendering with exact
+  output dimensions.
+- Added per-preview failure isolation. Successful screenshots are kept and
+  uploaded before an incomplete capture exits with a failure.
+- Added `VizzlyPreviewRuntime.isCapturing` so apps can skip unsafe or unwanted
+  startup services during preview launches.
 
 ### Fixed
 

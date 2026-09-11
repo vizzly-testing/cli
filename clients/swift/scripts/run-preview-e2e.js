@@ -26,6 +26,7 @@ try {
 
   assert.deepEqual(manifest.previews.map(preview => preview.name).sort(), [
     'Card / Dark',
+    'Fixed Layout',
     'Stateful Counter',
   ]);
   assert.ok(
@@ -37,11 +38,38 @@ try {
     )
   );
   assert.notEqual(manifest.previews[0].sha256, manifest.previews[1].sha256);
+  let fixedLayout = manifest.previews.find(
+    preview => preview.name === 'Fixed Layout'
+  );
+  assert.equal(fixedLayout.width, 960);
+  assert.equal(fixedLayout.height, 600);
+  assert.deepEqual(
+    manifest.failures.map(failure => failure.name),
+    ['Unsupported Size That Fits']
+  );
+  assert.match(manifest.failures[0].message, /trait.*not supported/i);
 
   let repeatedManifest = await capture();
   assert.deepEqual(
-    repeatedManifest.previews.map(preview => preview.sha256),
-    manifest.previews.map(preview => preview.sha256)
+    repeatedManifest.previews.map(({ name, width, height }) => ({
+      name,
+      width,
+      height,
+    })),
+    manifest.previews.map(({ name, width, height }) => ({
+      name,
+      width,
+      height,
+    }))
+  );
+  assert.ok(
+    repeatedManifest.previews.every(preview =>
+      /^[a-f0-9]{64}$/.test(preview.sha256)
+    )
+  );
+  assert.deepEqual(
+    repeatedManifest.failures.map(({ name, message }) => ({ name, message })),
+    manifest.failures.map(({ name, message }) => ({ name, message }))
   );
 
   let missingPreviewPath = join(outputPath, repeatedManifest.previews[0].file);
@@ -52,11 +80,11 @@ try {
   assert.equal(
     JSON.parse(await readFile(join(outputPath, 'manifest.json'), 'utf8'))
       .previews.length,
-    2
+    3
   );
 
   process.stdout.write(
-    `Verified ${manifest.previews.length} repeatable stock #Preview screenshots through the linked runtime and safe output replacement\n`
+    `Verified ${manifest.previews.length} stock #Preview screenshots, fixed-layout traits, isolated failures, and safe output replacement through the linked runtime\n`
   );
 } finally {
   await rm(outputPath, { recursive: true, force: true });

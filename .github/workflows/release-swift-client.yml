@@ -12,6 +12,11 @@ on:
           - patch
           - minor
           - major
+      prerelease:
+        description: 'Create prerelease (beta tag)?'
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   group: sdk-release
@@ -65,12 +70,8 @@ jobs:
         id: current_version
         working-directory: ./clients/swift
         run: |
-          # Extract the latest released semver entry. Ignore [Unreleased].
-          CURRENT_VERSION=$(grep -m 1 -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/' || true)
-          if [ -z "$CURRENT_VERSION" ]; then
-            CURRENT_VERSION="0.0.0"
-          fi
-          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Get previous release tag
         id: previous_tag
@@ -81,37 +82,34 @@ jobs:
           fi
           echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
 
-      - name: Calculate new version
+      - name: Bump version
         id: new_version
+        working-directory: ./clients/swift
         run: |
-          CURRENT="${{ steps.current_version.outputs.version }}"
-
-          # Validate version format (X.Y.Z)
-          if ! [[ "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Error: Invalid version format '$CURRENT'. Expected X.Y.Z"
-            exit 1
+          if [ "${{ github.event.inputs.prerelease }}" == "true" ]; then
+            if [[ "${{ steps.current_version.outputs.version }}" == *-beta.* ]]; then
+              NEW_VERSION=$(npm version prerelease --preid=beta --no-git-tag-version | sed 's/v//')
+            else
+              NEW_VERSION=$(npm version pre${{ github.event.inputs.version_type }} --preid=beta --no-git-tag-version | sed 's/v//')
+            fi
+          else
+            NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version | sed 's/v//')
           fi
-
-          IFS='.' read -r -a parts <<< "$CURRENT"
-
-          case "${{ github.event.inputs.version_type }}" in
-            major)
-              NEW_VERSION="$((parts[0] + 1)).0.0"
-              ;;
-            minor)
-              NEW_VERSION="${parts[0]}.$((parts[1] + 1)).0"
-              ;;
-            patch)
-              NEW_VERSION="${parts[0]}.${parts[1]}.$((parts[2] + 1))"
-              ;;
-          esac
-
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "tag=swift/v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "spm_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Update npm package version
-        working-directory: ./clients/swift
-        run: npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version
+      - name: Verify release tags are available
+        run: |
+          for tag in \
+            "${{ steps.new_version.outputs.tag }}" \
+            "${{ steps.new_version.outputs.spm_tag }}"
+          do
+            if git rev-parse "refs/tags/$tag" >/dev/null 2>&1; then
+              echo "Release tag $tag already exists"
+              exit 1
+            fi
+          done
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -242,9 +240,12 @@ jobs:
         run: |
           git add clients/swift/package.json clients/swift/CHANGELOG.md
           git commit -m "🔖 Swift client v${{ steps.new_version.outputs.version }}"
-          git push origin main
           git tag "${{ steps.new_version.outputs.tag }}"
-          git push origin "${{ steps.new_version.outputs.tag }}"
+          git tag "${{ steps.new_version.outputs.spm_tag }}"
+          git push --atomic origin \
+            main \
+            "${{ steps.new_version.outputs.tag }}" \
+            "${{ steps.new_version.outputs.spm_tag }}"
 
       - name: Publish preview CLI package to npm
         working-directory: ./clients/swift
@@ -252,7 +253,11 @@ jobs:
           npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
           rm -f ~/.npmrc 2>/dev/null || true
           npm config set registry https://registry.npmjs.org/
-          npm publish "${{ steps.pack.outputs.file }}" --provenance --access public
+          if [ "${{ github.event.inputs.prerelease }}" == "true" ]; then
+            npm publish "${{ steps.pack.outputs.file }}" --provenance --access public --tag beta
+          else
+            npm publish "${{ steps.pack.outputs.file }}" --provenance --access public
+          fi
 
       - name: Read changelog for release
         id: release_notes
@@ -274,6 +279,6 @@ jobs:
           body: ${{ steps.release_notes.outputs.notes }}
           files: ./clients/swift/${{ steps.pack.outputs.file }}
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event.inputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

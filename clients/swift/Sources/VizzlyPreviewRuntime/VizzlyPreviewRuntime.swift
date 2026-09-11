@@ -6,6 +6,11 @@ import SwiftUI
 import UIKit
 
 public enum VizzlyPreviewRuntime {
+    /// True only while `vizzly previews` is rendering this app in Simulator.
+    public static var isCapturing: Bool {
+        ProcessInfo.processInfo.environment["VIZZLY_REGISTRY_TYPE"] != nil
+    }
+
     /// Enables Vizzly capture when the app is launched by `vizzly previews`.
     @MainActor
     public static func install() {
@@ -36,7 +41,11 @@ private var capturedPreviewName = "Unnamed Preview"
 
 @available(iOS 17.0, *)
 @MainActor
-private var capturedPreviewTraitCount = 0
+private var capturedPreviewTraits: [PreviewTrait<Preview.ViewTraits>] = []
+
+@available(iOS 17.0, *)
+@MainActor
+private var captureTargetView: UIView?
 
 @available(iOS 17.0, *)
 @MainActor
@@ -56,7 +65,7 @@ public func interceptPreviewInitializer(
 ) -> Preview {
     capturedPreviewBody = body
     capturedPreviewName = name ?? "Unnamed Preview"
-    capturedPreviewTraitCount = traits.count
+    capturedPreviewTraits = traits
 
     let original = unsafeBitCast(
         originalPreviewInitializerPointer(),
@@ -82,7 +91,96 @@ private func emitEvent(_ event: [String: Any]) {
 
 @available(iOS 17.0, *)
 @MainActor
-private func resolvePreview() throws -> AnyView {
+private func traitNumber(after marker: String, in description: String) -> CGFloat? {
+    guard let markerRange = description.range(of: marker) else {
+        return nil
+    }
+
+    let suffix = description[markerRange.upperBound...]
+    let value = suffix.prefix { character in
+        character.isNumber || character == "." || character == "-"
+    }
+    guard let number = Double(value), number > 0 else {
+        return nil
+    }
+    return CGFloat(number)
+}
+
+@available(iOS 17.0, *)
+@MainActor
+private func traitDescriptions(
+    _ trait: PreviewTrait<Preview.ViewTraits>
+) -> [String] {
+    guard
+        let traits = Mirror(reflecting: trait).children.first(where: {
+            $0.label == "traits"
+        })?.value
+    else {
+        return []
+    }
+
+    return Mirror(reflecting: traits).children.map {
+        String(reflecting: $0.value)
+    }
+}
+
+@available(iOS 17.0, *)
+@MainActor
+private func previewSize(
+    for traits: [PreviewTrait<Preview.ViewTraits>],
+    screenSize: CGSize
+) throws -> CGSize? {
+    var requestedSize: CGSize?
+    let descriptions = traits.flatMap(traitDescriptions)
+
+    for description in descriptions {
+        if description.contains("PreviewLayout.fixed") {
+            guard
+                let width = traitNumber(
+                    after: "PreviewLayout.fixed(width: ",
+                    in: description
+                ),
+                let height = traitNumber(after: ", height: ", in: description)
+            else {
+                throw PreviewRuntimeError.unsupportedTraits(descriptions.count)
+            }
+            requestedSize = CGSize(width: width, height: height)
+            continue
+        }
+
+        if description.contains("PreviewInterfaceOrientation.landscape") {
+            requestedSize = requestedSize ?? CGSize(
+                width: max(screenSize.width, screenSize.height),
+                height: min(screenSize.width, screenSize.height)
+            )
+            continue
+        }
+
+        if description.contains("PreviewInterfaceOrientation.portrait")
+            || description.contains("PreviewLayout.device")
+        {
+            continue
+        }
+
+        throw PreviewRuntimeError.unsupportedTraits(descriptions.count)
+    }
+
+    guard traits.isEmpty || !descriptions.isEmpty else {
+        throw PreviewRuntimeError.unsupportedTraits(traits.count)
+    }
+
+    return requestedSize
+}
+
+@available(iOS 17.0, *)
+private struct ResolvedPreview {
+    let size: CGSize?
+    let view: AnyView
+}
+
+@available(iOS 17.0, *)
+@MainActor
+private func resolvePreview(screenSize: CGSize) throws -> ResolvedPreview {
     guard
         let registryName = ProcessInfo.processInfo.environment[
             "VIZZLY_REGISTRY_TYPE"
@@ -95,24 +193,24 @@ private func resolvePreview() throws -> AnyView {
 
     _ = try registry.makePreview()
 
-    guard capturedPreviewTraitCount == 0 else {
-        throw PreviewRuntimeError.unsupportedTraits(capturedPreviewTraitCount)
-    }
-
     guard let body = capturedPreviewBody else {
         throw PreviewRuntimeError.bodyUnavailable
     }
 
+    let size = try previewSize(
+        for: capturedPreviewTraits,
+        screenSize: screenSize
+    )
     let view = body()
     emitEvent([
         "protocolVersion": 1,
         "type": "preview-resolved",
         "name": capturedPreviewName,
         "registryType": registryName,
-        "traitCount": capturedPreviewTraitCount,
+        "traitCount": capturedPreviewTraits.count,
         "viewType": String(reflecting: type(of: view)),
     ])
-    return AnyView(view)
+    return ResolvedPreview(size: size, view: AnyView(view))
 }
 
 @available(iOS 17.0, *)
@@ -165,21 +263,21 @@ private struct CaptureProbe: UIViewControllerRepresentable {
         private func captureWindow() throws -> String {
             flushPendingRenderTransactions()
 
-            guard let window = view.window else {
+            guard let targetView = captureTargetView ?? view.window else {
                 throw PreviewRuntimeError.windowUnavailable
             }
 
-            window.layoutIfNeeded()
+            targetView.layoutIfNeeded()
             let format = UIGraphicsImageRendererFormat()
-            format.scale = window.screen.scale
+            format.scale = targetView.window?.screen.scale ?? UIScreen.main.scale
             format.opaque = true
             let renderer = UIGraphicsImageRenderer(
-                bounds: window.bounds,
+                bounds: targetView.bounds,
                 format: format
             )
             let image = renderer.image { _ in
-                window.drawHierarchy(
-                    in: window.bounds,
+                targetView.drawHierarchy(
+                    in: targetView.bounds,
                     afterScreenUpdates: true
                 )
             }
@@ -229,10 +327,23 @@ private func installPreview(in scene: UIWindowScene) {
             throw PreviewRuntimeError.windowUnavailable
         }
 
-        let preview = try resolvePreview()
-        window.rootViewController = UIHostingController(
-            rootView: InjectedPreviewRoot(preview: preview)
+        let preview = try resolvePreview(screenSize: window.bounds.size)
+        let hostingController = UIHostingController(
+            rootView: InjectedPreviewRoot(preview: preview.view)
         )
+        captureTargetView = nil
+
+        if let size = preview.size {
+            let container = UIViewController()
+            container.addChild(hostingController)
+            container.view.addSubview(hostingController.view)
+            hostingController.view.frame = CGRect(origin: .zero, size: size)
+            hostingController.didMove(toParent: container)
+            captureTargetView = hostingController.view
+            window.rootViewController = container
+        } else {
+            window.rootViewController = hostingController
+        }
         window.makeKeyAndVisible()
     } catch {
         emitFailure(error)
@@ -243,11 +354,15 @@ private func installPreview(in scene: UIWindowScene) {
 @available(iOS 17.0, *)
 @MainActor
 private func emitFailure(_ error: Error) {
-    emitEvent([
+    var event: [String: Any] = [
         "protocolVersion": 1,
         "type": "capture-failed",
         "message": error.localizedDescription,
-    ])
+    ]
+    if capturedPreviewBody != nil {
+        event["name"] = capturedPreviewName
+    }
+    emitEvent(event)
 }
 
 @available(iOS 17.0, *)
@@ -306,6 +421,9 @@ private enum PreviewRuntimeError: LocalizedError {
 }
 #else
 public enum VizzlyPreviewRuntime {
+    /// Always false outside the iOS Simulator capture runtime.
+    public static var isCapturing: Bool { false }
+
     /// Has no effect outside an iOS Simulator capture launch.
     @MainActor
     public static func install() {

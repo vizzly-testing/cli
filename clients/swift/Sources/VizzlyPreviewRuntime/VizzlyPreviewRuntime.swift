@@ -8,9 +8,8 @@ import UIKit
 public enum VizzlyPreviewRuntime {
     /// True only while `vizzly previews` is rendering this app in Simulator.
     public static var isCapturing: Bool {
-        let environment = ProcessInfo.processInfo.environment
-        return environment["VIZZLY_REGISTRY_TYPE"] != nil
-            || environment["VIZZLY_DISCOVERY_FILENAME"] != nil
+        ProcessInfo.processInfo.environment["VIZZLY_CAPTURE_PLAN_FILENAME"]
+            != nil
     }
 
     /// Enables Vizzly capture when the app is launched by `vizzly previews`.
@@ -55,7 +54,23 @@ private var activationObserver: NSObjectProtocol?
 
 @available(iOS 17.0, *)
 @MainActor
-private var didInstallPreview = false
+private var capturePlan: CapturePlan?
+
+@available(iOS 17.0, *)
+@MainActor
+private var captureRequestIndex = 0
+
+@available(iOS 17.0, *)
+private struct CapturePlan: Decodable {
+    let include: String?
+    let requests: [CaptureRequest]
+}
+
+@available(iOS 17.0, *)
+private struct CaptureRequest: Decodable {
+    let filename: String
+    let registryType: String
+}
 
 @_silgen_name("VizzlyPreviewInitializerReplacement")
 @available(iOS 17.0, *)
@@ -93,64 +108,33 @@ private func emitEvent(_ event: [String: Any]) {
 
 @available(iOS 17.0, *)
 @MainActor
-private func discoverPreviews(from filename: String) {
-    do {
-        let documentsURL = try FileManager.default.url(
-            for: .documentDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let data = try Data(
-            contentsOf: documentsURL.appendingPathComponent(filename)
-        )
-        let registryNames = try JSONDecoder().decode([String].self, from: data)
-        var discoveredCount = 0
+private func loadCapturePlan(from filename: String) throws -> CapturePlan {
+    let documentsURL = try FileManager.default.url(
+        for: .documentDirectory,
+        in: .userDomainMask,
+        appropriateFor: nil,
+        create: true
+    )
+    let data = try Data(
+        contentsOf: documentsURL.appendingPathComponent(filename)
+    )
+    return try JSONDecoder().decode(CapturePlan.self, from: data)
+}
 
-        for registryName in registryNames {
-            capturedPreviewBody = nil
-            capturedPreviewName = "Unnamed Preview"
-            capturedPreviewTraits = []
-
-            do {
-                guard
-                    let loadedType = _typeByName(registryName),
-                    let registry = loadedType as? any PreviewRegistry.Type
-                else {
-                    throw PreviewRuntimeError.registryUnavailable
-                }
-
-                _ = try registry.makePreview()
-                guard capturedPreviewBody != nil else {
-                    throw PreviewRuntimeError.bodyUnavailable
-                }
-                discoveredCount += 1
-                emitEvent([
-                    "protocolVersion": 1,
-                    "type": "preview-discovered",
-                    "name": capturedPreviewName,
-                    "registryType": registryName,
-                ])
-            } catch {
-                emitEvent([
-                    "protocolVersion": 1,
-                    "type": "preview-discovery-failed",
-                    "registryType": registryName,
-                    "message": error.localizedDescription,
-                ])
-            }
-        }
-
-        emitEvent([
-            "protocolVersion": 1,
-            "type": "discovery-complete",
-            "discovered": discoveredCount,
-        ])
-        exit(EXIT_SUCCESS)
-    } catch {
-        emitFailure(error)
-        exit(EXIT_FAILURE)
+@available(iOS 17.0, *)
+private func matchesPreviewName(_ name: String, pattern: String?) -> Bool {
+    guard let pattern, !pattern.isEmpty else {
+        return true
     }
+
+    let expression = pattern
+        .components(separatedBy: "*")
+        .map(NSRegularExpression.escapedPattern(for:))
+        .joined(separator: ".*")
+    return name.range(
+        of: "^\(expression)$",
+        options: [.regularExpression, .caseInsensitive]
+    ) != nil
 }
 
 @available(iOS 17.0, *)
@@ -244,12 +228,22 @@ private struct ResolvedPreview {
 
 @available(iOS 17.0, *)
 @MainActor
-private func resolvePreview(screenSize: CGSize) throws -> ResolvedPreview {
+private func resolvePreview(
+    request: CaptureRequest,
+    include: String?,
+    screenSize: CGSize
+) throws -> ResolvedPreview? {
+    capturedPreviewBody = nil
+    capturedPreviewName = "Unnamed Preview"
+    capturedPreviewTraits = []
+    emitEvent([
+        "protocolVersion": 1,
+        "type": "preview-started",
+        "registryType": request.registryType,
+    ])
+
     guard
-        let registryName = ProcessInfo.processInfo.environment[
-            "VIZZLY_REGISTRY_TYPE"
-        ],
-        let loadedType = _typeByName(registryName),
+        let loadedType = _typeByName(request.registryType),
         let registry = loadedType as? any PreviewRegistry.Type
     else {
         throw PreviewRuntimeError.registryUnavailable
@@ -261,6 +255,22 @@ private func resolvePreview(screenSize: CGSize) throws -> ResolvedPreview {
         throw PreviewRuntimeError.bodyUnavailable
     }
 
+    emitEvent([
+        "protocolVersion": 1,
+        "type": "preview-discovered",
+        "name": capturedPreviewName,
+        "registryType": request.registryType,
+    ])
+    guard matchesPreviewName(capturedPreviewName, pattern: include) else {
+        emitEvent([
+            "protocolVersion": 1,
+            "type": "preview-skipped",
+            "name": capturedPreviewName,
+            "registryType": request.registryType,
+        ])
+        return nil
+    }
+
     let size = try previewSize(
         for: capturedPreviewTraits,
         screenSize: screenSize
@@ -270,7 +280,7 @@ private func resolvePreview(screenSize: CGSize) throws -> ResolvedPreview {
         "protocolVersion": 1,
         "type": "preview-resolved",
         "name": capturedPreviewName,
-        "registryType": registryName,
+        "registryType": request.registryType,
         "traitCount": capturedPreviewTraits.count,
         "viewType": String(reflecting: type(of: view)),
     ])
@@ -280,18 +290,24 @@ private func resolvePreview(screenSize: CGSize) throws -> ResolvedPreview {
 @available(iOS 17.0, *)
 private struct InjectedPreviewRoot: View {
     let preview: AnyView
+    let request: CaptureRequest
+    let completion: @MainActor (Result<String, Error>) -> Void
 
     var body: some View {
         preview.background {
-            CaptureProbe().frame(width: 0, height: 0)
+            CaptureProbe(request: request, completion: completion)
+                .frame(width: 0, height: 0)
         }
     }
 }
 
 @available(iOS 17.0, *)
 private struct CaptureProbe: UIViewControllerRepresentable {
+    let request: CaptureRequest
+    let completion: @MainActor (Result<String, Error>) -> Void
+
     func makeUIViewController(context: Context) -> CaptureController {
-        CaptureController()
+        CaptureController(request: request, completion: completion)
     }
 
     func updateUIViewController(
@@ -301,6 +317,22 @@ private struct CaptureProbe: UIViewControllerRepresentable {
 
     final class CaptureController: UIViewController {
         private var didCapture = false
+        private let request: CaptureRequest
+        private let completion: @MainActor (Result<String, Error>) -> Void
+
+        init(
+            request: CaptureRequest,
+            completion: @escaping @MainActor (Result<String, Error>) -> Void
+        ) {
+            self.request = request
+            self.completion = completion
+            super.init(nibName: nil, bundle: nil)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
@@ -309,16 +341,9 @@ private struct CaptureProbe: UIViewControllerRepresentable {
 
             Task { @MainActor in
                 do {
-                    let filename = try captureWindow()
-                    emitEvent([
-                        "protocolVersion": 1,
-                        "type": "capture-complete",
-                        "filename": filename,
-                    ])
-                    exit(EXIT_SUCCESS)
+                    completion(.success(try captureWindow()))
                 } catch {
-                    emitFailure(error)
-                    exit(EXIT_FAILURE)
+                    completion(.failure(error))
                 }
             }
         }
@@ -350,9 +375,6 @@ private struct CaptureProbe: UIViewControllerRepresentable {
                 throw PreviewRuntimeError.pngEncodingFailed
             }
 
-            let filename = ProcessInfo.processInfo.environment[
-                "VIZZLY_OUTPUT_FILENAME"
-            ] ?? "vizzly-preview.png"
             let documentsURL = try FileManager.default.url(
                 for: .documentDirectory,
                 in: .userDomainMask,
@@ -360,10 +382,10 @@ private struct CaptureProbe: UIViewControllerRepresentable {
                 create: true
             )
             try png.write(
-                to: documentsURL.appendingPathComponent(filename),
+                to: documentsURL.appendingPathComponent(request.filename),
                 options: .atomic
             )
-            return filename
+            return request.filename
         }
 
         @MainActor
@@ -375,25 +397,47 @@ private struct CaptureProbe: UIViewControllerRepresentable {
 
 @available(iOS 17.0, *)
 @MainActor
-private func installPreview(in scene: UIWindowScene) {
-    guard !didInstallPreview else { return }
-    didInstallPreview = true
-
-    if let observer = activationObserver {
-        NotificationCenter.default.removeObserver(observer)
-        activationObserver = nil
+private func captureNextPreview(in window: UIWindow) {
+    guard
+        let plan = capturePlan,
+        captureRequestIndex < plan.requests.count
+    else {
+        emitEvent([
+            "protocolVersion": 1,
+            "type": "batch-complete",
+        ])
+        exit(EXIT_SUCCESS)
     }
 
+    let request = plan.requests[captureRequestIndex]
     do {
-        guard let window = scene.windows.first(where: \.isKeyWindow)
-            ?? scene.windows.first(where: { !$0.isHidden && $0.alpha > 0 })
-            ?? scene.windows.first else {
-            throw PreviewRuntimeError.windowUnavailable
+        guard let preview = try resolvePreview(
+            request: request,
+            include: plan.include,
+            screenSize: window.bounds.size
+        ) else {
+            advanceCapture(after: request, in: window)
+            return
         }
 
-        let preview = try resolvePreview(screenSize: window.bounds.size)
         let hostingController = UIHostingController(
-            rootView: InjectedPreviewRoot(preview: preview.view)
+            rootView: InjectedPreviewRoot(
+                preview: preview.view,
+                request: request
+            ) { result in
+                switch result {
+                case .success(let filename):
+                    emitEvent([
+                        "protocolVersion": 1,
+                        "type": "capture-complete",
+                        "filename": filename,
+                        "registryType": request.registryType,
+                    ])
+                case .failure(let error):
+                    emitFailure(error, registryType: request.registryType)
+                }
+                advanceCapture(after: request, in: window)
+            }
         )
         captureTargetView = nil
 
@@ -410,19 +454,40 @@ private func installPreview(in scene: UIWindowScene) {
         }
         window.makeKeyAndVisible()
     } catch {
-        emitFailure(error)
-        exit(EXIT_FAILURE)
+        emitFailure(error, registryType: request.registryType)
+        advanceCapture(after: request, in: window)
     }
 }
 
 @available(iOS 17.0, *)
 @MainActor
-private func emitFailure(_ error: Error) {
+private func advanceCapture(after request: CaptureRequest, in window: UIWindow) {
+    guard
+        let plan = capturePlan,
+        captureRequestIndex < plan.requests.count,
+        plan.requests[captureRequestIndex].registryType == request.registryType
+    else {
+        return
+    }
+
+    captureRequestIndex += 1
+    Task { @MainActor in
+        await Task.yield()
+        captureNextPreview(in: window)
+    }
+}
+
+@available(iOS 17.0, *)
+@MainActor
+private func emitFailure(_ error: Error, registryType: String? = nil) {
     var event: [String: Any] = [
         "protocolVersion": 1,
         "type": "capture-failed",
         "message": error.localizedDescription,
     ]
+    if let registryType {
+        event["registryType"] = registryType
+    }
     if capturedPreviewBody != nil {
         event["name"] = capturedPreviewName
     }
@@ -432,7 +497,7 @@ private func emitFailure(_ error: Error) {
 @available(iOS 17.0, *)
 @MainActor
 private func startPreviewObservation() {
-    guard activationObserver == nil, !didInstallPreview else { return }
+    guard activationObserver == nil else { return }
     activationObserver = NotificationCenter.default.addObserver(
         forName: UIScene.didActivateNotification,
         object: nil,
@@ -442,7 +507,20 @@ private func startPreviewObservation() {
             guard let scene = notification.object as? UIWindowScene else {
                 return
             }
-            installPreview(in: scene)
+            guard let window = scene.windows.first(where: \.isKeyWindow)
+                ?? scene.windows.first(where: {
+                    !$0.isHidden && $0.alpha > 0
+                })
+                ?? scene.windows.first else {
+                emitFailure(PreviewRuntimeError.windowUnavailable)
+                exit(EXIT_FAILURE)
+            }
+
+            if let observer = activationObserver {
+                NotificationCenter.default.removeObserver(observer)
+                activationObserver = nil
+            }
+            captureNextPreview(in: window)
         }
     }
 }
@@ -453,18 +531,18 @@ public func startVizzlyPreviewRuntime() {
         return
     }
 
-    let environment = ProcessInfo.processInfo.environment
-    if let filename = environment["VIZZLY_DISCOVERY_FILENAME"] {
-        MainActor.assumeIsolated {
-            discoverPreviews(from: filename)
-        }
-        return
-    }
-
-    guard environment["VIZZLY_REGISTRY_TYPE"] != nil else { return }
+    guard let filename = ProcessInfo.processInfo.environment[
+        "VIZZLY_CAPTURE_PLAN_FILENAME"
+    ] else { return }
 
     MainActor.assumeIsolated {
-        startPreviewObservation()
+        do {
+            capturePlan = try loadCapturePlan(from: filename)
+            startPreviewObservation()
+        } catch {
+            emitFailure(error)
+            exit(EXIT_FAILURE)
+        }
     }
 }
 

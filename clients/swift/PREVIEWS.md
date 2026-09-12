@@ -62,10 +62,16 @@ compiles to a no-op outside the iOS Simulator.
 
 ## Keep capture launches safe
 
-Vizzly launches the built app once per preview. Your app initializer and some
-scene lifecycle code can run before Vizzly replaces the app window with the
-preview. The process has the same Simulator data and network access as an
+Vizzly launches the built app once and renders previews in that process. If a
+preview crashes the process, Vizzly records the failure and relaunches the app
+with the remaining previews. Your app initializer and some scene lifecycle
+code can run before Vizzly replaces the app window, including after a recovery
+launch. The process has the same Simulator data and network access as an
 ordinary app launch.
+
+Preview roots are replaced between captures, but they share one process. Keep
+preview setup self-contained and avoid relying on mutable global state left by
+another preview.
 
 Use a dedicated development Simulator. Keep destructive startup work out of app
 initializers, and gate services that should not run during capture:
@@ -115,9 +121,9 @@ pnpm exec vizzly previews --include "Race cockpit · phone"
 ```
 
 `--include` accepts a glob when a small group is useful, such as
-`--include "Race cockpit*"`. Vizzly resolves the display names in one lightweight
-app launch, then renders only the matching previews. Give previews distinct
-names when you want to select them individually.
+`--include "Race cockpit*"`. Vizzly resolves display names and renders only the
+matches in the same app launch. Give previews distinct names when you want to
+select them individually.
 
 ## Local review
 
@@ -194,10 +200,11 @@ The manifest records the Xcode version, scheme, Simulator, preview names,
 image dimensions, hashes, capture failures, and upload result. `upload.mode` is
 one of `tdd`, `cloud`, `local-only`, or `disabled`.
 
-Vizzly keeps rendering after one preview fails or times out. It saves and
-uploads successful captures, records each failure in `manifest.json`, then
-exits with a non-zero status so CI cannot mistake an incomplete run for a
-complete one.
+Vizzly keeps rendering after one preview fails or times out. A preview that
+throws a supported error is skipped in place. A preview that crashes or hangs
+the app is recorded before Vizzly relaunches with the remaining work. Successful
+captures are saved and uploaded, and an incomplete run exits with a non-zero
+status so CI cannot mistake it for a complete one.
 
 A successful rerun replaces an output directory previously created by Vizzly.
 If the directory has missing, changed, or unrelated files, Vizzly refuses to

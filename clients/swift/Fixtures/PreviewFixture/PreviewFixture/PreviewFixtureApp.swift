@@ -43,6 +43,16 @@ struct StatefulCounter: View {
     }
 }
 
+struct IntentionallyCrashingPreview: View {
+    init() {
+        fatalError("Intentional preview crash used to verify recovery")
+    }
+
+    var body: some View {
+        EmptyView()
+    }
+}
+
 @main
 struct PreviewFixtureApp: App {
     init() {
@@ -74,4 +84,8 @@ struct PreviewFixtureApp: App {
 
 #Preview("Unsupported Size That Fits", traits: .sizeThatFitsLayout) {
     Text("This preview verifies isolated failures")
+}
+
+#Preview("Intentional Crash") {
+    IntentionallyCrashingPreview()
 }

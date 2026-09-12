@@ -46,11 +46,22 @@ try {
   );
   assert.equal(fixedLayout.width, 960);
   assert.equal(fixedLayout.height, 600);
-  assert.deepEqual(
-    manifest.failures.map(failure => failure.name),
-    ['Unsupported Size That Fits']
+  assert.deepEqual(manifest.failures.map(failure => failure.name).sort(), [
+    'Intentional Crash',
+    'Unsupported Size That Fits',
+  ]);
+  assert.ok(
+    manifest.failures.some(failure =>
+      /trait.*not supported/i.test(failure.message)
+    )
   );
-  assert.match(manifest.failures[0].message, /trait.*not supported/i);
+  assert.ok(
+    manifest.failures.some(
+      failure =>
+        failure.name === 'Intentional Crash' &&
+        /exited without capture completion/i.test(failure.message)
+    )
+  );
 
   let repeatedManifest = await capture();
   assert.deepEqual(
@@ -107,7 +118,7 @@ try {
   assert.deepEqual(filteredManifest.failures, []);
 
   process.stdout.write(
-    `Verified ${manifest.previews.length} stock #Preview screenshots, exact selection, fixed-layout traits, isolated failures, and safe output replacement through the linked runtime\n`
+    `Verified ${manifest.previews.length} stock #Preview screenshots, exact selection, fixed-layout traits, process-crash recovery, and safe output replacement through the linked runtime\n`
   );
 } finally {
   await rm(outputPath, { recursive: true, force: true });

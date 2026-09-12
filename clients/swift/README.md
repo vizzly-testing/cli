@@ -50,8 +50,9 @@ Boot an iOS Simulator, then run:
 pnpm exec vizzly previews
 ```
 
-Vizzly builds the app, finds its existing `#Preview` declarations, renders each
-one in the Simulator, and writes PNGs to `.vizzly/previews`. Your previews stay
+Vizzly builds the app, finds its existing `#Preview` declarations, renders them
+in one Simulator process, and writes PNGs to `.vizzly/previews`. If one preview
+crashes the app, Vizzly relaunches with the remaining work. Your previews stay
 as stock Apple `#Preview` declarations; there is no Vizzly preview API to keep
 in sync.
 

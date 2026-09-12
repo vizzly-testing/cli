@@ -37,11 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   startup services during preview launches.
 - Added `--include <pattern>` to render one named preview or a small matching
   group without capturing the full app catalog.
+- Added process-crash recovery so one broken preview is recorded without
+  discarding completed screenshots or blocking the remaining previews.
 
 ### Changed
 
 - Preview builds now use Xcode's normal DerivedData location so repeated runs
   can reuse existing build products.
+- Preview discovery, filtering, and rendering now share one app process instead
+  of launching the app separately for every preview.
 
 ### Fixed
 

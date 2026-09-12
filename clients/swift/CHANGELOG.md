@@ -9,58 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added a `vizzly previews` plugin and native Simulator runtime
-  that render existing stock SwiftUI `#Preview` declarations without Xcode MCP.
-- Added an iOS fixture that exercises app-module discovery, a named asset,
-  linked-runtime capture, preview traits, isolated failures, PNG output, and
-  manifest generation.
-- Added a dynamic `VizzlyPreviewRuntime` Swift Package product that Xcode builds,
-  embeds, and signs as part of the app target.
-- Added conservative booted iOS Simulator detection, with an explicit choice
-  required when more than one Simulator is booted.
-- Added conservative Xcode scheme detection, repeatable managed output, a
-  per-preview capture timeout, and clearer unsupported-preview failures.
-- Added npm packaging, CI checks, and release publishing for the Swift preview
-  CLI plugin.
-- Added automatic local TDD delivery for rendered preview PNGs, including
-  comparison metadata for the Simulator, viewport, SwiftUI view, Xcode, and
-  scheme.
-- Added cloud build creation, screenshot upload, flush, finalization, and build
-  URL reporting through the stable Vizzly plugin API.
-- Added `--no-upload`, local-only fallback, and upload outcomes in the preview
-  manifest.
-- Added fixed-layout and portrait or landscape trait rendering with exact
-  output dimensions.
-- Added per-preview failure isolation. Successful screenshots are kept and
-  uploaded before an incomplete capture exits with a failure.
-- Added `VizzlyPreviewRuntime.isCapturing` so apps can skip unsafe or unwanted
-  startup services during preview launches.
-- Added `--include <pattern>` to render one named preview or a small matching
-  group without capturing the full app catalog.
-- Added process-crash recovery so one broken preview is recorded without
-  discarding completed screenshots or blocking the remaining previews.
-
-### Changed
-
-- Preview builds now use Xcode's normal DerivedData location so repeated runs
-  can reuse existing build products.
-- Preview discovery, filtering, and rendering now share one app process instead
-  of launching the app separately for every preview.
-
-### Fixed
-
-- Replaced CLI-side runtime compilation, app-bundle mutation, ad hoc re-signing,
-  and `DYLD_INSERT_LIBRARIES` with a normal Swift Package integration.
-- Fixed app executable discovery when Xcode does not emit a debug dylib.
-- Fixed Swift preview configuration so command options only override values
-  explicitly provided in `vizzly.config.js`.
-- Fixed the Simulator runtime's platform and scene lifecycle boundaries.
-- Fixed preview upload discovery for the TDD daemon's serialized port format
-  and normalized stock preview names for Vizzly's screenshot contract.
-- Fixed managed output validation so missing or duplicate preview files are
-  never treated as safe to replace.
-- Fixed preview uploads so both supported `VIZZLY_FAIL_ON_DIFF` values, `true`
-  and `1`, behave consistently.
+- Added `vizzly previews` for rendering the stock SwiftUI `#Preview`
+  declarations already in an iOS app.
+- Added `VizzlyPreviewRuntime`, an opt-in Swift Package product that Xcode
+  builds, embeds, and signs with the app.
+- Added fixed layouts, portrait and landscape traits, and `--include` filtering
+  for focused local runs.
+- Added automatic selection when there is one project, shared scheme, and
+  booted Simulator. Ambiguous choices require an explicit option.
+- Added one-process capture with per-preview failure reporting and crash
+  recovery. Completed screenshots are kept when another preview fails.
+- Added local TDD review, cloud uploads, local-only output, configuration, and a
+  JSON manifest.
+- Kept the existing `Vizzly` and `VizzlyXCTest` APIs and package dependencies
+  unchanged.
 
 ## [0.1.0] - 2026-06-01
 

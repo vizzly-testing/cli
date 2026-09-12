@@ -29,8 +29,11 @@
   "files": [
     "src",
     "PREVIEWS.md",
+    "QUICKSTART.md",
+    "INTEGRATION.md",
     "README.md",
     "CHANGELOG.md",
+    "Example",
     "LICENSE"
   ],
   "scripts": {

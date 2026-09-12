@@ -10,6 +10,10 @@ Vizzly brings visual testing to Swift in two ways:
 Both workflows send screenshots to the same local TDD and cloud review tools.
 You can use either one or both.
 
+Already use Vizzly from UI tests? Nothing changes. Keep `VizzlyXCTest` on the
+UI test target. `VizzlyPreviewRuntime` is a separate product that you only add
+to the app target when you want preview capture.
+
 ## SwiftUI previews
 
 Install the CLI and preview plugin in your iOS project:
@@ -66,6 +70,8 @@ Add this repository as a Swift Package dependency:
 ```text
 https://github.com/vizzly-testing/cli
 ```
+
+For the beta, choose **Exact Version** and enter `0.1.1-beta.0`.
 
 Add the `VizzlyXCTest` product to your UI test target. Then capture the app or a
 single element from a test:

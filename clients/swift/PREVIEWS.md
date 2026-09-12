@@ -3,6 +3,9 @@
 Vizzly renders the stock `#Preview` declarations already in your app. You do
 not need a Vizzly macro, a catalog, or a second set of preview definitions.
 
+Preview capture is optional. It does not change the `Vizzly` or
+`VizzlyXCTest` products used by existing UI tests.
+
 ## Requirements
 
 - Xcode 26.6
@@ -65,36 +68,6 @@ That is the complete app integration. Keep writing normal `#Preview`
 declarations. The runtime does nothing during an ordinary app launch and
 compiles to a no-op outside the iOS Simulator.
 
-## Keep capture launches safe
-
-Vizzly launches the built app once and renders previews in that process. If a
-preview crashes the process, Vizzly records the failure and relaunches the app
-with the remaining previews. Your app initializer and some scene lifecycle
-code can run before Vizzly replaces the app window, including after a recovery
-launch. The process has the same Simulator data and network access as an
-ordinary app launch.
-
-Preview roots are replaced between captures, but they share one process. Keep
-preview setup self-contained and avoid relying on mutable global state left by
-another preview.
-
-Use a dedicated development Simulator. Keep destructive startup work out of app
-initializers, and gate services that should not run during capture:
-
-```swift
-init() {
-    VizzlyPreviewRuntime.install()
-
-    if !VizzlyPreviewRuntime.isCapturing {
-        startProductionServices()
-    }
-}
-```
-
-The CLI only adds preview capture instructions and output filenames to the
-launched app environment. It does not pass `VIZZLY_TOKEN` or other Vizzly
-credentials into the app process.
-
 ## Capture previews
 
 Boot an iOS Simulator, then run this from a directory containing one Xcode
@@ -129,6 +102,29 @@ pnpm exec vizzly previews --include "Race cockpit · phone"
 `--include "Race cockpit*"`. Vizzly resolves display names and renders only the
 matches in the same app launch. Give previews distinct names when you want to
 select them individually.
+
+## Keep capture launches safe
+
+Vizzly launches the built app in the selected Simulator. Your app initializer
+and some scene lifecycle code can run before Vizzly replaces the app window,
+with the same Simulator data and network access as a normal app launch.
+
+Use a dedicated development Simulator. Keep destructive work out of app
+initializers, and skip services that should not run during capture:
+
+```swift
+init() {
+    VizzlyPreviewRuntime.install()
+
+    if !VizzlyPreviewRuntime.isCapturing {
+        startProductionServices()
+    }
+}
+```
+
+Previews share one process, so keep their setup self-contained. The CLI passes
+capture instructions and output filenames to the app, but it does not pass
+`VIZZLY_TOKEN` or other Vizzly credentials.
 
 ## Local review
 

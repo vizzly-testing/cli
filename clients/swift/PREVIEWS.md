@@ -131,27 +131,27 @@ Upload routing is predictable:
 
 Pass `--no-upload` when local artifacts are the intended result.
 
-## Configuration
+## Configure previews
 
-Put shared defaults under `swiftPreviews` in `vizzly.config.js`:
+Use your normal `vizzly.config.js`. Keep shared Vizzly settings at the top level
+and put Swift preview options under `swiftPreviews`:
 
 ```javascript
 import { defineConfig } from '@vizzly-testing/cli/config';
 
 export default defineConfig({
+  comparison: {
+    threshold: 2,
+    minClusterSize: 2,
+  },
   swiftPreviews: {
     scheme: 'MyApp',
-    device: 'B40B976E-CD70-45F2-830C-48E8ED9B7EE7',
-    configuration: 'Debug',
-    captureTimeout: 30_000,
     include: 'Race cockpit*',
-    output: '.vizzly/previews',
-    upload: true,
   },
 });
 ```
 
-Command options override the config file:
+Command options override `swiftPreviews`:
 
 - `--scheme <scheme>`: shared Xcode scheme
 - `--device <udid>`: booted iOS Simulator

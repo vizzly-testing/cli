@@ -4,7 +4,7 @@ Vizzly brings visual testing to Swift in two ways:
 
 | Workflow | Use it for | Runs on |
 | --- | --- | --- |
-| SwiftUI previews | Render the stock `#Preview` declarations already in your app | arm64 iOS Simulator |
+| SwiftUI previews | Render the `#Preview` declarations in your app | arm64 iOS Simulator |
 | XCTest screenshots | Capture an app or element during a UI test | iOS or macOS |
 
 Both workflows send screenshots to the same local TDD and cloud review tools.
@@ -22,8 +22,8 @@ Install the CLI and Swift plugin in your iOS project:
 pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
 ```
 
-Add this repository as a Swift Package dependency, then add the dynamic
-`VizzlyPreviewRuntime` product to the app target with **Embed & Sign**:
+Add this repository as a Swift Package dependency, then add
+`VizzlyPreviewRuntime` to the app target with **Embed & Sign**:
 
 ```text
 https://github.com/vizzly-testing/cli
@@ -54,9 +54,8 @@ Boot an iOS Simulator, then run:
 pnpm exec vizzly previews
 ```
 
-Vizzly builds the app, finds its existing `#Preview` declarations, renders them
-in one Simulator process, and writes PNGs to `.vizzly/previews`. If one preview
-crashes the app, Vizzly relaunches with the remaining work.
+Vizzly builds the app, renders its `#Preview` declarations, and writes the
+screenshots to `.vizzly/previews`.
 
 See [PREVIEWS.md](PREVIEWS.md) for requirements, configuration, CI, and
 troubleshooting.
@@ -109,12 +108,11 @@ See [QUICKSTART.md](QUICKSTART.md) for the shortest setup path and
 | Cloud builds | Yes | Yes |
 | Exact Xcode requirement | No | Xcode 26.6 |
 | Fixed layout and orientation traits | Not applicable | Yes |
-| Other SwiftUI preview traits | Not applicable | Reported as capture failures |
+| Other SwiftUI preview traits | Not applicable | Not supported |
 | App integration | UI test target | One app initializer call |
 
-Preview capture intentionally has a narrow compatibility range because it uses
-the preview ABI shipped with Xcode. The command checks the Xcode version and
-stops instead of producing screenshots with unknown behavior.
+Preview capture requires Xcode 26.6. Other Xcode versions stop with a setup
+error.
 
 ## More
 

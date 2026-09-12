@@ -9,16 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `vizzly previews` for rendering the stock SwiftUI `#Preview`
+- Added `vizzly previews` for rendering the SwiftUI `#Preview`
   declarations already in an iOS app.
-- Added `VizzlyPreviewRuntime`, an opt-in Swift Package product that Xcode
-  builds, embeds, and signs with the app.
+- Added the `VizzlyPreviewRuntime` Swift Package product required for preview
+  capture.
 - Added fixed layouts, portrait and landscape traits, and `--include` filtering
   for focused local runs.
 - Added automatic selection when there is one project, shared scheme, and
   booted Simulator. Ambiguous choices require an explicit option.
-- Added one-process capture with per-preview failure reporting and crash
-  recovery. Completed screenshots are kept when another preview fails.
+- Added preview failure reporting. Successful screenshots are kept when another
+  preview fails.
 - Added local TDD review, cloud uploads, local-only output, configuration, and a
   JSON manifest.
 - Kept the existing `Vizzly` and `VizzlyXCTest` APIs and package dependencies

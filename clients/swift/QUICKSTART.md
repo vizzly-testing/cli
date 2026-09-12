@@ -63,5 +63,5 @@ Vizzly writes the static report to `.vizzly/report/index.html`.
 ## Next steps
 
 - [XCTest options and CI](INTEGRATION.md)
-- [Stock SwiftUI preview capture](PREVIEWS.md)
+- [SwiftUI preview capture](PREVIEWS.md)
 - [Complete UI test example](Example/ExampleUITests.swift)

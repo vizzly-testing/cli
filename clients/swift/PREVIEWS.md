@@ -1,6 +1,6 @@
 # SwiftUI `#Preview` capture
 
-Vizzly renders the stock `#Preview` declarations already in your app.
+Vizzly renders the `#Preview` declarations in your app.
 
 Preview capture is optional. It does not change the `Vizzly` or
 `VizzlyXCTest` products used by existing UI tests.
@@ -14,15 +14,8 @@ Preview capture is optional. It does not change the `Vizzly` or
 - A scene-based iOS app
 - A shared Xcode scheme that builds the app in Debug
 
-The current renderer supports fixed layouts and portrait or landscape
-orientation traits. Other traits, including `sizeThatFitsLayout`, custom
-preview modifiers, and Assistive Access, fail that preview with a clear entry
-in the capture manifest.
-
-Capture starts after the preview appears and pending render transactions are
-flushed. Vizzly cannot know when arbitrary network requests, timers,
-animations, or `.task` work are finished. Keep preview data local and
-deterministic when the final screenshot depends on it.
+Vizzly supports fixed layouts and portrait or landscape previews. Other preview
+traits are not supported yet.
 
 ## Install
 
@@ -38,11 +31,10 @@ Then add this repository as a Swift Package dependency in Xcode:
 https://github.com/vizzly-testing/cli
 ```
 
-Choose **Exact Version** and enter `0.1.1`. This repository also publishes the
-Vizzly CLI, so do not use a version range for the Swift package.
+Choose **Exact Version** and enter `0.1.1`.
 
-Add the dynamic `VizzlyPreviewRuntime` product to the app target and choose
-**Embed & Sign**. Install it once from the app initializer:
+Add `VizzlyPreviewRuntime` to the app target and choose **Embed & Sign**. Install
+it once from the app initializer:
 
 ```swift
 import SwiftUI
@@ -62,9 +54,7 @@ struct MyApp: App {
 }
 ```
 
-That is the complete app integration. Keep writing normal `#Preview`
-declarations. The runtime does nothing during an ordinary app launch and
-compiles to a no-op outside the iOS Simulator.
+Keep writing normal `#Preview` declarations. No other app changes are required.
 
 ## Capture previews
 
@@ -86,29 +76,19 @@ pnpm exec vizzly previews MyApp.xcworkspace \
 
 Use `xcrun simctl list devices booted` to find the Simulator UDID.
 
-The command uses Xcode's normal DerivedData location, so later runs can reuse
-the project's existing build products instead of starting with a clean build.
-
-During local iteration, select one named preview instead of rendering the whole
-app:
+To capture one preview while you work, pass its name:
 
 ```bash
 pnpm exec vizzly previews --include "Race cockpit · phone"
 ```
 
-`--include` accepts a glob when a small group is useful, such as
-`--include "Race cockpit*"`. Vizzly resolves display names and renders only the
-matches in the same app launch. Give previews distinct names when you want to
-select them individually.
+Use a glob to capture a group, such as `--include "Race cockpit*"`. Give each
+preview a distinct name if you want to select it on its own.
 
 ## Keep capture launches safe
 
-Vizzly launches the built app in the selected Simulator. Your app initializer
-and some scene lifecycle code can run before Vizzly replaces the app window,
-with the same Simulator data and network access as a normal app launch.
-
-Use a dedicated development Simulator. Keep destructive work out of app
-initializers, and skip services that should not run during capture:
+Preview capture launches your app in the selected Simulator. Use a development
+Simulator, and skip startup services that should not run during capture:
 
 ```swift
 init() {
@@ -120,9 +100,7 @@ init() {
 }
 ```
 
-Previews share one process, so keep their setup self-contained. The CLI passes
-capture instructions and output filenames to the app, but it does not pass
-`VIZZLY_TOKEN` or other Vizzly credentials.
+The app does not receive your Vizzly credentials.
 
 ## Local review
 
@@ -178,7 +156,7 @@ Command options override the config file:
 - `--scheme <scheme>`: shared Xcode scheme
 - `--device <udid>`: booted iOS Simulator
 - `--configuration <name>`: build configuration
-- `--capture-timeout <ms>`: maximum time without preview progress
+- `--capture-timeout <ms>`: maximum time to wait for each preview
 - `--include <pattern>`: include preview display names matching a glob
 - `--output <path>`: PNG and manifest directory
 - `--no-upload`: keep artifacts local
@@ -195,19 +173,11 @@ The default output is `.vizzly/previews`:
 └── manifest.json
 ```
 
-The manifest records the Xcode version, scheme, Simulator, preview names,
-image dimensions, hashes, capture failures, and upload result. `upload.mode` is
-one of `tdd`, `cloud`, `local-only`, or `disabled`.
+If a preview fails, Vizzly keeps the successful screenshots and exits with an
+error after the run. Use `manifest.json` to see which previews failed.
 
-Vizzly keeps rendering after one preview fails or times out. A preview that
-throws a supported error is skipped in place. A preview that crashes or hangs
-the app is recorded before Vizzly relaunches with the remaining work. Successful
-captures are saved and uploaded, and an incomplete run exits with a non-zero
-status so CI cannot mistake it for a complete one.
-
-A successful rerun replaces an output directory previously created by Vizzly.
-If the directory has missing, changed, or unrelated files, Vizzly refuses to
-delete it.
+Vizzly only replaces output it created. Use `--output` to choose another folder
+if `.vizzly/previews` already contains other files.
 
 ## CI
 
@@ -231,9 +201,6 @@ Simulator. Keep the scheme shared in source control.
       --device "$VIZZLY_SIMULATOR_UDID"
 ```
 
-`simctl bootstatus` waits for a concrete Simulator boot event; no fixed delay is
-needed.
-
 ## Troubleshooting
 
 ### More than one project, scheme, or Simulator is available
@@ -256,13 +223,12 @@ xcrun simctl list devices booted
 
 ### Xcode is unsupported
 
-Run `xcodebuild -version`. This release supports exactly Xcode 26.6 because the
-renderer depends on that release's Swift preview ABI.
+Run `xcodebuild -version`. This release requires Xcode 26.6.
 
 ### No previews are found
 
 Make sure the selected scheme builds the app target containing the `#Preview`
-declarations in Debug. Vizzly looks in the app executable and debug dylibs.
+declarations in Debug.
 
 ### VizzlyPreviewRuntime is not linked and embedded
 
@@ -277,22 +243,8 @@ initializer.
 Choose a new `--output` path, or move the existing directory yourself. Vizzly
 will not remove files it cannot prove it created.
 
-### One preview crashes
+### A preview fails
 
-Open `manifest.json` and check the failure's `registryType`. It contains the
-source filename and line used by the generated preview registry. A crash here
-usually means the preview body is missing an environment object or another
-dependency it also needs in Xcode's canvas.
-
-## How it works
-
-The CLI builds the app for the selected Simulator and reads its generated
-`DeveloperToolsSupport.PreviewRegistry` types. `VizzlyPreviewRuntime` renders
-those previews in one app process and replaces the preview root between
-screenshots. If a preview crashes or times out, Vizzly launches the app again
-with the remaining work.
-
-Xcode builds, embeds, and signs the runtime as a normal Swift Package
-dependency. The CLI does not modify the built app or pass Vizzly credentials
-to it. The exact Xcode check keeps preview discovery tied to the Swift ABI it
-was tested against.
+Open that preview in Xcode and fix any missing environment values or objects.
+Check that it only uses the supported layout and orientation traits, then run it
+again with `--include`.

@@ -1,7 +1,6 @@
 # SwiftUI `#Preview` capture
 
-Vizzly renders the stock `#Preview` declarations already in your app. You do
-not need a Vizzly macro, a catalog, or a second set of preview definitions.
+Vizzly renders the stock `#Preview` declarations already in your app.
 
 Preview capture is optional. It does not change the `Vizzly` or
 `VizzlyXCTest` products used by existing UI tests.
@@ -30,7 +29,7 @@ deterministic when the final screenshot depends on it.
 Add the CLI and Swift plugin to the iOS project:
 
 ```bash
-pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift@beta
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
 ```
 
 Then add this repository as a Swift Package dependency in Xcode:
@@ -38,10 +37,6 @@ Then add this repository as a Swift Package dependency in Xcode:
 ```text
 https://github.com/vizzly-testing/cli
 ```
-
-For the beta, choose **Exact Version** and enter `0.1.1-beta.0`. This repository
-also contains the Vizzly CLI, so a broad version rule can select an unrelated
-CLI release tag.
 
 Add the dynamic `VizzlyPreviewRuntime` product to the app target and choose
 **Embed & Sign**. Install it once from the app initializer:
@@ -288,15 +283,13 @@ dependency it also needs in Xcode's canvas.
 
 ## How it works
 
-The CLI builds the real app for the selected Simulator and finds generated
-`DeveloperToolsSupport.PreviewRegistry` types in the Mach-O. The normally
-linked native runtime renders them in one app process, replacing the preview
-root between screenshots. If a preview crashes or times out, Vizzly starts a
-new process with the remaining work.
+The CLI builds the app for the selected Simulator and reads its generated
+`DeveloperToolsSupport.PreviewRegistry` types. `VizzlyPreviewRuntime` renders
+those previews in one app process and replaces the preview root between
+screenshots. If a preview crashes or times out, Vizzly launches the app again
+with the remaining work.
 
-This path does not use Xcode MCP, `mcpbridge`, private Xcode actions, or source
-rewriting. It also does not inject a library, copy code into the built app,
-change the app's signature, or pass credentials to the app process. Xcode owns
-the runtime's build, embedding, and signing like any other Swift Package
-dependency. The exact Xcode check is the safety boundary around the private
-Swift ABI used for preview discovery.
+Xcode builds, embeds, and signs the runtime as a normal Swift Package
+dependency. The CLI does not modify the built app or pass Vizzly credentials
+to it. The exact Xcode check keeps preview discovery tied to the Swift ABI it
+was tested against.

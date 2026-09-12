@@ -16,10 +16,10 @@ to the app target when you want preview capture.
 
 ## SwiftUI previews
 
-Install the CLI and preview plugin in your iOS project:
+Install the CLI and Swift plugin in your iOS project:
 
 ```bash
-pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift@beta
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
 ```
 
 Add this repository as a Swift Package dependency, then add the dynamic
@@ -28,8 +28,6 @@ Add this repository as a Swift Package dependency, then add the dynamic
 ```text
 https://github.com/vizzly-testing/cli
 ```
-
-For the beta, choose **Exact Version** and enter `0.1.1-beta.0`.
 
 Install the runtime once from the app initializer:
 
@@ -56,12 +54,10 @@ pnpm exec vizzly previews
 
 Vizzly builds the app, finds its existing `#Preview` declarations, renders them
 in one Simulator process, and writes PNGs to `.vizzly/previews`. If one preview
-crashes the app, Vizzly relaunches with the remaining work. Your previews stay
-as stock Apple `#Preview` declarations; there is no Vizzly preview API to keep
-in sync.
+crashes the app, Vizzly relaunches with the remaining work.
 
-See [PREVIEWS.md](PREVIEWS.md) for package-version details, requirements,
-configuration, CI, and troubleshooting.
+See [PREVIEWS.md](PREVIEWS.md) for requirements, configuration, CI, and
+troubleshooting.
 
 ## XCTest screenshots
 
@@ -70,8 +66,6 @@ Add this repository as a Swift Package dependency:
 ```text
 https://github.com/vizzly-testing/cli
 ```
-
-For the beta, choose **Exact Version** and enter `0.1.1-beta.0`.
 
 Add the `VizzlyXCTest` product to your UI test target. Then capture the app or a
 single element from a test:

@@ -12,12 +12,6 @@ on:
           - patch
           - minor
           - major
-      prerelease:
-        description: 'Create prerelease (beta tag)?'
-        required: false
-        default: true
-        type: boolean
-
 concurrency:
   group: sdk-release
   cancel-in-progress: false
@@ -86,15 +80,7 @@ jobs:
         id: new_version
         working-directory: ./clients/swift
         run: |
-          if [ "${{ github.event.inputs.prerelease }}" == "true" ]; then
-            if [[ "${{ steps.current_version.outputs.version }}" == *-beta.* ]]; then
-              NEW_VERSION=$(npm version prerelease --preid=beta --no-git-tag-version | sed 's/v//')
-            else
-              NEW_VERSION=$(npm version pre${{ github.event.inputs.version_type }} --preid=beta --no-git-tag-version | sed 's/v//')
-            fi
-          else
-            NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version | sed 's/v//')
-          fi
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version | sed 's/v//')
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "tag=swift/v$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "spm_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
@@ -253,11 +239,7 @@ jobs:
           npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
           rm -f ~/.npmrc 2>/dev/null || true
           npm config set registry https://registry.npmjs.org/
-          if [ "${{ github.event.inputs.prerelease }}" == "true" ]; then
-            npm publish "${{ steps.pack.outputs.file }}" --provenance --access public --tag beta
-          else
-            npm publish "${{ steps.pack.outputs.file }}" --provenance --access public
-          fi
+          npm publish "${{ steps.pack.outputs.file }}" --provenance --access public
 
       - name: Read changelog for release
         id: release_notes
@@ -279,6 +261,6 @@ jobs:
           body: ${{ steps.release_notes.outputs.notes }}
           files: ./clients/swift/${{ steps.pack.outputs.file }}
           draft: false
-          prerelease: ${{ github.event.inputs.prerelease }}
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

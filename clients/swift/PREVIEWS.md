@@ -17,6 +17,11 @@ orientation traits. Other traits, including `sizeThatFitsLayout`, custom
 preview modifiers, and Assistive Access, fail that preview with a clear entry
 in the capture manifest.
 
+Capture starts after the preview appears and pending render transactions are
+flushed. Vizzly cannot know when arbitrary network requests, timers,
+animations, or `.task` work are finished. Keep preview data local and
+deterministic when the final screenshot depends on it.
+
 ## Install
 
 Add the CLI and Swift plugin to the iOS project:
@@ -179,7 +184,7 @@ Command options override the config file:
 - `--scheme <scheme>`: shared Xcode scheme
 - `--device <udid>`: booted iOS Simulator
 - `--configuration <name>`: build configuration
-- `--capture-timeout <ms>`: limit for each preview launch
+- `--capture-timeout <ms>`: maximum time without preview progress
 - `--include <pattern>`: include preview display names matching a glob
 - `--output <path>`: PNG and manifest directory
 - `--no-upload`: keep artifacts local
@@ -287,10 +292,11 @@ dependency it also needs in Xcode's canvas.
 
 ## How it works
 
-The CLI builds the real app for the selected Simulator, finds generated
-`DeveloperToolsSupport.PreviewRegistry` types in the Mach-O, and launches one
-fresh app process per preview. The normally linked native runtime captures the
-preview body, mounts it in the app window, and writes a PNG.
+The CLI builds the real app for the selected Simulator and finds generated
+`DeveloperToolsSupport.PreviewRegistry` types in the Mach-O. The normally
+linked native runtime renders them in one app process, replacing the preview
+root between screenshots. If a preview crashes or times out, Vizzly starts a
+new process with the remaining work.
 
 This path does not use Xcode MCP, `mcpbridge`, private Xcode actions, or source
 rewriting. It also does not inject a library, copy code into the built app,

@@ -11,6 +11,7 @@ describe('Swift preview CLI options', () => {
           captureTimeout: 45_000,
           configuration: 'Release',
           device: 'CONFIGURED-DEVICE',
+          include: 'Race cockpit*',
           output: 'configured-output',
           scheme: 'ConfiguredScheme',
           upload: false,
@@ -20,6 +21,7 @@ describe('Swift preview CLI options', () => {
         captureTimeout: 45_000,
         configuration: 'Release',
         device: 'CONFIGURED-DEVICE',
+        include: 'Race cockpit*',
         outputPath: 'configured-output',
         scheme: 'ConfiguredScheme',
         upload: false,
@@ -32,6 +34,7 @@ describe('Swift preview CLI options', () => {
       {
         captureTimeout: 5_000,
         configuration: 'Debug',
+        include: 'Track · event',
         output: 'command-output',
       },
       {
@@ -43,6 +46,7 @@ describe('Swift preview CLI options', () => {
 
     assert.equal(resolved.captureTimeout, 5_000);
     assert.equal(resolved.configuration, 'Debug');
+    assert.equal(resolved.include, 'Track · event');
     assert.equal(resolved.outputPath, 'command-output');
     assert.equal(resolved.upload, true);
   });

@@ -17,6 +17,7 @@ export default {
       captureTimeout: 30_000,
       configuration: 'Debug',
       device: null,
+      include: null,
       output: '.vizzly/previews',
       scheme: null,
       upload: true,
@@ -38,6 +39,7 @@ export default {
         'Simulator UDID (auto-detected when exactly one iOS Simulator is booted)'
       )
       .option('--configuration <name>', 'Build configuration')
+      .option('--include <pattern>', 'Include preview name pattern (glob)')
       .option(
         '--capture-timeout <ms>',
         'Maximum time to render each preview',

@@ -13,6 +13,7 @@ import {
   readPngMetadata,
   schemeBuildsApplication,
   selectBootedIOSSimulator,
+  selectPreviewDescriptors,
   selectScheme,
   xcodeArguments,
 } from '../src/preview-runner.js';
@@ -176,6 +177,26 @@ describe('Swift preview runner contracts', () => {
       '13PreviewFixture0017PreviewFixtureswift_tAFJhfMX1_0_15RegistryfMu_V',
       '13PreviewFixture0017PreviewFixtureswift_tAFJhfMX2_0_15RegistryfMu_V',
     ]);
+  });
+
+  it('selects one preview by exact name or a small group by glob', () => {
+    let previews = [
+      { name: 'Race cockpit · phone', registryType: 'PhoneRegistry' },
+      { name: 'Race cockpit · landscape', registryType: 'LandscapeRegistry' },
+      { name: 'Track · event', registryType: 'TrackRegistry' },
+    ];
+
+    assert.deepEqual(selectPreviewDescriptors(previews, 'Track · event'), [
+      previews[2],
+    ]);
+    assert.deepEqual(
+      selectPreviewDescriptors(previews, 'Race cockpit*'),
+      previews.slice(0, 2)
+    );
+    assert.throws(
+      () => selectPreviewDescriptors(previews, 'Missing'),
+      /No SwiftUI previews matched.*Race cockpit · phone.*Track · event/s
+    );
   });
 
   it('finds the built app executable with or without a debug dylib', () => {

@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uploaded before an incomplete capture exits with a failure.
 - Added `VizzlyPreviewRuntime.isCapturing` so apps can skip unsafe or unwanted
   startup services during preview launches.
+- Added `--include <pattern>` to render one named preview or a small matching
+  group without capturing the full app catalog.
+
+### Changed
+
+- Preview builds now use Xcode's normal DerivedData location so repeated runs
+  can reuse existing build products.
 
 ### Fixed
 

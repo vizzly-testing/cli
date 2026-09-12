@@ -13,6 +13,7 @@ export function resolvePreviewOptions(options, config) {
     captureTimeout: options.captureTimeout ?? config.captureTimeout ?? 30_000,
     configuration: options.configuration ?? config.configuration ?? 'Debug',
     device: options.device ?? config.device,
+    include: options.include ?? config.include,
     outputPath: options.output ?? config.output ?? '.vizzly/previews',
     scheme: options.scheme ?? config.scheme,
     upload: options.upload ?? config.upload ?? true,

@@ -8,7 +8,9 @@ import UIKit
 public enum VizzlyPreviewRuntime {
     /// True only while `vizzly previews` is rendering this app in Simulator.
     public static var isCapturing: Bool {
-        ProcessInfo.processInfo.environment["VIZZLY_REGISTRY_TYPE"] != nil
+        let environment = ProcessInfo.processInfo.environment
+        return environment["VIZZLY_REGISTRY_TYPE"] != nil
+            || environment["VIZZLY_DISCOVERY_FILENAME"] != nil
     }
 
     /// Enables Vizzly capture when the app is launched by `vizzly previews`.
@@ -87,6 +89,68 @@ private func emitEvent(_ event: [String: Any]) {
 
     print("VIZZLY_PREVIEW_EVENT \(json)")
     fflush(stdout)
+}
+
+@available(iOS 17.0, *)
+@MainActor
+private func discoverPreviews(from filename: String) {
+    do {
+        let documentsURL = try FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let data = try Data(
+            contentsOf: documentsURL.appendingPathComponent(filename)
+        )
+        let registryNames = try JSONDecoder().decode([String].self, from: data)
+        var discoveredCount = 0
+
+        for registryName in registryNames {
+            capturedPreviewBody = nil
+            capturedPreviewName = "Unnamed Preview"
+            capturedPreviewTraits = []
+
+            do {
+                guard
+                    let loadedType = _typeByName(registryName),
+                    let registry = loadedType as? any PreviewRegistry.Type
+                else {
+                    throw PreviewRuntimeError.registryUnavailable
+                }
+
+                _ = try registry.makePreview()
+                guard capturedPreviewBody != nil else {
+                    throw PreviewRuntimeError.bodyUnavailable
+                }
+                discoveredCount += 1
+                emitEvent([
+                    "protocolVersion": 1,
+                    "type": "preview-discovered",
+                    "name": capturedPreviewName,
+                    "registryType": registryName,
+                ])
+            } catch {
+                emitEvent([
+                    "protocolVersion": 1,
+                    "type": "preview-discovery-failed",
+                    "registryType": registryName,
+                    "message": error.localizedDescription,
+                ])
+            }
+        }
+
+        emitEvent([
+            "protocolVersion": 1,
+            "type": "discovery-complete",
+            "discovered": discoveredCount,
+        ])
+        exit(EXIT_SUCCESS)
+    } catch {
+        emitFailure(error)
+        exit(EXIT_FAILURE)
+    }
 }
 
 @available(iOS 17.0, *)
@@ -385,12 +449,19 @@ private func startPreviewObservation() {
 
 @_cdecl("VizzlyPreviewRuntimeStart")
 public func startVizzlyPreviewRuntime() {
-    guard
-        ProcessInfo.processInfo.environment["VIZZLY_REGISTRY_TYPE"] != nil,
-        #available(iOS 17.0, *)
-    else {
+    guard #available(iOS 17.0, *) else {
         return
     }
+
+    let environment = ProcessInfo.processInfo.environment
+    if let filename = environment["VIZZLY_DISCOVERY_FILENAME"] {
+        MainActor.assumeIsolated {
+            discoverPreviews(from: filename)
+        }
+        return
+    }
+
+    guard environment["VIZZLY_REGISTRY_TYPE"] != nil else { return }
 
     MainActor.assumeIsolated {
         startPreviewObservation()

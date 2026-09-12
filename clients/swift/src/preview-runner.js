@@ -53,6 +53,40 @@ export function parseRuntimeEvents(output) {
   return events;
 }
 
+export function matchPreviewName(name, pattern) {
+  if (!pattern) {
+    return true;
+  }
+
+  let regexPattern = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*');
+  return new RegExp(`^${regexPattern}$`, 'i').test(name);
+}
+
+export function selectPreviewDescriptors(descriptors, include) {
+  if (!include) {
+    return descriptors;
+  }
+
+  let selected = descriptors.filter(descriptor =>
+    matchPreviewName(descriptor.name, include)
+  );
+  if (selected.length > 0) {
+    return selected;
+  }
+
+  let available = descriptors
+    .map(descriptor => descriptor.name)
+    .sort()
+    .map(name => `  - ${name}`)
+    .join('\n');
+  throw new Error(
+    `No SwiftUI previews matched --include "${include}". ` +
+      `Available previews:\n${available}`
+  );
+}
+
 export function readPngMetadata(buffer) {
   let signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
   if (buffer.length < 45 || !buffer.subarray(0, 8).equals(signature)) {
@@ -527,6 +561,50 @@ async function discoverRegistries(appPath, settings) {
   return [...registries].sort();
 }
 
+async function discoverPreviewDescriptors({
+  registryTypes,
+  device,
+  bundleId,
+  containerPath,
+  captureTimeout,
+}) {
+  let filename = 'vizzly-preview-discovery.json';
+  let discoveryPath = join(containerPath, 'Documents', filename);
+  await mkdir(dirname(discoveryPath), { recursive: true });
+  await writeFile(discoveryPath, JSON.stringify(registryTypes));
+
+  try {
+    let result = await runCommand(
+      'xcrun',
+      [
+        'simctl',
+        'launch',
+        '--console',
+        '--terminate-running-process',
+        device,
+        bundleId,
+      ],
+      {
+        allowFailure: true,
+        timeoutMs: captureTimeout,
+        env: {
+          ...process.env,
+          SIMCTL_CHILD_VIZZLY_DISCOVERY_FILENAME: filename,
+        },
+      }
+    );
+    let events = parseRuntimeEvents(`${result.stdout}\n${result.stderr}`);
+    let completed = events.find(event => event.type === 'discovery-complete');
+    if (!completed) {
+      throw new Error('The app exited before preview discovery completed');
+    }
+
+    return events.filter(event => event.type === 'preview-discovered');
+  } finally {
+    await rm(discoveryPath, { force: true });
+  }
+}
+
 function previewRuntimeSetupError() {
   return new Error(
     'VizzlyPreviewRuntime is not linked and embedded in the app. Add the ' +
@@ -691,6 +769,7 @@ export async function runPreviewCapture({
   scheme,
   device,
   configuration = 'Debug',
+  include,
   outputPath: outputInput,
   captureTimeout = 30_000,
   onProgress = () => {},
@@ -746,6 +825,22 @@ export async function runPreviewCapture({
       'data',
     ]);
     let dataContainerPath = containerResult.stdout.trim();
+    if (include) {
+      let descriptors = await discoverPreviewDescriptors({
+        registryTypes,
+        device: resolvedDevice,
+        bundleId,
+        containerPath: dataContainerPath,
+        captureTimeout,
+      });
+      registryTypes = selectPreviewDescriptors(descriptors, include).map(
+        descriptor => descriptor.registryType
+      );
+      onProgress(
+        `Selected ${registryTypes.length} preview(s) matching "${include}"`
+      );
+    }
+
     let previews = [];
     let failures = [];
     for (let [index, registryType] of registryTypes.entries()) {
@@ -780,6 +875,7 @@ export async function runPreviewCapture({
       device: resolvedDevice,
       simulator,
       configuration,
+      include: include ?? null,
       outputPath,
       previews,
       failures,

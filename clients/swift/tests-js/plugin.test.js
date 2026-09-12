@@ -21,6 +21,7 @@ describe('Swift preview plugin package', () => {
       captureTimeout: 30_000,
       configuration: 'Debug',
       device: null,
+      include: null,
       output: '.vizzly/previews',
       scheme: null,
       upload: true,

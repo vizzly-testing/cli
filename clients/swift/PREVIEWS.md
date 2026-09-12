@@ -80,9 +80,9 @@ init() {
 }
 ```
 
-The CLI only adds the preview registry and output filename to the launched app
-environment. It does not pass `VIZZLY_TOKEN` or other Vizzly credentials into
-the app process.
+The CLI only adds preview capture instructions and output filenames to the
+launched app environment. It does not pass `VIZZLY_TOKEN` or other Vizzly
+credentials into the app process.
 
 ## Capture previews
 
@@ -106,6 +106,18 @@ Use `xcrun simctl list devices booted` to find the Simulator UDID.
 
 The command uses Xcode's normal DerivedData location, so later runs can reuse
 the project's existing build products instead of starting with a clean build.
+
+During local iteration, select one named preview instead of rendering the whole
+app:
+
+```bash
+pnpm exec vizzly previews --include "Race cockpit · phone"
+```
+
+`--include` accepts a glob when a small group is useful, such as
+`--include "Race cockpit*"`. Vizzly resolves the display names in one lightweight
+app launch, then renders only the matching previews. Give previews distinct
+names when you want to select them individually.
 
 ## Local review
 
@@ -149,6 +161,7 @@ export default defineConfig({
     device: 'B40B976E-CD70-45F2-830C-48E8ED9B7EE7',
     configuration: 'Debug',
     captureTimeout: 30_000,
+    include: 'Race cockpit*',
     output: '.vizzly/previews',
     upload: true,
   },
@@ -161,6 +174,7 @@ Command options override the config file:
 - `--device <udid>`: booted iOS Simulator
 - `--configuration <name>`: build configuration
 - `--capture-timeout <ms>`: limit for each preview launch
+- `--include <pattern>`: include preview display names matching a glob
 - `--output <path>`: PNG and manifest directory
 - `--no-upload`: keep artifacts local
 - `--json`: print the manifest as JSON

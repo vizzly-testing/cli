@@ -6,6 +6,9 @@ import { runPreviewCapture } from '../src/preview-runner.js';
 
 let device = process.env.VIZZLY_SIMULATOR_UDID;
 let outputPath = await mkdtemp(join(tmpdir(), 'vizzly-preview-e2e-'));
+let filteredOutputPath = await mkdtemp(
+  join(tmpdir(), 'vizzly-preview-filtered-e2e-')
+);
 
 try {
   let capture = () =>
@@ -83,9 +86,30 @@ try {
     3
   );
 
+  let filteredManifest = await runPreviewCapture({
+    container: resolve(
+      import.meta.dirname,
+      '..',
+      'Fixtures',
+      'PreviewFixture',
+      'PreviewFixture.xcodeproj'
+    ),
+    device,
+    configuration: 'Debug',
+    include: 'Fixed Layout',
+    outputPath: filteredOutputPath,
+    onProgress: message => process.stdout.write(`${message}\n`),
+  });
+  assert.deepEqual(
+    filteredManifest.previews.map(preview => preview.name),
+    ['Fixed Layout']
+  );
+  assert.deepEqual(filteredManifest.failures, []);
+
   process.stdout.write(
-    `Verified ${manifest.previews.length} stock #Preview screenshots, fixed-layout traits, isolated failures, and safe output replacement through the linked runtime\n`
+    `Verified ${manifest.previews.length} stock #Preview screenshots, exact selection, fixed-layout traits, isolated failures, and safe output replacement through the linked runtime\n`
   );
 } finally {
   await rm(outputPath, { recursive: true, force: true });
+  await rm(filteredOutputPath, { recursive: true, force: true });
 }

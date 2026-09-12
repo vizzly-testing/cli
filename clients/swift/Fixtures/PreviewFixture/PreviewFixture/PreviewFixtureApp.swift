@@ -1,0 +1,91 @@
+import SwiftUI
+import VizzlyPreviewRuntime
+
+struct PreviewCard: View {
+    let title: String
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color("PreviewAccent"), .indigo],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 48, weight: .semibold))
+                Text(title)
+                    .font(.largeTitle.bold())
+                Text("Rendered from the app's existing #Preview")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(30)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28))
+            .padding(24)
+        }
+    }
+}
+
+struct StatefulCounter: View {
+    @State private var count = 7
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Count: \(count)")
+                .font(.largeTitle.monospacedDigit())
+            Button("Increment") {
+                count += 1
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
+}
+
+struct IntentionallyCrashingPreview: View {
+    init() {
+        fatalError("Intentional preview crash used to verify recovery")
+    }
+
+    var body: some View {
+        EmptyView()
+    }
+}
+
+@main
+struct PreviewFixtureApp: App {
+    init() {
+        VizzlyPreviewRuntime.install()
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            Text("Ordinary app root")
+        }
+    }
+}
+
+#Preview("Card / Dark") {
+    PreviewCard(title: "Stock #Preview")
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Stateful Counter") {
+    StatefulCounter()
+}
+
+#Preview(
+    "Fixed Layout",
+    traits: .fixedLayout(width: 320, height: 200)
+) {
+    Text("This preview verifies trait rendering")
+}
+
+#Preview("Unsupported Size That Fits", traits: .sizeThatFitsLayout) {
+    Text("This preview verifies isolated failures")
+}
+
+#Preview("Intentional Crash") {
+    IntentionallyCrashingPreview()
+}

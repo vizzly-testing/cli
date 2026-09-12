@@ -14,6 +14,7 @@ import {
   schemeBuildsApplication,
   selectBootedIOSSimulator,
   selectScheme,
+  xcodeArguments,
 } from '../src/preview-runner.js';
 
 let simulatorList = JSON.stringify({
@@ -52,6 +53,17 @@ let simulatorList = JSON.stringify({
 });
 
 describe('Swift preview runner contracts', () => {
+  it('reuses normal Xcode DerivedData for incremental builds', () => {
+    let args = xcodeArguments({
+      configuration: 'Debug',
+      container: '/tmp/PreviewFixture.xcodeproj',
+      device: 'PHONE-17-PRO',
+      scheme: 'PreviewFixture',
+    });
+
+    assert.ok(!args.includes('-derivedDataPath'));
+  });
+
   it('auto-selects the only shared Xcode scheme', () => {
     let schemes = parseSchemes(
       JSON.stringify({ project: { schemes: ['PreviewFixture'] } })

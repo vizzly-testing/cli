@@ -11,7 +11,6 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 
 let eventPrefix = 'VIZZLY_PREVIEW_EVENT ';
@@ -442,13 +441,7 @@ async function replaceOutputDirectory(stagingPath, outputPath) {
   }
 }
 
-function xcodeArguments({
-  container,
-  scheme,
-  device,
-  configuration,
-  derivedDataPath,
-}) {
+export function xcodeArguments({ container, scheme, device, configuration }) {
   return [
     ...containerArguments(container),
     '-scheme',
@@ -459,8 +452,6 @@ function xcodeArguments({
     'iphonesimulator',
     '-destination',
     `id=${device}`,
-    '-derivedDataPath',
-    derivedDataPath,
     'ARCHS=arm64',
     'ONLY_ACTIVE_ARCH=YES',
   ];
@@ -705,7 +696,6 @@ export async function runPreviewCapture({
   onProgress = () => {},
   onFailure = () => {},
 }) {
-  let temporaryPath;
   let stagingPath;
 
   try {
@@ -714,7 +704,6 @@ export async function runPreviewCapture({
     let outputParent = dirname(outputPath);
     await mkdir(outputParent, { recursive: true });
     await validateOutputPath(outputPath);
-    temporaryPath = await mkdtemp(join(tmpdir(), 'vizzly-previews-'));
     stagingPath = await mkdtemp(join(outputParent, '.vizzly-previews-'));
 
     let xcodeVersion = await assertSupportedToolchain();
@@ -728,13 +717,11 @@ export async function runPreviewCapture({
     onProgress(
       `${simulatorAction} booted iOS Simulator: ${formatSimulator(simulator)}`
     );
-    let derivedDataPath = join(temporaryPath, 'DerivedData');
     let { appPath, settings } = await buildApplication({
       container,
       scheme: resolvedScheme,
       device: resolvedDevice,
       configuration,
-      derivedDataPath,
     });
     await assertPreviewRuntimeIntegrated(appPath, settings);
     onProgress('Verified linked Vizzly preview runtime');
@@ -809,9 +796,6 @@ export async function runPreviewCapture({
       cause: error,
     });
   } finally {
-    if (temporaryPath) {
-      await rm(temporaryPath, { recursive: true, force: true });
-    }
     if (stagingPath) {
       await rm(stagingPath, { recursive: true, force: true });
     }

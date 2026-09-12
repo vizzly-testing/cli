@@ -104,6 +104,9 @@ pnpm exec vizzly previews MyApp.xcworkspace \
 
 Use `xcrun simctl list devices booted` to find the Simulator UDID.
 
+The command uses Xcode's normal DerivedData location, so later runs can reuse
+the project's existing build products instead of starting with a clean build.
+
 ## Local review
 
 For one capture and report:

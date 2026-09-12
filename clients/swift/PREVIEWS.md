@@ -38,6 +38,9 @@ Then add this repository as a Swift Package dependency in Xcode:
 https://github.com/vizzly-testing/cli
 ```
 
+Choose **Exact Version** and enter `0.1.1`. This repository also publishes the
+Vizzly CLI, so do not use a version range for the Swift package.
+
 Add the dynamic `VizzlyPreviewRuntime` product to the app target and choose
 **Embed & Sign**. Install it once from the app initializer:
 

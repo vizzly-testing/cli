@@ -16,7 +16,8 @@ In Xcode:
 
 1. Choose **File → Add Package Dependencies**.
 2. Enter `https://github.com/vizzly-testing/cli`.
-3. Add `VizzlyXCTest` to the UI test target.
+3. Choose **Exact Version** and enter `0.1.1`.
+4. Add `VizzlyXCTest` to the UI test target.
 
 ## 3. Start local TDD
 

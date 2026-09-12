@@ -29,6 +29,8 @@ Add this repository as a Swift Package dependency, then add the dynamic
 https://github.com/vizzly-testing/cli
 ```
 
+Choose **Exact Version** and enter `0.1.1`.
+
 Install the runtime once from the app initializer:
 
 ```swift
@@ -66,6 +68,8 @@ Add this repository as a Swift Package dependency:
 ```text
 https://github.com/vizzly-testing/cli
 ```
+
+Choose **Exact Version** and enter `0.1.1`.
 
 Add the `VizzlyXCTest` product to your UI test target. Then capture the app or a
 single element from a test:

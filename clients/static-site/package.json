@@ -67,7 +67,7 @@
     "@vizzly-testing/cli": ">=0.24.0"
   },
   "dependencies": {
-    "cosmiconfig": "^9.0.0",
+    "cosmiconfig": "^10.0.0",
     "fast-xml-parser": "^5.8.0",
     "playwright-core": "^1.50.0",
     "serve-handler": "^6.1.5",

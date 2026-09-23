@@ -20,6 +20,12 @@ test workflow in charge of how the UI is exercised.
 
 ## Inspect And Verify
 
+For cloud API queries, selectable fields, or an authorized review decision,
+start with `vizzly api schema --json` and follow
+[schema discovery](references/cli-context.md#query-the-cloud-api).
+Discover request details as needed instead of loading the entire OpenAPI document.
+The `context` commands below remain useful for local evidence and guided inspection.
+
 1. Choose the supplied cloud build or comparison when one is named. Otherwise,
    use current local evidence or find the relevant cloud build.
 2. Request bounded JSON:
@@ -57,7 +63,7 @@ test workflow in charge of how the UI is exercised.
 ## Load A Reference When Needed
 
 - [CLI context](references/cli-context.md): local and cloud evidence, build
-  discovery, drill-downs, images, and TDD lifecycle.
+  discovery, schema queries, review decisions, images, and TDD lifecycle.
 - [SDK capture](references/sdks.md): add or change screenshot capture code.
 - [Dynamic content](references/dynamic-content.md): investigate unstable
   content and screenshot-specific tolerances.

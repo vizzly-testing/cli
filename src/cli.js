@@ -1532,9 +1532,9 @@ program
     await whoamiCommand(options, globalOptions);
   });
 
-// Save user's PATH for menubar app (non-blocking, runs in background)
-// This auto-configures the menubar app so it can find package runners/node
-saveUserPath().catch(() => {});
+// Save PATH for the menubar app before commands read or update credentials
+// in the same config file.
+await saveUserPath().catch(() => {});
 
 let commandNames = new Set(program.commands.map(command => command.name()));
 let nestedCommandNames = new Map(

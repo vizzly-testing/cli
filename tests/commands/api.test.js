@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -28,7 +28,37 @@ before(async () => {
       headers: req.headers,
       body,
     });
-    if (req.url === '/api/image') {
+    if (req.url === '/api/broken-image') {
+      res.writeHead(200, {
+        'Content-Type': 'image/png',
+        'Content-Length': '100',
+        Connection: 'close',
+      });
+      res.end('partial');
+    } else if (req.url === '/api/auth/cli/refresh') {
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          accessToken: 'refreshed-user',
+          refreshToken: 'new-refresh',
+          expiresIn: 900,
+        })
+      );
+    } else if (
+      req.url === '/api/refreshable' &&
+      req.headers.authorization !== 'Bearer refreshed-user'
+    ) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'expired' }));
+    } else if (req.url === '/api/problem') {
+      res.writeHead(422, { 'Content-Type': 'application/problem+json' });
+      res.end(
+        JSON.stringify({
+          message: 'Invalid decision',
+          code: 'INVALID_DECISION',
+        })
+      );
+    } else if (req.url === '/api/image') {
       res.setHeader('Content-Type', 'image/png');
       res.end(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
     } else if (req.url === '/api/redirect') {
@@ -208,4 +238,89 @@ test('schema discovery works before login but ordinary data reads require creden
   });
   assert.equal(result.code, 1);
   assert.equal(requests.length, before);
+});
+
+async function credentialHome(name) {
+  let home = join(directory, name);
+  await mkdir(home);
+  await writeFile(
+    join(home, 'config.json'),
+    JSON.stringify({
+      auth: { accessToken: 'logged-in-user', refreshToken: 'saved-refresh' },
+      projectLink: {
+        active: 'fixture',
+        links: {
+          fixture: { apiUrl: origin, token: 'vzt_linked', storage: 'file' },
+        },
+      },
+    })
+  );
+  return { VIZZLY_HOME: home, VIZZLY_TOKEN: '' };
+}
+test('CLI prefers login over linked upload credentials and honors explicit tokens', async () => {
+  let environment = await credentialHome('credentials');
+  for (let [args, env, expected] of [
+    [[], {}, 'logged-in-user'],
+    [[], { VIZZLY_TOKEN: 'vzt_environment' }, 'vzt_environment'],
+    [
+      ['--token', 'vzt_explicit'],
+      { VIZZLY_TOKEN: 'vzt_environment' },
+      'vzt_explicit',
+    ],
+  ]) {
+    let result = await cli(['api', '/api/review', ...args], '', {
+      ...environment,
+      ...env,
+    });
+    assert.equal(result.code, 0, result.stderr + result.stdout);
+    assert.equal(requests.at(-1).headers.authorization, `Bearer ${expected}`);
+  }
+});
+test('CLI refreshes a read once but never replays generic writes', async () => {
+  let environment = await credentialHome('refresh');
+  let before = requests.length;
+  let result = await cli(['api', '/api/refreshable'], '', environment);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.deepEqual(
+    requests.slice(before).map(({ method, url }) => [method, url]),
+    [
+      ['GET', '/api/refreshable'],
+      ['POST', '/api/auth/cli/refresh'],
+      ['GET', '/api/refreshable'],
+    ]
+  );
+  let saved = JSON.parse(
+    await readFile(join(environment.VIZZLY_HOME, 'config.json'), 'utf8')
+  );
+  assert.equal(saved.auth.accessToken, 'refreshed-user');
+  for (let method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+    before = requests.length;
+    result = await cli(
+      ['api', '/api/unauthorized', '-X', method],
+      '',
+      environment
+    );
+    assert.equal(result.code, 1);
+    assert.equal(requests.length, before + 1);
+  }
+});
+test('failed image downloads remove partial files and binary output requires a file', async () => {
+  let path = join(directory, 'partial.png');
+  let result = await cli(['api', '/api/broken-image', '--output', path]);
+  assert.equal(result.code, 1);
+  await assert.rejects(readFile(path), { code: 'ENOENT' });
+  result = await cli(['api', '/api/image']);
+  assert.equal(result.code, 1);
+  assert.match(result.json.data.error.message, /--output/);
+});
+test('HEAD, structured errors, and explicit raw schema paths keep their HTTP behavior', async () => {
+  let result = await cli(['api', '/api/review', '-X', 'HEAD']);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(result.json.data.response, null);
+  result = await cli(['api', '/api/problem']);
+  assert.equal(result.code, 1);
+  assert.match(result.json.data.error.message, /Invalid decision/);
+  result = await cli(['api', '/api/schema']);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(requests.at(-1).url, '/api/schema');
 });

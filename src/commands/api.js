@@ -2,8 +2,7 @@
  * API command - raw API access for power users
  */
 
-import { createWriteStream } from 'node:fs';
-import { readFile, unlink } from 'node:fs/promises';
+import { open, readFile, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -207,15 +206,15 @@ export async function apiCommand(
     });
     if (options.output) {
       let path = resolve(options.output);
-      let file = createWriteStream(path, { flags: 'wx' });
-      let created = false;
-      file.once('open', () => {
-        created = true;
-      });
+      let file = await open(path, 'wx');
       try {
-        await pipeline(response.body || Readable.from([]), file);
+        await pipeline(
+          response.body || Readable.from([]),
+          file.createWriteStream()
+        );
       } catch (error) {
-        if (created) await unlink(path);
+        await file.close();
+        await unlink(path);
         throw error;
       }
       response = {

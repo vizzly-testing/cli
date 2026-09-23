@@ -2,7 +2,11 @@
 import 'dotenv/config';
 import { existsSync, statSync } from 'node:fs';
 import { Option, program } from 'commander';
-import { apiCommand, validateApiOptions } from './commands/api.js';
+import {
+  apiCommand,
+  apiSchemaCommand,
+  validateApiOptions,
+} from './commands/api.js';
 import { baselinesCommand } from './commands/baselines.js';
 import { buildsCommand, validateBuildsOptions } from './commands/builds.js';
 import {
@@ -1170,16 +1174,17 @@ Note: Baselines are stored locally in .vizzly/baselines/ during TDD mode.
     await baselinesCommand(options, globalOptions);
   });
 
-program
+let api = program
   .command('api')
   .description('Make raw API requests (for power users)')
   .argument('<endpoint>', 'API endpoint (e.g., /api/sdk/builds)')
   .option(
     '-X, --method <method>',
-    'HTTP method (GET or POST for build comments)',
+    'HTTP method; discover supported requests with api schema',
     'GET'
   )
-  .option('-d, --data <json>', 'Request body (JSON)')
+  .option('-d, --data <json>', 'JSON body, @file, or @- for stdin')
+  .option('-o, --output <file>', 'Write response bytes to a new file')
   .option(
     '-H, --header <header>',
     'Add header (key:value), can be repeated',
@@ -1200,8 +1205,10 @@ Examples:
   $ vizzly api /api/sdk/builds/abc123/comments -X POST -d '{"content":"Looks good"}'
   $ vizzly api /api/sdk/builds/abc123/comments -X POST -d '{"content":"Nice!"}'
 
-Note: POST is restricted to build comment endpoints. Use dedicated approve/reject commands for review decisions.
-Most operations have dedicated commands (builds, comparisons, approve, etc.).
+Discover operations: vizzly api schema, then vizzly api schema <operation-id>.
+Use the method, version header, parameters and body described there.
+JSON output places the API payload under data.response. Image downloads use --output.
+Writes are never automatically retried after authentication failures.
 `
   )
   .action(async (endpoint, options) => {
@@ -1214,6 +1221,29 @@ Most operations have dedicated commands (builds, comparisons, approve, etc.).
     }
 
     await apiCommand(endpoint, options, globalOptions);
+  });
+
+api
+  .command('schema [operation-id]')
+  .description(
+    'Discover supported API operations and their request/response schemas'
+  )
+  .option('--full', 'Download full OpenAPI (requires --output)')
+  .option(
+    '-q, --query <param>',
+    'Schema view=request, response, or full',
+    (value, previous) => [...(previous || []), value]
+  )
+  .option('-o, --output <file>', 'Write the schema to a new file')
+  .action(async (operationId, options) => {
+    options = { ...api.opts(), ...options };
+    if (options.full && !options.output) {
+      reportValidationErrors([
+        '--full requires --output to avoid dumping the entire schema.',
+      ]);
+      return;
+    }
+    await apiSchemaCommand(operationId, options, getGlobalOptions());
   });
 
 program
@@ -1510,7 +1540,11 @@ let commandNames = new Set(program.commands.map(command => command.name()));
 let nestedCommandNames = new Map(
   program.commands.map(command => [
     command.name(),
-    new Set(command.commands.map(subcommand => subcommand.name())),
+    new Set(
+      command.registeredArguments.length
+        ? []
+        : command.commands.map(subcommand => subcommand.name())
+    ),
   ])
 );
 let normalizedArgv = normalizeJsonArgv(process.argv, commandNames);

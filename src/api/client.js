@@ -76,6 +76,11 @@ export function createApiClient(options = {}) {
    * @returns {Promise<Object>} Parsed JSON response
    */
   async function request(endpoint, fetchOptions = {}, isRetry = false) {
+    let {
+      responseType = 'json',
+      retryAuthentication = true,
+      ...httpOptions
+    } = fetchOptions;
     let url = buildApiUrl(baseUrl, endpoint);
 
     let headers = buildRequestHeaders({
@@ -88,7 +93,7 @@ export function createApiClient(options = {}) {
     let response;
     try {
       response = await fetch(url, {
-        ...fetchOptions,
+        ...httpOptions,
         headers,
       });
     } catch (error) {
@@ -106,6 +111,7 @@ export function createApiClient(options = {}) {
 
       // Handle 401 with token refresh
       if (
+        retryAuthentication &&
         shouldRetryWithRefresh(
           response.status,
           isRetry,
@@ -134,6 +140,18 @@ export function createApiClient(options = {}) {
       });
     }
 
+    if (responseType === 'response') return response;
+    if (response.status === 204 || httpOptions.method === 'HEAD') return null;
+    let contentType = response.headers?.get?.('content-type');
+    if (
+      contentType &&
+      !/application\/(?:[\w.+-]+\+)?json\b/i.test(contentType)
+    ) {
+      throw new VizzlyError(
+        'This response contains file data. Use api --output <file> to download it.',
+        'BINARY_RESPONSE'
+      );
+    }
     return response.json();
   }
 
@@ -157,6 +175,7 @@ export function createApiClient(options = {}) {
       let refreshUrl = buildApiUrl(baseUrl, '/api/auth/cli/refresh');
       let response = await fetch(refreshUrl, {
         method: 'POST',
+        redirect: 'error',
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': userAgent,

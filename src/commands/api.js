@@ -2,11 +2,16 @@
  * API command - raw API access for power users
  */
 
+import { createWriteStream } from 'node:fs';
+import { readFile, unlink } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { createApiClient as defaultCreateApiClient } from '../api/index.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import * as defaultOutput from '../utils/output.js';
 
-let ALLOWED_POST_ENDPOINTS = [/^\/api\/sdk\/builds\/[^/]+\/comments$/];
+let API_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
 function createApiCommandDeps(deps = {}) {
   return {
@@ -37,10 +42,6 @@ export function normalizeApiEndpoint(endpoint) {
 
 export function normalizeApiMethod(method = 'GET') {
   return method.toUpperCase();
-}
-
-export function isAllowedPostEndpoint(endpoint) {
-  return ALLOWED_POST_ENDPOINTS.some(pattern => pattern.test(endpoint));
 }
 
 export function parseApiHeaders(headerOption) {
@@ -82,24 +83,15 @@ export function appendApiQuery(endpoint, queryOption) {
 
 export function validateApiRequest({ endpoint, method, hasData = false }) {
   let errors = [];
-
-  if (method !== 'GET' && method !== 'POST') {
-    errors.push(
-      `Method ${method} not allowed. Use GET for queries or POST for build comments.`
-    );
-    return errors;
+  if (!API_METHODS.includes(method)) {
+    errors.push(`Unsupported HTTP method: ${method}`);
   }
-
-  if (method === 'POST' && !isAllowedPostEndpoint(endpoint)) {
-    errors.push(
-      `POST not allowed for ${endpoint}. Only build comment endpoints support POST.`
-    );
+  if (hasData && ['GET', 'HEAD'].includes(method)) {
+    errors.push('Request data requires a method other than GET or HEAD.');
   }
-
-  if (hasData && method !== 'POST') {
-    errors.push('Request data requires --method POST.');
+  if (/^[a-z][a-z\d+.-]*:/i.test(endpoint) || endpoint.startsWith('//')) {
+    errors.push('Use an API path on the configured Vizzly server.');
   }
-
   return errors;
 }
 
@@ -107,7 +99,7 @@ export function buildApiRequest({ endpoint, options = {} }) {
   let normalizedEndpoint = normalizeApiEndpoint(endpoint);
   let method = normalizeApiMethod(options.method || 'GET');
   let errors = validateApiRequest({
-    endpoint: normalizedEndpoint,
+    endpoint,
     method,
     hasData: options.data !== undefined,
   });
@@ -119,7 +111,7 @@ export function buildApiRequest({ endpoint, options = {} }) {
   let headers = parseApiHeaders(options.header);
   let requestOptions = { method };
 
-  if (options.data && method === 'POST') {
+  if (options.data !== undefined && !['GET', 'HEAD'].includes(method)) {
     headers['Content-Type'] = headers['Content-Type'] || 'application/json';
     requestOptions.body = options.data;
   }
@@ -161,15 +153,27 @@ export async function apiCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Validate API token
-    if (!config.apiKey) {
+    // A linked project's upload credential must not hide an existing user login.
+    // Explicit file/env/--token credentials still take precedence.
+    let token = config.linkedProject
+      ? config.userToken || config.apiKey
+      : config.apiKey || config.userToken;
+    if (!token && !options.schemaDiscovery) {
       output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+        'Authentication required. Run vizzly login or set VIZZLY_TOKEN.'
       );
       output.cleanup();
       exit(1);
       return;
     }
+
+    if (options.data?.startsWith('@')) {
+      let source = options.data.slice(1);
+      let data =
+        source === '-' ? await readStdin() : await readFile(source, 'utf8');
+      options = { ...options, data };
+    }
+    if (options.data !== undefined) JSON.parse(options.data);
 
     let { errors, method, normalizedEndpoint, requestOptions } =
       buildApiRequest({ endpoint, options });
@@ -179,14 +183,7 @@ export async function apiCommand(
 
     if (errors.length > 0) {
       output.error(errors[0]);
-      if (method === 'POST') {
-        output.hint(
-          'Use GET for queries, or use dedicated commands (vizzly approve, vizzly reject, vizzly comment)'
-        );
-      }
-      output.hint(
-        'Most raw API use should stay read-only; prefer dedicated commands for mutations.'
-      );
+      output.hint('Use vizzly api schema to discover supported operations.');
       output.cleanup();
       exit(1);
       return;
@@ -197,11 +194,35 @@ export async function apiCommand(
 
     let client = createApiClient({
       baseUrl: config.apiUrl,
-      token: config.apiKey,
+      token,
       command: 'api',
+      allowNoToken: Boolean(options.schemaDiscovery),
     });
 
-    let response = await client.request(normalizedEndpoint, requestOptions);
+    let response = await client.request(normalizedEndpoint, {
+      ...requestOptions,
+      redirect: 'error',
+      retryAuthentication: ['GET', 'HEAD'].includes(method),
+      responseType: options.output ? 'response' : 'json',
+    });
+    if (options.output) {
+      let path = resolve(options.output);
+      let file = createWriteStream(path, { flags: 'wx' });
+      let created = false;
+      file.once('open', () => {
+        created = true;
+      });
+      try {
+        await pipeline(response.body || Readable.from([]), file);
+      } catch (error) {
+        if (created) await unlink(path);
+        throw error;
+      }
+      response = {
+        file: path,
+        contentType: response.headers.get('content-type'),
+      };
+    }
     output.stopSpinner();
 
     // Output response
@@ -267,15 +288,36 @@ export function validateApiOptions(endpoint, options = {}) {
     return errors;
   }
 
-  let normalizedEndpoint = normalizeApiEndpoint(endpoint);
   let method = normalizeApiMethod(options.method || 'GET');
   errors.push(
     ...validateApiRequest({
-      endpoint: normalizedEndpoint,
+      endpoint,
       method,
       hasData: options.data !== undefined,
     })
   );
 
   return errors;
+}
+
+async function readStdin() {
+  let chunks = [];
+  for await (let chunk of process.stdin) chunks.push(chunk);
+  return Buffer.concat(chunks.map(chunk => Buffer.from(chunk))).toString(
+    'utf8'
+  );
+}
+
+export async function apiSchemaCommand(operationId, options, globalOptions) {
+  let endpoint = '/api/sdk/schema';
+  if (operationId) {
+    endpoint += `/${encodeURIComponent(operationId)}`;
+    if (options.full)
+      options = { ...options, query: [...(options.query || []), 'view=full'] };
+  } else if (options.full) endpoint += '/openapi';
+  return apiCommand(
+    endpoint,
+    { ...options, schemaDiscovery: true },
+    globalOptions
+  );
 }

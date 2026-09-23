@@ -1,405 +1,211 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { after, before, test } from 'node:test';
 import {
-  apiCommand,
   appendApiQuery,
   buildApiRequest,
-  isAllowedPostEndpoint,
   normalizeApiEndpoint,
-  normalizeApiMethod,
   parseApiHeaders,
   validateApiOptions,
-  validateApiRequest,
 } from '../../src/commands/api.js';
 
-function createMockOutput() {
-  let calls = [];
+let directory, server, origin;
+let requests = [];
+before(async () => {
+  directory = await mkdtemp(join(tmpdir(), 'vizzly-api-command-'));
+  server = createServer(async (req, res) => {
+    let chunks = [];
+    for await (let chunk of req) chunks.push(chunk);
+    let body = Buffer.concat(chunks).toString();
+    requests.push({
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body,
+    });
+    if (req.url === '/api/image') {
+      res.setHeader('Content-Type', 'image/png');
+      res.end(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    } else if (req.url === '/api/redirect') {
+      res.writeHead(302, { Location: `${origin}/api/secret` });
+      res.end();
+    } else if (req.url === '/api/unauthorized') {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'denied' }));
+    } else if (req.method === 'DELETE') {
+      res.writeHead(204);
+      res.end();
+    } else {
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          items: ['one'],
+          received: body ? JSON.parse(body) : null,
+        })
+      );
+    }
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  origin = `http://127.0.0.1:${server.address().port}`;
+});
+after(async () => {
+  await new Promise((resolve, reject) =>
+    server.close(error => (error ? reject(error) : resolve()))
+  );
+  await rm(directory, { recursive: true, force: true });
+});
+async function cli(args, input = '', environment = {}) {
+  let child = spawn(
+    process.execPath,
+    [resolve('src/cli.js'), ...args, '--json'],
+    {
+      cwd: directory,
+      env: {
+        ...process.env,
+        VIZZLY_HOME: join(directory, 'home'),
+        VIZZLY_TOKEN: 'vzt_test',
+        VIZZLY_API_URL: origin,
+        NO_COLOR: '1',
+        ...environment,
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }
+  );
+  let stdout = '',
+    stderr = '';
+  child.stdout.on('data', chunk => {
+    stdout += chunk;
+  });
+  child.stderr.on('data', chunk => {
+    stderr += chunk;
+  });
+  child.stdin.end(input);
+  let [code] = await once(child, 'close');
   return {
-    calls,
-    configure: opts => calls.push({ method: 'configure', args: [opts] }),
-    data: value => calls.push({ method: 'data', args: [value] }),
-    error: (message, error) =>
-      calls.push({ method: 'error', args: [message, error] }),
-    hint: message => calls.push({ method: 'hint', args: [message] }),
-    header: command => calls.push({ method: 'header', args: [command] }),
-    labelValue: (label, value) =>
-      calls.push({ method: 'labelValue', args: [label, value] }),
-    blank: () => calls.push({ method: 'blank', args: [] }),
-    print: message => calls.push({ method: 'print', args: [message] }),
-    startSpinner: message =>
-      calls.push({ method: 'startSpinner', args: [message] }),
-    stopSpinner: () => calls.push({ method: 'stopSpinner', args: [] }),
-    cleanup: () => calls.push({ method: 'cleanup', args: [] }),
+    code,
+    stdout,
+    stderr,
+    json: stdout.trim() ? JSON.parse(stdout) : null,
   };
 }
-
-function createApiHarness(response = { ok: true }) {
-  let output = createMockOutput();
-  let clientConfig = null;
-  let request = null;
-  let exitCode = null;
-
-  return {
-    output,
-    get clientConfig() {
-      return clientConfig;
-    },
-    get request() {
-      return request;
-    },
-    get exitCode() {
-      return exitCode;
-    },
-    deps: {
-      loadConfig: async () => ({
-        apiKey: 'token-123',
-        apiUrl: 'https://api.example.test',
-      }),
-      createApiClient: config => {
-        clientConfig = config;
-        return {
-          request: async (endpoint, options) => {
-            request = { endpoint, options };
-            return response;
-          },
-        };
-      },
-      output,
-      exit: code => {
-        exitCode = code;
-      },
-    },
-  };
-}
-
-describe('commands/api', () => {
-  describe('request helpers', () => {
-    it('normalizes endpoint and method inputs', () => {
-      assert.strictEqual(normalizeApiEndpoint('sdk/builds'), '/api/sdk/builds');
-      assert.strictEqual(
-        normalizeApiEndpoint('/api/sdk/builds'),
-        '/api/sdk/builds'
-      );
-      assert.strictEqual(normalizeApiMethod('post'), 'POST');
-      assert.strictEqual(normalizeApiMethod(), 'GET');
-    });
-
-    it('parses headers and query parameters without losing separators', () => {
-      assert.deepStrictEqual(
-        parseApiHeaders(['X-Test: alpha:beta', 'Accept: application/json']),
-        {
-          'X-Test': 'alpha:beta',
-          Accept: 'application/json',
-        }
-      );
-      assert.strictEqual(
-        appendApiQuery('/api/sdk/builds?existing=1', [
-          'branch=feature/a=b',
-          'limit=5',
-        ]),
-        '/api/sdk/builds?existing=1&branch=feature%2Fa%3Db&limit=5'
-      );
-    });
-
-    it('allows only selected POST endpoints', () => {
-      assert.strictEqual(
-        isAllowedPostEndpoint('/api/sdk/comparisons/cmp-1/approve'),
-        false
-      );
-      assert.strictEqual(
-        isAllowedPostEndpoint('/api/sdk/comparisons/cmp-1/reject'),
-        false
-      );
-      assert.strictEqual(
-        isAllowedPostEndpoint('/api/sdk/builds/build-1/comments'),
-        true
-      );
-      assert.strictEqual(isAllowedPostEndpoint('/api/sdk/builds'), false);
-    });
-
-    it('builds GET and POST request options', () => {
-      assert.deepStrictEqual(
-        buildApiRequest({
-          endpoint: 'sdk/builds',
-          options: {
-            query: ['limit=5'],
-            header: 'X-Test: yes',
-          },
-        }),
-        {
-          errors: [],
-          method: 'GET',
-          normalizedEndpoint: '/api/sdk/builds?limit=5',
-          requestOptions: {
-            method: 'GET',
-            headers: { 'X-Test': 'yes' },
-          },
-        }
-      );
-
-      assert.deepStrictEqual(
-        buildApiRequest({
-          endpoint: '/api/sdk/builds/build-1/comments',
-          options: { method: 'POST', data: '{"content":"LGTM"}' },
-        }),
-        {
-          errors: [],
-          method: 'POST',
-          normalizedEndpoint: '/api/sdk/builds/build-1/comments',
-          requestOptions: {
-            method: 'POST',
-            body: '{"content":"LGTM"}',
-            headers: { 'Content-Type': 'application/json' },
-          },
-        }
-      );
-    });
-
-    it('reports unsafe API requests', () => {
-      assert.deepStrictEqual(
-        validateApiRequest({
-          endpoint: '/api/sdk/builds',
-          method: 'POST',
-        }),
-        [
-          'POST not allowed for /api/sdk/builds. Only build comment endpoints support POST.',
-        ]
-      );
-      assert.deepStrictEqual(
-        validateApiRequest({
-          endpoint: '/api/sdk/builds',
-          method: 'DELETE',
-        }),
-        [
-          'Method DELETE not allowed. Use GET for queries or POST for build comments.',
-        ]
-      );
-      assert.deepStrictEqual(
-        validateApiRequest({
-          endpoint: '/api/sdk/builds',
-          method: 'GET',
-          hasData: true,
-        }),
-        ['Request data requires --method POST.']
-      );
-    });
+test('generic request helpers retain parameter values and reject external origins', () => {
+  assert.equal(normalizeApiEndpoint('sdk/builds'), '/api/sdk/builds');
+  assert.equal(
+    appendApiQuery('/api/builds', ['name=a=b']),
+    '/api/builds?name=a%3Db'
+  );
+  assert.deepEqual(parseApiHeaders('X-Trace: a:b'), { 'X-Trace': 'a:b' });
+  assert.equal(
+    buildApiRequest({
+      endpoint: '/api/review',
+      options: { method: 'POST', data: '{}' },
+    }).requestOptions.body,
+    '{}'
+  );
+  assert.equal(validateApiOptions('/api/test', { method: 'PATCH' }).length, 0);
+  assert.equal(validateApiOptions('/api/test', { data: '{}' }).length, 1);
+  assert.equal(validateApiOptions('https://elsewhere.test/api').length, 1);
+});
+test('actual CLI discovers schemas and preserves the JSON payload envelope', async () => {
+  let result = await cli(['api', 'schema']);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(requests.at(-1).url, '/api/sdk/schema');
+  assert.deepEqual(result.json.data.response.items, ['one']);
+  result = await cli(['api', 'schema', 'sdk.listBuilds']);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(requests.at(-1).url, '/api/sdk/schema/sdk.listBuilds');
+  result = await cli([
+    'api',
+    'schema',
+    'sdk.listBuilds',
+    '-q',
+    'view=response',
+  ]);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(
+    requests.at(-1).url,
+    '/api/sdk/schema/sdk.listBuilds?view=response'
+  );
+});
+test('CLI sends decisions using file or stdin JSON and arbitrary documented headers', async () => {
+  let file = join(directory, 'decision.json');
+  await writeFile(file, '{"decision":"approved"}');
+  let result = await cli([
+    'api',
+    '/api/review',
+    '-X',
+    'POST',
+    '-d',
+    `@${file}`,
+    '-H',
+    'X-Organization: team',
+  ]);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(requests.at(-1).headers['x-organization'], 'team');
+  assert.equal(requests.at(-1).headers.authorization, 'Bearer vzt_test');
+  assert.deepEqual(result.json.data.response.received, {
+    decision: 'approved',
   });
+  result = await cli(
+    ['api', '/api/review', '-X', 'POST', '-d', '@-'],
+    '{"decision":"rejected"}'
+  );
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(result.json.data.response.received.decision, 'rejected');
+});
+test('image output writes real bytes without overwriting an existing file', async () => {
+  let path = join(directory, 'image.png');
+  let result = await cli(['api', '/api/image', '--output', path]);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(result.json.data.response.file, path);
+  assert.deepEqual(
+    await readFile(path),
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  );
+  result = await cli(['api', '/api/image', '--output', path]);
+  assert.equal(result.code, 1);
+  assert.equal((await readFile(path)).length, 8);
+});
+test('empty responses succeed; malformed bodies and HTTP errors fail without replay', async () => {
+  let result = await cli(['api', '/api/review', '-X', 'DELETE']);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(result.json.data.response, null);
+  let before = requests.length;
+  result = await cli(['api', '/api/review', '-X', 'POST', '-d', '{invalid']);
+  assert.equal(result.code, 1);
+  assert.equal(requests.length, before);
+  result = await cli(['api', '/api/unauthorized', '-X', 'POST', '-d', '{}']);
+  assert.equal(result.code, 1);
+  assert.equal(requests.length, before + 1);
+});
+test('CLI refuses redirects and full-schema console dumps', async () => {
+  let before = requests.length;
+  let result = await cli(['api', '/api/redirect']);
+  assert.equal(result.code, 1);
+  assert.equal(requests.length, before + 1);
+  result = await cli(['api', 'schema', '--full']);
+  assert.equal(result.code, 1);
+  assert.equal(requests.length, before + 1);
+});
 
-  describe('validateApiOptions', () => {
-    it('validates endpoint and method options', () => {
-      assert.deepStrictEqual(validateApiOptions('/api/sdk/builds'), []);
-      assert.deepStrictEqual(validateApiOptions(''), ['Endpoint is required']);
-      assert.deepStrictEqual(validateApiOptions('   '), [
-        'Endpoint is required',
-      ]);
-      assert.deepStrictEqual(
-        validateApiOptions('/api/sdk/builds', { method: 'POST' }),
-        [
-          'POST not allowed for /api/sdk/builds. Only build comment endpoints support POST.',
-        ]
-      );
-      assert.deepStrictEqual(
-        validateApiOptions('/api/sdk/builds', { method: 'PATCH' }),
-        [
-          'Method PATCH not allowed. Use GET for queries or POST for build comments.',
-        ]
-      );
-      assert.deepStrictEqual(
-        validateApiOptions('/api/sdk/builds', { data: '{"ignored":true}' }),
-        ['Request data requires --method POST.']
-      );
-    });
+test('schema discovery works before login but ordinary data reads require credentials', async () => {
+  let result = await cli(['api', 'schema'], '', {
+    VIZZLY_TOKEN: '',
+    VIZZLY_HOME: join(directory, 'anonymous'),
   });
-
-  describe('apiCommand', () => {
-    it('performs a GET request and returns JSON output', async () => {
-      let harness = createApiHarness({ builds: [] });
-
-      await apiCommand(
-        'sdk/builds',
-        { query: ['limit=5'] },
-        { json: true },
-        harness.deps
-      );
-
-      assert.deepStrictEqual(harness.clientConfig, {
-        baseUrl: 'https://api.example.test',
-        token: 'token-123',
-        command: 'api',
-      });
-      assert.deepStrictEqual(harness.request, {
-        endpoint: '/api/sdk/builds?limit=5',
-        options: { method: 'GET' },
-      });
-
-      let dataCall = harness.output.calls.find(call => call.method === 'data');
-      assert.deepStrictEqual(dataCall.args[0], {
-        endpoint: '/api/sdk/builds?limit=5',
-        method: 'GET',
-        response: { builds: [] },
-      });
-    });
-
-    it('performs an allowed POST request with headers and body', async () => {
-      let harness = createApiHarness({ comment: { id: 'comment-1' } });
-
-      await apiCommand(
-        '/api/sdk/builds/build-1/comments',
-        {
-          method: 'POST',
-          data: '{"content":"LGTM"}',
-          header: 'X-Trace: trace-1',
-        },
-        {},
-        harness.deps
-      );
-
-      assert.deepStrictEqual(harness.request, {
-        endpoint: '/api/sdk/builds/build-1/comments',
-        options: {
-          method: 'POST',
-          body: '{"content":"LGTM"}',
-          headers: {
-            'X-Trace': 'trace-1',
-            'Content-Type': 'application/json',
-          },
-        },
-      });
-      assert.ok(
-        harness.output.calls.some(
-          call => call.method === 'labelValue' && call.args[0] === 'Endpoint'
-        )
-      );
-    });
-
-    it('cleans up and exits when no API token is configured', async () => {
-      let output = createMockOutput();
-      let exitCode = null;
-
-      await apiCommand(
-        '/api/sdk/builds',
-        {},
-        {},
-        {
-          loadConfig: async () => ({ apiUrl: 'https://api.example.test' }),
-          output,
-          exit: code => {
-            exitCode = code;
-          },
-        }
-      );
-
-      assert.strictEqual(exitCode, 1);
-      assert.ok(output.calls.some(call => call.method === 'error'));
-      assert.ok(output.calls.some(call => call.method === 'cleanup'));
-    });
-
-    it('blocks unsafe POST requests before creating a client', async () => {
-      let output = createMockOutput();
-      let exitCode = null;
-      let createdClient = false;
-
-      await apiCommand(
-        '/api/sdk/builds',
-        { method: 'POST', data: '{}' },
-        {},
-        {
-          loadConfig: async () => ({
-            apiKey: 'token-123',
-            apiUrl: 'https://api.example.test',
-          }),
-          createApiClient: () => {
-            createdClient = true;
-            return {};
-          },
-          output,
-          exit: code => {
-            exitCode = code;
-          },
-        }
-      );
-
-      assert.strictEqual(exitCode, 1);
-      assert.strictEqual(createdClient, false);
-      assert.ok(output.calls.some(call => call.method === 'error'));
-      assert.ok(output.calls.some(call => call.method === 'cleanup'));
-    });
-
-    it('blocks request data on GET before creating a client', async () => {
-      let output = createMockOutput();
-      let exitCode = null;
-      let createdClient = false;
-
-      await apiCommand(
-        '/api/sdk/builds',
-        { data: '{"silently":"dropped"}' },
-        {},
-        {
-          loadConfig: async () => ({
-            apiKey: 'token-123',
-            apiUrl: 'https://api.example.test',
-          }),
-          createApiClient: () => {
-            createdClient = true;
-            return {};
-          },
-          output,
-          exit: code => {
-            exitCode = code;
-          },
-        }
-      );
-
-      assert.strictEqual(exitCode, 1);
-      assert.strictEqual(createdClient, false);
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'error' &&
-            call.args[0] === 'Request data requires --method POST.'
-        )
-      );
-    });
-
-    it('returns JSON failure details using normalized endpoint and method', async () => {
-      let output = createMockOutput();
-      let exitCode = null;
-      let error = new Error('network failed');
-      error.code = 'network_error';
-      error.context = { status: 503 };
-
-      await apiCommand(
-        'sdk/builds',
-        {},
-        { json: true },
-        {
-          loadConfig: async () => ({
-            apiKey: 'token-123',
-            apiUrl: 'https://api.example.test',
-          }),
-          createApiClient: () => ({
-            request: async () => {
-              throw error;
-            },
-          }),
-          output,
-          exit: code => {
-            exitCode = code;
-          },
-        }
-      );
-
-      assert.strictEqual(exitCode, 1);
-      let dataCall = output.calls.find(call => call.method === 'data');
-      assert.deepStrictEqual(dataCall.args[0], {
-        endpoint: '/api/sdk/builds',
-        method: 'GET',
-        error: {
-          message: 'network failed',
-          code: 'network_error',
-          status: 503,
-        },
-      });
-    });
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(requests.at(-1).headers.authorization, undefined);
+  let before = requests.length;
+  result = await cli(['api', '/api/review'], '', {
+    VIZZLY_TOKEN: '',
+    VIZZLY_HOME: join(directory, 'anonymous'),
   });
+  assert.equal(result.code, 1);
+  assert.equal(requests.length, before);
 });

@@ -1231,7 +1231,7 @@ api
   .option('--full', 'Download full OpenAPI (requires --output)')
   .option(
     '-q, --query <param>',
-    'Schema view=request, response, or full',
+    'Schema view=request, fields, response, or full',
     (value, previous) => [...(previous || []), value]
   )
   .option('-o, --output <file>', 'Write the schema to a new file')

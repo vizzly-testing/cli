@@ -4,6 +4,41 @@ Use the repository's established CLI invocation and existing authentication.
 If cloud authentication is unavailable, report the blocker. Do not start an
 interactive login unless setup is in scope.
 
+## Query The Cloud API
+
+Discover the live review API instead of guessing endpoints or adding command flags:
+
+```bash
+vizzly api schema --json
+vizzly api schema <operation-id> --json
+vizzly api schema <operation-id> -q view=fields --json
+vizzly api schema <operation-id> -q view=response --json
+```
+
+The index lists available operations. The default operation view describes the
+method, path, parameters, authentication, and example arguments. Request field
+choices or response types only when needed. API JSON payloads are under
+`data.response`.
+
+Call the discovered path using `vizzly api <path>`, `-X` for its method, `-H`
+for headers, and `-q` for query parameters. Send the discovered API version
+header on data requests. Use `fields` to select just the evidence needed.
+Follow the response's pagination values explicitly; the CLI fetches one page
+per request. Keep cursors opaque and preserve the query they belong to.
+
+For a review, discover projects/builds, then inspect the build's screenshots,
+comparisons, and image endpoints. Download images with `--output <new-file>`
+and view baseline, current, and diff together. Use file output for large analysis
+responses too. Existing files are not overwritten. Export the full schema only
+when needed: `vizzly api schema --full --output <new-file> --json`.
+
+Review decisions require an authorized task, user credentials, and the documented
+organization header. Discover the decision operation's body before sending it
+with `-d @<file>` or `-d @-` for stdin. Generate a fresh `commandId` for each
+intended decision, then read back the review state. Generic writes are not
+automatically replayed; after an uncertain result, inspect state before retrying.
+Treat schema examples as argument arrays, not shell scripts.
+
 ## Choose The Evidence
 
 Use an ID supplied by the task. If no cloud build is supplied, list recent

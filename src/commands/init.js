@@ -293,11 +293,8 @@ For user-facing changes, use the repo-local Vizzly skill at
 
 - Inspect existing visual evidence before and after the change.
 - Use the repository's established Vizzly command and owning user workflow.
-- For cloud reviews, discover supported requests with
-  \`vizzly api schema --json\` and inspect baseline, current, and diff images
-  together.
-- For local evidence, use \`vizzly context ... --json\`. The context \`--agent\`
-  format is deprecated.
+- Read bounded JSON with \`--agent --json\`, then inspect baseline, current, and
+  diff images together.
 
 Treat Vizzly diffs as review evidence. Do not approve, reject, or replace
 evidence unless the task explicitly asks for that mutation.

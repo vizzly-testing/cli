@@ -24,23 +24,25 @@ For cloud API queries, selectable fields, or an authorized review decision,
 start with `vizzly api schema --json` and follow
 [schema discovery](references/cli-context.md#query-the-cloud-api).
 Discover request details as needed instead of loading the entire OpenAPI document.
-The `context` commands below remain useful for local evidence and guided inspection.
+The `context --agent` formats are deprecated. Use `vizzly context ... --json`
+for local evidence and human-readable `context` output for guided inspection.
 
 1. Choose the supplied cloud build or comparison when one is named. Otherwise,
    use current local evidence or find the relevant cloud build.
-2. Request bounded JSON:
+2. For cloud data, discover the relevant API operations. For locally saved data,
+   request JSON context:
 
    ```bash
-   vizzly context build current --source local --agent --json
-   vizzly context build <build-id> --source cloud --agent --json
+   vizzly api schema --json
+   vizzly context build current --source local --json
    ```
 
 3. Confirm the build, source, branch, timestamps, baseline, review state, and
-   pagination before drawing conclusions. If `has_more` is true, run the
-   returned next-page command before concluding. Missing fields remain unknown.
-4. Follow `suggested_commands` to inspect a comparison. View its baseline,
-   current, and diff images together. If an image cannot be opened, label the
-   result metadata-only; do not call it visual verification.
+   pagination before drawing conclusions. Follow the schema's page instructions
+   for cloud data. Missing fields remain unknown.
+4. For cloud data, discover the comparison and image operations from the schema.
+   View the baseline, current, and diff images together. If an image cannot be
+   opened, label the result metadata-only; do not call it visual verification.
 5. Read image dimensions, viewport, browser, diff regions, fingerprint, and
    relevant history alongside the images. A prior approval is supporting
    evidence, not permission to approve the current comparison.

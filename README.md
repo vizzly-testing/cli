@@ -62,7 +62,7 @@ For a one-off local check, wrap the test command with `tdd run`:
 
 ```bash
 vizzly tdd run "pnpm test" --no-open
-vizzly context build current --source local --agent
+vizzly context build current --source local --json
 ```
 
 That run writes review data under `.vizzly/` and prints a context command you
@@ -96,38 +96,44 @@ vizzly run "pnpm test" --wait
 
 ### Inspect Builds And Diffs
 
-Use `vizzly context` when you need build, comparison, screenshot, or review
-queue data from the terminal.
-
-This is useful for scripts, coding agents, and debugging loops. Instead of
-making a pile of narrow API calls, ask for one focused bundle and get the
-evidence in one place.
+Use `vizzly context` for human summaries and local `.vizzly` evidence. For cloud
+reviews, agents should discover and call the public API through its schema:
 
 ```bash
-# Cloud context for a build or comparison
+vizzly api schema --json
+vizzly api schema sdk.listBuilds --json
+```
+
+The `context build --agent` and `context comparison --agent` formats are
+deprecated and scheduled for removal in v0.38.0. Use the schema-driven API for
+cloud evidence; use `vizzly context ... --json` for local evidence.
+
+```bash
+# Human-readable cloud build context
 vizzly context build abc123 --source cloud
-vizzly context comparison def456 --source cloud --agent --json
+
+# Discover cloud evidence operations for an agent workflow
+vizzly api schema sdk.getBuildContext --json
+vizzly api schema getComparisonContext --json
 
 # Local workspace context from .vizzly/
 vizzly context build current --source local
-vizzly context build current --source local --agent
+vizzly context build current --source local --json
 vizzly context screenshot build-detail-screenshots --source local --json
 vizzly context review-queue --source local --json
 ```
 
-`--json` is the durable automation path. `--agent` gives you the compact API
-handoff for prompt assembly. Build handoffs contain up to 10 records; use the
-exact next-page command returned in `suggested_commands` to continue safely.
-That command carries the API's opaque `--cursor`. Add
-`--include diffs` for raw diff diagnostics, or `--full` when you need the whole
-payload.
+Use `vizzly api schema` to inspect cloud operation inputs, output fields, and
+pagination before making requests. The old compact `--agent` handoff remains
+available during deprecation, but new cloud workflows should use the schema.
+Use `--json` for machine-readable local context.
 
 Local context is read-only and file-backed. It reads your existing `.vizzly`
 workspace state from TDD runs, including screenshots, diffs, and saved hotspot
 or region metadata.
 
-Cloud context is also read-only right now. That is intentional. Vizzly helps you
-see and inspect visual changes, while people still decide what gets approved.
+The `context` commands are read-only. The schema-discovered review API also
+supports explicit decisions when a task asks for them.
 
 ## Capture Screenshots
 

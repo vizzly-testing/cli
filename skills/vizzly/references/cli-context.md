@@ -20,6 +20,10 @@ method, path, parameters, authentication, and example arguments. Request field
 choices or response types only when needed. API JSON payloads are under
 `data.response`.
 
+The `context build --agent` and `context comparison --agent` formats are
+deprecated and will be removed in v0.38.0. Use the schema-driven API for new
+cloud review workflows.
+
 Call the discovered path using `vizzly api <path>`, `-X` for its method, `-H`
 for headers, and `-q` for query parameters. Send the discovered API version
 header on data requests. Use `fields` to select just the evidence needed.
@@ -47,17 +51,18 @@ builds and select the one matching the branch, commit, or pull request:
 ```bash
 vizzly builds --branch <branch> --limit 5 --json
 vizzly status <build-id> --json
-vizzly context build <build-id> --source cloud --agent --json
+vizzly api schema sdk.getBuildContext --json
 ```
 
-Use status for lifecycle facts and build context for visual evidence. Do not
-assume the first returned comparison is the most important; preserve API order
-and inspect the records relevant to the task.
+Use status for lifecycle facts, then follow the discovered build-context
+operation for visual evidence. Do not assume the first returned comparison is
+the most important; preserve API order and inspect the records relevant to the
+task.
 
 For saved local evidence:
 
 ```bash
-vizzly context build current --source local --agent --json
+vizzly context build current --source local --json
 vizzly context screenshot "<screenshot-name>" --source local --json
 vizzly context review-queue --source local --json
 ```
@@ -89,16 +94,17 @@ When a cloud build is in scope:
 
 ```bash
 vizzly run "<existing visual test command>" --wait --json
-vizzly context build <build-id> --source cloud --agent --json
+vizzly api schema --json
 ```
 
 ## Inspect A Comparison
 
-Follow the build response's `suggested_commands`. The direct form is:
+Discover comparison and image operations from the schema instead of using the
+deprecated compact context commands:
 
 ```bash
-vizzly context comparison <comparison-id> --source <local-or-cloud> --agent --json
-vizzly context comparison <comparison-id> --source <local-or-cloud> --agent --include diffs --json
+vizzly api schema getComparisonContext --json
+vizzly api schema sdk.getComparisonImage --json
 ```
 
 Open all three images together. Prefer `original_url` and fall back to `url`:
@@ -121,12 +127,10 @@ vizzly context similar <fingerprint-hash> --source cloud --json
 vizzly context review-queue --source <local-or-cloud> --json
 ```
 
-Use `--include diffs` only when compact diagnostics are insufficient. Request
-comments only when human review context matters.
+Use the documented response and pagination fields to request only the evidence
+needed. Request comments only when human review context matters.
 
 ## Continue Without Guessing
 
-Run returned `suggested_commands` rather than reconstructing IDs, sources, or
-pagination. When more evidence exists, the next-page command carries the API's
-opaque `--cursor`; do not edit or interpret it. Keep follow-up commands pinned
-to the source that produced the evidence.
+Use IDs and pagination values from API responses. Keep cursors opaque and
+preserve the query they belong to when requesting the next page.

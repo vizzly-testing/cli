@@ -179,7 +179,6 @@ describe('commands/run CLI', () => {
       assert.match(result.stderr, /child stderr noise/);
       assert.doesNotMatch(result.stdout, /Screenshots/);
       assert.doesNotMatch(result.stdout, /Results/);
-      assert.doesNotMatch(result.stdout, /Context/);
 
       let payload = parseSingleJson(result.stdout);
       assert.strictEqual(payload.status, 'data');
@@ -188,7 +187,7 @@ describe('commands/run CLI', () => {
       assert.strictEqual(payload.data.comparisons.total, 0);
       assert.strictEqual(
         payload.data.contextCommand,
-        'vizzly context build build-123 --agent --json --source cloud'
+        'vizzly api schema sdk.getBuildContext --json'
       );
       assert.deepStrictEqual(
         requests.map(request => `${request.method} ${request.url}`),
@@ -240,7 +239,7 @@ describe('commands/run CLI', () => {
         assert.match(payload.data.error.message, /503/);
         assert.strictEqual(
           payload.data.contextCommand,
-          'vizzly context build build-123 --agent --json --source cloud'
+          'vizzly api schema sdk.getBuildContext --json'
         );
       },
       { waitStatusCode: 503 }

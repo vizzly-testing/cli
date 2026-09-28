@@ -143,7 +143,7 @@ describe('cli/tdd lifecycle', () => {
     assert.strictEqual(payload.data.summary.total, 0);
     assert.strictEqual(
       payload.data.contextCommand,
-      'vizzly context build current --source local --agent --json'
+      'vizzly context build current --source local --json'
     );
   });
 

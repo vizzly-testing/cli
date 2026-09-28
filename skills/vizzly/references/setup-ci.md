@@ -36,8 +36,8 @@ vizzly finalize "<shared-ci-run-id>" --json
 - `vizzly doctor`: local configuration
 - `vizzly tdd status --json`: a local daemon started by the task
 - `vizzly status <build-id> --json`: cloud lifecycle
-- `vizzly context build <build-id> --source cloud --agent --json`: visual
-  evidence
+- `vizzly api schema --json`: discover supported cloud review operations and
+  their request and response schemas.
 
 If screenshots are absent, verify the existing integration, the test path that
 should capture them, and the active session. If authentication is absent,

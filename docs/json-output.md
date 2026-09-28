@@ -71,7 +71,7 @@ vizzly run "pnpm test" --json
   "data": {
     "buildId": "abc123-def456",
     "status": "completed",
-    "contextCommand": "vizzly context build abc123-def456 --agent --json --source cloud",
+    "contextCommand": "vizzly api schema sdk.getBuildContext --json",
     "screenshotsCaptured": 15,
     "executionTimeMs": 4821,
     "git": {
@@ -83,6 +83,10 @@ vizzly run "pnpm test" --json
   }
 }
 ```
+
+For cloud runs, `contextCommand` starts schema discovery for the build-context
+operation. Use the `buildId` in the response when following that operation's
+path to inspect build evidence.
 
 With `--wait`, includes comparison results:
 
@@ -106,7 +110,7 @@ With `--wait`, includes comparison results:
       "identical": 12
     },
     "visual_review": { "state": "pending" },
-    "contextCommand": "vizzly context build abc123-def456 --agent --json --source cloud",
+    "contextCommand": "vizzly api schema sdk.getBuildContext --json",
     "exitCode": 1
   }
 }
@@ -147,7 +151,7 @@ vizzly tdd run "pnpm test" --json
       "new": 0
     },
     "reportPath": ".vizzly/report/index.html",
-    "contextCommand": "vizzly context build current --source local --agent --json"
+    "contextCommand": "vizzly context build current --source local --json"
   }
 }
 ```
@@ -252,9 +256,15 @@ vizzly tdd list --json
 
 ### `vizzly context`
 
-Use `vizzly context` when you want one machine-friendly bundle instead of several narrow calls.
-This is the best fit for automation, agents, and scripts that need approved baselines, visual
-evidence, review state, comments, preview links, and diff metadata in one place.
+> **Deprecation:** `--agent` on `context build` and `context comparison` remains
+> supported through v0.37.x, with a warning, and is scheduled for removal in
+> v0.38.0. New cloud agent workflows should use `vizzly api schema --json` and
+> the discovered API operations. Use `vizzly context ... --json` for local
+> evidence. The compact payload examples below document the legacy format.
+
+Use `vizzly context` for human summaries and local workspace data. The compact
+agent format below is kept for compatibility during deprecation. For new cloud
+agent workflows, discover the public API with `vizzly api schema --json`.
 
 Every context payload includes a `source` field. That tells you whether the bundle came from
 cloud data or your local `.vizzly` workspace.
@@ -270,13 +280,13 @@ vizzly context build current --source local --json
 vizzly context build current --source local --agent
 ```
 
-Use `--json` for durable automation. Use `--agent --json` when you want the compact handoff that
-agents should read first. The API chooses and orders up to 10 evidence records, then returns an
-opaque cursor when more evidence is available. Follow the suggested next-page command or pass that
-cursor to `--cursor`. Add `--include diffs` for raw Honeydiff diagnostics on the same page.
-`--full` returns the complete build context payload unchanged.
+In the legacy format, `--agent --json` selects a compact handoff. It remains
+available through v0.37.x, but new cloud agent workflows should start with the
+schema-discovered API. Legacy build handoffs contain up to 10 evidence records
+and return an opaque cursor when more evidence is available. `--full` returns
+the complete build context payload unchanged.
 
-Compact agent JSON:
+Legacy compact build JSON:
 
 ```json
 {
@@ -455,11 +465,12 @@ vizzly context comparison cmp-1 --source cloud --agent --json --include diffs
 vizzly context comparison build-detail-screenshots --source local --json
 ```
 
-Raw JSON preserves the provider response. Add `--agent` to request the compact API shape. The focal
-comparison stays in its API-native shape, including `analysis`; the CLI does not rename those facts.
+Raw JSON preserves the provider response. The deprecated `--agent` option
+selects the legacy compact API shape. The focal comparison stays in its API-native
+shape, including `analysis`; the CLI does not rename those facts.
 Similar fingerprint history and recent same-name history stay in separate paged collections.
 
-Agent comparison JSON:
+Legacy compact comparison JSON:
 
 ```json
 {
@@ -1038,8 +1049,8 @@ vizzly status <build-id> --json
     },
     "suggestedCommands": [
       {
-        "label": "Inspect build context",
-        "command": "vizzly --json context build abc123-def456 --agent --source cloud"
+        "label": "Discover build context API",
+        "command": "vizzly api schema sdk.getBuildContext --json"
       },
       {
         "label": "List comparisons",

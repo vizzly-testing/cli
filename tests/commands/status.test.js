@@ -225,8 +225,8 @@ describe('status display decisions', () => {
   it('creates executable visual-context follow-up commands', () => {
     assert.deepStrictEqual(createStatusSuggestedCommands(createBuild()), [
       {
-        label: 'Inspect build context',
-        command: 'vizzly --json context build build-123 --agent --source cloud',
+        label: 'Discover build context API',
+        command: 'vizzly api schema sdk.getBuildContext --json',
       },
       {
         label: 'List comparisons',

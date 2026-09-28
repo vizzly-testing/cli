@@ -77,17 +77,17 @@ export async function resolveBuildDisplayUrl({
 /**
  * Build the follow-up command for a cloud run.
  *
- * JSON consumers need a self-contained command that returns structured
- * evidence when executed. Human output keeps the existing readable summary.
+ * JSON consumers start with the public schema so they can discover the current
+ * request shape. Human output keeps the readable context summary.
  *
  * @param {string} buildId - Cloud build ID to inspect.
  * @param {Object} options - Command output options.
  * @param {boolean} [options.structured=false] - Include machine-readable JSON.
- * @returns {string} Executable build context command.
+ * @returns {string} Cloud context or schema discovery command.
  */
 function buildContextCommand(buildId, { structured = false } = {}) {
-  let jsonFlag = structured ? ' --json' : '';
-  return `vizzly context build ${buildId} --agent${jsonFlag} --source cloud`;
+  if (structured) return 'vizzly api schema sdk.getBuildContext --json';
+  return `vizzly context build ${buildId} --source cloud`;
 }
 
 /**

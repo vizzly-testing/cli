@@ -103,8 +103,8 @@ export function createStatusSuggestedCommands(build = {}) {
 
   return [
     {
-      label: 'Inspect build context',
-      command: `vizzly --json context build ${build.id} --agent --source cloud`,
+      label: 'Discover build context API',
+      command: 'vizzly api schema sdk.getBuildContext --json',
     },
     {
       label: 'List comparisons',

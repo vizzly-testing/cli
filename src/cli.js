@@ -475,6 +475,16 @@ function getGlobalOptions() {
   };
 }
 
+function warnDeprecatedContextAgentOption() {
+  let warning = [
+    '`vizzly context --agent` is deprecated and will be removed in v0.38.0.',
+    'For cloud reviews, use `vizzly api schema --json` and follow the',
+    'discovered operations. For local evidence, use',
+    '`vizzly context ... --json`.',
+  ].join(' ');
+  output.warn(warning);
+}
+
 function reportValidationErrors(errors) {
   if (output.isJson()) {
     output.error('Validation errors', null, { errors });
@@ -984,7 +994,7 @@ contextCmd
   .description('Fetch build context')
   .argument('<build-id>', 'Build ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
-  .option('--agent', 'Output compact context for LLM agents')
+  .option('--agent', 'Deprecated; use API schema for cloud review.')
   .option('--full', 'Return the full build context instead of compact context')
   .option(
     '--cursor <cursor>',
@@ -1000,14 +1010,17 @@ contextCmd
 Examples:
   $ vizzly context build abc123 --source cloud
   $ vizzly context build current --source local
-  $ vizzly context build current --source local --agent
-  $ vizzly context build abc123 --source cloud --agent --json
-  $ vizzly context build abc123 --source cloud --agent --json --include diffs
-  $ vizzly context build abc123 --source cloud --agent --json --full
+  $ vizzly api schema --json
+  $ vizzly context build current --source local --json
+
+Deprecation:
+  --agent will be removed in v0.38.0. Use the API schema for cloud reviews;
+  use --json without --agent for local evidence.
 `
   )
   .action(async (buildId, options) => {
     let globalOptions = getGlobalOptions();
+    if (options.agent) warnDeprecatedContextAgentOption();
     const validationErrors = validateContextBuildOptions(options);
     if (validationErrors.length > 0) {
       reportValidationErrors(validationErrors);
@@ -1021,7 +1034,7 @@ contextCmd
   .description('Fetch a comparison context bundle')
   .argument('<comparison-id>', 'Comparison ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
-  .option('--agent', 'Output compact context for LLM agents')
+  .option('--agent', 'Deprecated; use API schema for cloud review.')
   .option(
     '--full',
     'Return the full comparison context instead of compact context'
@@ -1038,11 +1051,16 @@ Examples:
   $ vizzly context comparison def456 --source cloud
   $ vizzly context comparison def456 --source local
   $ vizzly context comparison def456 --source cloud --json
-  $ vizzly context comparison def456 --source cloud --agent --json
+  $ vizzly api schema getComparisonContext --json
+
+Deprecation:
+  --agent will be removed in v0.38.0. Use the API schema for cloud reviews;
+  use --json without --agent for local evidence.
 `
   )
   .action(async (comparisonId, options) => {
     let globalOptions = getGlobalOptions();
+    if (options.agent) warnDeprecatedContextAgentOption();
     const validationErrors = validateContextComparisonOptions(options);
     if (validationErrors.length > 0) {
       reportValidationErrors(validationErrors);

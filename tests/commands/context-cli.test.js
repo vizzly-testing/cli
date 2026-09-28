@@ -486,6 +486,46 @@ async function withBuildContextApi(callback) {
 }
 
 describe('context CLI integration', () => {
+  it('marks compact --agent context as deprecated without changing JSON stdout', async () => {
+    await withBuildContextApi(async ({ apiUrl }) => {
+      let result = await runCLI(
+        ['--json', 'context', 'build', 'build-123', '--agent'],
+        {
+          cwd: mkdtempSync(join(tmpdir(), 'vizzly-context-deprecation-')),
+          env: {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_TOKEN: 'vzt_test_token',
+          },
+        }
+      );
+
+      assert.strictEqual(result.code, 0, result.stderr);
+      let messages = parseJSONOutput(result.stderr);
+      assert.ok(
+        messages.some(
+          message =>
+            message.status === 'warning' &&
+            message.message.includes('will be removed in v0.38.0') &&
+            message.message.includes('vizzly api schema --json')
+        )
+      );
+      assert.strictEqual(
+        JSON.parse(result.stdout).data.resource,
+        'build_agent_context'
+      );
+    });
+  });
+
+  it('shows the removal plan in both context command help pages', async () => {
+    let buildHelp = await runCLI(['context', 'build', '--help']);
+    let comparisonHelp = await runCLI(['context', 'comparison', '--help']);
+
+    assert.match(buildHelp.stdout, /Deprecated/);
+    assert.match(buildHelp.stdout, /v0\.38\.0/);
+    assert.match(comparisonHelp.stdout, /Deprecated/);
+    assert.match(comparisonHelp.stdout, /v0\.38\.0/);
+  });
+
   it('reports the resolved API origin when cloud context is unreachable', async () => {
     let server = createServer(request => request.socket.destroy());
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -729,17 +769,23 @@ describe('context CLI integration', () => {
 
       assert.strictEqual(oversized.code, 1);
       assert.strictEqual(
-        JSON.parse(oversized.stderr).error.code,
+        parseJSONOutput(oversized.stderr).find(
+          message => message.status === 'error'
+        ).error.code,
         'COMPACT_CONTEXT_OVERSIZED'
       );
       assert.strictEqual(invalid.code, 1);
       assert.strictEqual(
-        JSON.parse(invalid.stderr).error.code,
+        parseJSONOutput(invalid.stderr).find(
+          message => message.status === 'error'
+        ).error.code,
         'COMPACT_CONTEXT_INVALID'
       );
       assert.strictEqual(nearLimit.code, 1);
       assert.strictEqual(
-        JSON.parse(nearLimit.stderr).error.code,
+        parseJSONOutput(nearLimit.stderr).find(
+          message => message.status === 'error'
+        ).error.code,
         'COMPACT_CONTEXT_OVERSIZED'
       );
     });

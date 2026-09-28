@@ -43,7 +43,7 @@ import * as defaultOutput from '../utils/output.js';
  */
 function buildLocalContextCommand({ structured = false } = {}) {
   let jsonFlag = structured ? ' --json' : '';
-  return `vizzly context build current --source local --agent${jsonFlag}`;
+  return `vizzly context build current --source local${jsonFlag}`;
 }
 
 /**

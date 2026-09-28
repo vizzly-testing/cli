@@ -383,7 +383,8 @@ describe('commands/init', () => {
       assert.match(installedSkill, /name: vizzly/);
       assert.match(agentsContent, /Visual Testing With Vizzly/);
       assert.match(agentsContent, /.agents\/skills\/vizzly\/SKILL.md/);
-      assert.match(agentsContent, /--agent --json/);
+      assert.match(agentsContent, /vizzly api schema --json/);
+      assert.match(agentsContent, /vizzly context \.\.\. --json/);
       assert.ok(
         output.calls.some(
           call =>

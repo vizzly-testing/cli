@@ -63,6 +63,12 @@ import {
   tddStopCommand,
   validateTddStartOptions,
 } from './commands/tdd-daemon.js';
+import {
+  acceptTddScreenshot,
+  latestTddScreenshot,
+  listTddScreenshots,
+  showTddScreenshot,
+} from './commands/tdd-screenshots.js';
 import { uploadCommand, validateUploadOptions } from './commands/upload.js';
 import { whoamiCommand } from './commands/whoami.js';
 import { createPluginServices } from './plugin-api.js';
@@ -742,6 +748,46 @@ tddCmd
   .action(async options => {
     let globalOptions = getGlobalOptions();
     await tddListCommand(options, globalOptions);
+  });
+
+let tddScreenshotsCmd = tddCmd
+  .command('screenshots')
+  .description('Browse local TDD screenshots without a server');
+
+tddScreenshotsCmd
+  .command('list')
+  .description('List captured screenshots from the latest local TDD run')
+  .option('--page <number>', 'Page number', Number, 1)
+  .option('--page-size <number>', 'Screenshots per page (max 100)', Number, 20)
+  .option('--status <status>', 'Filter by comparison status')
+  .action(options => {
+    listTddScreenshots(options);
+  });
+
+tddScreenshotsCmd
+  .command('latest [name]')
+  .description('Print the latest captured screenshot path')
+  .action(name => {
+    latestTddScreenshot(name);
+  });
+
+tddScreenshotsCmd
+  .command('show <id-or-name>')
+  .description('Inspect a screenshot; print current image by default')
+  .option(
+    '--image <kind>',
+    'Print image path: current, baseline, diff, or all',
+    'current'
+  )
+  .action((idOrName, options) => {
+    showTddScreenshot(idOrName, options);
+  });
+
+tddScreenshotsCmd
+  .command('accept <id-or-name>')
+  .description('Accept a captured screenshot as its new local baseline')
+  .action(async idOrName => {
+    await acceptTddScreenshot(idOrName);
   });
 
 // TDD Run - One-off test run with ephemeral server (generates static report)

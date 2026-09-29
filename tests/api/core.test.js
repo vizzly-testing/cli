@@ -347,6 +347,25 @@ describe('api/core', () => {
   });
 
   describe('buildBuildPayload', () => {
+    it('includes commit author fields only when present', () => {
+      let base = { name: 'Build', branch: 'main', environment: 'test' };
+
+      let withAuthor = buildBuildPayload({
+        ...base,
+        commit_author_name: 'Ada Lovelace',
+        commit_author_email: 'ada@example.com',
+      });
+      let withoutAuthor = buildBuildPayload({
+        ...base,
+        commit_author_name: null,
+        commit_author_email: undefined,
+      });
+
+      assert.strictEqual(withAuthor.commit_author_name, 'Ada Lovelace');
+      assert.strictEqual(withAuthor.commit_author_email, 'ada@example.com');
+      assert.deepStrictEqual(withoutAuthor, base);
+    });
+
     it('builds basic payload with name, branch, environment', () => {
       let result = buildBuildPayload({
         name: 'My Build',

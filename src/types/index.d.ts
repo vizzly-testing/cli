@@ -165,6 +165,8 @@ export interface UploadOptions {
   branch?: string;
   commit?: string;
   message?: string;
+  commitAuthorName?: string;
+  commitAuthorEmail?: string;
   environment?: string;
   threshold?: number;
   minClusterSize?: number;
@@ -517,6 +519,8 @@ export interface BuildOptions {
   commit_sha?: string;
   message?: string;
   commit_message?: string;
+  commitAuthorName?: string;
+  commitAuthorEmail?: string;
   environment?: string;
   threshold?: number;
   eager?: boolean;

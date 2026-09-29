@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 import {
   getBranch as getCIBranch,
   getCommit as getCICommit,
+  getCommitAuthor as getCICommitAuthor,
   getCommitMessage as getCICommitMessage,
   getPullRequestNumber,
 } from './ci-env.js';
@@ -151,8 +152,52 @@ export async function detectCommitMessage(
   let ciCommitMessage = getCICommitMessage();
   if (ciCommitMessage) return ciCommitMessage;
 
-  // Fallback to regular git log
-  return await getCommitMessage(cwd);
+  // Fallback to git, reading the same commit reported as commit_sha
+  return await readCommit('%B', cwd);
+}
+
+/**
+ * Read a formatted field from the detected build commit.
+ *
+ * Uses detectCommit() so CI checkouts (e.g. GitHub's synthetic PR merge
+ * commit) describe the PR head rather than HEAD. Falls back to HEAD when that
+ * commit is not in local history (shallow clones).
+ *
+ * @param {string} format - git log --format string
+ * @param {string} cwd - Working directory
+ * @returns {Promise<string|null>} Formatted output or null
+ */
+async function readCommit(format, cwd = process.cwd()) {
+  let sha = await detectCommit(null, cwd);
+  let refs = /^[0-9a-f]{4,64}$/i.test(sha || '') ? [sha, 'HEAD'] : ['HEAD'];
+
+  for (let ref of refs) {
+    try {
+      return await runGit(['log', '-1', `--format=${format}`, ref], cwd);
+    } catch {
+      // Commit not available locally, try the next ref
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Detect commit author with environment variable support, falling back to git
+ * @param {string} cwd - Working directory
+ * @returns {Promise<{ name: string|null, email: string|null }>}
+ */
+export async function detectCommitAuthor(cwd = process.cwd()) {
+  let author = getCICommitAuthor();
+  if (author.name && author.email) return author;
+
+  let stdout = await readCommit('%an%x00%ae', cwd);
+  let [gitName, gitEmail] = stdout ? stdout.split('\0') : [];
+
+  return {
+    name: author.name || gitName || null,
+    email: author.email || gitEmail || null,
+  };
 }
 
 /**
@@ -241,10 +286,10 @@ export async function generateBuildNameWithGit(
 ) {
   if (override) return override;
 
-  let branch = await getCurrentBranch(cwd);
-  let shortSha = await getCurrentCommitSha(cwd);
+  let branch = await detectBranch(null, cwd);
+  let shortSha = await detectCommit(null, cwd);
 
-  if (branch && shortSha) {
+  if (branch && branch !== 'unknown' && shortSha) {
     let shortCommit = shortSha.substring(0, 7);
     return `${branch}-${shortCommit}`;
   }

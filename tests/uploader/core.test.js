@@ -175,6 +175,8 @@ describe('uploader/core', () => {
         branch: 'feature/test',
         commit: 'abc123',
         message: 'Test commit',
+        commitAuthorName: 'Ada Lovelace',
+        commitAuthorEmail: 'ada@example.com',
         environment: 'staging',
         threshold: 0.05,
         minClusterSize: 4,
@@ -193,6 +195,8 @@ describe('uploader/core', () => {
         branch: 'feature/test',
         commit_sha: 'abc123',
         commit_message: 'Test commit',
+        commit_author_name: 'Ada Lovelace',
+        commit_author_email: 'ada@example.com',
         environment: 'staging',
         threshold: 0.05,
         metadata: {

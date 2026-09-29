@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import {
   detectBranch,
   detectCommit,
+  detectCommitAuthor,
   detectCommitMessage,
   detectPullRequestNumber,
   generateBuildName,
@@ -20,11 +21,44 @@ import {
   getGitStatus,
   isGitRepository,
 } from '../../src/utils/git.js';
+import { useCleanCIEnv } from '../helpers/ci-env.js';
 
 let execFileAsync = promisify(execFile);
 
 async function runGit(cwd, args) {
   await execFileAsync('git', args, { cwd });
+}
+
+async function gitOutput(cwd, args) {
+  let { stdout } = await execFileAsync('git', args, { cwd });
+  return stdout.trim();
+}
+
+// Recreate GitHub's refs/pull/N/merge checkout: a merge commit of the PR
+// head into base, with GitHub's synthetic "Merge <sha> into <sha>" message
+async function createGitHubMergeCheckout(directory) {
+  let base = await gitOutput(directory, ['rev-parse', 'HEAD']);
+  await runGit(directory, ['checkout', '-q', '-b', 'feature']);
+  await writeFile(join(directory, 'feature.txt'), 'feature\n');
+  await runGit(directory, ['add', 'feature.txt']);
+  await runGit(directory, [
+    'commit',
+    '-q',
+    '--author=PR Author <pr@example.com>',
+    '-m',
+    'Add feature work',
+  ]);
+  let head = await gitOutput(directory, ['rev-parse', 'HEAD']);
+  await runGit(directory, ['checkout', '-q', '--detach', base]);
+  await runGit(directory, [
+    'merge',
+    '-q',
+    '--no-ff',
+    '-m',
+    `Merge ${head} into ${base}`,
+    head,
+  ]);
+  return { base, head };
 }
 
 async function withGitRepo(testFn) {
@@ -45,6 +79,15 @@ async function withGitRepo(testFn) {
 }
 
 describe('utils/git', () => {
+  let ciEnv = useCleanCIEnv();
+
+  function usePullRequestEvent(pullRequest) {
+    process.env.GITHUB_ACTIONS = 'true';
+    process.env.GITHUB_EVENT_PATH = ciEnv.createEventFile({
+      pull_request: pullRequest,
+    });
+  }
+
   describe('generateBuildName', () => {
     it('generates build name with timestamp', () => {
       let name = generateBuildName();
@@ -205,6 +248,48 @@ describe('utils/git', () => {
   });
 
   describe('detectCommitMessage', () => {
+    it('uses the PR title from the GitHub event payload', async () => {
+      await withGitRepo(async directory => {
+        usePullRequestEvent({ title: 'Add dark mode', head: { sha: 'abc' } });
+
+        let message = await detectCommitMessage(null, directory);
+
+        assert.strictEqual(message, 'Add dark mode');
+      });
+    });
+
+    it('reads the PR head commit on a GitHub merge checkout', async () => {
+      await withGitRepo(async directory => {
+        let { head } = await createGitHubMergeCheckout(directory);
+        usePullRequestEvent({ head: { sha: head } });
+
+        let message = await detectCommitMessage(null, directory);
+        let author = await detectCommitAuthor(directory);
+
+        assert.strictEqual(message, 'Add feature work');
+        assert.deepStrictEqual(author, {
+          name: 'PR Author',
+          email: 'pr@example.com',
+        });
+      });
+    });
+
+    it('falls back to HEAD when the PR head is not in local history', async () => {
+      await withGitRepo(async directory => {
+        let { base, head } = await createGitHubMergeCheckout(directory);
+        usePullRequestEvent({ head: { sha: 'f'.repeat(40) } });
+
+        let message = await detectCommitMessage(null, directory);
+        let author = await detectCommitAuthor(directory);
+
+        assert.strictEqual(message, `Merge ${head} into ${base}`);
+        assert.deepStrictEqual(author, {
+          name: 'Vizzly Test',
+          email: 'test@example.com',
+        });
+      });
+    });
+
     it('returns override if provided', async () => {
       let message = await detectCommitMessage('Custom message');
 
@@ -220,7 +305,62 @@ describe('utils/git', () => {
     });
   });
 
+  describe('detectCommitAuthor', () => {
+    it('reads the author from git', async () => {
+      await withGitRepo(async directory => {
+        let author = await detectCommitAuthor(directory);
+
+        assert.deepStrictEqual(author, {
+          name: 'Vizzly Test',
+          email: 'test@example.com',
+        });
+      });
+    });
+
+    it('prefers VIZZLY_COMMIT_AUTHOR_* overrides', async () => {
+      await withGitRepo(async directory => {
+        process.env.VIZZLY_COMMIT_AUTHOR_NAME = 'Ada Lovelace';
+
+        let author = await detectCommitAuthor(directory);
+
+        assert.deepStrictEqual(author, {
+          name: 'Ada Lovelace',
+          email: 'test@example.com',
+        });
+      });
+    });
+
+    it('returns nulls outside a git repository', async () => {
+      let author = await detectCommitAuthor('/non-existent-path-12345');
+
+      assert.deepStrictEqual(author, { name: null, email: null });
+    });
+  });
+
   describe('generateBuildNameWithGit', () => {
+    it('names GitHub PR builds after the head branch and head commit', async () => {
+      await withGitRepo(async directory => {
+        let { head } = await createGitHubMergeCheckout(directory);
+        usePullRequestEvent({ head: { sha: head } });
+        process.env.GITHUB_HEAD_REF = 'feature/dark-mode';
+
+        let name = await generateBuildNameWithGit(null, directory);
+
+        assert.strictEqual(name, `feature/dark-mode-${head.slice(0, 7)}`);
+      });
+    });
+
+    it('uses the local branch and commit outside CI', async () => {
+      await withGitRepo(async directory => {
+        await runGit(directory, ['checkout', '-q', '-b', 'local-work']);
+        let sha = await gitOutput(directory, ['rev-parse', 'HEAD']);
+
+        let name = await generateBuildNameWithGit(null, directory);
+
+        assert.strictEqual(name, `local-work-${sha.slice(0, 7)}`);
+      });
+    });
+
     it('returns override if provided', async () => {
       let name = await generateBuildNameWithGit('Custom Build');
 

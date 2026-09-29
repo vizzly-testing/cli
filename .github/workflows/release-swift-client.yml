@@ -33,7 +33,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: '22.13.1'
+          node-version: '22.14.0'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Upgrade npm for Trusted Publishers
@@ -57,33 +57,26 @@ jobs:
 
       - name: Ensure we have latest main
         run: |
-          git fetch origin main
+          git fetch origin main --tags
           git reset --hard origin/main
 
-      - name: Get current version
-        id: current_version
-        working-directory: ./clients/swift
-        run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Get previous release tag
-        id: previous_tag
-        run: |
-          PREV_TAG=""
-          if git rev-parse "swift/v${{ steps.current_version.outputs.version }}" >/dev/null 2>&1; then
-            PREV_TAG="swift/v${{ steps.current_version.outputs.version }}"
-          fi
-          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
-
-      - name: Bump version
+      - name: Prepare release version
         id: new_version
         working-directory: ./clients/swift
+        env:
+          VERSION_TYPE: ${{ github.event.inputs.version_type }}
         run: |
-          NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version | sed 's/v//')
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "tag=swift/v$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "spm_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          PREVIOUS_TAG=""
+          if git rev-parse "swift/v$CURRENT_VERSION" >/dev/null 2>&1; then
+            PREVIOUS_TAG="swift/v$CURRENT_VERSION"
+          fi
+          NEW_VERSION=$(npm version "$VERSION_TYPE" --no-git-tag-version | sed 's/^v//')
+
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=swift/v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "spm_tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Verify release tags are available
         run: |
@@ -113,10 +106,10 @@ jobs:
 
             Context:
             - Client location: `clients/swift/`
-            - Previous tag: `${{ steps.previous_tag.outputs.tag }}`
+            - Previous tag: `${{ steps.new_version.outputs.previous_tag }}`
             - New version: `${{ steps.new_version.outputs.version }}`
             - This is a monorepo with multiple clients and a CLI.
-            - Compare URL when a previous tag exists: `https://github.com/vizzly-testing/cli/compare/${{ steps.previous_tag.outputs.tag }}...swift/v${{ steps.new_version.outputs.version }}`
+            - Compare URL when a previous tag exists: `https://github.com/vizzly-testing/cli/compare/${{ steps.new_version.outputs.previous_tag }}...swift/v${{ steps.new_version.outputs.version }}`
             - Release URL when this is the first Swift tag: `https://github.com/vizzly-testing/cli/releases/tag/swift/v${{ steps.new_version.outputs.version }}`
 
             Instructions:
@@ -204,9 +197,16 @@ jobs:
 
       - name: Verify npm package version is unpublished
         working-directory: ./clients/swift
+        env:
+          RELEASE_VERSION: ${{ steps.new_version.outputs.version }}
         run: |
-          if npm view @vizzly-testing/swift@${{ steps.new_version.outputs.version }} version >/dev/null 2>&1; then
-            echo "@vizzly-testing/swift@${{ steps.new_version.outputs.version }} is already published"
+          if NPM_OUTPUT=$(npm view "@vizzly-testing/swift@$RELEASE_VERSION" version 2>&1); then
+            echo "@vizzly-testing/swift@$RELEASE_VERSION is already published"
+            exit 1
+          elif printf '%s\n' "$NPM_OUTPUT" | grep -q 'E404'; then
+            :
+          else
+            printf '%s\n' "$NPM_OUTPUT"
             exit 1
           fi
 
@@ -254,7 +254,7 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ steps.new_version.outputs.tag }}
           name: 📱 Swift SDK v${{ steps.new_version.outputs.version }}

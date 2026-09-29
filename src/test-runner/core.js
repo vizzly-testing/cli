@@ -64,6 +64,8 @@ export function buildApiBuildPayload(options, comparisonConfig = null) {
     environment: options.environment || 'test',
     commit_sha: options.commit,
     commit_message: options.message,
+    commit_author_name: options.commitAuthorName,
+    commit_author_email: options.commitAuthorEmail,
     github_pull_request_number: options.pullRequestNumber,
     parallel_id: options.parallelId,
   };

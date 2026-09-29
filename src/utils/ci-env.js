@@ -131,12 +131,25 @@ export function getCommit() {
 }
 
 /**
- * Get the commit message from CI environment variables
+ * Get the commit message from CI environment variables.
+ *
+ * For GitHub Actions pull_request events, the checkout is a synthetic merge
+ * commit whose message is "Merge <sha> into <sha>", so the PR title from the
+ * event payload is used instead.
+ *
  * @returns {string|null} Commit message or null if not available
  */
 export function getCommitMessage() {
+  if (process.env.VIZZLY_COMMIT_MESSAGE) {
+    return process.env.VIZZLY_COMMIT_MESSAGE;
+  }
+
+  if (process.env.GITHUB_ACTIONS) {
+    let title = getGitHubEvent().pull_request?.title;
+    if (title) return title;
+  }
+
   return (
-    process.env.VIZZLY_COMMIT_MESSAGE || // Vizzly override
     process.env.CI_COMMIT_MESSAGE || // GitLab CI
     process.env.TRAVIS_COMMIT_MESSAGE || // Travis CI
     process.env.BUILDKITE_MESSAGE || // Buildkite
@@ -145,6 +158,30 @@ export function getCommitMessage() {
     process.env.COMMIT_MESSAGE || // Generic
     null
   );
+}
+
+/**
+ * Parse a "Name <email>" author string (GitLab's CI_COMMIT_AUTHOR format)
+ * @param {string|undefined} value - Author string
+ * @returns {{ name: string|null, email: string|null }}
+ */
+function parseAuthorString(value) {
+  let match = value?.match(/^(.*?)\s*<([^>]*)>\s*$/);
+  if (!match) return { name: value?.trim() || null, email: null };
+  return { name: match[1] || null, email: match[2] || null };
+}
+
+/**
+ * Get the commit author from CI environment variables
+ * @returns {{ name: string|null, email: string|null }} Author name and email
+ */
+export function getCommitAuthor() {
+  let gitlab = parseAuthorString(process.env.CI_COMMIT_AUTHOR);
+
+  return {
+    name: process.env.VIZZLY_COMMIT_AUTHOR_NAME || gitlab.name || null,
+    email: process.env.VIZZLY_COMMIT_AUTHOR_EMAIL || gitlab.email || null,
+  };
 }
 
 function parsePullRequestNumber(value) {

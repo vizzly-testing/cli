@@ -127,6 +127,8 @@ describe('uploader/createUploader', () => {
           branch: 'feature/reports',
           commit_sha: undefined,
           commit_message: undefined,
+          commit_author_name: undefined,
+          commit_author_email: undefined,
           environment: 'staging',
           threshold: undefined,
           metadata: {

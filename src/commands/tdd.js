@@ -25,6 +25,7 @@ import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import {
   detectBranch as defaultDetectBranch,
   detectCommit as defaultDetectCommit,
+  detectCommitAuthor as defaultDetectCommitAuthor,
   detectCommitMessage as defaultDetectCommitMessage,
   detectPullRequestNumber as defaultDetectPullRequestNumber,
   generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
@@ -75,6 +76,7 @@ export async function tddCommand(
     runTests = defaultRunTests,
     detectBranch = defaultDetectBranch,
     detectCommit = defaultDetectCommit,
+    detectCommitAuthor = defaultDetectCommitAuthor,
     detectCommitMessage = defaultDetectCommitMessage,
     detectPullRequestNumber = defaultDetectPullRequestNumber,
     generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
@@ -136,6 +138,7 @@ export async function tddCommand(
     let commit = await detectCommit(options.commit || config.build.commit);
     let message =
       options.message || config.build.message || (await detectCommitMessage());
+    let commitAuthor = await detectCommitAuthor();
     let buildName = await generateBuildNameWithGit(
       options.buildName || configuredBuildName
     );
@@ -191,6 +194,8 @@ export async function tddCommand(
       branch,
       commit,
       message,
+      commitAuthorName: commitAuthor.name,
+      commitAuthorEmail: commitAuthor.email,
       environment: config.build.environment,
       pullRequestNumber,
       parallelId: config.parallelId,

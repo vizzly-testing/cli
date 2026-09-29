@@ -108,6 +108,8 @@ describe('test-runner/core', () => {
         environment: 'staging',
         commit: 'abc123',
         message: 'Test commit',
+        commitAuthorName: 'Ada Lovelace',
+        commitAuthorEmail: 'ada@example.com',
         pullRequestNumber: 42,
         parallelId: 'parallel-1',
       };
@@ -120,6 +122,8 @@ describe('test-runner/core', () => {
         environment: 'staging',
         commit_sha: 'abc123',
         commit_message: 'Test commit',
+        commit_author_name: 'Ada Lovelace',
+        commit_author_email: 'ada@example.com',
         github_pull_request_number: 42,
         parallel_id: 'parallel-1',
       });

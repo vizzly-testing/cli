@@ -1,12 +1,11 @@
 import assert from 'node:assert';
-import { mkdtempSync, unlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { unlinkSync } from 'node:fs';
+import { describe, it } from 'node:test';
 import {
   getBranch,
   getCIProvider,
   getCommit,
+  getCommitAuthor,
   getCommitMessage,
   getGitHubEvent,
   getPullRequestBaseRef,
@@ -17,131 +16,10 @@ import {
   isPullRequest,
   resetGitHubEventCache,
 } from '../../src/utils/ci-env.js';
+import { useCleanCIEnv } from '../helpers/ci-env.js';
 
 describe('utils/ci-env', () => {
-  let originalEnv;
-  let tempFilesToCleanup = [];
-
-  beforeEach(() => {
-    originalEnv = { ...process.env };
-    tempFilesToCleanup = [];
-    // Clear all CI-related env vars
-    let ciVars = [
-      'VIZZLY_BRANCH',
-      'VIZZLY_COMMIT_SHA',
-      'VIZZLY_COMMIT_MESSAGE',
-      'VIZZLY_PR_NUMBER',
-      'VIZZLY_PR_HEAD_SHA',
-      'VIZZLY_PR_BASE_SHA',
-      'VIZZLY_PR_HEAD_REF',
-      'VIZZLY_PR_BASE_REF',
-      'GITHUB_ACTIONS',
-      'GITHUB_HEAD_REF',
-      'GITHUB_REF_NAME',
-      'GITHUB_SHA',
-      'GITHUB_REF',
-      'GITHUB_EVENT_NAME',
-      'GITHUB_BASE_REF',
-      'GITLAB_CI',
-      'CI_COMMIT_REF_NAME',
-      'CI_COMMIT_SHA',
-      'CI_COMMIT_MESSAGE',
-      'CI_MERGE_REQUEST_ID',
-      'CI_MERGE_REQUEST_SOURCE_BRANCH_NAME',
-      'CI_MERGE_REQUEST_TARGET_BRANCH_NAME',
-      'CI_MERGE_REQUEST_TARGET_BRANCH_SHA',
-      'CIRCLECI',
-      'CIRCLE_BRANCH',
-      'CIRCLE_SHA1',
-      'CIRCLE_PULL_REQUEST',
-      'TRAVIS',
-      'TRAVIS_BRANCH',
-      'TRAVIS_COMMIT',
-      'TRAVIS_COMMIT_MESSAGE',
-      'TRAVIS_PULL_REQUEST',
-      'TRAVIS_PULL_REQUEST_BRANCH',
-      'BUILDKITE',
-      'BUILDKITE_BRANCH',
-      'BUILDKITE_COMMIT',
-      'BUILDKITE_MESSAGE',
-      'BUILDKITE_PULL_REQUEST',
-      'BUILDKITE_PULL_REQUEST_BASE_BRANCH',
-      'DRONE',
-      'DRONE_BRANCH',
-      'DRONE_COMMIT_SHA',
-      'DRONE_COMMIT_MESSAGE',
-      'DRONE_PULL_REQUEST',
-      'DRONE_SOURCE_BRANCH',
-      'DRONE_TARGET_BRANCH',
-      'JENKINS_URL',
-      'BRANCH_NAME',
-      'GIT_BRANCH',
-      'GIT_COMMIT',
-      'ghprbPullId',
-      'ghprbSourceBranch',
-      'ghprbTargetBranch',
-      'ghprbActualCommit',
-      'BITBUCKET_BRANCH',
-      'BITBUCKET_COMMIT',
-      'BITBUCKET_BUILD_NUMBER',
-      'WERCKER',
-      'WERCKER_GIT_BRANCH',
-      'WERCKER_GIT_COMMIT',
-      'APPVEYOR',
-      'APPVEYOR_REPO_BRANCH',
-      'APPVEYOR_REPO_COMMIT',
-      'APPVEYOR_REPO_COMMIT_MESSAGE',
-      'APPVEYOR_PULL_REQUEST_NUMBER',
-      'APPVEYOR_PULL_REQUEST_HEAD_REPO_BRANCH',
-      'TF_BUILD',
-      'AZURE_HTTP_USER_AGENT',
-      'BUILD_SOURCEBRANCH',
-      'BUILD_SOURCEVERSION',
-      'SYSTEM_PULLREQUEST_PULLREQUESTID',
-      'SYSTEM_PULLREQUEST_SOURCEBRANCH',
-      'SYSTEM_PULLREQUEST_TARGETBRANCH',
-      'CODEBUILD_BUILD_ID',
-      'CODEBUILD_WEBHOOK_HEAD_REF',
-      'CODEBUILD_RESOLVED_SOURCE_VERSION',
-      'SEMAPHORE',
-      'SEMAPHORE_GIT_BRANCH',
-      'SEMAPHORE_GIT_SHA',
-      'HEROKU_TEST_RUN_ID',
-      'HEROKU_TEST_RUN_COMMIT_VERSION',
-      'COMMIT_SHA',
-      'HEAD_COMMIT',
-      'SHA',
-      'COMMIT_MESSAGE',
-      'GITHUB_EVENT_PATH',
-    ];
-    for (let v of ciVars) {
-      delete process.env[v];
-    }
-    // Reset the GitHub event cache between tests
-    resetGitHubEventCache();
-  });
-
-  afterEach(() => {
-    for (let file of tempFilesToCleanup) {
-      try {
-        unlinkSync(file);
-      } catch {
-        // File was already cleaned up or does not exist.
-      }
-    }
-    process.env = originalEnv;
-  });
-
-  function createTempEventFile(payload) {
-    let tempDir = mkdtempSync(join(tmpdir(), 'vizzly-test-'));
-    let eventPath = join(tempDir, 'event.json');
-    writeFileSync(
-      eventPath,
-      typeof payload === 'string' ? payload : JSON.stringify(payload)
-    );
-    tempFilesToCleanup.push(eventPath);
-    return eventPath;
-  }
+  let ciEnv = useCleanCIEnv();
 
   describe('getBranch', () => {
     it('returns null when no CI env vars set', () => {
@@ -212,7 +90,7 @@ describe('utils/ci-env', () => {
     });
 
     it('reads the PR head SHA from a GitHub Actions event file', () => {
-      let eventPath = createTempEventFile({
+      let eventPath = ciEnv.createEventFile({
         pull_request: {
           head: { sha: 'pr-head-sha-abc123' },
           base: { sha: 'base-sha-def456' },
@@ -239,7 +117,7 @@ describe('utils/ci-env', () => {
     });
 
     it('falls back to GITHUB_SHA when the event is not a pull request', () => {
-      let eventPath = createTempEventFile({ ref: 'refs/heads/main' });
+      let eventPath = ciEnv.createEventFile({ ref: 'refs/heads/main' });
 
       process.env.GITHUB_ACTIONS = 'true';
       process.env.GITHUB_EVENT_PATH = eventPath;
@@ -273,6 +151,70 @@ describe('utils/ci-env', () => {
       process.env.CI_COMMIT_MESSAGE = 'fix: bug';
 
       assert.strictEqual(getCommitMessage(), 'fix: bug');
+    });
+
+    it('uses the PR title for GitHub Actions pull_request events', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = ciEnv.createEventFile({
+        pull_request: { title: 'Add dark mode', head: { sha: 'abc' } },
+      });
+
+      assert.strictEqual(getCommitMessage(), 'Add dark mode');
+    });
+
+    it('prefers VIZZLY_COMMIT_MESSAGE over the PR title', () => {
+      process.env.VIZZLY_COMMIT_MESSAGE = 'vizzly message';
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = ciEnv.createEventFile({
+        pull_request: { title: 'Add dark mode' },
+      });
+
+      assert.strictEqual(getCommitMessage(), 'vizzly message');
+    });
+
+    it('returns null for GitHub Actions push events', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = ciEnv.createEventFile({
+        ref: 'refs/heads/main',
+      });
+
+      assert.strictEqual(getCommitMessage(), null);
+    });
+  });
+
+  describe('getCommitAuthor', () => {
+    it('returns nulls when no CI env vars set', () => {
+      assert.deepStrictEqual(getCommitAuthor(), { name: null, email: null });
+    });
+
+    it('reads VIZZLY_COMMIT_AUTHOR_NAME and VIZZLY_COMMIT_AUTHOR_EMAIL', () => {
+      process.env.VIZZLY_COMMIT_AUTHOR_NAME = 'Ada Lovelace';
+      process.env.VIZZLY_COMMIT_AUTHOR_EMAIL = 'ada@example.com';
+      process.env.CI_COMMIT_AUTHOR = 'Someone Else <else@example.com>';
+
+      assert.deepStrictEqual(getCommitAuthor(), {
+        name: 'Ada Lovelace',
+        email: 'ada@example.com',
+      });
+    });
+
+    it('parses GitLab CI_COMMIT_AUTHOR', () => {
+      process.env.CI_COMMIT_AUTHOR = 'Grace Hopper <grace@example.com>';
+
+      assert.deepStrictEqual(getCommitAuthor(), {
+        name: 'Grace Hopper',
+        email: 'grace@example.com',
+      });
+    });
+
+    it('lets a single override win per field', () => {
+      process.env.VIZZLY_COMMIT_AUTHOR_EMAIL = 'override@example.com';
+      process.env.CI_COMMIT_AUTHOR = 'Grace Hopper <grace@example.com>';
+
+      assert.deepStrictEqual(getCommitAuthor(), {
+        name: 'Grace Hopper',
+        email: 'override@example.com',
+      });
     });
   });
 
@@ -403,7 +345,7 @@ describe('utils/ci-env', () => {
     });
 
     it('reads the PR head SHA from a GitHub Actions event file', () => {
-      let eventPath = createTempEventFile({
+      let eventPath = ciEnv.createEventFile({
         pull_request: {
           head: { sha: 'pr-head-sha-from-event' },
           base: { sha: 'base-sha' },
@@ -437,7 +379,7 @@ describe('utils/ci-env', () => {
     });
 
     it('reads the PR base SHA from a GitHub Actions event file', () => {
-      let eventPath = createTempEventFile({
+      let eventPath = ciEnv.createEventFile({
         pull_request: {
           head: { sha: 'head-sha' },
           base: { sha: 'base-sha-from-event' },
@@ -459,7 +401,7 @@ describe('utils/ci-env', () => {
     });
 
     it('parses and caches the event file', () => {
-      let eventPath = createTempEventFile({ action: 'opened', number: 42 });
+      let eventPath = ciEnv.createEventFile({ action: 'opened', number: 42 });
 
       process.env.GITHUB_EVENT_PATH = eventPath;
       resetGitHubEventCache();
@@ -468,15 +410,12 @@ describe('utils/ci-env', () => {
       assert.deepStrictEqual(event, { action: 'opened', number: 42 });
 
       unlinkSync(eventPath);
-      tempFilesToCleanup = tempFilesToCleanup.filter(
-        file => file !== eventPath
-      );
 
       assert.deepStrictEqual(getGitHubEvent(), event);
     });
 
     it('returns an empty object for invalid JSON', () => {
-      let eventPath = createTempEventFile('not valid json {{{');
+      let eventPath = ciEnv.createEventFile('not valid json {{{');
 
       process.env.GITHUB_EVENT_PATH = eventPath;
       resetGitHubEventCache();

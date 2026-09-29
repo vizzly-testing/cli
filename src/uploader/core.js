@@ -132,6 +132,8 @@ export function buildBuildInfo(options, defaultBranch = 'main') {
     branch: options.branch || defaultBranch || 'main',
     commit_sha: options.commit,
     commit_message: options.message,
+    commit_author_name: options.commitAuthorName,
+    commit_author_email: options.commitAuthorEmail,
     environment: options.environment || 'production',
     threshold: options.threshold,
     github_pull_request_number: options.pullRequestNumber,

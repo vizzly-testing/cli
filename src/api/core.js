@@ -159,6 +159,14 @@ export function buildBuildPayload(options) {
     payload.commit_message = options.message || options.commit_message;
   }
 
+  if (options.commit_author_name) {
+    payload.commit_author_name = options.commit_author_name;
+  }
+
+  if (options.commit_author_email) {
+    payload.commit_author_email = options.commit_author_email;
+  }
+
   if (options.pullRequestNumber || options.github_pull_request_number) {
     payload.github_pull_request_number =
       options.pullRequestNumber || options.github_pull_request_number;

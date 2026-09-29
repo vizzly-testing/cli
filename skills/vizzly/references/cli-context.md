@@ -86,6 +86,31 @@ vizzly tdd stop --json
 `tdd run` and `tdd start` are alternatives. Stop only a daemon started for the
 current task.
 
+## Review A Local TDD Run
+
+After `tdd run` exits, inspect captures directly from `.vizzly`. These
+commands don't need a running TDD daemon or cloud credentials:
+
+```bash
+vizzly tdd screenshots list --page 1 --page-size 20
+vizzly tdd screenshots latest
+vizzly tdd screenshots show <comparison-id>
+```
+
+`latest` prints the current screenshot path for the most recent capture. Use
+`list` to find a comparison ID when you need a specific screenshot or browser
+variant. During UI iteration, inspect the current image first; request
+`--image diff` or `--image all` when comparison diagnostics help answer the
+question. Open the printed image paths with the available image viewer.
+
+`accept` replaces one local baseline and updates that report entry. Use it only
+when the task explicitly authorizes accepting a baseline; don't accept a change
+just to make a diff disappear:
+
+```bash
+vizzly tdd screenshots accept <comparison-id>
+```
+
 When a cloud build is in scope:
 
 ```bash

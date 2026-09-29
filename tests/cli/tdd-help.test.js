@@ -18,6 +18,17 @@ describe('cli/tdd help', () => {
     assert.doesNotMatch(result.stdout, /daemon-child/);
   });
 
+  it('documents local TDD screenshot browsing commands', async () => {
+    let result = await runCLI(['--no-color', 'tdd', 'screenshots', '--help']);
+
+    assert.strictEqual(result.code, 0);
+    assert.match(result.stdout, /vizzly tdd screenshots/);
+    assert.match(result.stdout, /list/);
+    assert.match(result.stdout, /latest/);
+    assert.match(result.stdout, /show/);
+    assert.match(result.stdout, /accept/);
+  });
+
   it('documents port flags for lifecycle commands', async () => {
     let stop = await runCLI(['--no-color', 'tdd', 'stop', '--help']);
     let status = await runCLI(['--no-color', 'tdd', 'status', '--help']);

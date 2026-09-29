@@ -165,6 +165,72 @@ When screenshots are captured, Vizzly also writes local review artifacts under
 `.vizzly/report/index.html`. Use `contextCommand` when you want a stable
 follow-up command for local review data.
 
+### `vizzly tdd screenshots`
+
+`tdd screenshots` reads the latest local comparison report directly from
+`.vizzly/`. It works after `tdd run` exits and does not need a TDD server or
+cloud credentials.
+
+```bash
+vizzly tdd screenshots list
+vizzly tdd screenshots list --page 2 --page-size 20 --status failed
+vizzly tdd screenshots latest
+vizzly tdd screenshots show 1a2b3c4d5e6f7890
+vizzly tdd screenshots show 1a2b3c4d5e6f7890 --image diff
+vizzly tdd screenshots accept 1a2b3c4d5e6f7890
+```
+
+The list is ordered as the comparisons were recorded. Use the printed
+comparison ID with `show`; a screenshot name also works when it identifies one
+comparison. If the same name has multiple browser or viewport variants, use an
+ID to select one.
+
+`latest` prints only the absolute path to the most recently captured current
+screenshot. Add a screenshot name to choose the latest variant with that name.
+`show` prints comparison details and the current screenshot path by default.
+Request `--image diff`, `--image baseline`, or `--image all` to include those
+image paths.
+
+JSON list output includes pagination and the current image path with
+availability for each comparison:
+
+```json
+{
+  "status": "data",
+  "data": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 1,
+    "totalPages": 1,
+    "hasPrevious": false,
+    "hasNext": false,
+    "screenshots": [
+      {
+        "id": "1a2b3c4d5e6f7890",
+        "name": "button-primary",
+        "status": "failed",
+        "diffPercentage": 4.2,
+        "browser": "chromium",
+        "viewport": { "width": 1920, "height": 1080 },
+        "currentImage": {
+          "path": "/project/.vizzly/current/button-primary.png",
+          "exists": true
+        }
+      }
+    ]
+  }
+}
+```
+
+`accept` copies the selected current screenshot into the matching local
+baseline, updates baseline metadata, and marks that report entry as passed.
+It does not need a running server or cloud credentials. Use
+`vizzly tdd run "<command>" --set-baseline --no-open` to set baselines for every
+screenshot captured by a run.
+
+Open or read the printed local image paths with your image viewer when you want
+to inspect a capture or diff.
+
 ### `vizzly tdd start`
 
 ```bash

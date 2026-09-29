@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version_type:
-        description: 'Version bump type (ignored when resuming)'
+        description: 'Version bump type'
         required: true
         default: 'patch'
         type: choice
@@ -12,10 +12,6 @@ on:
           - patch
           - minor
           - major
-      resume_version:
-        description: 'Resume a tagged release after a publish or release failure'
-        required: false
-        type: string
 concurrency:
   group: sdk-release
   cancel-in-progress: false
@@ -68,43 +64,14 @@ jobs:
         id: new_version
         working-directory: ./clients/swift
         env:
-          RESUME_VERSION: ${{ github.event.inputs.resume_version }}
           VERSION_TYPE: ${{ github.event.inputs.version_type }}
         run: |
-          if [ -n "$RESUME_VERSION" ]; then
-            if [[ ! "$RESUME_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Resume version must be a stable semver version, got: $RESUME_VERSION"
-              exit 1
-            fi
-
-            RELEASE_TAG="swift/v$RESUME_VERSION"
-            SPM_TAG="v$RESUME_VERSION"
-            for tag in "$RELEASE_TAG" "$SPM_TAG"; do
-              if ! git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
-                echo "Cannot resume release: tag $tag does not exist"
-                exit 1
-              fi
-            done
-
-            git checkout --detach "$SPM_TAG"
-            PACKAGE_VERSION=$(node -p "require('./package.json').version")
-            if [ "$PACKAGE_VERSION" != "$RESUME_VERSION" ]; then
-              echo "Tag $SPM_TAG contains package version $PACKAGE_VERSION, not $RESUME_VERSION"
-              exit 1
-            fi
-
-            NEW_VERSION="$RESUME_VERSION"
-            PREVIOUS_TAG=""
-            echo "resume=true" >> "$GITHUB_OUTPUT"
-          else
-            CURRENT_VERSION=$(node -p "require('./package.json').version")
-            PREVIOUS_TAG=""
-            if git rev-parse "swift/v$CURRENT_VERSION" >/dev/null 2>&1; then
-              PREVIOUS_TAG="swift/v$CURRENT_VERSION"
-            fi
-            NEW_VERSION=$(npm version "$VERSION_TYPE" --no-git-tag-version | sed 's/^v//')
-            echo "resume=false" >> "$GITHUB_OUTPUT"
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          PREVIOUS_TAG=""
+          if git rev-parse "swift/v$CURRENT_VERSION" >/dev/null 2>&1; then
+            PREVIOUS_TAG="swift/v$CURRENT_VERSION"
           fi
+          NEW_VERSION=$(npm version "$VERSION_TYPE" --no-git-tag-version | sed 's/^v//')
 
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=swift/v$NEW_VERSION" >> "$GITHUB_OUTPUT"
@@ -112,7 +79,6 @@ jobs:
           echo "previous_tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Verify release tags are available
-        if: steps.new_version.outputs.resume != 'true'
         run: |
           for tag in \
             "${{ steps.new_version.outputs.tag }}" \
@@ -128,7 +94,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate changelog
-        if: steps.new_version.outputs.resume != 'true'
         continue-on-error: true
         uses: openai/codex-action@a26d2d4d8b78a694338b8e3715c3630254340b2c # v1
         with:
@@ -172,7 +137,6 @@ jobs:
             **Full Changelog**: <use the compare URL when a previous tag exists, otherwise use the release URL>
 
       - name: Update CHANGELOG.md
-        if: steps.new_version.outputs.resume != 'true'
         working-directory: ./clients/swift
         run: |
           # Check if changelog was generated successfully
@@ -231,21 +195,16 @@ jobs:
           xcrun simctl bootstatus "$DEVICE_UDID" -b
           VIZZLY_SIMULATOR_UDID="$DEVICE_UDID" pnpm run test:previews:e2e
 
-      - name: Check npm package version
-        id: npm_version
+      - name: Verify npm package version is unpublished
         working-directory: ./clients/swift
         env:
           RELEASE_VERSION: ${{ steps.new_version.outputs.version }}
-          RESUME_RELEASE: ${{ steps.new_version.outputs.resume }}
         run: |
           if NPM_OUTPUT=$(npm view "@vizzly-testing/swift@$RELEASE_VERSION" version 2>&1); then
-            if [ "$RESUME_RELEASE" != "true" ]; then
-              echo "@vizzly-testing/swift@$RELEASE_VERSION is already published"
-              exit 1
-            fi
-            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "@vizzly-testing/swift@$RELEASE_VERSION is already published"
+            exit 1
           elif printf '%s\n' "$NPM_OUTPUT" | grep -q 'E404'; then
-            echo "published=false" >> "$GITHUB_OUTPUT"
+            :
           else
             printf '%s\n' "$NPM_OUTPUT"
             exit 1
@@ -259,13 +218,11 @@ jobs:
           echo "file=$PACK_FILE" >> $GITHUB_OUTPUT
 
       - name: Configure git identity
-        if: steps.new_version.outputs.resume != 'true'
         run: |
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
           git config --local user.name "${{ secrets.GIT_USER_NAME }}"
 
       - name: Commit and push changes
-        if: steps.new_version.outputs.resume != 'true'
         run: |
           git add clients/swift/package.json clients/swift/CHANGELOG.md
           git commit -m "🔖 Swift client v${{ steps.new_version.outputs.version }}"
@@ -277,7 +234,6 @@ jobs:
             "${{ steps.new_version.outputs.spm_tag }}"
 
       - name: Publish preview CLI package to npm
-        if: steps.npm_version.outputs.published != 'true'
         working-directory: ./clients/swift
         run: |
           npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
@@ -304,7 +260,6 @@ jobs:
           name: 📱 Swift SDK v${{ steps.new_version.outputs.version }}
           body: ${{ steps.release_notes.outputs.notes }}
           files: ./clients/swift/${{ steps.pack.outputs.file }}
-          overwrite_files: true
           draft: false
           prerelease: false
         env:

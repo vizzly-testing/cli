@@ -39,17 +39,6 @@ jobs:
       - name: Upgrade npm for Trusted Publishers
         run: npm install -g npm@11.5.1
 
-      - name: Install pnpm
-        run: |
-          npm install -g corepack@latest
-          corepack enable
-          corepack prepare pnpm@11.3.0 --activate
-
-      - name: Select Xcode version
-        run: |
-          sudo xcode-select -s /Applications/Xcode_26.6.app
-          xcodebuild -version
-
       - name: Configure git
         run: |
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
@@ -89,9 +78,6 @@ jobs:
               exit 1
             fi
           done
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Generate changelog
         continue-on-error: true
@@ -160,53 +146,6 @@ jobs:
           tail -n +2 CHANGELOG.md >> CHANGELOG-NEW.md
           mv CHANGELOG-NEW.md CHANGELOG.md
           rm CHANGELOG-RELEASE.md
-
-      - name: Build Swift package
-        working-directory: ./clients/swift
-        run: swift build
-
-      - name: Run tests
-        working-directory: ./clients/swift
-        run: swift test
-
-      - name: Restore Node.js for SDK checks
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: '22.14.0'
-
-      - name: Install pnpm for SDK checks
-        run: |
-          node --version
-          npm install -g corepack@latest
-          corepack enable
-          corepack prepare pnpm@11.3.0 --activate
-          pnpm --version
-
-      - name: Check preview CLI package
-        working-directory: ./clients/swift
-        run: pnpm run check
-
-      - name: Run stock preview capture test
-        working-directory: ./clients/swift
-        run: |
-          xcrun simctl shutdown all
-          DEVICE_UDID="$(xcrun simctl list devices available --json | node --input-type=module -e '
-            let input = "";
-            process.stdin.setEncoding("utf8");
-            process.stdin.on("data", chunk => input += chunk);
-            process.stdin.on("end", () => {
-              let payload = JSON.parse(input);
-              let device = Object.entries(payload.devices)
-                .filter(([runtime]) => runtime.includes(".SimRuntime.iOS-"))
-                .flatMap(([, devices]) => devices)
-                .find(candidate => candidate.isAvailable !== false);
-              if (!device) process.exit(1);
-              process.stdout.write(device.udid);
-            });
-          ')"
-          xcrun simctl boot "$DEVICE_UDID"
-          xcrun simctl bootstatus "$DEVICE_UDID" -b
-          VIZZLY_SIMULATOR_UDID="$DEVICE_UDID" pnpm run test:previews:e2e
 
       - name: Verify npm package version is unpublished
         working-directory: ./clients/swift

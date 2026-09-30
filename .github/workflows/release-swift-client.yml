@@ -169,6 +169,19 @@ jobs:
         working-directory: ./clients/swift
         run: swift test
 
+      - name: Restore Node.js for SDK checks
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '22.14.0'
+
+      - name: Install pnpm for SDK checks
+        run: |
+          node --version
+          npm install -g corepack@latest
+          corepack enable
+          corepack prepare pnpm@11.3.0 --activate
+          pnpm --version
+
       - name: Check preview CLI package
         working-directory: ./clients/swift
         run: pnpm run check

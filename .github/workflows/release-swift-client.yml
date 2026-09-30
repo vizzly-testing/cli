@@ -147,6 +147,20 @@ jobs:
           mv CHANGELOG-NEW.md CHANGELOG.md
           rm CHANGELOG-RELEASE.md
 
+      - name: Restore Node.js for publishing
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '22.14.0'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Restore npm for publishing
+        run: npm install -g npm@11.5.1
+
+      - name: Verify Trusted Publishing runtime
+        run: |
+          node --version
+          npm --version
+
       - name: Verify npm package version is unpublished
         working-directory: ./clients/swift
         env:
@@ -174,6 +188,10 @@ jobs:
           git config --local user.email "${{ secrets.GIT_USER_EMAIL }}"
           git config --local user.name "${{ secrets.GIT_USER_NAME }}"
 
+      - name: Publish preview CLI package to npm
+        working-directory: ./clients/swift
+        run: npm publish "${{ steps.pack.outputs.file }}" --provenance --access public --ignore-scripts
+
       - name: Commit and push changes
         run: |
           git add clients/swift/package.json clients/swift/CHANGELOG.md
@@ -184,14 +202,6 @@ jobs:
             main \
             "${{ steps.new_version.outputs.tag }}" \
             "${{ steps.new_version.outputs.spm_tag }}"
-
-      - name: Publish preview CLI package to npm
-        working-directory: ./clients/swift
-        run: |
-          npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
-          rm -f ~/.npmrc 2>/dev/null || true
-          npm config set registry https://registry.npmjs.org/
-          npm publish "${{ steps.pack.outputs.file }}" --provenance --access public
 
       - name: Read changelog for release
         id: release_notes

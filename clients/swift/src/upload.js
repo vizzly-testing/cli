@@ -93,9 +93,7 @@ export function buildCloudRunOptions(vizzlyConfig = {}, gitInfo = {}) {
 }
 
 function previewNames(manifest) {
-  let baseNames = manifest.previews.map(
-    preview => `${manifest.scheme} - ${preview.name}`
-  );
+  let baseNames = manifest.previews.map(preview => preview.name);
   let baseCounts = new Map();
   for (let name of baseNames) {
     baseCounts.set(name, (baseCounts.get(name) ?? 0) + 1);

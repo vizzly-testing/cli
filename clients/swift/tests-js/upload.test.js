@@ -76,7 +76,7 @@ describe('Swift preview uploads', () => {
 
     assert.deepEqual(
       records.map(record => record.name),
-      ['Example - Card - Example.Card', 'Example - Card - Example.CompactCard']
+      ['Card - Example.Card', 'Card - Example.CompactCard']
     );
     assert.deepEqual(records[0].properties, {
       browser: 'SwiftUI Preview',
@@ -92,13 +92,25 @@ describe('Swift preview uploads', () => {
     });
   });
 
+  it('keeps screenshot names stable across Xcode schemes', () => {
+    let manifest = previewManifest('/tmp/previews');
+    let names = buildPreviewUploadRecords(manifest).map(record => record.name);
+
+    manifest.scheme = 'Example Staging';
+
+    assert.deepEqual(
+      buildPreviewUploadRecords(manifest).map(record => record.name),
+      names
+    );
+  });
+
   it('normalizes Xcode preview names for the Vizzly screenshot contract', () => {
     let manifest = previewManifest('/tmp/previews');
     manifest.previews[0].name = 'Card / Dark';
 
     let [record] = buildPreviewUploadRecords(manifest);
 
-    assert.equal(record.name, 'Example - Card - Dark');
+    assert.equal(record.name, 'Card - Dark');
   });
 
   it('keeps names unique when different Xcode names normalize alike', () => {
@@ -110,7 +122,7 @@ describe('Swift preview uploads', () => {
 
     assert.deepEqual(
       records.map(record => record.name),
-      ['Example - Card - Dark - first-id', 'Example - Card - Dark - second-id']
+      ['Card - Dark - first-id', 'Card - Dark - second-id']
     );
   });
 
@@ -211,7 +223,7 @@ describe('Swift preview uploads', () => {
       ['/screenshot', '/screenshot', '/flush']
     );
     assert.equal(requests[0].body.buildId, 'build-123');
-    assert.equal(requests[0].body.name, 'Example - Card - Example.Card');
+    assert.equal(requests[0].body.name, 'Card - Example.Card');
     assert.equal(requests[0].body.type, 'file-path');
     assert.equal(requests[0].body.threshold, 2.5);
     assert.equal(requests[0].body.minClusterSize, 3);

@@ -57,7 +57,7 @@
     "check:fix": "biome check --write src"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": "^22.18.0 || >=24.0.0"
   },
   "publishConfig": {
     "access": "public",
@@ -67,7 +67,6 @@
     "@vizzly-testing/cli": ">=0.24.0"
   },
   "dependencies": {
-    "cosmiconfig": "^10.0.1",
     "fast-xml-parser": "^5.8.0",
     "playwright-core": "^1.50.0",
     "serve-handler": "^6.1.5",

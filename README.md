@@ -20,7 +20,7 @@ build or diff data for scripts, automation, and coding agents.
 
 ## Quick Start
 
-You need Node.js 22+.
+You need Node.js 22.18 or newer within Node 22, or Node.js 24+.
 
 ```bash
 pnpm install -g @vizzly-testing/cli
@@ -42,6 +42,19 @@ existing Vizzly config.
 
 Use `vizzly init --agent-skill` to install or refresh only the local skill, or
 `vizzly init --skip-agent-skill` when you want config without the agent prompt.
+
+### TypeScript Configuration
+
+Vizzly loads `vizzly.config.ts` with Node's native type stripping. Type
+annotations, interfaces, and `satisfies` work without installing TypeScript.
+Use `import type` for type-only imports and include file extensions when
+importing local helpers, such as `./helpers.ts`.
+
+Enums, namespaces containing runtime code, and constructor parameter properties
+aren't supported. Replace them with ordinary JavaScript values and assignments.
+Node doesn't apply `tsconfig.json` path aliases when loading your config.
+These restrictions apply to the config and its imports; they don't change how
+your application or tests compile.
 
 ### Start Local TDD
 

@@ -1,5 +1,11 @@
 import assert from 'node:assert';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
@@ -114,6 +120,37 @@ describe('utils/config-loader', () => {
 
       assert.strictEqual(config.server.port, 3000);
       assert.strictEqual(config.comparison.threshold, 1.5);
+    });
+
+    it('loads native TypeScript config with type-only helper imports', async () => {
+      let dir = mkdtempSync(join(testDir, 'typescript-'));
+      writeFileSync(
+        join(dir, 'types.ts'),
+        'export interface Config { comparison: { threshold: number } }'
+      );
+      writeFileSync(
+        join(dir, 'vizzly.config.ts'),
+        `import type { Config } from './types.ts';
+let threshold: number = 1.5;
+export default { comparison: { threshold } } satisfies Config;`
+      );
+
+      let config = await loadConfig(join(dir, 'vizzly.config.ts'));
+
+      assert.strictEqual(config.comparison.threshold, 1.5);
+    });
+
+    it('rejects TypeScript enums instead of silently using default config', async () => {
+      let dir = mkdtempSync(join(testDir, 'typescript-enum-'));
+      writeFileSync(
+        join(dir, 'vizzly.config.ts'),
+        `enum Threshold { Normal = 7 }
+export default { comparison: { threshold: Threshold.Normal } };`
+      );
+
+      await assert.rejects(loadConfig(join(dir, 'vizzly.config.ts')), {
+        code: 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX',
+      });
     });
 
     it('applies CLI overrides', async () => {

@@ -70,10 +70,7 @@ export function shouldFailOnDiff(override = null) {
     return override === true;
   }
 
-  let value =
-    typeof __VIZZLY_FAIL_ON_DIFF__ !== 'undefined'
-      ? __VIZZLY_FAIL_ON_DIFF__
-      : '';
+  let value = import.meta.env.VIZZLY_FAIL_ON_DIFF || '';
   return value === true || value === 'true' || value === '1';
 }
 
@@ -84,10 +81,8 @@ async function toMatchScreenshot(element, name, options = {}) {
   name = args.name;
   options = args.options;
 
-  let serverUrl =
-    typeof __VIZZLY_SERVER_URL__ !== 'undefined' ? __VIZZLY_SERVER_URL__ : '';
-  let buildId =
-    typeof __VIZZLY_BUILD_ID__ !== 'undefined' ? __VIZZLY_BUILD_ID__ : '';
+  let serverUrl = import.meta.env.VIZZLY_SERVER_URL || '';
+  let buildId = import.meta.env.VIZZLY_BUILD_ID || '';
 
   // If no server URL, Vizzly is not available
   if (!serverUrl) {
@@ -155,8 +150,8 @@ async function toMatchScreenshot(element, name, options = {}) {
 
     let result = await response.json();
 
-    // In cloud mode, always pass
-    if (buildId) {
+    // Local runs also have build IDs; the server response identifies TDD mode.
+    if (buildId && result.tddMode !== true) {
       return {
         pass: true,
         message: () => '',

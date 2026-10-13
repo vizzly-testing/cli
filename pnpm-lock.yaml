@@ -270,9 +270,6 @@ importers:
       '@vizzly-testing/cli':
         specifier: '>=0.24.0'
         version: 0.30.0(typescript@7.0.2)
-      cosmiconfig:
-        specifier: ^10.0.1
-        version: 10.0.1
       fast-xml-parser:
         specifier: ^5.8.0
         version: 5.11.2
@@ -3177,7 +3174,7 @@ packages:
 
   '@vizzly-testing/ember@file:clients/ember':
     resolution: {directory: clients/ember, type: directory}
-    engines: {node: '>=22.0.0'}
+    engines: {node: ^22.18.0 || >=24.0.0}
     hasBin: true
     peerDependencies:
       '@vizzly-testing/cli': '>=0.12.0'

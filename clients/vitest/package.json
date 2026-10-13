@@ -40,6 +40,7 @@
   "scripts": {
     "test": "pnpm run test:unit",
     "test:unit": "vitest run --config vitest.config.js",
+    "test:browser": "node --test --test-reporter=spec tests/browser-integration.test.js",
     "test:e2e": "vitest run --config vitest.e2e.config.js",
     "test:e2e:tdd": "../../bin/vizzly.js tdd run 'pnpm run test:e2e' --no-open",
     "test:e2e:cloud": "../../bin/vizzly.js run 'pnpm run test:e2e'",
@@ -52,7 +53,7 @@
     "prepublishOnly": "pnpm run lint && pnpm run test:unit"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": "^22.18.0 || >=24.0.0"
   },
   "publishConfig": {
     "access": "public",

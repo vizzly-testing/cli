@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Require Node.js 22.18 or newer within Node 22, or Node.js 24+.
+
+### Fixed
+
+- Pass browser settings through Vitest environment variables so screenshot
+  uploads, build IDs, and fail-on-diff settings work with Vitest 5.
+- Honor fail-on-diff during local runs that also carry a build ID.
+
 ## [0.2.0] - 2026-06-01
 
 ## What's Changed

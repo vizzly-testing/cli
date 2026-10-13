@@ -5,12 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@babel/runtime@<7.26.10': 7.29.7
-  js-yaml@>=4.0.0 <4.3.2: 4.3.2
   shell-quote@>=1.8.4 <1.11.0: 1.11.0
-  socket.io-parser@>=4.0.0 <4.2.7: 4.2.7
   tmp@<0.2.6: 0.2.7
-  ws@<8.21.0: 8.21.3
 
 importers:
 

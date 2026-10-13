@@ -118,10 +118,10 @@ describe('Vitest Plugin Integration', () => {
       let plugin = vizzlyPlugin();
       config = plugin.config(config, { mode: 'test' });
 
-      expect(config.define).toBeDefined();
-      expect(config.define.__VIZZLY_SERVER_URL__).toBeDefined();
-      expect(config.define.__VIZZLY_BUILD_ID__).toBeDefined();
-      expect(config.define.__VIZZLY_FAIL_ON_DIFF__).toBeDefined();
+      expect(config.test.env).toBeDefined();
+      expect(config.test.env.VIZZLY_SERVER_URL).toBeDefined();
+      expect(config.test.env.VIZZLY_BUILD_ID).toBeDefined();
+      expect(config.test.env.VIZZLY_FAIL_ON_DIFF).toBeDefined();
     });
 
     it('should pass failOnDiff from discovered server config', async () => {
@@ -144,10 +144,10 @@ describe('Vitest Plugin Integration', () => {
         let plugin = vizzlyPlugin();
         let config = plugin.config({ test: {} }, { mode: 'test' });
 
-        expect(JSON.parse(config.define.__VIZZLY_SERVER_URL__)).toBe(
+        expect(config.test.env.VIZZLY_SERVER_URL).toBe(
           'http://localhost:47392'
         );
-        expect(JSON.parse(config.define.__VIZZLY_FAIL_ON_DIFF__)).toBe('true');
+        expect(config.test.env.VIZZLY_FAIL_ON_DIFF).toBe('true');
       } finally {
         process.chdir(originalCwd);
         rmSync(tempDir, { recursive: true, force: true });

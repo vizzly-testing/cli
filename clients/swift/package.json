@@ -45,7 +45,7 @@
     "prepublishOnly": "pnpm run check"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": "^22.18.0 || >=24.0.0"
   },
   "peerDependencies": {
     "@vizzly-testing/cli": ">=0.36.0"

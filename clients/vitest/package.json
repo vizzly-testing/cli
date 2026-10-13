@@ -40,6 +40,7 @@
   "scripts": {
     "test": "pnpm run test:unit",
     "test:unit": "vitest run --config vitest.config.js",
+    "test:browser": "node --test --test-reporter=spec tests/browser-integration.test.js",
     "test:e2e": "vitest run --config vitest.e2e.config.js",
     "test:e2e:tdd": "../../bin/vizzly.js tdd run 'pnpm run test:e2e' --no-open",
     "test:e2e:cloud": "../../bin/vizzly.js run 'pnpm run test:e2e'",
@@ -52,7 +53,7 @@
     "prepublishOnly": "pnpm run lint && pnpm run test:unit"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": "^22.18.0 || >=24.0.0"
   },
   "publishConfig": {
     "access": "public",
@@ -64,10 +65,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.10",
-    "@vitest/browser": "^4.1.11",
-    "@vitest/browser-playwright": "^4.1.11",
+    "@vitest/browser": "^5.0.0",
+    "@vitest/browser-playwright": "^5.0.0",
     "playwright": "^1.49.1",
     "serve-handler": "^6.1.6",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.0"
   }
 }

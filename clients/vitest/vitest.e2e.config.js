@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
-import handler from 'serve-handler';
 import { playwright } from '@vitest/browser-playwright';
+import handler from 'serve-handler';
 import { defineConfig } from 'vitest/config';
 import { vizzlyPlugin } from './src/index.js';
 
@@ -23,7 +23,7 @@ let server = createServer((req, res) => {
 });
 
 // Listen on port 0 to get a random available port
-await new Promise((resolve) => {
+await new Promise(resolve => {
   server.listen(0, () => resolve());
 });
 
@@ -47,8 +47,8 @@ export default defineConfig({
       headless: true,
     },
     include: ['tests/e2e/**/*.test.js'],
-  },
-  define: {
-    __TEST_SITE_URL__: JSON.stringify(`http://localhost:${testSitePort}`),
+    env: {
+      TEST_SITE_URL: `http://localhost:${testSitePort}`,
+    },
   },
 });

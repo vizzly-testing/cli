@@ -91,18 +91,17 @@ export function vizzlyPlugin() {
 
       return {
         test: {
-          setupFiles: [resolve(import.meta.dirname || __dirname, 'setup.js')],
+          setupFiles: [resolve(import.meta.dirname, 'setup.js')],
+          env: {
+            VIZZLY_SERVER_URL: serverUrl,
+            VIZZLY_BUILD_ID: buildId,
+            VIZZLY_FAIL_ON_DIFF: failOnDiff,
+          },
           browser: {
             // Disable Vitest's native screenshot testing
             // Our custom matcher completely replaces it
             screenshotFailures: false,
           },
-        },
-        // Pass Vizzly environment variables to browser context via define
-        define: {
-          __VIZZLY_SERVER_URL__: JSON.stringify(serverUrl),
-          __VIZZLY_BUILD_ID__: JSON.stringify(buildId),
-          __VIZZLY_FAIL_ON_DIFF__: JSON.stringify(failOnDiff),
         },
       };
     },

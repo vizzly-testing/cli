@@ -2,6 +2,10 @@
 
 Seamlessly integrate your static sites (Gatsby, Astro, Jekyll, Next.js static export, etc.) into Vizzly's visual development workflow. Iterate locally with `vizzly tdd`, automatically create team builds from CI/CD, and collaborate on visual changes with position-based comments and review rules.
 
+## Requirements
+
+Use Node.js 22.18 or newer within Node 22, or Node.js 24+.
+
 ## Installation
 
 ```bash

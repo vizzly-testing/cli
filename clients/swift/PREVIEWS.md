@@ -8,7 +8,7 @@ Preview capture is optional. It does not change the `Vizzly` or
 ## Requirements
 
 - Xcode 26.6
-- Node.js 22+
+- Node.js 22.18 or newer within Node 22, or Node.js 24+
 - An arm64 Mac
 - An iOS 17+ Simulator
 - A scene-based iOS app

@@ -22,6 +22,10 @@ standard `toMatchScreenshot` API - no code changes required!
 - 🚀 **CI/CD Ready** - Parallel execution and baseline management
 - 🔬 **Better Diffing** - Powered by honeydiff (Rust-based, faster than pixelmatch)
 
+## Requirements
+
+Use Node.js 22.18 or newer within Node 22, or Node.js 24+.
+
 ## Installation
 
 ```bash

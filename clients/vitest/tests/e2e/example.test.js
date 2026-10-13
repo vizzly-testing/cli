@@ -13,9 +13,8 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 
-// Base URL for test-site assets (defined in vitest.e2e.config.js)
-// eslint-disable-next-line no-undef
-let baseUrl = __TEST_SITE_URL__;
+// Base URL for test-site assets (configured in vitest.e2e.config.js)
+let baseUrl = import.meta.env.TEST_SITE_URL;
 
 // Load test-site CSS before all tests
 beforeAll(async () => {

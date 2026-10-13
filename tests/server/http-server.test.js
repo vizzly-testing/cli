@@ -7,7 +7,8 @@ import { createHttpServer } from '../../src/server/http-server.js';
 /**
  * Make an HTTP request to the server
  */
-async function request(port, path, options = {}) {
+async function request(server, path, options = {}) {
+  let { port } = server.getServer().address();
   let url = `http://127.0.0.1:${port}${path}`;
   let response = await fetch(url, options);
   let text = await response.text();
@@ -24,11 +25,9 @@ describe('server/http-server', () => {
   let testDir = join(process.cwd(), '.test-http-server');
   let originalCwd = process.cwd();
   let server = null;
-  let testPort = 47399; // Use a unique port for tests
+  let testPort = 0; // Let the OS assign an available port.
 
   beforeEach(() => {
-    testPort++; // Increment port to avoid conflicts
-
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true });
     }
@@ -62,7 +61,7 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null);
       await server.start();
 
-      let res = await request(testPort, '/health');
+      let res = await request(server, '/health');
 
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.body.status, 'ok');
@@ -73,7 +72,7 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null);
       await server.start();
 
-      let res = await request(testPort, '/health', { method: 'OPTIONS' });
+      let res = await request(server, '/health', { method: 'OPTIONS' });
 
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.headers.get('Access-Control-Allow-Origin'), '*');
@@ -83,7 +82,7 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null);
       await server.start();
 
-      let res = await request(testPort, '/unknown/route');
+      let res = await request(server, '/unknown/route');
 
       assert.strictEqual(res.status, 404);
       assert.ok(res.body.error);
@@ -93,7 +92,7 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null);
       await server.start();
 
-      let res = await request(testPort, '/');
+      let res = await request(server, '/');
 
       assert.strictEqual(res.status, 200);
       assert.ok(res.body.includes('<!DOCTYPE html>'));
@@ -108,7 +107,8 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null);
       await server.start();
 
-      let res = await fetch(`http://127.0.0.1:${testPort}/api/events`);
+      let { port } = server.getServer().address();
+      let res = await fetch(`http://127.0.0.1:${port}/api/events`);
 
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.headers.get('Content-Type'), 'text/event-stream');
@@ -126,7 +126,7 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null);
       await server.start();
 
-      let res = await request(testPort, '/api/report-data');
+      let res = await request(server, '/api/report-data');
 
       assert.strictEqual(res.status, 200);
       assert.deepStrictEqual(res.body.comparisons, []);
@@ -136,7 +136,7 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null, {});
       await server.start();
 
-      let res = await request(testPort, '/api/config');
+      let res = await request(server, '/api/config');
 
       assert.strictEqual(res.status, 503);
     });
@@ -145,7 +145,7 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null, {});
       await server.start();
 
-      let res = await request(testPort, '/api/auth/status');
+      let res = await request(server, '/api/auth/status');
 
       assert.strictEqual(res.status, 503);
     });
@@ -154,7 +154,7 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null, {});
       await server.start();
 
-      let res = await request(testPort, '/api/projects');
+      let res = await request(server, '/api/projects');
 
       assert.strictEqual(res.status, 503);
     });
@@ -188,7 +188,8 @@ describe('server/http-server', () => {
       server = createHttpServer(testPort, null);
       await server.start();
 
-      let server2 = createHttpServer(testPort, null);
+      let { port } = server.getServer().address();
+      let server2 = createHttpServer(port, null);
 
       await assert.rejects(server2.start(), /already in use/);
     });

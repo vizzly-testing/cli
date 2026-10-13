@@ -5,11 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@babel/runtime@<7.26.10': 7.29.7
-  js-yaml@>=4.0.0 <4.3.1: 4.3.1
-  socket.io-parser@>=4.0.0 <4.2.7: 4.2.7
+  shell-quote@>=1.8.4 <1.11.0: 1.11.0
   tmp@<0.2.6: 0.2.7
-  ws@<8.21.0: 8.21.3
 
 importers:
 
@@ -22,7 +19,7 @@ importers:
         specifier: ^0.17.0
         version: 0.17.0
       ansis:
-        specifier: ^4.2.0
+        specifier: ^4.4.0
         version: 4.4.0
       commander:
         specifier: ^15.0.0
@@ -31,32 +28,32 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1
       dotenv:
-        specifier: ^17.2.1
+        specifier: ^17.4.2
         version: 17.4.2
       form-data:
-        specifier: ^4.0.0
+        specifier: ^4.0.6
         version: 4.0.6
       glob:
-        specifier: ^13.0.0
+        specifier: ^13.0.6
         version: 13.0.6
       react:
-        specifier: ^19.1.1
+        specifier: ^19.3.0
         version: 19.3.0
       react-dom:
-        specifier: ^19.1.1
+        specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
       zod:
-        specifier: ^4.1.12
+        specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
       '@babel/cli':
-        specifier: ^8.0.1
+        specifier: ^8.0.6
         version: 8.0.6(@babel/core@8.0.6)
       '@babel/core':
-        specifier: ^8.0.1
+        specifier: ^8.0.6
         version: 8.0.6
       '@babel/preset-env':
-        specifier: ^8.0.2
+        specifier: ^8.0.6
         version: 8.0.6(@babel/core@8.0.6)
       '@babel/preset-react':
         specifier: ^8.0.1
@@ -65,31 +62,31 @@ importers:
         specifier: ^8.0.1
         version: 8.0.1(@babel/core@8.0.6)
       '@biomejs/biome':
-        specifier: ^2.5.10
+        specifier: ^2.5.15
         version: 2.5.15
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.3.0)
       '@modelcontextprotocol/sdk':
-        specifier: ^1.0.4
+        specifier: ^1.31.0
         version: 1.31.0(zod@4.6.5)
       '@playwright/test':
-        specifier: ^1.55.1
+        specifier: ^1.63.0
         version: 1.63.0
       '@tailwindcss/postcss':
-        specifier: ^4.1.13
+        specifier: ^4.3.3
         version: 4.3.3
       '@tanstack/react-query':
-        specifier: ^5.90.11
+        specifier: ^5.104.0
         version: 5.104.0(react@19.3.0)
       '@types/node':
-        specifier: ^26.0.0
+        specifier: ^26.6.3
         version: 26.6.3
       '@vitejs/plugin-react':
-        specifier: ^6.0.1
+        specifier: ^6.1.2
         version: 6.1.2(babel-plugin-react-compiler@1.0.0)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       autoprefixer:
-        specifier: ^10.4.21
+        specifier: ^10.6.1
         version: 10.6.1(postcss@8.5.29)
       babel-plugin-react-compiler:
         specifier: ^1.0.0
@@ -98,13 +95,13 @@ importers:
         specifier: ^6.9.4
         version: 6.9.4
       postcss:
-        specifier: ^8.5.6
+        specifier: ^8.5.29
         version: 8.5.29
       rimraf:
-        specifier: ^6.0.1
+        specifier: ^6.1.3
         version: 6.1.3
       tailwindcss:
-        specifier: ^4.1.13
+        specifier: ^4.3.3
         version: 4.3.3
       tsd:
         specifier: ^0.33.0
@@ -116,10 +113,10 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
       vite:
-        specifier: ^8.2.2
+        specifier: ^8.3.1
         version: 8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
       wouter:
-        specifier: ^3.7.1
+        specifier: ^3.11.1
         version: 3.11.1(react@19.3.0)
 
   clients/ember:
@@ -128,11 +125,11 @@ importers:
         specifier: '>=0.12.0'
         version: 0.30.0(typescript@7.0.2)
       playwright-core:
-        specifier: ^1.62.0
+        specifier: ^1.63.0
         version: 1.63.0
     devDependencies:
       '@biomejs/biome':
-        specifier: ^2.5.10
+        specifier: ^2.5.15
         version: 2.5.15
 
   clients/ember/test-app:
@@ -142,13 +139,13 @@ importers:
         version: file:clients/ember(@vizzly-testing/cli@0.38.0(@heroicons/react@2.2.0(react@19.3.0))(tailwindcss@4.3.3)(typescript@7.0.2))
     devDependencies:
       '@babel/core':
-        specifier: ^8.0.1
+        specifier: ^8.0.6
         version: 8.0.6
       '@babel/plugin-transform-runtime':
-        specifier: ^8.0.1
+        specifier: ^8.0.6
         version: 8.0.6(@babel/core@8.0.6)
       '@babel/runtime':
-        specifier: ^8.0.0
+        specifier: ^8.0.5
         version: 8.0.5
       '@ember/optional-features':
         specifier: ^3.0.0
@@ -157,37 +154,37 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1
       '@ember/test-helpers':
-        specifier: ^5.4.2
+        specifier: ^5.5.1
         version: 5.5.1(@babel/core@8.0.6)
       '@ember/test-waiters':
-        specifier: ^4.1.1
+        specifier: ^4.1.2
         version: 4.1.2
       '@embroider/compat':
-        specifier: ^4.1.19
+        specifier: ^4.1.27
         version: 4.1.27(@embroider/core@4.6.9)
       '@embroider/config-meta-loader':
         specifier: ^1.0.0
         version: 1.0.0
       '@embroider/core':
-        specifier: ^4.6.0
+        specifier: ^4.6.9
         version: 4.6.9
       '@embroider/legacy-inspector-support':
         specifier: ^0.1.3
         version: 0.1.3
       '@embroider/macros':
-        specifier: ^1.20.3
+        specifier: ^1.21.1
         version: 1.21.1(@babel/core@8.0.6)
       '@embroider/router':
         specifier: ^3.0.6
         version: 3.0.6(@embroider/core@4.6.9)
       '@embroider/vite':
-        specifier: ^1.7.10
+        specifier: ^1.7.15
         version: 1.7.15(@babel/core@8.0.6)(@embroider/core@4.6.9)(vite@8.3.1(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       '@glimmer/component':
         specifier: ^2.1.1
         version: 2.1.1
       '@rollup/plugin-babel':
-        specifier: ^7.0.0
+        specifier: ^7.1.0
         version: 7.1.0(@babel/core@8.0.6)(@types/babel__core@7.20.5)
       '@warp-drive/ember':
         specifier: ~5.9.1
@@ -196,10 +193,10 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0
       concurrently:
-        specifier: ^10.0.3
+        specifier: ^10.0.5
         version: 10.0.5
       decorator-transforms:
-        specifier: ^2.3.2
+        specifier: ^2.4.0
         version: 2.4.0(@babel/core@8.0.6)
       ember-auto-import:
         specifier: ^2.13.1
@@ -208,7 +205,7 @@ importers:
         specifier: ~7.3.0
         version: 7.3.0(@babel/core@8.0.6)(@types/node@26.6.4)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8)
       ember-cli-babel:
-        specifier: ^8.3.1
+        specifier: ^8.3.2
         version: 8.3.2(@babel/core@8.0.6)
       ember-cli-deprecation-workflow:
         specifier: ^4.0.1
@@ -226,7 +223,7 @@ importers:
         specifier: ^9.0.3
         version: 9.0.3
       ember-qunit:
-        specifier: ^9.0.4
+        specifier: ^9.1.0
         version: 9.1.0(@ember/test-helpers@5.5.1(@babel/core@8.0.6))(qunit@2.26.0)
       ember-resolver:
         specifier: ^13.2.0
@@ -238,31 +235,31 @@ importers:
         specifier: ^7.9.3
         version: 7.9.3
       prettier:
-        specifier: ^3.8.3
+        specifier: ^3.9.9
         version: 3.9.9
       prettier-plugin-ember-template-tag:
         specifier: ^2.1.8
         version: 2.1.8(prettier@3.9.9)
       qunit:
-        specifier: ^2.25.0
+        specifier: ^2.26.0
         version: 2.26.0
       qunit-dom:
-        specifier: ^3.5.1
+        specifier: ^3.6.0
         version: 3.6.0
       stylelint:
-        specifier: ^17.12.0
+        specifier: ^17.15.0
         version: 17.15.0(typescript@7.0.2)
       stylelint-config-standard:
         specifier: ^40.0.0
         version: 40.0.0(stylelint@17.15.0(typescript@7.0.2))
       testem:
-        specifier: ^3.20.1
+        specifier: ^3.21.0
         version: 3.21.0(@babel/core@8.0.6)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8)
       tracked-built-ins:
         specifier: ^4.1.2
         version: 4.1.2(@babel/core@8.0.6)
       vite:
-        specifier: ^8.2.2
+        specifier: ^8.3.1
         version: 8.3.1(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
 
   clients/static-site:
@@ -271,32 +268,32 @@ importers:
         specifier: '>=0.24.0'
         version: 0.30.0(typescript@7.0.2)
       fast-xml-parser:
-        specifier: ^5.8.0
+        specifier: ^5.11.2
         version: 5.11.2
       playwright-core:
-        specifier: ^1.50.0
+        specifier: ^1.63.0
         version: 1.63.0
       serve-handler:
-        specifier: ^6.1.5
+        specifier: ^6.1.7
         version: 6.1.7
       zod:
-        specifier: ^4.1.12
+        specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
       '@babel/cli':
-        specifier: ^8.0.1
+        specifier: ^8.0.6
         version: 8.0.6(@babel/core@8.0.6)
       '@babel/core':
-        specifier: ^8.0.1
+        specifier: ^8.0.6
         version: 8.0.6
       '@babel/preset-env':
-        specifier: ^8.0.2
+        specifier: ^8.0.6
         version: 8.0.6(@babel/core@8.0.6)
       '@biomejs/biome':
-        specifier: ^2.5.10
+        specifier: ^2.5.15
         version: 2.5.15
       rimraf:
-        specifier: ^6.0.1
+        specifier: ^6.1.3
         version: 6.1.3
 
   clients/storybook:
@@ -305,56 +302,56 @@ importers:
         specifier: '>=0.24.0'
         version: 0.30.0(typescript@7.0.2)
       playwright-core:
-        specifier: ^1.50.0
+        specifier: ^1.63.0
         version: 1.63.0
       serve-handler:
-        specifier: ^6.1.5
+        specifier: ^6.1.7
         version: 6.1.7
     devDependencies:
       '@babel/cli':
-        specifier: ^8.0.1
+        specifier: ^8.0.6
         version: 8.0.6(@babel/core@8.0.6)
       '@babel/core':
-        specifier: ^8.0.1
+        specifier: ^8.0.6
         version: 8.0.6
       '@babel/preset-env':
-        specifier: ^8.0.2
+        specifier: ^8.0.6
         version: 8.0.6(@babel/core@8.0.6)
       '@biomejs/biome':
-        specifier: ^2.5.10
+        specifier: ^2.5.15
         version: 2.5.15
       rimraf:
-        specifier: ^6.0.1
+        specifier: ^6.1.3
         version: 6.1.3
 
   clients/storybook/example-storybook:
     devDependencies:
       '@storybook/react':
-        specifier: ^10.5.10
+        specifier: ^10.6.1
         version: 10.6.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.1(prettier@3.9.9)(react@19.3.0))(typescript@7.0.2)
       '@storybook/react-vite':
-        specifier: ^10.5.10
+        specifier: ^10.6.1
         version: 10.6.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.1(prettier@3.9.9)(react@19.3.0))(typescript@7.0.2)(vite@8.3.1(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       '@vitejs/plugin-react':
-        specifier: ^6.0.2
+        specifier: ^6.1.2
         version: 6.1.2(babel-plugin-react-compiler@1.0.0)(vite@8.3.1(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       react:
-        specifier: ^19.2.6
+        specifier: ^19.3.0
         version: 19.3.0
       react-dom:
-        specifier: ^19.2.6
+        specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
       storybook:
-        specifier: ^10.5.10
+        specifier: ^10.6.1
         version: 10.6.1(prettier@3.9.9)(react@19.3.0)
       vite:
-        specifier: ^8.2.2
+        specifier: ^8.3.1
         version: 8.3.1(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
 
   clients/swift:
     devDependencies:
       '@biomejs/biome':
-        specifier: ^2.5.10
+        specifier: ^2.5.15
         version: 2.5.15
       '@vizzly-testing/cli':
         specifier: workspace:*
@@ -367,7 +364,7 @@ importers:
         version: 0.30.0(typescript@7.0.2)
     devDependencies:
       '@biomejs/biome':
-        specifier: ^2.5.10
+        specifier: ^2.5.15
         version: 2.5.15
       '@vitest/browser':
         specifier: ^5.0.0
@@ -376,10 +373,10 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0(playwright@1.63.0)(vite@8.3.3(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(vitest@5.0.0)
       playwright:
-        specifier: ^1.49.1
+        specifier: ^1.63.0
         version: 1.63.0
       serve-handler:
-        specifier: ^6.1.6
+        specifier: ^6.1.7
         version: 6.1.7
       vitest:
         specifier: ^5.0.0
@@ -394,7 +391,7 @@ importers:
   test-site:
     devDependencies:
       tailwindcss:
-        specifier: ^4.3.0
+        specifier: ^4.3.3
         version: 4.3.3
 
 packages:
@@ -3651,18 +3648,14 @@ packages:
   body@5.1.0:
     resolution: {integrity: sha512-chUsBxGRtuElD6fmw1gHLpvnKdVLK302peeFa9ZqAEk8TyzZ3fygLyUEDDPTJvL9+Bor0dIwn6ePOsRM2y0zQQ==}
 
-  brace-expansion@1.1.18:
-    resolution: {integrity: sha512-Edep/X9fGqVNmzKBVsDYIOtD+z1tuezV70LBjdCst9Tqu76lsnvRiZ6oTic1n+/BIwX6QDGAO94PN4N2SADvtw==}
+  brace-expansion@1.1.21:
+    resolution: {integrity: sha512-9zeA+KLZNNzglF2TPKRQEDyx6Yby7daAkuy8MiPzpXPsYDWi/DRM8jmwUDxokQjYqBpv5DgPiwD4h4ZZSy1Ujw==}
 
   brace-expansion@2.1.7:
     resolution: {integrity: sha512-uZbew1NqdmPDTMJ8ah1y+b+9QEJrfkXFk3RcTQw3X0jW/xRUvFKsg1CfQdSYGdTbXZWExtU3J3ccxtnfw1Fi0g==}
 
   brace-expansion@5.0.12:
     resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
-    engines: {node: 20 || >=22}
-
-  brace-expansion@5.0.9:
-    resolution: {integrity: sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==}
     engines: {node: 20 || >=22}
 
   braces@3.0.3:
@@ -5168,11 +5161,6 @@ packages:
     engines: {node: '>=0.4.7'}
     hasBin: true
 
-  handlebars@4.7.9:
-    resolution: {integrity: sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==}
-    engines: {node: '>=0.4.7'}
-    hasBin: true
-
   hard-rejection@2.1.0:
     resolution: {integrity: sha512-VIZB+ibDhx7ObhAe7OVtoEbuP4h/MuOTHJ+J8h/eBXotJYl0fBgR72xDFCKgIh22OJZIOVNxBMWuhAr10r8HdA==}
     engines: {node: '>=6'}
@@ -5664,8 +5652,8 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.3.1:
-    resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
+  js-yaml@4.3.2:
+    resolution: {integrity: sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==}
     hasBin: true
 
   js-yaml@5.4.3:
@@ -7040,8 +7028,8 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  shell-quote@1.9.0:
-    resolution: {integrity: sha512-Iov+JwFv/2HcTpcwNMKd8+IWNb8tboQJNQTkAY/LLVK7gGH9jy+LGkVqPxfekHl+yMmiqXszdGWXgkfml7hjqA==}
+  shell-quote@1.11.0:
+    resolution: {integrity: sha512-JdxDPD0DBTyu08pq0kPC0xSNet/qsU07qT6IsX1AS8oO2ICNRY4ldNa8OAI6PuwAH8tG3lxEhbqmyp4Dw4036g==}
     engines: {node: '>= 0.4'}
 
   shellwords@0.1.1:
@@ -12374,7 +12362,7 @@ snapshots:
       raw-body: 1.1.7
       safe-json-parse: 1.0.1
 
-  brace-expansion@1.1.18:
+  brace-expansion@1.1.21:
     dependencies:
       balanced-match: 1.0.2
       concat-map: 0.0.1
@@ -12384,10 +12372,6 @@ snapshots:
       balanced-match: 1.0.2
 
   brace-expansion@5.0.12:
-    dependencies:
-      balanced-match: 4.0.4
-
-  brace-expansion@5.0.9:
     dependencies:
       balanced-match: 4.0.4
 
@@ -12910,7 +12894,7 @@ snapshots:
     dependencies:
       chalk: 5.6.2
       rxjs: 7.8.2
-      shell-quote: 1.9.0
+      shell-quote: 1.11.0
       supports-color: 10.2.2
       tree-kill: 1.2.2
       yargs: 18.0.0
@@ -12997,7 +12981,7 @@ snapshots:
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 7.0.2
@@ -13223,7 +13207,7 @@ snapshots:
       debug: 4.4.3
       fs-extra: 10.1.0
       fs-tree-diff: 2.0.1
-      handlebars: 4.7.9
+      handlebars: 4.7.10
       is-subdir: 1.2.0
       js-string-escape: 1.0.1
       lodash: 4.18.1
@@ -14389,15 +14373,6 @@ snapshots:
     optionalDependencies:
       uglify-js: 3.19.3
 
-  handlebars@4.7.9:
-    dependencies:
-      minimist: 1.2.8
-      neo-async: 2.6.2
-      source-map: 0.6.1
-      wordwrap: 1.0.0
-    optionalDependencies:
-      uglify-js: 3.19.3
-
   hard-rejection@2.1.0: {}
 
   has-ansi@3.0.0:
@@ -14861,7 +14836,7 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.3.1:
+  js-yaml@4.3.2:
     dependencies:
       argparse: 2.0.1
 
@@ -15301,7 +15276,7 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.9
+      brace-expansion: 5.0.12
 
   minimatch@10.2.6:
     dependencies:
@@ -15309,7 +15284,7 @@ snapshots:
 
   minimatch@3.1.5:
     dependencies:
-      brace-expansion: 1.1.18
+      brace-expansion: 1.1.21
 
   minimatch@5.1.9:
     dependencies:
@@ -16292,7 +16267,7 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  shell-quote@1.9.0: {}
+  shell-quote@1.11.0: {}
 
   shellwords@0.1.1: {}
 

@@ -55,7 +55,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.10",
+    "@biomejs/biome": "^2.5.15",
     "@vizzly-testing/cli": "workspace:*"
   }
 }

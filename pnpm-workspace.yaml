@@ -6,18 +6,15 @@ packages:
   - test-site
 
 overrides:
-  '@babel/runtime@<7.26.10': 7.29.7
-  js-yaml@>=4.0.0 <4.3.1: 4.3.1
-  socket.io-parser@>=4.0.0 <4.2.7: 4.2.7
+  # concurrently 10.0.5 pins vulnerable shell-quote 1.9.0.
+  # Remove after upgrading to concurrently 10.0.6 or later.
+  shell-quote@>=1.8.4 <1.11.0: 1.11.0
+  # can-symlink and external-editor require vulnerable tmp 0.0.x releases.
   tmp@<0.2.6: 0.2.7
-  ws@<8.21.0: 8.21.3
 
 minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
-minimumReleaseAgeExclude:
-  - '@vizzly-testing/bear-den@0.1.2'
-  - '@vizzly-testing/honeydiff@0.11.1'
 onlyBuiltDependencies:
   - canvas
   - esbuild

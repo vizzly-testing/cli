@@ -67,16 +67,16 @@
     "@vizzly-testing/cli": ">=0.24.0"
   },
   "dependencies": {
-    "fast-xml-parser": "^5.8.0",
-    "playwright-core": "^1.50.0",
-    "serve-handler": "^6.1.5",
-    "zod": "^4.1.12"
+    "fast-xml-parser": "^5.11.2",
+    "playwright-core": "^1.63.0",
+    "serve-handler": "^6.1.7",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@babel/cli": "^8.0.1",
-    "@babel/core": "^8.0.1",
-    "@babel/preset-env": "^8.0.2",
-    "@biomejs/biome": "^2.5.10",
-    "rimraf": "^6.0.1"
+    "@babel/cli": "^8.0.6",
+    "@babel/core": "^8.0.6",
+    "@babel/preset-env": "^8.0.6",
+    "@biomejs/biome": "^2.5.15",
+    "rimraf": "^6.1.3"
   }
 }

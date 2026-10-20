@@ -3,10 +3,12 @@
  * Handles authentication endpoints (device flow login, logout, status)
  */
 
+import { buildTokens, normalizeDeviceFlowResponse } from '../../auth/core.js';
 import * as output from '../../utils/output.js';
 import { parseJsonBody } from '../middleware/json-parser.js';
 import {
   sendError,
+  sendJson,
   sendServiceUnavailable,
   sendSuccess,
 } from '../middleware/response.js';
@@ -48,23 +50,20 @@ export function createAuthRouter({ authService }) {
     // Initiate device flow login
     if (req.method === 'POST' && pathname === '/api/auth/login') {
       try {
-        const deviceFlow = await authService.initiateDeviceFlow();
-
-        // Transform snake_case to camelCase for frontend
-        const response = {
-          deviceCode: deviceFlow.device_code,
-          userCode: deviceFlow.user_code,
-          verificationUri: deviceFlow.verification_uri,
-          verificationUriComplete: deviceFlow.verification_uri_complete,
-          expiresIn: deviceFlow.expires_in,
+        let deviceFlow = await authService.initiateDeviceFlow();
+        let flow = normalizeDeviceFlowResponse(deviceFlow);
+        sendSuccess(res, {
+          deviceCode: flow.deviceCode,
+          userCode: flow.userCode,
+          verificationUri: flow.verificationUri,
+          verificationUriComplete: flow.urlWithCode,
+          expiresIn: deviceFlow.expires_in ?? deviceFlow.expiresIn,
           interval: deviceFlow.interval,
-        };
-
-        sendSuccess(res, response);
+        });
         return true;
       } catch (error) {
         output.error('Error initiating device flow:', error);
-        sendError(res, 500, error.message);
+        sendAuthError(res, error);
         return true;
       }
     }
@@ -80,43 +79,22 @@ export function createAuthRouter({ authService }) {
           return true;
         }
 
-        let result;
-        try {
-          result = await authService.pollDeviceAuthorization(deviceCode);
-        } catch (error) {
-          // Handle "Authorization pending" as a valid response
-          if (error.message?.includes('Authorization pending')) {
-            sendSuccess(res, { status: 'pending' });
-            return true;
-          }
-          throw error;
-        }
-
-        // Check if authorization is complete by looking for tokens
-        if (result.tokens?.accessToken) {
-          const tokensData = result.tokens;
-          const tokenExpiresIn = tokensData.expiresIn || tokensData.expires_in;
-          const tokenExpiresAt = tokenExpiresIn
-            ? new Date(Date.now() + tokenExpiresIn * 1000).toISOString()
-            : result.expires_at || result.expiresAt;
-
-          const tokens = {
-            accessToken: tokensData.accessToken || tokensData.access_token,
-            refreshToken: tokensData.refreshToken || tokensData.refresh_token,
-            expiresAt: tokenExpiresAt,
-            user: result.user,
-          };
-
+        let result = await authService.pollDeviceAuthorization(deviceCode);
+        if (result.tokens?.accessToken || result.tokens?.access_token) {
+          let tokens = buildTokens(result);
           await authService.completeDeviceFlow(tokens);
-
           sendSuccess(res, { status: 'complete', user: result.user });
+        } else if (
+          ['pending', 'expired', 'denied', 'invalid'].includes(result.status)
+        ) {
+          sendSuccess(res, { status: result.status });
         } else {
-          sendSuccess(res, { status: 'pending' });
+          throw new Error('Unexpected response from authorization server');
         }
         return true;
       } catch (error) {
         output.error('Error polling device authorization:', error);
-        sendError(res, 500, error.message);
+        sendAuthError(res, error);
         return true;
       }
     }
@@ -129,11 +107,21 @@ export function createAuthRouter({ authService }) {
         return true;
       } catch (error) {
         output.error('Error logging out:', error);
-        sendError(res, 500, error.message);
+        sendAuthError(res, error);
         return true;
       }
     }
 
     return false;
   };
+}
+
+function sendAuthError(res, error) {
+  let retryAfter = error.context?.retryAfter;
+  if (retryAfter) res.setHeader('Retry-After', String(retryAfter));
+  sendJson(res, error.context?.status || 500, {
+    error: error.message,
+    code: error.context?.serverCode || error.code,
+    ...(retryAfter ? { retryAfter } : {}),
+  });
 }

@@ -61,7 +61,10 @@ export function createAuthClient(options = {}) {
 
     if (!response.ok) {
       let body = await parseResponseBody(response);
-      throw parseAuthError(response.status, body, endpoint);
+      let error = parseAuthError(response.status, body, endpoint);
+      let retryAfter = Number(response.headers?.get('retry-after'));
+      if (retryAfter > 0) error.context.retryAfter = retryAfter;
+      throw error;
     }
 
     return response.json();

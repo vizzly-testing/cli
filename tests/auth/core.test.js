@@ -8,8 +8,11 @@ import {
   buildRefreshPayload,
   buildRequestHeaders,
   buildTokenData,
+  buildTokens,
+  normalizeDeviceFlowResponse,
   parseAuthError,
   parseAuthenticatedError,
+  resolveAuthorizedTokenData,
   validateTokens,
 } from '../../src/auth/core.js';
 import { AuthError, VizzlyError } from '../../src/errors/vizzly-error.js';
@@ -260,6 +263,85 @@ describe('auth/core', () => {
     it('defaults to checking accessToken', () => {
       let result = validateTokens(null);
       assert.ok(result.error.message.includes('authentication token'));
+    });
+  });
+
+  describe('device flow helpers', () => {
+    it('normalizes snake_case and camelCase device flow responses', () => {
+      assert.deepStrictEqual(
+        normalizeDeviceFlowResponse({
+          verification_uri: 'https://auth.test/device',
+          user_code: 'A B',
+          device_code: 'device-1',
+        }),
+        {
+          verificationUri: 'https://auth.test/device',
+          userCode: 'A B',
+          deviceCode: 'device-1',
+          urlWithCode: 'https://auth.test/device?code=A%20B',
+        }
+      );
+      assert.deepStrictEqual(
+        normalizeDeviceFlowResponse({
+          verificationUri: 'https://auth.test/device',
+          userCode: 'CODE',
+          deviceCode: 'device-2',
+        }).deviceCode,
+        'device-2'
+      );
+      assert.throws(
+        () => normalizeDeviceFlowResponse({}),
+        /Invalid device flow response/
+      );
+    });
+
+    it('resolves authorization responses into tokens or user-facing errors', () => {
+      let authorized = { tokens: { accessToken: 'token' } };
+      let snakeCaseAuthorized = { tokens: { access_token: 'token' } };
+
+      assert.strictEqual(resolveAuthorizedTokenData(authorized), authorized);
+      assert.strictEqual(
+        resolveAuthorizedTokenData(snakeCaseAuthorized),
+        snakeCaseAuthorized
+      );
+      assert.throws(
+        () => resolveAuthorizedTokenData({ status: 'pending' }),
+        /Authorization not complete/
+      );
+      assert.throws(
+        () => resolveAuthorizedTokenData({ status: 'expired' }),
+        /Device code expired/
+      );
+      assert.throws(
+        () => resolveAuthorizedTokenData({ status: 'denied' }),
+        /Authorization denied/
+      );
+    });
+
+    it('builds stored tokens deterministically', () => {
+      let now = Date.parse('2026-05-18T12:00:00.000Z');
+
+      assert.deepStrictEqual(
+        buildTokens(
+          {
+            tokens: {
+              access_token: 'access-token',
+              refresh_token: 'refresh-token',
+              expires_in: 3600,
+            },
+            user: { email: 'robert@example.test' },
+            organizations: [{ slug: 'vizzly' }],
+          },
+          now
+        ),
+        {
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: '2026-05-18T13:00:00.000Z',
+          user: { email: 'robert@example.test' },
+          organizations: [{ slug: 'vizzly' }],
+        }
+      );
     });
   });
 });

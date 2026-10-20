@@ -23,17 +23,14 @@ import {
   SkeletonCard,
   Spinner,
 } from '@vizzly-testing/bear-den';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  useAuthStatus,
-  useInitiateLogin,
-  usePollAuthorization,
-} from '../../hooks/queries/use-auth-queries.js';
+import { useCallback, useMemo, useState } from 'react';
+import { useAuthStatus } from '../../hooks/queries/use-auth-queries.js';
 import {
   useBuilds,
   useDownloadBaselines,
   useProjects,
 } from '../../hooks/queries/use-cloud-queries.js';
+import { useDeviceLogin } from '../../hooks/use-device-login.js';
 import { queryKeys } from '../../lib/query-keys.js';
 import { useToast } from '../ui/toast.jsx';
 
@@ -231,56 +228,27 @@ function OrganizationSection({
   );
 }
 
-function DeviceFlowLogin({ onComplete }) {
-  let [deviceFlow, setDeviceFlow] = useState(null);
-  let [error, setError] = useState(null);
+function DeviceFlowLogin({ login }) {
+  let deviceFlow = login.flow;
+  let terminalMessage = {
+    denied: 'Authorization was denied. Start a new login to try again.',
+    expired: 'Your login code expired. Start a new login to continue.',
+    invalid:
+      'This login code is invalid or expired. Start a new login to continue.',
+  }[login.status];
 
-  let initiateLoginMutation = useInitiateLogin();
-  let pollMutation = usePollAuthorization();
-  let { addToast } = useToast();
-
-  useEffect(() => {
-    async function startDeviceFlow() {
-      try {
-        let flow = await initiateLoginMutation.mutateAsync();
-        setDeviceFlow(flow);
-      } catch (err) {
-        setError(err.message);
-        addToast(`Failed to start login: ${err.message}`, 'error');
-      }
-    }
-
-    startDeviceFlow();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addToast, initiateLoginMutation]);
-
-  async function checkAuthorization() {
-    if (!deviceFlow?.deviceCode) return;
-
-    setError(null);
-
-    try {
-      let result = await pollMutation.mutateAsync(deviceFlow.deviceCode);
-
-      if (result.status === 'complete') {
-        addToast('Login successful!', 'success');
-        onComplete?.();
-      } else if (result.status === 'pending') {
-        addToast('Still waiting for authorization...', 'info');
-      } else {
-        setError('Unexpected response from server');
-      }
-    } catch (err) {
-      setError(err.message);
-      addToast(`Check failed: ${err.message}`, 'error');
-    }
-  }
-
-  if (error) {
+  if (login.status === 'error' || terminalMessage) {
+    let retryAfter = login.error?.data?.retryAfter;
     return (
-      <Alert variant="danger" title="Login Error">
-        {error}
-      </Alert>
+      <div className="space-y-4">
+        <Alert variant="danger" title="Login Error">
+          {terminalMessage || login.error.message}
+          {retryAfter > 0 && ` Try again after ${retryAfter} seconds.`}
+        </Alert>
+        <Button variant="primary" onClick={login.start}>
+          Try Again
+        </Button>
+      </div>
     );
   }
 
@@ -329,10 +297,17 @@ function DeviceFlowLogin({ onComplete }) {
           sign in.
         </p>
 
+        {login.error && (
+          <Alert variant="danger" title="Status Check Failed">
+            {login.error.message}
+            {login.error.data?.retryAfter > 0 &&
+              ` Try again after ${login.error.data.retryAfter} seconds.`}
+          </Alert>
+        )}
         <Button
           variant="secondary"
-          onClick={checkAuthorization}
-          loading={pollMutation.isPending}
+          onClick={login.check}
+          loading={login.checking}
         >
           Check Status
         </Button>
@@ -342,28 +317,24 @@ function DeviceFlowLogin({ onComplete }) {
 }
 
 function LoginPrompt() {
-  const [showingLogin, setShowingLogin] = useState(false);
   const queryClient = useQueryClient();
   const { addToast } = useToast();
 
   const handleLoginComplete = useCallback(() => {
-    setShowingLogin(false);
     queryClient.invalidateQueries({ queryKey: queryKeys.auth });
     queryClient.invalidateQueries({ queryKey: queryKeys.projects() });
     addToast('Login successful!', 'success');
   }, [queryClient, addToast]);
 
-  if (showingLogin) {
+  let login = useDeviceLogin({ onComplete: handleLoginComplete });
+
+  if (login.status !== 'idle') {
     return (
       <div className="space-y-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowingLogin(false)}
-        >
+        <Button variant="ghost" size="sm" onClick={login.dismiss}>
           &larr; Back
         </Button>
-        <DeviceFlowLogin onComplete={handleLoginComplete} />
+        <DeviceFlowLogin login={login} />
       </div>
     );
   }
@@ -383,7 +354,7 @@ function LoginPrompt() {
         </p>
         <Button
           variant="primary"
-          onClick={() => setShowingLogin(true)}
+          onClick={login.start}
           icon={ArrowRightOnRectangleIcon}
         >
           Sign In

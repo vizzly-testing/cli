@@ -164,7 +164,7 @@ describe('server/routers/auth', () => {
       it('returns pending status', async () => {
         let handler = createAuthRouter({
           authService: createMockAuthService({
-            pollResult: {},
+            pollResult: { status: 'pending' },
           }),
         });
         let req = createMockRequest('POST', { deviceCode: 'device-123' });
@@ -189,22 +189,6 @@ describe('server/routers/auth', () => {
         assert.strictEqual(res.statusCode, 400);
         let body = res.getParsedBody();
         assert.ok(body.error.includes('deviceCode'));
-      });
-
-      it('handles authorization pending error', async () => {
-        let handler = createAuthRouter({
-          authService: createMockAuthService({
-            pollError: new Error('Authorization pending'),
-          }),
-        });
-        let req = createMockRequest('POST', { deviceCode: 'device-123' });
-        let res = createMockResponse();
-
-        await handler(req, res, '/api/auth/poll');
-
-        assert.strictEqual(res.statusCode, 200);
-        let body = res.getParsedBody();
-        assert.strictEqual(body.status, 'pending');
       });
 
       it('completes authorization with tokens', async () => {

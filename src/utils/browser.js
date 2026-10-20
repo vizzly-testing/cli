@@ -52,7 +52,9 @@ export async function openBrowser(url) {
         break;
     }
 
-    execFile(command, args, error => {
+    // Some launchers stay in the foreground. Bound the attempt so login and
+    // other CLI workflows can continue using the displayed URL.
+    execFile(command, args, { timeout: 5000, killSignal: 'SIGKILL' }, error => {
       if (error) {
         // Browser opening failed, but don't throw - user can manually open
         resolve(false);

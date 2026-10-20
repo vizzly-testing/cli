@@ -8,11 +8,13 @@
  * This makes them trivially testable without mocking modules.
  */
 
+import * as output from '../utils/output.js';
 import {
   buildDevicePollPayload,
   buildLogoutPayload,
   buildRefreshPayload,
   buildTokenData,
+  deviceAuthorizationStatus,
   validateTokens,
 } from './core.js';
 
@@ -38,12 +40,23 @@ export async function initiateDeviceFlow(httpClient) {
  * @param {string} deviceCode - Device code from initiate
  * @returns {Promise<Object>} Token data or pending status
  */
-export async function pollDeviceAuthorization(httpClient, deviceCode) {
-  return httpClient.request('/api/auth/cli/device/poll', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildDevicePollPayload(deviceCode)),
-  });
+export async function pollDeviceAuthorization(
+  httpClient,
+  deviceCode,
+  options = {}
+) {
+  try {
+    return await httpClient.request('/api/auth/cli/device/poll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildDevicePollPayload(deviceCode)),
+      signal: options.signal,
+    });
+  } catch (error) {
+    let status = deviceAuthorizationStatus(error);
+    if (status) return { status };
+    throw error;
+  }
 }
 
 /**
@@ -102,17 +115,18 @@ export async function logout(httpClient, tokenStore) {
 
   if (auth?.refreshToken) {
     try {
-      await httpClient.request('/api/auth/cli/logout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildLogoutPayload(auth.refreshToken)),
-      });
+      await httpClient.authenticatedRequest(
+        '/api/auth/cli/logout',
+        auth.accessToken,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildLogoutPayload(auth.refreshToken)),
+        }
+      );
     } catch (error) {
       // If server request fails, still clear local tokens
-      console.warn(
-        'Warning: Failed to revoke tokens on server:',
-        error.message
-      );
+      output.warn(`Failed to revoke tokens on server: ${error.message}`);
     }
   }
 

@@ -3,6 +3,13 @@
  * Authenticates user via OAuth device flow
  */
 
+import { setTimeout as delay } from 'node:timers/promises';
+
+import {
+  buildTokens,
+  normalizeDeviceFlowResponse,
+  resolveAuthorizedTokenData,
+} from '../auth/core.js';
 import {
   completeDeviceFlow,
   createAuthClient,
@@ -10,134 +17,11 @@ import {
   initiateDeviceFlow,
   pollDeviceAuthorization,
 } from '../auth/index.js';
+
 import { openBrowser } from '../utils/browser.js';
 import { getApiUrl } from '../utils/environment-config.js';
+import { waitForLoginPoll } from '../utils/login-poll-wait.js';
 import * as output from '../utils/output.js';
-
-function createLoginDeps(deps = {}) {
-  return {
-    completeDeviceFlow: deps.completeDeviceFlow || completeDeviceFlow,
-    createAuthClient: deps.createAuthClient || createAuthClient,
-    createTokenStore: deps.createTokenStore || createTokenStore,
-    getApiUrl: deps.getApiUrl || getApiUrl,
-    initiateDeviceFlow: deps.initiateDeviceFlow || initiateDeviceFlow,
-    now: deps.now || (() => Date.now()),
-    openBrowser: deps.openBrowser || openBrowser,
-    output: deps.output || output,
-    pollDeviceAuthorization:
-      deps.pollDeviceAuthorization || pollDeviceAuthorization,
-    waitForEnter: deps.waitForEnter || waitForEnter,
-    exit: deps.exit || (code => process.exit(code)),
-  };
-}
-
-function configureOutput(output, globalOptions) {
-  output.configure({
-    json: globalOptions.json,
-    verbose: globalOptions.verbose,
-    color: !globalOptions.noColor,
-  });
-}
-
-export function normalizeDeviceFlowResponse(deviceFlow) {
-  let verificationUri =
-    deviceFlow.verification_uri || deviceFlow.verificationUri;
-  let userCode = deviceFlow.user_code || deviceFlow.userCode;
-  let deviceCode = deviceFlow.device_code || deviceFlow.deviceCode;
-
-  if (!verificationUri || !userCode || !deviceCode) {
-    throw new Error('Invalid device flow response from server');
-  }
-
-  return {
-    verificationUri,
-    userCode,
-    deviceCode,
-    urlWithCode: `${verificationUri}?code=${encodeURIComponent(userCode)}`,
-  };
-}
-
-export function resolveAuthorizedTokenData(pollResponse) {
-  let accessToken =
-    pollResponse.tokens?.accessToken || pollResponse.tokens?.access_token;
-
-  if (accessToken) {
-    return pollResponse;
-  }
-
-  if (pollResponse.status === 'pending') {
-    throw new Error(
-      'Authorization not complete yet. Please complete the authorization in your browser and try running "vizzly login" again.'
-    );
-  }
-  if (pollResponse.status === 'expired') {
-    throw new Error('Device code expired. Please try logging in again.');
-  }
-  if (pollResponse.status === 'denied') {
-    throw new Error('Authorization denied. Please try logging in again.');
-  }
-
-  throw new Error(
-    'Unexpected response from authorization server. Please try logging in again.'
-  );
-}
-
-export function buildTokens(tokenData, now = Date.now()) {
-  let tokensData = tokenData.tokens || tokenData;
-  let tokenExpiresIn = tokensData.expiresIn || tokensData.expires_in;
-  let tokenExpiresAt = tokenExpiresIn
-    ? new Date(now + tokenExpiresIn * 1000).toISOString()
-    : tokenData.expires_at || tokenData.expiresAt;
-
-  return {
-    accessToken: tokensData.accessToken || tokensData.access_token,
-    refreshToken: tokensData.refreshToken || tokensData.refresh_token,
-    expiresAt: tokenExpiresAt,
-    user: tokenData.user,
-    organizations: tokenData.organizations,
-  };
-}
-
-export function getTokenExpiryHint(expiresAt, now = Date.now()) {
-  if (!expiresAt) {
-    return null;
-  }
-
-  let expiry = new Date(expiresAt);
-  let msUntilExpiry = expiry.getTime() - now;
-  let daysUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60 * 24));
-  let hoursUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60 * 60));
-  let minutesUntilExpiry = Math.floor(msUntilExpiry / (1000 * 60));
-
-  if (daysUntilExpiry > 0) {
-    return `Token expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}`;
-  }
-  if (hoursUntilExpiry > 0) {
-    return `Token expires in ${hoursUntilExpiry} hour${hoursUntilExpiry !== 1 ? 's' : ''}`;
-  }
-  if (minutesUntilExpiry > 0) {
-    return `Token expires in ${minutesUntilExpiry} minute${minutesUntilExpiry !== 1 ? 's' : ''}`;
-  }
-
-  return null;
-}
-
-export async function waitForEnter(stdin = process.stdin) {
-  await new Promise(resolve => {
-    let canSetRawMode = typeof stdin.setRawMode === 'function';
-    if (canSetRawMode) {
-      stdin.setRawMode(true);
-    }
-    stdin.resume();
-    stdin.once('data', () => {
-      if (canSetRawMode) {
-        stdin.setRawMode(false);
-      }
-      stdin.pause();
-      resolve();
-    });
-  });
-}
 
 /**
  * Login command implementation using OAuth device flow
@@ -149,21 +33,13 @@ export async function loginCommand(
   globalOptions = {},
   deps = {}
 ) {
-  let {
-    completeDeviceFlow,
-    createAuthClient,
-    createTokenStore,
-    getApiUrl,
-    initiateDeviceFlow,
-    now,
-    openBrowser,
-    output,
-    pollDeviceAuthorization,
-    waitForEnter,
-    exit,
-  } = createLoginDeps(deps);
+  let { now = Date.now, delay: sleep = delay } = deps;
 
-  configureOutput(output, globalOptions);
+  output.configure({
+    json: globalOptions.json,
+    verbose: globalOptions.verbose,
+    color: !globalOptions.noColor,
+  });
 
   let colors = output.getColors();
 
@@ -180,6 +56,19 @@ export async function loginCommand(
     output.startSpinner('Connecting to Vizzly...');
     let deviceFlow = await initiateDeviceFlow(client);
     output.stopSpinner();
+    let expiresIn = Number(deviceFlow.expires_in ?? deviceFlow.expiresIn);
+    let lifetime =
+      Number.isFinite(expiresIn) && expiresIn > 0
+        ? Math.min(expiresIn, 120)
+        : 120;
+    let deadline = now() + lifetime * 1000;
+    let timeoutMessage =
+      expiresIn > 0 && expiresIn <= 120
+        ? 'Device code expired. Please try logging in again.'
+        : 'Login timed out after 2 minutes. Please try logging in again.';
+    let interval = Number(deviceFlow.interval);
+    let pollDelay =
+      Number.isFinite(interval) && interval > 0 ? interval * 1000 : 5000;
 
     // Handle both snake_case and camelCase field names
     let { deviceCode, urlWithCode, userCode } =
@@ -210,16 +99,61 @@ export async function loginCommand(
     }
 
     output.blank();
-    output.hint('After authorizing, press Enter to continue...');
+    output.hint(
+      'Waiting for authorization in your browser (up to 2 minutes)...'
+    );
+    let interactive = process.stdin.isTTY && !globalOptions.json;
+    let backoff = false;
+    let lastCheckAt = 0;
 
-    // Wait for user to press Enter
-    await waitForEnter();
-
-    // Check authorization status
-    output.startSpinner('Checking authorization...');
-
-    let pollResponse = await pollDeviceAuthorization(client, deviceCode);
-
+    let pollResponse;
+    while (true) {
+      let remaining = deadline - now();
+      if (remaining <= 0) {
+        throw new Error(timeoutMessage);
+      }
+      await waitForLoginPoll({
+        milliseconds: Math.min(pollDelay, remaining),
+        manualAllowed: !backoff,
+        earliestCheckAt: lastCheckAt + 1000,
+        stdin: interactive ? process.stdin : { isTTY: false },
+        now,
+        sleep,
+        onTick: (milliseconds, canCheck) => {
+          let seconds = Math.ceil(milliseconds / 1000);
+          let message = backoff
+            ? `Rate limited. Next check in ${seconds}s`
+            : `Next check in ${seconds}s`;
+          if (canCheck) message += ' — press Enter to check now';
+          if (interactive) output.updateSpinner(message);
+          else output.hint(message);
+        },
+      });
+      remaining = deadline - now();
+      if (remaining <= 0) {
+        throw new Error(timeoutMessage);
+      }
+      lastCheckAt = now();
+      output.updateSpinner('Checking authorization...');
+      try {
+        pollResponse = await pollDeviceAuthorization(client, deviceCode, {
+          signal: AbortSignal.timeout(Math.ceil(Math.min(remaining, 30000))),
+        });
+      } catch (error) {
+        if (now() >= deadline) {
+          throw new Error(timeoutMessage);
+        }
+        if (error.code !== 'RATE_LIMIT_ERROR') throw error;
+        backoff = true;
+        let retryAfter = Number(error.context?.retryAfter);
+        if (Number.isFinite(retryAfter) && retryAfter > 0) {
+          pollDelay = Math.max(pollDelay, retryAfter * 1000);
+        }
+        continue;
+      }
+      backoff = false;
+      if (pollResponse.status !== 'pending') break;
+    }
     output.stopSpinner();
 
     let tokenData = resolveAuthorizedTokenData(pollResponse);
@@ -251,19 +185,8 @@ export async function loginCommand(
       output.list(orgItems);
     }
 
-    // Show token expiry info
-    if (tokens.expiresAt) {
-      output.blank();
-      let expiryHint = getTokenExpiryHint(tokens.expiresAt, now());
-      if (expiryHint) {
-        output.hint(expiryHint);
-      }
-    }
-
     output.blank();
-    output.hint(
-      'Run "vizzly project link <org>/<project>" to enable cloud uploads'
-    );
+    output.hint('You can now browse cloud builds and download baselines');
 
     output.cleanup();
   } catch (error) {
@@ -277,18 +200,14 @@ export async function loginCommand(
       output.hint(
         "If you don't have an account, sign up at https://vizzly.dev"
       );
-      output.cleanup();
-      exit(1);
     } else if (error.code === 'RATE_LIMIT_ERROR') {
       output.error('Too many login attempts', error);
       output.blank();
       output.hint('Please wait a few minutes before trying again');
-      output.cleanup();
-      exit(1);
     } else {
       output.error('Login failed', error);
-      output.cleanup();
-      exit(1);
     }
+    output.cleanup();
+    process.exit(1);
   }
 }

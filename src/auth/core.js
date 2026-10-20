@@ -68,23 +68,33 @@ export function parseAuthError(status, body, _endpoint) {
     errorText = body;
   }
 
+  let retryAfter = Number(body?.retryAfter);
+  let context = {
+    status,
+    serverCode: body?.code,
+    retryAfter: retryAfter > 0 ? retryAfter : undefined,
+  };
+
   if (status === 401) {
     return new AuthError(
       errorText ||
-        'Invalid credentials. Please check your email/username and password.'
+        'Invalid credentials. Please check your email/username and password.',
+      context
     );
   }
 
   if (status === 429) {
     return new VizzlyError(
       'Too many login attempts. Please try again later.',
-      'RATE_LIMIT_ERROR'
+      'RATE_LIMIT_ERROR',
+      context
     );
   }
 
   return new VizzlyError(
     `Authentication request failed: ${status}${errorText ? ` - ${errorText}` : ''}`,
-    'AUTH_REQUEST_ERROR'
+    'AUTH_REQUEST_ERROR',
+    context
   );
 }
 
@@ -183,4 +193,81 @@ export function validateTokens(auth, requiredField = 'accessToken') {
   }
 
   return { valid: true, error: null };
+}
+
+export function normalizeDeviceFlowResponse(deviceFlow) {
+  let verificationUri =
+    deviceFlow.verification_uri || deviceFlow.verificationUri;
+  let userCode = deviceFlow.user_code || deviceFlow.userCode;
+  let deviceCode = deviceFlow.device_code || deviceFlow.deviceCode;
+
+  if (!verificationUri || !userCode || !deviceCode) {
+    throw new Error('Invalid device flow response from server');
+  }
+
+  return {
+    verificationUri,
+    userCode,
+    deviceCode,
+    urlWithCode:
+      deviceFlow.verification_uri_complete ||
+      deviceFlow.verificationUriComplete ||
+      `${verificationUri}?code=${encodeURIComponent(userCode)}`,
+  };
+}
+
+export function resolveAuthorizedTokenData(pollResponse) {
+  let accessToken =
+    pollResponse.tokens?.accessToken || pollResponse.tokens?.access_token;
+
+  if (accessToken) {
+    return pollResponse;
+  }
+
+  if (pollResponse.status === 'pending') {
+    throw new Error(
+      'Authorization not complete yet. Please complete the authorization in your browser and try running "vizzly login" again.'
+    );
+  }
+  if (pollResponse.status === 'expired') {
+    throw new Error('Device code expired. Please try logging in again.');
+  }
+  if (pollResponse.status === 'invalid') {
+    throw new Error(
+      'Device code is invalid or expired. Please try logging in again.'
+    );
+  }
+  if (pollResponse.status === 'denied') {
+    throw new Error('Authorization denied. Please try logging in again.');
+  }
+
+  throw new Error(
+    'Unexpected response from authorization server. Please try logging in again.'
+  );
+}
+
+export function buildTokens(tokenData, now = Date.now()) {
+  let tokensData = tokenData.tokens || tokenData;
+  let tokenExpiresIn = tokensData.expiresIn || tokensData.expires_in;
+  let tokenExpiresAt = tokenExpiresIn
+    ? new Date(now + tokenExpiresIn * 1000).toISOString()
+    : tokenData.expires_at || tokenData.expiresAt;
+
+  return {
+    accessToken: tokensData.accessToken || tokensData.access_token,
+    refreshToken: tokensData.refreshToken || tokensData.refresh_token,
+    expiresAt: tokenExpiresAt,
+    user: tokenData.user,
+    organizations: tokenData.organizations,
+  };
+}
+
+/** Map protocol codes without depending on the server's human-readable text. */
+export function deviceAuthorizationStatus(error) {
+  return {
+    AUTHORIZATION_PENDING: 'pending',
+    ACCESS_DENIED: 'denied',
+    EXPIRED_TOKEN: 'expired',
+    INVALID_DEVICE_CODE: 'invalid',
+  }[error.context?.serverCode];
 }

@@ -28,8 +28,8 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1
       dotenv:
-        specifier: ^17.4.2
-        version: 17.4.2
+        specifier: ^18.0.3
+        version: 18.0.3
       form-data:
         specifier: ^4.0.6
         version: 4.0.6
@@ -136,7 +136,7 @@ importers:
     dependencies:
       '@vizzly-testing/ember':
         specifier: file:..
-        version: file:clients/ember(@vizzly-testing/cli@0.38.0(@heroicons/react@2.2.0(react@19.3.0))(tailwindcss@4.3.3)(typescript@7.0.2))
+        version: file:clients/ember(@vizzly-testing/cli@0.38.1(@heroicons/react@2.2.0(react@19.3.1))(tailwindcss@4.3.3))
     devDependencies:
       '@babel/core':
         specifier: ^8.0.6
@@ -203,7 +203,7 @@ importers:
         version: 2.13.1(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.29))
       ember-cli:
         specifier: ~7.3.0
-        version: 7.3.0(@babel/core@8.0.7)(@types/node@26.6.5)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8)
+        version: 7.3.0(@babel/core@8.0.7)(@types/node@26.6.5)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(underscore@1.13.8)
       ember-cli-babel:
         specifier: ^8.3.2
         version: 8.3.2(@babel/core@8.0.7)
@@ -254,7 +254,7 @@ importers:
         version: 40.0.0(stylelint@17.16.0(typescript@7.0.2))
       testem:
         specifier: ^3.21.0
-        version: 3.21.3(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8)
+        version: 3.21.3(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(underscore@1.13.8)
       tracked-built-ins:
         specifier: ^4.1.2
         version: 4.1.2(@babel/core@8.0.7)
@@ -3102,23 +3102,6 @@ packages:
   '@vitest/utils@5.0.3':
     resolution: {integrity: sha512-77fDTZv8eu1CzlIfgPU2yrl5MXSUaUAOvgdZEeVm3X3WIxUubIX2SforqS6176lT32HCF6uBVMYVqfHxw7o6eg==}
 
-  '@vizzly-testing/bear-den@0.1.4':
-    resolution: {integrity: sha512-sPRHB5U1HzxQqbRm5kjd1GER0SE1BiRZTGKPXQUHCtvladwNeY86NmLqhB9qTfXIJDXUYdRYetbHugeJVtsF4Q==}
-    peerDependencies:
-      '@heroicons/react': ^2.0.0
-      react: ^18.0.0 || ^19.0.0
-      react-dom: ^18.0.0 || ^19.0.0
-      tailwindcss: ^4.0.0
-    peerDependenciesMeta:
-      '@heroicons/react':
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      tailwindcss:
-        optional: true
-
   '@vizzly-testing/bear-den@0.1.6':
     resolution: {integrity: sha512-+4/33CSuf1dUQhVsSVRmyix4DG/v/EEkFhN7K5uT0cg0nZdhlh4dedJbQfHcUaVRgJd0S3zR1f5w8Pi8PQd4JA==}
     peerDependencies:
@@ -3141,9 +3124,9 @@ packages:
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@vizzly-testing/cli@0.38.0':
-    resolution: {integrity: sha512-yoRmrRty6Nk0vyTlfE0KZAIUsNVXXurmzWHib1NqbbP3fls2FDahk7KNM6gVsQgwME4kDDXm1icY/iE9QRrAtQ==}
-    engines: {node: '>=22.0.0'}
+  '@vizzly-testing/cli@0.38.1':
+    resolution: {integrity: sha512-aThsNH6ctA30aAxGjBscBPuSaOSHdilXL9cAW2sNaYnLMTWdHBPLgZvKl4uutk5rExMcRH5B6aX8Z6/9xjPwDw==}
+    engines: {node: ^22.18.0 || >=24.0.0}
     hasBin: true
 
   '@vizzly-testing/cli@0.9.1':
@@ -4418,6 +4401,11 @@ packages:
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
+
+  dotenv@18.0.3:
+    resolution: {integrity: sha512-/8CJTyL817qPnfbQrJgOEcrU3fDrJkRIoXBE566wHuvIXKOCHUZhPqGPbCPi9SogjdGnreF0TlvnTgK6J/8zpA==}
+    engines: {node: '>=12'}
+    hasBin: true
 
   downshift@9.4.0:
     resolution: {integrity: sha512-yIwyzRYzycKwMZhvOahsn4BmRr4Ffi0JymdWOtTDhR+LGDEXCZHTcwgUbNBC/oZLT6YrR46iwJe/BrQUS5ClQQ==}
@@ -6704,6 +6692,11 @@ packages:
     peerDependencies:
       react: ^19.3.0
 
+  react-dom@19.3.1:
+    resolution: {integrity: sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==}
+    peerDependencies:
+      react: ^19.3.1
+
   react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
@@ -6715,6 +6708,10 @@ packages:
 
   react@19.3.0:
     resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
+    engines: {node: '>=0.10.0'}
+
+  react@19.3.1:
+    resolution: {integrity: sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==}
     engines: {node: '>=0.10.0'}
 
   read-pkg-up@7.0.1:
@@ -7839,8 +7836,8 @@ packages:
     resolution: {integrity: sha512-c9gP6tfJ8vK+eH84IF4+8r4Z/g2KhRc+XwLGl208tAIHR1mz0o7zy5Hkm+4XpACh8lNp9/EHqXHIQkw2nBbdYA==}
     engines: {node: '>= 8'}
 
-  watchpack@2.5.2:
-    resolution: {integrity: sha512-6i/00NBjP4yGPs+caKSyRfpTF/8Torsu0MOW3mMzIbhgISFder8i7xbqgHlLMwJrdiN8ndBV3UA1/AfzPSr+jg==}
+  watchpack@2.6.1:
+    resolution: {integrity: sha512-8mk/LnXpQAiM2xKZhTkxikwly5GhL2Z+DWiLTkMa/E1Nfv9zURhHgiFyWvM4BWqW+LjIgL2AIS7JntEUx6v3vQ==}
     engines: {node: '>=10.13.0'}
 
   wcwidth@1.0.1:
@@ -8056,6 +8053,9 @@ packages:
 
   zod@4.6.6:
     resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
+
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
@@ -10724,6 +10724,11 @@ snapshots:
     dependencies:
       react: 19.3.0
 
+  '@heroicons/react@2.2.0(react@19.3.1)':
+    dependencies:
+      react: 19.3.1
+    optional: true
+
   '@hono/node-server@2.1.4(hono@4.13.13)':
     dependencies:
       hono: 4.13.13
@@ -11618,15 +11623,6 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.2.0
 
-  '@vizzly-testing/bear-den@0.1.4(@heroicons/react@2.2.0(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(tailwindcss@4.3.3)':
-    dependencies:
-      downshift: 9.4.0(react@19.3.0)
-    optionalDependencies:
-      '@heroicons/react': 2.2.0(react@19.3.0)
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-      tailwindcss: 4.3.3
-
   '@vizzly-testing/bear-den@0.1.6(@heroicons/react@2.2.0(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(tailwindcss@4.3.3)':
     dependencies:
       downshift: 9.4.0(react@19.3.0)
@@ -11635,6 +11631,16 @@ snapshots:
       '@heroicons/react': 2.2.0(react@19.3.0)
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
+      tailwindcss: 4.3.3
+
+  '@vizzly-testing/bear-den@0.1.6(@heroicons/react@2.2.0(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.3)':
+    dependencies:
+      downshift: 9.4.0(react@19.3.1)
+      tailwind-merge: 3.7.0
+    optionalDependencies:
+      '@heroicons/react': 2.2.0(react@19.3.1)
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
       tailwindcss: 4.3.3
 
   '@vizzly-testing/cli@0.30.0(typescript@7.0.2)':
@@ -11650,23 +11656,22 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@vizzly-testing/cli@0.38.0(@heroicons/react@2.2.0(react@19.3.0))(tailwindcss@4.3.3)(typescript@7.0.2)':
+  '@vizzly-testing/cli@0.38.1(@heroicons/react@2.2.0(react@19.3.1))(tailwindcss@4.3.3)':
     dependencies:
-      '@vizzly-testing/bear-den': 0.1.4(@heroicons/react@2.2.0(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(tailwindcss@4.3.3)
+      '@vizzly-testing/bear-den': 0.1.6(@heroicons/react@2.2.0(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(tailwindcss@4.3.3)
       '@vizzly-testing/honeydiff': 0.17.0
       ansis: 4.4.0
       commander: 15.0.0
-      cosmiconfig: 9.0.2(typescript@7.0.2)
+      cosmiconfig: 10.0.1
       dotenv: 17.4.2
       form-data: 4.0.6
       glob: 13.0.6
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-      zod: 4.6.6
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@heroicons/react'
       - tailwindcss
-      - typescript
 
   '@vizzly-testing/cli@0.9.1(typescript@7.0.2)':
     dependencies:
@@ -11679,9 +11684,9 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@vizzly-testing/ember@file:clients/ember(@vizzly-testing/cli@0.38.0(@heroicons/react@2.2.0(react@19.3.0))(tailwindcss@4.3.3)(typescript@7.0.2))':
+  '@vizzly-testing/ember@file:clients/ember(@vizzly-testing/cli@0.38.1(@heroicons/react@2.2.0(react@19.3.1))(tailwindcss@4.3.3))':
     dependencies:
-      '@vizzly-testing/cli': 0.38.0(@heroicons/react@2.2.0(react@19.3.0))(tailwindcss@4.3.3)(typescript@7.0.2)
+      '@vizzly-testing/cli': 0.38.1(@heroicons/react@2.2.0(react@19.3.1))(tailwindcss@4.3.3)
       playwright-core: 1.63.0
 
   '@vizzly-testing/honeydiff@0.10.3': {}
@@ -12834,15 +12839,15 @@ snapshots:
       ora: 3.4.0
       through2: 3.0.2
 
-  consolidate@1.0.4(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(lodash@4.18.1)(mustache@4.2.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8):
+  consolidate@1.0.4(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(lodash@4.18.1)(mustache@4.2.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(underscore@1.13.8):
     optionalDependencies:
       '@babel/core': 8.0.7
       ejs: 3.1.10
       handlebars: 4.7.10
       lodash: 4.18.1
       mustache: 4.2.0
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
       underscore: 1.13.8
 
   content-disposition@0.5.2: {}
@@ -13062,12 +13067,23 @@ snapshots:
 
   dotenv@17.4.2: {}
 
+  dotenv@18.0.3: {}
+
   downshift@9.4.0(react@19.3.0):
     dependencies:
       '@babel/runtime': 7.29.10
       compute-scroll-into-view: 3.1.1
       prop-types: 15.8.1
       react: 19.3.0
+      react-is: 18.3.1
+      tslib: 2.8.1
+
+  downshift@9.4.0(react@19.3.1):
+    dependencies:
+      '@babel/runtime': 7.29.10
+      compute-scroll-into-view: 3.1.1
+      prop-types: 15.8.1
+      react: 19.3.1
       react-is: 18.3.1
       tslib: 2.8.1
 
@@ -13252,7 +13268,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  ember-cli@7.3.0(@babel/core@8.0.7)(@types/node@26.6.5)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8):
+  ember-cli@7.3.0(@babel/core@8.0.7)(@types/node@26.6.5)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(underscore@1.13.8):
     dependencies:
       '@ember-tooling/blueprint-blueprint': 0.3.0
       '@ember-tooling/blueprint-model': 0.7.1
@@ -13332,7 +13348,7 @@ snapshots:
       silent-error: 1.1.1
       sort-package-json: 3.7.1
       symlink-or-copy: 1.3.1
-      testem: 3.21.3(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8)
+      testem: 3.21.3(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(underscore@1.13.8)
       tiny-lr: 2.0.0
       tree-sync: 2.1.0
       walk-sync: 4.0.2
@@ -15821,6 +15837,11 @@ snapshots:
       react: 19.3.0
       scheduler: 0.28.0
 
+  react-dom@19.3.1(react@19.3.1):
+    dependencies:
+      react: 19.3.1
+      scheduler: 0.28.0
+
   react-is@16.13.1: {}
 
   react-is@17.0.2: {}
@@ -15828,6 +15849,8 @@ snapshots:
   react-is@18.3.1: {}
 
   react@19.3.0: {}
+
+  react@19.3.1: {}
 
   read-pkg-up@7.0.1:
     dependencies:
@@ -16714,7 +16737,7 @@ snapshots:
       commander: 2.20.3
       source-map-support: 0.5.21
 
-  testem@3.21.3(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8):
+  testem@3.21.3(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(underscore@1.13.8):
     dependencies:
       '@xmldom/xmldom': 0.9.12
       backbone: 1.6.1
@@ -16722,7 +16745,7 @@ snapshots:
       chokidar: 5.0.0
       commander: 14.0.3
       compression: 1.8.2
-      consolidate: 1.0.4(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(lodash@4.18.1)(mustache@4.2.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(underscore@1.13.8)
+      consolidate: 1.0.4(@babel/core@8.0.7)(ejs@3.1.10)(handlebars@4.7.10)(lodash@4.18.1)(mustache@4.2.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(underscore@1.13.8)
       execa: 9.6.1
       express: 5.3.0
       glob: 13.0.6
@@ -17188,7 +17211,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  watchpack@2.5.2:
+  watchpack@2.6.1:
     dependencies:
       graceful-fs: 4.2.11
 
@@ -17224,7 +17247,7 @@ snapshots:
       schema-utils: 4.5.0
       tapable: 2.3.3
       terser-webpack-plugin: 5.6.1(esbuild@0.28.2)(postcss@8.5.29)(webpack@5.106.2(esbuild@0.28.2)(postcss@8.5.29))
-      watchpack: 2.5.2
+      watchpack: 2.6.1
       webpack-sources: 3.6.0
     transitivePeerDependencies:
       - '@minify-html/node'
@@ -17409,3 +17432,5 @@ snapshots:
   zod@4.6.5: {}
 
   zod@4.6.6: {}
+
+  zod@4.6.7: {}

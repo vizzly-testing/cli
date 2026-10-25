@@ -267,7 +267,7 @@ describe('uploader/core', () => {
 
       assert.deepStrictEqual(result, {
         sha256: 'abc123',
-        name: 'homepage-chrome',
+        name: 'homepage-chrome.png',
         properties: { browser: 'chrome' },
       });
     });

@@ -185,7 +185,8 @@ export function fileToScreenshotFormat(file) {
   let browser = extractBrowserFromFilename(file.filename);
   return {
     sha256: file.sha256,
-    name: file.filename,
+    name: file.filename.replace(/\.png$/, ''),
+    filename: file.filename,
     properties: browser ? { browser } : {},
   };
 }

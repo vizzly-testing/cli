@@ -100,9 +100,13 @@ describe('commands/upload CLI', () => {
         'Upload screenshots'
       );
       assert.strictEqual(requests[0].json.build.environment, 'test');
-      // Preflight and multipart describe exactly the same capture identities.
+      // Keep the released preflight name; the additive filename identifies multipart captures.
       assert.deepStrictEqual(
         requests[1].json.screenshots.map(({ name }) => name).sort(),
+        ['home-chrome', 'settings-firefox']
+      );
+      assert.deepStrictEqual(
+        requests[1].json.screenshots.map(({ filename }) => filename).sort(),
         ['home-chrome.png', 'settings-firefox.png']
       );
       assert.match(requests[2].contentType, /multipart\/form-data/);

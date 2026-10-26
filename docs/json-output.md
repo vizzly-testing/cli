@@ -1,8 +1,8 @@
-# JSON Output Reference
+# JSON output
 
-Every Vizzly CLI command supports `--json` for machine-readable output. Use it to pipe results to `jq`, integrate with CI/CD tools, or build custom automation.
+Use `--json` to read command results in scripts or pipe them to `jq`.
 
-## Basic Usage
+## Get started
 
 ```bash
 # Full JSON output
@@ -12,11 +12,12 @@ vizzly builds --json
 vizzly builds --json id,status,branch
 ```
 
-When you pass `--json`, all human-friendly output goes to stderr, and structured data goes to stdout. This means you can safely pipe the output without worrying about spinner text or progress messages.
+JSON goes to stdout. Progress messages and other text go to stderr, so they
+won't break your parser.
 
-## Field Selection
+## Pick fields
 
-Select specific fields using comma-separated names:
+Pass comma-separated fields, with dots for nested values:
 
 ```bash
 # Top-level fields
@@ -26,13 +27,12 @@ vizzly status <id> --json buildId,status,branch
 vizzly status <id> --json buildId,status,preview.url
 ```
 
-Field selection works on the command payload before it is wrapped in the
-standard `{ status, data }` envelope. If a field doesn't exist, it's omitted
-from the output.
+Field names refer to the result inside `data`. Fields that don't exist are
+left out.
 
-## Output Format
+## Output format
 
-Successful command payloads are wrapped in this structure:
+Successful results look like this:
 
 ```json
 {
@@ -41,7 +41,7 @@ Successful command payloads are wrapped in this structure:
 }
 ```
 
-Errors emitted through `output.error(...)` look like this:
+Errors reported by `output.error(...)` look like this:
 
 ```json
 {
@@ -51,13 +51,13 @@ Errors emitted through `output.error(...)` look like this:
 }
 ```
 
-Some commands return a `data` envelope with their own payload `status`
-(`completed`, `failed`, or `skipped`) instead of using the error envelope.
+Some commands return `status: "data"` with the outcome (`completed`, `failed`,
+or `skipped`) in `data.status`. Check that field too.
 
-## Command Reference
+## Commands
 
-The shorter command examples below show the full `--json` envelope. Very large
-context examples show the command-specific payload that appears inside `data`.
+Most examples show the full JSON response. The larger context examples show
+only what goes inside `data`.
 
 ### `vizzly run`
 
@@ -84,11 +84,10 @@ vizzly run "pnpm test" --json
 }
 ```
 
-For cloud runs, `contextCommand` starts schema discovery for the build-context
-operation. Use the `buildId` in the response when following that operation's
-path to inspect build evidence.
+Run `contextCommand` to find the cloud build-context API, then use `buildId`
+to fetch that build's results.
 
-With `--wait`, includes comparison results:
+Add `--wait` to include comparison results:
 
 ```json
 {
@@ -156,20 +155,13 @@ vizzly tdd run "pnpm test" --json
 }
 ```
 
-`tdd run` keeps structured output on stdout. The wrapped test command can still
-print normally; Vizzly forwards that child output to stderr in JSON mode so
-`stdout` stays safe to parse.
-
-When screenshots are captured, Vizzly also writes local review artifacts under
-`.vizzly/`, including `.vizzly/report-data.json` and
-`.vizzly/report/index.html`. Use `contextCommand` when you want a stable
-follow-up command for local review data.
+Test output goes to stderr in JSON mode. Captured screenshots also produce
+`.vizzly/report-data.json` and `.vizzly/report/index.html`. Run the returned
+`contextCommand` to inspect that local data.
 
 ### `vizzly tdd screenshots`
 
-`tdd screenshots` reads the latest local comparison report directly from
-`.vizzly/`. It works after `tdd run` exits and does not need a TDD server or
-cloud credentials.
+Read the latest `.vizzly/` report without a running server or cloud credentials:
 
 ```bash
 vizzly tdd screenshots list
@@ -180,19 +172,15 @@ vizzly tdd screenshots show 1a2b3c4d5e6f7890 --image diff
 vizzly tdd screenshots accept 1a2b3c4d5e6f7890
 ```
 
-The list is ordered as the comparisons were recorded. Use the printed
-comparison ID with `show`; a screenshot name also works when it identifies one
-comparison. If the same name has multiple browser or viewport variants, use an
-ID to select one.
+The list follows capture order. Use an ID with `show`, or a name that matches
+one comparison. Use IDs when a name has multiple browser or viewport variants.
 
-`latest` prints only the absolute path to the most recently captured current
-screenshot. Add a screenshot name to choose the latest variant with that name.
-`show` prints comparison details and the current screenshot path by default.
-Request `--image diff`, `--image baseline`, or `--image all` to include those
-image paths.
+`latest` prints the newest current screenshot's absolute path; add a name to
+filter it. `show` prints details and the current image path. Add `--image diff`,
+`--image baseline`, or `--image all` for other image paths.
 
-JSON list output includes pagination and the current image path with
-availability for each comparison:
+The JSON list includes page details and each current image's path and
+`exists` flag:
 
 ```json
 {
@@ -222,14 +210,11 @@ availability for each comparison:
 }
 ```
 
-`accept` copies the selected current screenshot into the matching local
-baseline, updates baseline metadata, and marks that report entry as passed.
-It does not need a running server or cloud credentials. Use
-`vizzly tdd run "<command>" --set-baseline --no-open` to set baselines for every
-screenshot captured by a run.
+`accept` copies the current image to its local baseline, updates metadata, and
+marks the report entry as passed. To set every baseline in a run, use
+`vizzly tdd run "<command>" --set-baseline --no-open`.
 
-Open or read the printed local image paths with your image viewer when you want
-to inspect a capture or diff.
+Open the printed image paths to inspect captures or diffs.
 
 ### `vizzly tdd start`
 
@@ -249,10 +234,9 @@ vizzly tdd start --json
 }
 ```
 
-If this project already has a live TDD server, the command returns
-`status: "already_running"` with the same `port`, `pid`, and `dashboardUrl`
-fields. Use that `port` with `vizzly tdd status --port <port>` or
-`vizzly tdd stop --port <port>` when Vizzly auto-assigned a non-default port.
+If the project already has a running server, `data.status` is
+`"already_running"` with the same fields. When the port differs from the default,
+use it with `vizzly tdd status --port <port>` or `vizzly tdd stop --port <port>`.
 
 ### `vizzly tdd stop`
 
@@ -270,9 +254,8 @@ vizzly tdd stop --json
 }
 ```
 
-`stop` also returns parseable non-happy-path states. If no server is registered
-for the current project or port, `data.status` is `"not_running"`. If Vizzly
-finds stale daemon files and cleans them up, `data.status` is `"stale"`.
+`data.status` is `"not_running"` when no server is registered, or `"stale"`
+when Vizzly cleans up stale daemon files.
 
 ### `vizzly tdd status`
 
@@ -294,9 +277,9 @@ vizzly tdd status --json
 }
 ```
 
-When no server is running, `status` still uses the data envelope and returns
-`{ "running": false, "message": "TDD server not running" }`. Stale daemon files
-are reported as `status: "stale"` with `running: false` after cleanup.
+When no server is running, `data` is
+`{ "running": false, "message": "TDD server not running" }`. After cleaning up
+stale daemon files, Vizzly returns `status: "stale"` with `running: false`.
 
 ### `vizzly tdd list`
 
@@ -322,18 +305,12 @@ vizzly tdd list --json
 
 ### `vizzly context`
 
-> **Deprecation:** `--agent` on `context build` and `context comparison` remains
-> supported through v0.37.x, with a warning, and is scheduled for removal in
-> v0.38.0. New cloud agent workflows should use `vizzly api schema --json` and
-> the discovered API operations. Use `vizzly context ... --json` for local
-> evidence. The compact payload examples below document the legacy format.
+Use `context` for human summaries and local `.vizzly/` data. The `source` field
+identifies where the data came from.
 
-Use `vizzly context` for human summaries and local workspace data. The compact
-agent format below is kept for compatibility during deprecation. For new cloud
-agent workflows, discover the public API with `vizzly api schema --json`.
-
-Every context payload includes a `source` field. That tells you whether the bundle came from
-cloud data or your local `.vizzly` workspace.
+`--agent` on `context build` and `context comparison` is deprecated. The compact
+examples below show that older format. For new cloud agent workflows,
+start with `vizzly api schema --json`; use `context --json` for local data.
 
 #### `vizzly context build`
 
@@ -346,11 +323,8 @@ vizzly context build current --source local --json
 vizzly context build current --source local --agent
 ```
 
-In the legacy format, `--agent --json` selects a compact handoff. It remains
-available through v0.37.x, but new cloud agent workflows should start with the
-schema-discovered API. Legacy build handoffs contain up to 10 evidence records
-and return an opaque cursor when more evidence is available. `--full` returns
-the complete build context payload unchanged.
+The deprecated `--agent --json` format returns up to 10 records and a cursor
+for the next page. Use `--full` for the complete build context.
 
 Legacy compact build JSON:
 
@@ -447,11 +421,9 @@ Legacy compact build JSON:
 }
 ```
 
-`status`, `summary`, evidence order, pagination, asset URLs, and Honeydiff values come from the API.
-The CLI does not estimate processing progress, rebuild server aggregates, or rank evidence. It adds
-source-pinned `suggested_commands` so follow-up requests stay on the same provider. When another page
-exists, the next command carries the API's opaque cursor. A `--full` command is always available when
-you need the raw payload.
+Results keep the API's values and order. `suggested_commands` gives you
+follow-up commands with the same source and the next page's cursor, if needed.
+Use `--full` for the raw result.
 
 Full build context JSON:
 
@@ -531,10 +503,9 @@ vizzly context comparison cmp-1 --source cloud --agent --json --include diffs
 vizzly context comparison build-detail-screenshots --source local --json
 ```
 
-Raw JSON preserves the provider response. The deprecated `--agent` option
-selects the legacy compact API shape. The focal comparison stays in its API-native
-shape, including `analysis`; the CLI does not rename those facts.
-Similar fingerprint history and recent same-name history stay in separate paged collections.
+Raw JSON keeps the source response as it is. The deprecated `--agent` format
+also keeps the API's comparison and `analysis` fields, with separate pages for
+fingerprint matches and recent comparisons with the same name.
 
 Legacy compact comparison JSON:
 
@@ -653,8 +624,7 @@ vizzly context similar fp-dashboard --source cloud --project storybook --org acm
 }
 ```
 
-Local workspace similarity is not supported yet. If you point `context similar` at `--source local`,
-the CLI returns a clear error instead of pretending the data exists.
+`context similar --source local` isn't supported and returns an error.
 
 #### `vizzly context review-queue`
 
@@ -782,9 +752,8 @@ vizzly comparisons --build <id> --status changed --json
 }
 ```
 
-`status` preserves the processing value returned by the API. Use `result` for
-the visual outcome (`identical`, `changed`, or `new`) and `visual_review.state`
-for the current review state.
+`status` tells you about processing. Use `result` for what changed (`identical`,
+`changed`, or `new`) and `visual_review.state` for the review decision.
 
 Search by name across builds:
 
@@ -894,7 +863,7 @@ vizzly baselines --info "button-primary" --json
 
 ### `vizzly api`
 
-Raw API access for advanced use cases:
+Call the API directly:
 
 ```bash
 # GET request
@@ -943,12 +912,10 @@ vizzly upload ./screenshots --json
 }
 ```
 
-`stats.skipped` counts screenshots that Vizzly resolved by SHA without sending
-image bytes. Use `--upload-all` when you need every screenshot uploaded
-regardless of existing storage.
+`stats.skipped` counts images Vizzly already has, matched by SHA. Use
+`--upload-all` to upload every image again.
 
-With `--wait`, the payload includes comparison results after Vizzly finishes
-processing the build:
+Add `--wait` to include comparison results when the build finishes processing:
 
 ```bash
 vizzly upload ./screenshots --wait --json
@@ -1061,8 +1028,8 @@ vizzly comment <build-id> "Needs design review" --json
 }
 ```
 
-Review actions require a user login. Project tokens are intentionally not enough
-to approve, reject, or comment.
+Sign in with `vizzly login` to approve, reject, or comment. Project tokens
+can't perform review actions.
 
 ### `vizzly status`
 
@@ -1133,10 +1100,8 @@ vizzly status <build-id> --json
 }
 ```
 
-The status command reads the API status bundle directly. Processing counts,
-comparison counts, conclusion, and review state stay separate; a pending review
-is never treated as unfinished screenshot processing. Fields the API does not
-provide are omitted instead of becoming client-authored zeroes.
+Counts, conclusion, and review state come from the API. A build can finish
+processing and still need review. Fields the API doesn't return are left out.
 
 ### `vizzly init`
 
@@ -1154,7 +1119,7 @@ vizzly init --json
 }
 ```
 
-With project agent setup:
+To set up project agents too:
 
 ```bash
 vizzly init --agent-guidance --json
@@ -1180,10 +1145,9 @@ vizzly init --agent-guidance --json
 }
 ```
 
-Run `vizzly init --agent-guidance --json` again after upgrading the CLI to
-refresh the portable skill and Vizzly-owned `AGENTS.md` block. Existing output
-then reports `"status": "refreshed"` for each updated artifact; unrelated
-guidance and an existing Vizzly config remain unchanged.
+Run it again after upgrading to refresh the skill and managed `AGENTS.md`
+block. Updated items report `"status": "refreshed"`; your config and other
+guidance stay as they are.
 
 ### `vizzly project link`
 
@@ -1240,7 +1204,7 @@ Filter by organization:
 vizzly projects --org my-org --json
 ```
 
-## Scripting Examples
+## Scripts
 
 ### Check for visual changes in CI
 

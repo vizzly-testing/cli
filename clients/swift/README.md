@@ -1,77 +1,18 @@
 # Vizzly Swift SDK
 
-Vizzly brings visual testing to Swift in two ways:
+Capture SwiftUI previews or XCTest screenshots and review changes with Vizzly.
+You can review either one locally or in the cloud.
 
-| Workflow | Use it for | Runs on |
+| Workflow | Use it for | Requirements |
 | --- | --- | --- |
-| SwiftUI previews | Render the `#Preview` declarations in your app | arm64 iOS Simulator |
-| XCTest screenshots | Capture an app or element during a UI test | iOS or macOS |
-
-Both workflows send screenshots to the same local TDD and cloud review tools.
-You can use either one or both.
-
-Already use Vizzly from UI tests? Nothing changes. Keep `VizzlyXCTest` on the
-UI test target. `VizzlyPreviewRuntime` is a separate product that you only add
-to the app target when you want preview capture.
-
-## SwiftUI previews
-
-Install the CLI and Swift plugin in your iOS project:
-
-```bash
-pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
-```
-
-Add this repository as a Swift Package dependency, then add
-`VizzlyPreviewRuntime` to the app target with **Embed & Sign**:
-
-```text
-https://github.com/vizzly-testing/cli
-```
-
-Choose **Exact Version** and enter `0.1.1`.
-
-Install the runtime once from the app initializer:
-
-```swift
-import VizzlyPreviewRuntime
-
-@main
-struct MyApp: App {
-    init() {
-        VizzlyPreviewRuntime.install()
-    }
-
-    var body: some Scene {
-        WindowGroup { ContentView() }
-    }
-}
-```
-
-Boot an iOS Simulator, then run:
-
-```bash
-pnpm exec vizzly previews
-```
-
-Vizzly builds the app, renders its `#Preview` declarations, and writes the
-screenshots to `.vizzly/previews`.
-
-See [PREVIEWS.md](PREVIEWS.md) for requirements, configuration, CI, and
-troubleshooting.
+| [SwiftUI previews](PREVIEWS.md) | Render your app's `#Preview` declarations. | Xcode 26.6, arm64 Mac, iOS 17+ Simulator. |
+| [XCTest screenshots](QUICKSTART.md) | Capture an app or element during a UI test. | iOS 13+ or macOS 10.15+. |
 
 ## XCTest screenshots
 
-Add this repository as a Swift Package dependency:
-
-```text
-https://github.com/vizzly-testing/cli
-```
-
-Choose **Exact Version** and enter `0.1.1`.
-
-Add the `VizzlyXCTest` product to your UI test target. Then capture the app or a
-single element from a test:
+Add `https://github.com/vizzly-testing/cli` as a Swift Package dependency in
+Xcode. Choose **Exact Version** `0.1.1` and add `VizzlyXCTest` to your UI test
+target.
 
 ```swift
 import XCTest
@@ -89,35 +30,29 @@ final class HomeScreenTests: XCTestCase {
 }
 ```
 
-Start a local review session before running the test:
+Start `pnpm exec vizzly tdd start --open`, then run your UI test.
+See the [quick start](QUICKSTART.md) for CLI setup and the
+[integration guide](INTEGRATION.md) for options and CI.
+
+## SwiftUI previews
 
 ```bash
-pnpm exec vizzly tdd start --open
+pnpm add --save-dev @vizzly-testing/cli @vizzly-testing/swift
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for the shortest setup path and
-[INTEGRATION.md](INTEGRATION.md) for options and CI.
+Add the same Swift package, choose **Exact Version** `0.1.1`, and add
+`VizzlyPreviewRuntime` to the app target with **Embed & Sign**. Call
+`VizzlyPreviewRuntime.install()` once in the app initializer.
 
-## Support
+Boot an iOS Simulator and run `pnpm exec vizzly previews`. Screenshots go in
+`.vizzly/previews`. Fixed layouts and portrait or landscape previews work.
+Other preview traits and macOS preview capture aren't supported yet.
 
-| Capability | XCTest SDK | Preview capture |
-| --- | --- | --- |
-| iOS | iOS 13+ | iOS 17+ Simulator |
-| macOS | macOS 10.15+ | Not supported |
-| Local TDD | Yes | Yes |
-| Cloud builds | Yes | Yes |
-| Exact Xcode requirement | No | Xcode 26.6 |
-| Fixed layout and orientation traits | Not applicable | Yes |
-| Other SwiftUI preview traits | Not applicable | Not supported |
-| App integration | UI test target | One app initializer call |
-
-Preview capture requires Xcode 26.6. Other Xcode versions stop with a setup
-error.
+See the [preview guide](PREVIEWS.md) for the full setup, CI, and troubleshooting.
+If you only need UI tests, keep `VizzlyXCTest` on the test target and skip
+the preview runtime.
 
 ## More
 
-- [XCTest quick start](QUICKSTART.md)
-- [XCTest integration guide](INTEGRATION.md)
-- [SwiftUI preview guide](PREVIEWS.md)
 - [Example UI test](Example/ExampleUITests.swift)
 - [Changelog](CHANGELOG.md)

@@ -1,44 +1,151 @@
 # @vizzly-testing/static-site
 
-Seamlessly integrate your static sites (Gatsby, Astro, Jekyll, Next.js static export, etc.) into Vizzly's visual development workflow. Iterate locally with `vizzly tdd`, automatically create team builds from CI/CD, and collaborate on visual changes with position-based comments and review rules.
+Capture screenshots from a static site build and review changes with Vizzly.
+Works with any generator that produces HTML, including Astro, Gatsby, Jekyll,
+and Next.js static exports.
 
-## Requirements
+## Get started
 
-Use Node.js 22.18 or newer within Node 22, or Node.js 24+.
-
-## Installation
+You need Node.js 22.18+ on Node 22, or Node.js 24+.
 
 ```bash
 pnpm install -D @vizzly-testing/cli @vizzly-testing/static-site
+pnpm run build
+vizzly tdd start --open
+vizzly static-site ./dist
 ```
 
-The plugin is automatically discovered by the Vizzly CLI via the `@vizzly-testing/*` scope.
+Vizzly finds the plugin automatically. Point it at your build folder: `dist/`
+for Astro, `public/` for Gatsby or Hugo, `_site/` for Jekyll or Eleventy, and
+`out/` for Next.js static exports.
 
-## Quick Start
-
-### CLI Usage
+If a local TDD server is running, screenshots go there. Otherwise, set
+`VIZZLY_TOKEN` to upload them for review:
 
 ```bash
-# Capture screenshots from a static site build
-vizzly static-site ./dist
-
-# With custom viewports
-vizzly static-site ./dist \
-  --viewports "mobile:375x667,tablet:768x1024,desktop:1920x1080"
-
-# With filtering
-vizzly static-site ./dist \
-  --include "blog/**" \
-  --exclude "**/404.html"
-
-# With concurrency control
-vizzly static-site ./dist --concurrency 5
-
-# With comma-separated browser args
-vizzly static-site ./dist --browser-args "--no-sandbox,--disable-dev-shm-usage"
+VIZZLY_TOKEN=your-token vizzly static-site ./dist
 ```
 
-### Programmatic Usage
+Without a server or token, the plugin warns and skips screenshots. You don't
+need to wrap it in `vizzly run`.
+
+## Configuration
+
+Add `staticSite` to `vizzly.config.js`:
+
+```javascript
+export default {
+  comparison: { threshold: 0.1, minClusterSize: 2 },
+  staticSite: {
+    viewports: [
+      { name: 'mobile', width: 375, height: 667 },
+      { name: 'desktop', width: 1920, height: 1080 },
+    ],
+    browser: {
+      type: 'chromium',
+      headless: true,
+      args: ['--no-sandbox'],
+    },
+    screenshot: {
+      fullPage: true,
+      omitBackground: false,
+      timeout: 45000,
+      requestTimeout: 60000,
+    },
+    include: 'blog/**',
+    exclude: '**/404.html',
+    pageDiscovery: {
+      useSitemap: true,
+      sitemapPath: 'sitemap.xml',
+      scanHtml: true,
+    },
+  },
+};
+```
+
+Put comparison settings at the top level and capture settings under
+`staticSite`. Vizzly runs captures in parallel using half your CPU cores, with
+a minimum of 2 and maximum of 8. Set `concurrency` to choose another number.
+
+Later settings override earlier ones: defaults →
+`staticSite` config → `vizzly.static-site.js` → CLI options.
+
+## Find pages and run hooks
+
+Vizzly combines URLs from `sitemap.xml` with HTML files found in the build
+folder and removes duplicates. Sitemap URLs become relative paths. Set
+`pageDiscovery.useSitemap: false` to use only HTML scanning.
+
+To click, scroll, or wait for content before a screenshot, add hooks in
+`vizzly.static-site.js`:
+
+```javascript
+export default {
+  interactions: {
+    'blog/*': async (page) => {
+      await page.waitForSelector('.blog-content');
+    },
+    'scroll-to-footer': async (page) => {
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+    },
+  },
+  pages: {
+    '/': { viewports: ['mobile', 'desktop'] },
+    '/contact': {
+      interaction: 'scroll-to-footer',
+      screenshot: { fullPage: true },
+    },
+  },
+};
+```
+
+Hooks can match page paths or have names you use in `pages`. Use `blog/*` for
+one level of blog pages and `docs/**` for nested pages. `*` matches within a
+path segment; `**` also matches across `/`.
+
+## CLI options
+
+```bash
+vizzly static-site ./dist --viewports "mobile:375x667,desktop:1920x1080"
+vizzly static-site ./dist --include "blog/**" --exclude "**/404.html"
+```
+
+| Option | What it does |
+| --- | --- |
+| `--viewports <list>` | Comma-separated `name:WxH` viewports. |
+| `--concurrency <n>` | Number of parallel browser tabs. Default: half your CPU cores, 2–8. |
+| `--browser <type>` | `chromium`, `firefox`, or `webkit`. |
+| `--include <pattern>` / `--exclude <pattern>` | Filter page paths. |
+| `--browser-args <args>` | Comma-separated Playwright browser arguments. |
+| `--headless` / `--no-headless` | Hide or show the browser. Default: hidden. |
+| `--full-page` / `--no-full-page` | Capture the full page or just the viewport. Default: full page. |
+| `--timeout <ms>` | Screenshot timeout. Default: `45000`. |
+| `--dry-run` | List discovered pages and task count without capturing. |
+| `--use-sitemap` / `--no-use-sitemap` | Enable or disable sitemap discovery. Default: enabled. |
+| `--sitemap-path <path>` | Sitemap path relative to the build folder. |
+
+## Screenshot names and properties
+
+Names come from page paths: `/` becomes `index`, and `/blog/post-1` becomes
+`blog-post-1`. Each screenshot includes `browser` and `url` properties. Add
+custom `properties` in config for details like theme, locale, or sign-in state.
+Vizzly reads dimensions from the image.
+
+## CI
+
+Build the site, then capture it with a token stored as a CI secret:
+
+```yaml
+- run: pnpm install
+- run: pnpm run build
+- run: pnpm exec vizzly static-site ./dist
+  env:
+    VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
+```
+
+## From JavaScript
 
 ```javascript
 import { run } from '@vizzly-testing/static-site';
@@ -53,405 +160,16 @@ await run('./dist', {
 });
 ```
 
-## Configuration
-
-### Main Config File
-
-Add a `staticSite` section to your `vizzly.config.js`:
-
-```javascript
-// vizzly.config.js
-export default {
-  // Standard Vizzly config
-  server: { port: 47392 },
-  build: { environment: 'test' },
-  comparison: {
-    threshold: 0.1,
-    minClusterSize: 2,
-  },
-
-  // Static Site plugin config
-  staticSite: {
-    viewports: [
-      { name: 'mobile', width: 375, height: 667 },
-      { name: 'tablet', width: 768, height: 1024 },
-      { name: 'desktop', width: 1920, height: 1080 },
-    ],
-
-    browser: {
-      type: 'chromium',
-      headless: true,
-      args: ['--no-sandbox'],
-    },
-
-    screenshot: {
-      fullPage: true,
-      omitBackground: false,
-      timeout: 45000,
-      requestTimeout: 60000,
-    },
-
-    // Concurrency auto-detected from CPU cores (min 2, max 8)
-    // concurrency: 4,
-
-    // Page filtering
-    include: 'blog/**',
-    exclude: '**/404.html',
-
-    // Page discovery
-    pageDiscovery: {
-      useSitemap: true,
-      sitemapPath: 'sitemap.xml',
-      scanHtml: true,
-    },
-  },
-};
-```
-
-The shared top-level `comparison` section controls cloud/run thresholds. The
-`staticSite` section stays focused on page discovery, browser settings,
-viewports, and screenshot capture.
-
-### Interactions File (Optional)
-
-For page-specific interactions and overrides, create a `vizzly.static-site.js` file:
-
-```javascript
-// vizzly.static-site.js
-export default {
-  // Interaction hooks - run before screenshots
-  interactions: {
-    'blog/*': async (page) => {
-      await page.waitForSelector('.blog-content');
-    },
-    'products/*': async (page) => {
-      await page.click('.view-details');
-    },
-  },
-
-  // Per-page configuration overrides
-  pages: {
-    '/': {
-      viewports: ['mobile', 'desktop'],
-    },
-    '/pricing': {
-      interaction: 'products/*',
-      screenshot: { fullPage: true },
-    },
-  },
-};
-```
-
-## Configuration Priority
-
-Configuration is merged in this order (later overrides earlier):
-
-1. Default configuration
-2. `config.staticSite` from vizzly.config.js
-3. `vizzly.static-site.js` interactions and pages
-4. CLI options
-
-## CLI Options
-
-- `--viewports <list>` - Comma-separated viewport definitions (format: `name:WxH`)
-- `--concurrency <n>` - Number of parallel browser tabs (default: auto-detected based on CPU cores, min 2, max 8)
-- `--browser <type>` - Browser engine to use: `chromium`, `firefox`, or `webkit`
-- `--include <pattern>` - Include page pattern (glob)
-- `--exclude <pattern>` - Exclude page pattern (glob)
-- `--browser-args <args>` - Comma-separated Playwright browser arguments
-- `--headless` - Run browser in headless mode (default: true)
-- `--no-headless` - Run browser with a visible window
-- `--full-page` - Capture full page screenshots (default: true)
-- `--no-full-page` - Capture viewport-only screenshots
-- `--timeout <ms>` - Screenshot timeout in milliseconds (default: 45000)
-- `--dry-run` - Print discovered pages and task count without capturing screenshots
-- `--use-sitemap` - Use sitemap.xml for page discovery (default: true)
-- `--no-use-sitemap` - Disable sitemap.xml page discovery
-- `--sitemap-path <path>` - Path to sitemap.xml relative to build directory
-
-## Page Discovery
-
-The plugin discovers pages using two methods:
-
-### 1. Sitemap.xml Parsing
-
-Automatically discovers pages from sitemap.xml if available:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://example.com/</loc>
-  </url>
-  <url>
-    <loc>https://example.com/blog/post-1</loc>
-  </url>
-</urlset>
-```
-
-### 2. HTML File Scanning
-
-Recursively scans the build directory for .html files.
-
-Both methods can be used together - the plugin will merge and deduplicate pages.
-
-## Interaction Hooks
-
-Interaction hooks allow you to interact with pages before capturing screenshots. Define these in `vizzly.static-site.js`:
-
-### Pattern-Based Hooks
-
-```javascript
-// vizzly.static-site.js
-export default {
-  interactions: {
-    'blog/*': async (page) => {
-      // Apply to all blog pages
-      await page.waitForSelector('.blog-content');
-    },
-    'products/*': async (page) => {
-      // Apply to all product pages
-      await page.click('.view-details');
-      await page.waitForSelector('.product-modal');
-    },
-    '/': async (page) => {
-      // Specific page
-      await page.evaluate(() => window.scrollTo(0, 500));
-    },
-  },
-};
-```
-
-### Named Hooks
-
-Create reusable hooks that can be referenced in page configs:
-
-```javascript
-// vizzly.static-site.js
-export default {
-  interactions: {
-    'scroll-to-footer': async (page) => {
-      await page.evaluate(() => {
-        window.scrollTo(0, document.body.scrollHeight);
-      });
-    },
-  },
-  pages: {
-    '/contact': {
-      interaction: 'scroll-to-footer',
-    },
-  },
-};
-```
-
-## Pattern Matching
-
-Patterns support glob-like syntax:
-
-- `*` - Match any characters except `/`
-- `**` - Match any characters including `/`
-- `blog/*` - Match all blog pages
-- `docs/**` - Match all pages under docs
-- `**/*.html` - Match all HTML files
-
-## Screenshot Naming
-
-Screenshots are named based on the page path. The plugin records the browser and
-page URL automatically. Vizzly reads the image dimensions from the captured
-image. You can add custom screenshot `properties` from config when you need
-extra signature values such as theme, locale, or auth state:
-
-**Name format:** `path-to-page` (slashes replaced with hyphens)
-
-**Properties:** Browser, URL, and any custom user-defined fields
-
-Examples:
-- Name: `index`, Properties: `{ browser: 'chromium', url: 'http://localhost:3000/' }`
-- Name: `blog-post-1`, Properties: `{ browser: 'chromium', url: 'http://localhost:3000/blog/post-1' }`
-- Name: `docs-getting-started`, Properties: `{ browser: 'webkit', url: 'http://localhost:3000/docs/getting-started' }`
-
-Static-site screenshot names stay clean and compatible with file system restrictions.
-
-## Visual Development Workflow
-
-This plugin integrates static sites into Vizzly's visual development workflow, enabling both local TDD iteration and seamless team collaboration. The plugin **automatically detects** which mode to use:
-
-### TDD Mode (Local Development)
-
-When a TDD server is running, screenshots are compared locally for fast iteration:
-
-```bash
-# Start TDD server
-vizzly tdd start
-
-# Capture screenshots (automatically uses TDD mode)
-vizzly static-site ./dist
-
-# View live results at http://localhost:47392
-```
-
-**Output:**
-```
-ℹ 📍 TDD mode: Using local server
-ℹ 🌐 Found 12 pages in ./dist
-ℹ    ✓ /@default
-ℹ    ✓ /blog/post-1@default
-ℹ ✅ Captured 12 screenshots successfully
-```
-
-### Run Mode (CI/CD & Cloud)
-
-When a `VIZZLY_TOKEN` is set, screenshots are uploaded to the cloud for team review:
-
-```bash
-# Capture and upload to Vizzly cloud (automatically uses Run mode)
-VIZZLY_TOKEN=your-token vizzly static-site ./dist
-```
-
-**Output:**
-```
-ℹ ☁️  Run mode: Uploading to cloud
-ℹ 🔗 https://app.vizzly.dev/your-org/project/builds/...
-ℹ 🌐 Found 12 pages in ./dist
-ℹ    ✓ /@default
-ℹ ✅ Captured 12 screenshots successfully
-ℹ 🔗 View results: https://app.vizzly.dev/your-org/project/builds/...
-```
-
-### Mode Detection
-
-The plugin automatically chooses the mode:
-
-1. **TDD mode** - If a TDD server is running (`.vizzly/server.json` found)
-2. **Run mode** - If `VIZZLY_TOKEN` environment variable is set
-3. **Warning** - If neither is available, warns and skips screenshots
-
-No need to wrap with `vizzly run` - the plugin handles everything!
-
-## Supported Static Site Generators
-
-- **Gatsby** - Build with `gatsby build`, output in `public/`
-- **Astro** - Build with `astro build`, output in `dist/`
-- **Jekyll** - Build with `jekyll build`, output in `_site/`
-- **Next.js** - Static export with `next build && next export`, output in `out/`
-- **Eleventy** - Build with `eleventy`, output in `_site/`
-- **Hugo** - Build with `hugo`, output in `public/`
-- **VuePress** - Build with `vuepress build`, output in `.vuepress/dist/`
-- **Docusaurus** - Build with `docusaurus build`, output in `build/`
-- **Any static site generator** that produces HTML files
-
-## Example Workflows
-
-### Gatsby
-
-```bash
-# Build Gatsby site
-pnpm run build
-
-# Capture screenshots
-vizzly static-site ./public
-```
-
-### Astro
-
-```bash
-# Build Astro site
-pnpm run build
-
-# Capture screenshots with custom viewports
-vizzly static-site ./dist --viewports "mobile:375x667,desktop:1920x1080"
-```
-
-### Next.js Static Export
-
-```bash
-# Build and export Next.js site
-pnpm run build
-
-# Capture screenshots
-vizzly static-site ./out
-```
-
-### Jekyll
-
-```bash
-# Build Jekyll site
-bundle exec jekyll build
-
-# Capture only blog pages
-vizzly static-site ./_site --include "blog/**"
-```
-
-## CI/CD Integration
-
-```yaml
-# .github/workflows/visual-tests.yml
-name: Visual Tests
-
-on: [push, pull_request]
-
-jobs:
-  visual-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-
-      # Build your static site
-      - run: pnpm install
-      - run: pnpm run build
-
-      # Run visual tests
-      - run: pnpm exec vizzly static-site ./dist
-        env:
-          VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
-```
-
 ## Troubleshooting
 
-### Pages not found
-
-Use `--dry-run` to see which pages are discovered without capturing screenshots:
-```bash
-vizzly static-site ./dist --dry-run
-```
-
-This shows pages grouped by source (sitemap vs HTML scan), the total screenshot count, and your current configuration.
-
-Ensure your build has completed and check for sitemap.xml or HTML files:
-```bash
-ls dist/sitemap.xml
-ls dist/**/*.html
-```
-
-### Browser launch fails
-
-Try adding browser arguments:
-```bash
-vizzly static-site ./dist --browser-args "--no-sandbox,--disable-dev-shm-usage"
-```
-
-### Screenshots are blank
-
-If your page needs time to render, use interaction hooks:
-```javascript
-interactions: {
-  '**': async (page) => {
-    await page.waitForSelector('.app-loaded', { visible: true });
-  },
-}
-```
-
-### Sitemap URLs don't match
-
-The plugin automatically converts sitemap URLs to relative paths. If you have custom URL structures, use HTML scanning instead:
-
-```javascript
-pageDiscovery: {
-  useSitemap: false,
-  scanHtml: true,
-}
-```
+- **No pages found:** Make sure the build finished and contains HTML or a
+  sitemap. Run `vizzly static-site ./dist --dry-run` to check discovery.
+- **Browser won't launch in CI:** Try
+  `--browser-args "--no-sandbox,--disable-dev-shm-usage"`.
+- **Blank screenshots:** Add a hook that waits for your content, such as
+  `await page.waitForSelector('.app-loaded')`.
+- **Sitemap paths don't match:** Set `useSitemap: false` and `scanHtml: true`
+  under `pageDiscovery`.
 
 ## License
 

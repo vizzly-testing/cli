@@ -1,112 +1,43 @@
-# Example Vizzly Plugin
+# Example Vizzly plugin
 
-This is an example plugin demonstrating how to extend the Vizzly CLI with custom commands.
+Add custom commands to the Vizzly CLI. This example includes:
 
-## What This Plugin Does
+| Command | Shows how to… |
+| --- | --- |
+| `vizzly hello` | Add a simple command. |
+| `vizzly greet <name>` | Accept arguments and options. |
+| `vizzly check-services` | Use Vizzly services. |
+| `vizzly list-screenshots` | Read files. |
 
-This example plugin adds several commands to demonstrate different plugin capabilities:
+## Try it
 
-- `vizzly hello` - Simple greeting command
-- `vizzly greet <name>` - Command with arguments and options
-- `vizzly check-services` - Command that accesses Vizzly services
-- `vizzly list-screenshots` - Command with file system operations
-
-## Installation
-
-Since this is an example, you can use it locally without publishing:
-
-### Option 1: Local Path in Config
-
-Add to your `vizzly.config.js`:
+Add the plugin path to `vizzly.config.js`:
 
 ```javascript
 export default {
-  plugins: [
-    './examples/custom-plugin/plugin.js'
-  ]
+  plugins: ['./examples/custom-plugin/plugin.js'],
 };
 ```
 
-### Option 2: Symlink to node_modules
+Then run `vizzly --help` to see the commands, or try:
 
 ```bash
-# From the vizzly-cli root
-pnpm link --global
-
-# Create symlink for the plugin
-cd examples/custom-plugin
-pnpm link --global @vizzly-testing/cli
-cd ../..
-mkdir -p node_modules/@vizzly-testing
-ln -s ../../examples/custom-plugin node_modules/@vizzly-testing/example-plugin
-```
-
-## Usage
-
-After installation, run:
-
-```bash
-# See the new commands in help
-vizzly --help
-
-# Try the commands
-vizzly hello
 vizzly greet "World" --loud
-vizzly check-services
-vizzly list-screenshots
 ```
 
-## Plugin Structure
+## Write a plugin
 
-The plugin exports an object with:
-
-- **`name`** - Unique identifier for the plugin
-- **`version`** - Plugin version (optional but recommended)
-- **`register(program, context)`** - Function called during CLI initialization
-
-### Register Function
-
-The `register` function receives:
-
-1. **`program`** - Commander.js program instance for adding commands
-2. **`context`** - Object containing:
-   - `config` - Merged Vizzly configuration
-   - `output` - Output utilities for consistent CLI output
-   - `services` - Service container (see below)
-
-### Services API
-
-The `services` object provides stable APIs for plugins:
-
-```javascript
-let { git, testRunner, serverManager } = services;
-
-// Git detection (v0.25.0+) - handles CI environments correctly
-let gitInfo = await git.detect({ buildPrefix: 'MyPlugin' });
-// Returns: { branch, commit, message, prNumber, buildName }
-
-// Build lifecycle
-let buildId = await testRunner.createBuild(options);
-await testRunner.finalizeBuild(buildId, isTddMode, success, executionTime);
-
-// Server control
-await serverManager.start(buildId, tddMode, setBaseline);
-await serverManager.stop();
-```
-
-## Creating Your Own Plugin
-
-1. Create a new directory for your plugin
-2. Create `package.json` with a `vizzlyPlugin` field:
+Add a `vizzlyPlugin` entry to your package's `package.json`:
 
 ```json
 {
   "name": "@vizzly-testing/my-plugin",
+  "type": "module",
   "vizzlyPlugin": "./plugin.js"
 }
 ```
 
-3. Create `plugin.js` with your plugin logic:
+Export a plugin object from `plugin.js`:
 
 ```javascript
 export default {
@@ -119,21 +50,29 @@ export default {
       .action(() => {
         output.info('Running my command!');
       });
-  }
+  },
 };
 ```
 
-4. Test locally using `vizzly.config.js`:
+`register` gets the Commander program for adding commands, plus your config,
+output helpers, and services. Give the plugin a `name`; `version` is optional.
+
+Test locally by adding the plugin file to `config.plugins`. Vizzly finds
+published packages under `@vizzly-testing/*` automatically.
+
+## Services
 
 ```javascript
-export default {
-  plugins: ['./path/to/your/plugin.js']
-};
+let { git, testRunner, serverManager } = services;
+
+let gitInfo = await git.detect({ buildPrefix: 'MyPlugin' });
+// { branch, commit, message, prNumber, buildName }
+
+let buildId = await testRunner.createBuild(options);
+await testRunner.finalizeBuild(buildId, isTddMode, success, executionTime);
+
+await serverManager.start(buildId, tddMode, setBaseline);
+await serverManager.stop();
 ```
 
-5. Publish to npm under `@vizzly-testing/*` scope for auto-discovery
-
-## Learn More
-
-- [Plugin Documentation](../../docs/plugins.md)
-- [Vizzly CLI Documentation](https://vizzly.dev/docs)
+See the [Vizzly docs](https://docs.vizzly.dev) for more.

@@ -1,21 +1,19 @@
 # XCTest integration guide
 
-The `VizzlyXCTest` product adds screenshot helpers to `XCUIApplication`,
-`XCUIElement`, and `XCTestCase`. It supports iOS 13+ and macOS 10.15+ UI tests.
+`VizzlyXCTest` adds screenshot helpers to `XCUIApplication`, `XCUIElement`,
+and `XCTestCase` for iOS 13+ and macOS 10.15+ UI tests. If you haven't taken a
+screenshot yet, start with the [quick start](QUICKSTART.md).
 
-Start with [QUICKSTART.md](QUICKSTART.md) if you have not captured a local
-screenshot yet.
+## Connect to Vizzly
 
-## Connection discovery
-
-`VizzlyClient` uses the first available screenshot server:
+`VizzlyClient` looks for a screenshot server in this order:
 
 1. `VIZZLY_SERVER_URL`
 2. Project-local `.vizzly/server.json`
 3. User-level `.vizzly/server.json`
 4. A live server on `http://localhost:47392`
 
-`vizzly tdd start` writes the discovery file automatically. If the default port
+`vizzly tdd start` writes `.vizzly/server.json` for you. If the default port
 is busy, use the dashboard URL printed by the command.
 
 ## Capture options
@@ -41,16 +39,16 @@ Capture one element:
 app.buttons["Buy"].vizzlyScreenshot(name: "buy-button")
 ```
 
-`threshold` is the CIEDE2000 Delta E threshold. `minClusterSize` ignores changed
-pixel clusters smaller than the given count. Leave either value out to use the
-server configuration.
+`threshold` sets the CIEDE2000 Delta E sensitivity. `minClusterSize` ignores
+groups of changed pixels smaller than that count. Leave either option out to
+use the server setting.
 
-Choose stable names. Add properties when the same screen has meaningful
-variants such as device class, theme, or signed-in state.
+Use the same name for the same screen across runs. Add properties for things
+like device, theme, or sign-in state.
 
-## Stable screenshots
+## Keep screenshots consistent
 
-Wait for an observable UI state before capture:
+Wait for the content you need before taking the screenshot:
 
 ```swift
 let loaded = app.otherElements["ProfileLoaded"]
@@ -58,12 +56,12 @@ XCTAssertTrue(loaded.waitForExistence(timeout: 5))
 app.vizzlyScreenshot(name: "profile")
 ```
 
-Do not use a fixed sleep to guess when the screen is ready. Disable animations,
-freeze dates, and seed test data when those values affect the pixels.
+Wait for the UI instead of adding a fixed sleep. If animations, dates, or test
+data change the screenshot, keep them consistent between runs.
 
 ## Fail on local differences
 
-Set either value before running the test:
+Set `VIZZLY_FAIL_ON_DIFF` before running the test:
 
 ```bash
 VIZZLY_FAIL_ON_DIFF=true xcodebuild test \
@@ -71,8 +69,7 @@ VIZZLY_FAIL_ON_DIFF=true xcodebuild test \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
 
-`VIZZLY_FAIL_ON_DIFF=1` works too. You can also create a dedicated client with
-an explicit setting:
+`VIZZLY_FAIL_ON_DIFF=1` works too. Or set it on a separate client:
 
 ```swift
 let client = VizzlyClient(failOnDiff: true)
@@ -80,8 +77,7 @@ let client = VizzlyClient(failOnDiff: true)
 
 ## Direct PNG uploads
 
-Use the core `Vizzly` product when you already have PNG `Data` and do not need
-XCTest helpers:
+If you already have PNG `Data`, send it with the core `Vizzly` product:
 
 ```swift
 let client = VizzlyClient(serverUrl: "http://localhost:47392")
@@ -95,7 +91,7 @@ client.screenshot(
 
 ## Cloud CI
 
-Store `VIZZLY_TOKEN` as a CI secret, then wrap the real test command with
+Save `VIZZLY_TOKEN` as a CI secret, then run your tests through
 `vizzly run --wait`:
 
 ```yaml
@@ -108,8 +104,8 @@ Store `VIZZLY_TOKEN` as a CI secret, then wrap the real test command with
       --wait
 ```
 
-The CLI creates the cloud build, gives the Swift SDK its screenshot server and
-build ID, waits for processing, and returns the review result to CI.
+Vizzly creates a cloud build, connects the Swift SDK, and waits for results.
+CI gets the review result when the command finishes.
 
 ## Troubleshooting
 
@@ -120,16 +116,15 @@ build ID, waits for processing, and returns the review result to CI.
 - Print `VizzlyClient.shared.info` from the test.
 - Make sure the Mac or Simulator can reach the server URL.
 
-The SDK skips screenshots after a connection failure so a local Vizzly outage
-does not break unrelated UI tests.
+If Vizzly can't connect, the SDK skips screenshots so your other UI tests can
+keep running.
 
-### Local differences do not fail the test
+### Local differences don't fail the test
 
-Set `VIZZLY_FAIL_ON_DIFF=true`, or start TDD with its fail-on-diff option. Check
-`VizzlyClient.shared.info["failOnDiff"]` to confirm the resolved setting.
+Set `VIZZLY_FAIL_ON_DIFF=true` or start TDD with `--fail-on-diff`. Check
+`VizzlyClient.shared.info["failOnDiff"]` to see which setting is in use.
 
 ### Screenshots are grouped incorrectly
 
-Use a stable screenshot name and include device, theme, or state in
-`properties`. Vizzly already includes platform and viewport metadata for the
-XCTest helpers.
+Keep screenshot names consistent and put device, theme, or state in
+`properties`. The XCTest helpers already include platform and viewport details.

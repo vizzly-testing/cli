@@ -9,83 +9,59 @@
   <img src="./docs/assets/vizzly-mascot-inspector.png" alt="Vizzly bear inspecting a screenshot" width="220" />
 </p>
 
-Vizzly is a visual testing and regression platform for teams that ship UI. It
-captures screenshots from your real tests, compares them to approved baselines,
-and gives you useful review data: meaningful diffs, comments, approvals, build
-status, and preview links.
+Vizzly compares screenshots from your tests so you can catch UI changes. Review
+them locally, or upload them for your team to review.
 
-This package is the CLI and local SDK surface. Use it to run local visual TDD,
-upload screenshots from CI, generate static reports, and fetch machine-readable
-build or diff data for scripts, automation, and coding agents.
+## Get started
 
-## Quick Start
-
-You need Node.js 22.18 or newer within Node 22, or Node.js 24+.
+You need Node.js 22.18+ on Node 22, or Node.js 24+.
 
 ```bash
 pnpm install -g @vizzly-testing/cli
-
 vizzly init
 ```
 
-For agent-friendly repos, install the Vizzly skill and add a short project
-`AGENTS.md` note:
+Then add a screenshot to a test. This example uses Playwright:
 
-```bash
-vizzly init --agent-guidance
+```javascript
+import { test } from '@playwright/test';
+import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
+
+test('homepage looks correct', async ({ page }) => {
+  await page.goto('/');
+  await vizzlyScreenshot('homepage', await page.screenshot());
+});
 ```
 
-This installs the portable Agent Skills bundle in `.agents/skills/vizzly` and
-adds a small managed block to `AGENTS.md`. Run the same command again after a
-CLI upgrade to refresh both without replacing the rest of `AGENTS.md` or an
-existing Vizzly config.
+The client works with any test runner. You can also pass a file path:
 
-Use `vizzly init --agent-skill` to install or refresh only the local skill, or
-`vizzly init --skip-agent-skill` when you want config without the agent prompt.
+```javascript
+await vizzlyScreenshot('homepage', './screenshots/homepage.png');
+```
 
-### TypeScript Configuration
+### Review locally
 
-Vizzly loads `vizzly.config.ts` with Node's native type stripping. Type
-annotations, interfaces, and `satisfies` work without installing TypeScript.
-Use `import type` for type-only imports and include file extensions when
-importing local helpers, such as `./helpers.ts`.
-
-Enums, namespaces containing runtime code, and constructor parameter properties
-aren't supported. Replace them with ordinary JavaScript values and assignments.
-Node doesn't apply `tsconfig.json` path aliases when loading your config.
-These restrictions apply to the config and its imports; they don't change how
-your application or tests compile.
-
-### Start Local TDD
-
-Start the TDD server, run your tests, and open the dashboard at the URL the
-command prints. Add `--open` when you want Vizzly to open the dashboard for
-you. If the default port is busy, Vizzly picks the next available port; use the
-printed `--port` value with `vizzly tdd status` or `vizzly tdd stop`.
+Start the local TDD server, then run your tests in another terminal:
 
 ```bash
 vizzly tdd start --open
 pnpm test -- --watch
 ```
 
-The dashboard shows screenshots, baselines, and diffs as they arrive. Accept or
-reject changes right from the UI.
+The dashboard shows screenshots and diffs as they arrive. Accept or reject
+changes there. If the default port is busy, use the printed port with
+`vizzly tdd status --port <port>` or `vizzly tdd stop --port <port>`.
 
-For a one-off local check, wrap the test command with `tdd run`:
+For a single run:
 
 ```bash
 vizzly tdd run "pnpm test" --no-open
-vizzly context build current --source local --json
 ```
 
-That run writes review data under `.vizzly/` and prints a context command you
-can use for follow-up inspection. If screenshots were captured, Vizzly also
-generates `.vizzly/report/index.html`; omit `--no-open` when you want that
-report opened automatically.
+Review data goes in `.vizzly/`. When the run captures screenshots, it also
+creates `.vizzly/report/index.html`. Omit `--no-open` to open the report.
 
-### Run With Cloud Review
-
-Use cloud builds when you want shared baselines, team review, and CI status:
+### Review in the cloud
 
 ```bash
 vizzly login
@@ -93,188 +69,128 @@ vizzly project link your-org/your-project
 vizzly run "pnpm test" --wait
 ```
 
-`vizzly login` authenticates your user account. `vizzly project link` creates a
-project-scoped upload credential for this checkout, which `vizzly run` uses for
-cloud uploads.
+`vizzly login` signs you in. Linking gives this checkout a project upload token.
+With `--wait`, the command waits for results and exits with code `1` when visual
+changes need review.
 
-`--wait` blocks until Vizzly finishes processing the build. It exits with code
-`1` when visual differences need review.
-
-In CI, use a project token:
+In CI, set a project token:
 
 ```bash
 export VIZZLY_TOKEN=your-project-token
 vizzly run "pnpm test" --wait
 ```
 
-### Inspect Builds And Diffs
-
-Use `vizzly context` for human summaries and local `.vizzly` evidence. For cloud
-reviews, agents should discover and call the public API through its schema:
+To upload screenshots you already have:
 
 ```bash
-vizzly api schema --json
-vizzly api schema sdk.listBuilds --json
+vizzly upload ./screenshots --wait
 ```
 
-The `context build --agent` and `context comparison --agent` formats are
-deprecated and scheduled for removal in v0.38.0. Use the schema-driven API for
-cloud evidence; use `vizzly context ... --json` for local evidence.
-
-```bash
-# Human-readable cloud build context
-vizzly context build abc123 --source cloud
-
-# Discover cloud evidence operations for an agent workflow
-vizzly api schema sdk.getBuildContext --json
-vizzly api schema getComparisonContext --json
-
-# Local workspace context from .vizzly/
-vizzly context build current --source local
-vizzly context build current --source local --json
-vizzly context screenshot build-detail-screenshots --source local --json
-vizzly context review-queue --source local --json
-```
-
-Use `vizzly api schema` to inspect cloud operation inputs, output fields, and
-pagination before making requests. The old compact `--agent` handoff remains
-available during deprecation, but new cloud workflows should use the schema.
-Use `--json` for machine-readable local context.
-
-Local context is read-only and file-backed. It reads your existing `.vizzly`
-workspace state from TDD runs, including screenshots, diffs, and saved hotspot
-or region metadata.
-
-The `context` commands are read-only. The schema-discovered review API also
-supports explicit decisions when a task asks for them.
-
-## Capture Screenshots
-
-Add screenshots to your existing tests:
+## Screenshot options
 
 ```javascript
-import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
-
-test('homepage looks correct', async ({ page }) => {
-  await page.goto('/');
-
-  let screenshot = await page.screenshot();
-  await vizzlyScreenshot('homepage', screenshot, {
-    fullPage: true,
-    requestTimeout: 5000,
-    properties: {
-      theme: 'dark',
-      locale: 'en-US',
-    },
-  });
+await vizzlyScreenshot('checkout', screenshot, {
+  threshold: 2,
+  minClusterSize: 4,
+  fullPage: true,
+  requestTimeout: 5000,
+  properties: { theme: 'dark', locale: 'en-US' },
 });
 ```
 
-`properties` is your key/value metadata bag for baseline grouping, filtering,
-and debugging. Vizzly passes every property through as user metadata; property
-names are never interpreted as options. The supported top-level options are
+Put details like theme or locale in `properties` for baseline grouping and
+filtering. Vizzly keeps these separate from screenshot options and reads image
+dimensions from the screenshot. To use a custom property for baseline matching,
+add it to `signatureProperties` in your config. The top-level options are
 `threshold`, `minClusterSize`, `fullPage`, `requestTimeout`, and `buildId`.
-Vizzly reads width and height from the captured image, so viewport dimensions do
-not need to be included in `properties`.
 
-The client SDK is lightweight. It posts screenshots to the local Vizzly server
-or the cloud build wrapper. It works with any test runner.
-
-SDKs are available for
-[JavaScript](https://docs.vizzly.dev/integration/sdk/javascript),
-[Ruby](https://docs.vizzly.dev/integration/sdk/ruby),
-[Swift](https://docs.vizzly.dev/integration/sdk/swift), and
-[more](https://docs.vizzly.dev/integration/sdk/overview).
-
-Already saving screenshots to disk? Pass the file path instead:
-
-```javascript
-await page.screenshot({ path: './screenshots/homepage.png' });
-await vizzlyScreenshot('homepage', './screenshots/homepage.png');
-```
-
-Or upload an existing folder of screenshots:
-
-```bash
-vizzly upload ./screenshots --threshold 2 --min-cluster-size 4 --batch-size 10 --upload-timeout 60000
-```
-
-`--batch-size` controls how many screenshots are uploaded per request.
-`--upload-timeout` controls the upload client's timeout, including how long
-`--wait` polls for build processing.
-
-When `vizzly run` sends screenshots to Vizzly, the CLI first asks the API to
-resolve each screenshot by SHA. If Vizzly already has the image bytes, the CLI
-creates the screenshot record without re-uploading the image. CI workflows can
-force every screenshot through with `--upload-all`. Parallel jobs should use the
-same stable ID, then finalize that ID after every shard completes:
-
-```bash
-vizzly run "pnpm test" --upload-all --parallel-id "$GITHUB_RUN_ID"
-vizzly finalize "$GITHUB_RUN_ID"
-```
-
-For smoke jobs where cloud credentials are intentionally unavailable, add
-`--allow-no-token` to `vizzly run` and Vizzly will keep the local screenshot
-server path working without creating a cloud build.
+For setup help, see the [Storybook](clients/storybook/README.md),
+[static site](clients/static-site/README.md), [Vitest](clients/vitest/README.md),
+and [Ember](clients/ember/README.md) guides. There are also
+[Ruby](clients/ruby/README.md) and [Swift](clients/swift/README.md) SDKs.
 
 ## Configuration
 
-Generate a config file:
+`vizzly init` creates a config, or you can write `vizzly.config.js` yourself:
 
-```bash
-vizzly init
+```javascript
+export default {
+  comparison: {
+    threshold: 2, // CIEDE2000 Delta E; 0 requires an exact match.
+  },
+};
 ```
 
-To teach project agents the Vizzly evidence workflow, add the repo-local skill
-and AGENTS.md guidance:
+For TypeScript, use `vizzly.config.ts`. Node strips the types, so you don't need
+a separate compiler. Use `import type` for types and include extensions in local
+imports, like `./helpers.ts`. Enums, namespaces with runtime code, constructor
+parameter properties, and `tsconfig.json` path aliases won't work in the config
+or files it imports.
+
+### Coding agents and scripts
+
+Install the Vizzly skill and a short `AGENTS.md` note:
 
 ```bash
 vizzly init --agent-guidance
 ```
 
-Or create `vizzly.config.js` manually:
+Run it again after upgrading to update `.agents/skills/vizzly` and the Vizzly
+note in `AGENTS.md`. It keeps your config and other guidance. Use `--agent-skill`
+for just the skill, or `--skip-agent-skill` for config only.
 
-```javascript
-export default {
-  comparison: {
-    // CIEDE2000 Delta E. 0 is exact. 2 is a good default.
-    threshold: 2.0,
-  },
-};
+Use `context` to read local results. For cloud results, check the API schema
+to find the available requests:
+
+```bash
+vizzly context build current --source local --json
+vizzly context review-queue --source local --json
+vizzly api schema --json
+vizzly api schema sdk.getBuildContext --json
 ```
+
+The schema lists inputs, output fields, and how to fetch more results. The old
+`context build --agent` and `context comparison --agent` formats are deprecated.
+Use the API schema for new cloud workflows and `context --json` for local data.
+See the [JSON reference](docs/json-output.md) for output formats and scripts.
+
+### Parallel CI and uploads
+
+Vizzly reuses images it already has by SHA. Add `--upload-all` to send every
+image. For parallel jobs, use the same ID for every shard and finalize it when
+they all finish:
+
+```bash
+vizzly run "pnpm test" --parallel-id "$GITHUB_RUN_ID"
+vizzly finalize "$GITHUB_RUN_ID"
+```
+
+Use `--batch-size` to set how many screenshots upload per request and
+`--upload-timeout` to limit upload and processing wait time. You can also set
+`--threshold` and `--min-cluster-size`. For CI jobs without a cloud token, add
+`--allow-no-token` to `vizzly run` to keep local capture working.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `vizzly tdd start` | Start the local TDD server and dashboard. |
-| `vizzly tdd status` | Check the local TDD server for this project. |
-| `vizzly tdd list` | List running local TDD servers. |
-| `vizzly tdd stop` | Stop the local TDD server for this project. |
-| `vizzly tdd run "cmd"` | Run tests once and write local review data under `.vizzly/`. |
-| `vizzly run "cmd"` | Run tests with cloud build and review integration. |
-| `vizzly context ...` | Fetch visual context for builds, comparisons, screenshots, and review queues. |
-| `vizzly upload <dir>` | Upload an existing folder of screenshots. |
-| `vizzly preview <dir>` | Upload static build output for in-context review. |
-| `vizzly approve <comparison-id>` | Approve a visual comparison. |
-| `vizzly reject <comparison-id>` | Reject a visual comparison with a reason. |
-| `vizzly comment <build-id>` | Add a build comment. |
-| `vizzly config [key]` | Inspect resolved configuration values. |
-| `vizzly login` | Authenticate through the browser. |
-| `vizzly doctor` | Validate your local setup. |
+| `vizzly tdd start` | Start the local server and dashboard. |
+| `vizzly tdd status` / `list` / `stop` | Check, list, or stop local servers. |
+| `vizzly tdd run "cmd"` | Run tests once and save local review data. |
+| `vizzly run "cmd"` | Run tests and upload for cloud review. |
+| `vizzly context ...` | Read build, screenshot, and diff context. |
+| `vizzly upload <dir>` | Upload screenshots. |
+| `vizzly preview <dir>` | Upload a static site for in-context review. |
+| `vizzly approve <comparison-id>` | Approve a comparison. |
+| `vizzly reject <comparison-id>` | Reject a comparison with a reason. |
+| `vizzly comment <build-id>` | Comment on a build. |
+| `vizzly config [key]` | Show your current config. |
+| `vizzly login` | Sign in through the browser. |
+| `vizzly doctor` | Check your setup. |
 
-## Documentation
+## More
 
-Full documentation lives at **[docs.vizzly.dev](https://docs.vizzly.dev)**.
-Start there for framework guides, CI setup, SDK examples, and the configuration
-reference.
+[Full docs](https://docs.vizzly.dev) ·
+[Report a bug or suggest a change](https://github.com/vizzly-testing/cli/issues)
 
-## Contributing
-
-Found a bug or have an idea?
-[Open an issue](https://github.com/vizzly-testing/cli/issues) or send a PR.
-
-## License
-
-MIT
+PRs welcome. MIT licensed.

@@ -1,54 +1,37 @@
-# test-ember-app
+# Ember test app
 
-This README outlines the details of collaborating on this Ember application.
-A short introduction of this app could easily go here.
+A small Ember app for testing `@vizzly-testing/ember`. It uses Vite to build the
+app and Testem to run browser tests.
 
-## Prerequisites
+## Run it
 
-You will need the following things properly installed on your computer.
+From this folder:
 
-- [Git](https://git-scm.com/)
-- [Node.js](https://nodejs.org/) (with pnpm)
-- [Google Chrome](https://google.com/chrome/)
+```bash
+pnpm install
+pnpm run start
+```
 
-## Installation
+Open [localhost:4200](http://localhost:4200) for the app or
+[/tests](http://localhost:4200/tests) for the test page.
 
-- `git clone <repository-url>` this repository
-- `cd test-ember-app`
-- `pnpm install`
+## Run tests
 
-## Running / Development
+Start `vizzly tdd start --open` before running tests to compare screenshots
+locally. The test command builds the app with test files, then runs Ember tests:
 
-- `pnpm run start`
-- Visit your app at [http://localhost:4200](http://localhost:4200).
-- Visit your tests at [http://localhost:4200/tests](http://localhost:4200/tests).
+```bash
+pnpm test
+```
 
-### Code Generators
+For SDK setup and cloud review, see the [Ember guide](../README.md).
 
-Make use of the many generators for code, try `pnpm exec ember help generate` for more details
+## Other commands
 
-### Running Tests
-
-- `pnpm run test`
-
-### Linting
-
-- `pnpm run lint`
-- `pnpm run lint:fix`
-
-### Building
-
-- `pnpm exec vite build --mode development` (development)
-- `pnpm run build` (production)
-
-### Deploying
-
-Specify what it takes to deploy your app.
-
-## Further Reading / Useful Links
-
-- [ember.js](https://emberjs.com/)
-- [Vite](https://vite.dev)
-- Development Browser Extensions
-  - [ember inspector for chrome](https://chrome.google.com/webstore/detail/ember-inspector/bmdblncegkenkacieihfhpjfppoconhi)
-  - [ember inspector for firefox](https://addons.mozilla.org/en-US/firefox/addon/ember-inspector/)
+| Command | What it does |
+| --- | --- |
+| `pnpm run lint` | Check formatting, templates, and CSS. |
+| `pnpm run lint:fix` | Fix lint and formatting issues. |
+| `pnpm exec vite build --mode development` | Build with test files. |
+| `pnpm run build` | Build for production. |
+| `pnpm exec ember help generate` | List code generators. |

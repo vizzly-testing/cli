@@ -26,6 +26,12 @@ Build first with `pnpm run build`, then run `pnpm run test:reporter`. Firefox is
 the default; use `REPORTER_BROWSER=chromium` to run Chromium instead. Both desktop
 and phone viewports run by default. Pass a spec name to focus on one workflow.
 
+Install the browser once with `pnpm exec playwright install firefox` (or
+`chromium` when selecting Chromium). On macOS, the setup gives Firefox a
+temporary app-data directory and removes it after the run. This avoids the
+[macOS 27 Firefox launch issue](https://bugzilla.mozilla.org/show_bug.cgi?id=2060476)
+without needing access to your personal Firefox data.
+
 Run `pnpm run test:reporter:visual` to compare captures through Vizzly. This is
 also the existing CI entry point. It includes the fullscreen layout, queue,
 details, slide view, change navigation, and changed-region captures alongside

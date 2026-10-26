@@ -7,6 +7,7 @@ let desktopDevice =
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.js',
+  globalSetup: './support/browser-setup.js',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
@@ -18,6 +19,7 @@ export default defineConfig({
   },
 
   use: {
+    browserName,
     reducedMotion: 'reduce',
     screenshot: 'only-on-failure',
     video: 'off',

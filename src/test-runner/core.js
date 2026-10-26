@@ -119,11 +119,22 @@ export function determineBuildMode(tdd) {
  * Build result object for disabled run (no Vizzly integration)
  * @returns {Object} Result object
  */
-export function buildDisabledRunResult() {
+export function buildDisabledRunResult(reason = null) {
   return {
     testsPassed: 1,
     testsFailed: 0,
     screenshotsCaptured: 0,
+    ...(reason
+      ? {
+          capture: {
+            setup: 'disabled',
+            reason,
+            accepted: 0,
+            rejected: 0,
+            errors: 0,
+          },
+        }
+      : {}),
   };
 }
 
@@ -156,6 +167,24 @@ export function buildRunResult({
     ...(uploadStats ? { uploads: uploadStats } : {}),
     comparisons: tddResults?.comparisons || null,
     failed: (tddResults?.failed || 0) > 0,
+    ...(tddResults
+      ? {
+          summary: {
+            total: tddResults.total ?? screenshotCount,
+            passed: tddResults.passed || 0,
+            failed: tddResults.failed || 0,
+            new: tddResults.new || 0,
+            errors: tddResults.errors || 0,
+          },
+          capture: {
+            setup: 'ready',
+            reason: tddResults.error || null,
+            accepted: tddResults.capture?.accepted ?? screenshotCount,
+            rejected: tddResults.capture?.rejected || 0,
+            errors: tddResults.errors || 0,
+          },
+        }
+      : {}),
   };
 }
 

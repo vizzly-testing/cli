@@ -48,9 +48,16 @@ export interface TddConfig {
   openReport?: boolean;
 }
 
+export interface ProjectConfig {
+  organizationSlug: string;
+  projectSlug: string;
+}
+
 export interface VizzlyConfig {
   apiKey?: string;
   apiUrl?: string;
+  /** Nonsecret repository destination. Upload credentials stay in user storage. */
+  project?: ProjectConfig;
   server?: ServerConfig;
   build?: BuildConfig;
   upload?: UploadConfig;
@@ -131,6 +138,7 @@ export interface TddResults {
   failed: number;
   new: number;
   errors: number;
+  capture?: { accepted: number; rejected: number };
   comparisons: ComparisonResult[];
   baseline: BaselineData | null;
 }

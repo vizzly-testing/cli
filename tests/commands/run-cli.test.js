@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -36,8 +36,15 @@ async function withApiServer(callback, options = {}) {
   let buildUrl = 'http://app.test/org/project/builds/build-123';
   let requests = [];
   let buildReadCount = 0;
-  let server = createServer((req, res) => {
-    requests.push({ method: req.method, url: req.url });
+  let server = createServer(async (req, res) => {
+    let chunks = [];
+    for await (let chunk of req) chunks.push(chunk);
+    let body = Buffer.concat(chunks).toString();
+    requests.push({
+      method: req.method,
+      url: req.url,
+      json: body ? JSON.parse(body) : null,
+    });
     res.setHeader('content-type', 'application/json');
 
     if (req.method === 'POST' && req.url === '/api/sdk/builds') {
@@ -185,6 +192,7 @@ describe('commands/run CLI', () => {
       assert.strictEqual(payload.data.status, 'completed');
       assert.strictEqual(payload.data.buildId, 'build-123');
       assert.strictEqual(payload.data.comparisons.total, 0);
+      assert.equal(requests[0].json.build.metadata, undefined);
       assert.strictEqual(
         payload.data.contextCommand,
         'vizzly api schema sdk.getBuildContext --json'
@@ -200,6 +208,55 @@ describe('commands/run CLI', () => {
         ]
       );
     });
+  });
+
+  it('sends only explicit comparison settings, including default values and zero', async () => {
+    for (let scenario of [
+      {
+        file: { threshold: 2 },
+        env: {},
+        flags: [],
+        expected: { threshold: 2 },
+      },
+      {
+        file: { threshold: 4 },
+        env: { VIZZLY_THRESHOLD: '0' },
+        flags: ['--min-cluster-size', '3'],
+        expected: { threshold: 0, minClusterSize: 3 },
+      },
+    ]) {
+      await withApiServer(async ({ apiUrl, requests }) => {
+        let cwd = createWorkspace();
+        let port = await getFreePort();
+        writeFileSync(
+          join(cwd, '.vizzlyrc.json'),
+          JSON.stringify({ comparison: scenario.file })
+        );
+        let result = await runCLI(
+          [
+            'run',
+            'node -e "0"',
+            '--json',
+            '--port',
+            String(port),
+            ...scenario.flags,
+          ],
+          {
+            cwd,
+            env: {
+              VIZZLY_API_URL: apiUrl,
+              VIZZLY_TOKEN: 'vzt_fixture',
+              ...scenario.env,
+            },
+          }
+        );
+        assert.equal(result.code, 0, result.stderr + result.stdout);
+        assert.deepEqual(
+          requests[0].json.build.metadata.comparison,
+          scenario.expected
+        );
+      });
+    }
   });
 
   it('does not claim the API build completed when its status is unavailable', async () => {

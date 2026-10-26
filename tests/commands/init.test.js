@@ -1,652 +1,299 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import {
+  access,
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import {
-  createConfigContent,
-  formatPluginConfig,
-  formatValue,
-  getInitConfigPath,
-  getProjectAgentSkillPath,
-  getProjectAgentsPath,
-  init,
-  installProjectAgentSkill,
-} from '../../src/commands/init.js';
 
-let execFileAsync = promisify(execFile);
+let exec = promisify(execFile);
+let cli = fileURLToPath(new URL('../../src/cli.js', import.meta.url));
 
-function createMockOutput() {
-  let calls = [];
+async function project(t) {
+  let cwd = await realpath(await mkdtemp(path.join(tmpdir(), 'vizzly-init-')));
+  t.after(() => rm(cwd, { recursive: true, force: true }));
+  return cwd;
+}
+
+async function run(cwd, args = [], json = true) {
+  let env = { ...process.env };
+  for (let name of Object.keys(env)) {
+    if (name.startsWith('VIZZLY_') || name === 'NODE_V8_COVERAGE')
+      delete env[name];
+  }
+  env.VIZZLY_HOME = path.join(cwd, 'user-state');
+  env.VIZZLY_DISABLE_KEYCHAIN = 'true';
+  let result;
+  try {
+    result = await exec(
+      process.execPath,
+      [cli, 'init', ...args, ...(json ? ['--json'] : [])],
+      { cwd, env }
+    );
+    result.code = 0;
+  } catch (error) {
+    result = error;
+  }
   return {
-    calls,
-    blank: () => calls.push({ method: 'blank', args: [] }),
-    complete: message => calls.push({ method: 'complete', args: [message] }),
-    configure: opts => calls.push({ method: 'configure', args: [opts] }),
-    data: value => calls.push({ method: 'data', args: [value] }),
-    header: command => calls.push({ method: 'header', args: [command] }),
-    hint: message => calls.push({ method: 'hint', args: [message] }),
-    labelValue: (label, value) =>
-      calls.push({ method: 'labelValue', args: [label, value] }),
-    list: (items, options) =>
-      calls.push({ method: 'list', args: [items, options] }),
-    warn: message => calls.push({ method: 'warn', args: [message] }),
+    code: result.code,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    data: json && result.stdout.trim() ? JSON.parse(result.stdout).data : null,
   };
 }
 
-async function createTempProject() {
-  return mkdtemp(path.join(tmpdir(), 'vizzly-init-test-'));
+async function missing(filename) {
+  await assert.rejects(access(filename), { code: 'ENOENT' });
 }
 
-describe('commands/init', () => {
-  describe('config helpers', () => {
-    it('formats plugin config as valid object properties', () => {
-      let pluginConfig = formatPluginConfig({
-        name: 'custom',
-        configSchema: {
-          'api-token': "rob's-token",
-          nested: {
-            'branch-name': 'main',
-            paths: ['screenshots', 'visuals'],
-          },
-        },
-      });
+test('quick needs only one flag, creates minimal config and never touches user state', async t => {
+  let cwd = await project(t);
+  let result = await run(cwd, ['--quick'], false);
+  assert.equal(result.code, 0, result.stderr);
+  let filename = path.join(cwd, 'vizzly.config.js');
+  assert.match(result.stdout, /Config created/);
+  assert.match(result.stdout, /Edit this config/);
+  let source = await readFile(filename, 'utf8');
+  assert.match(source, /\/\/ comparison:/);
+  let { default: config } = await import(filename);
+  assert.deepEqual(config, {});
+  assert.deepEqual(await readdir(cwd), ['vizzly.config.js']);
+});
 
-      assert.match(pluginConfig, /'api-token': 'rob\\'s-token'/);
-      assert.match(pluginConfig, /'branch-name': 'main'/);
-      assert.match(pluginConfig, /paths: \[/);
-    });
+test('JSON uses quick behavior and keeps created/skipped config statuses', async t => {
+  let cwd = await project(t);
+  let first = await run(cwd);
+  assert.equal(first.code, 0, first.stderr);
+  assert.equal(first.data.status, 'created');
+  assert.equal(first.data.mode, 'quick');
+  assert.equal(first.data.verification.capture, 'not_run');
+  let source = await readFile(first.data.configPath, 'utf8');
+  let again = await run(cwd);
+  assert.equal(again.data.status, 'skipped');
+  assert.deepEqual(again.data.changes, []);
+  assert.equal(await readFile(first.data.configPath, 'utf8'), source);
+  await missing(path.join(cwd, 'user-state'));
+});
 
-    it('escapes strings without changing supported scalar values', () => {
-      assert.strictEqual(
-        formatValue("rob's\\path\nnext"),
-        "'rob\\'s\\\\path\\nnext'"
-      );
-      assert.strictEqual(formatValue(true), 'true');
-      assert.strictEqual(formatValue(null), 'null');
-      assert.strictEqual(formatValue([1, 'two']), "[\n  1,\n  'two'\n]");
-    });
+test('quick does not require framework or manager choices and never executes plugins', async t => {
+  let cwd = await project(t);
+  let pkg = {
+    devDependencies: {
+      '@playwright/test': '*',
+      vitest: '*',
+      '@vizzly-testing/fake': '*',
+    },
+  };
+  await writeFile(path.join(cwd, 'package.json'), JSON.stringify(pkg));
+  let plugin = path.join(cwd, 'node_modules', '@vizzly-testing', 'fake');
+  await mkdir(plugin, { recursive: true });
+  await writeFile(
+    path.join(plugin, 'package.json'),
+    JSON.stringify({
+      name: '@vizzly-testing/fake',
+      type: 'module',
+      vizzlyPlugin: './plugin.js',
+    })
+  );
+  await writeFile(
+    path.join(plugin, 'plugin.js'),
+    "throw new Error('Plugin must not run during init');"
+  );
+  let result = await run(cwd, ['--quick']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(
+    JSON.parse(await readFile(path.join(cwd, 'package.json'), 'utf8')),
+    pkg
+  );
+  await missing(path.join(cwd, '.gitignore'));
+  await missing(path.join(cwd, '.agents'));
+});
 
-    it('creates config content with plugin sections', () => {
-      let config = createConfigContent([
-        {
-          name: 'storybook',
-          configSchema: {
-            storybook: {
-              url: 'http://localhost:6006',
-            },
-          },
-        },
-      ]);
+test('existing executable config is preserved without being evaluated', async t => {
+  let cwd = await project(t);
+  let source =
+    "// Preserve my source\nthrow new Error('must not execute');\nexport default {};\n";
+  await writeFile(path.join(cwd, 'vizzly.config.ts'), source);
+  let result = await run(cwd, ['--quick']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.data.status, 'skipped');
+  assert.equal(path.basename(result.data.configPath), 'vizzly.config.ts');
+  assert.equal(await readFile(result.data.configPath, 'utf8'), source);
+  await missing(path.join(cwd, 'vizzly.config.js'));
+});
 
-      assert.match(config, /export default \{/);
-      assert.match(config, /server: \{/);
-      assert.match(config, /storybook plugin configuration/);
-      assert.match(config, /url: 'http:\/\/localhost:6006'/);
-      assert.match(config, /\n\};\n$/);
-    });
-
-    it('creates syntactically valid config when plugin keys need quoting', async () => {
-      let cwd = await createTempProject();
-      let configPath = path.join(cwd, 'vizzly.config.js');
-      let config = createConfigContent([
-        {
-          name: 'custom',
-          configSchema: {
-            'api-token': "rob's-token",
-          },
-        },
-      ]);
-
-      await writeFile(configPath, config);
-
-      let { NODE_V8_COVERAGE: _coverage, ...env } = process.env;
-      await execFileAsync(process.execPath, ['--check', configPath], { env });
-
-      assert.match(config, /'api-token': 'rob\\'s-token'/);
-    });
+test('package config outranks JS and force replaces only its vizzly property', async t => {
+  let cwd = await project(t);
+  let pkg = {
+    name: 'fixture',
+    scripts: { test: 'keep-me' },
+    vizzly: { comparison: { threshold: 7 } },
+  };
+  let filename = path.join(cwd, 'package.json');
+  await writeFile(filename, JSON.stringify(pkg));
+  let js = path.join(cwd, 'vizzly.config.js');
+  await writeFile(js, 'throw new Error("shadowed config");');
+  let first = await run(cwd);
+  assert.equal(first.data.configPath, filename);
+  let forced = await run(cwd, ['--quick', '--force']);
+  assert.equal(forced.code, 0, forced.stderr);
+  assert.deepEqual(JSON.parse(await readFile(filename, 'utf8')), {
+    ...pkg,
+    vizzly: {},
   });
+  assert.equal(
+    await readFile(js, 'utf8'),
+    'throw new Error("shadowed config");'
+  );
+});
 
-  describe('init', () => {
-    it('creates a default config and prints human next steps', async () => {
-      let cwd = await createTempProject();
-      let output = createMockOutput();
+test('rc config is recognized and a parent workspace config is not implicitly selected', async t => {
+  let cwd = await project(t);
+  let parent = path.join(cwd, 'vizzly.config.js');
+  await writeFile(parent, 'throw new Error("parent config must not run");');
+  let child = path.join(cwd, 'packages', 'app');
+  await mkdir(child, { recursive: true });
+  let rc = path.join(child, '.vizzlyrc.json');
+  await writeFile(rc, '{"comparison":{"threshold":1}}');
+  let result = await run(child);
+  assert.equal(result.data.configPath, rc);
+  await rm(rc);
+  result = await run(child);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.data.configPath, path.join(child, 'vizzly.config.js'));
+});
 
-      let result = await init(
-        {
-          plugins: [
-            {
-              name: 'storybook',
-              configSchema: { storybook: { url: 'http://localhost:6006' } },
-            },
-          ],
-        },
-        {
-          cwd: () => cwd,
-          output,
-        }
-      );
+test('new explicit config destinations are created in their selected format', async t => {
+  let cwd = await project(t);
+  let result = await run(cwd, ['--quick', '--config', 'config/visual.json']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(
+    JSON.parse(await readFile(result.data.configPath, 'utf8')),
+    {}
+  );
+  await missing(path.join(cwd, 'vizzly.config.js'));
+  await missing(path.join(cwd, 'user-state'));
+});
 
-      let configPath = getInitConfigPath(cwd);
-      let config = await readFile(configPath, 'utf8');
+test('force can replace malformed standalone config while preserving malformed package source', async t => {
+  let cwd = await project(t);
+  let filename = path.join(cwd, '.vizzlyrc.json');
+  await writeFile(filename, '{unfinished');
+  let result = await run(cwd, ['--quick', '--force']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(JSON.parse(await readFile(filename, 'utf8')), {});
+  await writeFile(path.join(cwd, 'package.json'), '{unfinished package');
+  result = await run(cwd, ['--quick', '--force']);
+  assert.equal(result.code, 1);
+  assert.equal(
+    await readFile(path.join(cwd, 'package.json'), 'utf8'),
+    '{unfinished package'
+  );
+});
 
-      assert.deepStrictEqual(result, {
-        status: 'created',
-        configPath,
-        plugins: ['storybook'],
-      });
-      assert.match(config, /Build \{timestamp\}/);
-      assert.match(config, /minClusterSize: 2/);
-      assert.match(config, /storybook plugin configuration/);
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'complete' &&
-            call.args[0] === 'Created vizzly.config.js'
-        )
-      );
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'complete' &&
-            call.args[0] === 'Vizzly CLI setup complete'
-        )
-      );
-    });
+test('bare nonterminal invocation gives the single-flag shortcut without writes', async t => {
+  let cwd = await project(t);
+  let result = await run(cwd, [], false);
+  assert.equal(result.code, 2);
+  assert.match(result.stderr, /vizzly init --quick/);
+  assert.deepEqual(await readdir(cwd), []);
+});
 
-    it('returns JSON output when config is created in JSON mode', async () => {
-      let cwd = await createTempProject();
-      let output = createMockOutput();
+test('explicit agent setup refreshes only owned files and preserves surrounding guidance', async t => {
+  let cwd = await project(t);
+  let original = '# My repo\n\nKeep my instructions.\n';
+  await writeFile(path.join(cwd, 'AGENTS.md'), original);
+  let first = await run(cwd, ['--quick', '--agent-guidance']);
+  assert.equal(first.code, 0, first.stderr);
+  let target = path.join(cwd, '.agents', 'skills', 'vizzly');
+  await writeFile(path.join(target, 'custom.md'), 'my custom file');
+  await writeFile(path.join(target, 'SKILL.md'), 'old skill');
+  let again = await run(cwd, ['--agent-guidance']);
+  assert.equal(again.code, 0, again.stderr);
+  assert.equal(again.data.status, 'skipped');
+  assert.equal(again.data.agentSkill.status, 'refreshed');
+  assert.match(
+    await readFile(path.join(target, 'SKILL.md'), 'utf8'),
+    /name: vizzly/
+  );
+  assert.equal(
+    await readFile(path.join(target, 'custom.md'), 'utf8'),
+    'my custom file'
+  );
+  let agents = await readFile(path.join(cwd, 'AGENTS.md'), 'utf8');
+  assert.ok(agents.startsWith(original.trimEnd()));
+  assert.equal(agents.split('<!-- vizzly-agent-guidance -->').length, 2);
+  await missing(path.join(cwd, 'user-state'));
+});
 
-      await init(
-        {
-          json: true,
-          plugins: [{ name: 'plain-plugin' }],
-        },
-        {
-          cwd: () => cwd,
-          output,
-        }
-      );
+test('skill-only remains skill-only and explicit skip suppresses it', async t => {
+  for (let args of [
+    ['--agent-skill'],
+    ['--agent-skill', '--skip-agent-skill'],
+  ]) {
+    let cwd = await project(t);
+    let result = await run(cwd, args);
+    assert.equal(result.code, 0, result.stderr);
+    if (args.includes('--skip-agent-skill'))
+      await missing(path.join(cwd, '.agents'));
+    else
+      await access(path.join(cwd, '.agents', 'skills', 'vizzly', 'SKILL.md'));
+    await missing(path.join(cwd, 'AGENTS.md'));
+  }
+});
 
-      let dataCall = output.calls.find(call => call.method === 'data');
-      assert.deepStrictEqual(dataCall.args[0], {
-        status: 'created',
-        configPath: getInitConfigPath(cwd),
-        plugins: [],
-      });
-      assert.ok(!output.calls.some(call => call.method === 'header'));
-    });
+test('malformed guidance and invalid JSON fail before config or skill writes', async t => {
+  let cwd = await project(t);
+  await writeFile(
+    path.join(cwd, 'AGENTS.md'),
+    '<!-- vizzly-agent-guidance -->\n'
+  );
+  let result = await run(cwd, ['--agent-guidance']);
+  assert.equal(result.code, 1);
+  await missing(path.join(cwd, 'vizzly.config.js'));
+  await missing(path.join(cwd, '.agents'));
+  await writeFile(path.join(cwd, '.vizzlyrc.json'), '{invalid');
+  result = await run(cwd, ['--quick']);
+  assert.equal(result.code, 1);
+  await missing(path.join(cwd, 'vizzly.config.js'));
+});
 
-    it('skips an existing config without overwriting it', async () => {
-      let cwd = await createTempProject();
-      let configPath = getInitConfigPath(cwd);
-      let output = createMockOutput();
+test('force never follows a config symlink or writes agent files before preflight', async t => {
+  let cwd = await project(t);
+  let actual = path.join(cwd, 'actual.js');
+  await writeFile(actual, 'export default { keep: true };');
+  await symlink(actual, path.join(cwd, 'vizzly.config.js'));
+  let result = await run(cwd, ['--quick', '--force', '--agent-guidance']);
+  assert.equal(result.code, 1);
+  assert.equal(
+    await readFile(actual, 'utf8'),
+    'export default { keep: true };'
+  );
+  await missing(path.join(cwd, '.agents'));
+});
 
-      await writeFile(configPath, 'export default { existing: true };\n');
-
-      let result = await init(
-        {
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output,
-        }
-      );
-
-      let config = await readFile(configPath, 'utf8');
-
-      assert.deepStrictEqual(result, { status: 'skipped', configPath });
-      assert.strictEqual(config, 'export default { existing: true };\n');
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'warn' &&
-            call.args[0] === 'A vizzly.config.js file already exists'
-        )
-      );
-    });
-
-    it('can add the agent skill when config already exists', async () => {
-      let cwd = await createTempProject();
-      let configPath = getInitConfigPath(cwd);
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let output = createMockOutput();
-
-      await writeFile(configPath, 'export default { existing: true };\n');
-      await mkdir(skillSourcePath, { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
-      );
-
-      let result = await init(
-        {
-          agentSkill: true,
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output,
-          skillSourcePath,
-        }
-      );
-
-      let config = await readFile(configPath, 'utf8');
-      let installedSkill = await readFile(
-        path.join(getProjectAgentSkillPath(cwd), 'SKILL.md'),
-        'utf8'
-      );
-
-      assert.deepStrictEqual(result, { status: 'skipped', configPath });
-      assert.strictEqual(config, 'export default { existing: true };\n');
-      assert.match(installedSkill, /name: vizzly/);
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'complete' &&
-            call.args[0] === 'Added Vizzly agent skill'
-        )
-      );
-    });
-
-    it('overwrites an existing config when forced', async () => {
-      let cwd = await createTempProject();
-      let configPath = getInitConfigPath(cwd);
-
-      await writeFile(configPath, 'export default { existing: true };\n');
-
-      let result = await init(
-        {
-          force: true,
-          json: true,
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output: createMockOutput(),
-        }
-      );
-
-      let config = await readFile(configPath, 'utf8');
-
-      assert.strictEqual(result.status, 'created');
-      assert.match(config, /server: \{/);
-      assert.doesNotMatch(config, /existing: true/);
-    });
-
-    it('loads plugins from config when plugins are not provided', async () => {
-      let cwd = await createTempProject();
-      let output = createMockOutput();
-      let loadedConfig = null;
-
-      await init(
-        { json: true, config: 'vizzly.config.js' },
-        {
-          cwd: () => cwd,
-          loadConfig: async (configPath, defaults) => {
-            loadedConfig = { configPath, defaults };
-            return { apiUrl: 'https://api.example.test' };
-          },
-          loadPlugins: async (_configPath, config) => [
-            {
-              name: 'loaded',
-              config,
-              configSchema: { loaded: true },
-            },
-          ],
-          output,
-        }
-      );
-
-      let dataCall = output.calls.find(call => call.method === 'data');
-
-      assert.deepStrictEqual(loadedConfig, {
-        configPath: 'vizzly.config.js',
-        defaults: {},
-      });
-      assert.deepStrictEqual(dataCall.args[0].plugins, ['loaded']);
-    });
-
-    it('installs the repo-local agent skill when requested', async () => {
-      let cwd = await createTempProject();
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let output = createMockOutput();
-
-      await mkdir(skillSourcePath, { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
-      );
-
-      let result = await init(
-        {
-          agentSkill: true,
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output,
-          skillSourcePath,
-        }
-      );
-
-      let installedSkill = await readFile(
-        path.join(getProjectAgentSkillPath(cwd), 'SKILL.md'),
-        'utf8'
-      );
-
-      assert.strictEqual(result.status, 'created');
-      assert.match(installedSkill, /name: vizzly/);
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'complete' &&
-            call.args[0] === 'Added Vizzly agent skill'
-        )
-      );
-    });
-
-    it('adds project AGENTS.md guidance when requested', async () => {
-      let cwd = await createTempProject();
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let output = createMockOutput();
-
-      await mkdir(skillSourcePath, { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
-      );
-
-      let result = await init(
-        {
-          agentGuidance: true,
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output,
-          skillSourcePath,
-        }
-      );
-
-      let installedSkill = await readFile(
-        path.join(getProjectAgentSkillPath(cwd), 'SKILL.md'),
-        'utf8'
-      );
-      let agentsContent = await readFile(getProjectAgentsPath(cwd), 'utf8');
-
-      assert.strictEqual(result.status, 'created');
-      assert.match(installedSkill, /name: vizzly/);
-      assert.match(agentsContent, /Visual Testing With Vizzly/);
-      assert.match(agentsContent, /.agents\/skills\/vizzly\/SKILL.md/);
-      assert.match(agentsContent, /vizzly api schema --json/);
-      assert.match(agentsContent, /vizzly context \.\.\. --json/);
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'complete' &&
-            call.args[0] === 'Created AGENTS.md with Vizzly guidance'
-        )
-      );
-    });
-
-    it('appends project AGENTS.md guidance without duplicating it', async () => {
-      let cwd = await createTempProject();
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let agentsPath = getProjectAgentsPath(cwd);
-
-      await mkdir(skillSourcePath, { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
-      );
-      await writeFile(agentsPath, '# Repo Guidance\n\nKeep existing notes.\n');
-
-      await init(
-        {
-          agentGuidance: true,
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output: createMockOutput(),
-          skillSourcePath,
-        }
-      );
-      await init(
-        {
-          agentGuidance: true,
-          force: true,
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output: createMockOutput(),
-          skillSourcePath,
-        }
-      );
-
-      let agentsContent = await readFile(agentsPath, 'utf8');
-      let guidanceCount =
-        agentsContent.split('Visual Testing With Vizzly').length - 1;
-
-      assert.match(agentsContent, /# Repo Guidance/);
-      assert.match(agentsContent, /Keep existing notes/);
-      assert.strictEqual(guidanceCount, 1);
-    });
-
-    it('can add AGENTS.md guidance when config already exists', async () => {
-      let cwd = await createTempProject();
-      let configPath = getInitConfigPath(cwd);
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let output = createMockOutput();
-
-      await writeFile(configPath, 'export default { existing: true };\n');
-      await mkdir(skillSourcePath, { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
-      );
-
-      let result = await init(
-        {
-          agentGuidance: true,
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output,
-          skillSourcePath,
-        }
-      );
-
-      let config = await readFile(configPath, 'utf8');
-      let agentsContent = await readFile(getProjectAgentsPath(cwd), 'utf8');
-
-      assert.deepStrictEqual(result, { status: 'skipped', configPath });
-      assert.strictEqual(config, 'export default { existing: true };\n');
-      assert.match(agentsContent, /Visual Testing With Vizzly/);
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'complete' &&
-            call.args[0] === 'Created AGENTS.md with Vizzly guidance'
-        )
-      );
-    });
-
-    it('prompts for the agent skill in interactive init', async () => {
-      let cwd = await createTempProject();
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let prompted = false;
-
-      await mkdir(skillSourcePath, { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Use Vizzly.\n---\n'
-      );
-
-      await init(
-        {
-          plugins: [],
-        },
-        {
-          cwd: () => cwd,
-          output: createMockOutput(),
-          skillSourcePath,
-          isInteractive: () => true,
-          promptAgentSkill: async () => {
-            prompted = true;
-            return true;
-          },
-        }
-      );
-
-      assert.strictEqual(prompted, true);
-      let installedSkill = await readFile(
-        path.join(getProjectAgentSkillPath(cwd), 'SKILL.md'),
-        'utf8'
-      );
-      assert.match(installedSkill, /name: vizzly/);
-    });
-
-    it('does not overwrite an existing repo-local agent skill', async () => {
-      let cwd = await createTempProject();
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let targetPath = getProjectAgentSkillPath(cwd);
-
-      await mkdir(skillSourcePath, { recursive: true });
-      await mkdir(targetPath, { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Packaged.\n---\n'
-      );
-      await writeFile(path.join(targetPath, 'SKILL.md'), 'local skill\n');
-
-      let result = await installProjectAgentSkill({
-        cwd,
-        sourcePath: skillSourcePath,
-      });
-      let existingSkill = await readFile(
-        path.join(targetPath, 'SKILL.md'),
-        'utf8'
-      );
-
-      assert.strictEqual(result.status, 'exists');
-      assert.strictEqual(existingSkill, 'local skill\n');
-    });
-
-    it('refreshes managed agent guidance when explicitly requested', async () => {
-      let cwd = await createTempProject();
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let targetPath = getProjectAgentSkillPath(cwd);
-      let agentsPath = getProjectAgentsPath(cwd);
-      let output = createMockOutput();
-
-      await mkdir(skillSourcePath, { recursive: true });
-      await mkdir(path.join(targetPath, 'agents'), { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Current guidance.\n---\n'
-      );
-      await writeFile(path.join(targetPath, 'SKILL.md'), 'stale skill\n');
-      await writeFile(path.join(targetPath, 'project-notes.md'), 'keep me\n');
-      await writeFile(
-        path.join(targetPath, 'agents', 'openai.yaml'),
-        'stale vendor metadata\n'
-      );
-      await writeFile(
-        agentsPath,
-        '# Repo Guidance\n\n<!-- vizzly-agent-guidance -->\nstale guidance\n<!-- /vizzly-agent-guidance -->\n'
-      );
-
-      await init(
-        { agentGuidance: true, plugins: [] },
-        {
-          cwd: () => cwd,
-          output,
-          skillSourcePath,
-        }
-      );
-
-      let installedSkill = await readFile(
-        path.join(targetPath, 'SKILL.md'),
-        'utf8'
-      );
-      let projectNotes = await readFile(
-        path.join(targetPath, 'project-notes.md'),
-        'utf8'
-      );
-      let agentsContent = await readFile(agentsPath, 'utf8');
-
-      assert.match(installedSkill, /description: Current guidance/);
-      assert.strictEqual(projectNotes, 'keep me\n');
-      assert.match(agentsContent, /# Repo Guidance/);
-      assert.match(agentsContent, /Inspect existing visual evidence/);
-      assert.doesNotMatch(agentsContent, /stale guidance/);
-      await assert.rejects(
-        access(path.join(targetPath, 'agents', 'openai.yaml')),
-        error => error.code === 'ENOENT'
-      );
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'complete' &&
-            call.args[0] === 'Refreshed Vizzly agent skill'
-        )
-      );
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'complete' &&
-            call.args[0] === 'Refreshed Vizzly guidance in AGENTS.md'
-        )
-      );
-    });
-
-    it('leaves incomplete AGENTS.md markers for the user to repair', async () => {
-      let cwd = await createTempProject();
-      let skillSourcePath = path.join(await createTempProject(), 'vizzly');
-      let agentsPath = getProjectAgentsPath(cwd);
-      let output = createMockOutput();
-
-      await mkdir(skillSourcePath, { recursive: true });
-      await writeFile(
-        path.join(skillSourcePath, 'SKILL.md'),
-        '---\nname: vizzly\ndescription: Current guidance.\n---\n'
-      );
-      await writeFile(
-        agentsPath,
-        '# Repo Guidance\n\n<!-- vizzly-agent-guidance -->\ncustom text\n'
-      );
-
-      await init(
-        { agentGuidance: true, plugins: [] },
-        {
-          cwd: () => cwd,
-          output,
-          skillSourcePath,
-        }
-      );
-
-      let agentsContent = await readFile(agentsPath, 'utf8');
-      assert.match(agentsContent, /custom text/);
-      assert.strictEqual(
-        agentsContent.split('vizzly-agent-guidance').length - 1,
-        1
-      );
-      assert.ok(
-        output.calls.some(
-          call =>
-            call.method === 'warn' &&
-            call.args[0] ===
-              'Vizzly guidance markers in AGENTS.md are incomplete'
-        )
-      );
-    });
-  });
+test('read-only guidance preflight prevents otherwise writable config changes', {
+  skip: process.platform === 'win32',
+}, async t => {
+  let cwd = await project(t);
+  let filename = path.join(cwd, 'AGENTS.md');
+  await writeFile(filename, 'Keep this');
+  await chmod(filename, 0o444);
+  t.after(() => chmod(filename, 0o644).catch(() => {}));
+  let result = await run(cwd, ['--quick', '--agent-guidance']);
+  assert.equal(result.code, 1);
+  await missing(path.join(cwd, 'vizzly.config.js'));
+  await missing(path.join(cwd, '.agents'));
 });

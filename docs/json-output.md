@@ -136,9 +136,9 @@ vizzly tdd run "pnpm test" --json
         "diffPercentage": 4.2,
         "threshold": 2.0,
         "paths": {
-          "baseline": ".vizzly/baselines/button-primary.png",
-          "current": ".vizzly/current/button-primary.png",
-          "diff": ".vizzly/diff/button-primary.png"
+          "baseline": "/path/to/project/.vizzly/baselines/button-primary.png",
+          "current": "/path/to/project/.vizzly/current/button-primary.png",
+          "diff": "/path/to/project/.vizzly/diffs/button-primary.png"
         },
         "viewport": { "width": 1920, "height": 1080 },
         "browser": "chromium"
@@ -148,9 +148,18 @@ vizzly tdd run "pnpm test" --json
       "total": 1,
       "passed": 0,
       "failed": 1,
-      "new": 0
+      "new": 0,
+      "errors": 0
     },
-    "reportPath": ".vizzly/report/index.html",
+    "capture": {
+      "setup": "ready",
+      "reason": null,
+      "accepted": 1,
+      "rejected": 0,
+      "errors": 0
+    },
+    "reportPath": "/path/to/project/.vizzly/report/index.html",
+    "reportError": null,
     "contextCommand": "vizzly context build current --source local --json"
   }
 }
@@ -159,6 +168,12 @@ vizzly tdd run "pnpm test" --json
 `tdd run` keeps structured output on stdout. The wrapped test command can still
 print normally; Vizzly forwards that child output to stderr in JSON mode so
 `stdout` stays safe to parse.
+
+`reportPath` is null when no report was generated. `summary.errors` and
+`capture.errors` count comparison errors; `capture.rejected` counts failed
+screenshot requests and can overlap those errors. Setup fallback is reported as
+`capture.setup: "disabled"` with a reason. Known capture/setup/report failures
+fail the visual run even if the wrapped test command exits successfully.
 
 When screenshots are captured, Vizzly also writes local review artifacts under
 `.vizzly/`, including `.vizzly/report-data.json` and
@@ -1140,6 +1155,10 @@ provide are omitted instead of becoming client-authored zeroes.
 
 ### `vizzly init`
 
+`--json` uses the same config-only behavior as `vizzly init --quick`: no
+questions, dependency installation, test execution, cloud linking, or implicit
+agent changes. Project settings belong in the generated configuration file.
+
 ```bash
 vizzly init --json
 ```
@@ -1149,12 +1168,27 @@ vizzly init --json
   "status": "data",
   "data": {
     "status": "created",
-    "configPath": "/path/to/vizzly.config.js"
+    "configPath": "/path/to/vizzly.config.js",
+    "mode": "quick",
+    "plugins": [],
+    "changes": [
+      { "path": "/path/to/vizzly.config.js", "status": "written" }
+    ],
+    "requirements": [],
+    "verification": { "capture": "not_run" },
+    "cloud": { "status": "not_requested" },
+    "exitCode": 0
   }
 }
 ```
 
-With project agent setup:
+Existing config returns `status: "skipped"`, `reason: "config_exists"`, and
+an empty `changes` array when nothing else was requested. The discovered config
+format and source are preserved. Config creation does not imply screenshot
+capture has been verified.
+
+With explicitly requested project agent setup (additional unchanged result
+fields omitted here):
 
 ```bash
 vizzly init --agent-guidance --json
@@ -1196,13 +1230,24 @@ vizzly project link my-org/my-project --json
   "status": "data",
   "data": {
     "linked": true,
+    "reused": false,
     "organizationSlug": "my-org",
     "projectSlug": "my-project",
     "tokenPrefix": "vzt_abc",
-    "storage": "keychain"
+    "storage": "keychain",
+    "binding": {
+      "status": "bound",
+      "configPath": "/path/to/vizzly.config.js"
+    }
   }
 }
 ```
+
+The repository config stores only nonsecret project identity. Credentials stay
+in user storage and are selected by that exact identity. A repeated link can
+return `reused: true`. If executable config requires a manual edit, the command
+returns `linked: false` with `binding.status: "manual"` and instructions, exits
+2, and does not create a token.
 
 ### `vizzly projects`
 

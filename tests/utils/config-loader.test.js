@@ -206,11 +206,24 @@ export default { comparison: { threshold: Threshold.Normal } };`
       assert.strictEqual(config.userToken, 'user-access-token');
     });
 
-    it('uses the active linked project token for cloud upload credentials', async () => {
+    it('uses the repository-linked project token for cloud upload credentials', async () => {
+      writeFileSync(
+        join(testDir, 'vizzly.config.json'),
+        JSON.stringify({
+          project: { organizationSlug: 'vizzly', projectSlug: 'storybook' },
+        })
+      );
       await saveGlobalConfig({
         projectLink: {
-          active: 'https://app.vizzly.dev|vizzly/storybook',
+          active: 'https://app.vizzly.dev|vizzly/other',
           links: {
+            'https://app.vizzly.dev|vizzly/other': {
+              apiUrl: 'https://app.vizzly.dev',
+              organizationSlug: 'vizzly',
+              projectSlug: 'other',
+              storage: 'file',
+              token: 'vzt_other_secret',
+            },
             'https://app.vizzly.dev|vizzly/storybook': {
               apiUrl: 'https://app.vizzly.dev',
               organizationSlug: 'vizzly',
@@ -224,11 +237,52 @@ export default { comparison: { threshold: Threshold.Normal } };`
         },
       });
 
-      let config = await loadConfig();
+      let config = await loadConfig(join(testDir, 'vizzly.config.json'));
 
       assert.strictEqual(config.apiKey, 'vzt_linked_secret');
       assert.strictEqual(config.linkedProject.organizationSlug, 'vizzly');
       assert.strictEqual(config.linkedProject.projectSlug, 'storybook');
+    });
+
+    it('never borrows a globally active credential for an unbound repository', async () => {
+      await saveGlobalConfig({
+        projectLink: {
+          active: 'https://app.vizzly.dev|team/other',
+          links: {
+            'https://app.vizzly.dev|team/other': {
+              apiUrl: 'https://app.vizzly.dev',
+              storage: 'file',
+              token: 'vzt_other',
+            },
+          },
+        },
+      });
+      let config = await loadConfig();
+      assert.strictEqual(config.apiKey, undefined);
+      assert.strictEqual(config.linkedProject, undefined);
+    });
+
+    it('keeps effective local comparison defaults separate from cloud overrides', async () => {
+      let config = await loadConfig();
+      assert.deepStrictEqual(config.comparison, {
+        threshold: 2,
+        minClusterSize: 2,
+      });
+      assert.deepStrictEqual(config._comparisonOverrides, {});
+    });
+
+    it('preserves explicit default-valued, partial and zero comparison settings', async () => {
+      let filename = join(testDir, 'comparison.json');
+      writeFileSync(filename, JSON.stringify({ comparison: { threshold: 2 } }));
+      let config = await loadConfig(filename);
+      assert.deepStrictEqual(config._comparisonOverrides, { threshold: 2 });
+      process.env.VIZZLY_MIN_CLUSTER_SIZE = '4';
+      config = await loadConfig(filename, { threshold: 0 });
+      assert.deepStrictEqual(config._comparisonOverrides, {
+        threshold: 0,
+        minClusterSize: 4,
+      });
+      assert.deepStrictEqual(config.comparison, config._comparisonOverrides);
     });
 
     it('applies VIZZLY_BUILD_NAME environment variable', async () => {

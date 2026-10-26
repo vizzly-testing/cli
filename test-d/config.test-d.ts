@@ -1,8 +1,8 @@
 /**
  * Type tests for @vizzly-testing/cli/config
  */
-import { expectType } from 'tsd';
-import { defineConfig, VizzlyConfig } from '../src/types/config';
+import { expectError, expectType } from 'tsd';
+import { defineConfig, type VizzlyConfig } from '../src/types/config';
 
 // ============================================================================
 // defineConfig
@@ -10,6 +10,16 @@ import { defineConfig, VizzlyConfig } from '../src/types/config';
 
 // Should return VizzlyConfig
 expectType<VizzlyConfig>(defineConfig({}));
+
+expectType<VizzlyConfig>(
+  defineConfig({
+    project: { organizationSlug: 'team', projectSlug: 'app' },
+  })
+);
+expectError(defineConfig({ project: { organizationSlug: 'team' } }));
+expectError(
+  defineConfig({ project: { organizationSlug: 'team', projectSlug: 123 } })
+);
 
 // Should accept all config options
 expectType<VizzlyConfig>(

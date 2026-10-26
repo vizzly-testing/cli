@@ -60,7 +60,7 @@ export async function createBuild({ runOptions, tdd, config, deps }) {
   }
 
   let client = createApiClient(clientOptions);
-  let payload = buildApiBuildPayload(runOptions, config.comparison);
+  let payload = buildApiBuildPayload(runOptions, config._comparisonOverrides);
   let buildResult = await createApiBuild(client, payload);
 
   if (!buildResult?.id) {
@@ -249,7 +249,7 @@ export function executeTestCommand({ command, env, json = false, deps }) {
   });
 }
 
-async function executeDisabledTestRun({ testCommand, json, deps }) {
+async function executeDisabledTestRun({ testCommand, json, reason, deps }) {
   let { spawn, createError } = deps;
 
   await executeTestCommand({
@@ -259,7 +259,7 @@ async function executeDisabledTestRun({ testCommand, json, deps }) {
     deps: { spawn, createError },
   });
 
-  return buildDisabledRunResult();
+  return buildDisabledRunResult(reason);
 }
 
 // ============================================================================
@@ -371,6 +371,7 @@ export async function runTests({ runOptions, config, deps }) {
     return executeDisabledTestRun({
       testCommand,
       json: runOptions.json,
+      reason: error.message,
       deps: { spawn, createError },
     });
   }
@@ -405,6 +406,12 @@ export async function runTests({ runOptions, config, deps }) {
       }
     } catch (tddError) {
       output.debug('tdd', 'failed to get results', { error: tddError.message });
+      tddResults = {
+        total: 0,
+        errors: 1,
+        error: tddError.message,
+        capture: { accepted: 0, rejected: 0 },
+      };
     }
   }
 
@@ -451,16 +458,7 @@ export async function runTests({ runOptions, config, deps }) {
     }
   }
 
-  // Throw test error after cleanup
-  if (testError) {
-    if (!runOptions.json) {
-      output.error('Test run failed:', testError);
-    }
-    if (uploadStats) testError.uploads = uploadStats;
-    throw testError;
-  }
-
-  return buildRunResult({
+  let result = buildRunResult({
     buildId,
     buildUrl,
     testSuccess,
@@ -468,6 +466,18 @@ export async function runTests({ runOptions, config, deps }) {
     tddResults,
     uploadStats,
   });
+
+  // Throw test error after cleanup, retaining any completed visual evidence.
+  if (testError) {
+    if (!runOptions.json) {
+      output.error('Test run failed:', testError);
+    }
+    if (uploadStats) testError.uploads = uploadStats;
+    if (tdd) testError.runResult = result;
+    throw testError;
+  }
+
+  return result;
 }
 
 /**

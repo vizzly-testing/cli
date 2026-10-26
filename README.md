@@ -28,8 +28,31 @@ pnpm install -g @vizzly-testing/cli
 vizzly init
 ```
 
-For agent-friendly repos, install the Vizzly skill and add a short project
-`AGENTS.md` note:
+`vizzly init` walks through your existing tests, screenshots on disk, or an
+additive Playwright example that visits your app. It previews file changes and
+offers dependency installation, a first local capture, and cloud linking.
+Local capture needs no account. A first capture establishes local starting
+baselines; it does not prove that every screenshot call in your tests succeeded.
+
+Want to edit configuration yourself? Use one flag:
+
+```bash
+vizzly init --quick
+```
+
+Quick init creates a small `vizzly.config.js` with commented examples, prints
+its location, and finishes. It does not install dependencies, run tests, or
+connect to a cloud project. Put project settings in that file; unchanged
+defaults stay in the CLI. `--json` also uses this noninteractive behavior.
+
+Existing JavaScript, TypeScript, rc, and package configuration is preserved.
+`--config <path>` selects an existing config or a new destination; `--force`
+deliberately replaces the selected config. In `package.json`, only the `vizzly`
+property is replaced. Quick init does not evaluate executable config or run
+installed plugins.
+
+The wizard can add the Vizzly skill and a short `AGENTS.md` note. To request
+those files directly, including from automation:
 
 ```bash
 vizzly init --agent-guidance
@@ -40,8 +63,9 @@ adds a small managed block to `AGENTS.md`. Run the same command again after a
 CLI upgrade to refresh both without replacing the rest of `AGENTS.md` or an
 existing Vizzly config.
 
-Use `vizzly init --agent-skill` to install or refresh only the local skill, or
-`vizzly init --skip-agent-skill` when you want config without the agent prompt.
+Use `vizzly init --agent-skill` to install or refresh only the local skill.
+Existing explicit agent flags use noninteractive setup; `--skip-agent-skill`
+suppresses skill installation unless `--agent-guidance` is explicitly requested.
 
 ### TypeScript Configuration
 
@@ -93,9 +117,20 @@ vizzly project link your-org/your-project
 vizzly run "pnpm test" --wait
 ```
 
-`vizzly login` authenticates your user account. `vizzly project link` creates a
-project-scoped upload credential for this checkout, which `vizzly run` uses for
-cloud uploads.
+`vizzly login` authenticates your user account. `vizzly project link` records the
+organization/project in your repository's config and saves the upload credential
+in user storage. Repeating the command reuses a valid saved credential. Another
+repository's project selection cannot change this checkout's upload destination.
+
+If your config contains executable setup that cannot be edited safely, linking
+prints the exact project fields to add before creating a credential. Repositories
+linked by older CLI versions need that explicit binding once; rerun
+`vizzly project link your-org/your-project`. Explicit `--token` and `VIZZLY_TOKEN`
+continue to work without a repository binding.
+
+Cloud comparison uses the project's settings unless you explicitly override
+them in configuration, environment variables, or command options. Local
+comparison keeps the CLI defaults when no settings are supplied.
 
 `--wait` blocks until Vizzly finishes processing the build. It exits with code
 `1` when visual differences need review.
@@ -223,7 +258,7 @@ server path working without creating a cloud build.
 Generate a config file:
 
 ```bash
-vizzly init
+vizzly init --quick
 ```
 
 To teach project agents the Vizzly evidence workflow, add the repo-local skill

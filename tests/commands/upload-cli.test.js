@@ -100,6 +100,7 @@ describe('commands/upload CLI', () => {
         'Upload screenshots'
       );
       assert.strictEqual(requests[0].json.build.environment, 'test');
+      assert.equal(requests[0].json.build.metadata?.comparison, undefined);
       // Keep the released preflight name; the additive filename identifies multipart captures.
       assert.deepStrictEqual(
         requests[1].json.screenshots.map(({ name }) => name).sort(),
@@ -113,6 +114,30 @@ describe('commands/upload CLI', () => {
       assert.ok(requests[2].body.includes('home-chrome.png'));
       assert.ok(requests[2].body.includes('settings-firefox.png'));
       assert.strictEqual(requests[3].json.status, 'completed');
+    });
+  });
+
+  it('uploads with only explicit comparison overrides, preserving a zero threshold', async () => {
+    let workspace = mkdtempSync(join(tmpdir(), 'vizzly-cli-upload-'));
+    let screenshots = join(workspace, 'screenshots');
+    mkdirSync(screenshots);
+    writeFileSync(join(screenshots, 'page.png'), 'fixture bytes');
+    writeFileSync(
+      join(workspace, '.vizzlyrc.json'),
+      JSON.stringify({ comparison: { threshold: 2 } })
+    );
+    await withUploadApiServer(async ({ apiUrl, requests }) => {
+      let result = await runCLI(
+        ['upload', screenshots, '--json', '--threshold', '0'],
+        {
+          cwd: workspace,
+          env: { VIZZLY_API_URL: apiUrl, VIZZLY_TOKEN: 'vzt_fixture' },
+        }
+      );
+      assert.equal(result.code, 0, result.stderr + result.stdout);
+      assert.deepEqual(requests[0].json.build.metadata.comparison, {
+        threshold: 0,
+      });
     });
   });
 });

@@ -14,13 +14,14 @@ import {
   readFileSync as defaultReadFileSync,
   writeFileSync as defaultWriteFileSync,
 } from 'node:fs';
+import { compareSync } from '@vizzly-testing/honeydiff';
 import {
   createApiClient as defaultCreateApiClient,
   getBuilds as defaultGetBuilds,
   getComparison as defaultGetComparison,
   getTddBaselines as defaultGetTddBaselines,
 } from '../api/index.js';
-import { NetworkError } from '../errors/vizzly-error.js';
+import { NetworkError, VizzlyError } from '../errors/vizzly-error.js';
 import { colors as defaultColors } from '../utils/colors.js';
 import { fetchWithTimeout as defaultFetchWithTimeout } from '../utils/fetch-utils.js';
 import { getDefaultBranch as defaultGetDefaultBranch } from '../utils/git.js';
@@ -1066,6 +1067,20 @@ export class TddService {
     let currentImagePath = getCurrentPath(this.currentPath, filename);
     let baselineImagePath = getBaselinePath(this.baselinePath, filename);
     let diffImagePath = getDiffPath(this.diffPath, filename);
+    let hasBaseline = baselineExists(this.baselinePath, filename);
+
+    // Existing baselines are decoded by normal comparison. New or explicitly
+    // replaced baselines need the same validation before persisting any bytes.
+    if (this.setBaseline || !hasBaseline) {
+      try {
+        compareSync(imageBuffer, imageBuffer);
+      } catch (error) {
+        throw new VizzlyError(
+          `Invalid screenshot image: ${error.message}`,
+          'INVALID_IMAGE'
+        );
+      }
+    }
 
     // Save current screenshot
     saveCurrent(this.currentPath, filename, imageBuffer);
@@ -1082,7 +1097,7 @@ export class TddService {
     }
 
     // Check if baseline exists
-    if (!baselineExists(this.baselinePath, filename)) {
+    if (!hasBaseline) {
       // Create new baseline
       saveBaseline(this.baselinePath, filename, imageBuffer);
 

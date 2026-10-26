@@ -1,6 +1,14 @@
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { TddService } from '../../src/tdd/tdd-service.js';
+
+let validImage = readFileSync(
+  new URL(
+    '../reporter/fixtures/images/screenshots/pricing-page.png',
+    import.meta.url
+  )
+);
 
 /**
  * Create mock output for testing
@@ -318,7 +326,7 @@ describe('tdd/tdd-service', () => {
         },
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
-      let imageBuffer = Buffer.from('test-image');
+      let imageBuffer = validImage;
 
       let result = await service.compareScreenshot('homepage', imageBuffer, {});
 
@@ -467,11 +475,9 @@ describe('tdd/tdd-service', () => {
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
-      let result = await service.compareScreenshot(
-        'homepage',
-        Buffer.from('test'),
-        { invalid: 'prop' }
-      );
+      let result = await service.compareScreenshot('homepage', validImage, {
+        invalid: 'prop',
+      });
 
       assert.strictEqual(result.status, 'new');
     });
@@ -520,7 +526,7 @@ describe('tdd/tdd-service', () => {
       });
       let service = new TddService({}, '/test', false, null, mockDeps);
 
-      await service.compareScreenshot('homepage', Buffer.from('test'), {
+      await service.compareScreenshot('homepage', validImage, {
         viewport: { width: 1920, height: 1080 },
       });
 

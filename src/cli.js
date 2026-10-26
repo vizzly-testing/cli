@@ -74,12 +74,7 @@ import { whoamiCommand } from './commands/whoami.js';
 import { createPluginServices } from './plugin-api.js';
 import { loadPlugins } from './plugin-loader.js';
 import { createServices } from './services/index.js';
-import {
-  generateStaticReport,
-  getReportFileUrl,
-} from './services/static-report-generator.js';
 import { withTimeout } from './utils/async-utils.js';
-import { openBrowser } from './utils/browser.js';
 import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
 import { getContext } from './utils/context.js';
@@ -578,41 +573,49 @@ output.configure({
   json: jsonArg,
 });
 
-let config = await loadConfig(configPath, { token: tokenArg });
-let services = createServices(config);
-let pluginServices = createPluginServices(services);
+let setupCommand = findRequestedCommand(
+  process.argv,
+  new Set(['init', 'project'])
+)?.name;
+let needsRuntimeBootstrap = !['init', 'project'].includes(setupCommand);
+if (needsRuntimeBootstrap) {
+  let config = await loadConfig(configPath, { token: tokenArg });
+  let services = createServices(config);
+  let pluginServices = createPluginServices(services);
+  try {
+    let plugins = await loadPlugins(configPath, config);
 
-let plugins = [];
-try {
-  plugins = await loadPlugins(configPath, config);
+    for (let plugin of plugins) {
+      try {
+        // Add timeout protection for plugin registration (5 seconds)
+        let registerPromise = plugin.register(program, {
+          config,
+          services: pluginServices,
+          output,
+        });
 
-  for (let plugin of plugins) {
-    try {
-      // Add timeout protection for plugin registration (5 seconds)
-      let registerPromise = plugin.register(program, {
-        config,
-        services: pluginServices,
-        output,
-      });
+        await withTimeout(
+          registerPromise,
+          5000,
+          'Plugin registration timeout (5s)'
+        );
 
-      await withTimeout(
-        registerPromise,
-        5000,
-        'Plugin registration timeout (5s)'
-      );
-
-      output.debug(`Registered plugin: ${plugin.name}`);
-    } catch (error) {
-      output.warn(`Failed to register plugin ${plugin.name}: ${error.message}`);
+        output.debug(`Registered plugin: ${plugin.name}`);
+      } catch (error) {
+        output.warn(
+          `Failed to register plugin ${plugin.name}: ${error.message}`
+        );
+      }
     }
+  } catch (error) {
+    output.debug(`Plugin loading failed: ${error.message}`);
   }
-} catch (error) {
-  output.debug(`Plugin loading failed: ${error.message}`);
 }
 
 program
   .command('init')
   .description('Initialize Vizzly in your project')
+  .option('--quick', 'Create an editable config without the setup wizard')
   .option('--force', 'Overwrite existing configuration')
   .option(
     '--agent-skill',
@@ -625,7 +628,15 @@ program
   .option('--skip-agent-skill', 'Skip the Vizzly agent skill prompt')
   .action(async options => {
     let globalOptions = getGlobalOptions();
-    await init({ ...globalOptions, ...options, plugins });
+    try {
+      let result = await init({ ...globalOptions, ...options });
+      process.exitCode = result.exitCode || 0;
+    } catch (error) {
+      output.error(error.message, error, { changes: error.completed || [] });
+      if (error.completed?.length)
+        output.list(error.completed.map(change => change.path));
+      process.exitCode = error.code === 'INIT_INPUT_REQUIRED' ? 2 : 1;
+    }
   });
 
 program
@@ -856,32 +867,6 @@ tddCmd
 
     process.once('SIGINT', sigintHandler);
     process.once('SIGTERM', sigtermHandler);
-
-    // If the run captured screenshots, generate a static report for review.
-    let hasComparisons =
-      result?.screenshotsCaptured > 0 ||
-      result?.comparisons?.length > 0 ||
-      result?.summary?.total > 0;
-    if (hasComparisons) {
-      // Note: Tests have completed at this point, so report-data.json is stable.
-      // The report reflects the final state of all comparisons.
-      const reportResult = await generateStaticReport(process.cwd());
-
-      if (reportResult.success) {
-        const reportUrl = getReportFileUrl(reportResult.reportPath);
-        output.print(
-          `  ${colors.brand.textTertiary('→')} Report: ${colors.info(reportUrl)}`
-        );
-        output.blank();
-
-        // Open report in browser unless --no-open
-        if (options.open !== false) {
-          await openBrowser(reportUrl);
-        }
-      } else {
-        output.warn(`Failed to generate static report: ${reportResult.error}`);
-      }
-    }
 
     // Remove signal handlers before normal cleanup to prevent double cleanup
     process.off('SIGINT', sigintHandler);
@@ -1598,7 +1583,7 @@ program
 
 // Save PATH for the menubar app before commands read or update credentials
 // in the same config file.
-await saveUserPath().catch(() => {});
+if (needsRuntimeBootstrap) await saveUserPath().catch(() => {});
 
 let commandNames = new Set(program.commands.map(command => command.name()));
 let nestedCommandNames = new Map(
@@ -1641,7 +1626,7 @@ if (requestedCommand && !requestedCommand.known) {
 }
 
 try {
-  program.parse(normalizedArgv);
+  await program.parseAsync(normalizedArgv);
 } catch (error) {
   if (error.exitCode == null) {
     output.error('Unexpected CLI error', error);

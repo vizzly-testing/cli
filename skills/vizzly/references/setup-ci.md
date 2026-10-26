@@ -6,11 +6,15 @@ state.
 
 ## Initialize
 
-Initialize only with authorization:
+Initialize only with authorization. For unattended config scaffolding:
 
 ```bash
-vizzly init
+vizzly init --quick
 ```
+
+Edit supported project settings in the generated config. Quick init does not
+install dependencies, run tests, or connect credentials. Use `vizzly init` in a
+terminal when a human wants guided setup and optional capture verification.
 
 Use [CLI context](cli-context.md) for local evidence and TDD lifecycle commands.
 

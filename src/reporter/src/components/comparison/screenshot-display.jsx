@@ -1,29 +1,17 @@
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { Alert } from '@vizzly-testing/bear-den';
 import {
   OnionSkinMode,
   OverlayMode,
+  RegionOverlay,
   ToggleMode,
 } from '@vizzly-testing/bear-den/review';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildDiffBands } from '../../utils/diff-bands.js';
 import { withImageVersion } from '../../utils/image-url.js';
+import { DiffGutter, DiffOverview } from './diff-gutter.jsx';
 
-let checkerboardBackground = {
-  backgroundImage: `
-    linear-gradient(45deg, var(--vz-checkerboard-tile) 25%, transparent 25%),
-    linear-gradient(-45deg, var(--vz-checkerboard-tile) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, var(--vz-checkerboard-tile) 75%),
-    linear-gradient(-45deg, transparent 75%, var(--vz-checkerboard-tile) 75%)
-  `,
-  backgroundSize: '16px 16px',
-  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-  backgroundColor: 'var(--vz-checkerboard-bg)',
-};
-
-/**
- * Unified Screenshot Display Component - matches BearDen architecture
- * Handles zoom calculations and renders the appropriate comparison mode
- * inside a zoom wrapper so all modes scale together
- */
+/** All comparison modes share one measured canvas and one zoom calculation. */
 export function ScreenshotDisplay({
   comparison,
   viewMode = 'overlay',
@@ -33,327 +21,254 @@ export function ScreenshotDisplay({
   onionSkinPosition = 50,
   onOnionSkinChange,
   onDiffToggle,
-  // Loading behavior
   disableLoadingOverlay = false,
-  // Zoom support
-  zoom = 'fit',
+  zoom = 'fit-width',
+  showRegions = false,
   className = '',
 }) {
-  const [imageErrors, setImageErrors] = useState(new Set());
-  const [imageLoadStates, setImageLoadStates] = useState(new Map());
-  const [baselineImageLoaded, setBaselineImageLoaded] = useState(false);
-  const [currentImageLoaded, setCurrentImageLoaded] = useState(false);
-  const [baselineImageError, setBaselineImageError] = useState(false);
-  const [currentImageError, setCurrentImageError] = useState(false);
-  const [fitScale, setFitScale] = useState(1);
-  const [naturalImageSize, setNaturalImageSize] = useState({
+  let containerRef = useRef(null);
+  let imageRef = useRef(null);
+  let [selectedBandId, setSelectedBandId] = useState(null);
+  let [hoveredBandId, setHoveredBandId] = useState(null);
+  let [imageStates, setImageStates] = useState(new Map());
+  let [dimensions, setDimensions] = useState({
     width: 0,
     height: 0,
+    imageWidth: 0,
+    imageHeight: 0,
   });
-  const screenshotContainerRef = useRef(null);
-  const zoomWrapperRef = useRef(null);
 
-  // Calculate fit scale and track natural image size for zoom overflow
   useEffect(() => {
-    const calculateScales = () => {
-      const container = screenshotContainerRef.current;
-      const image = container?.querySelector('img');
-
-      if (!container || !image?.naturalWidth) return;
-
-      // Always track natural size for overflow calculations
-      setNaturalImageSize({
-        width: image.naturalWidth,
-        height: image.naturalHeight,
-      });
-
-      const containerRect = container.getBoundingClientRect();
-      const padding = 40; // Padding around the image
-
-      const availableWidth = containerRect.width - padding;
-      const availableHeight = containerRect.height - padding;
-
-      const scaleX = availableWidth / image.naturalWidth;
-      const scaleY = availableHeight / image.naturalHeight;
-
-      // Use the smaller scale to fit both dimensions
-      const newScale = Math.min(scaleX, scaleY, 1); // Cap at 1 to not enlarge small images
-
-      setFitScale(newScale);
+    let container = containerRef.current;
+    let measure = () => {
+      let images = [...container.querySelectorAll('img')];
+      let image =
+        images.find(image => getComputedStyle(image).position !== 'absolute') ||
+        images[0];
+      if (!image?.naturalWidth) return;
+      let next = {
+        width: container.clientWidth,
+        height: container.clientHeight,
+        imageWidth: image.naturalWidth,
+        imageHeight: image.naturalHeight,
+      };
+      setDimensions(previous =>
+        Object.keys(next).every(key => previous[key] === next[key])
+          ? previous
+          : next
+      );
     };
-
-    // Calculate on mount and when container resizes
-    calculateScales();
-
-    const resizeObserver = new window.ResizeObserver(calculateScales);
-    if (screenshotContainerRef.current) {
-      resizeObserver.observe(screenshotContainerRef.current);
-    }
-
-    // Also recalculate when images load
-    const images =
-      screenshotContainerRef.current?.querySelectorAll('img') || [];
-    for (let img of images) {
-      img.addEventListener('load', calculateScales);
-    }
-
+    let observer = new ResizeObserver(measure);
+    observer.observe(container);
+    observer.observe(imageRef.current);
+    // Capture loads from images mounted when switching comparison modes.
+    container.addEventListener('load', measure, true);
+    measure();
     return () => {
-      resizeObserver.disconnect();
-      for (let img of images) {
-        img.removeEventListener('load', calculateScales);
-      }
+      observer.disconnect();
+      container.removeEventListener('load', measure, true);
     };
   }, []);
 
-  // Calculate zoom settings
-  // Fit mode: calculates scale to fit image in viewport
-  // Zoom mode: uses specified scale, with scroll panning for oversized images
-  const zoomSettings = useMemo(() => {
-    const isFit = zoom === 'fit';
-    const scale = isFit ? fitScale : typeof zoom === 'number' ? zoom : 1;
-    // When zoomed beyond fit scale, allow the image to overflow and be scrollable
-    const allowsOverflow = !isFit && scale > fitScale;
-
-    return {
-      isFit,
-      scale,
-      allowsOverflow,
-      // Container allows scrolling when zoomed beyond fit (content overflows)
-      containerClass: allowsOverflow ? 'overflow-auto' : 'overflow-hidden',
-    };
-  }, [zoom, fitScale]);
-
-  // Handle image loading errors
-  const handleImageError = useCallback(imageKey => {
-    setImageErrors(prev => new Set([...prev, imageKey]));
+  let markImage = useCallback((key, state) => {
+    setImageStates(previous => {
+      if (previous.get(key) === state) return previous;
+      return new Map(previous).set(key, state);
+    });
   }, []);
-
-  // Handle image load success
-  const handleImageLoad = useCallback(imageKey => {
-    setImageLoadStates(prev => new Map(prev).set(imageKey, 'loaded'));
-  }, []);
-
-  // Build image URLs once per comparison update.
-  const imageUrls = useMemo(
-    () =>
-      comparison
-        ? {
-            current: withImageVersion(comparison.current, comparison.timestamp),
-            baseline: withImageVersion(
-              comparison.baseline,
-              comparison.timestamp
-            ),
-            diff: withImageVersion(comparison.diff, comparison.timestamp),
-          }
-        : {},
-    [comparison]
+  let onImageLoad = useCallback(key => markImage(key, 'loaded'), [markImage]);
+  let onImageError = useCallback(key => markImage(key, 'error'), [markImage]);
+  let imageErrors = new Set(
+    [...imageStates]
+      .filter(([, state]) => state === 'error')
+      .map(([key]) => key)
   );
+  let screenshot = {
+    id: comparison.id || comparison.signature || comparison.name,
+    name: comparison.originalName || comparison.name,
+  };
+  let currentKey = `current-${screenshot.id}`;
+  let baselineKey = `baseline-${screenshot.id}`;
+  let imageUrls = {
+    currentImageUrl: withImageVersion(comparison.current, comparison.timestamp),
+    baselineImageUrl: withImageVersion(
+      comparison.baseline,
+      comparison.timestamp
+    ),
+    diffImageUrl: withImageVersion(comparison.diff, comparison.timestamp),
+  };
+  let fitWidth = Math.max(
+    0.01,
+    Math.min((dimensions.width - 40) / (dimensions.imageWidth || 1), 1)
+  );
+  let fitScreen = Math.max(
+    0.01,
+    Math.min(fitWidth, (dimensions.height - 40) / (dimensions.imageHeight || 1))
+  );
+  let scale = { fit: fitScreen, 'fit-width': fitWidth }[zoom] ?? zoom;
+  let modeProps = {
+    ...imageUrls,
+    screenshot,
+    onImageLoad,
+    onImageError,
+    imageErrors,
+  };
+  let bands = useMemo(
+    () => (comparison.diff ? buildDiffBands(comparison.diffClusters) : []),
+    [comparison.diff, comparison.diffClusters]
+  );
+  let activeId = hoveredBandId || selectedBandId;
+  let activeBand = bands.find(band => band.id === activeId);
+  let regions = (comparison.diffClusters || []).flatMap((cluster, index) => {
+    if (!showRegions && !activeBand?.regionIndexes.includes(index)) return [];
+    let box = cluster.boundingBox;
+    if (!box) return [];
+    return [
+      {
+        id: String(index),
+        kind: 'diff',
+        x1: box.x,
+        y1: box.y,
+        x2: box.x + box.width,
+        y2: box.y + box.height,
+      },
+    ];
+  });
+  let selectBand = band => {
+    setSelectedBandId(band.id);
+    let container = containerRef.current;
+    let image = imageRef.current;
+    let imageTop =
+      image.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop;
+    container.scrollTo({
+      top:
+        imageTop +
+        ((band.y1 + band.y2) / 2) * scale -
+        container.clientHeight / 2,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
+    });
+  };
 
-  // Create a screenshot-like object for the comparison modes
-  const screenshot = useMemo(() => {
-    if (!comparison) return null;
-    return {
-      id: comparison.id || comparison.signature || 'unknown',
-      name: comparison.name || comparison.originalName || 'Screenshot',
-    };
-  }, [comparison]);
-
-  // Reset controlled toggle state when navigating between screenshots
-  useEffect(() => {
-    if (!screenshot?.id) {
-      setBaselineImageLoaded(false);
-      setCurrentImageLoaded(false);
-      setBaselineImageError(false);
-      setCurrentImageError(false);
-      return;
-    }
-
-    setBaselineImageLoaded(false);
-    setCurrentImageLoaded(false);
-    setBaselineImageError(false);
-    setCurrentImageError(false);
-  }, [screenshot?.id]);
-
-  // Render new screenshot - just show current image
-  if (
-    !comparison ||
-    comparison.status === 'new' ||
-    comparison.status === 'baseline-created'
-  ) {
-    return (
-      <div className={`h-full ${className}`}>
-        <div
-          ref={screenshotContainerRef}
-          className={`bg-[var(--vz-elevated)] relative h-full ${zoomSettings.containerClass}`}
-          style={checkerboardBackground}
-        >
-          {/* Zoom wrapper - uses transform:scale for overflow scrolling at high zoom */}
-          <div
-            className={`relative ${zoomSettings.allowsOverflow ? 'flex justify-center items-start' : 'min-w-full min-h-full flex justify-center items-center'}`}
-            style={{
-              ...(zoomSettings.allowsOverflow
-                ? {
-                    minWidth: naturalImageSize.width * zoomSettings.scale + 40,
-                    minHeight:
-                      naturalImageSize.height * zoomSettings.scale + 40,
-                    padding: '20px',
-                  }
-                : {
-                    zoom: zoomSettings.scale,
-                    padding: '20px',
-                  }),
-            }}
-          >
-            {/* Image wrapper - inline-block shrinks to fit image */}
-            <div
-              ref={zoomWrapperRef}
-              className="relative inline-block"
-              style={
-                zoomSettings.allowsOverflow
-                  ? {
-                      transform: `scale(${zoomSettings.scale})`,
-                      transformOrigin: 'top center',
-                    }
-                  : {}
-              }
-            >
-              {comparison && (
-                <img
-                  src={imageUrls.current}
-                  alt={comparison.name || 'New screenshot'}
-                  className="block"
-                  onLoad={() => handleImageLoad(`current-${screenshot?.id}`)}
-                  onError={() => handleImageError(`current-${screenshot?.id}`)}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Loading/Error States */}
-          {!disableLoadingOverlay &&
-            comparison &&
-            !imageLoadStates.has(`current-${screenshot?.id}`) && (
-              <div className="absolute inset-0 bg-[var(--vz-raised)] animate-pulse flex items-center justify-center">
-                <div className="text-[var(--text-tertiary)]">Loading...</div>
-              </div>
-            )}
-          {comparison && imageErrors.has(`current-${screenshot?.id}`) && (
-            <div className="absolute inset-0 bg-[var(--vz-raised)] flex items-center justify-center">
-              <div className="text-center text-[var(--text-tertiary)]">
-                <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2" />
-                <div className="text-sm">Failed to load image</div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+  let viewer;
+  if (viewMode === 'toggle' && comparison.baseline) {
+    viewer = (
+      <ToggleMode
+        {...modeProps}
+        showBaseline={showBaseline}
+        onToggle={onToggleBaseline}
+        baselineImageLoaded={imageStates.get(baselineKey) === 'loaded'}
+        currentImageLoaded={imageStates.get(currentKey) === 'loaded'}
+        baselineImageError={imageErrors.has(baselineKey)}
+        currentImageError={imageErrors.has(currentKey)}
+        setBaselineImageLoaded={() => onImageLoad(baselineKey)}
+        setCurrentImageLoaded={() => onImageLoad(currentKey)}
+        setBaselineImageError={() => onImageError(baselineKey)}
+        setCurrentImageError={() => onImageError(currentKey)}
+      />
+    );
+  } else if (viewMode === 'onion-skin' && comparison.baseline) {
+    viewer = (
+      <OnionSkinMode
+        {...modeProps}
+        sliderPosition={onionSkinPosition}
+        onSliderChange={onOnionSkinChange}
+      />
+    );
+  } else {
+    viewer = (
+      <OverlayMode
+        {...modeProps}
+        showDiffOverlay={showDiffOverlay}
+        onDiffToggle={onDiffToggle}
+      />
     );
   }
 
-  // Render comparison view
   return (
-    <div className={`h-full ${className}`}>
+    <div className={`relative h-full ${className}`}>
       <div
-        ref={screenshotContainerRef}
-        className={`bg-[var(--vz-elevated)] relative unified-screenshot-container h-full ${zoomSettings.containerClass}`}
-        style={checkerboardBackground}
+        ref={containerRef}
+        className="relative h-full overflow-auto bg-[var(--bd-surface)]"
+        data-testid="screenshot-canvas"
       >
-        {/* Zoom wrapper - contains images so they scale together */}
-        {/* When zoomed beyond fit, use transform:scale with explicit wrapper sizing for overflow */}
         <div
-          className={`relative ${zoomSettings.allowsOverflow ? 'flex justify-center items-start' : 'min-w-full min-h-full flex justify-center items-center'}`}
+          className="relative flex items-start justify-center p-5"
           style={{
-            ...(zoomSettings.allowsOverflow
-              ? {
-                  // When overflowing, provide minimum dimensions so scrolling works
-                  minWidth: naturalImageSize.width * zoomSettings.scale + 40,
-                  minHeight: naturalImageSize.height * zoomSettings.scale + 40,
-                  padding: '20px',
-                }
-              : {
-                  // When fitting, use CSS zoom for simple scaling
-                  zoom: zoomSettings.scale,
-                  padding: '20px',
-                }),
+            minWidth: Math.max(
+              dimensions.width,
+              dimensions.imageWidth * scale + 40
+            ),
+            minHeight: Math.max(
+              dimensions.height,
+              dimensions.imageHeight * scale + 40
+            ),
           }}
         >
-          {/* Image wrapper - keeps content positioned relative to image */}
           <div
-            ref={zoomWrapperRef}
-            className="relative inline-block"
-            style={
-              zoomSettings.allowsOverflow
-                ? {
-                    transform: `scale(${zoomSettings.scale})`,
-                    transformOrigin: 'top center',
-                  }
-                : {}
-            }
+            ref={imageRef}
+            className="relative inline-block shrink-0"
+            style={{ zoom: scale }}
           >
-            {/* Render appropriate comparison mode */}
-            {viewMode === 'toggle' && imageUrls.baseline ? (
-              <ToggleMode
-                baselineImageUrl={imageUrls.baseline}
-                currentImageUrl={imageUrls.current}
-                baselineImageLoaded={baselineImageLoaded}
-                setBaselineImageLoaded={setBaselineImageLoaded}
-                currentImageLoaded={currentImageLoaded}
-                setCurrentImageLoaded={setCurrentImageLoaded}
-                baselineImageError={baselineImageError}
-                setBaselineImageError={setBaselineImageError}
-                currentImageError={currentImageError}
-                setCurrentImageError={setCurrentImageError}
-                screenshot={screenshot}
-                onImageError={handleImageError}
-                onImageLoad={handleImageLoad}
-                imageErrors={imageErrors}
-                showBaseline={showBaseline}
-                onToggle={onToggleBaseline}
-              />
-            ) : viewMode === 'onion-skin' && imageUrls.baseline ? (
-              <OnionSkinMode
-                baselineImageUrl={imageUrls.baseline}
-                currentImageUrl={imageUrls.current}
-                sliderPosition={onionSkinPosition}
-                onSliderChange={onOnionSkinChange}
-                screenshot={screenshot}
-                onImageError={handleImageError}
-                onImageLoad={handleImageLoad}
-                imageErrors={imageErrors}
-              />
-            ) : (
-              <OverlayMode
-                baselineImageUrl={imageUrls.baseline}
-                currentImageUrl={imageUrls.current}
-                diffImageUrl={imageUrls.diff}
-                showDiffOverlay={showDiffOverlay}
-                screenshot={screenshot}
-                onImageError={handleImageError}
-                onImageLoad={handleImageLoad}
-                imageErrors={imageErrors}
-                onDiffToggle={onDiffToggle}
-              />
-            )}
+            {viewer}
+            <RegionOverlay
+              imageWidth={dimensions.imageWidth}
+              imageHeight={dimensions.imageHeight}
+              regions={regions}
+              labelMode={showRegions ? 'subtle' : 'none'}
+            />
+            <DiffGutter
+              bands={bands}
+              imageHeight={dimensions.imageHeight}
+              scale={scale}
+              activeId={activeId}
+              onHover={setHoveredBandId}
+              onSelect={selectBand}
+            />
           </div>
         </div>
-
-        {/* Global Loading/Error States */}
-        {!disableLoadingOverlay &&
-          !imageLoadStates.has(`current-${screenshot?.id}`) && (
-            <div className="absolute inset-0 bg-[var(--vz-raised)] animate-pulse flex items-center justify-center">
-              <div className="text-[var(--text-tertiary)]">Loading...</div>
-            </div>
-          )}
-
-        {imageErrors.has(`current-${screenshot?.id}`) && (
-          <div className="absolute inset-0 bg-[var(--vz-raised)] flex items-center justify-center">
-            <div className="text-center text-[var(--text-tertiary)]">
-              <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2" />
-              <div className="text-sm">Failed to load image</div>
+        {!disableLoadingOverlay && !imageStates.has(currentKey) && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-[var(--bd-raised)] text-sm text-[var(--bd-text-tertiary)]"
+            role="status"
+          >
+            Loading screenshot…
+          </div>
+        )}
+        {imageErrors.has(currentKey) && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-[var(--bd-raised)] text-center text-[var(--bd-text-tertiary)]"
+            role="alert"
+          >
+            <div>
+              <ExclamationTriangleIcon className="mx-auto mb-2 h-8 w-8" />
+              <p className="text-sm">Failed to load image</p>
             </div>
           </div>
         )}
       </div>
+      {viewMode !== 'overlay' && imageErrors.has(baselineKey) && (
+        <Alert
+          variant="warning"
+          role="alert"
+          className="absolute top-4 left-4 right-4 z-40"
+        >
+          Baseline image unavailable. Use Overlay to inspect the current
+          screenshot.
+        </Alert>
+      )}
+      <DiffOverview
+        bands={bands}
+        imageHeight={dimensions.imageHeight}
+        containerRef={containerRef}
+        imageRef={imageRef}
+        activeId={activeId}
+        onHover={setHoveredBandId}
+        onSelect={selectBand}
+      />
     </div>
   );
 }

@@ -1,80 +1,39 @@
-/**
- * Fullscreen Comparison Viewer
- * Matches BearDen/Cloud product review UI patterns
- *
- * Features:
- * - Clean, focused layout prioritizing the screenshot
- * - Review queue with filtering (To Review, Changes, New, All)
- * - Keyboard-driven review mode (Space to toggle, A/R/D/T shortcuts)
- * - Inspector panel for metadata
- * - View mode toggle (Overlay, Toggle, Slide)
- * - Zoom controls with keyboard shortcuts
- */
-
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-  ComputerDesktopIcon,
-  CubeTransparentIcon,
-  DocumentMagnifyingGlassIcon,
-  ExclamationTriangleIcon,
   InformationCircleIcon,
   ListBulletIcon,
+  TrashIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { Badge } from '@vizzly-testing/bear-den';
+import { Alert, Badge, IconButton } from '@vizzly-testing/bear-den';
 import {
   ApprovalButtonGroup,
-  BrowserIcon,
-  CloseButton,
-  DrawerContent,
-  DrawerFilterBar,
-  DrawerFilterButton,
-  DrawerFooter,
-  DrawerHeader,
-  InspectorPanel,
   MobileApprovalBar,
-  MobileDrawer,
-  QueueItem,
   ReviewModeProvider,
   useReviewMode,
   useReviewModeShortcuts,
-  useZoom,
-  VariantBreadcrumb,
   ViewModeToggle,
-  ZoomControls,
 } from '@vizzly-testing/bear-den/review';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { VIEW_MODES } from '../../utils/constants.js';
-import { withImageVersion } from '../../utils/image-url.js';
+import {
+  filterReviewItems,
+  getComparisonId,
+  getResult,
+  getReviewState,
+  stepReviewZoom,
+} from '../../utils/review.js';
+import { ReviewProperties } from './review-properties.jsx';
+import { ReviewSidebar } from './review-sidebar.jsx';
+import { ReviewZoomControls } from './review-zoom-controls.jsx';
 import { ScreenshotDisplay } from './screenshot-display.jsx';
 
-/**
- * Get a stable ID for a comparison, falling back to signature or name
- */
-function getComparisonId(comparison) {
-  return comparison?.id || comparison?.signature || comparison?.name;
-}
+let RESULT_NOTES = {
+  new: 'New screenshot, no baseline yet',
+  unchanged: 'Identical to baseline',
+  error: 'Could not be compared',
+};
 
-/**
- * Map CLI status to BearDen result type
- */
-function mapStatusToResult(status) {
-  switch (status) {
-    case 'failed':
-      return 'changed';
-    case 'new':
-    case 'baseline-created':
-      return 'new';
-    case 'passed':
-      return 'unchanged';
-    default:
-      return status;
-  }
-}
-
-/**
- * Main component - wraps with ReviewModeProvider
- */
 export default function FullscreenViewer(props) {
   return (
     <ReviewModeProvider>
@@ -83,9 +42,6 @@ export default function FullscreenViewer(props) {
   );
 }
 
-/**
- * Inner component that uses review mode
- */
 function FullscreenViewerInner({
   comparison,
   comparisons = [],
@@ -94,769 +50,400 @@ function FullscreenViewerInner({
   onReject,
   onDelete,
   onNavigate,
+  isCurrentComparison,
 }) {
-  // UI state
-  let [viewMode, setViewMode] = useState(VIEW_MODES.OVERLAY);
+  let [viewMode, setViewMode] = useState('overlay');
   let [showDiffOverlay, setShowDiffOverlay] = useState(true);
   let [onionSkinPosition, setOnionSkinPosition] = useState(50);
-  let [showQueue, setShowQueue] = useState(true);
-  let [showInspector, setShowInspector] = useState(false);
+  let [sidebarTab, setSidebarTab] = useState(() =>
+    window.matchMedia('(min-width: 640px)').matches ? 'queue' : null
+  );
   let [queueFilter, setQueueFilter] = useState('needs-review');
+  let [search, setSearch] = useState('');
   let [showBaseline, setShowBaseline] = useState(true);
-
-  let { zoom, setZoom } = useZoom('fit');
+  let [holdingBaseline, setHoldingBaseline] = useState(false);
+  let [zoom, setZoom] = useState('fit-width');
+  let [actionError, setActionError] = useState(null);
+  let [showRegions, setShowRegions] = useState(false);
+  let [isSaving, setIsSaving] = useState(false);
+  let savingRef = useRef(false);
   let { isActive: isReviewMode } = useReviewMode();
 
-  // Ref for scrolling active queue item into view
-  let activeQueueItemRef = useRef(null);
+  let filteredItems = useMemo(
+    () => filterReviewItems(comparisons, queueFilter, search),
+    [comparisons, queueFilter, search]
+  );
+  let selectedId = getComparisonId(comparison);
+  let currentIndex = filteredItems.findIndex(
+    item => getComparisonId(item) === selectedId
+  );
+  let canPrevious = currentIndex > 0;
+  let canNext = currentIndex >= 0 && currentIndex < filteredItems.length - 1;
+  let variants = comparisons.filter(
+    item =>
+      (item.originalName || item.name) ===
+      (comparison?.originalName || comparison?.name)
+  );
 
-  // Toggle inspector (closes other panels)
-  let toggleInspector = useCallback(() => {
-    setShowInspector(prev => !prev);
-  }, []);
-
-  // Transform comparisons for queue display
-  // Map CLI status to BearDen result format
-  // Queue items use the local review result, independent of cloud review state.
-  let queueItems = useMemo(() => {
-    return comparisons.map(comp => ({
-      ...comp,
-      // Ensure name is set
-      name: comp.name || comp.originalName || 'Unknown',
-      // Set result for BearDen (changed, new, unchanged)
-      result: mapStatusToResult(comp.status),
-      // Keep original status so QueueItem can check both formats
-      status: comp.status,
-      review_state:
-        comp.userAction === 'accepted'
-          ? 'approved'
-          : comp.userAction === 'rejected'
-            ? 'rejected'
-            : comp.status === 'passed'
-              ? 'approved'
-              : 'pending',
-      // Ensure diff_percentage is available (BearDen format)
-      diff_percentage: comp.diffPercentage ?? comp.diff_percentage,
-      // Pass through diffClusters for change description
-      diffClusters: comp.diffClusters || [],
-      // Map properties for VariantBreadcrumb - support nested and flat formats
-      viewport_width: comp.properties?.viewport_width ?? comp.viewport_width,
-      viewport_height: comp.properties?.viewport_height ?? comp.viewport_height,
-      browser: comp.properties?.browser ?? comp.browser,
-    }));
-  }, [comparisons]);
-
-  // Group comparisons by original name (screenshots with same name but different variants)
-  // This enables the variant breadcrumb navigation
-  // Always show the breadcrumb for context (viewport/browser info), even with single variant
-  let currentGroup = useMemo(() => {
-    if (!comparison) return null;
-    let currentName = comparison.name || comparison.originalName;
-    let variants = queueItems.filter(
-      item => (item.name || item.originalName) === currentName
-    );
-    return { name: currentName, comparisons: variants };
-  }, [comparison, queueItems]);
-
-  // Handle variant selection from VariantBreadcrumb
-  let handleVariantSelect = useCallback(
-    variant => {
-      if (variant && onNavigate) {
-        onNavigate(variant);
-      }
+  let navigate = useCallback(
+    item => {
+      setActionError(null);
+      onNavigate(item);
     },
     [onNavigate]
   );
+  let previous = useCallback(() => {
+    if (canPrevious) navigate(filteredItems[currentIndex - 1]);
+  }, [canPrevious, navigate, filteredItems, currentIndex]);
+  let next = useCallback(() => {
+    if (canNext) navigate(filteredItems[currentIndex + 1]);
+  }, [canNext, navigate, filteredItems, currentIndex]);
 
-  // Filter queue items
-  let filteredQueueItems = useMemo(() => {
-    let filterFns = {
-      all: () => true,
-      'needs-review': item => {
-        return (
-          (item.result === 'changed' || item.result === 'new') &&
-          item.review_state !== 'approved' &&
-          item.review_state !== 'rejected'
-        );
-      },
-      changes: item => item.result === 'changed',
-      new: item => item.result === 'new',
-    };
-
-    let fn = filterFns[queueFilter] || filterFns.all;
-    return queueItems.filter(fn);
-  }, [queueItems, queueFilter]);
-
-  // Find current index in filtered queue
-  let currentFilteredIndex = useMemo(() => {
-    if (!comparison) return -1;
-    let compId = getComparisonId(comparison);
-    return filteredQueueItems.findIndex(
-      item => getComparisonId(item) === compId
-    );
-  }, [filteredQueueItems, comparison]);
-
-  // Navigation capabilities
-  let canNavigate = useMemo(
-    () => ({
-      prev: currentFilteredIndex > 0,
-      next:
-        currentFilteredIndex < filteredQueueItems.length - 1 &&
-        currentFilteredIndex !== -1,
-    }),
-    [currentFilteredIndex, filteredQueueItems.length]
-  );
-
-  // Navigation handlers
-  let handlePrevious = useCallback(() => {
-    if (canNavigate.prev) {
-      let prevItem = filteredQueueItems[currentFilteredIndex - 1];
-      onNavigate(prevItem);
-    }
-  }, [canNavigate.prev, filteredQueueItems, currentFilteredIndex, onNavigate]);
-
-  let handleNext = useCallback(() => {
-    if (canNavigate.next) {
-      let nextItem = filteredQueueItems[currentFilteredIndex + 1];
-      onNavigate(nextItem);
-    }
-  }, [canNavigate.next, filteredQueueItems, currentFilteredIndex, onNavigate]);
-
-  // Get next item after approval action (for auto-advance)
-  let getNextItemAfterAction = useCallback(() => {
-    if (currentFilteredIndex < filteredQueueItems.length - 1) {
-      return filteredQueueItems[currentFilteredIndex + 1];
-    }
-    if (currentFilteredIndex > 0) {
-      return filteredQueueItems[currentFilteredIndex - 1];
-    }
-    return null;
-  }, [currentFilteredIndex, filteredQueueItems]);
-
-  // Approval handlers with auto-advance
-  let handleApprove = useCallback(() => {
-    if (!onAccept || !comparison) return;
-    let nextItem =
-      queueFilter === 'needs-review' ? getNextItemAfterAction() : null;
-    onAccept(getComparisonId(comparison));
-
-    if (nextItem) {
-      onNavigate(nextItem);
-    } else if (
-      queueFilter === 'needs-review' &&
-      filteredQueueItems.length <= 1
-    ) {
-      onClose();
-    }
-  }, [
-    onAccept,
-    comparison,
-    queueFilter,
-    getNextItemAfterAction,
-    filteredQueueItems.length,
-    onNavigate,
-    onClose,
-  ]);
-
-  let handleReject = useCallback(() => {
-    if (!onReject || !comparison) return;
-    let nextItem =
-      queueFilter === 'needs-review' ? getNextItemAfterAction() : null;
-    onReject(getComparisonId(comparison));
-
-    if (nextItem) {
-      onNavigate(nextItem);
-    } else if (
-      queueFilter === 'needs-review' &&
-      filteredQueueItems.length <= 1
-    ) {
-      onClose();
-    }
-  }, [
-    onReject,
-    comparison,
-    queueFilter,
-    getNextItemAfterAction,
-    filteredQueueItems.length,
-    onNavigate,
-    onClose,
-  ]);
-
-  let handleDelete = useCallback(() => {
-    if (!onDelete || !comparison) return;
-    onDelete(getComparisonId(comparison));
-  }, [onDelete, comparison]);
-
-  // View mode cycling for keyboard shortcut
-  let cycleViewMode = useCallback(() => {
-    setViewMode(current =>
-      current === VIEW_MODES.OVERLAY ? VIEW_MODES.TOGGLE : VIEW_MODES.OVERLAY
-    );
-  }, []);
-
-  // Toggle handler for 'd' - toggles diff overlay or baseline/current
-  let handleDiffToggle = useCallback(() => {
-    if (viewMode === VIEW_MODES.TOGGLE) {
-      setShowBaseline(prev => !prev);
-    } else {
-      setShowDiffOverlay(prev => !prev);
-    }
-  }, [viewMode]);
-
-  // Review mode shortcuts
-  let reviewModeShortcuts = useMemo(
-    () => ({
-      a: onAccept ? handleApprove : undefined,
-      r: onReject ? handleReject : undefined,
-      d: handleDiffToggle,
-      t: cycleViewMode,
-      1: () => setViewMode(VIEW_MODES.OVERLAY),
-      2: () => setViewMode(VIEW_MODES.TOGGLE),
-      3: () => setViewMode(VIEW_MODES.ONION),
-    }),
+  // Keep the current screenshot open on a failed save. Advance only after
+  // the local server has confirmed the baseline decision.
+  let decide = useCallback(
+    async (action, advance = true) => {
+      if (!action || !comparison || savingRef.current) return;
+      let nextItem =
+        advance && queueFilter === 'needs-review' && currentIndex >= 0
+          ? filteredItems[currentIndex + 1] || filteredItems[currentIndex - 1]
+          : null;
+      savingRef.current = true;
+      setIsSaving(true);
+      setActionError(null);
+      try {
+        await action(selectedId);
+        if (!isCurrentComparison()) return;
+        if (nextItem) navigate(nextItem);
+        else if (
+          !advance ||
+          (queueFilter === 'needs-review' && currentIndex >= 0)
+        )
+          onClose();
+      } catch (error) {
+        if (isCurrentComparison()) {
+          setActionError(`Could not save your review: ${error.message}`);
+        }
+      } finally {
+        savingRef.current = false;
+        setIsSaving(false);
+      }
+    },
     [
-      handleApprove,
-      handleReject,
-      onAccept,
-      onReject,
-      cycleViewMode,
-      handleDiffToggle,
+      comparison,
+      queueFilter,
+      currentIndex,
+      filteredItems,
+      selectedId,
+      navigate,
+      onClose,
+      isCurrentComparison,
     ]
   );
+  let approve = useCallback(() => decide(onAccept), [decide, onAccept]);
+  let reject = useCallback(() => decide(onReject), [decide, onReject]);
+  let remove = useCallback(() => decide(onDelete, false), [decide, onDelete]);
+  let toggleDetails = useCallback(() => {
+    setSidebarTab(current => (current === 'details' ? null : 'details'));
+  }, []);
+  let toggleDiff = useCallback(() => {
+    if (viewMode === 'toggle') setShowBaseline(current => !current);
+    else setShowDiffOverlay(current => !current);
+  }, [viewMode]);
 
-  useReviewModeShortcuts(reviewModeShortcuts);
+  useReviewModeShortcuts({
+    a: onAccept ? approve : undefined,
+    r: onReject ? reject : undefined,
+    d: toggleDiff,
+    t: () =>
+      setViewMode(current => (current === 'overlay' ? 'toggle' : 'overlay')),
+    1: () => setViewMode('overlay'),
+    2: () => setViewMode('toggle'),
+    3: () => setViewMode('onion-skin'),
+  });
 
-  // Global keyboard navigation (always active)
   useEffect(() => {
-    let handleKeyDown = e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')
+    let keyDown = event => {
+      if (
+        event.target.closest(
+          'input, textarea, select, [contenteditable="true"], [role="menu"]'
+        ) ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      )
         return;
-
-      switch (e.key) {
-        case 'ArrowUp':
-        case 'ArrowLeft':
-          e.preventDefault();
-          if (canNavigate.prev) handlePrevious();
+      // Menus and focused controls own their keyboard interaction.
+      if (event.defaultPrevented) return;
+      if (
+        ['ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight'].includes(
+          event.key
+        ) &&
+        event.target.closest('[role="tablist"], [role="radiogroup"]')
+      )
+        return;
+      switch (event.key.toLowerCase()) {
+        case 'arrowup':
+        case 'arrowleft':
+          event.preventDefault();
+          previous();
           break;
-        case 'ArrowDown':
-        case 'ArrowRight':
-          e.preventDefault();
-          if (canNavigate.next) handleNext();
+        case 'arrowdown':
+        case 'arrowright':
+          event.preventDefault();
+          next();
           break;
-        case 'Escape':
-          e.preventDefault();
+        case 'escape':
+          if (document.querySelector('[role="menu"]')) return;
+          event.preventDefault();
           onClose();
           break;
         case 'i':
-          if (!e.metaKey && !e.ctrlKey) {
-            e.preventDefault();
-            toggleInspector();
-          }
+          event.preventDefault();
+          toggleDetails();
+          break;
+        case 'b':
+          if (comparison?.baseline) setHoldingBaseline(true);
+          break;
+        case '+':
+        case '=':
+          event.preventDefault();
+          setZoom(current => stepReviewZoom(current, 0.25));
+          break;
+        case '-':
+          event.preventDefault();
+          setZoom(current => stepReviewZoom(current, -0.25));
+          break;
+        case '0':
+          setZoom(1);
+          break;
+        case '9':
+          setZoom('fit');
           break;
       }
     };
+    let releaseBaseline = event => {
+      if (event.type === 'blur' || event.key?.toLowerCase() === 'b') {
+        setHoldingBaseline(false);
+      }
+    };
+    let keepSpaceForControls = event => {
+      if (
+        event.key === ' ' &&
+        event.target.closest('button, input, select, [role="button"]')
+      ) {
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener('keydown', keepSpaceForControls);
+    window.addEventListener('keydown', keyDown);
+    window.addEventListener('keyup', releaseBaseline);
+    window.addEventListener('blur', releaseBaseline);
+    return () => {
+      document.removeEventListener('keydown', keepSpaceForControls);
+      window.removeEventListener('keydown', keyDown);
+      window.removeEventListener('keyup', releaseBaseline);
+      window.removeEventListener('blur', releaseBaseline);
+    };
+  }, [previous, next, onClose, toggleDetails, comparison?.baseline]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canNavigate, handlePrevious, handleNext, onClose, toggleInspector]);
-
-  // Scroll active queue item into view
-  useEffect(() => {
-    if (!showQueue) return;
-    if (currentFilteredIndex < 0) return;
-    if (currentFilteredIndex >= filteredQueueItems.length) return;
-
-    let item = activeQueueItemRef.current;
-    if (!item) return;
-
-    let container = item.closest('.overflow-y-auto');
-    if (!container) return;
-
-    let itemRect = item.getBoundingClientRect();
-    let containerRect = container.getBoundingClientRect();
-
-    if (itemRect.top < containerRect.top) {
-      container.scrollBy({
-        top: itemRect.top - containerRect.top - 8,
-        behavior: 'smooth',
-      });
-    } else if (itemRect.bottom > containerRect.bottom) {
-      container.scrollBy({
-        top: itemRect.bottom - containerRect.bottom + 8,
-        behavior: 'smooth',
-      });
-    }
-  }, [currentFilteredIndex, filteredQueueItems.length, showQueue]);
-
-  if (!comparison) {
-    return (
-      <div className="min-h-screen bg-[var(--vz-bg)] flex items-center justify-center">
-        <div className="text-center text-[var(--text-tertiary)]">
-          <div className="text-lg mb-2">Comparison not found</div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--accent-info)] hover:text-[var(--text-primary)]"
-          >
-            Return to list
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Determine the local review result for the current comparison.
-  let result = mapStatusToResult(comparison.status);
-  let reviewState =
-    comparison.userAction === 'accepted'
-      ? 'approved'
-      : comparison.userAction === 'rejected'
-        ? 'rejected'
-        : comparison.status === 'passed'
-          ? 'approved'
-          : 'pending';
-
-  // Result badge config
-  let resultBadge = {
-    new: { variant: 'info', label: 'New' },
-    changed: { variant: 'warning', label: 'Changed' },
-    unchanged: { variant: 'default', label: 'Unchanged' },
-  }[result];
-
-  // Whether we can delete (only for new screenshots)
-  let canDelete =
-    comparison.status === 'new' || comparison.status === 'baseline-created';
-
-  // Extract metadata
-  let metadata = comparison.properties || {};
+  if (!comparison) return null;
+  let reviewState = getReviewState(comparison);
+  let result = getResult(comparison);
+  let resultNote = RESULT_NOTES[result];
+  let position =
+    currentIndex < 0 ? '—' : `${currentIndex + 1}/${filteredItems.length}`;
+  let canDelete = result === 'new' && onDelete;
 
   return (
-    <div
-      className="h-screen bg-[var(--vz-bg)] flex flex-col overflow-hidden"
-      data-testid="fullscreen-viewer"
-    >
-      {/* Header */}
-      <header className="flex-shrink-0 bg-[var(--vz-bg)] border-b border-[var(--vz-border-subtle)] z-30">
-        {/* Primary row */}
-        <div className="px-2 sm:px-4 py-2 flex items-center gap-1 sm:gap-3">
-          <CloseButton onClick={onClose} />
-
-          {/* Title area */}
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <h1 className="text-sm font-medium text-[var(--text-primary)] truncate">
-              {comparison.name || comparison.originalName || 'Unknown'}
+    <div className="review-fullscreen" data-testid="fullscreen-viewer">
+      <header className="shrink-0 border-b border-[var(--bd-border-subtle)] bg-[var(--bd-bg)] z-30">
+        <div className="flex items-center gap-1 px-2 py-3 sm:gap-2 sm:px-4">
+          <IconButton
+            icon={XMarkIcon}
+            label="Close comparison"
+            onClick={onClose}
+          />
+          <span className="hidden sm:contents">
+            <IconButton
+              icon={SidebarIcon}
+              label={sidebarTab ? 'Hide sidebar' : 'Show sidebar'}
+              aria-pressed={sidebarTab != null}
+              onClick={() =>
+                setSidebarTab(current => (current ? null : 'queue'))
+              }
+            />
+          </span>
+          <div className="min-w-0 flex-1 flex items-center gap-2">
+            <h1 className="truncate text-sm font-medium text-[var(--bd-text-primary)]">
+              {comparison.originalName || comparison.name}
             </h1>
-            {resultBadge && (
-              <Badge
-                variant={resultBadge.variant}
-                size="sm"
-                className="hidden xs:flex"
-              >
-                {resultBadge.label}
-              </Badge>
+            {resultNote && (
+              <span className="hidden sm:block shrink-0 text-xs text-[var(--bd-text-tertiary)]">
+                {resultNote}
+              </span>
             )}
             {isReviewMode && (
-              <Badge
-                variant="warning"
-                size="sm"
-                dot
-                pulseDot
-                className="hidden sm:flex"
-              >
+              <Badge variant="warning" size="sm">
                 Review Mode
               </Badge>
             )}
           </div>
-
-          {/* Navigation */}
           <div className="flex items-center">
-            <button
-              type="button"
-              onClick={handlePrevious}
-              disabled={!canNavigate.prev}
-              className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-85 disabled:cursor-not-allowed rounded-md hover:bg-[var(--vz-raised)] transition-colors"
-              aria-label="Previous"
-            >
-              <ChevronLeftIcon className="w-5 h-5" />
-            </button>
-            <span className="hidden sm:block text-xs text-[var(--text-muted)] font-medium tabular-nums px-1 min-w-[3rem] text-center">
-              {currentFilteredIndex + 1}/{filteredQueueItems.length}
+            <IconButton
+              icon={ChevronLeftIcon}
+              label="Previous"
+              disabled={!canPrevious}
+              onClick={previous}
+            />
+            <span className="hidden sm:block min-w-12 px-1 text-center font-mono text-xs text-[var(--bd-text-muted)]">
+              {position}
             </span>
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={!canNavigate.next}
-              className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] disabled:opacity-85 disabled:cursor-not-allowed rounded-md hover:bg-[var(--vz-raised)] transition-colors"
-              aria-label="Next"
-            >
-              <ChevronRightIcon className="w-5 h-5" />
-            </button>
+            <IconButton
+              icon={ChevronRightIcon}
+              label="Next"
+              disabled={!canNext}
+              onClick={next}
+            />
           </div>
-
-          <div className="hidden sm:block h-5 w-px bg-[var(--vz-border-subtle)]" />
-
-          {/* Approval buttons - desktop */}
           <div className="hidden sm:flex items-center gap-2">
-            {canDelete && onDelete ? (
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="px-3 py-1.5 text-xs font-medium text-[var(--accent-danger)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-danger-muted)] rounded-md transition-colors"
-                data-testid="btn-delete"
-              >
-                Delete
-              </button>
-            ) : null}
+            {canDelete && (
+              <IconButton
+                icon={TrashIcon}
+                label="Delete screenshot"
+                onClick={remove}
+                disabled={isSaving}
+              />
+            )}
             <ApprovalButtonGroup
               status={reviewState}
-              onApprove={onAccept ? handleApprove : null}
-              onReject={onReject ? handleReject : null}
-              compact
+              onApprove={onAccept ? approve : null}
+              onReject={onReject ? reject : null}
+              disabled={isSaving}
             />
-          </div>
-
-          {/* Tool buttons - desktop */}
-          <div className="hidden sm:flex items-center">
-            <button
-              type="button"
-              onClick={() => setShowQueue(!showQueue)}
-              className={`flex items-center justify-center p-2 rounded-md transition-colors ${showQueue ? 'bg-[var(--accent-brand-muted)] text-[var(--accent-brand)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)]'}`}
-              title="Queue"
-              aria-label="Toggle queue"
-              data-testid="toggle-queue-btn"
-            >
-              <ListBulletIcon className="w-5 h-5 pointer-events-none" />
-            </button>
-
-            <button
-              type="button"
-              onClick={toggleInspector}
-              className={`p-2 rounded-md transition-colors ${showInspector ? 'bg-[var(--accent-info-muted)] text-[var(--accent-info)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)]'}`}
-              title="Details (I)"
-              aria-label="Screenshot details"
-              data-testid="toggle-inspector-btn"
-            >
-              <InformationCircleIcon className="w-5 h-5 pointer-events-none" />
-            </button>
           </div>
         </div>
-
-        {/* Secondary row: Variant selector + View mode + Zoom */}
-        <div className="px-2 sm:px-4 py-1.5 sm:py-2 border-t border-[var(--vz-border-subtle)] flex items-center gap-2 sm:gap-3">
-          {/* Variant breadcrumb - shows viewport/browser info, allows switching when multiple variants */}
-          {currentGroup && currentGroup.comparisons.length > 0 && (
-            <VariantBreadcrumb
-              variants={currentGroup.comparisons}
-              currentVariantId={getComparisonId(comparison)}
-              onVariantSelect={handleVariantSelect}
+        <div className="flex items-center gap-2 border-t border-[var(--bd-border-subtle)] px-2 py-2 sm:gap-3 sm:px-4">
+          <div className="min-w-0 flex-1">
+            <ReviewProperties
+              comparison={comparison}
+              variants={variants}
+              onNavigate={navigate}
             />
-          )}
-
-          <div className="flex-1" />
-
-          {/* View mode - hidden on mobile */}
+          </div>
           {comparison.diff && (
             <ViewModeToggle
               value={viewMode}
               onChange={setViewMode}
-              compact
               className="hidden sm:flex"
             />
           )}
-
-          {/* Zoom */}
-          <ZoomControls zoom={zoom} onZoomChange={setZoom} />
+          <ReviewZoomControls zoom={zoom} onChange={setZoom} />
         </div>
       </header>
-
-      {/* Main content area with sidebars */}
-      <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* Review Queue */}
-        <MobileDrawer
-          isOpen={showQueue}
-          onClose={() => setShowQueue(false)}
-          position="bottom"
-          desktopPosition="left"
-          width="w-80"
-          mobileHeight="30vh"
-          expandedHeight="80vh"
-          alwaysVisibleOnDesktop={false}
-          showBackdrop={false}
-          testId="queue-drawer"
-        >
-          <DrawerHeader
-            title="Queue"
-            subtitle={`${filteredQueueItems.length} of ${queueItems.length} items`}
-            onClose={() => setShowQueue(false)}
-          />
-
-          <DrawerFilterBar>
-            {[
-              { id: 'needs-review', label: 'To Review' },
-              { id: 'changes', label: 'Changes' },
-              { id: 'new', label: 'New' },
-              { id: 'all', label: 'All' },
-            ].map(filter => (
-              <DrawerFilterButton
-                key={filter.id}
-                isActive={queueFilter === filter.id}
-                onClick={() => setQueueFilter(filter.id)}
-              >
-                {filter.label}
-              </DrawerFilterButton>
-            ))}
-          </DrawerFilterBar>
-
-          <DrawerContent className="px-2 py-2 space-y-1">
-            {filteredQueueItems.map(item => {
-              let isActive =
-                getComparisonId(item) === getComparisonId(comparison);
-              return (
-                <div
-                  key={getComparisonId(item)}
-                  ref={isActive ? activeQueueItemRef : null}
-                >
-                  <QueueItem
-                    item={item}
-                    isActive={isActive}
-                    thumbnailUrl={withImageVersion(
-                      item.current || item.baseline,
-                      item.timestamp
-                    )}
-                    onClick={() => onNavigate(item)}
-                  />
-                </div>
-              );
-            })}
-            {filteredQueueItems.length === 0 && (
-              <div className="text-center py-8 text-[var(--text-muted)] text-xs">
-                {queueFilter === 'needs-review'
-                  ? 'All screenshots reviewed!'
-                  : 'No items match this filter'}
-              </div>
-            )}
-          </DrawerContent>
-
-          <DrawerFooter className="hidden sm:flex flex-col items-center gap-1.5">
-            <p className="text-xs text-[var(--text-muted)] text-center">
-              <span className="text-[var(--text-tertiary)]">↑↓</span> navigate
-              {' · '}
-              <span className="text-[var(--text-tertiary)]">Space</span>{' '}
-              {isReviewMode ? 'exit' : 'review mode'}
-            </p>
-            {isReviewMode && (
-              <p className="text-xs text-[var(--text-muted)] text-center">
-                <span className="text-[var(--accent-success)] font-medium">
-                  A
-                </span>{' '}
-                approve
-                {' · '}
-                <span className="text-[var(--accent-danger)] font-medium">
-                  R
-                </span>{' '}
-                reject
-                {' · '}
-                <span className="text-[var(--text-tertiary)] font-medium">
-                  D
-                </span>{' '}
-                diff
-                {' · '}
-                <span className="text-[var(--text-tertiary)] font-medium">
-                  T
-                </span>{' '}
-                view
-              </p>
-            )}
-          </DrawerFooter>
-        </MobileDrawer>
-
-        {/* Screenshot display area */}
-        <main className="flex-1 min-h-0 overflow-hidden relative">
+      {actionError && (
+        <Alert variant="danger" role="alert">
+          {actionError}
+        </Alert>
+      )}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <ReviewSidebar
+          tab={sidebarTab}
+          onTabChange={setSidebarTab}
+          comparison={comparison}
+          items={filteredItems}
+          total={comparisons.length}
+          filter={queueFilter}
+          onFilterChange={setQueueFilter}
+          search={search}
+          onSearchChange={setSearch}
+          onNavigate={navigate}
+          isReviewMode={isReviewMode}
+          showRegions={showRegions}
+          onRegionsChange={setShowRegions}
+        />
+        <main className="relative min-w-0 min-h-0 flex-1 overflow-hidden">
           <ScreenshotDisplay
-            key={getComparisonId(comparison)}
+            key={`${selectedId}:${comparison.timestamp}`}
             comparison={comparison}
-            viewMode={viewMode === VIEW_MODES.ONION ? 'onion-skin' : viewMode}
+            viewMode={holdingBaseline ? 'toggle' : viewMode}
             showDiffOverlay={showDiffOverlay}
-            onDiffToggle={() => setShowDiffOverlay(prev => !prev)}
-            showBaseline={showBaseline}
-            onToggleBaseline={() => setShowBaseline(prev => !prev)}
+            onDiffToggle={toggleDiff}
+            showBaseline={holdingBaseline || showBaseline}
+            onToggleBaseline={() => setShowBaseline(current => !current)}
             onionSkinPosition={onionSkinPosition}
             onOnionSkinChange={setOnionSkinPosition}
             zoom={zoom}
-            disableLoadingOverlay={true}
+            showRegions={showRegions}
+            disableLoadingOverlay
             className="w-full h-full"
           />
         </main>
-
-        {/* Inspector Panel - order-last ensures it appears on right in flex container */}
-        <InspectorPanel
-          isOpen={showInspector}
-          onClose={() => setShowInspector(false)}
-          title="Screenshot Details"
-          subtitle={comparison.name || comparison.originalName}
-          className="order-last"
-        >
-          {/* Status */}
-          <InspectorPanel.Section title="Status" icon={CubeTransparentIcon}>
-            <div className="flex items-center gap-2 flex-wrap">
-              {resultBadge && (
-                <Badge variant={resultBadge.variant} size="sm">
-                  {resultBadge.label}
-                </Badge>
-              )}
-              <Badge
-                variant={
-                  reviewState === 'approved'
-                    ? 'success'
-                    : reviewState === 'rejected'
-                      ? 'danger'
-                      : 'default'
-                }
-                size="sm"
-              >
-                {reviewState}
-              </Badge>
-            </div>
-          </InspectorPanel.Section>
-
-          {comparison.warnings?.length > 0 && (
-            <InspectorPanel.Section
-              title="Warnings"
-              icon={ExclamationTriangleIcon}
-            >
-              {comparison.warnings.map(warning => (
-                <InspectorPanel.Row
-                  key={`${warning.code}-${warning.option}`}
-                  label={warning.option || 'Warning'}
-                  value={warning.message}
-                />
-              ))}
-            </InspectorPanel.Section>
-          )}
-
-          {/* Screenshot details */}
-          <InspectorPanel.Section title="Screenshot" icon={ComputerDesktopIcon}>
-            {metadata.browser && (
-              <InspectorPanel.Row
-                label="Browser"
-                value={metadata.browser}
-                icon={() => (
-                  <BrowserIcon
-                    browser={metadata.browser}
-                    className="w-3.5 h-3.5"
-                  />
-                )}
-              />
-            )}
-            <InspectorPanel.Row
-              label="Viewport"
-              value={
-                metadata.viewport_width && metadata.viewport_height
-                  ? `${metadata.viewport_width} × ${metadata.viewport_height}`
-                  : null
-              }
-              mono
-            />
-            <InspectorPanel.Row label="Device" value={metadata.device} />
-          </InspectorPanel.Section>
-
-          {/* Diff analysis */}
-          {result === 'changed' && comparison.diffPercentage != null && (
-            <InspectorPanel.Section
-              title="Diff Analysis"
-              icon={DocumentMagnifyingGlassIcon}
-            >
-              <InspectorPanel.Row
-                label="Changed"
-                value={`${Number(comparison.diffPercentage).toFixed(3)}%`}
-                mono
-              />
-              {comparison.diffPixels != null && (
-                <InspectorPanel.Row
-                  label="Pixels"
-                  value={comparison.diffPixels.toLocaleString()}
-                  mono
-                />
-              )}
-              {comparison.threshold != null && (
-                <InspectorPanel.Row
-                  label="Threshold"
-                  value={Number(comparison.threshold).toFixed(2)}
-                  mono
-                />
-              )}
-            </InspectorPanel.Section>
-          )}
-
-          {/* Actions */}
-          <InspectorPanel.Section title="Identifier" icon={CubeTransparentIcon}>
-            <InspectorPanel.Row
-              label="Signature"
-              value={comparison.signature || comparison.id}
-              mono
-              copyable
-            />
-          </InspectorPanel.Section>
-        </InspectorPanel>
       </div>
-
-      {/* Mobile Bottom Bar */}
-      <div className="sm:hidden flex-shrink-0 bg-[var(--vz-bg)] border-t border-[var(--vz-border-subtle)] safe-area-pb">
-        {/* Approval buttons */}
+      <div className="review-mobile-bar sm:hidden">
         <MobileApprovalBar
           status={reviewState}
-          onApprove={onAccept ? handleApprove : null}
-          onReject={onReject ? handleReject : null}
+          onApprove={onAccept ? approve : null}
+          onReject={onReject ? reject : null}
+          disabled={isSaving}
         />
-
-        {/* Secondary tools row */}
-        <div className="px-3 py-2 flex items-center gap-1 border-t border-[var(--vz-border-subtle)]">
-          <button
-            type="button"
-            onClick={() => setShowQueue(!showQueue)}
-            className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showQueue ? 'bg-[var(--accent-brand-muted)] text-[var(--accent-brand)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)] active:bg-[var(--vz-elevated)]'}`}
-            aria-label="Queue"
-            data-testid="mobile-toggle-queue-btn"
-          >
-            <ListBulletIcon className="w-5 h-5 pointer-events-none" />
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleInspector}
-            className={`flex items-center justify-center p-2.5 rounded-lg transition-colors ${showInspector ? 'bg-[var(--accent-info-muted)] text-[var(--accent-info)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--vz-raised)] active:bg-[var(--vz-elevated)]'}`}
-            aria-label="Screenshot details"
-            data-testid="mobile-toggle-inspector-btn"
-          >
-            <InformationCircleIcon className="w-5 h-5 pointer-events-none" />
-          </button>
-
-          {canDelete && onDelete && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="flex items-center justify-center p-2.5 rounded-lg text-[var(--accent-danger)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-danger-muted)] active:bg-[var(--accent-danger-muted)] transition-colors"
-              aria-label="Delete"
-              data-testid="mobile-delete-btn"
-            >
-              <span className="text-xs font-medium">Delete</span>
-            </button>
+        <div className="flex items-center gap-1 border-t border-[var(--bd-border-subtle)] px-3 py-2">
+          <IconButton
+            icon={ListBulletIcon}
+            label="Queue"
+            size="sm"
+            aria-pressed={sidebarTab === 'queue'}
+            onClick={() =>
+              setSidebarTab(current => (current === 'queue' ? null : 'queue'))
+            }
+          />
+          <IconButton
+            icon={InformationCircleIcon}
+            label="Screenshot details"
+            size="sm"
+            aria-pressed={sidebarTab === 'details'}
+            onClick={toggleDetails}
+          />
+          {canDelete && (
+            <IconButton
+              icon={TrashIcon}
+              label="Delete screenshot"
+              size="sm"
+              onClick={remove}
+              disabled={isSaving}
+            />
           )}
-
           <div className="flex-1" />
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--text-muted)] tabular-nums">
-              {currentFilteredIndex + 1} / {filteredQueueItems.length}
-            </span>
-            {resultBadge && (
-              <Badge variant={resultBadge.variant} size="sm">
-                {resultBadge.label}
-              </Badge>
-            )}
-          </div>
+          {comparison.diff && (
+            <ViewModeToggle value={viewMode} onChange={setViewMode} compact />
+          )}
+          <span className="px-1 font-mono text-xs text-[var(--bd-text-muted)]">
+            {position}
+          </span>
         </div>
       </div>
     </div>
+  );
+}
+
+function SidebarIcon({ className }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <rect
+        x="3"
+        y="4.5"
+        width="18"
+        height="15"
+        rx="2.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path d="M9 4.5v15" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
   );
 }

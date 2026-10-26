@@ -141,9 +141,9 @@ test.describe('Viewer Modes', () => {
 
     await expect(page.getByTestId('fullscreen-viewer')).toBeVisible();
 
-    // Verify initial zoom shows "Fit" (exact match to avoid "Fit to screen")
+    // Verify the initial zoom fits the screenshot width
     await expect(
-      page.getByRole('button', { name: 'Fit', exact: true })
+      page.getByRole('button', { name: 'Fit width', exact: true })
     ).toBeVisible();
 
     // Click zoom in button
@@ -167,14 +167,20 @@ test.describe('Viewer Modes', () => {
     await page.getByRole('button', { name: /zoom out/i }).click();
     await expect(page.getByRole('button', { name: /75%/ })).toBeVisible();
 
-    // Click Fit button to return to fit mode
-    await page.getByRole('button', { name: /fit to screen/i }).click();
+    // Choose fit-width from the zoom menu.
+    await page.getByRole('button', { name: '75%', exact: true }).click();
+    await page
+      .getByRole('menuitemradio', { name: 'Fit width', exact: true })
+      .click();
     await expect(
-      page.getByRole('button', { name: 'Fit', exact: true })
+      page.getByRole('button', { name: 'Fit width', exact: true })
     ).toBeVisible();
 
-    // Click 1:1 button for actual size
-    await page.getByRole('button', { name: '1:1' }).click();
+    // Choose actual size from the same menu.
+    await page.getByRole('button', { name: 'Fit width', exact: true }).click();
+    await page
+      .getByRole('menuitemradio', { name: 'Actual size', exact: true })
+      .click();
     await expect(page.getByRole('button', { name: /100%/ })).toBeVisible();
   });
 
@@ -193,6 +199,7 @@ test.describe('Viewer Modes', () => {
     await page.getByRole('radio', { name: /toggle/i }).click();
 
     // Enter review mode so keyboard shortcuts become active
+    await page.getByRole('heading', { level: 1 }).click();
     await page.keyboard.press('Space');
     await expect(page.getByText('Review Mode')).toBeVisible();
 

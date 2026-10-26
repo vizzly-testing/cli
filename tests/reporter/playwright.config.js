@@ -1,7 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
+let browserName = process.env.REPORTER_BROWSER || 'firefox';
+let desktopDevice =
+  browserName === 'chromium' ? 'Desktop Chrome' : 'Desktop Firefox';
+
 export default defineConfig({
   testDir: '.',
+  testMatch: '**/*.spec.js',
+  globalSetup: './support/browser-setup.js',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
@@ -13,7 +19,8 @@ export default defineConfig({
   },
 
   use: {
-    baseURL: 'http://localhost:3456',
+    browserName,
+    reducedMotion: 'reduce',
     screenshot: 'only-on-failure',
     video: 'off',
     navigationTimeout: 5000,
@@ -33,17 +40,17 @@ export default defineConfig({
 
   projects: [
     {
-      name: 'firefox-desktop',
+      name: `${browserName}-desktop`,
       use: {
-        ...devices['Desktop Firefox'],
+        ...devices[desktopDevice],
         viewport: { width: 1920, height: 1080 },
         trace: 'off',
       },
     },
     {
-      name: 'firefox-mobile',
+      name: `${browserName}-mobile`,
       use: {
-        ...devices['Desktop Firefox'],
+        ...devices[desktopDevice],
         viewport: { width: 375, height: 667 },
         trace: 'off',
       },

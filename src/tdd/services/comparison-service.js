@@ -34,6 +34,7 @@ export async function compareImages(
       threshold,
       antialiasing: true,
       minimumRegionPixels: minClusterSize,
+      alignHeightChanges: true,
     },
     { diffPath, overwrite: true }
   );
@@ -54,6 +55,7 @@ export async function compareImages(
         ? (comparison.pixels.suppressed.antialiasing.count / totalPixels) * 100
         : 0,
     boundingBox: comparison.difference.spatial?.bounds || null,
+    heightChange: heightChange || null,
     heightDiff: heightChange
       ? heightChange.direction === 'added'
         ? heightChange.rowCount
@@ -192,6 +194,7 @@ export function buildFailedComparison(params) {
     aaPercentage: honeydiffResult.aaPercentage,
     boundingBox: honeydiffResult.boundingBox,
     heightDiff: honeydiffResult.heightDiff,
+    heightChange: honeydiffResult.heightChange,
     intensityStats: honeydiffResult.intensityStats,
     diffClusters,
   };

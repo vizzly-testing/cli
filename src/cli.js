@@ -617,13 +617,10 @@ program
   .description('Initialize Vizzly in your project')
   .option('--quick', 'Create an editable config without the setup wizard')
   .option('--force', 'Overwrite existing configuration')
-  .option(
-    '--agent-skill',
-    'Install or refresh the repo-local Vizzly agent skill'
-  )
+  .option('--agent-skill', 'Install the Vizzly agent skill during setup')
   .option(
     '--agent-guidance',
-    'Install or refresh the repo-local Vizzly skill and AGENTS.md guidance'
+    'Install the Vizzly skill and AGENTS.md guidance during setup'
   )
   .option('--skip-agent-skill', 'Skip the Vizzly agent skill prompt')
   .action(async options => {

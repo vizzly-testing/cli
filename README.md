@@ -22,9 +22,10 @@ pnpm add --save-dev @vizzly-testing/cli
 pnpm exec vizzly init
 ```
 
-The wizard helps you use existing tests, capture screenshots from a folder, or
-add a Playwright example. It previews file changes before applying them and
-offers a local capture check. You don't need an account for local testing.
+The wizard creates a config and can add a Playwright example. It previews
+changes before applying them and offers a local capture check. You don't need
+an account for local testing. If Vizzly is already configured, init leaves it
+alone. Edit the config directly to change your setup.
 
 To create a small config and edit it yourself, use `pnpm exec vizzly init --quick`.
 It keeps existing config and doesn't install dependencies or run tests.
@@ -167,9 +168,9 @@ Install the Vizzly skill and a short `AGENTS.md` note:
 pnpm exec vizzly init --agent-guidance
 ```
 
-Run it again after upgrading to update `.agents/skills/vizzly` and the Vizzly
-note in `AGENTS.md`. It keeps existing config and other guidance. Use
-`--agent-skill` to install only the skill. These flags don't open the wizard.
+This adds `.agents/skills/vizzly` and a note in `AGENTS.md`, keeping other
+guidance. Use `--agent-skill` to install only the skill during setup.
+These flags don't open the wizard or update an existing Vizzly setup.
 `--skip-agent-skill` skips agent setup unless you also request `--agent-guidance`.
 
 Use `context` to read local results. For cloud results, check the API schema

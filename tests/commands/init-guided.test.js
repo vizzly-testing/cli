@@ -5,7 +5,6 @@ import { constants } from 'node:fs';
 import {
   access,
   chmod,
-  copyFile,
   cp,
   mkdir,
   mkdtemp,
@@ -24,16 +23,10 @@ import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { compareSync } from '@vizzly-testing/honeydiff';
-import { quoteArgument } from '../../src/init/core.js';
 
 let repository = fileURLToPath(new URL('../../', import.meta.url));
 let exec = promisify(execFile);
 let cli = path.join(repository, 'src', 'cli.js');
-let capture = path.join(repository, 'tests', 'fixtures', 'local-capture.js');
-let png = path.join(
-  repository,
-  'tests/reporter/fixtures/images/screenshots/pricing-page.png'
-);
 // Use tui-driver's optional PTY backend directly so tests wait on output events
 // instead of the visual driver's screen-stability polling.
 let pty;
@@ -141,8 +134,8 @@ ptyTest(
   async t => {
     let cwd = await fixture(t);
     let result = await wizard(t, cwd, [
-      ['Choose [4]', 'invalid\n'],
-      ['Choose one of the listed numbers.', '4\n'],
+      ['Choose [2]', 'invalid\n'],
+      ['Choose one of the listed numbers.', '2\n'],
       ['Add the Vizzly skill', 'maybe\n'],
       ['Enter yes or no.', 'n\n'],
       noCloud,
@@ -160,9 +153,9 @@ ptyTest(
   { timeout: 30000 },
   async t => {
     for (let responses of [
-      [['Choose [4]', '4\n'], noAgents, noCloud, ['Apply this setup?', 'n\n']],
-      [['Choose [4]', '\x04']],
-      [['Choose [4]', '\x03']],
+      [['Choose [2]', '2\n'], noAgents, noCloud, ['Apply this setup?', 'n\n']],
+      [['Choose [2]', '\x04']],
+      [['Choose [2]', '\x03']],
     ]) {
       let cwd = await fixture(t);
       let result = await wizard(t, cwd, responses);
@@ -173,135 +166,22 @@ ptyTest(
 );
 
 ptyTest(
-  'folder workflow captures real images and persists supported directory config',
-  { timeout: 30000 },
-  async t => {
-    let cwd = await fixture(t);
-    let folder = "screenshots with 'quotes' and $(literal)";
-    await mkdir(path.join(cwd, folder));
-    await copyFile(png, path.join(cwd, folder, 'page.png'));
-    let result = await wizard(t, cwd, [
-      ['Choose [4]', '2\n'],
-      ['Screenshots folder', `${folder}\n`],
-      noAgents,
-      ['Ignore generated', 'n\n'],
-      ['Run the selected command', 'y\n'],
-      ['Open the generated report', 'n\n'],
-      noCloud,
-      apply,
-    ]);
-    assert.equal(result.code, 0, result.output);
-    assert.match(result.output, /Captured 1 screenshot/);
-    let { default: config } = await import(path.join(cwd, 'vizzly.config.js'));
-    assert.equal(config.upload.screenshotsDir, folder);
-    await access(path.join(cwd, '.vizzly', 'report', 'index.html'));
-    let data = JSON.parse(
-      await readFile(path.join(cwd, '.vizzly', 'report-data.json'), 'utf8')
-    );
-    let current = path.join(
-      cwd,
-      '.vizzly',
-      data.comparisons[0].current.replace('/images/', '')
-    );
-    assert.ok(compareSync(current, current).images.current.width > 0);
-    let source = await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8');
-    let repeated = await wizard(t, cwd, [
-      ['Choose [4]', '2\n'],
-      ['Screenshots folder', `${folder}\n`],
-      noAgents,
-      ['Ignore generated', 'n\n'],
-      ['Run the selected command', 'y\n'],
-      ['Open the generated report', 'n\n'],
-      noCloud,
-      apply,
-    ]);
-    assert.equal(repeated.code, 0, repeated.output);
-    assert.match(repeated.output, /Captured 1 screenshot/);
-    assert.equal(
-      await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8'),
-      source
-    );
-  }
-);
-
-ptyTest(
-  'an existing test command with zero captures is reported as unverified',
-  { timeout: 30000 },
-  async t => {
-    let cwd = await fixture(t);
-    let command = `${quoteArgument(process.execPath)} -e "process.exitCode=0"`;
-    let result = await wizard(t, cwd, [
-      ['Choose [4]', '1\n'],
-      ['Screenshot-producing test command', `${command}\n`],
-      noAgents,
-      ['Ignore generated', 'n\n'],
-      ['Run the selected command', 'y\n'],
-      ['Open the generated report', 'n\n'],
-      noCloud,
-      apply,
-    ]);
-    assert.notEqual(result.code, 0, result.output);
-    assert.match(result.output, /without capturing screenshots/);
-    assert.doesNotMatch(result.output, /Captured \d+ screenshot/);
-  }
-);
-
-ptyTest(
-  'script collisions fail before config edits and preserve existing commands',
-  { timeout: 30000 },
-  async t => {
-    let cwd = await fixture(t);
-    let pkg = {
-      packageManager: 'npm@11.0.0',
-      devDependencies: { '@vizzly-testing/cli': '*' },
-      scripts: { e2e: 'my-tests', 'test:visual': 'keep-this' },
-    };
-    let source = JSON.stringify(pkg);
-    await writeFile(path.join(cwd, 'package.json'), source);
-    let result = await wizard(t, cwd, [
-      ['Choose [4]', '1\n'],
-      ['Screenshot-producing test command', 'npm run e2e\n'],
-      noAgents,
-      ['Add a separate visual-test package script', 'y\n'],
-      ['Visual script name', 'test:visual\n'],
-    ]);
-    assert.notEqual(result.code, 0, result.output);
-    assert.match(result.output, /already exists/);
-    assert.equal(
-      await readFile(path.join(cwd, 'package.json'), 'utf8'),
-      source
-    );
-    await assert.rejects(access(path.join(cwd, 'vizzly.config.js')), {
-      code: 'ENOENT',
-    });
-  }
-);
-
-ptyTest(
-  'existing tests produce real capture evidence without rewriting their source',
+  'an initialized project stops without prompting, evaluating config, or changing files',
   { timeout: 30000 },
   async t => {
     let cwd = await fixture(t);
     let source =
-      '// My executable config\nexport default { comparison: { threshold: 1 } };\n';
+      "throw new Error('init must not evaluate config');\nexport default {};\n";
     await writeFile(path.join(cwd, 'vizzly.config.js'), source);
-    let command = `${quoteArgument(process.execPath)} ${quoteArgument(capture)} valid`;
-    let result = await wizard(t, cwd, [
-      ['Choose [4]', '1\n'],
-      ['Screenshot-producing test command', `${command}\n`],
-      noAgents,
-      ['Ignore generated', 'n\n'],
-      ['Run the selected command', 'y\n'],
-      ['Open the generated report', 'n\n'],
-      noCloud,
-      apply,
-    ]);
+    let result = await wizard(t, cwd, []);
     assert.equal(result.code, 0, result.output);
-    assert.match(result.output, /Captured 1 screenshot/);
+    assert.match(result.output, /Existing config preserved/);
+    assert.doesNotMatch(result.output, /How will you capture screenshots/);
     assert.equal(
       await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8'),
       source
     );
+    assert.deepEqual(await readdir(cwd), ['vizzly.config.js']);
   }
 );
 
@@ -355,8 +235,8 @@ ptyTest(
       "export default { testDir: './visual', reporter: 'line', use: { headless: true } };\n"
     );
     let result = await wizard(t, cwd, [
-      ['Choose [4]', '3\n'],
-      ['Existing Playwright test directory', 'visual\n'],
+      ['Choose [2]', '1\n'],
+      ['Playwright test directory', 'visual\n'],
       ['App page URL', `${url}\n`],
       noAgents,
       ['Ignore generated', 'n\n'],
@@ -390,8 +270,8 @@ ptyTest(
   async t => {
     let cwd = await fixture(t);
     let result = await wizard(t, cwd, [
-      ['Choose [4]', '3\n'],
-      ['Existing Playwright test directory', '../outside\n'],
+      ['Choose [2]', '1\n'],
+      ['Playwright test directory', '../outside\n'],
       ['App page URL', 'http://127.0.0.1:3000/\n'],
     ]);
     assert.notEqual(result.code, 0, result.output);
@@ -433,17 +313,12 @@ ptyTest(
       JSON.stringify({ auth: { accessToken: 'fixture-user-login' } })
     );
     let apiUrl = `http://127.0.0.1:${server.address().port}`;
-    await mkdir(path.join(cwd, 'screenshots'));
-    await copyFile(png, path.join(cwd, 'screenshots', 'page.png'));
     let result = await wizard(
       t,
       cwd,
       [
-        ['Choose [4]', '2\n'],
-        ['Screenshots folder', 'screenshots\n'],
+        ['Choose [2]', '2\n'],
         noAgents,
-        ['Ignore generated', 'n\n'],
-        ['Run the selected command', 'n\n'],
         ['Connect this repository', 'y\n'],
         ['Project (organization/project)', 'fixture-org/fixture-app\n'],
         apply,
@@ -456,42 +331,11 @@ ptyTest(
     assert.doesNotMatch(source, /fixture-private-token/);
     let { default: config } = await import(path.join(cwd, 'vizzly.config.js'));
     assert.equal(config.apiUrl, apiUrl);
-    assert.equal(config.upload.screenshotsDir, 'screenshots');
     assert.deepEqual(config.project, {
       organizationSlug: 'fixture-org',
       projectSlug: 'fixture-app',
     });
     assert.match(result.output, /Linked fixture-org\/fixture-app/);
-  }
-);
-
-ptyTest(
-  'guided setup preserves YAML comments and gives the settings to add',
-  { timeout: 30000 },
-  async t => {
-    let cwd = await fixture(t);
-    let source = '# Keep this comment\ncomparison:\n  threshold: 5\n';
-    await writeFile(path.join(cwd, '.vizzlyrc.yaml'), source);
-    await mkdir(path.join(cwd, 'screenshots'));
-    await copyFile(png, path.join(cwd, 'screenshots', 'page.png'));
-    let result = await wizard(t, cwd, [
-      ['Choose [4]', '2\n'],
-      ['Screenshots folder', 'screenshots\n'],
-      noAgents,
-      ['Ignore generated', 'n\n'],
-      noCloud,
-      apply,
-    ]);
-    assert.equal(result.code, 2, result.output);
-    assert.match(result.output, /Add these settings/);
-    assert.equal(
-      await readFile(path.join(cwd, '.vizzlyrc.yaml'), 'utf8'),
-      source
-    );
-    assert.deepEqual((await readdir(cwd)).sort(), [
-      '.vizzlyrc.yaml',
-      'screenshots',
-    ]);
   }
 );
 
@@ -567,8 +411,8 @@ ptyTest(
       t,
       cwd,
       [
-        ['Choose [4]', '3\n'],
-        ['Existing Playwright test directory', 'visual\n'],
+        ['Choose [2]', '1\n'],
+        ['Playwright test directory', 'visual\n'],
         ['App page URL', 'http://127.0.0.1:3000/\n'],
         noAgents,
         ['Ignore generated', 'n\n'],

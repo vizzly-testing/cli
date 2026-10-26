@@ -30,7 +30,7 @@ ${end}
 `;
 }
 
-function upsertGuidance(source) {
+function addGuidance(source) {
   let content = source || '';
   let starts = content.split(start).length - 1;
   let ends = content.split(end).length - 1;
@@ -42,9 +42,7 @@ function upsertGuidance(source) {
     );
   }
   let block = guidanceContent();
-  if (starts) {
-    return `${content.slice(0, begin)}${block.trimEnd()}${content.slice(finish + end.length)}`;
-  }
+  if (starts) return content;
   return content.trim() ? `${content.trimEnd()}\n\n${block}` : block;
 }
 
@@ -63,12 +61,12 @@ async function skillFiles(directory, prefix = '') {
   return files;
 }
 
-export async function planAgentSetup(cwd, { skill, guidance, refresh }) {
+export async function planAgentSetup(cwd, { skill, guidance }) {
   if (!skill && !guidance) return { changes: [] };
   let targetPath = path.join(cwd, '.agents', 'skills', 'vizzly');
   let existing = await readOptionalFile(path.join(targetPath, 'SKILL.md'));
   let changes = [];
-  if (!existing || refresh) {
+  if (!existing) {
     for (let filename of await skillFiles(sourcePath)) {
       changes.push(
         await fileChange(
@@ -77,16 +75,9 @@ export async function planAgentSetup(cwd, { skill, guidance, refresh }) {
         )
       );
     }
-    // This file belonged to the previous bundled skill, not the portable one.
-    if (refresh)
-      changes.push(
-        await fileChange(path.join(targetPath, 'agents', 'openai.yaml'), null)
-      );
   }
-  let skillStatus = 'installed';
-  if (existing) skillStatus = changes.some(Boolean) ? 'refreshed' : 'exists';
   let agentSkill = {
-    status: skillStatus,
+    status: existing ? 'exists' : 'installed',
     sourcePath,
     targetPath,
   };
@@ -94,12 +85,11 @@ export async function planAgentSetup(cwd, { skill, guidance, refresh }) {
   if (guidance) {
     let agentsPath = path.join(cwd, 'AGENTS.md');
     let before = await readOptionalFile(agentsPath);
-    let after = upsertGuidance(before);
+    let after = addGuidance(before);
     changes.push(before === after ? null : { path: agentsPath, before, after });
     let status = 'exists';
     if (before !== after) {
-      status = before?.includes(start) ? 'refreshed' : 'updated';
-      if (before === null) status = 'created';
+      status = before === null ? 'created' : 'updated';
     }
     agentGuidance = { status, agentsPath };
   }

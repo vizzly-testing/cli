@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { planAgentSetup } from '../init/agents.js';
 import { planConfig } from '../init/core.js';
-import { chooseIntegration, planVisualScript } from '../init/integrations.js';
+import { chooseIntegration } from '../init/integrations.js';
 import { inspectProject } from '../init/project.js';
 import { createPrompts } from '../init/prompts.js';
 import { discoverConfig, readOptionalFile } from '../utils/config-discovery.js';
@@ -55,37 +55,15 @@ async function guidedPlan(cwd, config, options, prompts) {
   let project = await inspectProject(cwd);
   output.hint(`Project: ${cwd}`);
   if (project.manager) output.hint(`Package manager: ${project.manager}`);
-  if (project.scripts.length)
-    output.hint(
-      `Found scripts: ${project.scripts.map(([name]) => name).join(', ')}`
-    );
   let integration = await chooseIntegration(project, prompts);
-  let { skill, guidance, refresh } = agentOptions(options);
+  let { skill, guidance } = agentOptions(options);
   if (!guidance && !skill && !options.skipAgentSkill) {
     guidance = await prompts.confirm(
       'Add the Vizzly skill and AGENTS.md instructions?'
     );
     skill = guidance;
   }
-  let plannedConfig = planConfig(config, integration.settings, options.force);
-  let scriptProject = project;
-  if (plannedConfig.change?.path === path.join(cwd, 'package.json')) {
-    scriptProject = {
-      ...project,
-      pkg: JSON.parse(plannedConfig.change.after),
-      packageSource: plannedConfig.change.after,
-    };
-  }
-  let scripts = integration.command
-    ? await planVisualScript(scriptProject, integration.command, prompts)
-    : [];
-  let changes = [...integration.changes, ...scripts];
-  if (
-    plannedConfig.change &&
-    !scripts.some(change => change?.path === plannedConfig.change.path)
-  ) {
-    changes.unshift(plannedConfig.change);
-  }
+  let changes = [planConfig(config), ...integration.changes];
   if (integration.command) changes.push(await ignoreChange(cwd, prompts));
   let install = false;
   if (integration.install.length && project.manager) {
@@ -93,10 +71,7 @@ async function guidedPlan(cwd, config, options, prompts) {
       `Install ${integration.install.join(' and ')} using ${project.manager}?`
     );
   }
-  let requirements = [
-    ...plannedConfig.requirements,
-    ...integration.requirements,
-  ];
+  let requirements = [...integration.requirements];
   if (integration.install.length && !install) {
     requirements.push(
       `Install the required development dependencies: ${integration.install.join(', ')}.`
@@ -125,7 +100,6 @@ async function guidedPlan(cwd, config, options, prompts) {
   let agents = await planAgentSetup(cwd, {
     skill,
     guidance,
-    refresh,
   });
   changes.push(...agents.changes);
   changes = changes.filter(Boolean);
@@ -133,13 +107,7 @@ async function guidedPlan(cwd, config, options, prompts) {
   output.list(changes.map(change => path.relative(cwd, change.path)));
   for (let requirement of requirements) output.hint(requirement);
   if (install) output.hint(`Install: ${integration.install.join(', ')}`);
-  if (verify) {
-    let action =
-      integration.integration === 'images'
-        ? `Capture screenshots from ${integration.settings.upload.screenshotsDir}`
-        : `Run: ${integration.command}`;
-    output.hint(action);
-  }
+  if (verify) output.hint(`Run: ${integration.command}`);
   if (cloudProject) output.hint(`Connect project: ${cloudProject}`);
   if (cloudProject)
     output.hint(
@@ -168,7 +136,6 @@ function agentOptions(options) {
   return {
     guidance,
     skill: guidance || (!options.skipAgentSkill && Boolean(options.agentSkill)),
-    refresh: Boolean(options.agentSkill || options.agentGuidance),
   };
 }
 
@@ -256,7 +223,11 @@ function showResult(result, json) {
     if (result.verification.error) output.hint(result.verification.error);
   }
   for (let requirement of result.requirements) output.hint(requirement);
-  if (result.mode === 'quick') {
+  if (result.status === 'skipped') {
+    output.hint(
+      'Edit this config to change your setup. Use --force to replace it.'
+    );
+  } else if (result.mode === 'quick') {
     output.hint(
       'Edit this config for your project. Run vizzly init for guided setup.'
     );
@@ -273,7 +244,14 @@ export async function init(options = {}) {
   let explicitAgentOption =
     options.agentSkill || options.agentGuidance || options.skipAgentSkill;
   let quick = Boolean(options.quick || options.json || explicitAgentOption);
+  let config = await discoverConfig({
+    cwd,
+    configPath: options.config,
+    allowInvalid: options.force,
+  });
+  let initialized = config.exists && !options.force;
   if (
+    !initialized &&
     !quick &&
     (!process.stdin.isTTY || !process.stdout.isTTY || process.env.CI)
   ) {
@@ -284,22 +262,19 @@ export async function init(options = {}) {
       { code: 'INIT_INPUT_REQUIRED' }
     );
   }
-  let config = await discoverConfig({
-    cwd,
-    configPath: options.config,
-    allowInvalid: options.force,
-  });
   let mode = quick ? 'quick' : 'guided';
   let plan;
   let prompts;
   try {
-    if (quick) {
-      let configPlan = planConfig(config, {}, options.force);
+    if (initialized) {
+      plan = { changes: [], requirements: [] };
+    } else if (quick) {
+      let configChange = planConfig(config);
       let agents = await planAgentSetup(cwd, agentOptions(options));
       plan = {
         ...agents,
-        changes: [configPlan.change, ...agents.changes],
-        requirements: configPlan.requirements,
+        changes: [configChange, ...agents.changes],
+        requirements: [],
       };
     } else {
       output.header('init');
@@ -316,8 +291,8 @@ export async function init(options = {}) {
 
   let changes = await applyChanges(plan.changes);
   let result = {
-    status: config.exists && !options.force ? 'skipped' : 'created',
-    ...(config.exists && !options.force ? { reason: 'config_exists' } : {}),
+    status: initialized ? 'skipped' : 'created',
+    ...(initialized ? { reason: 'config_exists' } : {}),
     configPath: config.configPath,
     mode,
     plugins: [],

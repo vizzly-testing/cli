@@ -1,6 +1,5 @@
 import path from 'node:path';
 import { VizzlyError } from '../errors/vizzly-error.js';
-import { createConfigContent, readConfigScaffold } from './config-content.js';
 import { discoverConfig } from './config-discovery.js';
 import { applyChanges } from './file-changes.js';
 
@@ -74,14 +73,6 @@ export async function planProjectBinding({
       config.format === 'package' ? { ...document, vizzly: updated } : updated;
     let indent = config.source.match(/\n([ \t]+)\S/)?.[1] || '  ';
     plan.after = `${JSON.stringify(result, null, indent)}\n`;
-    return plan;
-  }
-
-  let scaffold = ['javascript', 'typescript'].includes(config.format)
-    ? readConfigScaffold(config.source)
-    : null;
-  if (scaffold !== null) {
-    plan.after = createConfigContent({ ...scaffold, ...values }, config.format);
     return plan;
   }
 

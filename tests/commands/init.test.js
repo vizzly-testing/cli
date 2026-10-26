@@ -211,31 +211,40 @@ test('bare nonterminal invocation gives the single-flag shortcut without writes'
   assert.deepEqual(await readdir(cwd), []);
 });
 
-test('explicit agent setup refreshes only owned files and preserves surrounding guidance', async t => {
+test('agent setup installs the skill and preserves surrounding guidance', async t => {
   let cwd = await project(t);
   let original = '# My repo\n\nKeep my instructions.\n';
   await writeFile(path.join(cwd, 'AGENTS.md'), original);
-  let first = await run(cwd, ['--quick', '--agent-guidance']);
-  assert.equal(first.code, 0, first.stderr);
+  let result = await run(cwd, ['--agent-guidance']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.data.agentSkill.status, 'installed');
   let target = path.join(cwd, '.agents', 'skills', 'vizzly');
-  await writeFile(path.join(target, 'custom.md'), 'my custom file');
-  await writeFile(path.join(target, 'SKILL.md'), 'old skill');
-  let again = await run(cwd, ['--agent-guidance']);
-  assert.equal(again.code, 0, again.stderr);
-  assert.equal(again.data.status, 'skipped');
-  assert.equal(again.data.agentSkill.status, 'refreshed');
   assert.match(
     await readFile(path.join(target, 'SKILL.md'), 'utf8'),
     /name: vizzly/
-  );
-  assert.equal(
-    await readFile(path.join(target, 'custom.md'), 'utf8'),
-    'my custom file'
   );
   let agents = await readFile(path.join(cwd, 'AGENTS.md'), 'utf8');
   assert.ok(agents.startsWith(original.trimEnd()));
   assert.equal(agents.split('<!-- vizzly-agent-guidance -->').length, 2);
   await missing(path.join(cwd, 'user-state'));
+});
+
+test('existing Vizzly config stops init without adding or refreshing agent files', async t => {
+  let cwd = await project(t);
+  let source = 'export default { comparison: { threshold: 7 } };\n';
+  await writeFile(path.join(cwd, 'vizzly.config.js'), source);
+  let bare = await run(cwd, [], false);
+  assert.equal(bare.code, 0, bare.stderr);
+  assert.match(bare.stdout, /Edit this config to change your setup/);
+  let result = await run(cwd, ['--agent-guidance']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.data.status, 'skipped');
+  assert.deepEqual(result.data.changes, []);
+  assert.equal(
+    await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8'),
+    source
+  );
+  assert.deepEqual(await readdir(cwd), ['vizzly.config.js']);
 });
 
 test('skill-only remains skill-only and explicit skip suppresses it', async t => {

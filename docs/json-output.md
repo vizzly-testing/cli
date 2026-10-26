@@ -893,9 +893,8 @@ vizzly init --agent-guidance --json
 }
 ```
 
-Run it again after upgrading to refresh the skill and managed `AGENTS.md`
-block. Updated items report `"status": "refreshed"`. Existing config, including
-TypeScript config, and other guidance are kept.
+If config already exists, init returns `"status": "skipped"` without changing
+config or agent files. Edit the config directly to change your setup.
 
 ### `vizzly project link`
 

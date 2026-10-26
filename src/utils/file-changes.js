@@ -77,9 +77,7 @@ export async function applyChanges(changes) {
     for (let change of planned) {
       await checkChange(change);
       await mkdir(path.dirname(change.path), { recursive: true });
-      if (change.after === null) {
-        await rm(change.path);
-      } else if (change.before === null) {
+      if (change.before === null) {
         await writeFile(change.path, change.after, { flag: 'wx' });
       } else {
         let temporary = `${change.path}.${randomUUID()}.tmp`;
@@ -93,7 +91,7 @@ export async function applyChanges(changes) {
       }
       completed.push({
         path: change.path,
-        status: change.after === null ? 'removed' : 'written',
+        status: 'written',
       });
     }
   } catch (error) {

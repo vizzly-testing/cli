@@ -1,65 +1,11 @@
 import { fork } from 'node:child_process';
-import {
-  copyFile,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  generateBaselineFilename,
-  generateScreenshotSignature,
-} from '../../src/tdd/core/signature.js';
+import { writeReporterFixture } from './write-reporter-fixture.js';
 
-let fixtures = fileURLToPath(new URL('./fixtures/', import.meta.url));
-
-async function writeReporterFixture(fixtureData, workingDir) {
-  let data = structuredClone(fixtureData);
-  let stateDir = join(workingDir, '.vizzly');
-  let details = {};
-  for (let folder of ['baselines', 'current', 'diffs']) {
-    await mkdir(join(stateDir, folder), { recursive: true });
-  }
-  for (let comparison of data.comparisons) {
-    comparison.name = comparison.originalName || comparison.name;
-    comparison.signature = generateScreenshotSignature(
-      comparison.name,
-      comparison.properties
-    );
-    let filename = generateBaselineFilename(
-      comparison.name,
-      comparison.signature
-    );
-    for (let [field, folder] of [
-      ['current', 'current'],
-      ['baseline', 'baselines'],
-      ['diff', 'diffs'],
-    ]) {
-      if (!comparison[field]) continue;
-      await copyFile(
-        join(fixtures, comparison[field].replace(/^\//, '')),
-        join(stateDir, folder, filename)
-      );
-      comparison[field] = `/images/${folder}/${filename}`;
-    }
-    if (comparison.diffClusters) {
-      details[comparison.id] = { diffClusters: comparison.diffClusters };
-      delete comparison.diffClusters;
-    }
-  }
-  await writeFile(
-    join(stateDir, 'comparison-details.json'),
-    JSON.stringify(details)
-  );
-  await writeFile(join(stateDir, 'report-data.json'), JSON.stringify(data));
-  return data;
-}
-
-export async function startRealReporter(fixtureData, port = 0) {
+export async function startRealReporter(fixtureData, options = {}) {
   let workingDir = await mkdtemp(join(tmpdir(), 'vizzly-review-'));
   let child;
   let exited;
@@ -88,8 +34,17 @@ export async function startRealReporter(fixtureData, port = 0) {
 
   try {
     let data = await writeReporterFixture(fixtureData, workingDir);
+    await writeFile(
+      join(workingDir, '.vizzlyrc.json'),
+      JSON.stringify({
+        comparison: { threshold: 2 },
+        server: { port: 47392, timeout: 30000 },
+        build: { name: 'Build {timestamp}', environment: 'test' },
+        tdd: { openReport: false },
+      })
+    );
     child = fork(
-      fileURLToPath(new URL('./real-server.js', import.meta.url)),
+      fileURLToPath(new URL('./server-process.js', import.meta.url)),
       [],
       {
         cwd: workingDir,
@@ -97,7 +52,13 @@ export async function startRealReporter(fixtureData, port = 0) {
         env: {
           ...process.env,
           VIZZLY_HOME: join(workingDir, 'home'),
-          REPORTER_TEST_PORT: String(port),
+          REPORTER_TEST_API_URL: options.apiUrl,
+          REPORTER_TEST_SIGNED_IN: String(options.signedIn || false),
+          VIZZLY_API_URL: options.apiUrl,
+          VIZZLY_THRESHOLD: '',
+          VIZZLY_MIN_CLUSTER_SIZE: '',
+          VIZZLY_PORT: '',
+          VIZZLY_TOKEN: '',
         },
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       }
@@ -136,6 +97,12 @@ export async function startRealReporter(fixtureData, port = 0) {
       data,
       workingDir,
       url: `http://127.0.0.1:${boundPort}`,
+      readConfig: async () =>
+        JSON.parse(await readFile(join(workingDir, '.vizzlyrc.json'), 'utf8')),
+      readAuth: async () =>
+        JSON.parse(
+          await readFile(join(workingDir, 'home', 'config.json'), 'utf8')
+        ).auth,
       readReport: async () =>
         JSON.parse(
           await readFile(

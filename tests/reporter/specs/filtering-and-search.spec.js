@@ -1,47 +1,12 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { expect, test } from '@playwright/test';
-import { vizzlyScreenshot } from '../../../dist/client/index.js';
-import { createReporterTestServer } from '../test-helper.js';
+import { expect, test } from '../support/reporter-test.js';
 
-let __filename = fileURLToPath(import.meta.url);
-let __dirname = dirname(__filename);
-let fixturesDir = join(__dirname, '..', 'fixtures');
-
-/**
- * Filtering and Search E2E Tests
- *
- * Tests the filtering and search functionality in the comparisons list.
- * Uses the mixed-state fixture which has varied statuses, browsers, and viewports.
- */
-test.describe('Filtering and Search', () => {
-  let server;
-  let fixtureData;
-  let port = 3471;
-
-  test.beforeAll(() => {
-    fixtureData = JSON.parse(
-      readFileSync(join(fixturesDir, 'mixed-state.json'), 'utf8')
-    );
-  });
-
-  test.beforeEach(async () => {
-    server = createReporterTestServer(fixtureData, port);
-    await server.start();
-  });
-
-  test.afterEach(async () => {
-    if (server) {
-      await server.stop();
-    }
-  });
-
+test.describe('Filtering And Search', () => {
   test('filter by status shows correct screenshots', async ({
     page,
-    browserName,
+    reporter,
+    capture,
   }) => {
-    await page.goto(`http://localhost:${port}/`);
+    await page.goto(`${reporter.url}/`);
 
     // User sees filter buttons with counts
     await expect(page.getByRole('button', { name: /All.*5/i })).toBeVisible();
@@ -65,11 +30,7 @@ test.describe('Filtering and Search', () => {
     ).toBeVisible();
 
     // 📸 Failed filter applied
-    await vizzlyScreenshot(
-      'filter-failed-only',
-      await page.screenshot({ fullPage: true }),
-      { browser: browserName, viewport: page.viewportSize() }
-    );
+    await capture('filter-failed-only');
 
     // Passed and new screenshots are hidden
     await expect(
@@ -123,8 +84,12 @@ test.describe('Filtering and Search', () => {
     ).toBeVisible();
   });
 
-  test('search filters screenshots by name', async ({ page, browserName }) => {
-    await page.goto(`http://localhost:${port}/`);
+  test('search filters screenshots by name', async ({
+    page,
+    reporter,
+    capture,
+  }) => {
+    await page.goto(`${reporter.url}/`);
 
     // User types in search box
     let searchBox = page.getByRole('textbox', {
@@ -149,11 +114,7 @@ test.describe('Filtering and Search', () => {
     ).not.toBeVisible();
 
     // 📸 Search results
-    await vizzlyScreenshot(
-      'search-homepage',
-      await page.screenshot({ fullPage: true }),
-      { browser: browserName, viewport: page.viewportSize() }
-    );
+    await capture('search-homepage');
 
     // User searches for something that doesn't exist
     await searchBox.fill('nonexistent');
@@ -164,11 +125,7 @@ test.describe('Filtering and Search', () => {
     ).toBeVisible();
 
     // 📸 Empty search results
-    await vizzlyScreenshot(
-      'search-no-results',
-      await page.screenshot({ fullPage: true }),
-      { browser: browserName, viewport: page.viewportSize() }
-    );
+    await capture('search-no-results');
 
     // User clears search
     await searchBox.fill('');
@@ -182,12 +139,15 @@ test.describe('Filtering and Search', () => {
     ).toBeVisible();
   });
 
-  test('filter by browser shows correct screenshots', async ({ page }) => {
+  test('filter by browser shows correct screenshots', async ({
+    page,
+    reporter,
+  }) => {
     // Skip on mobile - browser dropdown is hidden on small screens
     let viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'Browser filter hidden on mobile');
 
-    await page.goto(`http://localhost:${port}/`);
+    await page.goto(`${reporter.url}/`);
 
     // User opens browser dropdown and selects Chrome
     await page.getByTestId('filter-browser').click();
@@ -225,12 +185,12 @@ test.describe('Filtering and Search', () => {
     ).not.toBeVisible();
   });
 
-  test('combine status and browser filters', async ({ page }) => {
+  test('combine status and browser filters', async ({ page, reporter }) => {
     // Skip on mobile - browser dropdown is hidden on small screens
     let viewport = page.viewportSize();
     test.skip(viewport.width < 640, 'Browser filter hidden on mobile');
 
-    await page.goto(`http://localhost:${port}/`);
+    await page.goto(`${reporter.url}/`);
 
     // User filters to failed only
     await page.getByRole('button', { name: /Failed.*2/i }).click();
@@ -255,8 +215,8 @@ test.describe('Filtering and Search', () => {
     ).not.toBeVisible();
   });
 
-  test('filter state persists in URL', async ({ page }) => {
-    await page.goto(`http://localhost:${port}/`);
+  test('filter state persists in URL', async ({ page, reporter }) => {
+    await page.goto(`${reporter.url}/`);
 
     // User applies status filter
     await page.getByRole('button', { name: /Failed.*2/i }).click();

@@ -18,7 +18,7 @@ export default defineConfig({
   },
 
   use: {
-    baseURL: 'http://localhost:3456',
+    reducedMotion: 'reduce',
     screenshot: 'only-on-failure',
     video: 'off',
     navigationTimeout: 5000,

@@ -68,7 +68,8 @@
     "stylelint-config-standard": "^40.0.0",
     "testem": "^3.21.0",
     "tracked-built-ins": "^4.1.2",
-    "vite": "^8.3.1"
+    "vite": "^8.3.1",
+    "@vizzly-testing/cli": "workspace:*"
   },
   "engines": {
     "node": ">= 20"

@@ -11,10 +11,19 @@ overrides:
   shell-quote@>=1.8.4 <1.11.0: 1.11.0
   # can-symlink and external-editor require vulnerable tmp 0.0.x releases.
   tmp@<0.2.6: 0.2.7
+  # Keep transitive dependencies on patched releases until their parents update.
+  markdown-it@>=14.1.0 <14.3.3: 14.3.3
+  zod@>=4.0.0 <4.6.6: 4.6.7
+  body-parser@>=2.0.0 <2.4.0: 2.4.0
+  fast-uri@>=3.0.0 <3.1.9: 3.1.9
 
 minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
+# These exact security fixes are newer than the normal seven-day waiting period.
+minimumReleaseAgeExclude:
+  - body-parser@2.4.0
+  - fast-uri@3.1.9
 onlyBuiltDependencies:
   - canvas
   - esbuild

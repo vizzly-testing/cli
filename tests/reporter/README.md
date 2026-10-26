@@ -17,6 +17,8 @@ action, then release it without sleeping or replacing local API routes.
 - `support/reporter-test.js` owns Playwright fixtures and cleanup.
 - `support/reporter-server.js` and `server-process.js` start the isolated server.
 - `support/report-data.js` and `write-reporter-fixture.js` prepare report files.
+- `support/height-change-capture.js` uploads real PNGs through native comparison
+  to verify added and removed rows in the gutter.
 - `support/screenshots.js` waits for fonts and images, attaches screenshots to
   Playwright, and submits the same images through `vizzlyScreenshot`.
 

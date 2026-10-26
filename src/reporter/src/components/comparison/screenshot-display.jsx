@@ -7,9 +7,10 @@ import {
   ToggleMode,
 } from '@vizzly-testing/bear-den/review';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildDiffBands } from '../../utils/diff-bands.js';
+import { buildDiffBands, readRegionBounds } from '../../utils/diff-bands.js';
 import { withImageVersion } from '../../utils/image-url.js';
-import { DiffGutter, DiffOverview } from './diff-gutter.jsx';
+import { DiffGutter, scrollBandIntoView } from './diff-gutter.jsx';
+import { DiffStepper } from './diff-stepper.jsx';
 
 /** All comparison modes share one measured canvas and one zoom calculation. */
 export function ScreenshotDisplay({
@@ -114,14 +115,19 @@ export function ScreenshotDisplay({
     imageErrors,
   };
   let bands = useMemo(
-    () => (comparison.diff ? buildDiffBands(comparison.diffClusters) : []),
-    [comparison.diff, comparison.diffClusters]
+    () =>
+      comparison.diff
+        ? buildDiffBands({
+            clusters: comparison.diffClusters,
+            heightChange: comparison.heightChange,
+          })
+        : [],
+    [comparison.diff, comparison.diffClusters, comparison.heightChange]
   );
   let activeId = hoveredBandId || selectedBandId;
-  let activeBand = bands.find(band => band.id === activeId);
   let regions = (comparison.diffClusters || []).flatMap((cluster, index) => {
-    if (!showRegions && !activeBand?.regionIndexes.includes(index)) return [];
-    let box = cluster.boundingBox;
+    if (!showRegions) return [];
+    let box = readRegionBounds(cluster);
     if (!box) return [];
     return [
       {
@@ -136,20 +142,11 @@ export function ScreenshotDisplay({
   });
   let selectBand = band => {
     setSelectedBandId(band.id);
-    let container = containerRef.current;
-    let image = imageRef.current;
-    let imageTop =
-      image.getBoundingClientRect().top -
-      container.getBoundingClientRect().top +
-      container.scrollTop;
-    container.scrollTo({
-      top:
-        imageTop +
-        ((band.y1 + band.y2) / 2) * scale -
-        container.clientHeight / 2,
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        ? 'auto'
-        : 'smooth',
+    scrollBandIntoView({
+      container: containerRef.current,
+      image: imageRef.current,
+      band,
+      imageHeight: dimensions.imageHeight,
     });
   };
 
@@ -222,11 +219,12 @@ export function ScreenshotDisplay({
             />
             <DiffGutter
               bands={bands}
+              imageWidth={dimensions.imageWidth}
               imageHeight={dimensions.imageHeight}
               scale={scale}
-              activeId={activeId}
-              onHover={setHoveredBandId}
-              onSelect={selectBand}
+              activeBandId={activeId}
+              onHoverBand={setHoveredBandId}
+              onSelectBand={selectBand}
             />
           </div>
         </div>
@@ -260,14 +258,10 @@ export function ScreenshotDisplay({
           screenshot.
         </Alert>
       )}
-      <DiffOverview
+      <DiffStepper
         bands={bands}
-        imageHeight={dimensions.imageHeight}
-        containerRef={containerRef}
-        imageRef={imageRef}
-        activeId={activeId}
-        onHover={setHoveredBandId}
-        onSelect={selectBand}
+        selectedBandId={selectedBandId}
+        onSelectBand={selectBand}
       />
     </div>
   );

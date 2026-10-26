@@ -497,6 +497,7 @@ export const createTddHandler = (
       aaPixelsIgnored: comparison.aaPixelsIgnored,
       aaPercentage: comparison.aaPercentage,
       heightDiff: comparison.heightDiff,
+      heightChange: comparison.heightChange,
       error: comparison.error,
       warnings,
       originalName: name,

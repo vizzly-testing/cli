@@ -25,15 +25,3 @@ export function planConfig(config) {
   }
   return { path: config.configPath, before: config.source, after };
 }
-
-export function quoteArgument(value, platform = process.platform) {
-  if (platform === 'win32') {
-    if (/[%!"\r\n]/.test(value)) {
-      throw new Error(
-        'This command needs manual quoting on Windows. Run your existing tests with vizzly tdd run.'
-      );
-    }
-    return `"${value}"`;
-  }
-  return `'${value.replaceAll("'", "'\\''")}'`;
-}

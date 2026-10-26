@@ -855,8 +855,6 @@ vizzly init --json
     "changes": [
       { "path": "/path/to/vizzly.config.js", "status": "written" }
     ],
-    "requirements": [],
-    "verification": { "capture": "not_run" },
     "cloud": { "status": "not_requested" },
     "exitCode": 0
   }

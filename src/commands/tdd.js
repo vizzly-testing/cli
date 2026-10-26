@@ -319,7 +319,7 @@ export async function tddCommand(
     let exitCode = hasFailures ? 1 : 0;
 
     // JSON output mode
-    if (globalOptions.json && options.emitOutput !== false) {
+    if (globalOptions.json) {
       // Build comparison data for JSON output
       let comparisons = (runResult.comparisons || []).map(c => ({
         name: c.name,
@@ -362,7 +362,7 @@ export async function tddCommand(
       output.cleanup();
     }
 
-    if (!globalOptions.json && options.emitOutput !== false) {
+    if (!globalOptions.json) {
       if (reportPath) output.hint(`Report: ${getReportFileUrl(reportPath)}`);
       output.blank?.();
       output.print(`  Context      ${buildLocalContextCommand()}`);
@@ -389,7 +389,7 @@ export async function tddCommand(
     };
   } catch (error) {
     // JSON output for errors
-    if (globalOptions.json && options.emitOutput !== false) {
+    if (globalOptions.json) {
       output.data({
         status: 'failed',
         exitCode: 1,
@@ -402,7 +402,7 @@ export async function tddCommand(
         reportPath: null,
       });
       output.cleanup();
-    } else if (options.emitOutput !== false) {
+    } else {
       output.error('Test failed', error);
     }
     return {

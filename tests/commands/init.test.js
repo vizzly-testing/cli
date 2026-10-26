@@ -78,7 +78,6 @@ test('JSON uses quick behavior and keeps created/skipped config statuses', async
   assert.equal(first.code, 0, first.stderr);
   assert.equal(first.data.status, 'created');
   assert.equal(first.data.mode, 'quick');
-  assert.equal(first.data.verification.capture, 'not_run');
   let source = await readFile(first.data.configPath, 'utf8');
   let again = await run(cwd);
   assert.equal(again.data.status, 'skipped');

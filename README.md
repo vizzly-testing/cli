@@ -22,15 +22,15 @@ pnpm add --save-dev @vizzly-testing/cli
 pnpm exec vizzly init
 ```
 
-The wizard creates a config and can add a Playwright example. It previews
-changes before applying them and offers a local capture check. You don't need
-an account for local testing. If Vizzly is already configured, init leaves it
-alone. Edit the config directly to change your setup.
+The wizard creates a config and offers agent guidance and cloud linking.
+It previews file changes before applying them. If Vizzly is already configured,
+init leaves it alone. Edit the config directly to change your setup.
 
 To create a small config and edit it yourself, use `pnpm exec vizzly init --quick`.
 It keeps existing config and doesn't install dependencies or run tests.
 
-Then add a screenshot to a test. This example uses Playwright:
+Choose a Vizzly client for your test setup, then add screenshot capture.
+This example uses Playwright with the Node.js client:
 
 ```javascript
 import { test } from '@playwright/test';

@@ -32,20 +32,9 @@ export function createPrompts({
       output.write('Enter yes or no.\n');
     }
   }
-  async function select(question, choices, defaultValue) {
-    output.write(
-      `${question}\n${choices.map(([key, label]) => `  ${key}. ${label}`).join('\n')}\n`
-    );
-    while (true) {
-      let answer = await ask('Choose', defaultValue);
-      if (choices.some(([key]) => key === answer)) return answer;
-      output.write('Choose one of the listed numbers.\n');
-    }
-  }
   return {
     ask,
     confirm,
-    select,
     close() {
       process.off('SIGINT', onInterrupt);
       reader.close();

@@ -64,9 +64,6 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - name: Install Chromium for CLI workflow tests
-        run: pnpm exec playwright install --with-deps chromium
-
       - name: Run tests
         run: pnpm test
         env:

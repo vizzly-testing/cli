@@ -3,14 +3,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { planAgentSetup } from '../init/agents.js';
 import { planConfig } from '../init/core.js';
-import { chooseIntegration } from '../init/integrations.js';
-import { inspectProject } from '../init/project.js';
 import { createPrompts } from '../init/prompts.js';
-import { discoverConfig, readOptionalFile } from '../utils/config-discovery.js';
-import { applyChanges, fileChange } from '../utils/file-changes.js';
+import { discoverConfig } from '../utils/config-discovery.js';
+import { applyChanges } from '../utils/file-changes.js';
 import * as output from '../utils/output.js';
 import { projectLinkCommand, validateProjectLinkOptions } from './project.js';
-import { tddCommand } from './tdd.js';
 
 function runProcess(command, args) {
   return new Promise((resolve, reject) => {
@@ -28,67 +25,11 @@ function runProcess(command, args) {
   });
 }
 
-async function ignoreChange(cwd, prompts) {
-  let filename = path.join(cwd, '.gitignore');
-  let source = (await readOptionalFile(filename)) || '';
-  if (
-    source
-      .split(/\r?\n/)
-      .some(line =>
-        ['.vizzly', '.vizzly/', '/.vizzly', '/.vizzly/'].includes(line)
-      )
-  )
-    return null;
-  if (
-    !(await prompts.confirm(
-      'Ignore generated .vizzly/ data here, including local baselines?'
-    ))
-  )
-    return null;
-  return fileChange(
-    filename,
-    `${source}${source && !source.endsWith('\n') ? '\n' : ''}# Vizzly local review data\n/.vizzly/\n`
-  );
-}
-
-async function guidedPlan(cwd, config, options, prompts) {
-  let project = await inspectProject(cwd);
+async function guidedPlan(cwd, config, prompts) {
   output.hint(`Project: ${cwd}`);
-  if (project.manager) output.hint(`Package manager: ${project.manager}`);
-  let integration = await chooseIntegration(project, prompts);
-  let { skill, guidance } = agentOptions(options);
-  if (!guidance && !skill && !options.skipAgentSkill) {
-    guidance = await prompts.confirm(
-      'Add the Vizzly skill and AGENTS.md instructions?'
-    );
-    skill = guidance;
-  }
-  let changes = [planConfig(config), ...integration.changes];
-  if (integration.command) changes.push(await ignoreChange(cwd, prompts));
-  let install = false;
-  if (integration.install.length && project.manager) {
-    install = await prompts.confirm(
-      `Install ${integration.install.join(' and ')} using ${project.manager}?`
-    );
-  }
-  let requirements = [...integration.requirements];
-  if (integration.install.length && !install) {
-    requirements.push(
-      `Install the required development dependencies: ${integration.install.join(', ')}.`
-    );
-  }
-  let verify = false;
-  let open = false;
-  if (integration.command && !requirements.length) {
-    output.hint(
-      'First local captures create new baselines; existing baselines will not be replaced.'
-    );
-    verify = await prompts.confirm(
-      'Run the selected command now to check screenshot capture?'
-    );
-    if (verify)
-      open = await prompts.confirm('Open the generated report after capture?');
-  }
+  let guidance = await prompts.confirm(
+    'Add the Vizzly skill and AGENTS.md instructions?'
+  );
   let cloudProject = null;
   if (
     await prompts.confirm('Connect this repository to a Vizzly Cloud project?')
@@ -97,38 +38,22 @@ async function guidedPlan(cwd, config, options, prompts) {
     let errors = validateProjectLinkOptions(cloudProject);
     if (errors.length) throw new Error(errors.join(' '));
   }
-  let agents = await planAgentSetup(cwd, {
-    skill,
-    guidance,
-  });
-  changes.push(...agents.changes);
-  changes = changes.filter(Boolean);
+  let agents = await planAgentSetup(cwd, { skill: guidance, guidance });
+  let changes = [planConfig(config), ...agents.changes];
   output.labelValue('Proposed changes', '');
   output.list(changes.map(change => path.relative(cwd, change.path)));
-  for (let requirement of requirements) output.hint(requirement);
-  if (install) output.hint(`Install: ${integration.install.join(', ')}`);
-  if (verify) output.hint(`Run: ${integration.command}`);
-  if (cloudProject) output.hint(`Connect project: ${cloudProject}`);
-  if (cloudProject)
+  if (cloudProject) {
+    output.hint(`Connect project: ${cloudProject}`);
     output.hint(
       'Local setup is saved first. If cloud linking fails, your local files stay in place.'
     );
+  }
   if (!(await prompts.confirm('Apply this setup?', true))) {
     throw Object.assign(new Error('Setup cancelled.'), {
       code: 'INIT_CANCELLED',
     });
   }
-  return {
-    project,
-    integration,
-    ...agents,
-    changes,
-    requirements,
-    install,
-    verify,
-    open,
-    cloudProject,
-  };
+  return { ...agents, changes, cloudProject };
 }
 
 function agentOptions(options) {
@@ -137,45 +62,6 @@ function agentOptions(options) {
     guidance,
     skill: guidance || (!options.skipAgentSkill && Boolean(options.agentSkill)),
   };
-}
-
-async function verifyCapture(command, options, open) {
-  let run;
-  try {
-    run = await tddCommand(
-      command,
-      { emitOutput: false, open, autoPort: true },
-      { ...options, json: false }
-    );
-    let result = run.result;
-    let capture = result.capture;
-    let status = 'failed';
-    if (
-      result.success &&
-      capture?.setup === 'ready' &&
-      !capture.rejected &&
-      !capture.errors
-    ) {
-      status =
-        capture.accepted > 0 && result.reportPath
-          ? 'captured'
-          : 'no_screenshots';
-    }
-    return {
-      capture: status,
-      count: capture?.accepted || 0,
-      reportPath: result.reportPath || null,
-      error:
-        [
-          ...new Set(
-            [capture?.reason, result.error, result.reportError].filter(Boolean)
-          ),
-        ].join(' ') || null,
-    };
-  } finally {
-    await run?.cleanup();
-    output.configure({ json: options.json || false });
-  }
 }
 
 async function connectProject(project, options) {
@@ -210,27 +96,15 @@ function showResult(result, json) {
     output.hint(`Vizzly agent skill: ${result.agentSkill.status}`);
   if (result.agentGuidance)
     output.hint(`AGENTS.md guidance: ${result.agentGuidance.status}`);
-  if (result.verification.capture === 'captured') {
-    let count = result.verification.count;
-    output.complete(`Captured ${count} screenshot${count === 1 ? '' : 's'}`);
-    output.hint(`Report: ${result.verification.reportPath}`);
-  } else if (result.verification.capture !== 'not_run') {
-    output.warn(
-      result.verification.capture === 'no_screenshots'
-        ? 'The command completed without capturing screenshots.'
-        : 'Screenshot verification failed.'
-    );
-    if (result.verification.error) output.hint(result.verification.error);
-  }
-  for (let requirement of result.requirements) output.hint(requirement);
+  if (result.cloud.error)
+    output.warn(`Cloud linking failed: ${result.cloud.error}`);
   if (result.status === 'skipped') {
     output.hint(
       'Edit this config to change your setup. Use --force to replace it.'
     );
-  } else if (result.mode === 'quick') {
-    output.hint(
-      'Edit this config for your project. Run vizzly init for guided setup.'
-    );
+  } else {
+    output.hint('Edit this config for your project.');
+    output.hint('Use a Vizzly client to add screenshot capture.');
   }
 }
 
@@ -267,19 +141,18 @@ export async function init(options = {}) {
   let prompts;
   try {
     if (initialized) {
-      plan = { changes: [], requirements: [] };
+      plan = { changes: [] };
     } else if (quick) {
       let configChange = planConfig(config);
       let agents = await planAgentSetup(cwd, agentOptions(options));
       plan = {
         ...agents,
         changes: [configChange, ...agents.changes],
-        requirements: [],
       };
     } else {
       output.header('init');
       prompts = createPrompts();
-      plan = await guidedPlan(cwd, config, options, prompts);
+      plan = await guidedPlan(cwd, config, prompts);
     }
   } catch (error) {
     if (error.code !== 'INIT_CANCELLED') throw error;
@@ -297,37 +170,22 @@ export async function init(options = {}) {
     mode,
     plugins: [],
     changes,
-    requirements: plan.requirements,
-    verification: { capture: 'not_run' },
     cloud: { status: 'not_requested' },
     ...(plan.agentSkill ? { agentSkill: plan.agentSkill } : {}),
     ...(plan.agentGuidance ? { agentGuidance: plan.agentGuidance } : {}),
-    exitCode: plan.requirements.length ? 2 : 0,
+    exitCode: 0,
   };
-  try {
-    if (plan.install) {
-      let manager = plan.project.manager;
-      let args = manager === 'npm' ? ['install', '--save-dev'] : ['add', '-D'];
-      await runProcess(manager, [...args, ...plan.integration.install]);
-    }
-    if (plan.cloudProject)
+  if (plan.cloudProject) {
+    try {
       result.cloud = await connectProject(plan.cloudProject, options);
-    if (plan.verify) {
-      result.verification = await verifyCapture(
-        plan.integration.command,
-        options,
-        plan.open
-      );
-      if (result.verification.capture !== 'captured') result.exitCode = 1;
+    } catch (error) {
+      result.cloud = {
+        status: 'failed',
+        project: plan.cloudProject,
+        error: error.message,
+      };
     }
-    if (
-      result.cloud.status !== 'not_requested' &&
-      result.cloud.status !== 'linked'
-    )
-      result.exitCode = 1;
-  } catch (error) {
-    result.exitCode = 1;
-    result.requirements.push(error.message);
+    if (result.cloud.status !== 'linked') result.exitCode = 1;
   }
   output.configure({ json: options.json || false });
   showResult(result, options.json);

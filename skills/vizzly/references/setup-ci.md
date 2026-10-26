@@ -1,34 +1,36 @@
-# Setup And CI
+# Setup and CI
 
-Use this reference only when the task includes initialization, CI changes, or
-configuration troubleshooting. These workflows mutate files or external build
-state.
+Use this guide when the task includes setup, CI changes, or config problems.
+These commands can change files or cloud builds.
 
-## Initialize
+## Set up Vizzly
 
-Initialize only with authorization. For unattended config scaffolding:
+Run this only when the task authorizes setup:
 
 ```bash
 vizzly init --quick
 ```
 
-Edit supported project settings in the generated config. Quick init does not
-install dependencies, run tests, or connect credentials. Use `vizzly init` in a
-terminal when a human wants guided setup and optional capture verification.
+Edit project settings in the config. Quick setup doesn't install dependencies,
+run tests, or link cloud credentials. Use `vizzly init` in a terminal for guided
+setup and an optional capture check.
 
-Use [CLI context](cli-context.md) for local evidence and TDD lifecycle commands.
+See [CLI context](cli-context.md) for local results and starting or stopping TDD.
 
 ## Cloud CI
 
-Use a project-scoped token from the repository's existing secret system. Never
-print it or write it into the repository.
+Use a project token from the repo's existing secret store. Never print it or
+save it in the repo.
 
 ```bash
-vizzly run "<existing visual test command>" --wait --json
+vizzly run "<existing visual test command>" --json
 ```
 
-For parallel CI, give every shard the same workflow-specific parallel ID. Run
-shards without `--wait`, then finalize once after all shards finish:
+Add `--wait` when you want CI to wait for cloud comparisons and fail on visual
+differences. Changed comparisons then make the command exit with code `1`.
+
+For parallel CI, give every shard the same ID for that CI run. Run shards
+without `--wait`, then finalize once they all finish:
 
 ```bash
 vizzly run "<shard test command>" --parallel-id "<shared-ci-run-id>" --json
@@ -37,12 +39,12 @@ vizzly finalize "<shared-ci-run-id>" --json
 
 ## Troubleshoot
 
-- `vizzly doctor`: local configuration
-- `vizzly tdd status --json`: a local daemon started by the task
-- `vizzly status <build-id> --json`: cloud lifecycle
-- `vizzly api schema --json`: discover supported cloud review operations and
-  their request and response schemas.
+- `vizzly doctor`: check local config.
+- `vizzly tdd status --json`: check a local server started for this task.
+- `vizzly status <build-id> --json`: check cloud build status.
+- `vizzly api schema --json`: find cloud review requests and their inputs
+  and outputs.
 
-If screenshots are absent, verify the existing integration, the test path that
-should capture them, and the active session. If authentication is absent,
-report it rather than logging in unless setup is in scope.
+If screenshots are missing, check the existing integration, the test that
+should capture them, and the active session. If auth is missing, report it.
+Only start login when setup is part of the task.

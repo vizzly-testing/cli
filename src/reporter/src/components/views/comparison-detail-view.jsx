@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import {
   useAcceptBaseline,
@@ -22,84 +22,60 @@ export default function ComparisonDetailView() {
   let rejectMutation = useRejectBaseline();
   let deleteMutation = useDeleteComparison();
 
-  // Memoize comparisons array to prevent dependency warnings
-  const comparisons = useMemo(
-    () => reportData?.comparisons || [],
-    [reportData?.comparisons]
+  let comparisons = reportData?.comparisons || [];
+  let targetId = params?.id ? decodeURIComponent(params.id) : null;
+  // Keep async decisions tied to the route, even if SSE removes the capture.
+  let routeSelection = useRef(null);
+  useLayoutEffect(() => {
+    routeSelection.current = { id: targetId };
+    return () => {
+      routeSelection.current = null;
+    };
+  }, [targetId]);
+  let isCurrentComparison = useCallback(
+    () => routeSelection.current?.id === targetId,
+    [targetId]
   );
-
-  // Find the lightweight comparison by ID from route params
-  // Uses stable IDs (id, signature, or name) - not array indices which change with filters
-  let lightComparison = useMemo(() => {
-    let targetId = params?.id ? decodeURIComponent(params.id) : null;
-    if (!targetId || comparisons.length === 0) {
-      return null;
-    }
-
-    // Find by stable ID (id, signature, or name)
-    return comparisons.find(
-      c => c.id === targetId || c.signature === targetId || c.name === targetId
-    );
-  }, [params, comparisons]);
+  let lightComparison = comparisons.find(
+    item =>
+      item.id === targetId ||
+      item.signature === targetId ||
+      item.name === targetId
+  );
 
   // Fetch full comparison details on-demand (includes heavy fields like diffClusters)
   let { data: fullComparison } = useComparison(lightComparison?.id);
 
-  // Merge lightweight SSE data with on-demand heavy fields
-  let comparison = useMemo(() => {
-    if (!lightComparison) return null;
-    if (!fullComparison) return lightComparison;
-    return {
-      ...lightComparison,
-      diffClusters: fullComparison.diffClusters,
-      intensityStats: fullComparison.intensityStats,
-      boundingBox: fullComparison.boundingBox,
-    };
-  }, [lightComparison, fullComparison]);
+  // SSE owns the current result; the detail request supplies the heavier analysis.
+  let comparison =
+    lightComparison && fullComparison
+      ? {
+          ...lightComparison,
+          diffClusters: fullComparison.diffClusters,
+          intensityStats: fullComparison.intensityStats,
+          boundingBox: fullComparison.boundingBox,
+        }
+      : lightComparison;
 
   // Simple navigation - just change the URL using stable IDs
-  const handleNavigate = useCallback(
+  let handleNavigate = useCallback(
     targetComparison => {
-      const id =
+      let id =
         targetComparison.id ||
         targetComparison.signature ||
         targetComparison.name;
       if (id) {
+        routeSelection.current = { id };
         setLocation(`/comparison/${encodeURIComponent(id)}`);
       }
     },
     [setLocation]
   );
 
-  const handleClose = useCallback(() => {
+  let handleClose = useCallback(() => {
+    routeSelection.current = null;
     setLocation('/');
   }, [setLocation]);
-
-  const handleAccept = useCallback(
-    id => {
-      acceptMutation.mutate(id);
-    },
-    [acceptMutation]
-  );
-
-  const handleReject = useCallback(
-    id => {
-      rejectMutation.mutate(id);
-    },
-    [rejectMutation]
-  );
-
-  const handleDelete = useCallback(
-    id => {
-      deleteMutation.mutate(id, {
-        onSuccess: () => {
-          // Navigate back to list after deletion
-          setLocation('/');
-        },
-      });
-    },
-    [deleteMutation, setLocation]
-  );
 
   // If no comparison found, show not found state
   if (!comparison) {
@@ -129,9 +105,10 @@ export default function ComparisonDetailView() {
       comparison={comparison}
       comparisons={comparisons}
       onClose={handleClose}
-      onAccept={handleAccept}
-      onReject={handleReject}
-      onDelete={handleDelete}
+      isCurrentComparison={isCurrentComparison}
+      onAccept={acceptMutation.mutateAsync}
+      onReject={rejectMutation.mutateAsync}
+      onDelete={deleteMutation.mutateAsync}
       onNavigate={handleNavigate}
     />
   );

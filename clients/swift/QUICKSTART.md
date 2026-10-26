@@ -1,6 +1,6 @@
 # XCTest quick start
 
-This guide gets one iOS UI test into local Vizzly TDD.
+Add a screenshot to an iOS UI test and review it locally with Vizzly.
 
 ## 1. Install the CLI
 
@@ -25,7 +25,9 @@ In Xcode:
 pnpm exec vizzly tdd start --open
 ```
 
-The command prints the dashboard URL. Keep it running while the UI test runs.
+Open the dashboard URL Vizzly prints. Leave the server running while you test.
+If it uses a custom port, set `VIZZLY_SERVER_URL` in your UI test runner's
+environment. See [connection setup](INTEGRATION.md#connect-to-vizzly).
 
 ## 4. Capture a screenshot
 
@@ -50,7 +52,7 @@ final class HomeScreenTests: XCTestCase {
 Run the test with `Cmd+U` or `xcodebuild`. The screenshot appears in the local
 dashboard.
 
-For a one-off run, let Vizzly own the server lifecycle:
+To start the server, run tests, and stop it in one command:
 
 ```bash
 pnpm exec vizzly tdd run \
@@ -58,7 +60,7 @@ pnpm exec vizzly tdd run \
   --no-open
 ```
 
-Vizzly writes the static report to `.vizzly/report/index.html`.
+If the run captures screenshots, Vizzly writes `.vizzly/report/index.html`.
 
 ## Next steps
 

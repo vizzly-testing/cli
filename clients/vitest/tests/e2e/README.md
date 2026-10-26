@@ -1,55 +1,30 @@
-# E2E Integration Tests
+# Vitest integration tests
 
-These tests verify the Vitest plugin integration with Vizzly and serve as real-world examples for users.
+These browser tests show how to use `toMatchScreenshot()`, custom properties,
+and Vitest's Playwright browser mode with Vizzly.
 
-## Running E2E Tests
+## Run locally
 
-### Local TDD Mode (Recommended for Development)
+From `clients/vitest`, install dependencies and Chromium, then start Vizzly
+and run the tests:
 
 ```bash
-# Start TDD server in one terminal
-pnpm exec vizzly tdd start
-
-# Run tests in another terminal (or in watch mode)
+pnpm install
+pnpm exec playwright install chromium
+pnpm exec vizzly tdd start --open
 pnpm run test:e2e
 ```
 
-This provides:
+Review results at the dashboard URL Vizzly prints. Baselines live in
+`.vizzly/baselines/`.
 
-- Real-time visual feedback at http://localhost:47392/dashboard
-- Local baseline management in `.vizzly/baselines/`
-- Fast iteration cycle
+## Run with cloud review
 
-### Cloud Mode (Used in CI)
+Set `VIZZLY_TOKEN`, then run:
 
 ```bash
-# Run tests with Vizzly cloud upload
 pnpm exec vizzly run "pnpm run test:e2e"
 ```
 
-This:
-
-- Uploads screenshots to Vizzly cloud
-- Allows team review and collaboration
-- Used automatically in CI/CD pipelines
-
-## CI/CD
-
-The CI workflow runs both unit tests and E2E tests:
-
-1. **Unit tests** - Test plugin configuration (runs in Node environment)
-2. **E2E tests** - Test actual browser integration wrapped with `vizzly run` (uploads to cloud)
-
-The E2E tests in CI use Vizzly cloud mode to:
-
-- Verify the integration works end-to-end
-- Provide visual regression testing for the SDK itself
-- Serve as living documentation
-
-## Test Structure
-
-The example tests demonstrate:
-
-- Basic screenshot comparison with `toMatchScreenshot()`
-- Using custom properties for better screenshot organization
-- Integration with Vitest's browser mode and Playwright
+CI runs the Node unit tests and these browser tests. The browser run uploads
+screenshots for review.

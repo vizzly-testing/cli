@@ -19,8 +19,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   filterReviewItems,
   getComparisonId,
+  getNextReviewItem,
   getResult,
   getReviewState,
+  groupReviewItems,
   stepReviewZoom,
 } from '../../utils/review.js';
 import { ReviewProperties } from './review-properties.jsx';
@@ -70,7 +72,12 @@ function FullscreenViewerInner({
   let { isActive: isReviewMode } = useReviewMode();
 
   let filteredItems = useMemo(
-    () => filterReviewItems(comparisons, queueFilter, search),
+    () =>
+      filterReviewItems(
+        groupReviewItems(comparisons).flatMap(group => group.variants),
+        queueFilter,
+        search
+      ),
     [comparisons, queueFilter, search]
   );
   let selectedId = getComparisonId(comparison);
@@ -78,7 +85,8 @@ function FullscreenViewerInner({
     item => getComparisonId(item) === selectedId
   );
   let canPrevious = currentIndex > 0;
-  let canNext = currentIndex >= 0 && currentIndex < filteredItems.length - 1;
+  let canNext =
+    filteredItems.length > 0 && currentIndex < filteredItems.length - 1;
   let variants = comparisons.filter(
     item =>
       (item.originalName || item.name) ===
@@ -104,10 +112,9 @@ function FullscreenViewerInner({
   let decide = useCallback(
     async (action, advance = true) => {
       if (!action || !comparison || savingRef.current) return;
-      let nextItem =
-        advance && queueFilter === 'needs-review' && currentIndex >= 0
-          ? filteredItems[currentIndex + 1] || filteredItems[currentIndex - 1]
-          : null;
+      let nextItem = advance
+        ? getNextReviewItem(filteredItems, selectedId)
+        : null;
       savingRef.current = true;
       setIsSaving(true);
       setActionError(null);
@@ -115,11 +122,7 @@ function FullscreenViewerInner({
         await action(selectedId);
         if (!isCurrentComparison()) return;
         if (nextItem) navigate(nextItem);
-        else if (
-          !advance ||
-          (queueFilter === 'needs-review' && currentIndex >= 0)
-        )
-          onClose();
+        else onClose();
       } catch (error) {
         if (isCurrentComparison()) {
           setActionError(`Could not save your review: ${error.message}`);
@@ -131,8 +134,6 @@ function FullscreenViewerInner({
     },
     [
       comparison,
-      queueFilter,
-      currentIndex,
       filteredItems,
       selectedId,
       navigate,
@@ -251,8 +252,7 @@ function FullscreenViewerInner({
   let reviewState = getReviewState(comparison);
   let result = getResult(comparison);
   let resultNote = RESULT_NOTES[result];
-  let position =
-    currentIndex < 0 ? '—' : `${currentIndex + 1}/${filteredItems.length}`;
+  let position = `${currentIndex + 1}/${filteredItems.length}`;
   let canDelete = result === 'new' && onDelete;
 
   return (

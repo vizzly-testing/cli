@@ -98,9 +98,9 @@ test.describe('Review Viewer', () => {
     await page.keyboard.press('r');
     await expect(page).toHaveURL(new RegExp(`${newId}$`));
     await page.keyboard.press('a');
-    await expect(page).toHaveURL(/pricing-page-chromium-1920x1080$/);
-    await page.keyboard.press('a');
     await expect(page).toHaveURL(new RegExp(`${pricingId}$`));
+    await page.keyboard.press('a');
+    await expect(page).toHaveURL(/pricing-page-chromium-1920x1080$/);
     await page.keyboard.press('a');
     await expect(page).toHaveURL(`${reporter.url}/`);
     expect(

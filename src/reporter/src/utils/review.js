@@ -102,3 +102,13 @@ export function filterReviewItems(comparisons, filter, search) {
     return searchText.toLowerCase().includes(query);
   });
 }
+
+export function getNextReviewItem(items, selectedId) {
+  let start = items.findIndex(item => getComparisonId(item) === selectedId) + 1;
+  let ordered = [...items.slice(start), ...items.slice(0, start)];
+  return ordered.find(
+    item =>
+      getComparisonId(item) !== selectedId &&
+      matchesReviewFilter(item, 'needs-review')
+  );
+}

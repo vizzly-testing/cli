@@ -183,21 +183,51 @@ doesn't set the HTTP upload timeout. You can also set
 
 ## Commands
 
+These commands are built in. Use `pnpm exec vizzly --help` to see what's
+available in your project, or add `--help` to a command for its options.
+Run the commands below with `pnpm exec` when Vizzly is installed locally.
+
 | Command | What it does |
 | --- | --- |
+| `vizzly init` | Create config for Vizzly and installed plugins, with optional agent guidance. |
 | `vizzly tdd start` | Start the local server and dashboard. |
-| `vizzly tdd status` / `list` / `stop` | Check, list, or stop local servers. |
-| `vizzly tdd run "cmd"` | Run tests once and save local review data. |
-| `vizzly run "cmd"` | Run tests and upload for cloud review. |
-| `vizzly context ...` | Read build, screenshot, and diff context. |
+| `vizzly tdd status` | Check this project's local server. |
+| `vizzly tdd list` | List running local servers. |
+| `vizzly tdd stop` | Stop this project's local server. |
+| `vizzly tdd run "command"` | Run tests once and save local review data. |
+| `vizzly tdd screenshots list` | List captures from the latest local run. |
+| `vizzly tdd screenshots latest [name]` | Print the latest capture's image path. |
+| `vizzly tdd screenshots show <id-or-name>` | Show local capture details and the current image path. |
+| `vizzly tdd screenshots accept <id-or-name>` | Save a local capture as its baseline. |
+| `vizzly run "command"` | Run tests and upload for cloud review. |
 | `vizzly upload <dir>` | Upload screenshots. |
-| `vizzly preview <dir>` | Upload a static site for in-context review. |
+| `vizzly finalize <parallel-id>` | Finish a cloud build after all shards complete. |
+| `vizzly preview <path>` | Upload a static preview for a cloud build; private projects need `--public-link`. |
+| `vizzly status <build-id>` | Check cloud build status. |
+| `vizzly builds` | List builds, or fetch one with `--build <id>`. |
+| `vizzly comparisons --build <build-id>` | List a build's comparisons; also supports `--id` or `--name` queries. |
+| `vizzly context build <build-id>` | Read build context. |
+| `vizzly context comparison <comparison-id>` | Read comparison context. |
+| `vizzly context screenshot <name>` | Read screenshot history. |
+| `vizzly context similar <fingerprint-hash>` | Find cloud comparisons with similar diffs. |
+| `vizzly context review-queue` | Read comparisons waiting for review. |
+| `vizzly baselines` | List local baselines, or inspect one with `--info <name>`. |
 | `vizzly approve <comparison-id>` | Approve a comparison. |
-| `vizzly reject <comparison-id>` | Reject a comparison with a reason. |
-| `vizzly comment <build-id>` | Comment on a build. |
+| `vizzly reject <comparison-id> --reason "message"` | Reject a comparison with a reason. |
+| `vizzly comment <build-id> "message"` | Comment on a build. |
+| `vizzly api schema [operation-id]` | Discover cloud API requests, fields, and response formats. |
+| `vizzly api <endpoint>` | Make API requests; use `--output <file>` for images. |
 | `vizzly config [key]` | Show your current config. |
+| `vizzly project link <org>/<project>` | Link this checkout to a cloud project. |
+| `vizzly orgs` | List your organizations. |
+| `vizzly projects` | List projects you can access. |
 | `vizzly login` | Sign in through the browser. |
+| `vizzly logout` | Clear your saved login. |
+| `vizzly whoami` | Check your account and authentication status. |
 | `vizzly doctor` | Check your setup. |
+
+Installed plugins add commands such as `storybook`, `static-site`, and `previews`.
+See their setup guides above for details.
 
 ## More
 

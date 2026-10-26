@@ -186,6 +186,7 @@ export function fileToScreenshotFormat(file) {
   return {
     sha256: file.sha256,
     name: file.filename.replace(/\.png$/, ''),
+    filename: file.filename,
     properties: browser ? { browser } : {},
   };
 }

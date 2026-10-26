@@ -4,6 +4,7 @@ import { comparisonIds, reviewFixture } from '../support/report-data.js';
 import { expect, test } from '../support/reporter-test.js';
 
 let { pricing: pricingId, checkout: checkoutId, new: newId } = comparisonIds;
+let pricingVariant = 'pricing-page-chromium-1920x1080';
 test.use({ reportData: reviewFixture() });
 
 test.describe('Review Decisions', () => {
@@ -15,7 +16,7 @@ test.describe('Review Decisions', () => {
   }) => {
     await openReview();
     await page.getByRole('button', { name: 'Approve', exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`${checkoutId}$`));
+    await expect(page).toHaveURL(new RegExp(`${pricingVariant}$`));
     let report = await reporter.readReport();
     expect(report.comparisons.find(item => item.id === pricingId).status).toBe(
       'passed'
@@ -36,6 +37,8 @@ test.describe('Review Decisions', () => {
         )
       )
     ).toBe(true);
+    await page.getByRole('button', { name: 'Approve', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`${checkoutId}$`));
     await page.getByRole('button', { name: 'Reject', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${newId}$`));
     report = await reporter.readReport();
@@ -122,7 +125,7 @@ test.describe('Review Decisions', () => {
     ).toBeEnabled();
     await writeFile(path, contents);
     await page.getByRole('button', { name: 'Approve', exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`${checkoutId}$`));
+    await expect(page).toHaveURL(new RegExp(`${pricingVariant}$`));
   });
 
   test('deletion still closes after SSE removes the capture before the response arrives', async ({

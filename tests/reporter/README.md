@@ -44,6 +44,8 @@ dates from changing the screenshots.
 - `support/reporter-test.js`: fixtures and cleanup.
 - `support/reporter-server.js` and `server-process.js`: start the test server.
 - `support/report-data.js` and `write-reporter-fixture.js`: create report files.
+- `support/height-change-capture.js`: upload real PNGs to check added and removed
+  rows through native comparison.
 - `support/screenshots.js`: wait for fonts and images, attach screenshots to
   Playwright, and send them through `vizzlyScreenshot`.
 

@@ -1,6 +1,16 @@
 import assert from 'node:assert';
+import { createHash } from 'node:crypto';
+import { once } from 'node:events';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { createVizzly, VizzlySDK } from '../../src/sdk/index.js';
+import {
+  createUploader,
+  createVizzly,
+  VizzlySDK,
+} from '../../src/sdk/index.js';
 
 describe('sdk/index', () => {
   describe('createVizzly', () => {
@@ -70,6 +80,73 @@ describe('sdk/index', () => {
         upload: { screenshotsDir: './updated' },
       });
       assert.equal(tddConfigs[0].options.workingDir, '/tmp/vizzly');
+    });
+  });
+
+  describe('createUploader', () => {
+    it('uploads through an API that ignores the additive filename field', async t => {
+      let directory = await mkdtemp(
+        join(tmpdir(), 'vizzly-sdk-file-compatibility-')
+      );
+      t.after(async () => {
+        await rm(directory, { recursive: true, force: true });
+      });
+      let bytes = Buffer.from('same file bytes');
+      let sha256 = createHash('sha256').update(bytes).digest('hex');
+      let names = ['Homepage-chrome.png', 'Panel.png.png'];
+      for (let name of names) await writeFile(join(directory, name), bytes);
+      let requests = [];
+      let server = createServer(async (request, response) => {
+        let chunks = [];
+        for await (let chunk of request) chunks.push(chunk);
+        let body = request.headers['content-type']?.includes('application/json')
+          ? JSON.parse(Buffer.concat(chunks).toString())
+          : null;
+        requests.push({ path: request.url, body });
+        response.setHeader('Content-Type', 'application/json');
+        if (request.url === '/api/sdk/builds') {
+          response.statusCode = 201;
+          response.end(JSON.stringify({ id: 'build-1' }));
+          return;
+        }
+        if (request.url === '/api/sdk/check-shas') {
+          // The released API ignores unknown fields such as filename.
+          response.end(JSON.stringify({ existing: [sha256], missing: [] }));
+          return;
+        }
+        response.statusCode = 400;
+        response.end(
+          JSON.stringify({ error: 'No multipart upload should be needed' })
+        );
+      });
+      let ready = once(server, 'listening');
+      server.listen(0, '127.0.0.1');
+      await ready;
+      t.after(async () => {
+        await new Promise(resolve => server.close(resolve));
+      });
+      let apiUrl = `http://127.0.0.1:${server.address().port}`;
+      let uploader = createUploader({ apiKey: 'vzt_compatibility', apiUrl });
+      let result = await uploader.upload({
+        screenshotsDir: directory,
+        buildName: 'SDK compatibility',
+        branch: 'main',
+      });
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.stats.uploaded, 0);
+      assert.strictEqual(result.stats.skipped, 2);
+      assert.deepStrictEqual(
+        requests.map(({ path }) => path),
+        ['/api/sdk/builds', '/api/sdk/check-shas']
+      );
+      assert.deepStrictEqual(
+        requests[1].body.screenshots.map(({ name }) => name).sort(),
+        ['Homepage-chrome', 'Panel.png']
+      );
+      assert.deepStrictEqual(
+        requests[1].body.screenshots.map(({ filename }) => filename).sort(),
+        [...names].sort()
+      );
     });
   });
 

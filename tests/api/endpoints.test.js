@@ -1,13 +1,15 @@
 /**
  * Tests for API endpoints
  *
- * Tests endpoint functions with a mock client.
- * The mock client just records what was called - no network.
+ * Covers endpoint payloads and upload compatibility through HTTP.
  */
 
 import assert from 'node:assert';
 import { createHash } from 'node:crypto';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
 import { describe, it } from 'node:test';
+import { createApiClient } from '../../src/api/client.js';
 import {
   checkShas,
   createBuild,
@@ -472,6 +474,69 @@ describe('api/endpoints', () => {
       assert.strictEqual(calls.length, 2);
       assert.ok(!JSON.parse(calls[0].options.body).image_data);
       assert.ok(JSON.parse(calls[1].options.body).image_data);
+    });
+
+    it('falls back from a byte-only API HTTP 400 without changing names or options', async t => {
+      let requests = [];
+      let server = createServer(async (request, response) => {
+        let chunks = [];
+        for await (let chunk of request) chunks.push(chunk);
+        let body = JSON.parse(Buffer.concat(chunks).toString());
+        requests.push(body);
+        response.setHeader('Content-Type', 'application/json');
+        if (!body.image_data) {
+          response.statusCode = 400;
+          response.end(
+            JSON.stringify({ error: 'name and image_data are required' })
+          );
+          return;
+        }
+        response.statusCode = 201;
+        response.end(
+          JSON.stringify({ id: `capture-${requests.length}`, name: body.name })
+        );
+      });
+      let ready = once(server, 'listening');
+      server.listen(0, '127.0.0.1');
+      await ready;
+      t.after(async () => {
+        await new Promise(resolve => server.close(resolve));
+      });
+      let client = createApiClient({
+        baseUrl: `http://127.0.0.1:${server.address().port}`,
+        token: 'vzt_compatibility',
+        command: 'run',
+      });
+      for (let name of ['Checkout', 'Checkout.png']) {
+        let uploaded = await uploadScreenshot(
+          client,
+          'build-1',
+          name,
+          Buffer.from('same pixels'),
+          { browser: 'firefox', theme: 'dark' },
+          false,
+          { threshold: 7, minClusterSize: 3 }
+        );
+        assert.strictEqual(uploaded.name, name);
+      }
+      let captures = requests.filter(({ image_data }) => image_data);
+      assert.strictEqual(requests.length, 4);
+      assert.deepStrictEqual(
+        captures.map(({ name }) => name),
+        ['Checkout', 'Checkout.png']
+      );
+      assert.ok(
+        captures.every(
+          ({ properties }) =>
+            properties.browser === 'firefox' && properties.theme === 'dark'
+        )
+      );
+      assert.ok(
+        captures.every(
+          ({ threshold, minClusterSize }) =>
+            threshold === 7 && minClusterSize === 3
+        )
+      );
     });
 
     it('does not retry byte upload when SHA resolution fails with auth errors', async () => {

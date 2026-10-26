@@ -15,6 +15,13 @@ export function getReviewState(comparison) {
   return 'pending';
 }
 
+export function getGroupReviewState(variants) {
+  let states = variants.map(getReviewState);
+  if (states.includes('rejected')) return 'rejected';
+  if (states.every(state => state === 'approved')) return 'approved';
+  return 'pending';
+}
+
 export function getResult(comparison) {
   if (['new', 'baseline-created'].includes(comparison.status)) return 'new';
   if (comparison.status === 'passed') return 'unchanged';
@@ -101,4 +108,14 @@ export function filterReviewItems(comparisons, filter, search) {
     ].join(' ');
     return searchText.toLowerCase().includes(query);
   });
+}
+
+export function getNextReviewItem(items, selectedId) {
+  let start = items.findIndex(item => getComparisonId(item) === selectedId) + 1;
+  let ordered = [...items.slice(start), ...items.slice(0, start)];
+  return ordered.find(
+    item =>
+      getComparisonId(item) !== selectedId &&
+      matchesReviewFilter(item, 'needs-review')
+  );
 }

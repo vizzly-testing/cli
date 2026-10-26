@@ -1,5 +1,4 @@
 import {
-  CheckIcon,
   ComputerDesktopIcon,
   CubeTransparentIcon,
   DocumentMagnifyingGlassIcon,
@@ -18,11 +17,13 @@ import { useEffect, useRef, useState } from 'react';
 import { withImageVersion } from '../../utils/image-url.js';
 import {
   getComparisonId,
+  getGroupReviewState,
   getResult,
   getReviewMetadata,
   getReviewState,
   groupReviewItems,
 } from '../../utils/review.js';
+import { ReviewDecisionMark } from './review-decision-mark.jsx';
 
 let SIDEBAR_TABS = ['queue', 'details'];
 let QUEUE_FILTERS = [
@@ -175,7 +176,7 @@ function ReviewSidebarContent({
                 );
                 let selected = Boolean(selectedItem);
                 let item = selectedItem || group.variants[0];
-                let decision = getReviewState(item);
+                let decision = getGroupReviewState(group.variants);
                 return (
                   <div key={group.name} ref={selected ? activeRef : null}>
                     <ReviewQueueItem
@@ -195,16 +196,8 @@ function ReviewSidebarContent({
                         />
                       }
                       trailing={
-                        decision === 'approved' ? (
-                          <CheckIcon
-                            className="h-4 w-4 text-[var(--bd-success)]"
-                            aria-label="Approved"
-                          />
-                        ) : decision === 'rejected' ? (
-                          <XMarkIcon
-                            className="h-4 w-4 text-[var(--bd-danger)]"
-                            aria-label="Rejected"
-                          />
+                        decision !== 'pending' ? (
+                          <ReviewDecisionMark decision={decision} />
                         ) : group.variants.length > 1 ? (
                           <span className="font-mono text-xs text-[var(--bd-text-muted)]">
                             {group.variants.length}
@@ -230,15 +223,21 @@ function ReviewSidebarContent({
                                 }
                                 className="review-variant"
                               >
-                                {[
-                                  metadata.browser,
-                                  metadata.viewport,
-                                  metadata.device,
-                                  metadata.theme,
-                                  metadata.locale,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ') || variant.name}
+                                <span className="min-w-0 truncate">
+                                  {[
+                                    metadata.browser,
+                                    metadata.viewport,
+                                    metadata.device,
+                                    metadata.theme,
+                                    metadata.locale,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ') || variant.name}
+                                </span>
+                                <ReviewDecisionMark
+                                  decision={getReviewState(variant)}
+                                  small
+                                />
                               </button>
                             </li>
                           );

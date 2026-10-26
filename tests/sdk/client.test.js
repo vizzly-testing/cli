@@ -1,6 +1,17 @@
 import assert from 'node:assert';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { afterEach, beforeEach, describe, it, mock } from 'node:test';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  after,
+  afterEach,
+  before,
+  beforeEach,
+  describe,
+  it,
+  mock,
+} from 'node:test';
 import {
   autoDiscoverTddServer,
   configure,
@@ -44,6 +55,21 @@ async function closeServer(server) {
 }
 
 describe('client/index', () => {
+  let originalCwd;
+  let workingDir;
+
+  before(async () => {
+    originalCwd = process.cwd();
+    workingDir = await mkdtemp(join(tmpdir(), 'vizzly-sdk-client-'));
+    // Discovery must not connect these tests to a developer's running server.
+    process.chdir(workingDir);
+  });
+
+  after(async () => {
+    process.chdir(originalCwd);
+    await rm(workingDir, { recursive: true, force: true });
+  });
+
   beforeEach(() => {
     // Save originals
     originalEnv = { ...process.env };

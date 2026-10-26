@@ -20,6 +20,11 @@ export async function waitForFullscreenViewerReady(page) {
 
 export async function captureReporter(page, browserName, testInfo, name) {
   await waitForReporterImages(page);
+  for (let image of await page.locator('img:visible').all()) {
+    await expect(image).toHaveJSProperty('complete', true);
+    await expect(image).not.toHaveJSProperty('naturalWidth', 0);
+    await image.evaluate(element => element.decode());
+  }
   let path = testInfo.outputPath(`${name}.png`);
   let screenshot = await page.screenshot({
     path,

@@ -121,7 +121,7 @@ vizzly api schema --json
 ```
 
 To make visual differences fail CI, see the
-[CI guide](setup-ci.md#cloud-ci).
+[CI guide](ci.md#cloud-ci).
 
 ## Inspect a comparison
 

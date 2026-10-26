@@ -15,6 +15,13 @@ export function getReviewState(comparison) {
   return 'pending';
 }
 
+export function getGroupReviewState(variants) {
+  let states = variants.map(getReviewState);
+  if (states.includes('rejected')) return 'rejected';
+  if (states.every(state => state === 'approved')) return 'approved';
+  return 'pending';
+}
+
 export function getResult(comparison) {
   if (['new', 'baseline-created'].includes(comparison.status)) return 'new';
   if (comparison.status === 'passed') return 'unchanged';

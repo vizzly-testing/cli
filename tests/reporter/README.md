@@ -1,47 +1,53 @@
 # Reporter tests
 
-These are browser tests against the production HTTP server, TDD handler, and
-auth, config, and project services. Each test gets its own temporary project,
-config directory, report files, and available port. Decisions, settings, and
-credentials use real disk storage; report updates use the real SSE connection.
+These browser tests use the real HTTP server, TDD handler, and local services.
+Each test gets a temporary project, config, report files, and port. Decisions,
+settings, and credentials go to disk; report updates arrive over SSE.
 
-Remote dependencies use fixtures: `support/cloud-api.js` simulates the Vizzly
-API, and `support/fonts.js` serves a checked-in JetBrains Mono font for the
-Google Fonts request. Auth tests can hold a cloud response until a specific user
-action, then release it without sleeping or replacing local API routes.
+Remote dependencies use fixtures. `support/cloud-api.js` stands in for the
+Vizzly API, and `support/fonts.js` serves a checked-in font for Google Fonts
+requests. Auth tests can hold a response until a user action, then release it
+without sleeps or replacing local routes.
 
-## Organization
+## Run locally
 
-- `specs/` groups workflows by purpose: dashboard review, filtering, settings,
-  builds, sign-in, viewer controls, regions, and decisions.
-- `support/reporter-test.js` owns Playwright fixtures and cleanup.
-- `support/reporter-server.js` and `server-process.js` start the isolated server.
-- `support/report-data.js` and `write-reporter-fixture.js` prepare report files.
-- `support/height-change-capture.js` uploads real PNGs through native comparison
-  to verify added and removed rows in the gutter.
-- `support/screenshots.js` waits for fonts and images, attaches screenshots to
-  Playwright, and submits the same images through `vizzlyScreenshot`.
+Install Firefox once, then build and run the tests:
 
-## Running locally
+```bash
+pnpm exec playwright install firefox
+pnpm run build
+pnpm run test:reporter
+```
 
-Build first with `pnpm run build`, then run `pnpm run test:reporter`. Firefox is
-the default; use `REPORTER_BROWSER=chromium` to run Chromium instead. Both desktop
-and phone viewports run by default. Pass a spec name to focus on one workflow.
+Tests run at desktop and phone sizes. Pass a spec name to focus on one workflow.
+To use Chromium, install it and set `REPORTER_BROWSER=chromium`.
 
-Install the browser once with `pnpm exec playwright install firefox` (or
-`chromium` when selecting Chromium). On macOS, the setup gives Firefox a
-temporary app-data directory and removes it after the run. This avoids the
-[macOS 27 Firefox launch issue](https://bugzilla.mozilla.org/show_bug.cgi?id=2060476)
-without needing access to your personal Firefox data.
+On macOS, Firefox gets a temporary app-data folder that's removed after the run.
+This avoids the [macOS 27 launch issue](https://bugzilla.mozilla.org/show_bug.cgi?id=2060476)
+without accessing your personal Firefox data.
 
-Run `pnpm run test:reporter:visual` to compare captures through Vizzly. This is
-also the existing CI entry point. It includes the fullscreen layout, queue,
-details, slide view, change navigation, and changed-region captures alongside
-the dashboard and settings screenshots. Running Playwright directly still saves
-image attachments, but does not run visual comparisons.
+## Compare screenshots
 
-Captures use reduced motion and a fixed browser date so scrolling animations and
-relative dates do not produce visual differences between runs.
+Run `pnpm run test:reporter:visual` to start a local Vizzly server and compare
+captures. CI uses this too. It captures the dashboard, settings, fullscreen
+viewer, queue, details, slide view, change navigation, and changed regions.
 
-The font fixture comes from [Google Fonts](https://github.com/google/fonts/tree/main/ofl/jetbrainsmono)
-and includes its SIL Open Font License in `fixtures/fonts/OFL.txt`.
+Captures always save Playwright image attachments. Direct Playwright runs also
+send screenshots to Vizzly when a screenshot server is available.
+
+Captures use reduced motion and a fixed date to keep animations and relative
+dates from changing the screenshots.
+
+## Find the test helpers
+
+- `specs/`: review, filtering, settings, builds, sign-in, viewer, and region tests.
+- `support/reporter-test.js`: fixtures and cleanup.
+- `support/reporter-server.js` and `server-process.js`: start the test server.
+- `support/report-data.js` and `write-reporter-fixture.js`: create report files.
+- `support/height-change-capture.js`: upload real PNGs to check added and removed
+  rows through native comparison.
+- `support/screenshots.js`: wait for fonts and images, attach screenshots to
+  Playwright, and send them through `vizzlyScreenshot`.
+
+The font fixture is [JetBrains Mono from Google Fonts](https://github.com/google/fonts/tree/main/ofl/jetbrainsmono).
+Its SIL Open Font License is in `fixtures/fonts/OFL.txt`.

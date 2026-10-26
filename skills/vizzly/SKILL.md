@@ -41,8 +41,9 @@ output for guided inspection.
    pagination before drawing conclusions. Follow the schema's page instructions
    for cloud data. Missing fields remain unknown.
 4. For cloud data, discover the comparison and image operations from the schema.
-   View the baseline, current, and diff images together. If an image cannot be
-   opened, label the result metadata-only; do not call it visual verification.
+   View the current image with the baseline and diff when they're available.
+   A new screenshot may have no baseline or diff. Say which images you inspected;
+   if you couldn't open any images, label the result metadata-only.
 5. Read image dimensions, viewport, browser, diff regions, fingerprint, and
    relevant history alongside the images. A prior approval is supporting
    evidence, not permission to approve the current comparison.

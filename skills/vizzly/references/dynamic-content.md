@@ -1,28 +1,27 @@
-# Dynamic Content
+# Dynamic content
 
 Dates, timers, random data, API content, generated images, and responsive text
-can cause a diff. They are possible explanations, not conclusions.
+can cause diffs. Check the images before deciding that's what happened.
 
-## Diagnose Before Tuning
+## Check before changing settings
 
-1. Inspect the actual images and screenshot history:
+1. Open the images and check screenshot history:
 
    ```bash
    vizzly context screenshot "<screenshot-name>" --source <local-or-cloud> --json
    ```
 
-2. Record the visible region, recurrence, render metadata, and whether the same
-   change appears across builds or variants.
-3. Prefer deterministic fixtures when they can remove irrelevant variation.
-4. Use diff regions only to locate changed pixels; they do not approve a
-   comparison or explain why it changed.
-5. Preserve `threshold` and `minClusterSize` unless repeated evidence
-   justifies a change.
+2. Note where the change appears, how often it happens, the capture details,
+   and whether it appears in other builds or variants.
+3. Use fixed test data when it can remove changes unrelated to the test.
+4. Use diff regions to find changed pixels. They don't tell you why the pixels
+   changed or whether to approve them.
+5. Keep `threshold` and `minClusterSize` unless repeated captures show they
+   need to change.
 
-Avoid broad masks, global threshold changes for one region, and claims based on
-metadata alone. A recurring change can still be a bug, especially when content
-movement affects nearby layout.
+Avoid broad masks or global threshold changes to hide a problem in one region.
+Metadata alone can't explain a visual change. A recurring change can still be
+a bug, especially if moving content changes nearby layout.
 
-Report the observed change first. Label fixture drift, layout shift, capture
-timing, or baseline mismatch as a possible cause until the evidence establishes
-it.
+Describe what you see first. Treat changing test data, layout shifts, capture
+timing, or a wrong baseline as possible causes until you can confirm them.

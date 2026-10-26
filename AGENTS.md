@@ -15,8 +15,8 @@ Reference docs are in `docs/`, examples in `examples/`, and built artifacts outp
 - `pnpm run test:reporter`: run Playwright reporter workflow tests.
 - `pnpm run test:types`: validate published type definitions with `tsd`.
 - `pnpm run lint` / `pnpm run format:check`: enforce Biome lint/format rules.
-- `pnpm run fix`: run formatter + safe lint fixes.
-- `pnpm run cli -- <args>`: run local CLI entrypoint (example: `pnpm run cli -- status`).
+- `pnpm run fix`: run the formatter and lint fixes, including Biome's unsafe fixes.
+- `pnpm run cli -- <args>`: run the development CLI (example: `pnpm run cli -- tdd status`).
 
 ## Coding Style & Naming Conventions
 Use ESM JavaScript with top-level imports. Prefer functional modules and explicit inputs/outputs over class-heavy designs.  
@@ -42,5 +42,7 @@ PRs should include:
 - Do not mention private or sibling repo work in public repo PRs.
 
 ## Security & Configuration Tips
-Use Node.js `>=22`. Keep secrets (for example `VIZZLY_TOKEN`) out of git.  
+Use Node.js 22.18+ on Node 22, or Node.js 24+. Keep secrets (for example
+`VIZZLY_TOKEN`) out of git.
+
 For local development, isolate CLI state with `VIZZLY_HOME` (for example `~/.vizzly.dev`) to avoid mutating real user config.

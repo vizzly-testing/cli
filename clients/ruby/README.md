@@ -1,49 +1,47 @@
-# Vizzly Ruby Client
+# Vizzly Ruby client
 
-A lightweight Ruby client SDK for capturing screenshots and sending them to Vizzly for visual
-regression testing.
+Send screenshots from your Ruby tests to Vizzly to catch UI changes.
 
-## Installation
+## Install
 
-Add this line to your application's Gemfile:
+You need Ruby 3.0+ and the [Vizzly CLI](../../README.md#get-started) for local
+review.
 
-```ruby
-gem 'vizzly'
-```
-
-And then execute:
-
-```bash
-bundle install
-```
-
-Or install it yourself as:
+Add `gem 'vizzly'` to your Gemfile and run `bundle install`, or install directly:
 
 ```bash
 gem install vizzly
 ```
 
-## Usage
+## Capture a screenshot
 
-### Basic Usage
+Start `pnpm exec vizzly tdd start --open` for local review, then call the client from your
+test:
 
 ```ruby
 require 'vizzly'
 
-# Take a screenshot
-image_data = File.binread('screenshot.png')
-Vizzly.screenshot('homepage', image_data)
+Vizzly.screenshot('homepage', File.binread('screenshot.png'))
 ```
 
-### With Options
+With RSpec and Capybara's Selenium driver:
 
 ```ruby
-Vizzly.screenshot('checkout-page', image_data,
-  properties: {
-    browser: 'chrome',
-    theme: 'dark',
-    locale: 'en-US'
-  },
+RSpec.describe 'Homepage', type: :feature do
+  it 'displays the homepage correctly' do
+    visit '/'
+    expect(page).to have_content('Welcome')
+
+    Vizzly.screenshot('homepage', page.driver.browser.screenshot_as(:png))
+  end
+end
+```
+
+## Options
+
+```ruby
+Vizzly.screenshot('checkout', image_data,
+  properties: { browser: 'chrome', theme: 'dark', locale: 'en-US' },
   threshold: 5,
   min_cluster_size: 3,
   full_page: true,
@@ -52,91 +50,36 @@ Vizzly.screenshot('checkout-page', image_data,
 )
 ```
 
-Ruby option names use snake_case. The client also accepts camelCase aliases for
-parity with the JavaScript API: `minClusterSize`, `fullPage`, `buildId`, and
-`requestTimeout`. `request_timeout` is measured in milliseconds, so
-`60_000` means one minute.
+Options use snake_case. The camelCase aliases `minClusterSize`, `fullPage`,
+`buildId`, and `requestTimeout` also work. Timeouts are in milliseconds:
+`60_000` is one minute.
 
-### Using a Client Instance
+To make a client fail on local diffs:
 
 ```ruby
-client = Vizzly::Client.new
+client = Vizzly::Client.new(fail_on_diff: true)
 client.screenshot('login-form', image_data)
-
-# Override local TDD visual diff behavior for this client
-strict_client = Vizzly::Client.new(fail_on_diff: true)
-
-# Attach screenshots to a known build and tune request timeout in milliseconds
-client.screenshot(
-  'checkout',
-  image_data,
-  build_id: 'build_123',
-  request_timeout: 60_000
-)
-
-# Check if client is ready
-puts "Ready: #{client.ready?}"
-
-# Get client info, including the effective fail_on_diff setting
+puts client.ready?
 puts client.info
 ```
 
-### Integration with Test Frameworks
+## Connection settings
 
-#### RSpec + Capybara
+The client looks for `.vizzly/server.json` in the current folder and its
+parents to find your TDD server. You can also use these environment variables:
 
-```ruby
-RSpec.describe 'Homepage', type: :feature do
-  it 'displays the homepage correctly' do
-    visit '/'
-    expect(page).to have_content('Welcome')
-
-    # Take a screenshot for visual regression testing
-    image_data = page.driver.browser.screenshot_as(:png)
-    Vizzly.screenshot('homepage', image_data)
-  end
-
-  it 'displays the checkout page' do
-    visit '/checkout'
-    fill_in 'Email', with: 'test@example.com'
-
-    # Take a screenshot with properties
-    image_data = page.driver.browser.screenshot_as(:png)
-    Vizzly.screenshot('checkout-form', image_data,
-      properties: {
-        browser: 'chrome',
-        theme: 'dark',
-        locale: 'en-US'
-      }
-    )
-  end
-end
-```
-
-## Configuration
-
-The client automatically discovers a running Vizzly TDD server by looking for `.vizzly/server.json`
-in the current and parent directories.
-
-You can also configure via environment variables:
-
-- `VIZZLY_SERVER_URL` - Server URL (e.g., `http://localhost:47392`)
-- `VIZZLY_BUILD_ID` - Build identifier for grouping screenshots
-- `VIZZLY_FAIL_ON_DIFF` - Set to `true` or `1` to raise when a local TDD
-  comparison returns a visual diff
+| Variable | What it does |
+| --- | --- |
+| `VIZZLY_SERVER_URL` | Set the server URL, such as `http://localhost:47392`. |
+| `VIZZLY_BUILD_ID` | Group screenshots under a build ID. |
+| `VIZZLY_FAIL_ON_DIFF` | Set `true` or `1` to raise on local visual diffs. |
 
 ## Development
 
-After checking out the repo, run tests:
+From `clients/ruby`:
 
 ```bash
 ruby test/vizzly_test.rb
 ```
 
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/vizzly-testing/cli.
-
-## License
-
-The gem is available as open source under the terms of the MIT License.
+[Issues and PRs](https://github.com/vizzly-testing/cli) welcome. MIT licensed.

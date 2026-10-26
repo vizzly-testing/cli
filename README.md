@@ -15,11 +15,11 @@ decisions together so you can use that history the next time you change the UI.
 
 ## Get started
 
-You need Node.js 22.18+ on Node 22, or Node.js 24+.
+You need Node.js 22.18+ on Node 22, or Node.js 24+. From your test project:
 
 ```bash
-pnpm install -g @vizzly-testing/cli
-vizzly init
+pnpm add --save-dev @vizzly-testing/cli
+pnpm exec vizzly init
 ```
 
 Then add a screenshot to a test. This example uses Playwright:
@@ -34,7 +34,8 @@ test('homepage looks correct', async ({ page }) => {
 });
 ```
 
-The client works with any test runner. You can also pass a file path:
+The client runs in Node.js and works with any Node-based test runner. You can
+also pass a file path:
 
 ```javascript
 await vizzlyScreenshot('homepage', './screenshots/homepage.png');
@@ -45,18 +46,19 @@ await vizzlyScreenshot('homepage', './screenshots/homepage.png');
 Start the local TDD server, then run your tests in another terminal:
 
 ```bash
-vizzly tdd start --open
-pnpm test -- --watch
+pnpm exec vizzly tdd start --open
+pnpm test -- --watch # Replace this with your test command
 ```
 
 The dashboard shows screenshots and diffs as they arrive. Accept or reject
 changes there. If the default port is busy, use the printed port with
-`vizzly tdd status --port <port>` or `vizzly tdd stop --port <port>`.
+`pnpm exec vizzly tdd status --port <port>` or
+`pnpm exec vizzly tdd stop --port <port>`.
 
 For a single run:
 
 ```bash
-vizzly tdd run "pnpm test" --no-open
+pnpm exec vizzly tdd run "pnpm test" --no-open
 ```
 
 Review data goes in `.vizzly/`. When the run captures screenshots, it also
@@ -65,31 +67,36 @@ creates `.vizzly/report/index.html`. Omit `--no-open` to open the report.
 ### Review in the cloud
 
 ```bash
-vizzly login
-vizzly project link your-org/your-project
-vizzly run "pnpm test" --wait
+pnpm exec vizzly login
+pnpm exec vizzly project link your-org/your-project
+pnpm exec vizzly run "pnpm test"
 ```
 
 `vizzly login` signs you in. Linking gives this checkout a project upload token.
-With `--wait`, the command waits for results and exits with code `1` when visual
-changes need review.
-
-In CI, set a project token:
-
-```bash
-export VIZZLY_TOKEN=your-project-token
-vizzly run "pnpm test" --wait
-```
+Replace `"pnpm test"` with your test command.
 
 To upload screenshots you already have:
 
 ```bash
-vizzly upload ./screenshots --wait
+pnpm exec vizzly upload ./screenshots
 ```
+
+### Run in CI
+
+Store a project token as a CI secret and pass it as `VIZZLY_TOKEN`. Add `--wait`
+when you want CI to wait for comparison results and fail on visual differences:
+
+```bash
+export VIZZLY_TOKEN=your-project-token
+pnpm exec vizzly run "pnpm test" --wait
+```
+
+With `--wait`, failed comparisons make the command exit with code `1`.
 
 ## Screenshot options
 
 ```javascript
+let screenshot = await page.screenshot({ fullPage: true });
 await vizzlyScreenshot('checkout', screenshot, {
   threshold: 2,
   minClusterSize: 4,
@@ -101,8 +108,9 @@ await vizzlyScreenshot('checkout', screenshot, {
 
 Put details like theme or locale in `properties` for baseline grouping and
 filtering. Vizzly keeps these separate from screenshot options and reads image
-dimensions from the screenshot. To use a custom property for baseline matching,
-add it to `signatureProperties` in your config. The top-level options are
+dimensions from the screenshot. For local baseline matching, list custom keys
+in `signatureProperties`. For cloud builds, set matching properties in your
+Vizzly project settings. Common top-level options are
 `threshold`, `minClusterSize`, `fullPage`, `requestTimeout`, and `buildId`.
 
 For setup help, see the [Storybook](clients/storybook/README.md),
@@ -117,7 +125,7 @@ and [Ember](clients/ember/README.md) guides. There are also
 ```javascript
 export default {
   comparison: {
-    threshold: 2, // CIEDE2000 Delta E; 0 requires an exact match.
+    threshold: 2, // CIEDE2000 Delta E color tolerance.
   },
 };
 ```
@@ -133,21 +141,22 @@ or files it imports.
 Install the Vizzly skill and a short `AGENTS.md` note:
 
 ```bash
-vizzly init --agent-guidance
+pnpm exec vizzly init --agent-guidance
 ```
 
 Run it again after upgrading to update `.agents/skills/vizzly` and the Vizzly
-note in `AGENTS.md`. It keeps your config and other guidance. Use `--agent-skill`
-for just the skill, or `--skip-agent-skill` for config only.
+note in `AGENTS.md`. It keeps an existing `vizzly.config.js` and other guidance;
+with a `.ts` config, it can still create a new `.js` config. Use `--agent-skill`
+to install the skill without the note, or `--skip-agent-skill` to skip the prompt.
 
 Use `context` to read local results. For cloud results, check the API schema
 to find the available requests:
 
 ```bash
-vizzly context build current --source local --json
-vizzly context review-queue --source local --json
-vizzly api schema --json
-vizzly api schema sdk.getBuildContext --json
+pnpm exec vizzly context build current --source local --json
+pnpm exec vizzly context review-queue --source local --json
+pnpm exec vizzly api schema --json
+pnpm exec vizzly api schema sdk.getBuildContext --json
 ```
 
 The schema lists inputs, output fields, and how to fetch more results. The old
@@ -162,14 +171,15 @@ image. For parallel jobs, use the same ID for every shard and finalize it when
 they all finish:
 
 ```bash
-vizzly run "pnpm test" --parallel-id "$GITHUB_RUN_ID"
-vizzly finalize "$GITHUB_RUN_ID"
+pnpm exec vizzly run "pnpm test" --parallel-id "$GITHUB_RUN_ID"
+pnpm exec vizzly finalize "$GITHUB_RUN_ID"
 ```
 
-Use `--batch-size` to set how many screenshots upload per request and
-`--upload-timeout` to limit upload and processing wait time. You can also set
-`--threshold` and `--min-cluster-size`. For CI jobs without a cloud token, add
-`--allow-no-token` to `vizzly run` to keep local capture working.
+Use `--batch-size` to set how many screenshots upload per request.
+`--upload-timeout` limits how long `--wait` waits for build processing; it
+doesn't set the HTTP upload timeout. You can also set
+`--threshold` and `--min-cluster-size`. If CI has no cloud token,
+`vizzly run --allow-no-token` lets your test command run without starting Vizzly.
 
 ## Commands
 

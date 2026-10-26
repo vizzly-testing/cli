@@ -17,8 +17,16 @@ Open [localhost:4200](http://localhost:4200) for the app or
 
 ## Run tests
 
-Start `vizzly tdd start --open` before running tests to compare screenshots
-locally. The test command builds the app with test files, then runs Ember tests:
+Install Chromium once using the SDK's Playwright dependency:
+
+```bash
+pnpm --dir .. install
+pnpm --dir .. exec playwright-core install chromium
+```
+
+For local review, [install the CLI](../../../README.md#get-started) in this
+folder, then start `pnpm exec vizzly tdd start --open` before running tests. The test command builds the app with test files, then runs
+Ember tests:
 
 ```bash
 pnpm test

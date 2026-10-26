@@ -4,7 +4,7 @@ These browser tests use the real HTTP server, TDD handler, and local services.
 Each test gets a temporary project, config, report files, and port. Decisions,
 settings, and credentials go to disk; report updates arrive over SSE.
 
-Only remote services use fixtures. `support/cloud-api.js` stands in for the
+Remote dependencies use fixtures. `support/cloud-api.js` stands in for the
 Vizzly API, and `support/fonts.js` serves a checked-in font for Google Fonts
 requests. Auth tests can hold a response until a user action, then release it
 without sleeps or replacing local routes.
@@ -28,10 +28,12 @@ without accessing your personal Firefox data.
 
 ## Compare screenshots
 
-Run `pnpm run test:reporter:visual` to compare captures through Vizzly. CI uses
-this too. It captures the dashboard, settings, fullscreen viewer, queue,
-details, slide view, change navigation, and changed regions. Running Playwright
-directly saves image attachments without comparing them.
+Run `pnpm run test:reporter:visual` to start a local Vizzly server and compare
+captures. CI uses this too. It captures the dashboard, settings, fullscreen
+viewer, queue, details, slide view, change navigation, and changed regions.
+
+Captures always save Playwright image attachments. Direct Playwright runs also
+send screenshots to Vizzly when a screenshot server is available.
 
 Captures use reduced motion and a fixed date to keep animations and relative
 dates from changing the screenshots.

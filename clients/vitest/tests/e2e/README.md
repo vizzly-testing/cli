@@ -5,9 +5,12 @@ and Vitest's Playwright browser mode with Vizzly.
 
 ## Run locally
 
-From `clients/vitest`, start Vizzly and run the tests in another terminal:
+From `clients/vitest`, install dependencies and Chromium, then start Vizzly
+and run the tests:
 
 ```bash
+pnpm install
+pnpm exec playwright install chromium
 pnpm exec vizzly tdd start --open
 pnpm run test:e2e
 ```

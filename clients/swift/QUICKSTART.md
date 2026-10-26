@@ -26,6 +26,8 @@ pnpm exec vizzly tdd start --open
 ```
 
 Open the dashboard URL Vizzly prints. Leave the server running while you test.
+If it uses a custom port, set `VIZZLY_SERVER_URL` in your UI test runner's
+environment. See [connection setup](INTEGRATION.md#connect-to-vizzly).
 
 ## 4. Capture a screenshot
 
@@ -58,7 +60,7 @@ pnpm exec vizzly tdd run \
   --no-open
 ```
 
-Vizzly writes the static report to `.vizzly/report/index.html`.
+If the run captures screenshots, Vizzly writes `.vizzly/report/index.html`.
 
 ## Next steps
 

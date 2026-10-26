@@ -4,6 +4,9 @@ Send screenshots from your Ruby tests to Vizzly to catch UI changes.
 
 ## Install
 
+You need Ruby 3.0+ and the [Vizzly CLI](../../README.md#get-started) for local
+review.
+
 Add `gem 'vizzly'` to your Gemfile and run `bundle install`, or install directly:
 
 ```bash
@@ -12,7 +15,7 @@ gem install vizzly
 
 ## Capture a screenshot
 
-Start `vizzly tdd start --open` for local review, then call the client from your
+Start `pnpm exec vizzly tdd start --open` for local review, then call the client from your
 test:
 
 ```ruby
@@ -21,7 +24,7 @@ require 'vizzly'
 Vizzly.screenshot('homepage', File.binread('screenshot.png'))
 ```
 
-With RSpec and Capybara:
+With RSpec and Capybara's Selenium driver:
 
 ```ruby
 RSpec.describe 'Homepage', type: :feature do
@@ -72,6 +75,8 @@ parents to find your TDD server. You can also use these environment variables:
 | `VIZZLY_FAIL_ON_DIFF` | Set `true` or `1` to raise on local visual diffs. |
 
 ## Development
+
+From `clients/ruby`:
 
 ```bash
 ruby test/vizzly_test.rb

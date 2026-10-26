@@ -19,10 +19,10 @@ export default {
 };
 ```
 
-Then run `vizzly --help` to see the commands, or try:
+Then run `pnpm exec vizzly --help` to see the commands, or try:
 
 ```bash
-vizzly greet "World" --loud
+pnpm exec vizzly greet "World" --loud
 ```
 
 ## Write a plugin
@@ -57,8 +57,8 @@ export default {
 `register` gets the Commander program for adding commands, plus your config,
 output helpers, and services. Give the plugin a `name`; `version` is optional.
 
-Test locally by adding the plugin file to `config.plugins`. Vizzly finds
-published packages under `@vizzly-testing/*` automatically.
+Test locally by adding the plugin file to `config.plugins`. Vizzly automatically
+loads installed `@vizzly-testing/*` packages that declare `vizzlyPlugin`.
 
 ## Services
 
@@ -68,10 +68,12 @@ let { git, testRunner, serverManager } = services;
 let gitInfo = await git.detect({ buildPrefix: 'MyPlugin' });
 // { branch, commit, message, prNumber, buildName }
 
-let buildId = await testRunner.createBuild(options);
-await testRunner.finalizeBuild(buildId, isTddMode, success, executionTime);
+let buildId = await testRunner.createBuild(options, isTddMode);
+await serverManager.start(buildId, isTddMode, setBaseline);
 
-await serverManager.start(buildId, tddMode, setBaseline);
+// Capture screenshots here.
+
+await testRunner.finalizeBuild(buildId, isTddMode, success, executionTime);
 await serverManager.stop();
 ```
 

@@ -52,8 +52,9 @@ Boot an iOS Simulator, then run:
 pnpm exec vizzly previews
 ```
 
-Vizzly picks the project, shared scheme, and booted Simulator when there's only
-one of each. If there are several choices, tell Vizzly which ones to use:
+Vizzly prefers a single workspace, otherwise a single project. It picks the
+only app scheme and booted iOS Simulator automatically. When a choice is
+ambiguous, pass the path, `--scheme`, or `--device`:
 
 ```bash
 pnpm exec vizzly previews MyApp.xcworkspace \

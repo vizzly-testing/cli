@@ -9,11 +9,12 @@ Use `--json` to read command results in scripts or pipe them to `jq`.
 vizzly builds --json
 
 # Select specific fields
-vizzly builds --json id,status,branch
+vizzly builds --build <id> --json id,status,branch
 ```
 
-JSON goes to stdout. Progress messages and other text go to stderr, so they
-won't break your parser.
+Result JSON goes to stdout. Progress messages and diagnostics from
+`output.error(...)` go to stderr. Check the command's exit status too; failures
+may appear in result JSON or leave stdout empty.
 
 ## Pick fields
 
@@ -37,11 +38,11 @@ Successful results look like this:
 ```json
 {
   "status": "data",
-  "data": { /* command-specific payload */ }
+  "data": {}
 }
 ```
 
-Errors reported by `output.error(...)` look like this:
+Errors reported by `output.error(...)` go to stderr and look like this:
 
 ```json
 {
@@ -56,8 +57,9 @@ or `skipped`) in `data.status`. Check that field too.
 
 ## Commands
 
-Most examples show the full JSON response. The larger context examples show
-only what goes inside `data`.
+Examples show representative fields with illustrative IDs, URLs, and dates.
+Other fields depend on the command, config, and API response. Empty objects
+stand in for command-specific data.
 
 ### `vizzly run`
 
@@ -94,7 +96,7 @@ Add `--wait` to include comparison results:
   "status": "data",
   "data": {
     "buildId": "abc123-def456",
-    "status": "failed",
+    "status": "completed",
     "screenshotsCaptured": 15,
     "executionTimeMs": 9876,
     "git": {
@@ -114,6 +116,9 @@ Add `--wait` to include comparison results:
   }
 }
 ```
+
+With `--wait`, `data.status` is the cloud build's processing status. A completed
+build can still return `exitCode: 1` when comparisons find visual differences.
 
 ### `vizzly tdd run`
 
@@ -293,10 +298,14 @@ vizzly tdd list --json
   "data": {
     "servers": [
       {
-        "directory": "/path/to/project",
+        "id": "project-server-id",
         "port": 47392,
         "pid": 12345,
-        "isCurrent": true
+        "directory": "/path/to/project",
+        "startedAt": "2026-10-26T10:00:00Z",
+        "configPath": null,
+        "name": null,
+        "logFile": null
       }
     ]
   }
@@ -305,281 +314,42 @@ vizzly tdd list --json
 
 ### `vizzly context`
 
-Use `context` for human summaries and local `.vizzly/` data. The `source` field
-identifies where the data came from.
+Use `context` for human summaries and saved local `.vizzly/` data. Each result
+includes a `source` field. Context examples below show commands rather than a
+fixed response shape, since the fields depend on the source and available data.
 
-`--agent` on `context build` and `context comparison` is deprecated. The compact
-examples below show that older format. For new cloud agent workflows,
-start with `vizzly api schema --json`; use `context --json` for local data.
+For new cloud agent workflows, discover the API and its response fields:
+
+```bash
+vizzly api schema --json
+vizzly api schema sdk.getBuildContext --json
+vizzly api schema getComparisonContext --json
+```
+
+`--agent` on `context build` and `context comparison` is deprecated. It still
+returns the older compact format, with up to 10 evidence records and cursors
+for more results. `--full` bypasses compact formatting. Use the schema-driven
+API for new cloud workflows and `context --json` for local data.
 
 #### `vizzly context build`
 
 ```bash
 vizzly context build abc123 --source cloud --json
-vizzly context build abc123 --source cloud --agent --json
-vizzly context build abc123 --source cloud --agent --json --include diffs
-vizzly context build abc123 --source cloud --agent --json --full
 vizzly context build current --source local --json
-vizzly context build current --source local --agent
 ```
 
-The deprecated `--agent --json` format returns up to 10 records and a cursor
-for the next page. Use `--full` for the complete build context.
-
-Legacy compact build JSON:
-
-```json
-{
-  "resource": "build_agent_context",
-  "source": "cloud",
-  "scope": {
-    "organization": { "slug": "acme" },
-    "project": { "slug": "storybook", "name": "Storybook" }
-  },
-  "build": {
-    "id": "abc123",
-    "status": "completed",
-    "review_state": "pending"
-  },
-  "baseline": {
-    "selected": {
-      "id": "baseline-build",
-      "name": "Approved Main",
-      "review_state": "approved"
-    },
-    "selection_reason": "latest approved build"
-  },
-  "status": {
-    "needs_review": true,
-    "reasons": ["comparisons_need_review"],
-    "pending_comparisons": 3,
-    "unresolved_comments": 0
-  },
-  "summary": {
-    "comparisons": {
-      "total": 12,
-      "changed": 2,
-      "new": 1
-    }
-  },
-  "evidence": {
-    "items": [
-      {
-        "type": "comparison",
-        "id": "cmp-1",
-        "screenshot_name": "Dashboard",
-        "result": "changed",
-        "review_state": "pending",
-        "needs_review": true,
-        "screenshot": {
-          "id": "current-1",
-          "browser": "chrome",
-          "viewport": { "width": 1440, "height": 900 },
-          "bitmap": { "width": 2880, "height": 1800 },
-          "signature": "Dashboard|1440|chrome",
-          "url": "https://.../current.png",
-          "baseline": {
-            "id": "baseline-1",
-            "build_id": "baseline-build",
-            "url": "https://.../baseline.png"
-          }
-        },
-        "diff": {
-          "percentage": 0.42,
-          "fingerprint_hash": "00000000001ec127",
-          "region_count": 12,
-          "image_url": "https://..."
-        }
-      }
-    ],
-    "page": {
-      "limit": 10,
-      "returned": 1,
-      "total": 12,
-      "has_more": true,
-      "next_cursor": "opaque-cursor-returned-by-api"
-    }
-  },
-  "suggested_commands": [
-    {
-      "label": "Inspect comparison context",
-      "command": "vizzly --json context comparison cmp-1 --agent --source cloud"
-    },
-    {
-      "label": "Inspect screenshot history",
-      "command": "vizzly --json context screenshot Dashboard --source cloud"
-    },
-    {
-      "label": "Load raw diff diagnostics",
-      "command": "vizzly --json context build abc123 --agent --include diffs --source cloud"
-    },
-    {
-      "label": "Load next evidence page",
-      "command": "vizzly --json context build abc123 --agent --cursor opaque-cursor-returned-by-api --source cloud"
-    }
-  ]
-}
-```
-
-Results keep the API's values and order. `suggested_commands` gives you
-follow-up commands with the same source and the next page's cursor, if needed.
-Use `--full` for the raw result.
-
-Full build context JSON:
-
-```json
-{
-  "resource": "build_context",
-  "source": "cloud",
-  "scope": {
-    "organization": { "slug": "acme" },
-    "project": { "slug": "storybook" }
-  },
-  "build": {
-    "id": "abc123",
-    "status": "completed",
-    "review_state": "pending"
-  },
-  "baseline": {
-    "selected": {
-      "id": "baseline-build",
-      "name": "Approved Main",
-      "review_state": "approved"
-    },
-    "selection_reason": "common_ancestor",
-    "comparison_baseline_build_ids": ["baseline-build"]
-  },
-  "status": {
-    "needs_review": true,
-    "reasons": ["comparisons_need_review"],
-    "pending_comparisons": 3,
-    "unresolved_comments": 0
-  },
-  "summary": {
-    "comparisons": {
-      "total": 12,
-      "changed": 2,
-      "new": 1
-    },
-    "review": {
-      "pending": 3,
-      "approved": 9,
-      "rejected": 0
-    }
-  },
-  "screenshots": [
-    {
-      "name": "Dashboard",
-      "url": "https://...",
-      "baseline": { "url": "https://..." }
-    }
-  ],
-  "comparisons": [
-    {
-      "id": "cmp-1",
-      "screenshot_name": "Dashboard",
-      "result": "changed",
-      "needs_review": true,
-      "diff": {
-        "percentage": 0.42,
-        "image_url": "https://...",
-        "regions": []
-      }
-    }
-  ],
-  "comments": {
-    "build": [],
-    "screenshot_count": 0
-  }
-}
-```
+Read build details, baseline information, and comparisons. The cloud response
+comes from the API; the local response comes from the saved workspace report.
 
 #### `vizzly context comparison`
 
 ```bash
 vizzly context comparison cmp-1 --source cloud --json
-vizzly context comparison cmp-1 --source cloud --agent --json
-vizzly context comparison cmp-1 --source cloud --agent --json --include diffs
 vizzly context comparison build-detail-screenshots --source local --json
 ```
 
-Raw JSON keeps the source response as it is. The deprecated `--agent` format
-also keeps the API's comparison and `analysis` fields, with separate pages for
-fingerprint matches and recent comparisons with the same name.
-
-Legacy compact comparison JSON:
-
-```json
-{
-  "resource": "comparison_agent_context",
-  "source": "cloud",
-  "comparison": {
-    "id": "cmp-1",
-    "screenshot_name": "Dashboard",
-    "result": "changed",
-    "review_state": "pending",
-    "screenshot": {
-      "url": "https://.../current.png"
-    },
-    "baseline": {
-      "url": "https://.../baseline.png"
-    },
-    "analysis": {
-      "diff_image_url": "https://.../diff.png",
-      "fingerprint_hash": "00000000001ec127",
-      "diff_regions": [],
-      "cluster_metadata": {
-        "classification": "dynamic_content"
-      }
-    }
-  },
-  "history": {
-    "active_stream": null,
-    "similar_by_fingerprint": {
-      "items": [],
-      "page": {
-        "limit": 10,
-        "returned": 0,
-        "total": 0,
-        "has_more": false,
-        "next_cursor": null
-      }
-    },
-    "recent_by_name": {
-      "items": [],
-      "page": {
-        "limit": 10,
-        "returned": 0,
-        "total": 0,
-        "has_more": false,
-        "next_cursor": null
-      }
-    }
-  }
-}
-```
-
-Raw comparison JSON remains available without `--agent`:
-
-```json
-{
-  "resource": "comparison_context",
-  "source": "local_workspace",
-  "comparison": {
-    "id": "cmp-1",
-    "name": "Dashboard",
-    "result": "changed",
-    "analysis": {
-      "diff_image_url": ".vizzly/diffs/dashboard.png",
-      "diff_regions": []
-    }
-  },
-  "history": {
-    "similar_by_fingerprint": [],
-    "recent_by_name": []
-  }
-}
-```
+Read one comparison and its available history. Use IDs for cloud comparisons;
+local lookup also accepts screenshot names.
 
 #### `vizzly context screenshot`
 
@@ -588,18 +358,7 @@ vizzly context screenshot Dashboard --source cloud --json
 vizzly context screenshot Dashboard --source local --json
 ```
 
-```json
-{
-  "resource": "screenshot_context",
-  "source": "cloud",
-  "screenshot": {
-    "name": "Dashboard"
-  },
-  "history": {
-    "recent_comparisons": []
-  }
-}
-```
+Read the screenshot's available comparison history.
 
 #### `vizzly context similar`
 
@@ -607,18 +366,19 @@ vizzly context screenshot Dashboard --source local --json
 vizzly context similar fp-dashboard --source cloud --project storybook --org acme --json
 ```
 
+Find cloud comparisons with a similar diff fingerprint. An abbreviated payload
+inside `data` looks like this:
+
 ```json
 {
   "resource": "fingerprint_context",
   "source": "cloud",
-  "fingerprint": {
-    "hash": "fp-dashboard"
-  },
-  "matches": [
+  "fingerprint_hash": "fp-dashboard",
+  "comparisons": [
     {
-      "comparison_id": "cmp-1",
+      "id": "cmp-1",
       "build_id": "abc123",
-      "screenshot_name": "Dashboard"
+      "screenshot": { "name": "Dashboard" }
     }
   ]
 }
@@ -633,24 +393,8 @@ vizzly context review-queue --source cloud --project storybook --org acme --json
 vizzly context review-queue --source local --json
 ```
 
-```json
-{
-  "resource": "review_queue_context",
-  "source": "local_workspace",
-  "summary": {
-    "total": 2,
-    "changed": 1,
-    "new": 1
-  },
-  "comparisons": [
-    {
-      "id": "cmp-1",
-      "name": "Settings Panel",
-      "result": "changed"
-    }
-  ]
-}
-```
+Read the comparisons waiting for review in the selected source. These context
+commands don't make review decisions.
 
 ### `vizzly builds`
 
@@ -743,10 +487,10 @@ vizzly comparisons --build <id> --status changed --json
       }
     ],
     "summary": {
-      "total": 15,
-      "passed": 12,
-      "failed": 2,
-      "new": 1
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "new": 0
     }
   }
 }
@@ -843,7 +587,7 @@ vizzly baselines --json
         "fileSize": 45678
       }
     ],
-    "count": 45,
+    "count": 1,
     "metadata": {
       "buildId": "local-baseline",
       "buildName": "Local TDD Baseline",
@@ -879,7 +623,7 @@ vizzly api /sdk/builds -q limit=10 -q branch=main --json
   "data": {
     "endpoint": "/api/sdk/builds",
     "method": "GET",
-    "response": { /* raw API response */ }
+    "response": {}
   }
 }
 ```
@@ -900,7 +644,7 @@ vizzly upload ./screenshots --json
       "total": 20,
       "uploaded": 15,
       "skipped": 5,
-      "bytes": 2500000
+      "bytes": 0
     },
     "git": {
       "branch": "main",
@@ -915,47 +659,19 @@ vizzly upload ./screenshots --json
 `stats.skipped` counts images Vizzly already has, matched by SHA. Use
 `--upload-all` to upload every image again.
 
-Add `--wait` to include comparison results when the build finishes processing:
-
-```bash
-vizzly upload ./screenshots --wait --json
-```
-
-```json
-{
-  "status": "data",
-  "data": {
-    "buildId": "abc123-def456",
-    "status": "failed",
-    "url": "https://app.vizzly.dev/...",
-    "stats": {
-      "total": 20,
-      "uploaded": 15,
-      "skipped": 5,
-      "bytes": 2500000
-    },
-    "git": {
-      "branch": "main",
-      "commit": "abc1234",
-      "message": "Add feature"
-    },
-    "comparisons": {
-      "total": 15,
-      "passed": 12,
-      "failed": 2,
-      "new": 1
-    },
-    "visual_review": { "state": "pending" },
-    "executionTimeMs": 9876
-  }
-}
-```
+`stats.bytes` currently falls back to `0`; it isn't a transferred-byte total.
+JSON upload mode returns this summary without waiting, even with `--wait`.
+Use `vizzly status <build-id> --json` to check processing and comparisons.
 
 ### `vizzly preview`
 
 ```bash
-vizzly preview ./dist --json
+vizzly preview ./dist --build <build-id> --json
 ```
+
+Use an existing cloud build ID, or omit `--build` when a saved build session
+is available. Private projects also require `--public-link` to acknowledge that
+anyone with the preview link can open it.
 
 ```json
 {
@@ -989,7 +705,7 @@ vizzly approve <comparison-id> --json
   "data": {
     "eventId": "event_123",
     "idempotent": false,
-    "review": { /* visual review */ }
+    "review": {}
   }
 }
 ```
@@ -1006,7 +722,7 @@ vizzly reject <comparison-id> --reason "Unexpected regression" --json
   "data": {
     "eventId": "event_124",
     "idempotent": false,
-    "review": { /* visual review */ }
+    "review": {}
   }
 }
 ```
@@ -1023,7 +739,7 @@ vizzly comment <build-id> "Needs design review" --json
   "data": {
     "created": true,
     "buildId": "build_123",
-    "comment": { /* created comment */ }
+    "comment": {}
   }
 }
 ```
@@ -1146,8 +862,9 @@ vizzly init --agent-guidance --json
 ```
 
 Run it again after upgrading to refresh the skill and managed `AGENTS.md`
-block. Updated items report `"status": "refreshed"`; your config and other
-guidance stay as they are.
+block. Updated items report `"status": "refreshed"`. An existing
+`vizzly.config.js` and other guidance are kept. With a `.ts` config, the command
+can still create a new `.js` config.
 
 ### `vizzly project link`
 
@@ -1209,14 +926,11 @@ vizzly projects --org my-org --json
 ### Check for visual changes in CI
 
 ```bash
-result=$(vizzly run "pnpm test" --wait --json)
-changed=$(echo "$result" | jq '.data.comparisons.changed')
-
-if [ "$changed" -gt 0 ]; then
-  echo "Visual changes detected!"
-  exit 1
-fi
+vizzly run "pnpm test" --wait --json
 ```
+
+Use the command's exit status to fail CI. You don't need to parse comparison
+counts for this.
 
 ### Get the latest build ID
 

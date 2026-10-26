@@ -11,7 +11,8 @@ screenshots to Vizzly for local comparisons or team review.
 You need Node.js 22.18+ on Node 22, or Node.js 24+.
 
 ```bash
-pnpm install -D @vizzly-testing/vitest @vizzly-testing/cli vitest @vitest/browser @vitest/browser-playwright
+pnpm install -D @vizzly-testing/vitest @vizzly-testing/cli vitest @vitest/browser @vitest/browser-playwright playwright
+pnpm exec playwright install chromium
 ```
 
 Add the plugin to `vitest.config.js`:
@@ -57,11 +58,10 @@ against it. Open the dashboard URL Vizzly prints to review changes.
 For cloud review, set `VIZZLY_TOKEN` and run:
 
 ```bash
-pnpm exec vizzly run "pnpm exec vitest run" --wait
+pnpm exec vizzly run "pnpm exec vitest run"
 ```
 
-`--wait` waits for cloud comparisons and fails the run when visual changes
-need review.
+To fail CI on visual differences, see the [CI example](../../README.md#run-in-ci).
 
 ## Screenshot options
 
@@ -79,7 +79,7 @@ await expect(page).toMatchScreenshot('checkout.png', {
 
 | Option | What it does |
 | --- | --- |
-| `properties` | Details for baseline matching, like theme, locale, or state. |
+| `properties` | Custom details, like theme, locale, or state. |
 | `threshold` | Diff sensitivity. Defaults to the server setting. |
 | `minClusterSize` | Ignore connected diff clusters smaller than this pixel count. |
 | `fullPage` | Capture the scrollable page. Element screenshots keep the element's size. |
@@ -90,8 +90,9 @@ Browser capture options such as `animations`, `caret`, `mask`, `maskColor`,
 `browser` and `url` properties unless you supply them. Image dimensions come
 from the screenshot, and TypeScript types are included.
 
-To keep separate baselines by theme, add `theme` to the top-level
-`signatureProperties` setting in `vizzly.config.js`, then pass it with each
+To keep separate local baselines by theme, add `theme` to the top-level
+`signatureProperties` setting in `vizzly.config.js`. For cloud baselines, add
+`theme` to the project's baseline matching settings. Then pass it with each
 screenshot:
 
 ```javascript
@@ -110,17 +111,8 @@ test('button themes', async () => {
 });
 ```
 
-## Capture directly
-
-To take screenshots yourself, use the CLI client:
-
-```javascript
-import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
-
-await vizzlyScreenshot('homepage', await page.screenshot(), {
-  properties: { theme: 'dark' },
-});
-```
+For Node-based test runners, see the [CLI client example](../../README.md#get-started).
+In Vitest browser tests, keep using `toMatchScreenshot`.
 
 ## Examples and tests
 
@@ -129,6 +121,7 @@ From `clients/vitest`:
 
 ```bash
 pnpm install
+pnpm exec playwright install chromium
 pnpm run test:unit
 pnpm run test:e2e
 ```

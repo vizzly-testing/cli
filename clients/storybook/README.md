@@ -1,26 +1,32 @@
 # @vizzly-testing/storybook
 
 Capture screenshots of your Storybook stories and review changes with Vizzly.
-Works with Storybook 6–10.
+Your static build must include `index.json` and `iframe.html`.
 
 ## Get started
 
+You need Node.js 22.18+ on Node 22, or Node.js 24+.
+
 ```bash
-pnpm install -D @vizzly-testing/cli @vizzly-testing/storybook
+pnpm install -D @vizzly-testing/cli @vizzly-testing/storybook playwright-core@^1.63.0
+pnpm exec playwright-core install chromium
 pnpm run build-storybook
-vizzly tdd start --open
-vizzly storybook ./storybook-static
+pnpm exec vizzly tdd start --open
+pnpm exec vizzly storybook ./storybook-static
 ```
+
+Use the same `playwright-core` version as the plugin so its browser installer
+matches the browser used for capture.
 
 Vizzly finds the plugin automatically. If a local TDD server is running,
 screenshots go there. Otherwise, set `VIZZLY_TOKEN` to upload them for review:
 
 ```bash
-VIZZLY_TOKEN=your-token vizzly storybook ./storybook-static
+VIZZLY_TOKEN=your-token pnpm exec vizzly storybook ./storybook-static
 ```
 
-Without a server or token, the plugin warns and skips screenshots. You don't
-need to wrap it in `vizzly run`.
+Without a server or token, the plugin warns and doesn't upload results. You
+don't need to wrap it in `vizzly run`.
 
 For Storybook 10, use ESM config and presets. See the
 [Storybook migration guide](https://storybook.js.org/docs/releases/migration-guide)
@@ -28,7 +34,8 @@ for upgrade details.
 
 ## Configuration
 
-Add `storybook` to `vizzly.config.js`, or run `vizzly init` to get started:
+Add `storybook` to `vizzly.config.js`, or run `pnpm exec vizzly init` to get
+started:
 
 ```javascript
 export default {
@@ -65,52 +72,45 @@ Put comparison settings at the top level and capture settings under
 a minimum of 2 and maximum of 8. Set `concurrency` to choose another number.
 
 Later settings override earlier ones: defaults →
-`storybook` config → CLI options → per-story parameters.
+`storybook` config → CLI options → per-story settings in `index.json`.
 
-## Per-story settings
+## Skip stories and run hooks
 
-Use `parameters.vizzly` for viewports and hooks. Add `tags: ['vizzly-skip']`
-to skip a story:
+Add `tags: ['vizzly-skip']` to skip a story:
 
 ```javascript
-export let Primary = {
-  args: { label: 'Click me' },
-  parameters: {
-    vizzly: {
-      viewports: [{ name: 'mobile', width: 375, height: 667 }],
-      beforeScreenshot: async (page) => {
-        await page.hover('button');
-      },
-    },
-  },
-};
-
 export let Disabled = {
   args: { label: 'Disabled', disabled: true },
   tags: ['vizzly-skip'],
 };
 ```
 
-`parameters.vizzly.screenshot` accepts `properties`, `threshold`,
-`minClusterSize`, `fullPage`, `omitBackground`, `timeout`, and `requestTimeout`.
-The older `parameters.vizzly.skip` option still works.
-
-Use `interactions` in config to run hooks for a group of stories, or
-`beforeScreenshot` for one story. If a component loads content after rendering,
-wait for it before taking the screenshot:
+Put hooks in `storybook.interactions` in `vizzly.config.js`. Patterns can match
+one story or a group. For example, wait for a tooltip before capture:
 
 ```javascript
-beforeScreenshot: async (page) => {
-  await page.hover('.info-icon');
-  await page.waitForSelector('.tooltip');
-},
+export default {
+  storybook: {
+    interactions: {
+      'Tooltip/Visible': async (page) => {
+        await page.hover('.info-icon');
+        await page.waitForSelector('.tooltip');
+      },
+    },
+  },
+};
 ```
+
+The plugin reads per-story settings only from `index.json`. If your build
+includes `parameters.vizzly` there, JSON-compatible settings such as `viewports`,
+`skip`, and `screenshot` can override the config. Functions declared in story
+parameters aren't available through that JSON file, so keep hooks in config.
 
 ## CLI options
 
 ```bash
-vizzly storybook ./storybook-static --viewports "mobile:375x667,desktop:1920x1080"
-vizzly storybook ./storybook-static --include "components/**" --exclude "**/*.deprecated"
+pnpm exec vizzly storybook ./storybook-static --viewports "mobile:375x667,desktop:1920x1080"
+pnpm exec vizzly storybook ./storybook-static --include "components/**" --exclude "**/*.deprecated"
 ```
 
 | Option | What it does |
@@ -136,6 +136,9 @@ Screenshots are named `ComponentName-StoryName@viewportName`, like
 
 ## From JavaScript
 
+For local capture, start `pnpm exec vizzly tdd start --open` in the project
+first, then run this script from the same project:
+
 ```javascript
 import { run } from '@vizzly-testing/storybook';
 
@@ -147,11 +150,16 @@ await run('./storybook-static', {
 });
 ```
 
+This example uses the options shown; it doesn't load `vizzly.config.js`. Use
+the CLI for cloud builds, where it supplies the config and build services.
+
 ## Troubleshooting
 
 - **No stories found:** Check that the build contains `index.json`.
-- **Browser won't launch in CI:** Try
-  `--browser-args "--no-sandbox,--disable-dev-shm-usage"`.
+- **Browser won't launch:** Run `pnpm exec playwright-core install chromium`.
+  In Linux CI, use `pnpm exec playwright-core install --with-deps chromium` to
+  install system dependencies too. The plugin already supplies Chromium's
+  sandbox and shared-memory flags.
 - **Blank screenshots:** Add a hook that waits for the component's content,
   such as `await page.waitForSelector('.your-component-class')`.
 

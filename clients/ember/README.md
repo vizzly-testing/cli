@@ -6,12 +6,14 @@ Review them locally or upload them to Vizzly.
 ## Install
 
 ```bash
-pnpm install -D @vizzly-testing/cli @vizzly-testing/ember
-pnpm exec playwright install chromium
+pnpm install -D @vizzly-testing/cli @vizzly-testing/ember \
+  playwright-core@^1.63.0
+pnpm exec playwright-core install chromium
 ```
 
-Firefox and WebKit work too. Install them with `playwright install firefox`
-or `playwright install webkit`.
+Firefox and WebKit work too. Install them with
+`pnpm exec playwright-core install firefox` or
+`pnpm exec playwright-core install webkit`.
 
 ## Set up Testem
 
@@ -66,14 +68,14 @@ module('Acceptance | Dashboard', function(hooks) {
 });
 ```
 
-The helper waits for Ember's `settled()`, resizes the app, and takes a screenshot
-of `#ember-testing`, leaving the QUnit runner out of the image.
+The helper waits for Ember's `settled()` when it's available, resizes the app,
+and captures `#ember-testing` without the QUnit runner.
 
 Start Vizzly, then run your tests:
 
 ```bash
-vizzly tdd start --open
-ember test
+pnpm exec vizzly tdd start --open
+pnpm exec ember test
 ```
 
 For Vite projects that run Testem directly, build with test files first:
@@ -114,9 +116,9 @@ Screenshots include `browser`, `url`, and your custom properties. Dimensions
 come from the image.
 
 Local diffs don't fail tests by default. To change that, set `failOnDiff` on a
-screenshot or start TDD with `vizzly tdd start --fail-on-diff`. Vizzly checks the
-screenshot option first, then the launcher setting from `VIZZLY_FAIL_ON_DIFF`
-or `.vizzly/server.json`. If neither is set, it uses `false`.
+screenshot or start TDD with `pnpm exec vizzly tdd start --fail-on-diff`.
+Vizzly checks the screenshot option first, then the launcher setting from
+`VIZZLY_FAIL_ON_DIFF` or `.vizzly/server.json`. If neither is set, it uses `false`.
 
 To check whether screenshot capture is available:
 
@@ -131,11 +133,11 @@ if (isVizzlyAvailable()) {
 ## CI
 
 Install the browser and save `VIZZLY_TOKEN` as a CI secret. Run tests through
-`vizzly run` so Vizzly can finish the cloud upload:
+`pnpm exec vizzly run` so Vizzly can finish the cloud upload:
 
 ```yaml
-- run: pnpm exec playwright install chromium
-- run: pnpm exec vizzly run "ember test"
+- run: pnpm exec playwright-core install chromium --with-deps
+- run: pnpm exec vizzly run "pnpm exec ember test"
   env:
     VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
 ```
@@ -143,10 +145,10 @@ Install the browser and save `VIZZLY_TOKEN` as a CI secret. Run tests through
 ## Troubleshooting
 
 - **No screenshot server:** Make sure Testem uses `configure()` and runs through
-  `ember test` or Testem, rather than opening the test page directly.
-- **No Vizzly server:** Start `vizzly tdd start` before running local tests.
-- **Browser won't launch:** Run `pnpm exec playwright install chromium`. In CI,
-  you may also need `pnpm exec playwright install-deps chromium`.
+  `pnpm exec ember test` or Testem, rather than opening the test page directly.
+- **No Vizzly server:** Start `pnpm exec vizzly tdd start` before local tests.
+- **Browser won't launch:** Run `pnpm exec playwright-core install chromium`.
+  In CI, you may also need `pnpm exec playwright-core install-deps chromium`.
 
 ## License
 

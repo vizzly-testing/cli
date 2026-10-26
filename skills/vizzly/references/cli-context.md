@@ -116,9 +116,12 @@ Don't accept a change just to make a diff disappear.
 When the task calls for a cloud build:
 
 ```bash
-vizzly run "<existing visual test command>" --wait --json
+vizzly run "<existing visual test command>" --json
 vizzly api schema --json
 ```
+
+To make visual differences fail CI, see the
+[CI guide](setup-ci.md#cloud-ci).
 
 ## Inspect a comparison
 
@@ -129,16 +132,26 @@ vizzly api schema getComparisonContext --json
 vizzly api schema sdk.getComparisonImage --json
 ```
 
-Open all three images together. Use `original_url` when available, then `url`:
+Request `comparison.images` to check which current, baseline, and diff images
+are available. Download them through `sdk.getComparisonImage`, using the
+comparison ID and image kind. Include the version header from the schema and
+use `--output <new-file>` to save each image.
 
-- Current: `comparison.screenshot.original_url` or
-  `comparison.screenshot.url`
-- Baseline: `comparison.baseline.original_url` or `comparison.baseline.url`
-- Diff: `comparison.analysis.diff_image_url`
+View the available images together. A new capture may have no baseline, and an
+identical capture may have no diff. Report missing or inaccessible images;
+don't invent them. Request `comparison.review` to check the review decision.
 
-Compare the visible change with diff regions, fingerprint, and the separate
-`similar_by_fingerprint` and `recent_by_name` histories. Previous decisions can
-help explain a recurring change; they don't decide the current review.
+Changed regions and full analysis use separate requests. Discover them when
+the images alone don't answer the question:
+
+```bash
+vizzly api schema sdk.getComparisonRegions --json
+vizzly api schema sdk.getComparisonAnalysis --json
+```
+
+Use `--output <new-file>` for full analysis. Compare those details with the
+images and earlier comparisons. Previous decisions can help explain a recurring
+change; they don't decide the current review.
 
 Other useful commands:
 

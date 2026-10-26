@@ -9,12 +9,14 @@ screenshot yet, start with the [quick start](QUICKSTART.md).
 `VizzlyClient` looks for a screenshot server in this order:
 
 1. `VIZZLY_SERVER_URL`
-2. Project-local `.vizzly/server.json`
-3. User-level `.vizzly/server.json`
+2. `.vizzly/server.json` in the test runner's current folder
+3. `$HOME/.vizzly/server.json`
 4. A live server on `http://localhost:47392`
 
-`vizzly tdd start` writes `.vizzly/server.json` for you. If the default port
-is busy, use the dashboard URL printed by the command.
+`vizzly tdd start` writes `.vizzly/server.json` in your project. An iOS test
+runner may have a different current folder and home directory. For a custom
+port, set `VIZZLY_SERVER_URL` in the test runner's environment to the printed
+server URL; don't rely on it finding the project file.
 
 ## Capture options
 
@@ -59,21 +61,26 @@ app.vizzlyScreenshot(name: "profile")
 Wait for the UI instead of adding a fixed sleep. If animations, dates, or test
 data change the screenshot, keep them consistent between runs.
 
-## Fail on local differences
+## Check local differences in XCTest
 
-Set `VIZZLY_FAIL_ON_DIFF` before running the test:
-
-```bash
-VIZZLY_FAIL_ON_DIFF=true xcodebuild test \
-  -scheme MyApp \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
-```
-
-`VIZZLY_FAIL_ON_DIFF=1` works too. Or set it on a separate client:
+With `failOnDiff` enabled, `screenshot()` returns `nil` and disables further
+captures after a local visual diff. It doesn't fail XCTest by itself. Assert
+on the result if you want that:
 
 ```swift
 let client = VizzlyClient(failOnDiff: true)
+let result = client.screenshot(
+    name: "checkout",
+    image: app.screenshot().pngRepresentation
+)
+XCTAssertNotNil(result, "Vizzly capture failed or found a visual difference")
 ```
+
+Connection and upload errors also return `nil`, so this assertion fails for
+those too. To enable the setting for `VizzlyClient.shared`, put
+`VIZZLY_FAIL_ON_DIFF=true` or `1` in the test runner's environment, or use the
+setting from its discovered TDD server file. The screenshot helpers use the
+shared client; creating another client doesn't change their settings.
 
 ## Direct PNG uploads
 
@@ -91,8 +98,12 @@ client.screenshot(
 
 ## Cloud CI
 
-Save `VIZZLY_TOKEN` as a CI secret, then run your tests through
-`vizzly run --wait`:
+Save `VIZZLY_TOKEN` as a CI secret. `vizzly run` creates a cloud build and gives
+its child command `VIZZLY_SERVER_URL` and `VIZZLY_BUILD_ID`. Your Xcode test
+plan or launcher must pass those values to the UI test runner, where the SDK
+runs. The CLI doesn't configure that forwarding for you.
+
+Once your runner receives both values, wrap the test command:
 
 ```yaml
 - name: Run visual UI tests
@@ -100,12 +111,13 @@ Save `VIZZLY_TOKEN` as a CI secret, then run your tests through
     VIZZLY_TOKEN: ${{ secrets.VIZZLY_TOKEN }}
   run: |
     pnpm exec vizzly run \
-      "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:MyAppUITests" \
-      --wait
+      "xcodebuild test -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:MyAppUITests"
 ```
 
-Vizzly creates a cloud build, connects the Swift SDK, and waits for results.
-CI gets the review result when the command finishes.
+Check `VizzlyClient.shared.info` in the runner to confirm the server URL and
+build ID. Wrapping `xcodebuild` alone hasn't been verified to deliver them to
+an iOS UI test runner. See [CI checks](../../README.md#run-in-ci) to make cloud
+visual differences fail the CI job.
 
 ## Troubleshooting
 
@@ -121,10 +133,16 @@ keep running.
 
 ### Local differences don't fail the test
 
-Set `VIZZLY_FAIL_ON_DIFF=true` or start TDD with `--fail-on-diff`. Check
-`VizzlyClient.shared.info["failOnDiff"]` to see which setting is in use.
+Check `VizzlyClient.shared.info["failOnDiff"]` and assert on the screenshot
+result as shown above. Enabling the setting alone doesn't fail XCTest.
 
 ### Screenshots are grouped incorrectly
 
-Keep screenshot names consistent and put device, theme, or state in
-`properties`. The XCTest helpers already include platform and viewport details.
+Keep screenshot names consistent. For separate local baselines by device,
+theme, or state, list those keys in the top-level `signatureProperties` config
+and send their values in `properties`. For cloud builds, configure the matching
+properties in your Vizzly project settings. Extra metadata alone doesn't create
+separate baselines.
+
+App captures include platform and viewport details. Element captures include
+platform and element type; Vizzly reads image dimensions from the PNG.

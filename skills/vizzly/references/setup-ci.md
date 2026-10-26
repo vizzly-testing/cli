@@ -19,8 +19,11 @@ Use a project token from the repo's existing secret store. Never print it or
 save it in the repo.
 
 ```bash
-vizzly run "<existing visual test command>" --wait --json
+vizzly run "<existing visual test command>" --json
 ```
+
+Add `--wait` when you want CI to wait for cloud comparisons and fail on visual
+differences. Changed comparisons then make the command exit with code `1`.
 
 For parallel CI, give every shard the same ID for that CI run. Run shards
 without `--wait`, then finalize once they all finish:

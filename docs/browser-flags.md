@@ -1,7 +1,7 @@
 # Chrome browser flags
 
 The Storybook and static-site plugins launch browsers with Playwright. Ember
-uses fewer flags because Testem handles starting and stopping the browser.
+uses a smaller set of Chromium flags.
 
 ## Where to change them
 
@@ -15,7 +15,8 @@ and Playwright's default arguments are also useful references.
 
 ## Current flags
 
-These apply to Chromium. Firefox and WebKit only use the arguments you pass.
+Vizzly adds these flags only to Chromium. Firefox and WebKit use Playwright's
+defaults plus the arguments you pass.
 
 | Flag | Why we use it |
 | --- | --- |
@@ -25,12 +26,12 @@ These apply to Chromium. Firefox and WebKit only use the arguments you pass.
 | `--disable-extensions` | Skip extensions. |
 | `--disable-default-apps` | Skip default app installation. |
 | `--disable-sync` | Skip Google account sync. |
-| `--disable-breakpad` | Skip crash reporting. |
+| `--disable-breakpad` | Skip crash dump collection. |
 | `--disable-component-update` | Skip component updates after startup. |
 | `--disable-background-networking` | Skip background network requests. |
 | `--disable-background-timer-throttling` | Keep background timers running normally. |
 | `--disable-backgrounding-occluded-windows` | Keep covered windows active. |
-| `--disable-renderer-backgrounding` | Keep renderer processes active. |
+| `--disable-renderer-backgrounding` | Keep background renderers at normal process priority. |
 | `--disable-hang-monitor` | Skip hang dialogs. |
 | `--disable-ipc-flooding-protection` | Disable IPC rate limiting. |
 | `--disable-popup-blocking` | Allow popups during tests. |
@@ -41,9 +42,9 @@ These apply to Chromium. Firefox and WebKit only use the arguments you pass.
 | `--hide-scrollbars` | Keep scrollbars out of screenshots. |
 | `--mute-audio` | Mute audio. |
 | `--force-color-profile=srgb` | Use the same color profile across machines. |
-| `--js-flags=--max-old-space-size=N` | Limit the V8 heap: 512 MB for static-site, 1024 MB for Storybook. |
+| `--js-flags=--max-old-space-size=N` | Limit V8's old-generation heap: 512 MB for static-site, 1024 MB for Storybook. |
 
-Ember always uses the two sandbox flags. In CI it also adds
+Ember's Chromium launcher always uses the two sandbox flags. In CI it also adds
 `--disable-dev-shm-usage` and `--disable-extensions`.
 
 ## Old flags to avoid
@@ -51,7 +52,6 @@ Ember always uses the two sandbox flags. In CI it also adds
 | Flag | Use instead |
 | --- | --- |
 | `--disable-gpu` | Leave GPU handling to headless Chrome. |
-| `--disable-software-rasterizer` | Leave it out; using it with `--disable-gpu` can cause hangs. |
 | `--disable-translate` | `--disable-features=Translate`. |
 | `--safebrowsing-disable-auto-update` | Leave it out. |
 | `--disable-infobars` | Leave it out. |

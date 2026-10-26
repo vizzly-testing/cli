@@ -12,20 +12,20 @@ let end = '<!-- /vizzly-agent-guidance -->';
 
 function guidanceContent() {
   return `${start}
-## Visual Testing With Vizzly
+## Visual testing with Vizzly
 
 For user-facing changes, use the repo-local Vizzly skill at
 \`.agents/skills/vizzly/SKILL.md\`.
 
-- Inspect existing visual evidence before and after the change.
-- Use the repository's established Vizzly command and owning user workflow.
+- Check existing screenshots and diffs before and after the change.
+- Use the repository's existing visual test command.
 - For cloud reviews, discover supported requests with
   \`vizzly api schema --json\` and inspect baseline, current, and diff images
   together.
-- For local evidence, use \`vizzly context ... --json\`.
+- For local results, use \`vizzly context ... --json\`.
 
-Treat Vizzly diffs as review evidence. Do not approve, reject, or replace
-evidence unless the task explicitly asks for that mutation.
+Don't approve or reject changes, or replace baselines, unless the task asks
+for it.
 ${end}
 `;
 }

@@ -31,8 +31,8 @@ before(async () => {
     response.setHeader('Content-Type', 'application/json');
     response.end(
       JSON.stringify({
-        organization: { slug: request.headers['x-organization'] },
-        project: { slug: projectSlug },
+        organization: { slug: request.headers['x-organization'].toLowerCase() },
+        project: { slug: projectSlug.toLowerCase() },
         token: {
           id: `id-${projectSlug}`,
           token: `vzt_fixture_${projectSlug}`,
@@ -150,6 +150,27 @@ describe('project linking', () => {
     assert.equal(result.data.binding.status, 'manual');
     assert.ok(result.data.binding.instructions.includes('organizationSlug'));
     assert.equal(await readFile(filename, 'utf8'), source);
+    assert.equal(requests.length, start);
+  });
+
+  it('binds the canonical API identity so the next command finds its credential', async () => {
+    let fixture = await project('canonical');
+    let result = await cli(fixture, ['project', 'link', 'Team/App']);
+    assert.equal(result.code, 0, result.stderr + result.stdout);
+    let source = await readFile(
+      path.join(fixture.cwd, 'vizzly.config.js'),
+      'utf8'
+    );
+    assert.match(source, /"organizationSlug": "team"/);
+    assert.match(source, /"projectSlug": "app"/);
+    let loaded = await cli(fixture, ['config', 'linkedProject']);
+    assert.equal(loaded.code, 0, loaded.stderr + loaded.stdout);
+    assert.equal(loaded.data.value.organization, 'team');
+    assert.equal(loaded.data.value.project, 'app');
+    let start = requests.length;
+    let repeated = await cli(fixture, ['project', 'link', 'team/app']);
+    assert.equal(repeated.code, 0, repeated.stderr + repeated.stdout);
+    assert.equal(repeated.data.reused, true);
     assert.equal(requests.length, start);
   });
 

@@ -845,7 +845,7 @@ tddCmd
 
     const { result, cleanup } = await tddCommand(
       command,
-      options,
+      { ...options, autoPort: options.port === undefined },
       globalOptions
     );
 

@@ -284,6 +284,45 @@ test('force never follows a config symlink or writes agent files before prefligh
   await missing(path.join(cwd, '.agents'));
 });
 
+test('agent setup rejects symlinked parent folders before writing any files', async t => {
+  let cwd = await project(t);
+  let outside = await project(t);
+  await symlink(outside, path.join(cwd, '.agents'));
+  let result = await run(cwd, ['--agent-guidance']);
+  assert.equal(result.code, 1, result.stderr);
+  assert.match(result.stderr, /will not write through a symlink/);
+  assert.deepEqual(await readdir(outside), []);
+  assert.deepEqual(await readdir(cwd), ['.agents']);
+});
+
+test('dangling agent file symlinks fail before config creation', async t => {
+  let cwd = await project(t);
+  let skill = path.join(cwd, '.agents', 'skills', 'vizzly');
+  await mkdir(skill, { recursive: true });
+  await symlink(path.join(cwd, 'missing-skill'), path.join(skill, 'SKILL.md'));
+  let result = await run(cwd, ['--agent-guidance']);
+  assert.equal(result.code, 1, result.stderr);
+  assert.match(result.stderr, /will not replace a symlink/);
+  await missing(path.join(cwd, 'vizzly.config.js'));
+  await missing(path.join(cwd, 'AGENTS.md'));
+  await missing(path.join(cwd, 'missing-skill'));
+});
+
+test('explicit config paths also reject symlinked parent folders', async t => {
+  let cwd = await project(t);
+  let destination = await project(t);
+  let outside = await project(t);
+  await symlink(outside, path.join(destination, 'linked'));
+  let result = await run(cwd, [
+    '--config',
+    path.join(destination, 'linked', 'visual.json'),
+  ]);
+  assert.equal(result.code, 1, result.stderr);
+  assert.match(result.stderr, /will not write through a symlink/);
+  assert.deepEqual(await readdir(outside), []);
+  assert.deepEqual(await readdir(cwd), []);
+});
+
 test('read-only guidance preflight prevents otherwise writable config changes', {
   skip: process.platform === 'win32',
 }, async t => {

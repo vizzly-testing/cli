@@ -99,7 +99,7 @@ export async function chooseIntegration(project, prompts) {
   let example = `import { expect, test } from '@playwright/test';
 import { vizzlyScreenshot } from '@vizzly-testing/cli/client';
 
-test('app page has visual evidence', async ({ page }) => {
+test('app page looks correct', async ({ page }) => {
   await page.goto(${JSON.stringify(url)});
   await expect(page.locator('body')).toBeVisible();
   let receipt = await vizzlyScreenshot('app-page', await page.screenshot());

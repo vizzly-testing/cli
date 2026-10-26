@@ -1,30 +1,24 @@
 import { deepMerge } from '../config/core.js';
-
-export function createConfigContent(settings = {}, format = 'javascript') {
-  if (format === 'json' || format === 'yaml') {
-    return `${JSON.stringify(settings, null, 2)}\n`;
-  }
-  if (!['javascript', 'typescript'].includes(format)) {
-    throw new Error(
-      `Cannot generate ${format} config. Use a .js, .ts or .json file.`
-    );
-  }
-  let properties = JSON.stringify(settings, null, 2).slice(1, -1).trim();
-  let body = properties ? `${properties},\n` : '';
-  return `// Vizzly supplies defaults. Uncomment only settings you want to change.
-// Configuration: https://docs.vizzly.dev/integration/cli/
-export default {
-${body}  // comparison: { threshold: 2, minClusterSize: 2 },
-  // upload: { screenshotsDir: './screenshots' },
-};
-`;
-}
+import {
+  createConfigContent,
+  readConfigScaffold,
+} from '../utils/config-content.js';
 
 export function planConfig(config, settings = {}, force = false) {
+  let scaffold = ['javascript', 'typescript'].includes(config.format)
+    ? readConfigScaffold(config.source)
+    : null;
   if (config.exists && !force) {
     if (!Object.keys(settings).length)
       return { change: null, requirements: [] };
-    if (!['json', 'package', 'yaml'].includes(config.format)) {
+    if (!['json', 'package'].includes(config.format) && scaffold === null) {
+      let current = config.parsedConfig;
+      if (
+        current &&
+        JSON.stringify(deepMerge(current, settings)) === JSON.stringify(current)
+      ) {
+        return { change: null, requirements: [] };
+      }
       return {
         change: null,
         requirements: [
@@ -35,7 +29,7 @@ export function planConfig(config, settings = {}, force = false) {
   }
   let values =
     config.exists && !force
-      ? deepMerge(config.parsedConfig || {}, settings)
+      ? deepMerge(scaffold || config.parsedConfig || {}, settings)
       : settings;
   let after;
   if (config.format === 'package') {

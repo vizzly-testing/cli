@@ -29,7 +29,12 @@ async function createProject(t) {
   return cwd;
 }
 
-async function runCapture(cwd, mode, args = []) {
+async function runCapture(
+  cwd,
+  mode,
+  args = [],
+  { useConfigPort = false } = {}
+) {
   let reservation = net.createServer();
   reservation.listen(0, '127.0.0.1');
   await once(reservation, 'listening');
@@ -56,8 +61,7 @@ async function runCapture(cwd, mode, args = []) {
         'run',
         command,
         '--no-open',
-        '--port',
-        String(port),
+        ...(useConfigPort ? [] : ['--port', String(port)]),
         ...args,
       ],
       { cwd, env }
@@ -183,4 +187,35 @@ test('server setup fallback is explicit even if the test command passes', async 
   assert.equal(result.data.capture.setup, 'disabled');
   assert.ok(result.data.capture.reason);
   assert.equal(result.data.reportPath, null);
+});
+
+test('server setup failure stays visible when the wrapped command also fails', async t => {
+  let cwd = await createProject(t);
+  await writeFile(path.join(cwd, '.vizzly'), 'Blocks server state directory');
+  let result = await runCapture(cwd, 'fail');
+  assert.equal(result.code, 1);
+  assert.equal(result.data.capture.setup, 'disabled');
+  assert.ok(result.data.capture.reason);
+  assert.match(result.data.error.message, /exited with code 1/);
+  assert.equal(result.data.reportPath, null);
+});
+
+test('a busy configured port does not break local runs unless explicitly requested', async t => {
+  let cwd = await createProject(t);
+  let busy = net.createServer();
+  busy.listen(0, '127.0.0.1');
+  await once(busy, 'listening');
+  t.after(() => new Promise(resolve => busy.close(resolve)));
+  let port = busy.address().port;
+  await writeFile(
+    path.join(cwd, '.vizzlyrc.json'),
+    JSON.stringify({ server: { port } })
+  );
+  let result = await runCapture(cwd, 'valid', [], { useConfigPort: true });
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.data.capture.accepted, 1);
+  let explicit = await runCapture(cwd, 'zero', ['--port', String(port)]);
+  assert.equal(explicit.code, 1, explicit.stderr);
+  assert.equal(explicit.data.capture.setup, 'disabled');
+  assert.match(explicit.data.capture.reason, /already in use/);
 });

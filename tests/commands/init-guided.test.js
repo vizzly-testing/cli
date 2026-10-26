@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { once } from 'node:events';
 import { constants } from 'node:fs';
 import {
@@ -21,10 +22,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { compareSync } from '@vizzly-testing/honeydiff';
 import { quoteArgument } from '../../src/init/core.js';
 
 let repository = fileURLToPath(new URL('../../', import.meta.url));
+let exec = promisify(execFile);
 let cli = path.join(repository, 'src', 'cli.js');
 let capture = path.join(repository, 'tests', 'fixtures', 'local-capture.js');
 let png = path.join(
@@ -188,7 +191,7 @@ ptyTest(
       apply,
     ]);
     assert.equal(result.code, 0, result.output);
-    assert.match(result.output, /Captured 1 usable screenshot/);
+    assert.match(result.output, /Captured 1 screenshot/);
     let { default: config } = await import(path.join(cwd, 'vizzly.config.js'));
     assert.equal(config.upload.screenshotsDir, folder);
     await access(path.join(cwd, '.vizzly', 'report', 'index.html'));
@@ -201,6 +204,23 @@ ptyTest(
       data.comparisons[0].current.replace('/images/', '')
     );
     assert.ok(compareSync(current, current).images.current.width > 0);
+    let source = await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8');
+    let repeated = await wizard(t, cwd, [
+      ['Choose [4]', '2\n'],
+      ['Screenshots folder', `${folder}\n`],
+      noAgents,
+      ['Ignore generated', 'n\n'],
+      ['Run the selected command', 'y\n'],
+      ['Open the generated report', 'n\n'],
+      noCloud,
+      apply,
+    ]);
+    assert.equal(repeated.code, 0, repeated.output);
+    assert.match(repeated.output, /Captured 1 screenshot/);
+    assert.equal(
+      await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8'),
+      source
+    );
   }
 );
 
@@ -222,7 +242,7 @@ ptyTest(
     ]);
     assert.notEqual(result.code, 0, result.output);
     assert.match(result.output, /without capturing screenshots/);
-    assert.doesNotMatch(result.output, /Captured \d+ usable/);
+    assert.doesNotMatch(result.output, /Captured \d+ screenshot/);
   }
 );
 
@@ -277,7 +297,7 @@ ptyTest(
       apply,
     ]);
     assert.equal(result.code, 0, result.output);
-    assert.match(result.output, /Captured 1 usable screenshot/);
+    assert.match(result.output, /Captured 1 screenshot/);
     assert.equal(
       await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8'),
       source
@@ -346,7 +366,7 @@ ptyTest(
       apply,
     ]);
     assert.equal(result.code, 0, result.output);
-    assert.match(result.output, /Captured 1 usable screenshot/);
+    assert.match(result.output, /Captured 1 screenshot/);
     assert.match(
       await readFile(path.join(cwd, 'visual', 'vizzly.spec.js'), 'utf8'),
       /screenshot capture must succeed/
@@ -413,12 +433,17 @@ ptyTest(
       JSON.stringify({ auth: { accessToken: 'fixture-user-login' } })
     );
     let apiUrl = `http://127.0.0.1:${server.address().port}`;
+    await mkdir(path.join(cwd, 'screenshots'));
+    await copyFile(png, path.join(cwd, 'screenshots', 'page.png'));
     let result = await wizard(
       t,
       cwd,
       [
-        ['Choose [4]', '4\n'],
+        ['Choose [4]', '2\n'],
+        ['Screenshots folder', 'screenshots\n'],
         noAgents,
+        ['Ignore generated', 'n\n'],
+        ['Run the selected command', 'n\n'],
         ['Connect this repository', 'y\n'],
         ['Project (organization/project)', 'fixture-org/fixture-app\n'],
         apply,
@@ -431,10 +456,147 @@ ptyTest(
     assert.doesNotMatch(source, /fixture-private-token/);
     let { default: config } = await import(path.join(cwd, 'vizzly.config.js'));
     assert.equal(config.apiUrl, apiUrl);
+    assert.equal(config.upload.screenshotsDir, 'screenshots');
     assert.deepEqual(config.project, {
       organizationSlug: 'fixture-org',
       projectSlug: 'fixture-app',
     });
     assert.match(result.output, /Linked fixture-org\/fixture-app/);
+  }
+);
+
+ptyTest(
+  'guided setup preserves YAML comments and gives the settings to add',
+  { timeout: 30000 },
+  async t => {
+    let cwd = await fixture(t);
+    let source = '# Keep this comment\ncomparison:\n  threshold: 5\n';
+    await writeFile(path.join(cwd, '.vizzlyrc.yaml'), source);
+    await mkdir(path.join(cwd, 'screenshots'));
+    await copyFile(png, path.join(cwd, 'screenshots', 'page.png'));
+    let result = await wizard(t, cwd, [
+      ['Choose [4]', '2\n'],
+      ['Screenshots folder', 'screenshots\n'],
+      noAgents,
+      ['Ignore generated', 'n\n'],
+      noCloud,
+      apply,
+    ]);
+    assert.equal(result.code, 2, result.output);
+    assert.match(result.output, /Add these settings/);
+    assert.equal(
+      await readFile(path.join(cwd, '.vizzlyrc.yaml'), 'utf8'),
+      source
+    );
+    assert.deepEqual((await readdir(cwd)).sort(), [
+      '.vizzlyrc.yaml',
+      'screenshots',
+    ]);
+  }
+);
+
+ptyTest(
+  'dependency installation saves Playwright as a dev dependency and installs it',
+  { timeout: 60000 },
+  async t => {
+    let cwd = await fixture(t);
+    let registry = await fixture(t);
+    let packageDirectory = path.join(registry, 'package');
+    await mkdir(packageDirectory);
+    await writeFile(
+      path.join(packageDirectory, 'package.json'),
+      JSON.stringify({ name: '@playwright/test', version: '99.0.0' })
+    );
+    let env = {
+      ...process.env,
+      npm_config_cache: path.join(registry, 'cache'),
+      npm_config_userconfig: path.join(registry, 'npmrc'),
+    };
+    delete env.NODE_V8_COVERAGE;
+    await writeFile(env.npm_config_userconfig, '');
+    let packed = await exec(
+      'npm',
+      ['pack', '--ignore-scripts', '--json', '--pack-destination', registry],
+      { cwd: packageDirectory, env }
+    );
+    let tarball = await readFile(
+      path.join(registry, JSON.parse(packed.stdout)[0].filename)
+    );
+    let url;
+    let server = http.createServer((request, response) => {
+      if (request.url.endsWith('.tgz')) {
+        response.setHeader('Content-Type', 'application/octet-stream');
+        response.end(tarball);
+      } else {
+        response.setHeader('Content-Type', 'application/json');
+        response.end(
+          JSON.stringify({
+            name: '@playwright/test',
+            'dist-tags': { latest: '99.0.0' },
+            versions: {
+              '99.0.0': {
+                name: '@playwright/test',
+                version: '99.0.0',
+                dependencies: {},
+                dist: { tarball: `${url}/playwright-test.tgz` },
+              },
+            },
+          })
+        );
+      }
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    url = `http://127.0.0.1:${server.address().port}`;
+    await writeFile(
+      path.join(cwd, '.npmrc'),
+      `registry=${url}\n@playwright:registry=${url}\nstore-dir=${path.join(registry, 'store')}\n`
+    );
+    let version = (await exec('pnpm', ['--version'], { env })).stdout.trim();
+    await writeFile(
+      path.join(cwd, 'package.json'),
+      JSON.stringify({
+        name: 'install-fixture',
+        private: true,
+        packageManager: `pnpm@${version}`,
+        devDependencies: { '@vizzly-testing/cli': `link:${repository}` },
+      })
+    );
+    let result = await wizard(
+      t,
+      cwd,
+      [
+        ['Choose [4]', '3\n'],
+        ['Existing Playwright test directory', 'visual\n'],
+        ['App page URL', 'http://127.0.0.1:3000/\n'],
+        noAgents,
+        ['Ignore generated', 'n\n'],
+        ['Install @playwright/test using pnpm?', 'y\n'],
+        ['Run the selected command', 'n\n'],
+        noCloud,
+        apply,
+      ],
+      {
+        npm_config_registry: url,
+        NPM_CONFIG_REGISTRY: url,
+        npm_config_store_dir: path.join(registry, 'store'),
+        npm_config_userconfig: env.npm_config_userconfig,
+      }
+    );
+    assert.equal(result.code, 0, result.output);
+    let pkg = JSON.parse(
+      await readFile(path.join(cwd, 'package.json'), 'utf8')
+    );
+    assert.ok(pkg.devDependencies['@playwright/test']);
+    assert.equal(pkg.dependencies?.['@playwright/test'], undefined);
+    let installed = JSON.parse(
+      await readFile(
+        path.join(cwd, 'node_modules', '@playwright', 'test', 'package.json'),
+        'utf8'
+      )
+    );
+    assert.equal(installed.name, '@playwright/test');
+    assert.equal(installed.version, '99.0.0');
   }
 );

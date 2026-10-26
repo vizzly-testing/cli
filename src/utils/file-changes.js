@@ -25,14 +25,40 @@ async function writableParent(filename) {
 }
 
 async function checkChange(change) {
+  // Reject redirects in parent folders too, including explicit config paths.
+  // Top-level OS aliases such as /tmp on macOS are safe to follow.
+  for (
+    let parent = path.dirname(change.path);
+    path.dirname(parent) !== parent;
+    parent = path.dirname(parent)
+  ) {
+    try {
+      if (
+        path.dirname(parent) !== path.parse(parent).root &&
+        (await lstat(parent)).isSymbolicLink()
+      ) {
+        throw new Error(`Setup will not write through a symlink: ${parent}`);
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+  let info;
+  try {
+    info = await lstat(change.path);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  if (info?.isSymbolicLink()) {
+    throw new Error(`Setup will not replace a symlink: ${change.path}`);
+  }
   let current = await readOptionalFile(change.path);
   if (current !== change.before) {
     throw new Error(`${change.path} changed during setup; run init again.`);
   }
   if (current !== null) {
-    let info = await lstat(change.path);
     if (!info.isFile()) {
-      throw new Error(`Setup will not replace a symlink: ${change.path}`);
+      throw new Error(`Setup needs a regular file: ${change.path}`);
     }
     await access(change.path, constants.W_OK);
   }

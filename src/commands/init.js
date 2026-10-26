@@ -1,12 +1,11 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { planAgentSetup } from '../init/agents.js';
 import { planConfig } from '../init/core.js';
 import { chooseIntegration, planVisualScript } from '../init/integrations.js';
 import { inspectProject } from '../init/project.js';
 import { createPrompts } from '../init/prompts.js';
-import { openBrowser } from '../utils/browser.js';
 import { discoverConfig, readOptionalFile } from '../utils/config-discovery.js';
 import { applyChanges, fileChange } from '../utils/file-changes.js';
 import * as output from '../utils/output.js';
@@ -134,11 +133,17 @@ async function guidedPlan(cwd, config, options, prompts) {
   output.list(changes.map(change => path.relative(cwd, change.path)));
   for (let requirement of requirements) output.hint(requirement);
   if (install) output.hint(`Install: ${integration.install.join(', ')}`);
-  if (verify) output.hint(`Run: ${integration.command}`);
+  if (verify) {
+    let action =
+      integration.integration === 'images'
+        ? `Capture screenshots from ${integration.settings.upload.screenshotsDir}`
+        : `Run: ${integration.command}`;
+    output.hint(action);
+  }
   if (cloudProject) output.hint(`Connect project: ${cloudProject}`);
   if (cloudProject)
     output.hint(
-      'Cloud linking follows local setup as a separate step; local changes remain if linking needs an additional edit.'
+      'Local setup is saved first. If cloud linking fails, your local files stay in place.'
     );
   if (!(await prompts.confirm('Apply this setup?', true))) {
     throw Object.assign(new Error('Setup cancelled.'), {
@@ -167,12 +172,12 @@ function agentOptions(options) {
   };
 }
 
-async function verifyCapture(command, options) {
+async function verifyCapture(command, options, open) {
   let run;
   try {
     run = await tddCommand(
       command,
-      { emitOutput: false, open: false, autoPort: true },
+      { emitOutput: false, open, autoPort: true },
       { ...options, json: false }
     );
     let result = run.result;
@@ -193,7 +198,12 @@ async function verifyCapture(command, options) {
       capture: status,
       count: capture?.accepted || 0,
       reportPath: result.reportPath || null,
-      error: result.error || result.reportError || capture?.reason || null,
+      error:
+        [
+          ...new Set(
+            [capture?.reason, result.error, result.reportError].filter(Boolean)
+          ),
+        ].join(' ') || null,
     };
   } finally {
     await run?.cleanup();
@@ -234,9 +244,8 @@ function showResult(result, json) {
   if (result.agentGuidance)
     output.hint(`AGENTS.md guidance: ${result.agentGuidance.status}`);
   if (result.verification.capture === 'captured') {
-    output.complete(
-      `Captured ${result.verification.count} usable screenshot(s)`
-    );
+    let count = result.verification.count;
+    output.complete(`Captured ${count} screenshot${count === 1 ? '' : 's'}`);
     output.hint(`Report: ${result.verification.reportPath}`);
   } else if (result.verification.capture !== 'not_run') {
     output.warn(
@@ -247,9 +256,11 @@ function showResult(result, json) {
     if (result.verification.error) output.hint(result.verification.error);
   }
   for (let requirement of result.requirements) output.hint(requirement);
-  output.hint(
-    'Edit this config for your project. Run vizzly init for guided setup.'
-  );
+  if (result.mode === 'quick') {
+    output.hint(
+      'Edit this config for your project. Run vizzly init for guided setup.'
+    );
+  }
 }
 
 export async function init(options = {}) {
@@ -321,8 +332,7 @@ export async function init(options = {}) {
   try {
     if (plan.install) {
       let manager = plan.project.manager;
-      let args =
-        manager === 'npm' ? ['install', '--save-dev'] : ['add', '--dev'];
+      let args = manager === 'npm' ? ['install', '--save-dev'] : ['add', '-D'];
       await runProcess(manager, [...args, ...plan.integration.install]);
     }
     if (plan.cloudProject)
@@ -330,11 +340,10 @@ export async function init(options = {}) {
     if (plan.verify) {
       result.verification = await verifyCapture(
         plan.integration.command,
-        options
+        options,
+        plan.open
       );
       if (result.verification.capture !== 'captured') result.exitCode = 1;
-      if (plan.open && result.verification.reportPath)
-        await openBrowser(pathToFileURL(result.verification.reportPath).href);
     }
     if (
       result.cloud.status !== 'not_requested' &&

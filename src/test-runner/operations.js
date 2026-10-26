@@ -251,15 +251,21 @@ export function executeTestCommand({ command, env, json = false, deps }) {
 
 async function executeDisabledTestRun({ testCommand, json, reason, deps }) {
   let { spawn, createError } = deps;
-
-  await executeTestCommand({
-    command: testCommand,
-    env: buildDisabledEnv(),
-    json,
-    deps: { spawn, createError },
-  });
-
-  return buildDisabledRunResult(reason);
+  let result = buildDisabledRunResult(reason);
+  try {
+    await executeTestCommand({
+      command: testCommand,
+      env: buildDisabledEnv(),
+      json,
+      deps: { spawn, createError },
+    });
+  } catch (error) {
+    result.testsPassed = 0;
+    result.testsFailed = 1;
+    error.runResult = result;
+    throw error;
+  }
+  return result;
 }
 
 // ============================================================================

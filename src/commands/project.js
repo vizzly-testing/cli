@@ -184,6 +184,22 @@ export async function projectLinkCommand(
       });
     }
 
+    if (
+      linkedProject.organizationSlug !== organizationSlug ||
+      linkedProject.projectSlug !== projectSlug
+    ) {
+      binding = await planProjectBinding({
+        configPath: binding.configPath,
+        project: {
+          organizationSlug: linkedProject.organizationSlug,
+          projectSlug: linkedProject.projectSlug,
+        },
+        apiUrl,
+        currentProject: config?.project,
+        currentApiUrl: config?._configApiUrl,
+      });
+      if (binding.status === 'manual') throw new Error(binding.instructions);
+    }
     await writeProjectBinding(binding);
 
     output.stopSpinner();

@@ -1,6 +1,6 @@
 # Vizzly CLI
 
-> Visual regression testing from your terminal
+> Reviewed UI context for coding agents and teams
 
 [![package version](https://img.shields.io/npm/v/@vizzly-testing/cli.svg)](https://www.npmjs.com/package/@vizzly-testing/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,8 +9,9 @@
   <img src="./docs/assets/vizzly-mascot-inspector.png" alt="Vizzly bear inspecting a screenshot" width="220" />
 </p>
 
-Vizzly compares screenshots from your tests so you can catch UI changes. Review
-them locally, or upload them for your team to review.
+Vizzly helps your team and coding agents see what the UI should look like,
+what changed, and what was approved. It keeps screenshots, diffs, and review
+decisions together so you can use that history the next time you change the UI.
 
 ## Get started
 

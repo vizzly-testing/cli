@@ -168,34 +168,10 @@ Install the Vizzly skill and a short `AGENTS.md` note:
 pnpm exec vizzly init --agent-guidance
 ```
 
-This adds `.agents/skills/vizzly` and a note in `AGENTS.md`, keeping other
-guidance. Use `--agent-skill` to install only the skill. Run either command
-again to refresh the bundled skill files; `--agent-guidance` also refreshes
-the Vizzly note in `AGENTS.md`. Your existing config, surrounding instructions,
-and extra files in the skill directory are preserved. Refreshing replaces
-local edits to the bundled skill files and the Vizzly note.
-These flags don't open the wizard. The installed guidance revision is saved
-in `.vizzly/agent-guidance.json`.
+This adds `.agents/skills/vizzly` and a note in `AGENTS.md`, keeping your
+other instructions. Use `--agent-skill` for just the skill. Run either command
+again to refresh it without changing your config.
 `--skip-agent-skill` skips agent setup unless you also request `--agent-guidance`.
-
-Vizzly checks for CLI updates in the background at most once a day during
-terminal use. The check uses the public npm registry and caches its result
-in `~/.vizzly/updates.json` (or `$VIZZLY_HOME/updates.json`). A newer version
-gets a short notice on the next command. An installed skill that differs
-from the bundled revision also gets a reminder with the right refresh command.
-Each available version or guidance revision is announced once.
-
-The first time an available update is announced in an interactive terminal,
-Vizzly offers to apply it now. The default is no. Accepting applies only that
-update, then continues your command; it doesn't enable automatic future updates.
-CLI upgrades use the matching npm or pnpm installation and show the command
-before asking. Other installations get a reminder to upgrade with their
-package manager. If a skill is installed, accepting a CLI upgrade refreshes
-it from the new bundle too.
-
-Checks and notices stay quiet in CI, JSON output, piped commands, and at
-`warn` or `error` log levels. Use `--no-update-notifier` for one command, or
-set `VIZZLY_NO_UPDATE_NOTIFIER=1` or `NO_UPDATE_NOTIFIER=1` to disable them.
 
 Use `context` to read local results. For cloud results, check the API schema
 to find the available requests:
@@ -325,6 +301,7 @@ See their setup guides above for details.
 ## More
 
 [Full docs](https://docs.vizzly.dev) ·
+[Updating Vizzly](docs/updates.md) ·
 [Report a bug or suggest a change](https://github.com/vizzly-testing/cli/issues)
 
 PRs welcome. MIT licensed.

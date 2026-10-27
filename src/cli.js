@@ -75,12 +75,14 @@ import { createPluginServices } from './plugin-api.js';
 import { loadPlugins } from './plugin-loader.js';
 import { createServices } from './services/index.js';
 import { withTimeout } from './utils/async-utils.js';
+import { runUpdatedCli } from './utils/cli-update.js';
 import { colors } from './utils/colors.js';
 import { loadConfig } from './utils/config-loader.js';
 import { getContext } from './utils/context.js';
 import { saveUserPath } from './utils/global-config.js';
 import * as output from './utils/output.js';
 import { getPackageVersion } from './utils/package-info.js';
+import { notifyUpdates } from './utils/update-notifications.js';
 
 // Custom help formatting with BearDen design system
 const formatHelp = (cmd, helper) => {
@@ -538,6 +540,7 @@ program
   )
   .option('--color', 'Force colored output (even in non-TTY)')
   .option('--no-color', 'Disable colored output')
+  .option('--no-update-notifier', 'Skip update checks and notices')
   .option(
     '--strict',
     'Fail on any error (default: be resilient, warn on non-critical issues)'
@@ -551,6 +554,17 @@ program.configureOutput({
 program.showHelpAfterError('(Run vizzly --help for available commands)');
 program.showSuggestionAfterError();
 program.exitOverride();
+program.hook('preAction', async (_command, actionCommand) => {
+  if (actionCommand.name() === 'init') return;
+  let updatedCli = await notifyUpdates(actionCommand.optsWithGlobals());
+  if (!updatedCli) return;
+  let code = await runUpdatedCli(
+    updatedCli,
+    process.argv.slice(2),
+    process.cwd()
+  );
+  process.exit(code);
+});
 
 // Load plugins before defining commands
 // We need to manually parse to get the config option early
@@ -617,10 +631,10 @@ program
   .description('Initialize Vizzly in your project')
   .option('--quick', 'Create an editable config without the setup wizard')
   .option('--force', 'Overwrite existing configuration')
-  .option('--agent-skill', 'Install the Vizzly agent skill during setup')
+  .option('--agent-skill', 'Install or refresh the Vizzly agent skill')
   .option(
     '--agent-guidance',
-    'Install the Vizzly skill and AGENTS.md guidance during setup'
+    'Install or refresh the Vizzly skill and AGENTS.md guidance'
   )
   .option('--skip-agent-skill', 'Skip the Vizzly agent skill prompt')
   .action(async options => {

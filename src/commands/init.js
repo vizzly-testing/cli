@@ -1,621 +1,193 @@
-#!/usr/bin/env node
-import fs from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
-import { z } from 'zod';
-import { VizzlyError } from '../errors/vizzly-error.js';
-import { loadPlugins } from '../plugin-loader.js';
-import { loadConfig } from '../utils/config-loader.js';
+import { planAgentSetup } from '../init/agents.js';
+import { planConfig } from '../init/core.js';
+import { createPrompts } from '../init/prompts.js';
+import { discoverConfig } from '../utils/config-discovery.js';
+import { applyChanges } from '../utils/file-changes.js';
 import * as output from '../utils/output.js';
+import { projectLinkCommand, validateProjectLinkOptions } from './project.js';
 
-let commandDir = path.dirname(fileURLToPath(import.meta.url));
+function runProcess(command, args) {
+  return new Promise((resolve, reject) => {
+    let child = spawn(command, args, { stdio: 'inherit' });
+    child.once('error', reject);
+    child.once('close', (code, signal) => {
+      if (code === 0) resolve();
+      else
+        reject(
+          new Error(
+            `${command} did not finish successfully (${signal || code}).`
+          )
+        );
+    });
+  });
+}
 
-let configValueSchema = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(configValueSchema),
-    z.record(z.string(), configValueSchema),
-  ])
-);
-let configSchemaValidator = z.record(z.string(), configValueSchema);
+async function guidedPlan(cwd, config, prompts) {
+  output.hint(`Project: ${cwd}`);
+  let guidance = await prompts.confirm(
+    'Add the Vizzly skill and AGENTS.md instructions?'
+  );
+  let cloudProject = null;
+  if (
+    await prompts.confirm('Connect this repository to a Vizzly Cloud project?')
+  ) {
+    cloudProject = await prompts.ask('Project (organization/project)');
+    let errors = validateProjectLinkOptions(cloudProject);
+    if (errors.length) throw new Error(errors.join(' '));
+  }
+  let agents = await planAgentSetup(cwd, { skill: guidance, guidance });
+  let changes = [planConfig(config), ...agents.changes];
+  output.labelValue('Proposed changes', '');
+  output.list(changes.map(change => path.relative(cwd, change.path)));
+  if (cloudProject) {
+    output.hint(`Connect project: ${cloudProject}`);
+    output.hint(
+      'Local setup is saved first. If cloud linking fails, your local files stay in place.'
+    );
+  }
+  if (!(await prompts.confirm('Apply this setup?', true))) {
+    throw Object.assign(new Error('Setup cancelled.'), {
+      code: 'INIT_CANCELLED',
+    });
+  }
+  return { ...agents, changes, cloudProject };
+}
 
-function createInitDeps(deps = {}) {
+function agentOptions(options) {
+  let guidance = Boolean(options.agentGuidance);
   return {
-    access: deps.access || fs.access,
-    copy: deps.copy || fs.cp,
-    cwd: deps.cwd || (() => process.cwd()),
-    isInteractive:
-      deps.isInteractive ||
-      (() => Boolean(process.stdin.isTTY && process.stdout.isTTY)),
-    loadConfig: deps.loadConfig || loadConfig,
-    loadPlugins: deps.loadPlugins || loadPlugins,
-    mkdir: deps.mkdir || fs.mkdir,
-    output: deps.output || output,
-    promptAgentSkill: deps.promptAgentSkill || promptAgentSkill,
-    readFile: deps.readFile || fs.readFile,
-    remove: deps.remove || fs.rm,
-    skillSourcePath: deps.skillSourcePath || getPackagedAgentSkillPath(),
-    writeFile: deps.writeFile || fs.writeFile,
+    guidance,
+    skill: guidance || (!options.skipAgentSkill && Boolean(options.agentSkill)),
   };
 }
 
-function configureOutput(output, options) {
+async function connectProject(project, options) {
+  let exitCode = 0;
+  let link = () =>
+    projectLinkCommand(project, {}, options, {
+      exit: code => {
+        exitCode = code;
+      },
+    });
+  let result = await link();
+  if (result?.reason === 'auth_required') {
+    let cli = fileURLToPath(new URL('../cli.js', import.meta.url));
+    await runProcess(process.execPath, [cli, 'login']);
+    result = await link();
+  }
+  let status = result?.linked ? 'linked' : 'failed';
+  if (!result?.linked && exitCode === 1) status = 'auth_required';
+  return { status, project };
+}
+
+function showResult(result, json) {
+  if (json) {
+    output.data(result);
+    return;
+  }
+  output.complete(
+    result.status === 'created' ? 'Config created' : 'Existing config preserved'
+  );
+  output.hint(result.configPath);
+  if (result.agentSkill)
+    output.hint(`Vizzly agent skill: ${result.agentSkill.status}`);
+  if (result.agentGuidance)
+    output.hint(`AGENTS.md guidance: ${result.agentGuidance.status}`);
+  if (result.cloud.error)
+    output.warn(`Cloud linking failed: ${result.cloud.error}`);
+  if (result.status === 'skipped') {
+    output.hint(
+      'Edit this config to change your setup. Use --force to replace it.'
+    );
+  } else {
+    output.hint('Edit this config for your project.');
+    output.hint('Use a Vizzly client to add screenshot capture.');
+  }
+}
+
+export async function init(options = {}) {
   output.configure({
     json: options.json || false,
-    verbose: options.verbose || false,
-    color: options.color !== false,
+    verbose: options.verbose,
+    color: options.color,
   });
-}
-
-export function getInitConfigPath(cwd = process.cwd()) {
-  return path.join(cwd, 'vizzly.config.js');
-}
-
-function getPackagedAgentSkillPath(baseDir = commandDir) {
-  return path.resolve(baseDir, '..', '..', 'skills', 'vizzly');
-}
-
-export function getProjectAgentSkillPath(cwd = process.cwd()) {
-  return path.join(cwd, '.agents', 'skills', 'vizzly');
-}
-
-export function getProjectAgentsPath(cwd = process.cwd()) {
-  return path.join(cwd, 'AGENTS.md');
-}
-
-export async function fileExists(filePath, access = fs.access) {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function getPluginsWithConfig(plugins = []) {
-  return plugins.filter(plugin => plugin.configSchema);
-}
-
-function getPluginConfigNames(plugins = []) {
-  return getPluginsWithConfig(plugins).map(plugin => plugin.name);
-}
-
-function formatObjectKey(key) {
-  if (/^[A-Za-z_$][\w$]*$/.test(key)) {
-    return key;
-  }
-
-  return formatValue(key);
-}
-
-export function formatValue(value, depth = 0) {
-  let indent = '  '.repeat(depth);
-  let nextIndent = '  '.repeat(depth + 1);
-
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'string') {
-    return `'${value
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/\n/g, '\\n')}'`;
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) return '[]';
-
-    let items = value.map(item => {
-      let formatted = formatValue(item, depth + 1);
-      return `${nextIndent}${formatted}`;
-    });
-
-    return `[\n${items.join(',\n')}\n${indent}]`;
-  }
-
-  if (typeof value === 'object') {
-    let entries = Object.entries(value);
-    if (entries.length === 0) return '{}';
-
-    let props = entries.map(([key, entryValue]) => {
-      let formatted = formatValue(entryValue, depth + 1);
-      return `${nextIndent}${formatObjectKey(key)}: ${formatted}`;
-    });
-
-    return `{\n${props.join(',\n')}\n${indent}}`;
-  }
-
-  return String(value);
-}
-
-export function formatPluginConfig(plugin, output = null) {
-  try {
-    configSchemaValidator.parse(plugin.configSchema);
-
-    let configEntries = [];
-
-    for (let [key, value] of Object.entries(plugin.configSchema)) {
-      let formattedValue = formatValue(value, 1);
-      configEntries.push(
-        `  // ${plugin.name} plugin configuration\n  ${formatObjectKey(key)}: ${formattedValue}`
-      );
-    }
-
-    return configEntries.join(',\n\n');
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      let messages = error.issues.map(
-        zodError => `${zodError.path.join('.')}: ${zodError.message}`
-      );
-      output?.warn(
-        `Invalid config schema for plugin ${plugin.name}: ${messages.join(', ')}`
-      );
-    } else {
-      output?.warn(
-        `Failed to format config for plugin ${plugin.name}: ${error.message}`
-      );
-    }
-    return '';
-  }
-}
-
-function generatePluginConfigs(plugins = [], output = null) {
-  let sections = [];
-
-  for (let plugin of plugins) {
-    if (plugin.configSchema) {
-      let configStr = formatPluginConfig(plugin, output);
-      if (configStr) {
-        sections.push(configStr);
-      }
-    }
-  }
-
-  return sections.length > 0 ? sections.join(',\n\n') : '';
-}
-
-export function createConfigContent(plugins = [], output = null) {
-  let coreConfig = `export default {
-  // Server configuration (for run command)
-  server: {
-    port: 47392,
-    timeout: 30000
-  },
-
-  // Build configuration
-  build: {
-    name: 'Build {timestamp}',
-    environment: 'test'
-  },
-
-  // Upload configuration (for upload command)
-  upload: {
-    screenshotsDir: './screenshots',
-    batchSize: 10,
-    timeout: 30000
-  },
-
-  // Comparison configuration (CIEDE2000 Delta E: 0=exact, 1=JND, 2=recommended)
-  comparison: {
-    threshold: 2.0,
-    minClusterSize: 2
-  },
-
-  // TDD configuration
-  tdd: {
-    openReport: false // Whether to auto-open HTML report in browser
-  }`;
-
-  let pluginConfigs = generatePluginConfigs(plugins, output);
-  if (pluginConfigs) {
-    coreConfig += `,\n\n${pluginConfigs}`;
-  }
-
-  return `${coreConfig}\n};\n`;
-}
-
-function writeHumanCreatedOutput(output, plugins) {
-  output.header('init');
-  output.complete('Created vizzly.config.js');
-
-  let pluginsWithConfig = getPluginsWithConfig(plugins);
-  if (pluginsWithConfig.length > 0) {
-    output.hint(`Added config for ${pluginsWithConfig.length} plugin(s):`);
-    output.list(
-      pluginsWithConfig.map(plugin => plugin.name),
-      { indent: 4 }
-    );
-  }
-}
-
-function showNextSteps(output) {
-  output.blank();
-  output.labelValue('Next steps', '');
-  output.list([
-    'Set your API token: export VIZZLY_TOKEN="your-api-key"',
-    'Run your tests with Vizzly: pnpm exec vizzly run "pnpm test"',
-    'Upload screenshots: pnpm exec vizzly upload ./screenshots',
-  ]);
-}
-
-async function promptAgentSkill({
-  stdin = process.stdin,
-  stdout = process.stdout,
-} = {}) {
-  let rl = createInterface({ input: stdin, output: stdout });
-
-  try {
-    let answer = await rl.question(
-      'Add the Vizzly agent skill to this repo? [Y/n] '
-    );
-    return !['n', 'no'].includes(answer.trim().toLowerCase());
-  } finally {
-    rl.close();
-  }
-}
-
-async function shouldInstallAgentSkill(options, deps) {
-  if (options.agentGuidance) {
-    return true;
-  }
-
-  if (options.skipAgentSkill) {
-    return false;
-  }
-
-  if (options.agentSkill) {
-    return true;
-  }
-
-  if (options.json || !deps.isInteractive()) {
-    return false;
-  }
-
-  return await deps.promptAgentSkill();
-}
-
-let agentGuidanceStart = '<!-- vizzly-agent-guidance -->';
-let agentGuidanceEnd = '<!-- /vizzly-agent-guidance -->';
-
-function createAgentGuidanceContent() {
-  let skillPath = '.agents/skills/vizzly/SKILL.md';
-  return `${agentGuidanceStart}
-## Visual Testing With Vizzly
-
-For user-facing changes, use the repo-local Vizzly skill at
-\`${skillPath}\`.
-
-- Inspect existing visual evidence before and after the change.
-- Use the repository's established Vizzly command and owning user workflow.
-- For cloud reviews, discover supported requests with
-  \`vizzly api schema --json\` and inspect baseline, current, and diff images
-  together.
-- For local evidence, use \`vizzly context ... --json\`.
-
-Treat Vizzly diffs as review evidence. Do not approve, reject, or replace
-evidence unless the task explicitly asks for that mutation.
-${agentGuidanceEnd}
-`;
-}
-
-function appendSection(content, section) {
-  if (!content.trim()) {
-    return section;
-  }
-
-  return `${content.replace(/\s*$/, '')}\n\n${section}`;
-}
-
-async function upsertProjectAgentGuidance({
-  cwd,
-  access = fs.access,
-  readFile = fs.readFile,
-  writeFile = fs.writeFile,
-}) {
-  let agentsPath = getProjectAgentsPath(cwd);
-  let guidance = createAgentGuidanceContent();
-
-  if (!(await fileExists(agentsPath, access))) {
-    await writeFile(agentsPath, guidance, 'utf8');
-    return {
-      status: 'created',
-      agentsPath,
-    };
-  }
-
-  let existingContent = await readFile(agentsPath, 'utf8');
-  let startIndex = existingContent.indexOf(agentGuidanceStart);
-  let endIndex = existingContent.indexOf(agentGuidanceEnd);
-  let startCount = existingContent.split(agentGuidanceStart).length - 1;
-  let endCount = existingContent.split(agentGuidanceEnd).length - 1;
-
+  let cwd = process.cwd();
+  let explicitAgentOption =
+    options.agentSkill || options.agentGuidance || options.skipAgentSkill;
+  let quick = Boolean(options.quick || options.json || explicitAgentOption);
+  let config = await discoverConfig({
+    cwd,
+    configPath: options.config,
+    allowInvalid: options.force,
+  });
+  let initialized = config.exists && !options.force;
   if (
-    startCount !== endCount ||
-    startCount > 1 ||
-    (startCount === 1 && endIndex < startIndex)
+    !initialized &&
+    !quick &&
+    (!process.stdin.isTTY || !process.stdout.isTTY || process.env.CI)
   ) {
-    return {
-      status: 'malformed',
-      agentsPath,
-    };
+    throw Object.assign(
+      new Error(
+        'Use vizzly init --quick to create config without a terminal, or run vizzly init interactively.'
+      ),
+      { code: 'INIT_INPUT_REQUIRED' }
+    );
+  }
+  let mode = quick ? 'quick' : 'guided';
+  let plan;
+  let prompts;
+  try {
+    if (initialized) {
+      plan = { changes: [] };
+    } else if (quick) {
+      let configChange = planConfig(config);
+      let agents = await planAgentSetup(cwd, agentOptions(options));
+      plan = {
+        ...agents,
+        changes: [configChange, ...agents.changes],
+      };
+    } else {
+      output.header('init');
+      prompts = createPrompts();
+      plan = await guidedPlan(cwd, config, prompts);
+    }
+  } catch (error) {
+    if (error.code !== 'INIT_CANCELLED') throw error;
+    output.hint('Setup cancelled; no files changed.');
+    return { status: 'cancelled', mode, exitCode: 130 };
+  } finally {
+    prompts?.close();
   }
 
-  if (startIndex >= 0 && endIndex >= startIndex) {
-    let blockEnd = endIndex + agentGuidanceEnd.length;
-    let refreshedContent = `${existingContent.slice(0, startIndex)}${guidance.trimEnd()}${existingContent.slice(blockEnd)}`;
-
-    if (refreshedContent === existingContent) {
-      return {
-        status: 'exists',
-        agentsPath,
+  let changes = await applyChanges(plan.changes);
+  let result = {
+    status: initialized ? 'skipped' : 'created',
+    ...(initialized ? { reason: 'config_exists' } : {}),
+    configPath: config.configPath,
+    mode,
+    plugins: [],
+    changes,
+    cloud: { status: 'not_requested' },
+    ...(plan.agentSkill ? { agentSkill: plan.agentSkill } : {}),
+    ...(plan.agentGuidance ? { agentGuidance: plan.agentGuidance } : {}),
+    exitCode: 0,
+  };
+  if (plan.cloudProject) {
+    try {
+      result.cloud = await connectProject(plan.cloudProject, options);
+    } catch (error) {
+      result.cloud = {
+        status: 'failed',
+        project: plan.cloudProject,
+        error: error.message,
       };
     }
-
-    await writeFile(agentsPath, refreshedContent, 'utf8');
-    return {
-      status: 'refreshed',
-      agentsPath,
-    };
+    if (result.cloud.status !== 'linked') result.exitCode = 1;
   }
-
-  await writeFile(agentsPath, appendSection(existingContent, guidance), 'utf8');
-  return {
-    status: 'updated',
-    agentsPath,
-  };
-}
-
-export async function installProjectAgentSkill({
-  cwd,
-  sourcePath,
-  refresh = false,
-  access = fs.access,
-  copy = fs.cp,
-  mkdir = fs.mkdir,
-  remove = fs.rm,
-}) {
-  let targetPath = getProjectAgentSkillPath(cwd);
-
-  if (!(await fileExists(path.join(sourcePath, 'SKILL.md'), access))) {
-    return {
-      status: 'missing-source',
-      sourcePath,
-      targetPath,
-    };
-  }
-
-  let targetExists = await fileExists(targetPath, access);
-  if (targetExists && !refresh) {
-    return {
-      status: 'exists',
-      sourcePath,
-      targetPath,
-    };
-  }
-
-  await mkdir(path.dirname(targetPath), { recursive: true });
-  await copy(sourcePath, targetPath, {
-    recursive: true,
-    errorOnExist: !targetExists,
-    force: targetExists,
-  });
-
-  if (targetExists) {
-    await remove(path.join(targetPath, 'agents', 'openai.yaml'), {
-      force: true,
-    });
-  }
-
-  return {
-    status: targetExists ? 'refreshed' : 'installed',
-    sourcePath,
-    targetPath,
-  };
-}
-
-function writeAgentSkillOutput(output, result) {
-  if (!result) {
-    return;
-  }
-
-  if (result.status === 'installed') {
-    output.complete('Added Vizzly agent skill');
-    output.hint(`Installed at ${result.targetPath}`);
-    return;
-  }
-
-  if (result.status === 'refreshed') {
-    output.complete('Refreshed Vizzly agent skill');
-    output.hint(`Updated ${result.targetPath}`);
-    return;
-  }
-
-  if (result.status === 'exists') {
-    output.hint('Vizzly agent skill already exists in this repo');
-    return;
-  }
-
-  if (result.status === 'missing-source') {
-    output.warn('Vizzly agent skill was not found in this CLI package');
-  }
-}
-
-function writeAgentGuidanceOutput(output, result) {
-  if (!result) {
-    return;
-  }
-
-  if (result.status === 'created') {
-    output.complete('Created AGENTS.md with Vizzly guidance');
-    output.hint(`Wrote ${result.agentsPath}`);
-    return;
-  }
-
-  if (result.status === 'updated') {
-    output.complete('Added Vizzly guidance to AGENTS.md');
-    output.hint(`Updated ${result.agentsPath}`);
-    return;
-  }
-
-  if (result.status === 'refreshed') {
-    output.complete('Refreshed Vizzly guidance in AGENTS.md');
-    output.hint(`Updated ${result.agentsPath}`);
-    return;
-  }
-
-  if (result.status === 'exists') {
-    output.hint('Vizzly guidance already exists in AGENTS.md');
-    return;
-  }
-
-  if (result.status === 'malformed') {
-    output.warn('Vizzly guidance markers in AGENTS.md are incomplete');
-    output.hint(`Repair the managed block in ${result.agentsPath}`);
-  }
-}
-
-function withAgentSetupResults(
-  payload,
-  { agentSkillResult, agentGuidanceResult }
-) {
-  if (agentSkillResult) {
-    payload.agentSkill = agentSkillResult;
-  }
-  if (agentGuidanceResult) {
-    payload.agentGuidance = agentGuidanceResult;
-  }
-
-  return payload;
-}
-
-async function writeConfigFile({
-  configPath,
-  plugins,
-  options,
-  output,
-  writeFile,
-}) {
-  let coreConfig = createConfigContent(plugins, output);
-
-  await writeFile(configPath, coreConfig, 'utf8');
-
-  if (!options.json) {
-    writeHumanCreatedOutput(output, plugins);
-  }
-}
-
-async function loadInitPlugins(options, deps) {
-  if (options.plugins) {
-    return options.plugins;
-  }
-
-  try {
-    let config = await deps.loadConfig(options.config, {});
-    return await deps.loadPlugins(options.config, config);
-  } catch {
-    return [];
-  }
-}
-
-export async function init(options = {}, deps = {}) {
-  let resolvedDeps = createInitDeps(deps);
-
-  configureOutput(resolvedDeps.output, options);
-
-  let plugins = await loadInitPlugins(options, resolvedDeps);
-  let configPath = getInitConfigPath(resolvedDeps.cwd());
-  let hasConfig = await fileExists(configPath, resolvedDeps.access);
-  let agentSkillResult = null;
-  let agentGuidanceResult = null;
-
-  if (await shouldInstallAgentSkill(options, resolvedDeps)) {
-    agentSkillResult = await installProjectAgentSkill({
-      cwd: resolvedDeps.cwd(),
-      sourcePath: resolvedDeps.skillSourcePath,
-      access: resolvedDeps.access,
-      copy: resolvedDeps.copy,
-      mkdir: resolvedDeps.mkdir,
-      refresh: options.agentGuidance || options.agentSkill,
-      remove: resolvedDeps.remove,
-    });
-  }
-
-  if (options.agentGuidance) {
-    agentGuidanceResult = await upsertProjectAgentGuidance({
-      cwd: resolvedDeps.cwd(),
-      access: resolvedDeps.access,
-      readFile: resolvedDeps.readFile,
-      writeFile: resolvedDeps.writeFile,
-    });
-  }
-
-  if (hasConfig && !options.force) {
-    if (options.json) {
-      let payload = withAgentSetupResults(
-        {
-          status: 'skipped',
-          reason: 'config_exists',
-          configPath,
-          message:
-            'A vizzly.config.js file already exists. Use --force to overwrite.',
-        },
-        { agentSkillResult, agentGuidanceResult }
-      );
-      resolvedDeps.output.data(payload);
-      return { status: 'skipped', configPath };
-    }
-
-    resolvedDeps.output.header('init');
-    resolvedDeps.output.warn('A vizzly.config.js file already exists');
-    resolvedDeps.output.hint('Use --force to overwrite');
-    writeAgentSkillOutput(resolvedDeps.output, agentSkillResult);
-    writeAgentGuidanceOutput(resolvedDeps.output, agentGuidanceResult);
-    return { status: 'skipped', configPath };
-  }
-
-  try {
-    await writeConfigFile({
-      configPath,
-      plugins,
-      options,
-      output: resolvedDeps.output,
-      writeFile: resolvedDeps.writeFile,
-    });
-
-    let pluginNames = getPluginConfigNames(plugins);
-
-    if (options.json) {
-      let payload = withAgentSetupResults(
-        {
-          status: 'created',
-          configPath,
-          plugins: pluginNames,
-        },
-        { agentSkillResult, agentGuidanceResult }
-      );
-      resolvedDeps.output.data(payload);
-      return { status: 'created', configPath, plugins: pluginNames };
-    }
-
-    showNextSteps(resolvedDeps.output);
-    writeAgentSkillOutput(resolvedDeps.output, agentSkillResult);
-    writeAgentGuidanceOutput(resolvedDeps.output, agentGuidanceResult);
-
-    resolvedDeps.output.blank();
-    resolvedDeps.output.complete('Vizzly CLI setup complete');
-
-    return { status: 'created', configPath, plugins: pluginNames };
-  } catch (error) {
-    throw new VizzlyError(
-      'Failed to initialize Vizzly configuration',
-      'INIT_FAILED',
-      { error: error.message }
-    );
-  }
+  output.configure({ json: options.json || false });
+  showResult(result, options.json);
+  return result;
 }

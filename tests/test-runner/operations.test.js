@@ -535,6 +535,13 @@ describe('test-runner/operations', () => {
         testsPassed: 1,
         testsFailed: 0,
         screenshotsCaptured: 0,
+        capture: {
+          setup: 'disabled',
+          reason: 'API request failed: 530',
+          accepted: 0,
+          rejected: 0,
+          errors: 0,
+        },
       });
     });
 

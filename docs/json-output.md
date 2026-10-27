@@ -140,9 +140,9 @@ vizzly tdd run "pnpm test" --json
         "diffPercentage": 4.2,
         "threshold": 2.0,
         "paths": {
-          "baseline": ".vizzly/baselines/button-primary.png",
-          "current": ".vizzly/current/button-primary.png",
-          "diff": ".vizzly/diff/button-primary.png"
+          "baseline": "/path/to/project/.vizzly/baselines/button-primary.png",
+          "current": "/path/to/project/.vizzly/current/button-primary.png",
+          "diff": "/path/to/project/.vizzly/diffs/button-primary.png"
         },
         "viewport": { "width": 1920, "height": 1080 },
         "browser": "chromium"
@@ -152,9 +152,18 @@ vizzly tdd run "pnpm test" --json
       "total": 1,
       "passed": 0,
       "failed": 1,
-      "new": 0
+      "new": 0,
+      "errors": 0
     },
-    "reportPath": ".vizzly/report/index.html",
+    "capture": {
+      "setup": "ready",
+      "reason": null,
+      "accepted": 1,
+      "rejected": 0,
+      "errors": 0
+    },
+    "reportPath": "/path/to/project/.vizzly/report/index.html",
+    "reportError": null,
     "contextCommand": "vizzly context build current --source local --json"
   }
 }
@@ -163,6 +172,12 @@ vizzly tdd run "pnpm test" --json
 Test output goes to stderr in JSON mode. Captured screenshots also produce
 `.vizzly/report-data.json` and `.vizzly/report/index.html`. Run the returned
 `contextCommand` to inspect that local data.
+
+`reportPath` is null when no report was generated. `capture.rejected` counts
+failed screenshot requests; comparison errors also appear in `capture.errors`
+and `summary.errors`. Those counts can overlap. If setup fails,
+`capture.setup` is `"disabled"` and `capture.reason` explains why. Setup,
+capture, and report errors fail the visual run even when your tests pass.
 
 ### `vizzly tdd screenshots`
 
@@ -821,6 +836,10 @@ processing and still need review. Fields the API doesn't return are left out.
 
 ### `vizzly init`
 
+`--json` uses quick setup: create or keep config without questions. It doesn't
+install dependencies, run tests, or link a cloud project. Agent files require
+`--agent-skill` or `--agent-guidance`. Put project settings in the config.
+
 ```bash
 vizzly init --json
 ```
@@ -830,12 +849,23 @@ vizzly init --json
   "status": "data",
   "data": {
     "status": "created",
-    "configPath": "/path/to/vizzly.config.js"
+    "configPath": "/path/to/vizzly.config.js",
+    "mode": "quick",
+    "plugins": [],
+    "changes": [
+      { "path": "/path/to/vizzly.config.js", "status": "written" }
+    ],
+    "cloud": { "status": "not_requested" },
+    "exitCode": 0
   }
 }
 ```
 
-To set up project agents too:
+Existing config returns `status: "skipped"` and `reason: "config_exists"`.
+`changes` is empty when no files changed. Quick setup doesn't load executable
+config or plugins, and it doesn't verify screenshot capture.
+
+To set up project agents too (unchanged fields omitted):
 
 ```bash
 vizzly init --agent-guidance --json
@@ -861,10 +891,8 @@ vizzly init --agent-guidance --json
 }
 ```
 
-Run it again after upgrading to refresh the skill and managed `AGENTS.md`
-block. Updated items report `"status": "refreshed"`. An existing
-`vizzly.config.js` and other guidance are kept. With a `.ts` config, the command
-can still create a new `.js` config.
+If config already exists, init returns `"status": "skipped"` without changing
+config or agent files. Edit the config directly to change your setup.
 
 ### `vizzly project link`
 
@@ -877,13 +905,23 @@ vizzly project link my-org/my-project --json
   "status": "data",
   "data": {
     "linked": true,
+    "reused": false,
     "organizationSlug": "my-org",
     "projectSlug": "my-project",
     "tokenPrefix": "vzt_abc",
-    "storage": "keychain"
+    "storage": "keychain",
+    "binding": {
+      "status": "bound",
+      "configPath": "/path/to/vizzly.config.js"
+    }
   }
 }
 ```
+
+The config stores the project name; credentials stay in user storage. Repeated
+linking returns `reused: true` when a saved token is still valid. If the config
+needs a manual edit, linking returns `linked: false`, `binding.status: "manual"`,
+and instructions. It exits with code `2` without creating a token.
 
 ### `vizzly projects`
 

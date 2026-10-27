@@ -175,6 +175,7 @@ export const createTddHandler = (
   const tddService = new TddService(config, workingDir, setBaseline);
   const reportPath = join(workingDir, '.vizzly', 'report-data.json');
   const detailsPath = join(workingDir, '.vizzly', 'comparison-details.json');
+  let capture = { accepted: 0, rejected: 0 };
 
   let clearJsonFile = path => {
     if (existsSync(path)) {
@@ -183,6 +184,7 @@ export const createTddHandler = (
   };
 
   let prepareRunArtifacts = () => {
+    capture = { accepted: 0, rejected: 0 };
     clearJsonFile(reportPath);
     clearJsonFile(detailsPath);
     tddService.clearRunData?.();
@@ -348,7 +350,7 @@ export const createTddHandler = (
     }
   };
 
-  const handleScreenshot = async (
+  let processScreenshot = async (
     _buildId,
     name,
     image,
@@ -589,8 +591,24 @@ export const createTddHandler = (
     };
   };
 
+  let handleScreenshot = async (...args) => {
+    let result;
+    try {
+      result = await processScreenshot(...args);
+    } catch (error) {
+      result = {
+        statusCode: error.code === 'INVALID_IMAGE' ? 400 : 500,
+        body: { error: error.message, tddMode: true },
+      };
+    }
+    if (result.statusCode >= 400) capture.rejected++;
+    else capture.accepted++;
+    return result;
+  };
+
   const getResults = async () => {
-    return await tddService.printResults();
+    let results = await tddService.printResults();
+    return { ...results, capture: { ...capture } };
   };
 
   const acceptBaseline = async comparisonId => {

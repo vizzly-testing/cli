@@ -60,6 +60,11 @@ const tddSchema = z.object({
   openReport: z.boolean().default(CONFIG_DEFAULTS.tdd.openReport),
 });
 
+let projectSchema = z.object({
+  organizationSlug: z.string().trim().min(1),
+  projectSlug: z.string().trim().min(1),
+});
+
 /**
  * Core Vizzly configuration schema
  * Allows plugin-specific keys with passthrough for extensibility
@@ -69,6 +74,7 @@ export const vizzlyConfigSchema = z
     // Core Vizzly config
     apiKey: z.string().optional(),
     apiUrl: z.string().url().default(CONFIG_DEFAULTS.apiUrl),
+    project: projectSchema.optional(),
     server: serverSchema.default(CONFIG_DEFAULTS.server),
     build: buildSchema.default(CONFIG_DEFAULTS.build),
     upload: uploadSchema.default(CONFIG_DEFAULTS.upload),

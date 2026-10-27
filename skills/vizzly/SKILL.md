@@ -70,4 +70,4 @@ output for guided inspection.
 - [SDK capture](references/sdks.md): add or change screenshot capture code.
 - [Dynamic content](references/dynamic-content.md): investigate unstable
   content and screenshot-specific tolerances.
-- [Setup and CI](references/setup-ci.md): initialize Vizzly or change CI.
+- [CI](references/ci.md): run visual tests with committed config and CI secrets.

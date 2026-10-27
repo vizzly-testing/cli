@@ -58,23 +58,21 @@ export async function saveProjectLink(link, deps = {}) {
   };
 }
 
-export async function getActiveProjectLink(options = {}, deps = {}) {
-  let { loadConfig = loadGlobalConfig, getSecret = defaultGetSecret } = deps;
+export async function getProjectLink(options = {}, deps = {}) {
+  let {
+    loadConfig = loadGlobalConfig,
+    getSecret = defaultGetSecret,
+    now = Date.now,
+  } = deps;
+
+  if (!options.account && !(options.organizationSlug && options.projectSlug)) {
+    return null;
+  }
 
   let config = await loadConfig();
   let projectLink = getProjectLinkConfig(config);
-  let account = options.account || projectLink.active;
+  let account = options.account || buildProjectLinkAccount(options);
   let link = account ? projectLink.links?.[account] : null;
-
-  if (
-    !link &&
-    options.apiUrl &&
-    options.organizationSlug &&
-    options.projectSlug
-  ) {
-    account = buildProjectLinkAccount(options);
-    link = projectLink.links?.[account] || null;
-  }
 
   if (!link) {
     return null;
@@ -82,6 +80,13 @@ export async function getActiveProjectLink(options = {}, deps = {}) {
 
   if (options.apiUrl && link.apiUrl && link.apiUrl !== options.apiUrl) {
     return null;
+  }
+
+  if (link.expiresAt) {
+    let expiresAt = Date.parse(link.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt <= now()) {
+      return null;
+    }
   }
 
   let token =

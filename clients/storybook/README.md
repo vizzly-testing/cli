@@ -34,8 +34,7 @@ for upgrade details.
 
 ## Configuration
 
-Add `storybook` to `vizzly.config.js`, or run `pnpm exec vizzly init` to get
-started:
+Run `pnpm exec vizzly init --quick` to create a config, then add `storybook`:
 
 ```javascript
 export default {

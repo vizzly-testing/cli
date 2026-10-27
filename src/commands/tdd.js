@@ -18,9 +18,15 @@ import { createBuildObject as defaultCreateBuildObject } from '../services/build
 import { createConfigService as defaultCreateConfigService } from '../services/config-service.js';
 import { createProjectService as defaultCreateProjectService } from '../services/project-service.js';
 import {
+  generateStaticReport as defaultGenerateStaticReport,
+  getReportFileUrl,
+} from '../services/static-report-generator.js';
+import { getServerRegistry } from '../tdd/server-registry.js';
+import {
   initializeDaemon as defaultInitializeDaemon,
   runTests as defaultRunTests,
 } from '../test-runner/index.js';
+import { openBrowser as defaultOpenBrowser } from '../utils/browser.js';
 import { loadConfig as defaultLoadConfig } from '../utils/config-loader.js';
 import {
   detectBranch as defaultDetectBranch,
@@ -82,6 +88,8 @@ export async function tddCommand(
     generateBuildNameWithGit = defaultGenerateBuildNameWithGit,
     spawn = defaultSpawn,
     output = defaultOutput,
+    generateStaticReport = defaultGenerateStaticReport,
+    openBrowser = defaultOpenBrowser,
   } = deps;
 
   output.configure({
@@ -112,6 +120,11 @@ export async function tddCommand(
     // Load configuration with CLI overrides
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
+    if (options.autoPort) {
+      config.server.port = await getServerRegistry().findAvailablePort(
+        config.server.port
+      );
+    }
 
     // Dev mode works locally by default - only needs token for baseline download
     let needsToken =
@@ -241,40 +254,68 @@ export async function tddCommand(
     // Normal dev mode - run tests
     output.debug('run', testCommand);
 
-    let runResult = await runTests({
-      runOptions,
-      config: configWithVerbose,
-      deps: {
-        serverManager,
-        buildManager,
-        spawn: (command, spawnOptions) => {
-          let proc = spawn(command, spawnOptions);
-          testProcess = proc;
-          return proc;
+    let runError = null;
+    let runResult;
+    try {
+      runResult = await runTests({
+        runOptions,
+        config: configWithVerbose,
+        deps: {
+          serverManager,
+          buildManager,
+          spawn: (command, spawnOptions) => {
+            let proc = spawn(command, spawnOptions);
+            testProcess = proc;
+            return proc;
+          },
+          createApiClient,
+          createApiBuild,
+          getBuild,
+          finalizeApiBuild,
+          createError: (msg, code) => new VizzlyError(msg, code),
+          output,
+          onBuildCreated: data => {
+            output.debug('build', `created ${data.buildId?.substring(0, 8)}`);
+          },
+          onServerReady: data => {
+            output.debug('server', `ready on :${data.port}`);
+          },
+          onFinalizeFailed: data => {
+            output.warn(`Failed to finalize build: ${data.error}`);
+          },
         },
-        createApiClient,
-        createApiBuild,
-        getBuild,
-        finalizeApiBuild,
-        createError: (msg, code) => new VizzlyError(msg, code),
-        output,
-        onBuildCreated: data => {
-          output.debug('build', `created ${data.buildId?.substring(0, 8)}`);
-        },
-        onServerReady: data => {
-          output.debug('server', `ready on :${data.port}`);
-        },
-        onFinalizeFailed: data => {
-          output.warn(`Failed to finalize build: ${data.error}`);
-        },
-      },
-    });
+      });
+    } catch (error) {
+      if (!error.runResult) throw error;
+      runResult = error.runResult;
+      runError = error;
+    }
+
+    let reportPath = null;
+    let reportError = null;
+    if (
+      runResult.screenshotsCaptured > 0 ||
+      runResult.comparisons?.length > 0
+    ) {
+      let report = await generateStaticReport(process.cwd());
+      if (report.success) {
+        reportPath = report.reportPath;
+      } else {
+        reportError = report.error;
+        output.warn(`Failed to generate static report: ${report.error}`);
+      }
+    }
 
     // Determine success based on comparison results
     // (Summary is printed by printResults() in tdd-service.js, called from getTddResults)
     let hasFailures =
       runResult.failed ||
-      runResult.comparisons?.some(c => c.status === 'failed');
+      runResult.testsFailed > 0 ||
+      runResult.capture?.setup === 'disabled' ||
+      runResult.capture?.rejected > 0 ||
+      runResult.capture?.errors > 0 ||
+      Boolean(reportError) ||
+      runResult.comparisons?.some(c => ['failed', 'error'].includes(c.status));
     let exitCode = hasFailures ? 1 : 0;
 
     // JSON output mode
@@ -287,9 +328,9 @@ export async function tddCommand(
         diffPercentage: c.diffPercentage ?? c.diff_percentage ?? null,
         threshold: c.threshold ?? config.comparison.threshold,
         paths: {
-          baseline: c.baselinePath || c.baseline_path || null,
-          current: c.currentPath || c.current_path || null,
-          diff: c.diffPath || c.diff_path || null,
+          baseline: c.baseline || c.baselinePath || c.baseline_path || null,
+          current: c.current || c.currentPath || c.current_path || null,
+          diff: c.diff || c.diffPath || c.diff_path || null,
         },
         viewport: c.viewport || {
           width: c.viewportWidth || c.viewport_width,
@@ -304,6 +345,7 @@ export async function tddCommand(
         passed: comparisons.filter(c => c.status === 'passed').length,
         failed: comparisons.filter(c => c.status === 'failed').length,
         new: comparisons.filter(c => c.status === 'new').length,
+        errors: comparisons.filter(c => c.status === 'error').length,
       };
 
       output.data({
@@ -311,22 +353,37 @@ export async function tddCommand(
         exitCode,
         comparisons,
         summary,
-        reportPath: runResult.reportPath || '.vizzly/report/index.html',
+        capture: runResult.capture,
+        reportPath,
+        reportError,
+        ...(runError ? { error: { message: runError.message } } : {}),
         contextCommand: buildLocalContextCommand({ structured: true }),
       });
       output.cleanup();
     }
 
-    if (!globalOptions.json && !options.daemon) {
+    if (!globalOptions.json) {
+      if (reportPath) output.hint(`Report: ${getReportFileUrl(reportPath)}`);
       output.blank?.();
       output.print(`  Context      ${buildLocalContextCommand()}`);
     }
 
+    if (reportPath && options.open !== false) {
+      try {
+        await openBrowser(getReportFileUrl(reportPath));
+      } catch (error) {
+        output.warn(`Could not open the report: ${error.message}`);
+      }
+    }
+
     return {
       result: {
+        ...runResult,
         success: !hasFailures,
         exitCode,
-        ...runResult,
+        reportPath,
+        reportError,
+        ...(runError ? { error: runError.message } : {}),
       },
       cleanup,
     };
@@ -341,7 +398,8 @@ export async function tddCommand(
           code: error.code || 'UNKNOWN_ERROR',
         },
         comparisons: [],
-        summary: { total: 0, passed: 0, failed: 0, new: 0 },
+        summary: { total: 0, passed: 0, failed: 0, new: 0, errors: 0 },
+        reportPath: null,
       });
       output.cleanup();
     } else {
@@ -352,6 +410,7 @@ export async function tddCommand(
         success: false,
         exitCode: 1,
         error: error.message,
+        reportPath: null,
       },
       cleanup,
     };

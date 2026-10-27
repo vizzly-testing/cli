@@ -1,17 +1,6 @@
-# Setup and CI
+# CI
 
-Use this guide when the task includes setup, CI changes, or config problems.
-These commands can change files or cloud builds.
-
-## Set up Vizzly
-
-Run this only when the task authorizes setup:
-
-```bash
-vizzly init
-```
-
-See [CLI context](cli-context.md) for local results and starting or stopping TDD.
+CI uses the config committed to the repository. Set up Vizzly locally first.
 
 ## Cloud CI
 
@@ -36,11 +25,9 @@ vizzly finalize "<shared-ci-run-id>" --json
 ## Troubleshoot
 
 - `vizzly doctor`: check local config.
-- `vizzly tdd status --json`: check a local server started for this task.
 - `vizzly status <build-id> --json`: check cloud build status.
 - `vizzly api schema --json`: find cloud review requests and their inputs
   and outputs.
 
-If screenshots are missing, check the existing integration, the test that
-should capture them, and the active session. If auth is missing, report it.
-Only start login when setup is part of the task.
+If screenshots are missing, check the integration and the test that should
+capture them. If auth is missing, check the `VIZZLY_TOKEN` CI secret.

@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
-import { cosmiconfigSync } from 'cosmiconfig';
 import { CONFIG_DEFAULTS, deepMerge } from '../config/core.js';
+import { createConfigExplorer } from './config-discovery.js';
 import { validateVizzlyConfigWithDefaults } from './config-schema.js';
 import {
   getApiToken,
@@ -12,11 +12,11 @@ import {
 } from './environment-config.js';
 import { getAccessToken } from './global-config.js';
 import * as output from './output.js';
-import { getActiveProjectLink } from './project-link-store.js';
+import { getProjectLink } from './project-link-store.js';
 
 export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 1. Load from config file using cosmiconfig
-  let explorer = cosmiconfigSync('vizzly');
+  let explorer = createConfigExplorer();
   let result = configPath ? explorer.load(configPath) : explorer.search();
 
   let fileConfig = {};
@@ -27,6 +27,12 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   // 2. Validate config file using Zod schema
   let validatedFileConfig = validateVizzlyConfigWithDefaults(fileConfig);
+  let comparisonOverrides = {};
+  for (let key of ['threshold', 'minClusterSize']) {
+    if (fileConfig.comparison?.[key] !== undefined) {
+      comparisonOverrides[key] = validatedFileConfig.comparison[key];
+    }
+  }
 
   // Create a proper clone of the default config to avoid shared object references
   let config = deepMerge(CONFIG_DEFAULTS, {});
@@ -52,9 +58,13 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     output.debug('config', 'using build name from environment');
   }
   if (envParallelId) config.parallelId = envParallelId;
-  if (envThreshold !== undefined) config.comparison.threshold = envThreshold;
+  if (envThreshold !== undefined) {
+    config.comparison.threshold = envThreshold;
+    comparisonOverrides.threshold = envThreshold;
+  }
   if (envMinClusterSize !== undefined) {
     config.comparison.minClusterSize = envMinClusterSize;
+    comparisonOverrides.minClusterSize = envMinClusterSize;
   }
 
   // 4. Apply CLI overrides (highest priority)
@@ -63,10 +73,24 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   applyCLIOverrides(config, cliOverrides);
+  for (let key of ['threshold', 'minClusterSize']) {
+    if (cliOverrides[key] !== undefined) {
+      comparisonOverrides[key] = config.comparison[key];
+    }
+  }
+  let validatedComparison = validateVizzlyConfigWithDefaults({
+    comparison: comparisonOverrides,
+  }).comparison;
+  config._comparisonOverrides = Object.fromEntries(
+    Object.keys(comparisonOverrides).map(key => [key, validatedComparison[key]])
+  );
 
-  // 5. Fall back to a linked project token for cloud upload commands.
-  if (!config.apiKey) {
-    let linkedProject = await getActiveProjectLink({ apiUrl: config.apiUrl });
+  // 5. Use only the credential belonging to this repository's destination.
+  if (!config.apiKey && config.project) {
+    let linkedProject = await getProjectLink({
+      apiUrl: config.apiUrl,
+      ...config.project,
+    });
     if (linkedProject?.token) {
       config.apiKey = linkedProject.token;
       config.linkedProject = {
@@ -93,6 +117,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   config._configPath = result?.filepath || null;
+  config._configApiUrl = validatedFileConfig.apiUrl;
 
   return config;
 }

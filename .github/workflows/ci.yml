@@ -61,13 +61,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build
+        run: pnpm run build
+
       - name: Run tests
         run: pnpm test
         env:
           CI: true
-
-      - name: Build
-        run: pnpm run build
 
       - name: Run type tests
         run: pnpm run test:types

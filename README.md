@@ -22,7 +22,15 @@ pnpm add --save-dev @vizzly-testing/cli
 pnpm exec vizzly init
 ```
 
-Then add a screenshot to a test. This example uses Playwright:
+The wizard creates a config and offers agent guidance and cloud linking.
+It previews file changes before applying them. If Vizzly is already configured,
+init leaves it alone. Edit the config directly to change your setup.
+
+To create a small config and edit it yourself, use `pnpm exec vizzly init --quick`.
+It keeps existing config and doesn't install dependencies or run tests.
+
+Choose a Vizzly client for your test setup, then add screenshot capture.
+This example uses Playwright with the Node.js client:
 
 ```javascript
 import { test } from '@playwright/test';
@@ -63,6 +71,8 @@ pnpm exec vizzly tdd run "pnpm test" --no-open
 
 Review data goes in `.vizzly/`. When the run captures screenshots, it also
 creates `.vizzly/report/index.html`. Omit `--no-open` to open the report.
+If the configured port is busy, `tdd run` picks an available one. An explicit
+`--port` uses only that port.
 
 ### Review in the cloud
 
@@ -72,8 +82,13 @@ pnpm exec vizzly project link your-org/your-project
 pnpm exec vizzly run "pnpm test"
 ```
 
-`vizzly login` signs you in. Linking gives this checkout a project upload token.
+`vizzly login` signs you in. Linking saves the project name in your config and
+keeps the upload token in user storage. Run it again to reuse a saved token.
 Replace `"pnpm test"` with your test command.
+
+If you linked with an older CLI, run `project link` once in each repository to
+save its project selection. Handwritten config may need a manual edit; the
+command prints what to add. Explicit `--token` and `VIZZLY_TOKEN` still work.
 
 To upload screenshots you already have:
 
@@ -120,7 +135,8 @@ and [Ember](clients/ember/README.md) guides. There are also
 
 ## Configuration
 
-`vizzly init` creates a config, or you can write `vizzly.config.js` yourself:
+`vizzly init --quick` creates a config with commented examples. Put settings
+there when you want to change a default, or write `vizzly.config.js` yourself:
 
 ```javascript
 export default {
@@ -129,6 +145,14 @@ export default {
   },
 };
 ```
+
+Cloud comparisons use your project's settings unless you override them in
+config, environment variables, or command options. Local comparisons use the
+CLI defaults.
+
+Existing config is kept, including TypeScript, rc files, and `package.json`.
+Use `--config <path>` to choose a config or a new destination. `--force`
+replaces the selected config; in `package.json`, it replaces only `vizzly`.
 
 For TypeScript, use `vizzly.config.ts`. Node strips the types, so you don't need
 a separate compiler. Use `import type` for types and include extensions in local
@@ -144,10 +168,10 @@ Install the Vizzly skill and a short `AGENTS.md` note:
 pnpm exec vizzly init --agent-guidance
 ```
 
-Run it again after upgrading to update `.agents/skills/vizzly` and the Vizzly
-note in `AGENTS.md`. It keeps an existing `vizzly.config.js` and other guidance;
-with a `.ts` config, it can still create a new `.js` config. Use `--agent-skill`
-to install the skill without the note, or `--skip-agent-skill` to skip the prompt.
+This adds `.agents/skills/vizzly` and a note in `AGENTS.md`, keeping other
+guidance. Use `--agent-skill` to install only the skill during setup.
+These flags don't open the wizard or update an existing Vizzly setup.
+`--skip-agent-skill` skips agent setup unless you also request `--agent-guidance`.
 
 Use `context` to read local results. For cloud results, check the API schema
 to find the available requests:
@@ -192,7 +216,7 @@ with `pnpm exec` when Vizzly is installed locally.
 
 | Command | What it does |
 | --- | --- |
-| `vizzly init` | Create config for Vizzly and installed plugins, with optional agent guidance. |
+| `vizzly init` | Walk through setup. Use `--quick` to create config without questions. |
 | `vizzly config [key]` | Show your current config. |
 | `vizzly project link <org>/<project>` | Link this checkout to a cloud project. |
 | `vizzly orgs` | List your organizations. |

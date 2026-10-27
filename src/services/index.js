@@ -26,9 +26,16 @@ import { TestRunner } from './test-runner.js';
  * @returns {Object} Services object for plugins
  */
 export function createServices(config) {
-  let serverManager = createServerManager(config, {});
+  // Direct programmatic config is explicit; loadConfig already distinguishes
+  // explicit comparison settings from its local fallback defaults.
+  let serviceConfig = {
+    ...config,
+    _comparisonOverrides:
+      config._comparisonOverrides ?? config.comparison ?? {},
+  };
+  let serverManager = createServerManager(serviceConfig, {});
 
-  let testRunner = new TestRunner(config, serverManager);
+  let testRunner = new TestRunner(serviceConfig, serverManager);
 
   return {
     serverManager,

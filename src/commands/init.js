@@ -141,7 +141,7 @@ export async function init(options = {}) {
   let prompts;
   try {
     if (initialized) {
-      plan = { changes: [] };
+      plan = await planAgentSetup(cwd, agentOptions(options));
     } else if (quick) {
       let configChange = planConfig(config);
       let agents = await planAgentSetup(cwd, agentOptions(options));

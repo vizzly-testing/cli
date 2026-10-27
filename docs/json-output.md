@@ -16,6 +16,8 @@ Result JSON goes to stdout. Progress messages and diagnostics from
 `output.error(...)` go to stderr. Check the command's exit status too; failures
 may appear in result JSON or leave stdout empty.
 
+Update checks, notices, and prompts are off with `--json`.
+
 ## Pick fields
 
 Pass comma-separated fields, with dots for nested values:
@@ -865,6 +867,10 @@ Existing config returns `status: "skipped"` and `reason: "config_exists"`.
 `changes` is empty when no files changed. Quick setup doesn't load executable
 config or plugins, and it doesn't verify screenshot capture.
 
+`--agent-skill` and `--agent-guidance` can still install or refresh agent files
+when config exists. The config status stays `"skipped"`, and `changes` lists
+the files written.
+
 To set up project agents too (unchanged fields omitted):
 
 ```bash
@@ -890,9 +896,6 @@ vizzly init --agent-guidance --json
   }
 }
 ```
-
-If config already exists, init returns `"status": "skipped"` without changing
-config or agent files. Edit the config directly to change your setup.
 
 ### `vizzly project link`
 

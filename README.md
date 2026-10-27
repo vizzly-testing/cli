@@ -168,9 +168,9 @@ Install the Vizzly skill and a short `AGENTS.md` note:
 pnpm exec vizzly init --agent-guidance
 ```
 
-This adds `.agents/skills/vizzly` and a note in `AGENTS.md`, keeping other
-guidance. Use `--agent-skill` to install only the skill during setup.
-These flags don't open the wizard or update an existing Vizzly setup.
+This adds `.agents/skills/vizzly` and a note in `AGENTS.md`, keeping your
+other instructions. Use `--agent-skill` for just the skill. Run either command
+again to refresh it without changing your config.
 `--skip-agent-skill` skips agent setup unless you also request `--agent-guidance`.
 
 Use `context` to read local results. For cloud results, check the API schema
@@ -301,6 +301,7 @@ See their setup guides above for details.
 ## More
 
 [Full docs](https://docs.vizzly.dev) ·
+[Updating Vizzly](docs/updates.md) ·
 [Report a bug or suggest a change](https://github.com/vizzly-testing/cli/issues)
 
 PRs welcome. MIT licensed.

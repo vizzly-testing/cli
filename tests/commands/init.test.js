@@ -228,22 +228,63 @@ test('agent setup installs the skill and preserves surrounding guidance', async 
   await missing(path.join(cwd, 'user-state'));
 });
 
-test('existing Vizzly config stops init without adding or refreshing agent files', async t => {
+test('explicit agent setup preserves existing config and refreshes managed guidance', async t => {
   let cwd = await project(t);
   let source = 'export default { comparison: { threshold: 7 } };\n';
   await writeFile(path.join(cwd, 'vizzly.config.js'), source);
   let bare = await run(cwd, [], false);
   assert.equal(bare.code, 0, bare.stderr);
   assert.match(bare.stdout, /Edit this config to change your setup/);
+  assert.deepEqual(await readdir(cwd), ['vizzly.config.js']);
   let result = await run(cwd, ['--agent-guidance']);
   assert.equal(result.code, 0, result.stderr);
   assert.equal(result.data.status, 'skipped');
-  assert.deepEqual(result.data.changes, []);
+  assert.equal(result.data.agentSkill.status, 'installed');
   assert.equal(
     await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8'),
     source
   );
-  assert.deepEqual(await readdir(cwd), ['vizzly.config.js']);
+  let skill = path.join(cwd, '.agents', 'skills', 'vizzly');
+  let bundled = await readFile(path.join(skill, 'SKILL.md'), 'utf8');
+  await writeFile(path.join(skill, 'SKILL.md'), 'Old skill');
+  await writeFile(path.join(skill, 'references', 'ci.md'), 'Old CI reference');
+  await writeFile(path.join(skill, 'my-notes.md'), 'Keep my extra file');
+  await writeFile(
+    path.join(cwd, 'AGENTS.md'),
+    '# Keep before\n\n<!-- vizzly-agent-guidance -->\nOld guidance\n<!-- /vizzly-agent-guidance -->\n\nKeep after.\n'
+  );
+  result = await run(cwd, ['--agent-guidance']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.data.agentSkill.status, 'updated');
+  assert.equal(await readFile(path.join(skill, 'SKILL.md'), 'utf8'), bundled);
+  assert.equal(
+    await readFile(path.join(skill, 'references', 'ci.md'), 'utf8'),
+    await readFile(
+      path.join(result.data.agentSkill.sourcePath, 'references', 'ci.md'),
+      'utf8'
+    )
+  );
+  assert.equal(
+    await readFile(path.join(skill, 'my-notes.md'), 'utf8'),
+    'Keep my extra file'
+  );
+  let agents = await readFile(path.join(cwd, 'AGENTS.md'), 'utf8');
+  assert.match(agents, /^# Keep before/);
+  assert.match(agents, /Visual testing with Vizzly/);
+  assert.match(agents, /Keep after\.\n$/);
+  assert.doesNotMatch(agents, /Old guidance/);
+  assert.equal(
+    await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8'),
+    source
+  );
+  let state = JSON.parse(
+    await readFile(path.join(cwd, '.vizzly', 'agent-guidance.json'), 'utf8')
+  );
+  assert.equal(state.version, result.data.agentSkill.version);
+  let again = await run(cwd, ['--agent-guidance']);
+  assert.equal(again.data.agentSkill.status, 'exists');
+  assert.deepEqual(again.data.changes, []);
+  await missing(path.join(cwd, 'user-state'));
 });
 
 test('skill-only remains skill-only and explicit skip suppresses it', async t => {
@@ -301,6 +342,18 @@ test('agent setup rejects symlinked parent folders before writing any files', as
   assert.match(result.stderr, /will not write through a symlink/);
   assert.deepEqual(await readdir(outside), []);
   assert.deepEqual(await readdir(cwd), ['.agents']);
+});
+
+test('guidance metadata rejects symlinked state folders before config or skill writes', async t => {
+  let cwd = await project(t);
+  let outside = await project(t);
+  await symlink(outside, path.join(cwd, '.vizzly'));
+  let result = await run(cwd, ['--agent-guidance']);
+  assert.equal(result.code, 1, result.stderr);
+  assert.match(result.stderr, /will not write through a symlink/);
+  assert.deepEqual(await readdir(outside), []);
+  await missing(path.join(cwd, 'vizzly.config.js'));
+  await missing(path.join(cwd, '.agents'));
 });
 
 test('dangling agent file symlinks fail before config creation', async t => {

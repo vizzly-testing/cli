@@ -16,5 +16,8 @@
   "license": "MIT",
   "peerDependencies": {
     "@vizzly-testing/cli": "^0.9.0"
+  },
+  "devDependencies": {
+    "@vizzly-testing/cli": "workspace:*"
   }
 }

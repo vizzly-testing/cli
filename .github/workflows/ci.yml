@@ -7,6 +7,29 @@ on:
     branches: [main]
 
 jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Use Node.js 22.23.4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: '22.23.4'
+
+      - name: Install pnpm
+        run: |
+          npm install -g corepack@latest
+          corepack enable
+          corepack prepare pnpm@11.3.0 --activate
+
+      - name: Audit all workspace dependencies
+        run: pnpm audit
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -14,10 +37,10 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Use Node.js 22.18.0
+      - name: Use Node.js 22.23.4
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: '22.18.0'
+          node-version: '22.23.4'
 
       - name: Install pnpm
         run: |
@@ -42,7 +65,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: ['22.18.0', 24]
+        node-version: ['22.23.4', 24]
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -75,12 +98,12 @@ jobs:
   check:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [audit, lint, test]
     if: always()
     steps:
       - name: Check all jobs passed
         run: |
-          if [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.test.result }}" == "failure" ]]; then
+          if [[ "${{ needs.audit.result }}" != "success" || "${{ needs.lint.result }}" != "success" || "${{ needs.test.result }}" != "success" ]]; then
             echo "CI checks failed"
             exit 1
           fi

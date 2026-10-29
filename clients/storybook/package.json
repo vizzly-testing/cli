@@ -63,14 +63,15 @@
     "@vizzly-testing/cli": ">=0.24.0"
   },
   "dependencies": {
-    "playwright-core": "^1.63.0",
+    "playwright-core": "^1.64.1",
     "serve-handler": "^6.1.7"
   },
   "devDependencies": {
     "@babel/cli": "^8.0.6",
-    "@babel/core": "^8.0.6",
-    "@babel/preset-env": "^8.0.6",
-    "@biomejs/biome": "^2.5.15",
+    "@babel/core": "^8.0.7",
+    "@babel/preset-env": "^8.0.7",
+    "@biomejs/biome": "^2.6.2",
+    "@vizzly-testing/cli": "workspace:*",
     "rimraf": "^6.1.3"
   }
 }

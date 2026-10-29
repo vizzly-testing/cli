@@ -4,20 +4,22 @@
  * Uses the shared test-site (FluffyCloud) to verify the full screenshot
  * capture flow: page discovery → browser launch → screenshot capture → TDD server.
  *
- * Run with: VIZZLY_E2E=1 pnpm test -- e2e.test.js
+ * Run with: pnpm run test:sdk-integration
+ *
+ * Starts an isolated TDD daemon unless VIZZLY_SERVER_URL is already set.
  *
  * Requires:
- * - TDD server running: `vizzly tdd start`
  * - test-site available at ../../../test-site
  */
 
 import assert from 'node:assert';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
+import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
+import { promisify } from 'node:util';
+import { configure } from '@vizzly-testing/cli/client';
 
 import { closeBrowser, launchBrowser } from '../src/browser.js';
 import { discoverPages } from '../src/crawler.js';
@@ -31,14 +33,7 @@ import { captureScreenshot } from '../src/screenshot.js';
 import { startStaticServer, stopStaticServer } from '../src/server.js';
 import { generateTasks, processAllTasks } from '../src/tasks.js';
 
-async function stopProcess(child) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) {
-    return;
-  }
-
-  child.kill('SIGTERM');
-  await once(child, 'exit');
-}
+let execFileAsync = promisify(execFile);
 
 // Paths
 let testDir = join(tmpdir(), `vizzly-static-site-e2e-${Date.now()}`);
@@ -52,7 +47,9 @@ let runE2E = process.env.VIZZLY_E2E === '1';
 let externalServer = !!process.env.VIZZLY_SERVER_URL;
 
 describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
-  let tddServer = null;
+  let tddPort = null;
+  let previousServerUrl = process.env.VIZZLY_SERVER_URL;
+  let previousEnabled = process.env.VIZZLY_ENABLED;
   let serverInfo = null;
   let browser = null;
   let pool = null;
@@ -77,57 +74,62 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
       // Create temp directory
       mkdirSync(testDir, { recursive: true });
 
-      tddServer = spawn('node', [cliPath, 'tdd', 'start'], {
-        cwd: testDir,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, VIZZLY_HOME: testDir },
-      });
-
-      // Wait for TDD server to start
-      await new Promise((resolve, reject) => {
-        let timeout = setTimeout(
-          () => reject(new Error('TDD server timeout')),
-          15000
-        );
-
-        tddServer.stdout.on('data', data => {
-          if (
-            data.toString().includes('TDD server started') ||
-            data.toString().includes('localhost:47392')
-          ) {
-            clearTimeout(timeout);
-            resolve();
-          }
-        });
-
-        tddServer.on('error', err => {
-          clearTimeout(timeout);
-          reject(err);
-        });
-      });
+      let { stdout } = await execFileAsync(
+        process.execPath,
+        [cliPath, '--json', 'tdd', 'start'],
+        {
+          cwd: testDir,
+          env: { ...process.env, VIZZLY_HOME: testDir },
+        }
+      );
+      tddPort = JSON.parse(stdout).data.port;
+      process.env.VIZZLY_SERVER_URL = `http://localhost:${tddPort}`;
     }
 
     // Start static server for test-site
     serverInfo = await startStaticServer(testSitePath);
+
+    configure({ serverUrl: process.env.VIZZLY_SERVER_URL, enabled: true });
 
     // Launch browser
     browser = await launchBrowser({ headless: true });
   });
 
   after(async () => {
-    if (pool) await pool.drain();
-    if (browser) await closeBrowser(browser);
-    if (serverInfo) await stopStaticServer(serverInfo);
-
-    if (tddServer && !externalServer) {
-      await stopProcess(tddServer);
-    }
-
-    if (!externalServer) {
+    try {
+      if (pool) await pool.drain();
+      if (browser) await closeBrowser(browser);
+      if (serverInfo) await stopStaticServer(serverInfo);
+    } finally {
       try {
-        rmSync(testDir, { recursive: true, force: true });
-      } catch {
-        // Ignore cleanup errors
+        if (tddPort) {
+          await execFileAsync(
+            process.execPath,
+            [cliPath, 'tdd', 'stop', '--port', String(tddPort)],
+            {
+              cwd: testDir,
+              env: { ...process.env, VIZZLY_HOME: testDir },
+            }
+          );
+        }
+      } finally {
+        configure({
+          serverUrl: previousServerUrl || null,
+          enabled: previousEnabled === 'true',
+        });
+        if (previousServerUrl === undefined)
+          delete process.env.VIZZLY_SERVER_URL;
+        else process.env.VIZZLY_SERVER_URL = previousServerUrl;
+        if (previousEnabled === undefined) delete process.env.VIZZLY_ENABLED;
+        else process.env.VIZZLY_ENABLED = previousEnabled;
+
+        if (!externalServer) {
+          try {
+            rmSync(testDir, { recursive: true, force: true });
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
       }
     }
   });
@@ -426,7 +428,10 @@ describe('Static-Site E2E with shared test-site', { skip: !runE2E }, () => {
         let page = await browser.newPage();
 
         try {
-          await page.setViewport(viewport);
+          await page.setViewportSize({
+            width: viewport.width,
+            height: viewport.height,
+          });
           await page.goto(`${serverInfo.url}/index.html`, {
             waitUntil: 'networkidle0',
           });

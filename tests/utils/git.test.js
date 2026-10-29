@@ -81,7 +81,7 @@ async function withGitRepo(testFn) {
 describe('utils/git', () => {
   let ciEnv = useCleanCIEnv();
 
-  function usePullRequestEvent(pullRequest) {
+  function setPullRequestEvent(pullRequest) {
     process.env.GITHUB_ACTIONS = 'true';
     process.env.GITHUB_EVENT_PATH = ciEnv.createEventFile({
       pull_request: pullRequest,
@@ -250,7 +250,7 @@ describe('utils/git', () => {
   describe('detectCommitMessage', () => {
     it('uses the PR title from the GitHub event payload', async () => {
       await withGitRepo(async directory => {
-        usePullRequestEvent({ title: 'Add dark mode', head: { sha: 'abc' } });
+        setPullRequestEvent({ title: 'Add dark mode', head: { sha: 'abc' } });
 
         let message = await detectCommitMessage(null, directory);
 
@@ -261,7 +261,7 @@ describe('utils/git', () => {
     it('reads the PR head commit on a GitHub merge checkout', async () => {
       await withGitRepo(async directory => {
         let { head } = await createGitHubMergeCheckout(directory);
-        usePullRequestEvent({ head: { sha: head } });
+        setPullRequestEvent({ head: { sha: head } });
 
         let message = await detectCommitMessage(null, directory);
         let author = await detectCommitAuthor(directory);
@@ -277,7 +277,7 @@ describe('utils/git', () => {
     it('falls back to HEAD when the PR head is not in local history', async () => {
       await withGitRepo(async directory => {
         let { base, head } = await createGitHubMergeCheckout(directory);
-        usePullRequestEvent({ head: { sha: 'f'.repeat(40) } });
+        setPullRequestEvent({ head: { sha: 'f'.repeat(40) } });
 
         let message = await detectCommitMessage(null, directory);
         let author = await detectCommitAuthor(directory);
@@ -341,7 +341,7 @@ describe('utils/git', () => {
     it('names GitHub PR builds after the head branch and head commit', async () => {
       await withGitRepo(async directory => {
         let { head } = await createGitHubMergeCheckout(directory);
-        usePullRequestEvent({ head: { sha: head } });
+        setPullRequestEvent({ head: { sha: head } });
         process.env.GITHUB_HEAD_REF = 'feature/dark-mode';
 
         let name = await generateBuildNameWithGit(null, directory);

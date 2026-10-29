@@ -6,11 +6,10 @@ packages:
   - test-site
 
 overrides:
-  # concurrently 10.0.5 pins vulnerable shell-quote 1.9.0.
-  # Remove after upgrading to concurrently 10.0.6 or later.
-  shell-quote@>=1.8.4 <1.11.0: 1.11.0
   # can-symlink and external-editor require vulnerable tmp 0.0.x releases.
   tmp@<0.2.6: 0.2.7
+  # express and tiny-lr pin qs 6.16.0, which is vulnerable to GHSA-6pq8-jhm2-2vcw.
+  qs@>=6.7.0 <6.16.1: 6.16.1
   # Keep transitive dependencies on patched releases until their parents update.
   markdown-it@>=14.1.0 <14.3.3: 14.3.3
   zod@>=4.0.0 <4.6.6: 4.6.7

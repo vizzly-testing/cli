@@ -14,7 +14,10 @@ import {
 import { basename, dirname, extname, join, resolve } from 'node:path';
 
 let eventPrefix = 'VIZZLY_PREVIEW_EVENT ';
-let supportedXcodeVersion = '26.6';
+let minimumXcodeVersion = '26.5';
+// Keep this in sync with swiftui_preview_initializer in CVizzlyPreviewRuntime.
+let previewInitializerSymbol =
+  '_$s21DeveloperToolsSupport7PreviewV7SwiftUIE_6traits4bodyACSSSg_AA0D5TraitVyAC10ViewTraitsOGdAD0J0_pyScMYcctcfC';
 let previewRuntimeInstallName =
   '@rpath/VizzlyPreviewRuntime.framework/VizzlyPreviewRuntime';
 
@@ -410,17 +413,61 @@ async function resolveScheme(container, requestedScheme) {
   return selectScheme(schemeChecks.filter(Boolean));
 }
 
-async function assertSupportedToolchain() {
-  let result = await runCommand('xcodebuild', ['-version']);
-  let match = result.stdout.match(/^Xcode (\S+)/m);
-  if (!match || match[1] !== supportedXcodeVersion) {
-    let detectedVersion = match?.[1] ?? 'unknown';
+export function assertPreviewToolchain(versionOutput, swiftUIExports) {
+  let match = versionOutput.match(/^Xcode (\d+(?:\.\d+){0,2})\r?$/m);
+  if (!match) {
+    throw new Error('Could not determine the active Xcode version');
+  }
+
+  let [major, minor = 0] = match[1].split('.').map(Number);
+  let [minimumMajor, minimumMinor] = minimumXcodeVersion.split('.').map(Number);
+  if (
+    major < minimumMajor ||
+    (major === minimumMajor && minor < minimumMinor)
+  ) {
     throw new Error(
-      `Unsupported preview ABI for Xcode ${detectedVersion}. ` +
-        `This release supports Xcode ${supportedXcodeVersion}`
+      `SwiftUI preview capture requires Xcode ${minimumXcodeVersion} or newer; ` +
+        `found Xcode ${match[1]}. Select a newer Xcode using DEVELOPER_DIR.`
+    );
+  }
+
+  let symbols = swiftUIExports.split(/[\s,'"]+/);
+  if (!symbols.includes(previewInitializerSymbol)) {
+    throw new Error(
+      `Unsupported preview ABI for Xcode ${match[1]}. ` +
+        'The iOS Simulator SDK does not export the SwiftUI preview ' +
+        'initializer required by VizzlyPreviewRuntime. Update the Vizzly ' +
+        'Swift SDK or select a compatible Xcode using DEVELOPER_DIR.'
     );
   }
   return match[1];
+}
+
+async function assertSupportedToolchain() {
+  let result = await runCommand('xcodebuild', ['-version']);
+  let sdk = await runCommand('xcrun', [
+    '--sdk',
+    'iphonesimulator',
+    '--show-sdk-path',
+  ]);
+  let exportsPath = join(
+    sdk.stdout.trim(),
+    'System',
+    'Library',
+    'Frameworks',
+    'SwiftUI.framework',
+    'SwiftUI.tbd'
+  );
+  let swiftUIExports;
+  try {
+    swiftUIExports = await readFile(exportsPath, 'utf8');
+  } catch (error) {
+    throw new Error(
+      `Could not inspect the SwiftUI preview ABI at ${exportsPath}: ${error.message}`,
+      { cause: error }
+    );
+  }
+  return assertPreviewToolchain(result.stdout, swiftUIExports);
 }
 
 async function resolveSimulator(requestedDevice) {

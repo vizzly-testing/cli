@@ -5,7 +5,7 @@ You can review either one locally or in the cloud.
 
 | Workflow | Use it for | Requirements |
 | --- | --- | --- |
-| [SwiftUI previews](PREVIEWS.md) | Render your app's `#Preview` declarations. | Xcode 26.6, arm64 Mac, iOS 17+ Simulator. |
+| [SwiftUI previews](PREVIEWS.md) | Render your app's `#Preview` declarations. | Xcode 26.5+, arm64 Mac, iOS 17+ Simulator. |
 | [XCTest screenshots](QUICKSTART.md) | Capture an app or element during a UI test. | iOS 13+ or macOS 10.15+. |
 
 ## XCTest screenshots

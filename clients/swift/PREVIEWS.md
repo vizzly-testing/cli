@@ -5,7 +5,7 @@ with Vizzly.
 
 ## Requirements
 
-- Xcode 26.6 and an arm64 Mac
+- Xcode 26.5+ and an arm64 Mac
 - Node.js 22.18+ on Node 22, or Node.js 24+
 - A booted iOS 17+ Simulator
 - A scene-based iOS app with a shared scheme that builds in Debug
@@ -13,6 +13,10 @@ with Vizzly.
 Fixed layouts and portrait or landscape previews work. Other preview traits
 aren't supported yet. Preview capture uses `VizzlyPreviewRuntime`; existing
 `Vizzly` and `VizzlyXCTest` integrations stay the same.
+
+Vizzly accepts Xcode 26.5 and newer and checks the active iOS Simulator SDK for
+the SwiftUI initializer its runtime uses. Preview capture has been verified
+with Xcode 26.6 and 27.1.
 
 ## Install
 
@@ -142,7 +146,7 @@ the default already contains other files.
 
 ## CI
 
-Use an arm64 macOS runner with Xcode 26.6, a shared scheme in source control,
+Use an arm64 macOS runner with Xcode 26.5+, a shared scheme in source control,
 and a booted iOS Simulator:
 
 ```yaml
@@ -169,7 +173,12 @@ and a booted iOS Simulator:
 - **No shared scheme:** In Xcode's **Product → Scheme → Manage Schemes**, mark
   the app scheme as shared and commit the scheme file.
 - **No booted Simulator:** Boot one and check `xcrun simctl list devices booted`.
-- **Unsupported Xcode:** Check `xcodebuild -version`; this release requires 26.6.
+- **Xcode too old:** Preview capture requires Xcode 26.5 or newer. Select a
+  newer installation with `DEVELOPER_DIR` and check `xcodebuild -version`.
+- **Unsupported preview ABI:** The active iOS Simulator SDK is missing the
+  SwiftUI initializer Vizzly uses. Update the Vizzly Swift SDK or set
+  `DEVELOPER_DIR` to a compatible Xcode installation. Check the selected version
+  with `xcodebuild -version`.
 - **No previews:** Make sure the scheme builds the app target containing
   `#Preview` declarations in Debug.
 - **Runtime isn't linked:** Check that `VizzlyPreviewRuntime.framework` is in

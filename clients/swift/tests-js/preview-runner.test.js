@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import {
   applicationBinaryCandidates,
   assertPreviewRuntimeIntegrated,
+  assertPreviewToolchain,
   parseBootedIOSSimulators,
   parseRegistryTypes,
   parseRuntimeEvents,
@@ -53,7 +54,66 @@ let simulatorList = JSON.stringify({
   },
 });
 
+let previewInitializerSymbol =
+  '_$s21DeveloperToolsSupport7PreviewV7SwiftUIE_6traits4bodyACSSSg_AA0D5TraitVyAC10ViewTraitsOGdAD0J0_pyScMYcctcfC';
+
 describe('Swift preview runner contracts', () => {
+  it('accepts Xcode 26.5 and newer when the required initializer is exported', () => {
+    let exports = `symbols: [ '_unrelated', '${previewInitializerSymbol}' ]`;
+
+    for (let version of ['26.5', '26.5.1', '26.6', '26.10', '27.0', '27.1.1']) {
+      assert.equal(
+        assertPreviewToolchain(
+          `Xcode ${version}\nBuild version 27A9275`,
+          exports
+        ),
+        version
+      );
+    }
+  });
+
+  it('requires Xcode 26.5 or newer even when the initializer is exported', () => {
+    for (let version of ['16.4', '26', '26.0', '26.4', '26.4.9']) {
+      assert.throws(
+        () =>
+          assertPreviewToolchain(
+            `Xcode ${version}`,
+            `'${previewInitializerSymbol}'`
+          ),
+        error =>
+          error.message.includes('requires Xcode 26.5 or newer') &&
+          error.message.includes(`found Xcode ${version}`) &&
+          error.message.includes('DEVELOPER_DIR')
+      );
+    }
+  });
+
+  it('rejects an incompatible preview SDK with an actionable error', () => {
+    for (let exports of [
+      'symbols: []',
+      `symbols: [ '${previewInitializerSymbol}Changed' ]`,
+    ]) {
+      assert.throws(
+        () => assertPreviewToolchain('Xcode 27.1', exports),
+        error =>
+          error.message.includes('Unsupported preview ABI for Xcode 27.1') &&
+          error.message.includes(
+            'does not export the SwiftUI preview initializer'
+          ) &&
+          error.message.includes('DEVELOPER_DIR')
+      );
+    }
+  });
+
+  it('reports an unrecognized Xcode version instead of assuming compatibility', () => {
+    for (let output of ['', 'Xcode unknown', 'Xcode 26.invalid']) {
+      assert.throws(
+        () => assertPreviewToolchain(output, `'${previewInitializerSymbol}'`),
+        /Could not determine the active Xcode version/
+      );
+    }
+  });
+
   it('reuses normal Xcode DerivedData for incremental builds', () => {
     let args = xcodeArguments({
       configuration: 'Debug',

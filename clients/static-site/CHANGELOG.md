@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.1] - 2026-10-29
 
-### Changed
+## What's Changed
 
-- Require Node.js 22.18 or newer within Node 22, or Node.js 24+.
-- Remove the unused Cosmiconfig dependency. Configuration still comes from
-  the CLI and the existing interactions file loader.
+Release v0.3.1
+
+See the full diff for detailed changes.
 
 ## [0.3.0] - 2026-06-01
 

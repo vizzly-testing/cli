@@ -9,6 +9,18 @@ updates:
       timezone: "UTC"
     commit-message:
       prefix: "⬆️"
+    # Ember's build plugins still require Babel 7. Review Babel majors together
+    # when that toolchain supports them; keep minor, patch, and security updates.
+    ignore:
+      - dependency-name: "@babel/core"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@babel/plugin-transform-runtime"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@babel/runtime"
+        update-types: ["version-update:semver-major"]
+      # ember-data 5.9.1 requires QUnit 2.
+      - dependency-name: "qunit"
+        update-types: ["version-update:semver-major"]
     groups:
       security-dependencies:
         applies-to: security-updates

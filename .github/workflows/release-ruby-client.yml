@@ -19,7 +19,8 @@ concurrency:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # Match the Ruby test jobs and the pinned setup action.
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       id-token: write

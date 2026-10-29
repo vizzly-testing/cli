@@ -368,7 +368,8 @@ jobs:
   # Ruby SDK
   ruby:
     name: Ruby SDK
-    runs-on: ubuntu-latest
+    # Keep Ruby 3.0/3.1 and the pinned setup action on a supported image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:

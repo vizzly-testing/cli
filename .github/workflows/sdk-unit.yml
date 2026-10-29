@@ -57,7 +57,8 @@ jobs:
   # Ruby SDK - runs on multiple Ruby versions
   ruby:
     name: Ruby SDK
-    runs-on: ubuntu-latest
+    # Keep Ruby 3.0/3.1 and the pinned setup action on a supported image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 8
     needs: changes
     if: needs.changes.outputs.ruby == 'true'

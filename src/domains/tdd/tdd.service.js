@@ -43,6 +43,7 @@ import {
   saveBaselineMetadata as defaultSaveBaselineMetadata,
   upsertScreenshotInMetadata as defaultUpsertScreenshotInMetadata,
 } from '../baselines/baseline-metadata.js';
+import { writeBaselineScreenshot } from '../baselines/baseline-write.js';
 import { getTddBaselines as defaultGetTddBaselines } from '../baselines/cloud-baselines.js';
 import { getBuilds as defaultGetBuilds } from '../builds/build.service.js';
 import { getComparison as defaultGetComparison } from '../comparisons/cloud-comparisons.js';
@@ -462,7 +463,16 @@ export class TddService {
   }
 
   async _installBaselineBuild(baselineBuild, environment, branch) {
-    let { output, colors, fetchWithTimeout } = this._deps;
+    let {
+      output,
+      colors,
+      fetchWithTimeout,
+      existsSync,
+      writeFileSync,
+      safePath,
+      sanitizeScreenshotName,
+      saveBaselineMetadata,
+    } = this._deps;
     if (!baselineBuild.screenshots || baselineBuild.screenshots.length === 0) {
       output.warn('No screenshots found in baseline build');
       return null;
@@ -486,6 +496,13 @@ export class TddService {
       branch,
       output,
       fetchWithTimeout,
+      operations: {
+        existsSync,
+        writeFileSync,
+        safePath,
+        sanitizeScreenshotName,
+        saveBaselineMetadata,
+      },
     });
     if (installedBaseline) this.baselineData = installedBaseline;
     return installedBaseline;
@@ -977,6 +994,26 @@ export class TddService {
     return results;
   }
 
+  _writeBaselineScreenshot(screenshot, imageBuffer) {
+    let {
+      writeFileSync,
+      createEmptyBaselineMetadata,
+      upsertScreenshotInMetadata,
+    } = this._deps;
+    this.baselineData = writeBaselineScreenshot(
+      {
+        imageBuffer,
+        screenshot,
+        metadata: this.baselineData,
+        baselineOptions: {
+          threshold: this.threshold,
+          signatureProperties: this.signatureProperties,
+        },
+      },
+      { writeFileSync, createEmptyBaselineMetadata, upsertScreenshotInMetadata }
+    );
+  }
+
   /**
    * Update all baselines with current screenshots
    */
@@ -991,9 +1028,7 @@ export class TddService {
       getBaselinePath,
       existsSync,
       readFileSync,
-      writeFileSync,
       createEmptyBaselineMetadata,
-      upsertScreenshotInMetadata,
       saveBaselineMetadata,
     } = this._deps;
 
@@ -1042,19 +1077,14 @@ export class TddService {
 
       try {
         let currentBuffer = readFileSync(current);
-        writeFileSync(baselineImagePath, currentBuffer);
-
-        let screenshotEntry = {
-          name: sanitizedName,
-          properties: validatedProperties,
-          path: baselineImagePath,
-          signature,
-        };
-
-        upsertScreenshotInMetadata(
-          this.baselineData,
-          screenshotEntry,
-          signature
+        this._writeBaselineScreenshot(
+          {
+            name: sanitizedName,
+            properties: validatedProperties,
+            path: baselineImagePath,
+            signature,
+          },
+          currentBuffer
         );
 
         updatedCount++;
@@ -1092,9 +1122,6 @@ export class TddService {
       existsSync,
       readFileSync,
       mkdirSync,
-      writeFileSync,
-      createEmptyBaselineMetadata,
-      upsertScreenshotInMetadata,
       saveBaselineMetadata,
     } = this._deps;
 
@@ -1151,24 +1178,10 @@ export class TddService {
     // Update the baseline (filename already includes .png extension)
     let baselineImagePath = safePath(this.baselinePath, filename);
 
-    writeFileSync(baselineImagePath, imageBuffer);
-
-    // Update baseline metadata
-    if (!this.baselineData) {
-      this.baselineData = createEmptyBaselineMetadata({
-        threshold: this.threshold,
-        signatureProperties: this.signatureProperties,
-      });
-    }
-
-    let screenshotEntry = {
-      name: sanitizedName,
-      properties,
-      path: baselineImagePath,
-      signature,
-    };
-
-    upsertScreenshotInMetadata(this.baselineData, screenshotEntry, signature);
+    this._writeBaselineScreenshot(
+      { name: sanitizedName, properties, path: baselineImagePath, signature },
+      imageBuffer
+    );
     saveBaselineMetadata(this.baselinePath, this.baselineData);
 
     return {
@@ -1194,37 +1207,25 @@ export class TddService {
       output,
       generateScreenshotSignature,
       generateComparisonId,
-      writeFileSync,
-      createEmptyBaselineMetadata,
-      upsertScreenshotInMetadata,
       saveBaselineMetadata,
     } = this._deps;
 
     output.info(`Creating baseline for ${name}`);
-
-    writeFileSync(baselineImagePath, imageBuffer);
-
-    if (!this.baselineData) {
-      this.baselineData = createEmptyBaselineMetadata({
-        threshold: this.threshold,
-        signatureProperties: this.signatureProperties,
-      });
-    }
 
     let signature = generateScreenshotSignature(
       name,
       properties || {},
       this.signatureProperties
     );
-
-    let screenshotEntry = {
-      name,
-      properties: properties || {},
-      path: baselineImagePath,
-      signature,
-    };
-
-    upsertScreenshotInMetadata(this.baselineData, screenshotEntry, signature);
+    this._writeBaselineScreenshot(
+      {
+        name,
+        properties: properties || {},
+        path: baselineImagePath,
+        signature,
+      },
+      imageBuffer
+    );
     saveBaselineMetadata(this.baselinePath, this.baselineData);
 
     let result = {

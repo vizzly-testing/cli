@@ -1,9 +1,12 @@
-import { existsSync, writeFileSync } from 'node:fs';
+import {
+  existsSync as defaultExistsSync,
+  writeFileSync as defaultWriteFileSync,
+} from 'node:fs';
 import { NetworkError } from '../../errors/vizzly-error.js';
 import { fetchWithTimeout as defaultFetchWithTimeout } from '../../services/fetch-utils.js';
-import { safePath } from '../../services/paths.js';
-import { sanitizeScreenshotName } from '../screenshots/screenshot.validations.js';
-import { saveBaselineMetadata } from './baseline-metadata.js';
+import { safePath as defaultSafePath } from '../../services/paths.js';
+import { sanitizeScreenshotName as defaultSanitizeScreenshotName } from '../screenshots/screenshot.validations.js';
+import { saveBaselineMetadata as defaultSaveBaselineMetadata } from './baseline-metadata.js';
 
 /** Install one selected cloud build without changing how it was selected. */
 export async function installBaselineBuild({
@@ -17,7 +20,15 @@ export async function installBaselineBuild({
   branch,
   output,
   fetchWithTimeout = defaultFetchWithTimeout,
+  operations = {},
 }) {
+  let {
+    existsSync = defaultExistsSync,
+    writeFileSync = defaultWriteFileSync,
+    safePath = defaultSafePath,
+    sanitizeScreenshotName = defaultSanitizeScreenshotName,
+    saveBaselineMetadata = defaultSaveBaselineMetadata,
+  } = operations;
   let existingShaMap = new Map();
   if (existingBaseline) {
     existingBaseline.screenshots.forEach(screenshot => {

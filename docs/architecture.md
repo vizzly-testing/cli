@@ -50,6 +50,11 @@ Use plain named helpers for narrower responsibilities, such as
 One service file can compose these helpers without becoming a large file itself.
 Commands can share the same domain without sharing one command file.
 
+Keep terminal rendering in a focused presenter when it obscures command flow.
+For example, Context separates option validation, compact response contracts,
+outgoing projections, and `context-presentation.js`; its commands select a source
+and call those pieces explicitly.
+
 Keep durable record contracts in `*.model.js` when the application actually owns
 that persisted shape. A build request payload alone doesn't need a model.
 Likewise, add background job contracts only if there is a real queued job
@@ -95,6 +100,12 @@ The folders beside `domains/` have specific jobs:
 A helper used by two domains can still have a clear domain owner. Move it into
 shared services only when its responsibility is independent of those domains.
 Avoid recreating a generic utilities folder.
+
+Reports owns the lightweight report and heavy comparison-detail files, their
+state transitions, and the snapshot read by the dashboard, SSE, and static
+renderer. Capture submits comparison changes to that store. Baselines owns the
+shared image/metadata write operation; its callers decide when to commit a
+single approval or a completed bulk update.
 
 ## Respect the browser boundary
 
@@ -146,6 +157,10 @@ Run `pnpm run check:architecture` after moving files or changing imports. Use th
 normal lint, format, build, Node tests, type tests, and reporter tests for the
 parts you change. The architecture check covers structure; user outcomes still
 need tests at their consumed boundary.
+
+Pure role files must not reach operation modules or filesystem/network
+capabilities through helpers. The checker follows those import chains as well
+as checking direct imports and the browser boundary.
 
 A reorganization must preserve public specifiers (`@vizzly-testing/cli`,
 `/client`, `/sdk`, and `/config`), exported names, plugin methods/events, CLI

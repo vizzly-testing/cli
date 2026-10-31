@@ -169,4 +169,97 @@ describe('saved-token API refresh', () => {
     ]);
     assert.equal((await getAuthTokens()).refreshToken, 'saved-user-refresh');
   });
+
+  it('does not replace an explicit or anonymous request with the saved user session', async () => {
+    let saved = {
+      accessToken: 'saved-user-access',
+      refreshToken: 'saved-user-refresh',
+      expiresAt: '2999-01-01T00:00:00.000Z',
+    };
+    await saveAuthTokens(saved);
+
+    for (let token of ['explicit-user-access', null]) {
+      let requests = [];
+      await withApiServer(
+        (request, response) => {
+          requests.push({
+            url: request.url,
+            authorization: request.headers.authorization,
+          });
+          response.writeHead(401, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify({ error: 'unauthorized' }));
+        },
+        async apiUrl => {
+          let client = createApiClient({
+            baseUrl: apiUrl,
+            token,
+            allowNoToken: true,
+          });
+          await assert.rejects(() => client.request('/api/sdk/projects'), {
+            code: 'AUTH_ERROR',
+          });
+          assert.equal(client.getToken(), token);
+        }
+      );
+      assert.deepEqual(requests, [
+        {
+          url: '/api/sdk/projects',
+          authorization: token ? `Bearer ${token}` : undefined,
+        },
+      ]);
+      assert.deepEqual(await getAuthTokens(), saved);
+    }
+  });
+
+  it('retries a saved session only once and honors requests that disable authentication retries', async () => {
+    await saveAuthTokens({
+      accessToken: 'old-access',
+      refreshToken: 'old-refresh',
+    });
+    let requests = [];
+    let refreshes = 0;
+    await withApiServer(
+      (request, response) => {
+        requests.push({
+          url: request.url,
+          authorization: request.headers.authorization,
+        });
+        response.setHeader('Content-Type', 'application/json');
+        if (request.url === '/api/auth/cli/refresh' && refreshes++ === 0) {
+          response.end(
+            JSON.stringify({
+              accessToken: 'new-access',
+              refreshToken: 'new-refresh',
+              expiresIn: 3600,
+            })
+          );
+          return;
+        }
+        response.writeHead(401);
+        response.end(JSON.stringify({ error: 'unauthorized' }));
+      },
+      async apiUrl => {
+        let client = createApiClient({ baseUrl: apiUrl, token: 'old-access' });
+        await assert.rejects(() => client.request('/api/sdk/projects'), {
+          code: 'AUTH_ERROR',
+        });
+        assert.deepEqual(requests, [
+          { url: '/api/sdk/projects', authorization: 'Bearer old-access' },
+          { url: '/api/auth/cli/refresh', authorization: undefined },
+          { url: '/api/sdk/projects', authorization: 'Bearer new-access' },
+        ]);
+        assert.equal((await getAuthTokens()).accessToken, 'new-access');
+
+        requests.length = 0;
+        await assert.rejects(
+          () =>
+            client.request('/api/sdk/projects', { retryAuthentication: false }),
+          { code: 'AUTH_ERROR' }
+        );
+        assert.deepEqual(requests, [
+          { url: '/api/sdk/projects', authorization: 'Bearer new-access' },
+        ]);
+      }
+    );
+  });
 });

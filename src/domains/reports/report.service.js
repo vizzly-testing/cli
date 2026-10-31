@@ -17,6 +17,7 @@ import {
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getPackageRoot } from '../../services/package-info.js';
+import { createReportStore } from './report-store.js';
 
 /**
  * Get the path to the dist/reporter directory (for CSS)
@@ -147,27 +148,17 @@ export async function generateStaticReport(workingDir, options = {}) {
   let vizzlyDir = join(workingDir, '.vizzly');
 
   try {
-    // Read report data
-    let reportDataPath = join(vizzlyDir, 'report-data.json');
-    if (!existsSync(reportDataPath)) {
+    let reports = createReportStore(workingDir);
+    let reportData = reports.readReport();
+    if (!reportData) {
       return {
         success: false,
         reportPath: null,
         error: 'No report data found. Run tests first.',
       };
     }
-
-    let reportData = JSON.parse(readFileSync(reportDataPath, 'utf8'));
-
-    // Read baseline metadata if available
-    let metadataPath = join(vizzlyDir, 'baselines', 'metadata.json');
-    if (existsSync(metadataPath)) {
-      try {
-        reportData.baseline = JSON.parse(readFileSync(metadataPath, 'utf8'));
-      } catch {
-        // Ignore metadata read errors
-      }
-    }
+    let baseline = reports.readBaselineMetadata();
+    if (baseline !== null) reportData.baseline = baseline;
 
     // Transform image URLs to relative paths
     let transformedData = transformImageUrls(reportData);

@@ -73,13 +73,21 @@ test('the published package supports imports, setup, capture and static reportin
     `
     import assert from 'node:assert/strict';
     for (let [specifier, names] of [
-      ['@vizzly-testing/cli', ['createVizzly', 'VizzlySDK', 'createTDDService', 'createServices', 'createPluginServices', 'createUploader', 'vizzlyScreenshot', 'loadConfig', 'defineConfig']],
+      ['@vizzly-testing/cli', ['createVizzly', 'VizzlySDK', 'createTDDService', 'createServices', 'createPluginServices', 'createUploader', 'vizzlyScreenshot', 'loadConfig', 'defineConfig', 'AuthError', 'BuildError', 'ConfigError', 'NetworkError', 'ScreenshotError', 'TimeoutError', 'UploadError', 'ValidationError', 'VizzlyError']],
       ['@vizzly-testing/cli/client', ['vizzlyScreenshot', 'configure', 'setEnabled']],
       ['@vizzly-testing/cli/sdk', ['createVizzly', 'VizzlySDK', 'createUploader', 'createTDDService']],
       ['@vizzly-testing/cli/config', ['defineConfig']],
     ]) {
       let api = await import(specifier);
       for (let name of names) assert.equal(typeof api[name], 'function', name);
+      if (specifier === '@vizzly-testing/cli' || specifier === '@vizzly-testing/cli/sdk') {
+        assert.equal(typeof api.output.data, 'function');
+        assert.equal(typeof api.output.error, 'function');
+      }
+      if (specifier === '@vizzly-testing/cli') {
+        assert(new api.AuthError('unauthorized') instanceof api.VizzlyError);
+        assert.equal(new api.ValidationError('invalid').code, 'VALIDATION_ERROR');
+      }
     }
   `
   );

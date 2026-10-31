@@ -3,8 +3,7 @@
  * Health check endpoint with diagnostics
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createReportStore } from '../domains/reports/report-store.js';
 import { sendSuccess } from './middleware/response.js';
 
 /**
@@ -20,37 +19,19 @@ export function createHealthRouter({
   screenshotHandler,
   workingDir = process.cwd(),
 }) {
+  let reports = createReportStore(workingDir);
   return async function handleHealthRoute(req, res, pathname) {
     if (req.method !== 'GET' || pathname !== '/health') {
       return false;
     }
 
-    let reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
-    let baselineMetadataPath = join(
-      workingDir,
-      '.vizzly',
-      'baselines',
-      'metadata.json'
-    );
-
     let reportData = null;
-    let baselineInfo = null;
-
-    if (existsSync(reportDataPath)) {
-      try {
-        reportData = JSON.parse(readFileSync(reportDataPath, 'utf8'));
-      } catch {
-        // Ignore read errors
-      }
+    try {
+      reportData = reports.readReport();
+    } catch {
+      // Health remains available when report artifacts cannot be read.
     }
-
-    if (existsSync(baselineMetadataPath)) {
-      try {
-        baselineInfo = JSON.parse(readFileSync(baselineMetadataPath, 'utf8'));
-      } catch {
-        // Ignore read errors
-      }
-    }
+    let baselineInfo = reports.readBaselineMetadata();
 
     sendSuccess(res, {
       status: 'ok',

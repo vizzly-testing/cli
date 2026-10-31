@@ -115,9 +115,10 @@ export async function fetchBuildUrl({ buildId, config, deps }) {
  * @param {boolean} options.tdd - Whether in TDD mode
  * @param {boolean} options.success - Whether tests passed
  * @param {number} options.executionTime - Execution time in ms
+ * @param {string} [options.failureReason] - Explanation for a failed build
  * @param {Object} options.config - Configuration object
  * @param {Object} options.deps - Dependencies
- * @param {Object} options.deps.serverManager - Server manager
+ * @param {Object} [options.deps.serverManager] - Server manager when uploads exist
  * @param {Function} options.deps.createApiClient - API client factory
  * @param {Function} options.deps.finalizeApiBuild - API finalize function
  * @param {Object} options.deps.output - Output utilities
@@ -130,6 +131,7 @@ export async function finalizeBuild({
   tdd,
   success,
   executionTime,
+  failureReason,
   config,
   deps,
 }) {
@@ -149,13 +151,13 @@ export async function finalizeBuild({
   try {
     if (tdd) {
       // TDD mode: use server handler to finalize (local-only)
-      if (serverManager.server?.finishBuild) {
+      if (serverManager?.server?.finishBuild) {
         await serverManager.server.finishBuild(buildId);
         output.debug('build', 'finalized', { success });
       }
     } else {
       // API mode: flush uploads first, then finalize build
-      if (serverManager.server?.finishBuild) {
+      if (serverManager?.server?.finishBuild) {
         uploadStats = await serverManager.server.finishBuild(buildId);
       }
 
@@ -172,7 +174,7 @@ export async function finalizeBuild({
           executionTime,
           uploadsFailed
             ? `${uploadStats.failed} screenshot(s) failed to upload. Visual testing is incomplete.`
-            : undefined
+            : failureReason
         );
         output.debug('build', 'finalized via api', { success: buildSucceeded });
       } else {
@@ -376,6 +378,29 @@ export async function runTests({ runOptions, config, deps }) {
       output.debug('run', 'failed to stop Vizzly after setup error', {
         error: stopError.message,
       });
+    }
+
+    if (buildId && !tdd) {
+      try {
+        await finalizeBuild({
+          buildId,
+          tdd: false,
+          success: false,
+          executionTime: Date.now() - startTime,
+          failureReason: error.message,
+          config,
+          deps: {
+            createApiClient,
+            finalizeApiBuild,
+            output,
+            onFinalizeFailed,
+          },
+        });
+      } catch (finalizeError) {
+        output.debug('run', 'failed to finalize build after setup error', {
+          error: finalizeError.message,
+        });
+      }
     }
 
     return executeDisabledTestRun({

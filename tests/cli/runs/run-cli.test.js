@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,6 +29,7 @@ async function getFreePort() {
 async function withApiServer(callback, options = {}) {
   let {
     buildCreationStatus = 200,
+    finalizationStatus = 200,
     waitStatusCode = 200,
     waitBuildState = 'completed',
   } = options;
@@ -92,6 +93,11 @@ async function withApiServer(callback, options = {}) {
       req.method === 'PUT' &&
       req.url === `/api/sdk/builds/${buildId}/status`
     ) {
+      res.statusCode = finalizationStatus;
+      if (finalizationStatus !== 200) {
+        res.end(JSON.stringify({ error: 'finalization unavailable' }));
+        return;
+      }
       res.end(JSON.stringify({ id: buildId, status: 'completed' }));
       return;
     }
@@ -126,6 +132,58 @@ async function withApiServer(callback, options = {}) {
 }
 
 describe('commands/run CLI', () => {
+  for (let scenario of [
+    { finalizationStatus: 200, testExit: 0 },
+    { finalizationStatus: 503, testExit: 7 },
+  ]) {
+    it(`finalizes a created build after server startup fails and preserves test exit ${scenario.testExit}`, async t => {
+      await withApiServer(async ({ apiUrl, requests }) => {
+        let cwd = createWorkspace();
+        t.after(() => rmSync(cwd, { recursive: true, force: true }));
+        // The API fixture itself occupies the requested screenshot-server port.
+        let port = new URL(apiUrl).port;
+        let command = [
+          "console.error('user tests ran after setup failure');",
+          `process.exit(process.env.VIZZLY_ENABLED === 'false' ? ${scenario.testExit} : 9);`,
+        ].join(' ');
+        let result = await runCLI(
+          [
+            '--no-color',
+            '--json',
+            'run',
+            `node -e ${JSON.stringify(command)}`,
+            '--port',
+            port,
+          ],
+          {
+            cwd,
+            env: {
+              VIZZLY_API_URL: apiUrl,
+              VIZZLY_TOKEN: 'vzt_test_token',
+            },
+          }
+        );
+
+        assert.equal(result.code, scenario.testExit, result.stderr);
+        assert.match(result.stderr, /user tests ran after setup failure/);
+        assert.match(result.stderr, /Running tests without visual testing/);
+        let finalizations = requests.filter(
+          request => request.method === 'PUT'
+        );
+        assert.equal(finalizations.length, 1);
+        assert.equal(finalizations[0].url, '/api/sdk/builds/build-123/status');
+        assert.equal(finalizations[0].json.status, 'failed');
+        assert.match(finalizations[0].json.failureReason, /already in use/);
+        assert.equal(typeof finalizations[0].json.executionTimeMs, 'number');
+        let payload = parseSingleJson(result.stdout);
+        assert.equal(payload.data.exitCode, scenario.testExit);
+        if (scenario.finalizationStatus !== 200) {
+          assert.match(result.stderr, /Failed to finalize build build-123/);
+        }
+      }, scenario);
+    });
+  }
+
   it('keeps --json stdout parseable when the child command prints output', async () => {
     let cwd = createWorkspace();
     let command = [

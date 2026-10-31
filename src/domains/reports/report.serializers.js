@@ -109,3 +109,18 @@ export let groupComparisons = comparisons => {
       return a.name.localeCompare(b.name);
     });
 };
+
+let COMPARISON_DETAIL_FIELDS = new Set([
+  'boundingBox',
+  'diffClusters',
+  'intensityStats',
+]);
+
+/** Heavy detail files may enrich a comparison, never replace its identity/state. */
+export function presentComparisonDetails(details = {}) {
+  return Object.fromEntries(
+    Object.entries(details).filter(([field]) =>
+      COMPARISON_DETAIL_FIELDS.has(field)
+    )
+  );
+}

@@ -13,7 +13,6 @@ import {
   extractErrorBody,
   isAuthError,
   parseApiError,
-  shouldRetryWithRefresh,
 } from '../../services/cloud-protocol.js';
 import { getPackageVersion } from '../../services/package-info.js';
 import { getAuthTokens, saveAuthTokens } from './token-store.js';
@@ -112,13 +111,15 @@ export function createApiClient(options = {}) {
       // Handle 401 with token refresh
       if (
         retryAuthentication &&
-        shouldRetryWithRefresh(
-          response.status,
-          isRetry,
-          !isProjectToken(token) && (await hasRefreshToken())
-        )
+        response.status === 401 &&
+        !isRetry &&
+        !isProjectToken(token)
       ) {
-        let refreshed = await attemptTokenRefresh();
+        let auth = await getAuthTokens();
+        let refreshed =
+          auth?.accessToken === token && auth.refreshToken
+            ? await attemptTokenRefresh(auth)
+            : null;
         if (refreshed) {
           token = refreshed;
           return request(endpoint, fetchOptions, true);
@@ -157,21 +158,10 @@ export function createApiClient(options = {}) {
   }
 
   /**
-   * Check if refresh token is available
-   */
-  async function hasRefreshToken() {
-    let auth = await getAuthTokens();
-    return !!auth?.refreshToken;
-  }
-
-  /**
    * Attempt to refresh the access token
    * @returns {Promise<string|null>} New token or null if refresh failed
    */
-  async function attemptTokenRefresh() {
-    let auth = await getAuthTokens();
-    if (!auth?.refreshToken) return null;
-
+  async function attemptTokenRefresh(auth) {
     try {
       let refreshUrl = buildApiUrl(baseUrl, '/api/auth/cli/refresh');
       let response = await fetch(refreshUrl, {

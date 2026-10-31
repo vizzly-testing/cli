@@ -1,11 +1,11 @@
 // Run the production server in the fixture directory, with isolated local state.
-import { createTddHandler } from '../../../src/server/handlers/tdd-handler.js';
-import { createHttpServer } from '../../../src/server/http-server.js';
 
-import { createAuthService } from '../../../src/services/auth-service.js';
-import { createConfigService } from '../../../src/services/config-service.js';
-import { createProjectService } from '../../../src/services/project-service.js';
-import { saveAuthTokens } from '../../../src/utils/global-config.js';
+import { createAuthService } from '../../../src/domains/auth/auth.service.js';
+import { saveAuthTokens } from '../../../src/domains/auth/token-store.js';
+import { createConfigService } from '../../../src/domains/config/config.service.js';
+import { createProjectService } from '../../../src/domains/projects/project.service.js';
+import { createTddHandler } from '../../../src/domains/tdd/screenshot-handler.js';
+import { createHttpServer } from '../../../src/server/http-server.js';
 
 let apiUrl = process.env.REPORTER_TEST_API_URL;
 if (process.env.REPORTER_TEST_SIGNED_IN === 'true') {

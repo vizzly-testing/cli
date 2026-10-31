@@ -1,10 +1,10 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
-import AppRouter from './components/app-router.jsx';
-import { ToastProvider } from './components/ui/toast.jsx';
-import { queryClient } from './lib/query-client.js';
-import { SSEProvider } from './providers/sse-provider.jsx';
+import AppRouter from './app-router.jsx';
+import { queryClient } from './services/query-client.js';
+import { SSEProvider } from './services/sse-provider.jsx';
+import { ToastProvider } from './ui/toast.jsx';
 import './reporter.css';
 
 let initializeReporter = () => {

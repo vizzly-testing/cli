@@ -1,12 +1,27 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Core CLI code lives in `src/` (commands, API client, services, auth, server, TDD, and shared utils).  
-UI for local/static reports lives in `src/reporter/` (Vite + React).  
-Tests live in `tests/` with suites grouped by domain (`tests/commands`, `tests/server`, `tests/services`, etc.).  
-Type definition tests live in `test-d/`.  
-Framework integrations and SDK clients live in `clients/` (`storybook`, `static-site`, `vitest`, `ember`, `ruby`, `swift`).  
-Reference docs are in `docs/`, examples in `examples/`, and built artifacts output to `dist/`.
+
+Read [docs/architecture.md](docs/architecture.md) for domain ownership and file roles.
+
+- `src/domains/<domain>/` owns product commands, HTTP routes, services, and contracts.
+- `src/cli.js` wires commands; `src/server/` owns HTTP hosting and middleware.
+- `src/services/` contains narrow capabilities shared across domains; `src/plugins/` owns plugin loading and composition.
+- `src/reporter/src/domains/` owns browser features. Its `services/`, `layout/`, and `ui/` folders contain shared browser code.
+- `src/index.js`, `src/client/`, `src/sdk/`, and `src/types/` define published package surfaces.
+- `tests/domains/` mirrors backend ownership. `tests/cli/` and `tests/reporter/` exercise complete user workflows; `test-d/` checks published types.
+- `clients/` contains framework integrations and SDK clients. Reference docs live in `docs/`, examples in `examples/`, and build output in `dist/`.
+
+## Architecture Rules
+
+- Start product changes in the domain that owns the behavior. Keep commands and routes focused on input, service calls, and output.
+- Use optional role files: `*.validations.js` for input contracts, `*.normalizers.js` for incoming projections, `*.serializers.js` for outgoing projections, `*.rules.js` for preconditions, and `*.service.js` for domain operations. Add plain named helpers when needed. Don't create empty role files.
+- Keep normalizers and serializers pure. New service code should take explicit inputs and keep I/O visible. Existing service output/events remain part of their behavior until deliberately changed.
+- Import named functions directly from their owning modules. Cross-domain imports should use service or contract modules, never another domain's commands or routes. Don't add internal re-export barrels, runtime discovery, domain manifests, or old-path forwarding files.
+- Keep shared services independent of product domains. Server, CLI, SDK, and plugin composition may assemble domain capabilities.
+- Keep Node runtime code out of the reporter. Share only explicit browser-safe leaf modules; `src/domains/reports/report.normalizers.js` is the current shared report projection.
+- Preserve public package specifiers, exported names, plugin interfaces, CLI behavior, and local HTTP contracts when reorganizing internals.
+- Run `pnpm run check:architecture` after changing source ownership or imports, then verify behavior at the relevant user boundary.
 
 ## Build, Test, and Development Commands
 - `pnpm run build`: clean and compile CLI + reporter bundles into `dist/`.

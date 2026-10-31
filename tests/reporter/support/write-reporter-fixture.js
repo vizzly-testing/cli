@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import {
   generateBaselineFilename,
   generateScreenshotSignature,
-} from '../../../src/tdd/core/signature.js';
+} from '../../../src/domains/screenshots/screenshot-identity.js';
 
 let fixtures = fileURLToPath(new URL('../fixtures/', import.meta.url));
 

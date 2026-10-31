@@ -3,8 +3,9 @@
  * Server-Sent Events endpoint for real-time dashboard updates
  */
 
-import { existsSync, readFileSync, statSync, watch } from 'node:fs';
+import { existsSync, statSync, watch } from 'node:fs';
 import { join } from 'node:path';
+import { createReportStore } from './report-store.js';
 
 let FILE_WATCH_DEBOUNCE_MS = 25;
 let FILE_POLL_INTERVAL_MS = 50;
@@ -17,36 +18,6 @@ let defaultTimers = {
   setInterval,
   clearInterval,
 };
-
-/**
- * Read and parse JSON from disk, returning null on missing or invalid files.
- */
-function readJsonFile(path) {
-  if (!existsSync(path)) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Read report data and attach baseline metadata for the stats view.
- */
-function readReportDataFile({ reportDataPath, baselineMetadataPath }) {
-  let data = readJsonFile(reportDataPath);
-  if (!data) {
-    return null;
-  }
-
-  return {
-    ...data,
-    baseline: readJsonFile(baselineMetadataPath),
-  };
-}
 
 /**
  * Build a lookup map from comparisons array keyed by id
@@ -191,19 +162,22 @@ function watchReportDataFile({
  * @returns {Function} Route handler
  */
 export function createEventsRouter(context) {
+  let workingDir = context?.workingDir || process.cwd();
+  let reports = createReportStore(workingDir);
+  let readSnapshot = () => {
+    try {
+      return reports.readSnapshot();
+    } catch {
+      return null;
+    }
+  };
   let {
-    workingDir = process.cwd(),
-    readReportData = readReportDataFile,
+    readReportData = readSnapshot,
     watchReportData = watchReportDataFile,
     timers = defaultTimers,
   } = context || {};
-  let reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
-  let baselineMetadataPath = join(
-    workingDir,
-    '.vizzly',
-    'baselines',
-    'metadata.json'
-  );
+  let reportDataPath = reports.paths.report;
+  let baselineMetadataPath = reports.paths.baseline;
 
   /**
    * Send SSE event to response

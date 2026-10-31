@@ -6,9 +6,9 @@ import {
   validateContextReviewQueueOptions,
   validateContextScreenshotOptions,
   validateContextSimilarOptions,
-} from './context.commands.js';
+} from './context.validations.js';
 
-describe('commands/context', () => {
+describe('context option contracts', () => {
   describe('option validation', () => {
     it('accepts supported sources and compact agent options', () => {
       assert.deepStrictEqual(

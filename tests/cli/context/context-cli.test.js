@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -486,6 +486,27 @@ async function withBuildContextApi(callback) {
 }
 
 describe('context CLI integration', () => {
+  it('rejects unsupported providers and incomplete project scopes before fetching', async t => {
+    let cwd = mkdtempSync(join(tmpdir(), 'vizzly-context-options-'));
+    t.after(() => rmSync(cwd, { recursive: true, force: true }));
+
+    for (let [args, message] of [
+      [
+        ['context', 'build', 'build-123', '--source', 'moon'],
+        '--source must be one of: auto, cloud, local',
+      ],
+      [
+        ['context', 'screenshot', 'Home page', '--org', 'acme'],
+        '--org requires --project',
+      ],
+    ]) {
+      let result = await runCLI(args, { cwd });
+      assert.notStrictEqual(result.code, 0);
+      assert.ok(result.stderr.includes(message), result.stderr);
+      assert.ok(!result.stderr.includes('Authentication required'));
+    }
+  });
+
   it('marks compact --agent context as deprecated without changing JSON stdout', async () => {
     await withBuildContextApi(async ({ apiUrl }) => {
       let result = await runCLI(

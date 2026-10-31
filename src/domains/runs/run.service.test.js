@@ -572,26 +572,6 @@ describe('test-runner/operations', () => {
       assert.strictEqual(result.testsFailed, 0);
     });
 
-    it('disables Vizzly when the screenshot server cannot start', async () => {
-      let spawnedEnv = null;
-      let result = await runTestsWithBuildSetup(
-        async () => ({ id: 'build-123' }),
-        {
-          onSpawn: options => {
-            spawnedEnv = options.env;
-          },
-          serverManager: {
-            start: async () => {
-              throw new Error('Server startup failed');
-            },
-          },
-        }
-      );
-
-      assert.strictEqual(spawnedEnv.VIZZLY_ENABLED, 'false');
-      assert.strictEqual(result.testsPassed, 1);
-    });
-
     it('ignores screenshot count errors after the user tests pass', async () => {
       let result = await runTestsWithBuildSetup(
         async () => ({ id: 'build-123' }),

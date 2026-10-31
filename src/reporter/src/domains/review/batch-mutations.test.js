@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import {
-  restoreComparisonsFromPrevious,
+  rollbackComparisonActions,
   runBatchMutation,
   updateComparisonsUserAction,
 } from './batch-mutations.js';
@@ -21,24 +21,72 @@ describe('review batch mutations', () => {
     assert.strictEqual(updated.comparisons[1].userAction, 'accepted');
   });
 
-  it('restores only failed ids from previous data', () => {
+  it('rolls back only the failed action while preserving newer server data', () => {
     let previous = {
       comparisons: [
-        { id: 'a', name: 'alpha', userAction: null },
-        { id: 'b', name: 'beta', userAction: null },
+        { id: 'a', name: 'alpha', status: 'failed', userAction: null },
+        { id: 'b', name: 'beta', status: 'failed', userAction: null },
       ],
     };
-    let optimistic = {
+    let current = {
+      timestamp: 2,
       comparisons: [
-        { id: 'a', name: 'alpha', userAction: 'accepted' },
-        { id: 'b', name: 'beta', userAction: 'accepted' },
+        { id: 'a', name: 'alpha', status: 'passed', userAction: 'accepted' },
+        {
+          id: 'b',
+          name: 'beta',
+          status: 'failed',
+          diffPercentage: 3,
+          userAction: 'accepted',
+        },
+        { id: 'c', name: 'new capture', status: 'new' },
       ],
     };
 
-    let restored = restoreComparisonsFromPrevious(optimistic, previous, ['b']);
+    let restored = rollbackComparisonActions(
+      current,
+      previous,
+      ['b'],
+      'accepted'
+    );
 
+    assert.strictEqual(restored.timestamp, 2);
+    assert.strictEqual(restored.comparisons.length, 3);
     assert.strictEqual(restored.comparisons[0].userAction, 'accepted');
     assert.strictEqual(restored.comparisons[1].userAction, null);
+    assert.strictEqual(restored.comparisons[1].diffPercentage, 3);
+    assert.deepStrictEqual(previous.comparisons[1], {
+      id: 'b',
+      name: 'beta',
+      status: 'failed',
+      userAction: null,
+    });
+  });
+
+  it('does not restore deleted captures or overwrite later actions', () => {
+    let previous = {
+      comparisons: [
+        { id: 'a', name: 'alpha' },
+        { id: 'b', name: 'beta' },
+      ],
+    };
+    let current = {
+      comparisons: [
+        { id: 'b', name: 'beta', status: 'rejected', userAction: 'rejected' },
+      ],
+    };
+    let restored = rollbackComparisonActions(
+      current,
+      previous,
+      ['a', 'b'],
+      'accepted'
+    );
+    assert.deepStrictEqual(restored, current);
+    let optimistic = { comparisons: [{ id: 'a', userAction: 'accepted' }] };
+    assert.deepStrictEqual(
+      rollbackComparisonActions(optimistic, previous, ['a'], 'accepted'),
+      { comparisons: [{ id: 'a' }] }
+    );
   });
 
   it('returns success metadata when all mutations succeed', async () => {

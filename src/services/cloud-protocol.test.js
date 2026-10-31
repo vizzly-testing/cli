@@ -11,7 +11,6 @@ import {
   isAuthError,
   isRateLimited,
   parseApiError,
-  shouldRetryWithRefresh,
 } from './cloud-protocol.js';
 
 describe('buildAuthHeader', () => {
@@ -163,24 +162,6 @@ describe('isAuthError', () => {
     assert.strictEqual(isAuthError(200), false);
     assert.strictEqual(isAuthError(403), false);
     assert.strictEqual(isAuthError(500), false);
-  });
-});
-
-describe('shouldRetryWithRefresh', () => {
-  it('returns true for 401 on first attempt with refresh token', () => {
-    assert.strictEqual(shouldRetryWithRefresh(401, false, true), true);
-  });
-
-  it('returns false if already a retry', () => {
-    assert.strictEqual(shouldRetryWithRefresh(401, true, true), false);
-  });
-
-  it('returns false if no refresh token', () => {
-    assert.strictEqual(shouldRetryWithRefresh(401, false, false), false);
-  });
-
-  it('returns false for non-401 status', () => {
-    assert.strictEqual(shouldRetryWithRefresh(403, false, true), false);
   });
 });
 

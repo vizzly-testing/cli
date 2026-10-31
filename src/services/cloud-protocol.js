@@ -100,17 +100,6 @@ export function isRateLimited(status) {
 }
 
 /**
- * Determine if request should retry with token refresh
- * @param {number} status - HTTP status code
- * @param {boolean} isRetry - Whether this is already a retry
- * @param {boolean} hasRefreshToken - Whether refresh token is available
- * @returns {boolean} True if should attempt refresh
- */
-export function shouldRetryWithRefresh(status, isRetry, hasRefreshToken) {
-  return status === 401 && !isRetry && hasRefreshToken;
-}
-
-/**
  * Parse error information from API response
  * @param {number} status - HTTP status code
  * @param {string} body - Response body text

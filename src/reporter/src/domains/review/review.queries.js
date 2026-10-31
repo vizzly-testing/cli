@@ -3,16 +3,22 @@ import { queryKeys } from '../../services/query-keys.js';
 import { SSE_STATE, useSSEState } from '../../services/use-sse.js';
 import {
   asIdList,
-  restoreComparisonsFromPrevious,
+  rollbackComparisonActions,
   runBatchMutation,
   updateComparisonsUserAction,
 } from './batch-mutations.js';
 import { review } from './review.service.js';
 
 function rollbackReviewMutation(queryClient, context) {
-  if (context?.previousData) {
-    queryClient.setQueryData(queryKeys.reportData(), context.previousData);
-  }
+  if (!context?.previousData) return;
+  queryClient.setQueryData(queryKeys.reportData(), current =>
+    rollbackComparisonActions(
+      current,
+      context.previousData,
+      context.ids || [],
+      context.userAction
+    )
+  );
 }
 
 function rollbackBatchMutationError(queryClient, context, error) {
@@ -25,9 +31,7 @@ function rollbackBatchMutationError(queryClient, context, error) {
   let hasPartialSuccess = failedIds.length > 0 && succeededIds.length > 0;
 
   if (hasPartialSuccess) {
-    queryClient.setQueryData(queryKeys.reportData(), old =>
-      restoreComparisonsFromPrevious(old, context.previousData, failedIds)
-    );
+    rollbackReviewMutation(queryClient, { ...context, ids: failedIds });
     return;
   }
 
@@ -78,7 +82,7 @@ function useReviewMutation({
       queryClient.setQueryData(queryKeys.reportData(), old =>
         updateComparisonsUserAction(old, ids, userAction)
       );
-      return { previousData };
+      return { previousData, ids, userAction };
     },
     onError: (error, _value, context) => {
       rollback(queryClient, context, error);

@@ -67,7 +67,12 @@ export function updateComparisonsUserAction(old, ids, userAction) {
   };
 }
 
-export function restoreComparisonsFromPrevious(current, previous, ids) {
+export function rollbackComparisonActions(
+  current,
+  previous,
+  ids,
+  optimisticAction
+) {
   if (!current?.comparisons || !previous?.comparisons || ids.length === 0) {
     return current;
   }
@@ -78,7 +83,10 @@ export function restoreComparisonsFromPrevious(current, previous, ids) {
   return {
     ...current,
     comparisons: current.comparisons.map(comparison => {
-      if (!comparisonMatchesIdSet(comparison, idSet)) {
+      if (
+        !comparisonMatchesIdSet(comparison, idSet) ||
+        comparison.userAction !== optimisticAction
+      ) {
         return comparison;
       }
 
@@ -86,7 +94,12 @@ export function restoreComparisonsFromPrevious(current, previous, ids) {
       for (let identifier of identifiers) {
         let previousComparison = previousLookup.get(identifier);
         if (previousComparison) {
-          return previousComparison;
+          // The mutation changed only userAction. Keep newer server fields,
+          // other captures, and later actions already present in the cache.
+          let { userAction: _optimisticAction, ...rest } = comparison;
+          return Object.hasOwn(previousComparison, 'userAction')
+            ? { ...rest, userAction: previousComparison.userAction }
+            : rest;
         }
       }
 

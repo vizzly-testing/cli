@@ -153,10 +153,11 @@ test.describe('Review Decisions', () => {
     }
   });
 
-  test('failed approval keeps the current capture open and offers a retry', async ({
+  test('failed approval preserves newer captures and decisions and remains retryable', async ({
     page,
     reporter,
     openReview,
+    openQueue,
   }) => {
     await openReview();
     let comparison = reporter.data.comparisons.find(
@@ -169,17 +170,93 @@ test.describe('Review Decisions', () => {
     );
     let contents = await readFile(path);
     await rm(path);
-    await page.getByRole('button', { name: 'Approve', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText(
-      'Could not save your review'
-    );
-    await expect(page).toHaveURL(new RegExp(`${pricingId}$`));
-    await expect(
-      page.getByRole('button', { name: 'Approve', exact: true })
-    ).toBeEnabled();
-    await writeFile(path, contents);
-    await page.getByRole('button', { name: 'Approve', exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`${pricingVariant}$`));
+    let releaseFailure;
+    let failureReady;
+    let failureHeld = new Promise(resolve => {
+      releaseFailure = resolve;
+    });
+    let ready = new Promise(resolve => {
+      failureReady = resolve;
+    });
+    let releaseRefresh;
+    let refreshStarted;
+    let refreshHeld = new Promise(resolve => {
+      releaseRefresh = resolve;
+    });
+    let refreshReady = new Promise(resolve => {
+      refreshStarted = resolve;
+    });
+    let holdRefresh = false;
+    // Delay only delivery of the real failed save, then its reconciliation read.
+    // SSE must remain the source of newer captures while that save is pending.
+    await page.route('**/api/baseline/accept', async route => {
+      let response = await route.fetch();
+      if (!response.ok()) {
+        failureReady();
+        await failureHeld;
+      }
+      await route.fulfill({ response });
+    });
+    await page.route('**/api/report-data', async route => {
+      if (!holdRefresh) {
+        await route.continue();
+        return;
+      }
+      let response = await route.fetch();
+      refreshStarted();
+      await refreshHeld;
+      await route.fulfill({ response });
+    });
+    try {
+      await page.getByRole('button', { name: 'Approve', exact: true }).click();
+      await ready;
+      let queue = await openQueue();
+      await queue.getByRole('button', { name: 'All', exact: true }).click();
+      let rejected = await page.request.post(
+        `${reporter.url}/api/baseline/reject`,
+        { data: { id: checkoutId } }
+      );
+      expect(rejected.ok()).toBe(true);
+      let captured = await page.request.post(`${reporter.url}/screenshot`, {
+        data: {
+          name: 'late-arrival',
+          image: contents.toString('base64'),
+          type: 'base64',
+        },
+      });
+      expect(captured.ok()).toBe(true);
+      let addedCapture = queue.getByRole('button', { name: /late-arrival/ });
+      let checkout = queue.getByRole('button', { name: /checkout-form/ });
+      await expect(addedCapture).toBeVisible();
+      await expect(
+        checkout.getByRole('img', { name: 'Rejected' })
+      ).toBeVisible();
+      holdRefresh = true;
+      releaseFailure();
+      await expect(page.getByRole('alert')).toContainText(
+        'Could not save your review'
+      );
+      await refreshReady;
+      await expect(addedCapture).toBeVisible();
+      await expect(
+        checkout.getByRole('img', { name: 'Rejected' })
+      ).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`${pricingId}$`));
+      holdRefresh = false;
+      releaseRefresh();
+      if (page.viewportSize().width < 640) {
+        await page
+          .getByRole('button', { name: 'Close sidebar', exact: true })
+          .click();
+      }
+      await writeFile(path, contents);
+      await page.getByRole('button', { name: 'Approve', exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`${pricingVariant}$`));
+    } finally {
+      releaseFailure();
+      releaseRefresh();
+      await page.unrouteAll({ behavior: 'wait' });
+    }
   });
 
   test('deletion still closes after SSE removes the capture before the response arrives', async ({

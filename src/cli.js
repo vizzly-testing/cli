@@ -32,12 +32,14 @@ import {
   contextReviewQueueCommand,
   contextScreenshotCommand,
   contextSimilarCommand,
+} from './domains/context/context.commands.js';
+import {
   validateContextBuildOptions,
   validateContextComparisonOptions,
   validateContextReviewQueueOptions,
   validateContextScreenshotOptions,
   validateContextSimilarOptions,
-} from './domains/context/context.commands.js';
+} from './domains/context/context.validations.js';
 import { doctorCommand } from './domains/diagnostics/doctor.commands.js';
 import { getContext } from './domains/diagnostics/environment-context.js';
 import {

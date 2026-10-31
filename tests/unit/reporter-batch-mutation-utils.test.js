@@ -5,7 +5,7 @@ import {
   restoreComparisonsFromPrevious,
   runBatchMutation,
   updateComparisonsUserAction,
-} from '../../src/reporter/src/hooks/queries/batch-mutation-utils.js';
+} from '../../src/reporter/src/domains/review/batch-mutations.js';
 
 describe('reporter batch mutation utils', () => {
   it('normalizes ids into a list', () => {

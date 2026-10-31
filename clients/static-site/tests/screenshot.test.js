@@ -4,7 +4,7 @@
 
 import assert from 'node:assert';
 import { describe, it, mock } from 'node:test';
-import { buildScreenshotCheckObject } from '../../../src/api/core.js';
+import { buildScreenshotCheckObject } from '../../../src/domains/screenshots/screenshot.serializers.js';
 import {
   captureAndSendScreenshot,
   generateScreenshotName,

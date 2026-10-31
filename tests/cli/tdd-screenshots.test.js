@@ -15,7 +15,7 @@ import {
   generateBaselineFilename,
   generateComparisonId,
   generateScreenshotSignature,
-} from '../../src/tdd/core/signature.js';
+} from '../../src/domains/screenshots/screenshot-identity.js';
 import { runCLI } from '../helpers/cli-runner.js';
 
 let samplePng = Buffer.from(

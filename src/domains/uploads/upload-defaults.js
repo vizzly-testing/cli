@@ -1,0 +1,7 @@
+export let DEFAULT_BATCH_SIZE = 50;
+
+export let DEFAULT_SHA_CHECK_BATCH_SIZE = 100;
+
+export let DEFAULT_TIMEOUT = 30000;
+
+export let DEFAULT_BUILD_POLL_INTERVAL = 1000;

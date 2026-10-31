@@ -12,11 +12,11 @@ import {
   getServerUrl,
   isTddMode,
   setVizzlyEnabled,
-} from '../utils/environment-config.js';
+} from '../domains/config/environment.js';
 import {
   getScreenshotOptionsPayload,
   normalizeScreenshotOptions,
-} from '../utils/screenshot-options.js';
+} from '../domains/screenshots/screenshot-options.js';
 
 // Internal client state
 let currentClient = null;

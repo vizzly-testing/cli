@@ -1,0 +1,127 @@
+/**
+ * Screenshot Router
+ * Handles screenshot uploads and flush requests.
+ */
+
+import { parseJsonBody } from '../../server/middleware/json-parser.js';
+import { sendError, sendJson } from '../../server/middleware/response.js';
+import * as output from '../../services/output.js';
+import { normalizeScreenshotOptions } from './screenshot-options.js';
+
+/**
+ * Route local capture and flush requests to the active cloud or TDD handler.
+ * A cloud flush returns HTTP 200 with cumulative results; its success field is
+ * false when any capture failed, even if that failure appeared in an earlier flush.
+ *
+ * @param {Object} context - Router context
+ * @param {Object} context.screenshotHandler - Screenshot handler
+ * @param {string|null} context.defaultBuildId - Default build ID
+ * @returns {Function} Route handler
+ */
+export function createScreenshotRouter({ screenshotHandler, defaultBuildId }) {
+  return async function handleScreenshotRoute(req, res, pathname) {
+    if (req.method !== 'POST') {
+      return false;
+    }
+
+    // Main screenshot upload endpoint
+    if (pathname === '/screenshot') {
+      try {
+        const body = await parseJsonBody(req);
+        const {
+          buildId,
+          name,
+          properties,
+          image,
+          type,
+          warnings,
+          threshold,
+          minClusterSize,
+          fullPage,
+          captureMode,
+          deviceScaleFactor,
+          selector,
+        } = body;
+
+        if (!name || !image) {
+          sendError(res, 400, 'name and image are required');
+          return true;
+        }
+
+        // Use buildId from request body, or fall back to server's buildId
+        const effectiveBuildId = buildId || defaultBuildId;
+        const normalizedOptions = normalizeScreenshotOptions({
+          properties,
+          threshold,
+          minClusterSize,
+          fullPage,
+          captureMode,
+          deviceScaleFactor,
+          selector,
+        });
+
+        const result = await screenshotHandler.handleScreenshot(
+          effectiveBuildId,
+          name,
+          image,
+          normalizedOptions.properties,
+          type,
+          warnings || [],
+          {
+            threshold: normalizedOptions.threshold,
+            minClusterSize: normalizedOptions.minClusterSize,
+            fullPage: normalizedOptions.fullPage,
+            captureMode: normalizedOptions.captureMode,
+            deviceScaleFactor: normalizedOptions.deviceScaleFactor,
+            selector: normalizedOptions.selector,
+          }
+        );
+
+        sendJson(res, result.statusCode, result.body);
+        return true;
+      } catch (error) {
+        output.debug('Screenshot processing error:', {
+          error: error.message,
+          stack: error.stack,
+        });
+        sendError(res, 500, `Failed to process screenshot: ${error.message}`);
+        return true;
+      }
+    }
+
+    // Flush endpoint - signals test completion and prints summary
+    if (pathname === '/flush') {
+      try {
+        if (screenshotHandler.flush) {
+          let stats = await screenshotHandler.flush();
+          sendJson(res, 200, {
+            success: stats.failed === 0,
+            ...stats,
+          });
+        } else if (screenshotHandler.getResults) {
+          // This triggers printResults() which outputs the summary
+          let results = await screenshotHandler.getResults();
+          sendJson(res, 200, {
+            success: true,
+            summary: {
+              total: results.total || 0,
+              passed: results.passed || 0,
+              failed: results.failed || 0,
+              new: results.new || 0,
+              errors: results.errors || 0,
+            },
+          });
+        } else {
+          sendJson(res, 200, { success: true, message: 'No TDD results' });
+        }
+        return true;
+      } catch (error) {
+        output.debug('Flush error:', { error: error.message });
+        sendError(res, 500, 'Failed to flush');
+        return true;
+      }
+    }
+
+    return false;
+  };
+}

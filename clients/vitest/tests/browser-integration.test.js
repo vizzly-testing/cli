@@ -15,10 +15,10 @@ import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
 import { getDimensionsSync } from '@vizzly-testing/honeydiff';
-import { createApiClient } from '../../../src/api/client.js';
-import { CONFIG_DEFAULTS } from '../../../src/config/core.js';
-import { createApiHandler } from '../../../src/server/handlers/api-handler.js';
-import { createTddHandler } from '../../../src/server/handlers/tdd-handler.js';
+import { createApiClient } from '../../../src/domains/auth/cloud-client.js';
+import { CONFIG_DEFAULTS } from '../../../src/domains/config/config-defaults.js';
+import { createApiHandler } from '../../../src/domains/screenshots/cloud-handler.js';
+import { createTddHandler } from '../../../src/domains/tdd/screenshot-handler.js';
 import { createHttpServer } from '../../../src/server/http-server.js';
 
 let run = promisify(execFile);

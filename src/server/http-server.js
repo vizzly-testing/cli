@@ -4,22 +4,21 @@
  */
 
 import { createServer } from 'node:http';
-import * as output from '../utils/output.js';
-
+import { createAuthRouter } from '../domains/auth/auth.routes.js';
+import { createBaselineRouter } from '../domains/baselines/baseline.routes.js';
+import { createConfigRouter } from '../domains/config/config.routes.js';
+import { createProjectsRouter } from '../domains/projects/projects.routes.js';
+import { createDashboardRouter } from '../domains/reports/dashboard.routes.js';
+import { createEventsRouter } from '../domains/reports/events.routes.js';
+import { createScreenshotRouter } from '../domains/screenshots/screenshot.routes.js';
+import * as output from '../services/output.js';
+import { createAssetsRouter } from './assets.js';
+import { createCloudProxyRouter } from './cloud-proxy.js';
+// Routers
+import { createHealthRouter } from './health.js';
 // Middleware
 import { corsMiddleware } from './middleware/cors.js';
 import { sendError } from './middleware/response.js';
-import { createAssetsRouter } from './routers/assets.js';
-import { createAuthRouter } from './routers/auth.js';
-import { createBaselineRouter } from './routers/baseline.js';
-import { createCloudProxyRouter } from './routers/cloud-proxy.js';
-import { createConfigRouter } from './routers/config.js';
-import { createDashboardRouter } from './routers/dashboard.js';
-import { createEventsRouter } from './routers/events.js';
-// Routers
-import { createHealthRouter } from './routers/health.js';
-import { createProjectsRouter } from './routers/projects.js';
-import { createScreenshotRouter } from './routers/screenshot.js';
 
 export const createHttpServer = (port, screenshotHandler, services = {}) => {
   let server = null;

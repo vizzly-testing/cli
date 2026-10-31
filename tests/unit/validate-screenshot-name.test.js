@@ -5,7 +5,7 @@
 
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { validateScreenshotName } from '../../src/utils/security.js';
+import { validateScreenshotName } from '../../src/domains/screenshots/screenshot.validations.js';
 
 describe('validateScreenshotName', () => {
   it('should return original name unchanged when valid', () => {

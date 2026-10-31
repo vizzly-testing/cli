@@ -10,6 +10,13 @@ import 'dotenv/config';
 
 // Client exports for convenience
 export { configure, setEnabled, vizzlyScreenshot } from './client/index.js';
+// Configuration helper
+export { defineConfig } from './domains/config/config.js';
+// Utilities
+export { loadConfig } from './domains/config/config-loader.js';
+export { createTDDService } from './domains/tdd/tdd.service.js';
+// Core services (for advanced usage)
+export { createUploader } from './domains/uploads/upload.service.js';
 // Errors
 export {
   AuthError,
@@ -22,15 +29,8 @@ export {
   ValidationError,
   VizzlyError,
 } from './errors/vizzly-error.js';
-export { createPluginServices } from './plugin-api.js';
+export { createPluginServices } from './plugins/plugin-api.js';
+export { createServices } from './plugins/services.js';
 // Primary SDK export
 export { createVizzly, VizzlySDK } from './sdk/index.js';
-export { createServices } from './services/index.js';
-export { createTDDService } from './tdd/tdd-service.js';
-// Core services (for advanced usage)
-export { createUploader } from './uploader/index.js';
-// Configuration helper
-export { defineConfig } from './utils/config-helpers.js';
-// Utilities
-export { loadConfig } from './utils/config-loader.js';
-export * as output from './utils/output.js';
+export * as output from './services/output.js';

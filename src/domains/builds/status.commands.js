@@ -1,0 +1,442 @@
+import {
+  getBuildReviewState,
+  getComparisonStatus,
+  getProcessingStatus,
+  normalizeBuildStatus,
+} from './build.normalizers.js';
+import {
+  createStatusData,
+  createStatusSuggestedCommands,
+} from './build.serializers.js';
+
+/**
+ * Status command implementation
+ * Uses functional API operations directly
+ */
+
+import { getAppBaseUrl } from '../../services/api-url.js';
+import * as defaultOutput from '../../services/output.js';
+import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
+import { getPreviewInfo as defaultGetPreviewInfo } from '../previews/preview.service.js';
+import { getBuildStatus as defaultGetBuildStatus } from './build.service.js';
+
+function createStatusDeps(deps = {}) {
+  return {
+    loadConfig: deps.loadConfig || defaultLoadConfig,
+    createApiClient: deps.createApiClient || defaultCreateApiClient,
+    getBuildStatus: deps.getBuildStatus || defaultGetBuildStatus,
+    getPreviewInfo: deps.getPreviewInfo || defaultGetPreviewInfo,
+    output: deps.output || defaultOutput,
+    exit: deps.exit || (code => process.exit(code)),
+  };
+}
+
+function configureOutput(output, globalOptions) {
+  output.configure({
+    json: globalOptions.json,
+    verbose: globalOptions.verbose,
+    color: !globalOptions.noColor,
+  });
+}
+
+function createStatusClient({ createApiClient, config }) {
+  return createApiClient({
+    baseUrl: config.apiUrl,
+    token: config.apiKey || config.userToken,
+    command: 'status',
+  });
+}
+
+function isMissingPreviewError(error) {
+  return error.context?.status === 404;
+}
+
+async function fetchOptionalPreviewInfo(getPreviewInfo, client, buildId) {
+  try {
+    return await getPreviewInfo(client, buildId);
+  } catch (error) {
+    if (isMissingPreviewError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function createBuildInfo(build) {
+  let buildInfo = {
+    Name: build.name || build.id,
+    Status: build.status.toUpperCase(),
+    Environment: build.environment,
+  };
+
+  if (build.branch) {
+    buildInfo.Branch = build.branch;
+  }
+
+  if (build.commit_sha) {
+    buildInfo.Commit = `${build.commit_sha.substring(0, 8)} - ${build.commit_message || 'No message'}`;
+  }
+
+  return buildInfo;
+}
+
+/**
+ * Format API comparison outcomes.
+ *
+ * @param {Object} status - Status response.
+ * @param {Object} colors - Output color helpers.
+ * @returns {string} Human-readable comparison summary.
+ */
+export function createComparisonStats(status, colors) {
+  let comparisons = getComparisonStatus(status);
+  let stats = [];
+  let newCount = comparisons.new;
+  let changedCount = comparisons.changed;
+  let identicalCount = comparisons.identical;
+
+  if (newCount > 0) {
+    stats.push(`${colors.brand.info(newCount)} new`);
+  }
+  if (changedCount > 0) {
+    stats.push(`${colors.brand.warning(changedCount)} changed`);
+  }
+  if (identicalCount > 0) {
+    stats.push(`${colors.brand.success(identicalCount)} identical`);
+  }
+
+  return stats.join(colors.brand.textMuted(' · '));
+}
+
+/**
+ * Build the scoped app link when the API did not return one.
+ *
+ * @param {string} baseUrl - API or app base URL.
+ * @param {Object} build - Build record.
+ * @param {Object|null} scope - Organization and project details.
+ * @returns {string|null} Build URL when the response has enough identity.
+ */
+export function createBuildUrl(baseUrl, build, scope = null) {
+  if (!baseUrl) {
+    return null;
+  }
+
+  let organizationSlug = scope?.organization?.slug;
+  let projectSlug = scope?.project?.slug;
+  let appBaseUrl = getAppBaseUrl(baseUrl);
+
+  if (organizationSlug && projectSlug) {
+    return `${appBaseUrl}/${organizationSlug}/${projectSlug}/builds/${build.id}`;
+  }
+
+  return null;
+}
+
+/**
+ * Preserve status failure behavior while using the server's conclusion.
+ *
+ * Review-required and rejected builds keep their existing successful command
+ * exit behavior. Only build or processing failures produce a failing status.
+ *
+ * @param {Object} status - Status response.
+ * @returns {boolean} Whether human status should exit non-zero.
+ */
+export function shouldFailStatus(status) {
+  let build = normalizeBuildStatus(status);
+  let processing = getProcessingStatus(status);
+  return (
+    build.status === 'failed' ||
+    ['build_failed', 'processing_failed'].includes(status.conclusion) ||
+    processing.failed > 0
+  );
+}
+
+function writeStatusTiming({ build, output }) {
+  if (build.created_at) {
+    output.hint(`Created ${new Date(build.created_at).toLocaleString()}`);
+  }
+
+  if (build.completed_at) {
+    output.hint(`Completed ${new Date(build.completed_at).toLocaleString()}`);
+  } else if (build.status !== 'completed' && build.status !== 'failed') {
+    output.hint(
+      `Started ${new Date(build.started_at || build.created_at).toLocaleString()}`
+    );
+  }
+
+  if (build.execution_time_ms) {
+    output.hint(`Took ${Math.round(build.execution_time_ms / 1000)}s`);
+  }
+}
+
+/**
+ * Render follow-up commands after the factual status summary.
+ *
+ * Status answers lifecycle questions; these commands are the explicit bridge
+ * to screenshot evidence without bloating the status response itself.
+ *
+ * @param {Object} build - Build record from the status response.
+ * @param {Object} output - Configured output boundary.
+ */
+function writeSuggestedCommands({ build, output }) {
+  let commands = createStatusSuggestedCommands(build);
+  if (commands.length === 0) {
+    return;
+  }
+
+  let colors = output.getColors();
+  output.blank();
+  output.print('  Suggested commands');
+
+  for (let item of commands) {
+    output.print(`    ${colors.brand.textMuted(item.command)}`);
+  }
+}
+
+/**
+ * Add optional API facts without inventing placeholders for missing metadata.
+ *
+ * @param {Object} status - Status response.
+ * @returns {Object} Available verbose fields.
+ */
+function createVerboseInfo(status) {
+  let build = normalizeBuildStatus(status);
+  let verboseInfo = {};
+
+  if (status.review) {
+    let reviewParts = [
+      ['approved', status.review.approved],
+      ['rejected', status.review.rejected],
+      ['pending', status.review.pending],
+    ]
+      .filter(([, value]) => value != null)
+      .map(([label, value]) => `${value} ${label}`);
+    if (reviewParts.length > 0) {
+      verboseInfo.Review = reviewParts.join(', ');
+    }
+  }
+
+  if (build.avg_diff_percentage != null) {
+    verboseInfo['Avg Diff'] =
+      `${(build.avg_diff_percentage * 100).toFixed(2)}%`;
+  }
+
+  if (build.github_pull_request_number) {
+    verboseInfo['GitHub PR'] = `#${build.github_pull_request_number}`;
+  }
+
+  if (build.is_baseline) {
+    verboseInfo.Baseline = 'Yes';
+  }
+
+  if (build.user_agent) {
+    verboseInfo['User Agent'] = build.user_agent;
+  }
+  verboseInfo['Build ID'] = build.id;
+  if (status.scope?.project?.id || build.project_id) {
+    verboseInfo['Project ID'] = status.scope?.project?.id || build.project_id;
+  }
+
+  return verboseInfo;
+}
+
+/**
+ * Format only the processing facts supplied by the API.
+ *
+ * @param {Object|undefined} processing - Processing counts.
+ * @returns {string} Human-readable processing summary.
+ */
+function formatProcessingStatus(processing) {
+  if (!processing) {
+    return '';
+  }
+
+  let labels = {
+    total: 'total',
+    completed: 'completed',
+    failed: 'failed',
+    active: 'active',
+    pending: 'pending',
+  };
+
+  return Object.entries(labels)
+    .filter(([field]) => processing[field] != null)
+    .map(([field, label]) => `${processing[field]} ${label}`)
+    .join(' · ');
+}
+
+/**
+ * Present lifecycle, processing, comparisons, and review as separate facts.
+ *
+ * Keeping these lanes separate prevents review-pending counts from looking
+ * like unfinished processing and keeps the human view aligned with JSON.
+ *
+ * @param {Object} options - Human status presentation inputs.
+ */
+function writeHumanStatus({
+  build,
+  buildUrl,
+  globalOptions,
+  output,
+  previewInfo,
+  status,
+}) {
+  output.header('status', build.status);
+  output.keyValue(createBuildInfo(build));
+  output.blank();
+
+  let colors = output.getColors();
+  let comparisonStats = createComparisonStats(status, colors);
+  let processing = getProcessingStatus(status);
+  let screenshotsTotal = processing.total;
+  let processingSummary = formatProcessingStatus(processing);
+
+  if (screenshotsTotal != null) {
+    output.labelValue('Screenshots', String(screenshotsTotal));
+  }
+
+  if (processingSummary) {
+    output.labelValue('Processing', processingSummary);
+  }
+
+  if (comparisonStats) {
+    output.labelValue('Comparisons', comparisonStats);
+  }
+
+  let reviewState = getBuildReviewState(status);
+  if (reviewState) {
+    output.labelValue('Review', reviewState);
+  }
+
+  output.blank();
+  writeStatusTiming({ build, output });
+
+  if (buildUrl) {
+    output.blank();
+    output.labelValue('View', output.link('Build', buildUrl));
+  }
+
+  if (previewInfo?.preview_url) {
+    output.labelValue(
+      'Preview',
+      output.link('Preview', previewInfo.preview_url)
+    );
+    if (previewInfo.expires_at) {
+      let expiresDate = new Date(previewInfo.expires_at);
+      output.hint(`Preview expires ${expiresDate.toLocaleDateString()}`);
+    }
+  }
+
+  if (globalOptions.verbose) {
+    output.blank();
+    output.divider();
+    output.blank();
+    output.keyValue(createVerboseInfo(status));
+  }
+
+  writeSuggestedCommands({ build, output });
+}
+
+/**
+ * Fetch and present the server-owned build status contract.
+ *
+ * Preview remains an optional adjacent resource, and established 5xx and
+ * build-failure exit semantics remain unchanged.
+ *
+ * @param {string} buildId - Build ID to check status for
+ * @param {Object} options - Command options
+ * @param {Object} globalOptions - Global CLI options
+ * @param {Object} deps - Dependencies for testing
+ */
+export async function statusCommand(
+  buildId,
+  options = {},
+  globalOptions = {},
+  deps = {}
+) {
+  let {
+    loadConfig,
+    createApiClient,
+    getBuildStatus,
+    getPreviewInfo,
+    output,
+    exit,
+  } = createStatusDeps(deps);
+
+  configureOutput(output, globalOptions);
+
+  try {
+    // Load configuration with CLI overrides
+    let allOptions = { ...globalOptions, ...options };
+    let config = await loadConfig(globalOptions.config, allOptions);
+
+    // Validate API token
+    if (!config.apiKey && !config.userToken) {
+      output.error(
+        'Authentication required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
+      );
+      output.cleanup();
+      exit(1);
+      return { success: false, result: { reason: 'missing_token' } };
+    }
+
+    // Get build details via functional API
+    output.startSpinner('Fetching build status...');
+    let client = createStatusClient({ createApiClient, config });
+    let buildStatus = await getBuildStatus(client, buildId);
+
+    // Also fetch preview info (if exists)
+    let previewInfo = await fetchOptionalPreviewInfo(
+      getPreviewInfo,
+      client,
+      buildId
+    );
+    output.stopSpinner();
+
+    // Extract build data from API response
+    let build = normalizeBuildStatus(buildStatus);
+
+    // Output in JSON mode
+    if (globalOptions.json) {
+      output.data(createStatusData(buildStatus, previewInfo));
+      output.cleanup();
+      return;
+    }
+
+    // Human-readable output
+    // Show build URL if we can construct it
+    let buildUrl =
+      buildStatus.links?.web ||
+      createBuildUrl(config.apiUrl, build, buildStatus.scope);
+    writeHumanStatus({
+      build,
+      buildUrl,
+      globalOptions,
+      output,
+      previewInfo,
+      status: buildStatus,
+    });
+
+    output.cleanup();
+
+    // Exit with appropriate code based on build status
+    if (shouldFailStatus(buildStatus)) {
+      exit(1);
+    }
+  } catch (error) {
+    output.stopSpinner();
+
+    // Don't fail CI for Vizzly infrastructure issues (5xx errors)
+    let status = error.context?.status;
+    if (status >= 500) {
+      output.warn('Vizzly API unavailable - status check skipped.');
+      output.cleanup();
+      return { success: true, result: { skipped: true } };
+    }
+
+    output.error('Failed to get build status', error);
+    output.cleanup();
+    exit(1);
+    return { success: false, error };
+  }
+}

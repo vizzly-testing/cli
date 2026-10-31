@@ -1,0 +1,757 @@
+/**
+ * Tests for API endpoints
+ *
+ * Covers endpoint payloads and upload compatibility through HTTP.
+ */
+
+import assert from 'node:assert';
+import { createHash } from 'node:crypto';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
+import { describe, it } from 'node:test';
+import { createApiClient } from '../../src/domains/auth/cloud-client.js';
+import { getTddBaselines } from '../../src/domains/baselines/cloud-baselines.js';
+import {
+  createBuild,
+  finalizeBuild,
+  finalizeParallelBuild,
+  getBuild,
+  getBuildStatus,
+  getBuilds,
+  updateBuildStatus,
+} from '../../src/domains/builds/build.service.js';
+import {
+  getComparison,
+  searchComparisons,
+} from '../../src/domains/comparisons/cloud-comparisons.js';
+import {
+  getBuildContext,
+  getComparisonContext,
+  getReviewQueueContext,
+  getScreenshotContext,
+  getSimilarFingerprintContext,
+  getTokenContext,
+} from '../../src/domains/context/context.service.js';
+import {
+  getPreviewInfo,
+  uploadPreviewZip,
+} from '../../src/domains/previews/preview.service.js';
+import {
+  checkShas,
+  uploadScreenshot,
+} from '../../src/domains/screenshots/cloud-screenshots.js';
+
+/**
+ * Create a mock client that records requests
+ */
+function createMockClient(responseOrHandler = {}) {
+  let calls = [];
+
+  return {
+    request: async (endpoint, options = {}) => {
+      calls.push({ endpoint, options });
+
+      // Support function handler for dynamic responses
+      if (typeof responseOrHandler === 'function') {
+        return responseOrHandler(endpoint, options);
+      }
+
+      // Support endpoint-specific responses
+      if (
+        responseOrHandler[endpoint] !== undefined &&
+        typeof responseOrHandler !== 'function'
+      ) {
+        let response = responseOrHandler[endpoint];
+        if (response instanceof Error) {
+          throw response;
+        }
+        return response;
+      }
+
+      return responseOrHandler;
+    },
+    getCalls: () => calls,
+    getLastCall: () => calls[calls.length - 1],
+  };
+}
+
+function createSequencedClient(responses) {
+  let responseIndex = 0;
+
+  return createMockClient(() => {
+    let response = responses[responseIndex] ?? responses[responses.length - 1];
+    responseIndex++;
+
+    if (response instanceof Error) {
+      throw response;
+    }
+
+    return response;
+  });
+}
+
+describe('api/endpoints', () => {
+  describe('getBuild', () => {
+    it('requests correct endpoint', async () => {
+      let client = createMockClient({ build: { id: '123' } });
+
+      await getBuild(client, '123');
+
+      assert.strictEqual(client.getLastCall().endpoint, '/api/sdk/builds/123');
+    });
+
+    it('includes include param when provided', async () => {
+      let client = createMockClient({});
+
+      await getBuild(client, '123', 'screenshots');
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/builds/123?include=screenshots'
+      );
+    });
+  });
+
+  describe('getBuildStatus', () => {
+    it('requests the build status endpoint', async () => {
+      let client = createMockClient({ resource: 'build_status' });
+
+      await getBuildStatus(client, 'build-123');
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/builds/build-123/status'
+      );
+    });
+  });
+
+  describe('context endpoints', () => {
+    it('requests build context endpoint', async () => {
+      let client = createMockClient({ resource: 'build_context' });
+
+      await getBuildContext(client, 'build-123');
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/builds/build-123'
+      );
+    });
+
+    it('includes build context detail params when provided', async () => {
+      let client = createMockClient({ resource: 'build_context' });
+
+      await getBuildContext(client, 'build-123', {
+        details: 'summary',
+        limit: 10,
+        cursor: 'opaque-page-2',
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/builds/build-123?details=summary&limit=10&cursor=opaque-page-2'
+      );
+    });
+
+    it('includes comparison context query params when provided', async () => {
+      let client = createMockClient({ resource: 'comparison_context' });
+
+      await getComparisonContext(client, 'comparison-123', {
+        details: 'diffs',
+        limit: 10,
+        cursor: 'opaque-similar-page-2',
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/comparisons/comparison-123?details=diffs&limit=10&cursor=opaque-similar-page-2'
+      );
+    });
+
+    it('encodes screenshot names and applies scope query params', async () => {
+      let client = createMockClient({ resource: 'screenshot_context' });
+
+      await getScreenshotContext(client, 'Dashboard/Header', {
+        project: 'storybook',
+        organization: 'acme',
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/screenshots/Dashboard%2FHeader?project=storybook&organization=acme'
+      );
+    });
+
+    it('builds fingerprint similarity endpoint with project scope', async () => {
+      let client = createMockClient({ resource: 'fingerprint_context' });
+
+      await getSimilarFingerprintContext(client, 'fp:dashboard', {
+        project: 'storybook',
+        limit: 7,
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/fingerprints/fp%3Adashboard/similar?project=storybook&limit=7'
+      );
+    });
+
+    it('builds review queue endpoint with scope and pagination', async () => {
+      let client = createMockClient({ resource: 'review_queue_context' });
+
+      await getReviewQueueContext(client, {
+        project: 'storybook',
+        organization: 'acme',
+        limit: 15,
+        offset: 30,
+      });
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/context/review-queue?project=storybook&organization=acme&limit=15&offset=30'
+      );
+    });
+  });
+
+  describe('getBuilds', () => {
+    it('fetches builds with no filters', async () => {
+      let client = createMockClient([{ id: '1' }, { id: '2' }]);
+
+      let result = await getBuilds(client);
+
+      assert.strictEqual(client.getLastCall().endpoint, '/api/sdk/builds');
+      assert.deepStrictEqual(result, [{ id: '1' }, { id: '2' }]);
+    });
+
+    it('applies filters as query params', async () => {
+      let client = createMockClient([]);
+
+      await getBuilds(client, { branch: 'main', status: 'completed' });
+
+      let endpoint = client.getLastCall().endpoint;
+      assert.ok(endpoint.includes('branch=main'));
+      assert.ok(endpoint.includes('status=completed'));
+    });
+  });
+
+  describe('createBuild', () => {
+    it('sends POST with build payload', async () => {
+      let client = createMockClient({ id: 'new-build' });
+
+      await createBuild(client, {
+        name: 'Test Build',
+        branch: 'main',
+        environment: 'test',
+      });
+
+      let call = client.getLastCall();
+      assert.strictEqual(call.endpoint, '/api/sdk/builds');
+      assert.strictEqual(call.options.method, 'POST');
+
+      let body = JSON.parse(call.options.body);
+      assert.strictEqual(body.build.name, 'Test Build');
+      assert.strictEqual(body.build.branch, 'main');
+    });
+  });
+
+  describe('updateBuildStatus', () => {
+    it('updates build status', async () => {
+      let client = createMockClient({ status: 'completed' });
+
+      await updateBuildStatus(client, 'build-123', 'completed');
+
+      let call = client.getLastCall();
+      assert.strictEqual(call.endpoint, '/api/sdk/builds/build-123/status');
+      assert.strictEqual(call.options.method, 'PUT');
+
+      let body = JSON.parse(call.options.body);
+      assert.strictEqual(body.status, 'completed');
+    });
+
+    it('includes execution time when provided', async () => {
+      let client = createMockClient({});
+
+      await updateBuildStatus(client, 'build-123', 'completed', 5000);
+
+      let body = JSON.parse(client.getLastCall().options.body);
+      assert.strictEqual(body.executionTimeMs, 5000);
+    });
+
+    it('omits execution time when null', async () => {
+      let client = createMockClient({});
+
+      await updateBuildStatus(client, 'build-123', 'completed', null);
+
+      let body = JSON.parse(client.getLastCall().options.body);
+      assert.strictEqual(body.executionTimeMs, undefined);
+    });
+  });
+
+  describe('finalizeBuild', () => {
+    it('finalizes build as completed when success is true', async () => {
+      let client = createMockClient({});
+
+      await finalizeBuild(client, 'build-123', true);
+
+      let body = JSON.parse(client.getLastCall().options.body);
+      assert.strictEqual(body.status, 'completed');
+    });
+
+    it('finalizes build as failed when success is false', async () => {
+      let client = createMockClient({});
+
+      await finalizeBuild(client, 'build-123', false);
+
+      let body = JSON.parse(client.getLastCall().options.body);
+      assert.strictEqual(body.status, 'failed');
+    });
+
+    it('defaults success to true', async () => {
+      let client = createMockClient({});
+
+      await finalizeBuild(client, 'build-123');
+
+      let body = JSON.parse(client.getLastCall().options.body);
+      assert.strictEqual(body.status, 'completed');
+    });
+
+    it('passes execution time', async () => {
+      let client = createMockClient({});
+
+      await finalizeBuild(client, 'build-123', true, 3000);
+
+      let body = JSON.parse(client.getLastCall().options.body);
+      assert.strictEqual(body.executionTimeMs, 3000);
+    });
+  });
+
+  describe('getTddBaselines', () => {
+    it('fetches TDD baselines for build', async () => {
+      let client = createMockClient({
+        build: {},
+        screenshots: [],
+      });
+
+      let result = await getTddBaselines(client, 'build-123');
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/builds/build-123/tdd-baselines'
+      );
+      assert.ok(result.build !== undefined);
+    });
+  });
+
+  describe('checkShas', () => {
+    it('checks SHAs with build ID', async () => {
+      let client = createMockClient({
+        '/api/sdk/check-shas': {
+          existing: ['sha1'],
+          missing: ['sha2'],
+          screenshots: [],
+        },
+      });
+
+      let result = await checkShas(
+        client,
+        [{ sha256: 'sha1' }, { sha256: 'sha2' }],
+        'build-123'
+      );
+
+      assert.deepStrictEqual(result.existing, ['sha1']);
+      assert.deepStrictEqual(result.missing, ['sha2']);
+    });
+
+    it('returns fallback on error with object screenshots', async () => {
+      let client = createMockClient({
+        '/api/sdk/check-shas': new Error('API error'),
+      });
+
+      let result = await checkShas(
+        client,
+        [{ sha256: 'sha1' }, { sha256: 'sha2' }],
+        'build-123'
+      );
+
+      assert.deepStrictEqual(result.existing, []);
+      assert.deepStrictEqual(result.missing, ['sha1', 'sha2']);
+    });
+
+    it('returns fallback on error with string SHAs', async () => {
+      let client = createMockClient({
+        '/api/sdk/check-shas': new Error('API error'),
+      });
+
+      let result = await checkShas(client, ['sha1', 'sha2'], 'build-123');
+
+      assert.deepStrictEqual(result.existing, []);
+      assert.deepStrictEqual(result.missing, ['sha1', 'sha2']);
+    });
+  });
+
+  describe('uploadScreenshot', () => {
+    it('resolves SHA before uploading screenshot bytes', async () => {
+      let client = createSequencedClient([
+        { upload_required: true },
+        { id: 'screenshot-1' },
+      ]);
+
+      let buffer = Buffer.from('fake png data');
+      let result = await uploadScreenshot(
+        client,
+        'build-123',
+        'test-screenshot',
+        buffer,
+        { viewport: '1920x1080' }
+      );
+
+      assert.ok(result);
+      let calls = client.getCalls();
+      assert.strictEqual(calls.length, 2);
+      assert.strictEqual(
+        calls[0].endpoint,
+        '/api/sdk/builds/build-123/screenshots'
+      );
+      assert.strictEqual(
+        calls[1].endpoint,
+        '/api/sdk/builds/build-123/screenshots'
+      );
+      let resolveBody = JSON.parse(calls[0].options.body);
+      let uploadBody = JSON.parse(calls[1].options.body);
+      let expectedSha = createHash('sha256').update(buffer).digest('hex');
+
+      assert.strictEqual(resolveBody.name, 'test-screenshot');
+      assert.strictEqual(resolveBody.sha256, expectedSha);
+      assert.deepStrictEqual(resolveBody.properties, { viewport: '1920x1080' });
+      assert.ok(!resolveBody.image_data);
+      assert.strictEqual(uploadBody.sha256, expectedSha);
+      assert.ok(uploadBody.image_data);
+    });
+
+    it('skips byte upload when screenshot create resolves reusable SHA', async () => {
+      let buffer = Buffer.from('fake png data');
+      let sha = createHash('sha256').update(buffer).digest('hex');
+
+      let client = createMockClient(endpoint => {
+        if (endpoint === '/api/sdk/builds/build-123/screenshots') {
+          return {
+            id: 'existing-id',
+            sha256: sha,
+            upload_required: false,
+          };
+        }
+        return { id: 'screenshot-1' };
+      });
+
+      let result = await uploadScreenshot(
+        client,
+        'build-123',
+        'test-screenshot',
+        buffer
+      );
+
+      assert.strictEqual(result.skipped, true);
+      assert.strictEqual(result.fromExisting, true);
+      let calls = client.getCalls();
+      assert.strictEqual(calls.length, 1);
+      assert.strictEqual(
+        calls[0].endpoint,
+        '/api/sdk/builds/build-123/screenshots'
+      );
+      let resolveBody = JSON.parse(calls[0].options.body);
+      assert.strictEqual(resolveBody.sha256, sha);
+      assert.ok(!resolveBody.image_data);
+    });
+
+    it('uploads bytes when SHA resolution is unavailable', async () => {
+      let client = createSequencedClient([
+        new Error('old server'),
+        { id: 'screenshot-1' },
+      ]);
+
+      let buffer = Buffer.from('fake png data');
+      let result = await uploadScreenshot(
+        client,
+        'build-123',
+        'test-screenshot',
+        buffer,
+        { viewport: '1920x1080' }
+      );
+
+      assert.deepStrictEqual(result, { id: 'screenshot-1' });
+      let calls = client.getCalls();
+      assert.strictEqual(calls.length, 2);
+      assert.ok(!JSON.parse(calls[0].options.body).image_data);
+      assert.ok(JSON.parse(calls[1].options.body).image_data);
+    });
+
+    it('falls back from a byte-only API HTTP 400 without changing names or options', async t => {
+      let requests = [];
+      let server = createServer(async (request, response) => {
+        let chunks = [];
+        for await (let chunk of request) chunks.push(chunk);
+        let body = JSON.parse(Buffer.concat(chunks).toString());
+        requests.push(body);
+        response.setHeader('Content-Type', 'application/json');
+        if (!body.image_data) {
+          response.statusCode = 400;
+          response.end(
+            JSON.stringify({ error: 'name and image_data are required' })
+          );
+          return;
+        }
+        response.statusCode = 201;
+        response.end(
+          JSON.stringify({ id: `capture-${requests.length}`, name: body.name })
+        );
+      });
+      let ready = once(server, 'listening');
+      server.listen(0, '127.0.0.1');
+      await ready;
+      t.after(async () => {
+        await new Promise(resolve => server.close(resolve));
+      });
+      let client = createApiClient({
+        baseUrl: `http://127.0.0.1:${server.address().port}`,
+        token: 'vzt_compatibility',
+        command: 'run',
+      });
+      for (let name of ['Checkout', 'Checkout.png']) {
+        let uploaded = await uploadScreenshot(
+          client,
+          'build-1',
+          name,
+          Buffer.from('same pixels'),
+          { browser: 'firefox', theme: 'dark' },
+          false,
+          { threshold: 7, minClusterSize: 3 }
+        );
+        assert.strictEqual(uploaded.name, name);
+      }
+      let captures = requests.filter(({ image_data }) => image_data);
+      assert.strictEqual(requests.length, 4);
+      assert.deepStrictEqual(
+        captures.map(({ name }) => name),
+        ['Checkout', 'Checkout.png']
+      );
+      assert.ok(
+        captures.every(
+          ({ properties }) =>
+            properties.browser === 'firefox' && properties.theme === 'dark'
+        )
+      );
+      assert.ok(
+        captures.every(
+          ({ threshold, minClusterSize }) =>
+            threshold === 7 && minClusterSize === 3
+        )
+      );
+    });
+
+    it('does not retry byte upload when SHA resolution fails with auth errors', async () => {
+      let authError = new Error('Invalid or expired API token');
+      authError.context = { status: 401 };
+      let client = createMockClient(() => {
+        throw authError;
+      });
+
+      let buffer = Buffer.from('fake png data');
+
+      await assert.rejects(
+        () => uploadScreenshot(client, 'build-123', 'test-screenshot', buffer),
+        /Invalid or expired API token/
+      );
+
+      let calls = client.getCalls();
+      assert.strictEqual(calls.length, 1);
+      assert.ok(!JSON.parse(calls[0].options.body).image_data);
+    });
+
+    it('uploads directly when skipDedup is true', async () => {
+      let client = createMockClient({ id: 'screenshot-1' });
+
+      let buffer = Buffer.from('fake png data');
+      await uploadScreenshot(
+        client,
+        'build-123',
+        'test-screenshot',
+        buffer,
+        {},
+        true // skipDedup
+      );
+
+      let calls = client.getCalls();
+      // Should only have one call (upload), not SHA resolve
+      assert.strictEqual(calls.length, 1);
+      assert.ok(calls[0].endpoint.includes('/screenshots'));
+    });
+  });
+
+  describe('getComparison', () => {
+    it('fetches comparison and returns comparison field', async () => {
+      let client = createMockClient({
+        comparison: { id: 'comp-123', status: 'different' },
+      });
+
+      let result = await getComparison(client, 'comp-123');
+
+      assert.strictEqual(result.id, 'comp-123');
+      assert.strictEqual(result.status, 'different');
+    });
+  });
+
+  describe('searchComparisons', () => {
+    it('throws VizzlyError if name is missing', async () => {
+      let client = createMockClient({});
+
+      await assert.rejects(
+        () => searchComparisons(client, null),
+        /name is required/
+      );
+    });
+
+    it('throws for empty string name', async () => {
+      let client = createMockClient({});
+
+      await assert.rejects(
+        () => searchComparisons(client, ''),
+        /name is required/
+      );
+    });
+
+    it('builds endpoint with query params', async () => {
+      let client = createMockClient({ comparisons: [] });
+
+      await searchComparisons(client, 'homepage', {
+        limit: 10,
+        branch: 'main',
+      });
+
+      let call = client.getLastCall();
+      assert.ok(call.endpoint.includes('/api/sdk/comparisons/search'));
+      assert.ok(call.endpoint.includes('name=homepage'));
+      assert.ok(call.endpoint.includes('limit=10'));
+      assert.ok(call.endpoint.includes('branch=main'));
+    });
+
+    it('uses default limit and offset', async () => {
+      let client = createMockClient({});
+
+      await searchComparisons(client, 'homepage');
+
+      let endpoint = client.getLastCall().endpoint;
+      assert.ok(endpoint.includes('limit=50'));
+      assert.ok(endpoint.includes('offset=0'));
+    });
+  });
+
+  describe('getTokenContext', () => {
+    it('fetches token context', async () => {
+      let client = createMockClient({
+        organization: 'my-org',
+        project: 'my-project',
+      });
+
+      let result = await getTokenContext(client);
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/token/context'
+      );
+      assert.strictEqual(result.organization, 'my-org');
+    });
+  });
+
+  describe('finalizeParallelBuild', () => {
+    it('finalizes parallel build', async () => {
+      let client = createMockClient({ success: true });
+
+      await finalizeParallelBuild(client, 'parallel-123');
+
+      let call = client.getLastCall();
+      assert.strictEqual(
+        call.endpoint,
+        '/api/sdk/parallel/parallel-123/finalize'
+      );
+      assert.strictEqual(call.options.method, 'POST');
+    });
+  });
+
+  describe('uploadPreviewZip', () => {
+    it('uploads ZIP to correct endpoint', async () => {
+      let client = createMockClient({
+        success: true,
+        previewUrl: 'https://preview.test',
+        uploaded: 10,
+      });
+
+      let zipBuffer = Buffer.from('fake zip data');
+      let result = await uploadPreviewZip(client, 'build-123', zipBuffer);
+
+      let call = client.getLastCall();
+      assert.strictEqual(
+        call.endpoint,
+        '/api/sdk/builds/build-123/preview/upload-zip'
+      );
+      assert.strictEqual(call.options.method, 'POST');
+      assert.strictEqual(result.previewUrl, 'https://preview.test');
+    });
+
+    it('sends ZIP as form data', async () => {
+      let client = createMockClient({ success: true });
+
+      let zipBuffer = Buffer.from('fake zip data');
+      await uploadPreviewZip(client, 'build-123', zipBuffer);
+
+      let call = client.getLastCall();
+      // Should send body as native FormData (fetch sets Content-Type automatically)
+      assert.ok(call.options.body instanceof FormData);
+    });
+  });
+
+  describe('getPreviewInfo', () => {
+    it('fetches preview info for build', async () => {
+      let client = createMockClient({
+        preview_id: 'preview-123',
+        status: 'active',
+        preview_url: 'https://preview.test',
+        file_count: 47,
+      });
+
+      let result = await getPreviewInfo(client, 'build-123');
+
+      assert.strictEqual(
+        client.getLastCall().endpoint,
+        '/api/sdk/builds/build-123/preview'
+      );
+      assert.strictEqual(result.preview_url, 'https://preview.test');
+      assert.strictEqual(result.file_count, 47);
+    });
+
+    it('returns null when preview not found (404)', async () => {
+      let error = new Error('Not found');
+      error.status = 404;
+
+      let client = createMockClient(() => {
+        throw error;
+      });
+
+      let result = await getPreviewInfo(client, 'build-123');
+
+      assert.strictEqual(result, null);
+    });
+
+    it('throws on other errors', async () => {
+      let error = new Error('Server error');
+      error.status = 500;
+
+      let client = createMockClient(() => {
+        throw error;
+      });
+
+      await assert.rejects(
+        () => getPreviewInfo(client, 'build-123'),
+        /Server error/
+      );
+    });
+  });
+});

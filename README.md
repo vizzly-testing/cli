@@ -298,6 +298,14 @@ with `pnpm exec` when Vizzly is installed locally.
 Installed plugins add commands such as `storybook`, `static-site`, and `previews`.
 See their setup guides above for details.
 
+## Contributing
+
+Start in `src/domains/<domain>/` for CLI behavior or
+`src/reporter/src/domains/<domain>/` for reporter UI. The
+[architecture guide](docs/architecture.md) explains ownership, file roles, and
+the shared runtime boundaries. Run `pnpm run check:architecture` when changing
+source organization or imports.
+
 ## More
 
 [Full docs](https://docs.vizzly.dev) ·

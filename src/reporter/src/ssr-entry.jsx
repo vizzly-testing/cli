@@ -6,7 +6,7 @@
  */
 
 import { renderToString } from 'react-dom/server';
-import StaticReportView from './components/static-report-view.jsx';
+import StaticReportView from './domains/reports/static-report-view.jsx';
 
 /**
  * Render the static report to an HTML string

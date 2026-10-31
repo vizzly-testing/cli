@@ -5,10 +5,10 @@
 Read [docs/architecture.md](docs/architecture.md) for domain ownership and file roles.
 
 - `src/domains/<domain>/` owns product commands, HTTP routes, services, and contracts.
-- `src/cli.js` wires commands; `src/server/` owns HTTP hosting and middleware.
-- `src/services/` contains narrow capabilities shared across domains; `src/plugins/` owns plugin loading and composition.
+- `src/adapters/` connects domains to the CLI, test-runner client, SDK, HTTP host, and plugins. Product commands and routes stay with their domains.
+- `src/shared/` contains narrow capabilities shared across domains, including errors, output, files, HTTP protocol, and package paths. It must not import domains or adapters.
 - `src/reporter/src/domains/` owns browser features. Its `services/`, `layout/`, and `ui/` folders contain shared browser code.
-- `src/index.js`, `src/client/`, `src/sdk/`, and `src/types/` define published package surfaces.
+- `src/index.js` defines the root package exports. Public declarations live beside their entrypoints: root, client, SDK, and domain config.
 - Focused `*.test.js` files live beside their domain, shared-service, or reporter modules. `tests/cli/`, `tests/reporter/`, and `tests/packaging/` exercise complete workflows; `test-d/` checks published types.
 - `clients/` contains framework integrations and SDK clients. Reference docs live in `docs/`, examples in `examples/`, and build output in `dist/`.
 
@@ -18,7 +18,7 @@ Read [docs/architecture.md](docs/architecture.md) for domain ownership and file 
 - Use optional role files: `*.validations.js` for input contracts, `*.normalizers.js` for incoming projections, `*.serializers.js` for outgoing projections, `*.rules.js` for preconditions, and `*.service.js` for domain operations. Add plain named helpers when needed. Don't create empty role files.
 - Keep normalizers and serializers pure. New service code should take explicit inputs and keep I/O visible. Existing service output/events remain part of their behavior until deliberately changed.
 - Import named functions directly from their owning modules. Cross-domain imports should use service or contract modules, never another domain's commands or routes. Don't add internal re-export barrels, runtime discovery, domain manifests, or old-path forwarding files.
-- Keep shared services independent of product domains. Server, CLI, SDK, and plugin composition may assemble domain capabilities.
+- Keep shared capabilities independent of product domains and application adapters. HTTP, CLI, SDK, and plugin adapters may assemble domain capabilities.
 - Keep Node runtime code out of the reporter. Share only explicit browser-safe leaf modules; `src/domains/reports/report.normalizers.js` is the current shared report projection.
 - Preserve public package specifiers, exported names, plugin interfaces, CLI behavior, and local HTTP contracts when reorganizing internals.
 - Run `pnpm run check:architecture` after changing source ownership or imports, then verify behavior at the relevant user boundary.

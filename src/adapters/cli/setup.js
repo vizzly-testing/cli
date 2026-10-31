@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { projectLinkCommand } from '../domains/projects/project.commands.js';
+import { projectLinkCommand } from '../../domains/projects/project.commands.js';
 
 function runProcess(command, args) {
   return new Promise((resolve, reject) => {
@@ -28,7 +28,7 @@ export async function connectProject(project, options) {
     });
   let result = await link();
   if (result?.reason === 'auth_required') {
-    let cli = fileURLToPath(new URL('../cli.js', import.meta.url));
+    let cli = fileURLToPath(new URL('./cli.js', import.meta.url));
     await runProcess(process.execPath, [cli, 'login']);
     result = await link();
   }

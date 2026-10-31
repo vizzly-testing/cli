@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import * as output from '../../services/output.js';
-import { safePath } from '../../services/paths.js';
+import * as output from '../../shared/output.js';
+import { safePath } from '../../shared/paths.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { generateScreenshotSignature } from '../screenshots/screenshot-identity.js';
 import { TddService as defaultTddService } from './tdd.service.js';

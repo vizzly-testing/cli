@@ -3,7 +3,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { glob } from 'glob';
 import { z } from 'zod';
-import * as output from '../services/output.js';
+import * as output from '../../shared/output.js';
 
 /**
  * Load and register plugins from node_modules and config

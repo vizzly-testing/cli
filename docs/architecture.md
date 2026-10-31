@@ -4,6 +4,21 @@ Start with the feature's domain. A change to project linking should lead you to
 `src/domains/projects/`, where its commands, requests, storage, and service live.
 The folder tells you who owns the behavior; the filename tells you its role.
 
+The source tree has four main folders:
+
+```text
+src/
+  domains/    Product behavior, commands, routes, and contracts
+  adapters/   CLI, client, SDK, HTTP hosting, and plugin wiring
+  shared/     Reusable capabilities without product policy
+  reporter/   Browser application and its separate build
+  index.js    Public package exports
+  index.d.ts  Root package declarations
+```
+
+An adapter connects callers to domain operations. Product behavior still belongs
+to its domain, even when only one adapter currently uses it.
+
 ## Find the owner
 
 | Domain under `src/domains/` | Responsibility |
@@ -67,15 +82,17 @@ output, and events; moving them doesn't change those observable contracts.
 
 ## Compose through explicit imports
 
-`src/cli.js` registers domain commands. `src/server/http-server.js` wires local
-routes. SDK and plugin entrypoints assemble domain capabilities for their callers.
+`src/adapters/cli/cli.js` registers domain commands.
+`src/adapters/http/http-server.js` wires local routes. SDK and plugin entrypoints
+assemble domain capabilities for their callers.
 There is no runtime domain discovery or automatic wiring based on filenames.
 
 Import a named function from the module that owns it. A cross-domain caller
 should use a service or a reusable contract. Cross-domain command composition,
-such as linking a project during guided setup, lives under `src/cli/` and is
-passed into the owning command explicitly. Keep dependencies one-way where possible; if two
-domains need each other's internals, reconsider which one owns the operation.
+such as linking a project during guided setup, lives under `src/adapters/cli/`
+and is passed into the owning command explicitly. Keep dependencies one-way
+where possible; if two domains need each other's internals, reconsider which
+one owns the operation.
 
 Use package entrypoints for the public exports they promise. Inside the project,
 import the implementation directly. Don't add domain barrels, forwarding modules
@@ -85,20 +102,31 @@ at old internal paths, or a second implementation to ease a file move.
 
 The folders beside `domains/` have specific jobs:
 
-- `src/services/`: shared capabilities such as HTTP protocol helpers, filesystem
+- `src/shared/`: shared capabilities such as HTTP protocol helpers, filesystem
   changes, global JSON settings, secret storage, Git/CI information, terminal
-  output, and package paths. These modules must not import product domains or
-  decide product policy.
-- `src/server/`: HTTP hosting, middleware, asset delivery, proxying, and server
-  lifecycle. Product routes remain with their domains.
-- `src/plugins/`: plugin discovery, the public plugin service interface, and
-  composition of the services plugins consume.
-- `src/errors/`: shared error types.
-- `src/index.js`, `src/client/`, `src/sdk/`, and `src/types/`: package entrypoints
-  and declarations for external callers.
+  output, errors, and package paths. These modules must not import product
+  domains, adapters, or the reporter, or decide product policy.
+- `src/adapters/cli/`: command registration and cross-domain CLI setup.
+- `src/adapters/http/`: HTTP hosting, middleware, proxy composition, and server
+  lifecycle. Product routes remain with their domains: report assets belong to
+  Reports, health belongs to Diagnostics, and cloud routes belong to Projects,
+  Builds, and Baselines.
+- `src/adapters/plugins/`: plugin discovery, the public plugin service
+  interface, and composition of the services plugins consume.
+- `src/adapters/client/`: the lightweight test-runner client. It connects to an
+  existing server and disables capture after transport failure.
+- `src/adapters/sdk/`: the programmatic SDK. It owns a server lifecycle, emits
+  events, and reports failures through typed errors. Client and SDK share the
+  screenshot request contract from Screenshots, while keeping their distinct
+  lifecycle and error behavior.
+
+`src/index.js` is the root public entrypoint. Declarations live beside the root,
+client, SDK, and config entrypoints. The root and SDK expose the same SDK class
+declaration. Package export maps preserve public specifiers while pointing at
+these implementations; no forwarding files remain at old internal paths.
 
 A helper used by two domains can still have a clear domain owner. Move it into
-shared services only when its responsibility is independent of those domains.
+shared code only when its responsibility is independent of those domains.
 Avoid recreating a generic utilities folder.
 
 Reports owns the lightweight report and heavy comparison-detail files, their
@@ -126,7 +154,7 @@ report-data projection. Keep that module browser-safe.
 
 Built reporter assets remain in `dist/reporter/`; the static renderer remains in
 `dist/reporter-ssr/`. Package-relative resources use
-`src/services/package-info.js:getPackageRoot()` so source and installed builds
+`src/shared/package-info.js:getPackageRoot()` so source and installed builds
 resolve the same packaged artifacts.
 
 ## Verify the change

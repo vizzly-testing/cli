@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import * as output from '../../services/output.js';
+import * as output from '../../shared/output.js';
 import { getAccessToken } from '../auth/token-store.js';
 import { getProjectLink } from '../projects/project-link-store.js';
 import { deepMerge } from './config.normalizers.js';

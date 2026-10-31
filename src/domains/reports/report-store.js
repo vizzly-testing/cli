@@ -5,7 +5,7 @@ import {
   writeFileSync as defaultWriteFileSync,
 } from 'node:fs';
 import { join as defaultJoin } from 'node:path';
-import * as defaultOutput from '../../services/output.js';
+import * as defaultOutput from '../../shared/output.js';
 import { createEmptyReport } from './report-state.js';
 
 /** The local report has one lightweight watched file and one heavy-details file. */

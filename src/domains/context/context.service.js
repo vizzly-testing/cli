@@ -1,4 +1,4 @@
-import { buildEndpointWithParams } from '../../services/cloud-protocol.js';
+import { buildEndpointWithParams } from '../../shared/cloud-protocol.js';
 
 /**
  * Get a build context bundle at the detail level the caller can consume.

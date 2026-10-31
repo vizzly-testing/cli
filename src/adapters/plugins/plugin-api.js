@@ -15,7 +15,7 @@ import {
   detectCommitMessage,
   detectPullRequestNumber,
   generateBuildNameWithGit,
-} from '../services/git.js';
+} from '../../shared/git.js';
 
 /**
  * Creates a stable plugin services object from the internal services

@@ -15,11 +15,11 @@ import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
 import { getDimensionsSync } from '@vizzly-testing/honeydiff';
+import { createHttpServer } from '../../../src/adapters/http/http-server.js';
 import { createApiClient } from '../../../src/domains/auth/cloud-client.js';
 import { CONFIG_DEFAULTS } from '../../../src/domains/config/config-defaults.js';
 import { createApiHandler } from '../../../src/domains/screenshots/cloud-handler.js';
 import { createTddHandler } from '../../../src/domains/tdd/screenshot-handler.js';
-import { createHttpServer } from '../../../src/server/http-server.js';
 
 let run = promisify(execFile);
 let packageDir = resolve(import.meta.dirname, '..');

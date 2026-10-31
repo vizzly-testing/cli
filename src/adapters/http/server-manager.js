@@ -1,9 +1,9 @@
 /** Screenshot server composition and lifecycle interface. */
 
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
-import { createApiClient } from '../domains/auth/cloud-client.js';
-import { createApiHandler } from '../domains/screenshots/cloud-handler.js';
-import { createTddHandler } from '../domains/tdd/screenshot-handler.js';
+import { createApiClient } from '../../domains/auth/cloud-client.js';
+import { createApiHandler } from '../../domains/screenshots/cloud-handler.js';
+import { createTddHandler } from '../../domains/tdd/screenshot-handler.js';
 import { createHttpServer } from './http-server.js';
 import { getTddResults, startServer, stopServer } from './server-lifecycle.js';
 import { buildServerInterface } from './server-options.js';

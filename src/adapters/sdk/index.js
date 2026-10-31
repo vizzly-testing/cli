@@ -12,21 +12,19 @@
 
 import { EventEmitter } from 'node:events';
 import { createServer } from 'node:http';
-import { loadConfig } from '../domains/config/config-loader.js';
-import { resolveImageBuffer } from '../domains/screenshots/image-files.js';
-import {
-  getScreenshotOptionsPayload,
-  normalizeScreenshotOptions,
-} from '../domains/screenshots/screenshot-options.js';
+import { loadConfig } from '../../domains/config/config-loader.js';
+import { resolveImageBuffer } from '../../domains/screenshots/image-files.js';
+import { serializeScreenshotRequest } from '../../domains/screenshots/screenshot.serializers.js';
+import { normalizeScreenshotOptions } from '../../domains/screenshots/screenshot-options.js';
 import {
   handleRequest as handleScreenshotRequest,
   startServer as startScreenshotServer,
   stopServer as stopScreenshotServer,
-} from '../domains/screenshots/screenshot-server.js';
-import { createTDDService } from '../domains/tdd/tdd.service.js';
-import { createUploader } from '../domains/uploads/upload.service.js';
-import { VizzlyError } from '../errors/vizzly-error.js';
-import * as output from '../services/output.js';
+} from '../../domains/screenshots/screenshot-server.js';
+import { createTDDService } from '../../domains/tdd/tdd.service.js';
+import { createUploader } from '../../domains/uploads/upload.service.js';
+import * as output from '../../shared/output.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 
 /**
  * Create a new Vizzly instance with custom configuration
@@ -334,16 +332,14 @@ export class VizzlySDK extends EventEmitter {
     // Convert Buffer to base64 for JSON transport
     let imageBase64 = buffer.toString('base64');
 
-    let screenshotData = {
-      buildId,
-      name,
-      image: imageBase64,
-      type: 'base64',
-      properties: normalizedOptions.properties,
-    };
-    Object.assign(
-      screenshotData,
-      getScreenshotOptionsPayload(normalizedOptions)
+    let screenshotData = serializeScreenshotRequest(
+      {
+        buildId,
+        name,
+        image: imageBase64,
+        type: 'base64',
+      },
+      normalizedOptions
     );
     // POST to the local screenshot server
     let serverUrl = `http://localhost:${this.config.server?.port || 3000}`;
@@ -465,8 +461,8 @@ export class VizzlySDK extends EventEmitter {
 }
 
 // Re-export key utilities and errors
-export { loadConfig } from '../domains/config/config-loader.js';
-export { createTDDService } from '../domains/tdd/tdd.service.js';
+export { loadConfig } from '../../domains/config/config-loader.js';
+export { createTDDService } from '../../domains/tdd/tdd.service.js';
 // Export service creators for advanced usage
-export { createUploader } from '../domains/uploads/upload.service.js';
-export * as output from '../services/output.js';
+export { createUploader } from '../../domains/uploads/upload.service.js';
+export * as output from '../../shared/output.js';

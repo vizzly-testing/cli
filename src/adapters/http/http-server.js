@@ -4,18 +4,18 @@
  */
 
 import { createServer } from 'node:http';
-import { createAuthRouter } from '../domains/auth/auth.routes.js';
-import { createBaselineRouter } from '../domains/baselines/baseline.routes.js';
-import { createConfigRouter } from '../domains/config/config.routes.js';
-import { createProjectsRouter } from '../domains/projects/projects.routes.js';
-import { createDashboardRouter } from '../domains/reports/dashboard.routes.js';
-import { createEventsRouter } from '../domains/reports/events.routes.js';
-import { createScreenshotRouter } from '../domains/screenshots/screenshot.routes.js';
-import * as output from '../services/output.js';
-import { createAssetsRouter } from './assets.js';
-import { createCloudProxyRouter } from './cloud-proxy.js';
+import { createAuthRouter } from '../../domains/auth/auth.routes.js';
+import { createBaselineRouter } from '../../domains/baselines/baseline.routes.js';
+import { createConfigRouter } from '../../domains/config/config.routes.js';
 // Routers
-import { createHealthRouter } from './health.js';
+import { createHealthRouter } from '../../domains/diagnostics/health.routes.js';
+import { createProjectsRouter } from '../../domains/projects/projects.routes.js';
+import { createDashboardRouter } from '../../domains/reports/dashboard.routes.js';
+import { createEventsRouter } from '../../domains/reports/events.routes.js';
+import { createAssetsRouter } from '../../domains/reports/report-assets.routes.js';
+import { createScreenshotRouter } from '../../domains/screenshots/screenshot.routes.js';
+import * as output from '../../shared/output.js';
+import { createCloudProxyRouter } from './cloud-proxy.js';
 // Middleware
 import { corsMiddleware } from './middleware/cors.js';
 import { sendError } from './middleware/response.js';

@@ -12,11 +12,9 @@ import {
   getServerUrl,
   isTddMode,
   setVizzlyEnabled,
-} from '../domains/config/environment.js';
-import {
-  getScreenshotOptionsPayload,
-  normalizeScreenshotOptions,
-} from '../domains/screenshots/screenshot-options.js';
+} from '../../domains/config/environment.js';
+import { serializeScreenshotRequest } from '../../domains/screenshots/screenshot.serializers.js';
+import { normalizeScreenshotOptions } from '../../domains/screenshots/screenshot-options.js';
 
 // Internal client state
 let currentClient = null;
@@ -226,16 +224,14 @@ function createSimpleClient(serverUrl, clientOptions = {}) {
         let image = isFilePath ? imageBuffer : imageBuffer.toString('base64');
         let type = isFilePath ? 'file-path' : 'base64';
 
-        let screenshotData = {
-          buildId: normalizedOptions.buildId ?? getBuildId(),
-          name,
-          image,
-          type,
-          properties: normalizedOptions.properties,
-        };
-        Object.assign(
-          screenshotData,
-          getScreenshotOptionsPayload(normalizedOptions)
+        let screenshotData = serializeScreenshotRequest(
+          {
+            buildId: normalizedOptions.buildId ?? getBuildId(),
+            name,
+            image,
+            type,
+          },
+          normalizedOptions
         );
         let httpStart = Date.now();
         let { status, json } = await httpPost(

@@ -10,7 +10,7 @@ import { VizzlySDK } from './index.js';
 
 let image = await readFile(
   new URL(
-    '../../tests/reporter/fixtures/images/screenshots/pricing-page.png',
+    '../../../tests/reporter/fixtures/images/screenshots/pricing-page.png',
     import.meta.url
   )
 );
@@ -73,7 +73,7 @@ test('SDK starts TDD in its requested workspace and compares real screenshots ag
   assert.equal((await sdk.compare('homepage', image)).status, 'passed');
   let changed = await readFile(
     new URL(
-      '../../tests/reporter/fixtures/images/screenshots/homepage-mobile.png',
+      '../../../tests/reporter/fixtures/images/screenshots/homepage-mobile.png',
       import.meta.url
     )
   );

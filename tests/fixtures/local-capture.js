@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { vizzlyScreenshot } from '../../src/client/index.js';
+import { vizzlyScreenshot } from '../../src/adapters/client/index.js';
 
 let mode = process.argv[2];
 let png = await readFile(

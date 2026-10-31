@@ -1,4 +1,4 @@
-import * as defaultOutput from '../../services/output.js';
+import * as defaultOutput from '../../shared/output.js';
 import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
 import { logout as defaultLogout } from './auth.service.js';
 import { createAuthClient as defaultCreateAuthClient } from './auth-client.js';

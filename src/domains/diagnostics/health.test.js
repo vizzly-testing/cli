@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   createMockRequest,
   createMockResponse,
-} from '../../tests/helpers/http-mocks.js';
-import { createHealthRouter } from './health.js';
+} from '../../../tests/helpers/http-mocks.js';
+import { createHealthRouter } from './health.routes.js';
 
 describe('server/routers/health', () => {
   let testDir = join(process.cwd(), '.test-health-router');

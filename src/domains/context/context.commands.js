@@ -1,6 +1,6 @@
 /** Context command orchestration and provider selection. */
 
-import * as defaultOutput from '../../services/output.js';
+import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { readSession as defaultReadSession } from '../runs/session-store.js';

@@ -8,13 +8,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
-import { createApiHandler } from '../domains/screenshots/cloud-handler.js';
+import { createApiHandler } from '../../domains/screenshots/cloud-handler.js';
 import { stopServer, writeServerJson } from './server-lifecycle.js';
 import { createServerManager } from './server-manager.js';
 
 let image = await readFile(
   new URL(
-    '../../tests/reporter/fixtures/images/screenshots/pricing-page.png',
+    '../../../tests/reporter/fixtures/images/screenshots/pricing-page.png',
     import.meta.url
   )
 );

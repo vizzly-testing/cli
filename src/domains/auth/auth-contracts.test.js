@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { AuthError, VizzlyError } from '../../errors/vizzly-error.js';
+import { AuthError, VizzlyError } from '../../shared/vizzly-error.js';
 import {
   buildTokenData,
   buildTokens,

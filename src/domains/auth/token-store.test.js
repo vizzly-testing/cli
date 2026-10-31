@@ -6,7 +6,7 @@ import { afterEach, beforeEach, test } from 'node:test';
 import {
   loadGlobalConfig,
   saveGlobalConfig,
-} from '../../services/global-config.js';
+} from '../../shared/global-config.js';
 import {
   clearAuthTokens,
   getAccessToken,

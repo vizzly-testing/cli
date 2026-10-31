@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { VizzlyError } from '../../errors/vizzly-error.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import {
   buildMergedConfig,
   deepMerge,

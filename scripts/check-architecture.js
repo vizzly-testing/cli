@@ -79,11 +79,19 @@ let oldFolders = [
   'test-runner',
   'uploader',
   'utils',
+  'services',
+  'errors',
+  'types',
+  'cli',
+  'client',
+  'sdk',
+  'server',
+  'plugins',
 ];
 for (let folder of oldFolders) {
   let oldPath = `src/${folder}`;
-  if (sourceFiles(oldPath).length) {
-    failures.push(`${oldPath}: put product behavior in its owning domain`);
+  if (existsSync(path.join(root, oldPath))) {
+    failures.push(`${oldPath}: use domains, adapters, or shared capabilities`);
   }
 }
 
@@ -136,8 +144,11 @@ for (let filename of files) {
     dependencies.push(target);
     if (
       !isTest &&
-      filename.startsWith('src/services/') &&
-      target.startsWith('src/domains/')
+      filename.startsWith('src/shared/') &&
+      (target.startsWith('src/domains/') ||
+        target.startsWith('src/adapters/') ||
+        target.startsWith('src/reporter/') ||
+        target === 'src/index.js')
     ) {
       failures.push(
         `${filename}: shared capabilities must not depend on ${target}`

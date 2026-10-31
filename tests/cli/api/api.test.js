@@ -93,7 +93,7 @@ after(async () => {
 async function cli(args, input = '', environment = {}) {
   let child = spawn(
     process.execPath,
-    [resolve('src/cli.js'), ...args, '--json'],
+    [resolve('src/adapters/cli/cli.js'), ...args, '--json'],
     {
       cwd: directory,
       env: {

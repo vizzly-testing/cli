@@ -47,7 +47,7 @@ test('local upgrade plans keep the owning manager, directory, and dependency gro
       command: manager,
       args: [manager === 'pnpm' ? 'add' : 'install', flag, `${name}@0.40.0`],
       cwd,
-      cliPath: path.join(packageRoot, 'dist', 'cli.js'),
+      cliPath: path.join(packageRoot, 'bin', 'vizzly.js'),
     });
   }
 });
@@ -104,7 +104,7 @@ test('global upgrades match the package manager root to the running installation
   assert.equal(plan.command, 'npm');
   assert.deepEqual(plan.args, ['install', '--global', `${name}@0.40.0`]);
   assert.equal(plan.cwd, project);
-  assert.equal(plan.cliPath, path.join(packageRoot, 'dist', 'cli.js'));
+  assert.equal(plan.cliPath, path.join(packageRoot, 'bin', 'vizzly.js'));
 });
 
 test('unsupported managers, linked packages, and mismatched installations stay manual', async t => {

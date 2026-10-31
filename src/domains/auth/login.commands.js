@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
-import { openBrowser } from '../../services/browser.js';
-import * as output from '../../services/output.js';
+import { openBrowser } from '../../shared/browser.js';
+import * as output from '../../shared/output.js';
 import { getApiUrl } from '../config/environment.js';
 import {
   buildTokens,

@@ -22,7 +22,7 @@ import {
   shouldLogClient,
   vizzlyFlush,
   vizzlyScreenshot,
-} from '../client/index.js';
+} from './index.js';
 
 // Store original env vars
 let originalEnv;

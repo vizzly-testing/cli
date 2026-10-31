@@ -2,57 +2,56 @@
 import 'dotenv/config';
 import { existsSync, statSync } from 'node:fs';
 import { Option, program } from 'commander';
-import { connectProject } from './cli/setup.js';
 import {
   apiCommand,
   apiSchemaCommand,
   validateApiOptions,
-} from './domains/api/api.commands.js';
-import { loginCommand } from './domains/auth/login.commands.js';
-import { logoutCommand } from './domains/auth/logout.commands.js';
-import { whoamiCommand } from './domains/auth/whoami.commands.js';
-import { baselinesCommand } from './domains/baselines/baselines.commands.js';
+} from '../../domains/api/api.commands.js';
+import { loginCommand } from '../../domains/auth/login.commands.js';
+import { logoutCommand } from '../../domains/auth/logout.commands.js';
+import { whoamiCommand } from '../../domains/auth/whoami.commands.js';
+import { baselinesCommand } from '../../domains/baselines/baselines.commands.js';
 import {
   validateBuildsOptions,
   validateFinalizeOptions,
   validateStatusOptions,
-} from './domains/builds/build.validations.js';
-import { buildsCommand } from './domains/builds/builds.commands.js';
-import { finalizeCommand } from './domains/builds/finalize.commands.js';
-import { statusCommand } from './domains/builds/status.commands.js';
+} from '../../domains/builds/build.validations.js';
+import { buildsCommand } from '../../domains/builds/builds.commands.js';
+import { finalizeCommand } from '../../domains/builds/finalize.commands.js';
+import { statusCommand } from '../../domains/builds/status.commands.js';
 import {
   comparisonsCommand,
   validateComparisonsOptions,
-} from './domains/comparisons/comparisons.commands.js';
-import { configCommand } from './domains/config/config.commands.js';
-import { loadConfig } from './domains/config/config-loader.js';
+} from '../../domains/comparisons/comparisons.commands.js';
+import { configCommand } from '../../domains/config/config.commands.js';
+import { loadConfig } from '../../domains/config/config-loader.js';
 import {
   contextBuildCommand,
   contextComparisonCommand,
   contextReviewQueueCommand,
   contextScreenshotCommand,
   contextSimilarCommand,
-} from './domains/context/context.commands.js';
+} from '../../domains/context/context.commands.js';
 import {
   validateContextBuildOptions,
   validateContextComparisonOptions,
   validateContextReviewQueueOptions,
   validateContextScreenshotOptions,
   validateContextSimilarOptions,
-} from './domains/context/context.validations.js';
-import { doctorCommand } from './domains/diagnostics/doctor.commands.js';
-import { getContext } from './domains/diagnostics/environment-context.js';
+} from '../../domains/context/context.validations.js';
+import { doctorCommand } from '../../domains/diagnostics/doctor.commands.js';
+import { getContext } from '../../domains/diagnostics/environment-context.js';
 import {
   previewCommand,
   validatePreviewOptions,
-} from './domains/previews/preview.commands.js';
-import { orgsCommand } from './domains/projects/orgs.commands.js';
-import { projectLinkCommand } from './domains/projects/project.commands.js';
-import { validateProjectLinkOptions } from './domains/projects/project.validations.js';
+} from '../../domains/previews/preview.commands.js';
+import { orgsCommand } from '../../domains/projects/orgs.commands.js';
+import { projectLinkCommand } from '../../domains/projects/project.commands.js';
+import { validateProjectLinkOptions } from '../../domains/projects/project.validations.js';
 import {
   projectsCommand,
   validateProjectsOptions,
-} from './domains/projects/projects.commands.js';
+} from '../../domains/projects/projects.commands.js';
 import {
   approveCommand,
   commentCommand,
@@ -60,10 +59,16 @@ import {
   validateApproveOptions,
   validateCommentOptions,
   validateRejectOptions,
-} from './domains/review/review.commands.js';
-import { runCommand, validateRunOptions } from './domains/runs/run.commands.js';
-import { init } from './domains/setup/init.commands.js';
-import { tddCommand, validateTddOptions } from './domains/tdd/tdd.commands.js';
+} from '../../domains/review/review.commands.js';
+import {
+  runCommand,
+  validateRunOptions,
+} from '../../domains/runs/run.commands.js';
+import { init } from '../../domains/setup/init.commands.js';
+import {
+  tddCommand,
+  validateTddOptions,
+} from '../../domains/tdd/tdd.commands.js';
 import {
   runDaemonChild,
   tddListCommand,
@@ -71,27 +76,28 @@ import {
   tddStatusCommand,
   tddStopCommand,
   validateTddStartOptions,
-} from './domains/tdd/tdd-daemon.commands.js';
+} from '../../domains/tdd/tdd-daemon.commands.js';
 import {
   acceptTddScreenshot,
   latestTddScreenshot,
   listTddScreenshots,
   showTddScreenshot,
-} from './domains/tdd/tdd-screenshots.commands.js';
-import { runUpdatedCli } from './domains/updates/cli-update.js';
-import { notifyUpdates } from './domains/updates/update-notifications.js';
+} from '../../domains/tdd/tdd-screenshots.commands.js';
+import { runUpdatedCli } from '../../domains/updates/cli-update.js';
+import { notifyUpdates } from '../../domains/updates/update-notifications.js';
 import {
   uploadCommand,
   validateUploadOptions,
-} from './domains/uploads/upload.commands.js';
-import { createPluginServices } from './plugins/plugin-api.js';
-import { loadPlugins } from './plugins/plugin-loader.js';
-import { createServices } from './plugins/services.js';
-import { withTimeout } from './services/async-utils.js';
-import { colors } from './services/colors.js';
-import { saveUserPath } from './services/global-config.js';
-import * as output from './services/output.js';
-import { getPackageVersion } from './services/package-info.js';
+} from '../../domains/uploads/upload.commands.js';
+import { withTimeout } from '../../shared/async-utils.js';
+import { colors } from '../../shared/colors.js';
+import { saveUserPath } from '../../shared/global-config.js';
+import * as output from '../../shared/output.js';
+import { getPackageVersion } from '../../shared/package-info.js';
+import { createPluginServices } from '../plugins/plugin-api.js';
+import { loadPlugins } from '../plugins/plugin-loader.js';
+import { createServices } from '../plugins/services.js';
+import { connectProject } from './setup.js';
 
 // Custom help formatting with BearDen design system
 const formatHelp = (cmd, helper) => {

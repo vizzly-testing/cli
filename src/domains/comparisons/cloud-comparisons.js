@@ -1,5 +1,5 @@
-import { VizzlyError } from '../../errors/vizzly-error.js';
-import { buildEndpointWithParams } from '../../services/cloud-protocol.js';
+import { buildEndpointWithParams } from '../../shared/cloud-protocol.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 
 /**
  * Get comparison information

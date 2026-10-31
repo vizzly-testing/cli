@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { loadGlobalConfig } from '../../services/global-config.js';
+import { loadGlobalConfig } from '../../shared/global-config.js';
 import {
   buildProjectLinkAccount,
   clearActiveProjectLink,

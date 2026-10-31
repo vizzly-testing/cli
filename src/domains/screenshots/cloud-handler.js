@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import * as output from '../../services/output.js';
+import * as output from '../../shared/output.js';
 import { uploadScreenshot as defaultUploadScreenshot } from './cloud-screenshots.js';
 import { detectImageInputType } from './image-input.js';
 import { normalizeScreenshotOptions } from './screenshot-options.js';

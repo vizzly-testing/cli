@@ -15,15 +15,15 @@ import {
   writeFileSync as defaultWriteFileSync,
 } from 'node:fs';
 import { compareSync } from '@vizzly-testing/honeydiff';
-import { VizzlyError } from '../../errors/vizzly-error.js';
-import { colors as defaultColors } from '../../services/colors.js';
-import { fetchWithTimeout as defaultFetchWithTimeout } from '../../services/fetch-utils.js';
-import { getDefaultBranch as defaultGetDefaultBranch } from '../../services/git.js';
-import * as defaultOutput from '../../services/output.js';
+import { colors as defaultColors } from '../../shared/colors.js';
+import { fetchWithTimeout as defaultFetchWithTimeout } from '../../shared/fetch-utils.js';
+import { getDefaultBranch as defaultGetDefaultBranch } from '../../shared/git.js';
+import * as defaultOutput from '../../shared/output.js';
 import {
   safePath as defaultSafePath,
   validatePathSecurity as defaultValidatePathSecurity,
-} from '../../services/paths.js';
+} from '../../shared/paths.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import {
   baselineExists as defaultBaselineExists,

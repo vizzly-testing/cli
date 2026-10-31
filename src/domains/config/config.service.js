@@ -2,12 +2,12 @@ import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { cosmiconfigSync } from 'cosmiconfig';
-import { VizzlyError } from '../../errors/vizzly-error.js';
 import {
   loadGlobalConfig,
   saveGlobalConfig,
-} from '../../services/global-config.js';
-import * as output from '../../services/output.js';
+} from '../../shared/global-config.js';
+import * as output from '../../shared/output.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import {
   deepMerge,
   extractCosmiconfigResult,

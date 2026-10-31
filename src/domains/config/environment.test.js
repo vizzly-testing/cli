@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { getLogLevel } from '../../services/log-level.js';
+import { getLogLevel } from '../../shared/log-level.js';
 import {
   getAllEnvironmentConfig,
   getApiToken,

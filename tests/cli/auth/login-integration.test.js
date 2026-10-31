@@ -85,7 +85,7 @@ process.stdin.resume();
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   let apiUrl = `http://127.0.0.1:${server.address().port}`;
-  let entrypoint = resolve('src/cli.js');
+  let entrypoint = resolve('src/adapters/cli/cli.js');
   let args = [entrypoint, 'login', '--api-url', apiUrl, '--no-color'];
   if (fakeTime) {
     // Exercise the real command, HTTP client and token store, replacing only

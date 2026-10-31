@@ -23,7 +23,7 @@ import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 let repository = fileURLToPath(new URL('../../..', import.meta.url));
-let cli = path.join(repository, 'src', 'cli.js');
+let cli = path.join(repository, 'src', 'adapters', 'cli', 'cli.js');
 // Use tui-driver's optional PTY backend directly so tests wait on output events
 // instead of the visual driver's screen-stability polling.
 let pty;
@@ -148,6 +148,9 @@ ptyTest(
     await cp(path.join(repository, 'src'), path.join(packageRoot, 'dist'), {
       recursive: true,
     });
+    await cp(path.join(repository, 'bin'), path.join(packageRoot, 'bin'), {
+      recursive: true,
+    });
     await cp(
       path.join(repository, 'skills'),
       path.join(packageRoot, 'skills'),
@@ -170,7 +173,7 @@ ptyTest(
         devDependencies: { '@vizzly-testing/cli': '0.39.0' },
       })
     );
-    let entry = path.join(packageRoot, 'dist', 'cli.js');
+    let entry = path.join(packageRoot, 'dist', 'adapters', 'cli', 'cli.js');
     let initial = await wizard(
       t,
       cwd,
@@ -199,7 +202,7 @@ let pkg = JSON.parse(await readFile(manifest, 'utf8'));
 pkg.version = '999.0.0';
 await writeFile(manifest, JSON.stringify(pkg));
 await appendFile(path.join(root, 'skills', 'vizzly', 'SKILL.md'), '\\nNew bundled guidance.\\n');
-let entry = path.join(root, 'dist', 'cli.js');
+let entry = path.join(root, 'dist', 'adapters', 'cli', 'cli.js');
 await writeFile(entry, (await readFile(entry, 'utf8')).replace('\\n', '\\n' + ${JSON.stringify(recordRun)}));
 `
     );

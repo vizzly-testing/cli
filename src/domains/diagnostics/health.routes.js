@@ -3,8 +3,8 @@
  * Health check endpoint with diagnostics
  */
 
-import { createReportStore } from '../domains/reports/report-store.js';
-import { sendSuccess } from './middleware/response.js';
+import { sendSuccess } from '../../adapters/http/middleware/response.js';
+import { createReportStore } from '../reports/report-store.js';
 
 /**
  * Create health router

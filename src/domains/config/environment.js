@@ -1,4 +1,4 @@
-import { getLogLevel } from '../../services/log-level.js';
+import { getLogLevel } from '../../shared/log-level.js';
 /**
  * Environment Configuration Utility
  * Centralized access to environment variables with proper defaults

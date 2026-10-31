@@ -1,7 +1,6 @@
 import { spawn as defaultSpawn } from 'node:child_process';
-import { VizzlyError } from '../../errors/vizzly-error.js';
-import { createServerManager as defaultCreateServerManager } from '../../server/server-manager.js';
-import { getAppBaseUrl } from '../../services/api-url.js';
+import { createServerManager as defaultCreateServerManager } from '../../adapters/http/server-manager.js';
+import { getAppBaseUrl } from '../../shared/api-url.js';
 import {
   detectBranch as defaultDetectBranch,
   detectCommit as defaultDetectCommit,
@@ -9,8 +8,9 @@ import {
   detectCommitMessage as defaultDetectCommitMessage,
   detectPullRequestNumber as defaultDetectPullRequestNumber,
   generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
-} from '../../services/git.js';
-import * as defaultOutput from '../../services/output.js';
+} from '../../shared/git.js';
+import * as defaultOutput from '../../shared/output.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import {
   createBuild as defaultCreateApiBuild,

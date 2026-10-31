@@ -1,7 +1,7 @@
 import {
   loadGlobalConfig,
   saveGlobalConfig,
-} from '../../services/global-config.js';
+} from '../../shared/global-config.js';
 
 /**
  * Get authentication tokens from global config

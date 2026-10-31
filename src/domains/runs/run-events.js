@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { VizzlyError } from '../../errors/vizzly-error.js';
-import * as output from '../../services/output.js';
+import * as output from '../../shared/output.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient } from '../auth/cloud-client.js';
 import {
   createBuild as createApiBuild,

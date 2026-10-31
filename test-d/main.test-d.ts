@@ -46,7 +46,7 @@ import {
   Uploader,
   TddService,
   BuildOptions,
-} from '../src/types/index';
+} from '../src/index';
 
 // ============================================================================
 // Main exports should all be available

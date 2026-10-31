@@ -1,6 +1,6 @@
 import path from 'node:path';
-import { applyChanges } from '../../services/file-changes.js';
-import * as output from '../../services/output.js';
+import { applyChanges } from '../../shared/file-changes.js';
+import * as output from '../../shared/output.js';
 import { discoverConfig } from '../config/config-discovery.js';
 import { planConfig } from '../config/config-plan.js';
 import { validateProjectLinkOptions } from '../projects/project.validations.js';

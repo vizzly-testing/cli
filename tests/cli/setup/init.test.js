@@ -19,7 +19,9 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 let exec = promisify(execFile);
-let cli = fileURLToPath(new URL('../../../src/cli.js', import.meta.url));
+let cli = fileURLToPath(
+  new URL('../../../src/adapters/cli/cli.js', import.meta.url)
+);
 
 async function project(t) {
   let cwd = await realpath(await mkdtemp(path.join(tmpdir(), 'vizzly-init-')));

@@ -1,4 +1,4 @@
-import { AuthError } from '../../errors/vizzly-error.js';
+import { AuthError } from '../../shared/vizzly-error.js';
 
 /**
  * Validate that tokens exist and have required fields

@@ -8,7 +8,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { saveGlobalConfig } from '../../services/global-config.js';
+import { saveGlobalConfig } from '../../shared/global-config.js';
 import { getScreenshotPaths, loadConfig } from './config-loader.js';
 
 describe('utils/config-loader', () => {

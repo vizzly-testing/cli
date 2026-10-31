@@ -1,11 +1,11 @@
-import { parseJsonBody } from '../../server/middleware/json-parser.js';
+import { parseJsonBody } from '../../adapters/http/middleware/json-parser.js';
 import {
   sendError,
   sendJson,
   sendServiceUnavailable,
   sendSuccess,
-} from '../../server/middleware/response.js';
-import * as output from '../../services/output.js';
+} from '../../adapters/http/middleware/response.js';
+import * as output from '../../shared/output.js';
 import {
   buildTokens,
   normalizeDeviceFlowResponse,

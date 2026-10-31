@@ -26,28 +26,28 @@
   "packageManager": "pnpm@11.3.0",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
     "./client": {
-      "types": "./dist/types/client.d.ts",
-      "import": "./dist/client/index.js",
-      "require": "./dist/client/index.js"
+      "types": "./dist/adapters/client/index.d.ts",
+      "import": "./dist/adapters/client/index.js",
+      "require": "./dist/adapters/client/index.js"
     },
     "./sdk": {
-      "types": "./dist/types/sdk.d.ts",
-      "import": "./dist/sdk/index.js",
-      "require": "./dist/sdk/index.js"
+      "types": "./dist/adapters/sdk/index.d.ts",
+      "import": "./dist/adapters/sdk/index.js",
+      "require": "./dist/adapters/sdk/index.js"
     },
     "./config": {
-      "types": "./dist/types/config.d.ts",
+      "types": "./dist/domains/config/config.d.ts",
       "import": "./dist/domains/config/config.js",
       "require": "./dist/domains/config/config.js"
     }
   },
   "main": "./dist/index.js",
-  "types": "./dist/types/index.d.ts",
+  "types": "./dist/index.d.ts",
   "bin": {
     "vizzly": "bin/vizzly.js"
   },
@@ -66,7 +66,7 @@
     "build": "pnpm run clean && pnpm run compile && pnpm run build:reporter && pnpm run build:reporter-ssr && pnpm run copy-types",
     "clean": "rimraf dist",
     "compile": "babel src --out-dir dist --ignore '**/*.test.js'",
-    "copy-types": "mkdir -p dist/types && cp src/types/*.d.ts dist/types/",
+    "copy-types": "cp src/index.d.ts dist/index.d.ts && cp src/adapters/client/index.d.ts dist/adapters/client/index.d.ts && cp src/adapters/sdk/index.d.ts dist/adapters/sdk/index.d.ts && cp src/domains/config/config.d.ts dist/domains/config/config.d.ts",
     "build:reporter": "cd src/reporter && vite build",
     "build:reporter-ssr": "cd src/reporter && vite build --config vite.ssr.config.js",
     "dev:reporter": "cd src/reporter && vite --config vite.dev.config.js",
@@ -109,7 +109,7 @@
   },
   "tsd": {
     "directory": "test-d",
-    "typingsFile": "src/types/index.d.ts",
+    "typingsFile": "src/index.d.ts",
     "compilerOptions": {
       "esModuleInterop": true,
       "module": "ESNext",

@@ -4,8 +4,8 @@
  * Commands import their domain operations directly.
  */
 
-import { TestRunner } from '../domains/runs/run-events.js';
-import { createServerManager } from '../server/server-manager.js';
+import { TestRunner } from '../../domains/runs/run-events.js';
+import { createServerManager } from '../http/server-manager.js';
 
 /**
  * Create services for plugin API compatibility.

@@ -5,7 +5,6 @@
  * The client handles authentication, token refresh, and error handling.
  */
 
-import { AuthError, VizzlyError } from '../../errors/vizzly-error.js';
 import {
   buildApiUrl,
   buildRequestHeaders,
@@ -13,8 +12,9 @@ import {
   extractErrorBody,
   isAuthError,
   parseApiError,
-} from '../../services/cloud-protocol.js';
-import { getPackageVersion } from '../../services/package-info.js';
+} from '../../shared/cloud-protocol.js';
+import { getPackageVersion } from '../../shared/package-info.js';
+import { AuthError, VizzlyError } from '../../shared/vizzly-error.js';
 import { getAuthTokens, saveAuthTokens } from './token-store.js';
 
 /**

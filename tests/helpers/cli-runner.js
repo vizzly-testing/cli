@@ -10,7 +10,7 @@ let __filename = fileURLToPath(import.meta.url);
 let __dirname = dirname(__filename);
 
 // Path to CLI entry point
-let CLI_PATH = join(__dirname, '../../src/cli.js');
+let CLI_PATH = join(__dirname, '../../src/adapters/cli/cli.js');
 
 /**
  * Default environment for CLI tests

@@ -2,8 +2,8 @@
  * Comparisons command - query and search comparisons
  */
 
-import * as defaultOutput from '../../services/output.js';
-import { createWildcardMatcher } from '../../services/patterns.js';
+import * as defaultOutput from '../../shared/output.js';
+import { createWildcardMatcher } from '../../shared/patterns.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import { getBuild as defaultGetBuild } from '../builds/build.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';

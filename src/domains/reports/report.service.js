@@ -16,7 +16,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { getPackageRoot } from '../../services/package-info.js';
+import { getPackageRoot } from '../../shared/package-info.js';
 import { createReportStore } from './report-store.js';
 
 /**

@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { resetGitHubEventCache } from '../services/ci-env.js';
+import { resetGitHubEventCache } from '../../shared/ci-env.js';
 import { createPluginServices } from './plugin-api.js';
 
 describe('Plugin API', () => {

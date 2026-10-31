@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-let cliPath = path.resolve('src/cli.js');
+let cliPath = path.resolve('src/adapters/cli/cli.js');
 let directory;
 let server;
 let apiUrl;

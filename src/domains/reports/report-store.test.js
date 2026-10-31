@@ -12,7 +12,7 @@ import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { createHttpServer } from '../../server/http-server.js';
+import { createHttpServer } from '../../adapters/http/http-server.js';
 import { createTddHandler } from '../tdd/screenshot-handler.js';
 
 let baseline = readFileSync(

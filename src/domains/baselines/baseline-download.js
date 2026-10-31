@@ -2,9 +2,9 @@ import {
   existsSync as defaultExistsSync,
   writeFileSync as defaultWriteFileSync,
 } from 'node:fs';
-import { NetworkError } from '../../errors/vizzly-error.js';
-import { fetchWithTimeout as defaultFetchWithTimeout } from '../../services/fetch-utils.js';
-import { safePath as defaultSafePath } from '../../services/paths.js';
+import { fetchWithTimeout as defaultFetchWithTimeout } from '../../shared/fetch-utils.js';
+import { safePath as defaultSafePath } from '../../shared/paths.js';
+import { NetworkError } from '../../shared/vizzly-error.js';
 import { sanitizeScreenshotName as defaultSanitizeScreenshotName } from '../screenshots/screenshot.validations.js';
 import { saveBaselineMetadata as defaultSaveBaselineMetadata } from './baseline-metadata.js';
 

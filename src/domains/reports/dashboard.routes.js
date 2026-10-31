@@ -3,8 +3,8 @@ import {
   sendError,
   sendHtml,
   sendSuccess,
-} from '../../server/middleware/response.js';
-import * as output from '../../services/output.js';
+} from '../../adapters/http/middleware/response.js';
+import * as output from '../../shared/output.js';
 import { presentComparisonDetails } from './report.serializers.js';
 import { createReportStore } from './report-store.js';
 

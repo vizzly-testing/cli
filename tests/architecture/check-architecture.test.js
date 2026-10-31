@@ -45,9 +45,9 @@ async function checkFixture(t, files) {
 
 test('domain contracts can compose pure helpers and the reporter can consume its explicit shared contract', async t => {
   let result = await checkFixture(t, {
-    'src/services/math.js': 'export let add = (a, b) => a + b;',
+    'src/shared/math.js': 'export let add = (a, b) => a + b;',
     'src/domains/example/example.normalizers.js':
-      "import { add } from '../../services/math.js'; export let normalize = value => add(value, 1);",
+      "import { add } from '../../shared/math.js'; export let normalize = value => add(value, 1);",
     'src/domains/reports/report.normalizers.js':
       'export let normalize = value => value;',
     'src/reporter/src/view.js':
@@ -63,18 +63,39 @@ test('the architecture command rejects hidden I/O, operation imports and browser
   for (let [files, diagnostic] of [
     [
       {
+        'src/shared/host.js': "import '../adapters/http/host.js';",
+        'src/adapters/http/host.js': 'export let start = () => {};',
+      },
+      /shared capabilities must not depend on src\/adapters/,
+    ],
+    [
+      { 'src/services/example.js': 'export let example = true;' },
+      /use domains, adapters, or shared capabilities/,
+    ],
+    [
+      { 'src/types/example.d.ts': 'export declare let example: boolean;' },
+      /use domains, adapters, or shared capabilities/,
+    ],
+    [
+      {
+        'src/shared/build.js': "import '../reporter/vite.config.js';",
+        'src/reporter/vite.config.js': 'export default {};',
+      },
+      /shared capabilities must not depend on src\/reporter/,
+    ],
+    [
+      {
         'src/domains/example/example.normalizers.js':
-          "import { request } from '../../services/fetch-utils.js'; export let normalize = request;",
-        'src/services/fetch-utils.js':
-          'export let request = url => fetch(url);',
+          "import { request } from '../../shared/fetch-utils.js'; export let normalize = request;",
+        'src/shared/fetch-utils.js': 'export let request = url => fetch(url);',
       },
       /pure contract depends on I\/O or operations:.*fetch-utils.js -> fetch/,
     ],
     [
       {
         'src/domains/example/example.normalizers.js':
-          "import { read } from '../../services/files.js'; export let normalize = read;",
-        'src/services/files.js':
+          "import { read } from '../../shared/files.js'; export let normalize = read;",
+        'src/shared/files.js':
           "import { readFile } from 'fs/promises'; export let read = readFile;",
       },
       /pure contract depends on I\/O or operations:.*files.js -> fs\/promises/,
@@ -94,8 +115,8 @@ test('the architecture command rejects hidden I/O, operation imports and browser
     ],
     [
       {
-        'src/services/example.js': "import './example.test.js';",
-        'src/services/example.test.js': 'export let fixture = true;',
+        'src/shared/example.js': "import './example.test.js';",
+        'src/shared/example.test.js': 'export let fixture = true;',
       },
       /production code must not import/,
     ],

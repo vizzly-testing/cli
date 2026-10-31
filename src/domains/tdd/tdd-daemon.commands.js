@@ -7,8 +7,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { basename, join } from 'node:path';
-import { withTimeout } from '../../services/async-utils.js';
-import * as output from '../../services/output.js';
+import { withTimeout } from '../../shared/async-utils.js';
+import * as output from '../../shared/output.js';
 import { getServerRegistry } from './server-registry.js';
 import { tddCommand } from './tdd.commands.js';
 import {

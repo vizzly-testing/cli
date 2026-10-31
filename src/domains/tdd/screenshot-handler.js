@@ -7,8 +7,8 @@ import {
 } from 'node:fs';
 import { join as defaultJoin, resolve as defaultResolve } from 'node:path';
 import { getDimensionsSync as defaultGetDimensionsSync } from '@vizzly-testing/honeydiff';
-import * as defaultOutput from '../../services/output.js';
-import { safePath as defaultSafePath } from '../../services/paths.js';
+import * as defaultOutput from '../../shared/output.js';
+import { safePath as defaultSafePath } from '../../shared/paths.js';
 import { convertPathToUrl } from '../reports/report.serializers.js';
 import {
   createEmptyReport,

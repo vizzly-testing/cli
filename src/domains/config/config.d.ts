@@ -4,7 +4,7 @@
  * @module @vizzly-testing/cli/config
  */
 
-export { VizzlyConfig } from './index';
+export { VizzlyConfig } from '../../index';
 
 /**
  * Define Vizzly configuration with type hints
@@ -26,5 +26,5 @@ export { VizzlyConfig } from './index';
  * });
  */
 export function defineConfig(
-  config: import('./index').VizzlyConfig
-): import('./index').VizzlyConfig;
+  config: import('../../index').VizzlyConfig
+): import('../../index').VizzlyConfig;

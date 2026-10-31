@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { createServices, loadConfig } from '../index.js';
+import { createServices, loadConfig } from '../../index.js';
 
 test('programmatic services preserve explicit comparison while loaded defaults inherit project settings', async t => {
   let cwd = await mkdtemp(path.join(tmpdir(), 'vizzly-public-services-'));

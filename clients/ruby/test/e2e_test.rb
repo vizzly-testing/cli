@@ -12,7 +12,7 @@ require_relative '../lib/vizzly'
 # Helper methods for E2E test setup and teardown
 module E2ETestHelpers
   def find_vizzly_cli
-    path = File.expand_path('../../../dist/cli.js', __dir__)
+    path = File.expand_path('../../../dist/adapters/cli/cli.js', __dir__)
     return nil unless File.exist?(path)
 
     path

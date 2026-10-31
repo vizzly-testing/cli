@@ -18,7 +18,9 @@ import { promisify } from 'node:util';
 import { compareSync } from '@vizzly-testing/honeydiff';
 
 let runFile = promisify(execFile);
-let cli = fileURLToPath(new URL('../../../src/cli.js', import.meta.url));
+let cli = fileURLToPath(
+  new URL('../../../src/adapters/cli/cli.js', import.meta.url)
+);
 let capture = fileURLToPath(
   new URL('../../fixtures/local-capture.js', import.meta.url)
 );

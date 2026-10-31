@@ -5,7 +5,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { VizzlyError } from '../../errors/vizzly-error.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 
 /**
  * Resolve image buffer from file path or return buffer as-is

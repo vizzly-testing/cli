@@ -1,4 +1,4 @@
-import { VizzlyError } from '../../errors/vizzly-error.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 
 export let COMPACT_CONTEXT_LIMIT = 10;
 

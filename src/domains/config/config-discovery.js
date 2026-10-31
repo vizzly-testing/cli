@@ -4,7 +4,7 @@ import {
   defaultLoadersSync,
   getDefaultSearchPlacesSync,
 } from 'cosmiconfig';
-import { readOptionalFile } from '../../services/files.js';
+import { readOptionalFile } from '../../shared/files.js';
 
 let searchPlaces = getDefaultSearchPlacesSync('vizzly');
 

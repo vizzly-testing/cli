@@ -77,7 +77,8 @@ for (let folder of oldFolders) {
 for (let filename of files) {
   let imports = moduleImports(filename);
   let dependencies = [];
-  let isDomain = filename.startsWith('src/domains/');
+  let isTest = filename.endsWith('.test.js');
+  let isDomain = !isTest && filename.startsWith('src/domains/');
   let isAdapter = /\.(commands|routes)\.js$/.test(filename);
   let isPureRole = /\.(normalizers|serializers|validations|rules)\.js$/.test(
     filename
@@ -98,6 +99,7 @@ for (let filename of files) {
     }
     if (!specifier.startsWith('.')) {
       if (
+        !isTest &&
         filename.startsWith(reporterRoot) &&
         (isBuiltin(specifier) || specifier.startsWith('@vizzly-testing/cli'))
       ) {
@@ -114,6 +116,7 @@ for (let filename of files) {
     }
     dependencies.push(target);
     if (
+      !isTest &&
       filename.startsWith('src/services/') &&
       target.startsWith('src/domains/')
     ) {
@@ -121,10 +124,16 @@ for (let filename of files) {
         `${filename}: shared capabilities must not depend on ${target}`
       );
     }
-    if (isDomain && !isAdapter && /\.(commands|routes)\.js$/.test(target)) {
+    if (!isTest && target.endsWith('.test.js')) {
+      failures.push(`${filename}: production code must not import ${target}`);
+    }
+    let targetIsAdapter = /\.(commands|routes)\.js$/.test(target);
+    let sameDomain = filename.split('/')[2] === target.split('/')[2];
+    if (isDomain && targetIsAdapter && (!isAdapter || !sameDomain)) {
       failures.push(`${filename}: import data operations instead of ${target}`);
     }
     if (
+      !isTest &&
       filename.startsWith(reporterRoot) &&
       target.startsWith('src/') &&
       !target.startsWith(reporterRoot) &&
@@ -135,7 +144,7 @@ for (let filename of files) {
       );
     }
   }
-  if (filename.startsWith('src/')) graph.set(filename, dependencies);
+  if (!isTest && filename.startsWith('src/')) graph.set(filename, dependencies);
 }
 
 // Detect real module cycles rather than banning useful cross-domain operations.

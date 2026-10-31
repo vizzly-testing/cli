@@ -128,7 +128,8 @@ export function createApiClient(options = {}) {
       // Auth error
       if (isAuthError(response.status)) {
         throw new AuthError(
-          'Invalid or expired API token. Run "vizzly project link <org>/<project>" or set VIZZLY_TOKEN.'
+          'Invalid or expired API token. Run "vizzly project link <org>/<project>" or set VIZZLY_TOKEN.',
+          { status: response.status }
         );
       }
 

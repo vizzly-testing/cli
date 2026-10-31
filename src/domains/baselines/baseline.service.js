@@ -5,14 +5,7 @@
  * of baseline storage without any network operations.
  */
 
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -136,44 +129,4 @@ export function getCurrentPath(currentPath, filename) {
  */
 export function getDiffPath(diffPath, filename) {
   return join(diffPath, filename);
-}
-
-/**
- * Promote current screenshot to baseline (accept as new baseline)
- *
- * @param {string} currentPath - Path to current screenshots directory
- * @param {string} baselinePath - Path to baselines directory
- * @param {string} filename - Filename
- */
-export function promoteCurrentToBaseline(currentPath, baselinePath, filename) {
-  let currentFile = join(currentPath, filename);
-  let baselineFile = join(baselinePath, filename);
-
-  if (!existsSync(currentFile)) {
-    throw new Error(`Current screenshot not found: ${currentFile}`);
-  }
-
-  copyFileSync(currentFile, baselineFile);
-}
-
-/**
- * Read baseline image
- *
- * @param {string} baselinePath - Path to baselines directory
- * @param {string} filename - Filename
- * @returns {Buffer}
- */
-export function readBaseline(baselinePath, filename) {
-  return readFileSync(join(baselinePath, filename));
-}
-
-/**
- * Read current screenshot
- *
- * @param {string} currentPath - Path to current screenshots directory
- * @param {string} filename - Filename
- * @returns {Buffer}
- */
-export function readCurrent(currentPath, filename) {
-  return readFileSync(join(currentPath, filename));
 }

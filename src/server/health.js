@@ -12,17 +12,22 @@ import { sendSuccess } from './middleware/response.js';
  * @param {Object} context - Router context
  * @param {number} context.port - Server port
  * @param {Object} context.screenshotHandler - Screenshot handler
+ * @param {string} [context.workingDir] - Workspace containing report artifacts
  * @returns {Function} Route handler
  */
-export function createHealthRouter({ port, screenshotHandler }) {
+export function createHealthRouter({
+  port,
+  screenshotHandler,
+  workingDir = process.cwd(),
+}) {
   return async function handleHealthRoute(req, res, pathname) {
     if (req.method !== 'GET' || pathname !== '/health') {
       return false;
     }
 
-    const reportDataPath = join(process.cwd(), '.vizzly', 'report-data.json');
-    const baselineMetadataPath = join(
-      process.cwd(),
+    let reportDataPath = join(workingDir, '.vizzly', 'report-data.json');
+    let baselineMetadataPath = join(
+      workingDir,
       '.vizzly',
       'baselines',
       'metadata.json'

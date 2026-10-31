@@ -59,6 +59,60 @@ test.describe('Review Decisions', () => {
     ).toBeVisible();
   });
 
+  test('group approval preserves successful variants and retries a failed variant', async ({
+    page,
+    reporter,
+  }) => {
+    let failedVariant = reporter.data.comparisons.find(
+      item => item.id === pricingVariant
+    );
+    let currentPath = join(
+      reporter.workingDir,
+      '.vizzly',
+      failedVariant.current.replace('/images/', '')
+    );
+    let currentImage = await readFile(currentPath);
+    await rm(currentPath);
+
+    await page.goto(`${reporter.url}/`);
+    let group = page.locator('[data-testid^="screenshot-group-"]').filter({
+      has: page.getByRole('heading', { name: 'pricing-page', exact: true }),
+    });
+    let approveGroup = group.getByTitle('Accept all 2 variants', {
+      exact: true,
+    });
+    await approveGroup.click();
+    await expect(
+      page.getByText(
+        'Failed to accept: Some baselines failed to accept (1/2).',
+        {
+          exact: true,
+        }
+      )
+    ).toBeVisible();
+    await expect(approveGroup).toBeEnabled();
+    let report = await reporter.readReport();
+    expect(report.comparisons.find(item => item.id === pricingId).status).toBe(
+      'passed'
+    );
+    expect(
+      report.comparisons.find(item => item.id === pricingVariant).status
+    ).toBe('failed');
+
+    await writeFile(currentPath, currentImage);
+    await group.hover();
+    await approveGroup.click();
+    await expect(approveGroup).not.toBeVisible();
+    await page.reload();
+    await expect(group.getByText('Passed', { exact: true })).toBeVisible();
+    report = await reporter.readReport();
+    expect(
+      report.comparisons
+        .filter(item => [pricingId, pricingVariant].includes(item.id))
+        .every(item => item.status === 'passed')
+    ).toBe(true);
+  });
+
   test('a completed save preserves manual navigation made while it was pending', async ({
     page,
     openReview,

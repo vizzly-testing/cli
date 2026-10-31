@@ -1,6 +1,5 @@
 import * as defaultOutput from '../../services/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
-import { getAccessToken as defaultGetAccessToken } from '../auth/token-store.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
 
@@ -23,7 +22,6 @@ export async function orgsCommand(
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
     getApiUrl = defaultGetApiUrl,
-    getAccessToken = defaultGetAccessToken,
     output = defaultOutput,
     exit = code => process.exit(code),
   } = deps;
@@ -39,7 +37,7 @@ export async function orgsCommand(
 
     // Prefer user auth token for listing orgs (project tokens are org-scoped).
     // Falls back to config.apiKey which may be: VIZZLY_TOKEN, --token flag, or project token.
-    let token = (await getAccessToken()) || config.apiKey;
+    let token = config.userToken || config.apiKey;
 
     if (!token) {
       output.error(

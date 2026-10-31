@@ -1,0 +1,421 @@
+import assert from 'node:assert';
+import { describe, it } from 'node:test';
+import { validateFinalizeOptions } from './build.validations.js';
+import { finalizeCommand } from './finalize.commands.js';
+
+/**
+ * Create mock output object that tracks calls
+ */
+function createMockOutput() {
+  let calls = [];
+  return {
+    calls,
+    configure: opts => calls.push({ method: 'configure', args: [opts] }),
+    info: msg => calls.push({ method: 'info', args: [msg] }),
+    debug: (msg, data) => calls.push({ method: 'debug', args: [msg, data] }),
+    error: (msg, err) => calls.push({ method: 'error', args: [msg, err] }),
+    warn: msg => calls.push({ method: 'warn', args: [msg] }),
+    success: msg => calls.push({ method: 'success', args: [msg] }),
+    data: d => calls.push({ method: 'data', args: [d] }),
+    startSpinner: msg => calls.push({ method: 'startSpinner', args: [msg] }),
+    stopSpinner: () => calls.push({ method: 'stopSpinner', args: [] }),
+    cleanup: () => calls.push({ method: 'cleanup', args: [] }),
+    // TUI helpers
+    header: (cmd, mode) => calls.push({ method: 'header', args: [cmd, mode] }),
+    complete: (msg, opts) =>
+      calls.push({ method: 'complete', args: [msg, opts] }),
+    keyValue: (data, opts) =>
+      calls.push({ method: 'keyValue', args: [data, opts] }),
+    blank: () => calls.push({ method: 'blank', args: [] }),
+  };
+}
+
+describe('commands/finalize', () => {
+  describe('validateFinalizeOptions', () => {
+    it('returns no errors for valid parallel ID', () => {
+      let errors = validateFinalizeOptions('parallel-123', {});
+      assert.deepStrictEqual(errors, []);
+    });
+
+    it('returns error for empty parallel ID', () => {
+      let errors = validateFinalizeOptions('', {});
+      assert.deepStrictEqual(errors, ['Parallel ID is required']);
+    });
+
+    it('returns error for whitespace parallel ID', () => {
+      let errors = validateFinalizeOptions('   ', {});
+      assert.deepStrictEqual(errors, ['Parallel ID is required']);
+    });
+
+    it('returns error for null parallel ID', () => {
+      let errors = validateFinalizeOptions(null, {});
+      assert.deepStrictEqual(errors, ['Parallel ID is required']);
+    });
+
+    it('returns error for undefined parallel ID', () => {
+      let errors = validateFinalizeOptions(undefined, {});
+      assert.deepStrictEqual(errors, ['Parallel ID is required']);
+    });
+  });
+
+  describe('finalizeCommand', () => {
+    it('returns error when no API key', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: null,
+            apiUrl: 'https://api.test',
+          }),
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.reason, 'no-api-key');
+      assert.strictEqual(exitCode, 1);
+      assert.ok(output.calls.some(c => c.method === 'error'));
+    });
+
+    it('outputs JSON when json flag is set', async () => {
+      let output = createMockOutput();
+
+      await finalizeCommand(
+        'parallel-123',
+        {},
+        { json: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => ({
+            build: {
+              id: 'build-456',
+              status: 'completed',
+              parallel_id: 'parallel-123',
+            },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.ok(output.calls.some(c => c.method === 'data'));
+      // In JSON mode, no header/complete messages are shown
+      assert.ok(!output.calls.some(c => c.method === 'complete'));
+    });
+
+    it('outputs success message when not JSON mode', async () => {
+      let output = createMockOutput();
+
+      await finalizeCommand(
+        'parallel-123',
+        {},
+        { json: false },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => ({
+            build: {
+              id: 'build-456',
+              status: 'completed',
+              parallel_id: 'parallel-123',
+            },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      // Now uses output.complete() instead of output.success()
+      assert.ok(output.calls.some(c => c.method === 'complete'));
+      // Now uses keyValue for build details instead of info
+      assert.ok(output.calls.some(c => c.method === 'keyValue'));
+    });
+
+    it('shows verbose output when verbose flag is set', async () => {
+      let output = createMockOutput();
+
+      await finalizeCommand(
+        'parallel-123',
+        {},
+        { verbose: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => ({
+            build: {
+              id: 'build-456',
+              status: 'completed',
+              parallel_id: 'parallel-123',
+            },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.ok(output.calls.some(c => c.method === 'debug'));
+    });
+
+    it('handles API errors gracefully', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw new Error('API error');
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.ok(result.error);
+      assert.strictEqual(exitCode, 1);
+      assert.ok(output.calls.some(c => c.method === 'stopSpinner'));
+      assert.ok(output.calls.some(c => c.method === 'error'));
+    });
+
+    it('always calls cleanup', async () => {
+      let output = createMockOutput();
+
+      await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => ({
+            build: {
+              id: 'build-456',
+              status: 'completed',
+              parallel_id: 'parallel-123',
+            },
+          }),
+          output,
+          exit: () => {},
+        }
+      );
+
+      assert.ok(output.calls.some(c => c.method === 'cleanup'));
+    });
+
+    it('does not fail CI when API returns 5xx error', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 502 - Bad Gateway');
+      apiError.context = { status: 502 };
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(result.result.reason, 'api-unavailable');
+      assert.strictEqual(exitCode, null);
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'warn' && c.args[0].includes('API unavailable')
+        )
+      );
+    });
+
+    it('does not fail CI on 5xx even with --strict flag', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 503 - Service Unavailable');
+      apiError.context = { status: 503 };
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        { strict: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      // 5xx errors should ALWAYS be resilient, even with --strict
+      // Infrastructure issues are out of user's control
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(result.result.reason, 'api-unavailable');
+      assert.strictEqual(exitCode, null);
+    });
+
+    it('does not fail CI when no build found (404) in non-strict mode', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 404 - Not Found');
+      apiError.context = { status: 404 };
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        {},
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.result.skipped, true);
+      assert.strictEqual(result.result.reason, 'no-build-found');
+      assert.strictEqual(exitCode, null);
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'warn' && c.args[0].includes('No build found')
+        )
+      );
+    });
+
+    it('fails CI when no build found (404) in strict mode', async () => {
+      let output = createMockOutput();
+      let exitCode = null;
+
+      let apiError = new Error('API request failed: 404 - Not Found');
+      apiError.context = { status: 404 };
+
+      let result = await finalizeCommand(
+        'parallel-123',
+        {},
+        { strict: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: code => {
+            exitCode = code;
+          },
+        }
+      );
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.reason, 'no-build-found');
+      assert.strictEqual(exitCode, 1);
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'error' && c.args[0].includes('No build found')
+        )
+      );
+    });
+
+    it('shows verbose hints when no build found in non-strict mode', async () => {
+      let output = createMockOutput();
+
+      let apiError = new Error('API request failed: 404 - Not Found');
+      apiError.context = { status: 404 };
+
+      await finalizeCommand(
+        'parallel-123',
+        {},
+        { verbose: true },
+        {
+          loadConfig: async () => ({
+            apiKey: 'test-token',
+            apiUrl: 'https://api.test',
+          }),
+          createApiClient: () => ({ request: async () => ({}) }),
+          finalizeParallelBuild: async () => {
+            throw apiError;
+          },
+          output,
+          exit: () => {},
+        }
+      );
+
+      // Should show helpful hints in verbose mode
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'info' && c.args[0].includes('Possible reasons')
+        )
+      );
+      assert.ok(
+        output.calls.some(
+          c => c.method === 'info' && c.args[0].includes('--strict')
+        )
+      );
+    });
+  });
+});

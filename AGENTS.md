@@ -9,7 +9,7 @@ Read [docs/architecture.md](docs/architecture.md) for domain ownership and file 
 - `src/services/` contains narrow capabilities shared across domains; `src/plugins/` owns plugin loading and composition.
 - `src/reporter/src/domains/` owns browser features. Its `services/`, `layout/`, and `ui/` folders contain shared browser code.
 - `src/index.js`, `src/client/`, `src/sdk/`, and `src/types/` define published package surfaces.
-- `tests/domains/` mirrors backend ownership. `tests/cli/` and `tests/reporter/` exercise complete user workflows; `test-d/` checks published types.
+- Focused `*.test.js` files live beside their domain, shared-service, or reporter modules. `tests/cli/`, `tests/reporter/`, and `tests/packaging/` exercise complete workflows; `test-d/` checks published types.
 - `clients/` contains framework integrations and SDK clients. Reference docs live in `docs/`, examples in `examples/`, and build output in `dist/`.
 
 ## Architecture Rules
@@ -43,6 +43,7 @@ File names are lowercase with hyphens where needed (example: `config-service.js`
 Primary frameworks: Node’s built-in test runner (`node --test`), Playwright (reporter E2E), and `tsd` (types).  
 Write tests around user outcomes and observable behavior; avoid mocking internal modules.  
 Mock only external boundaries (network/time/randomness).  
+Keep focused tests beside their owner. Keep subprocess CLI, browser, and packed-package workflows in `tests/`; share fixtures there rather than copying internal implementations into tests.
 No arbitrary sleeps; wait on concrete state/events.  
 There is no strict coverage percentage gate today, but changed behavior should include focused tests.
 

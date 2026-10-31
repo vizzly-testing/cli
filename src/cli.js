@@ -2,6 +2,7 @@
 import 'dotenv/config';
 import { existsSync, statSync } from 'node:fs';
 import { Option, program } from 'commander';
+import { connectProject } from './cli/setup.js';
 import {
   apiCommand,
   apiSchemaCommand,
@@ -31,12 +32,14 @@ import {
   contextReviewQueueCommand,
   contextScreenshotCommand,
   contextSimilarCommand,
+} from './domains/context/context.commands.js';
+import {
   validateContextBuildOptions,
   validateContextComparisonOptions,
   validateContextReviewQueueOptions,
   validateContextScreenshotOptions,
   validateContextSimilarOptions,
-} from './domains/context/context.commands.js';
+} from './domains/context/context.validations.js';
 import { doctorCommand } from './domains/diagnostics/doctor.commands.js';
 import { getContext } from './domains/diagnostics/environment-context.js';
 import {
@@ -44,10 +47,8 @@ import {
   validatePreviewOptions,
 } from './domains/previews/preview.commands.js';
 import { orgsCommand } from './domains/projects/orgs.commands.js';
-import {
-  projectLinkCommand,
-  validateProjectLinkOptions,
-} from './domains/projects/project.commands.js';
+import { projectLinkCommand } from './domains/projects/project.commands.js';
+import { validateProjectLinkOptions } from './domains/projects/project.validations.js';
 import {
   projectsCommand,
   validateProjectsOptions,
@@ -648,7 +649,10 @@ program
   .action(async options => {
     let globalOptions = getGlobalOptions();
     try {
-      let result = await init({ ...globalOptions, ...options });
+      let result = await init(
+        { ...globalOptions, ...options },
+        { connectProject }
+      );
       process.exitCode = result.exitCode || 0;
     } catch (error) {
       output.error(error.message, error, { changes: error.completed || [] });

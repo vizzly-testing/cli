@@ -117,20 +117,16 @@ export async function startServer({
 export async function stopServer({ httpServer, handler, projectRoot, deps }) {
   let { fs } = deps;
 
-  if (httpServer) {
-    await httpServer.stop();
-  }
-
-  if (handler?.cleanup) {
+  try {
+    await httpServer?.stop();
+  } finally {
     try {
-      handler.cleanup();
+      await handler?.cleanup?.();
     } catch {
-      // Don't throw - cleanup errors shouldn't fail the stop process
+      // Preserve the HTTP shutdown error when handler cleanup also fails.
     }
+    removeServerJson({ projectRoot, fs });
   }
-
-  // Clean up server.json
-  removeServerJson({ projectRoot, fs });
 }
 
 // ============================================================================

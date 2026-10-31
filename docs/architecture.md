@@ -50,6 +50,11 @@ Use plain named helpers for narrower responsibilities, such as
 One service file can compose these helpers without becoming a large file itself.
 Commands can share the same domain without sharing one command file.
 
+Keep terminal rendering in a focused presenter when it obscures command flow.
+For example, Context separates option validation, compact response contracts,
+outgoing projections, and `context-presentation.js`; its commands select a source
+and call those pieces explicitly.
+
 Keep durable record contracts in `*.model.js` when the application actually owns
 that persisted shape. A build request payload alone doesn't need a model.
 Likewise, add background job contracts only if there is a real queued job
@@ -67,9 +72,9 @@ routes. SDK and plugin entrypoints assemble domain capabilities for their caller
 There is no runtime domain discovery or automatic wiring based on filenames.
 
 Import a named function from the module that owns it. A cross-domain caller
-should use a service or a reusable contract. Commands may compose other commands
-for an explicit user workflow, such as guided setup; reusable operations belong
-in services. Keep dependencies one-way where possible; if two
+should use a service or a reusable contract. Cross-domain command composition,
+such as linking a project during guided setup, lives under `src/cli/` and is
+passed into the owning command explicitly. Keep dependencies one-way where possible; if two
 domains need each other's internals, reconsider which one owns the operation.
 
 Use package entrypoints for the public exports they promise. Inside the project,
@@ -96,6 +101,12 @@ A helper used by two domains can still have a clear domain owner. Move it into
 shared services only when its responsibility is independent of those domains.
 Avoid recreating a generic utilities folder.
 
+Reports owns the lightweight report and heavy comparison-detail files, their
+state transitions, and the snapshot read by the dashboard, SSE, and static
+renderer. Capture submits comparison changes to that store. Baselines owns the
+shared image/metadata write operation; its callers decide when to commit a
+single approval or a completed bulk update.
+
 ## Respect the browser boundary
 
 `src/reporter/` remains a separate Vite browser/SSR build. Its source follows the
@@ -120,15 +131,36 @@ resolve the same packaged artifacts.
 
 ## Verify the change
 
-Backend tests mirror ownership in `tests/domains/<domain>/`. Shared capability,
-server, plugin, client, and SDK tests have their own folders. CLI workflow tests
-live in `tests/cli/`; browser workflows and reporter support live in
-`tests/reporter/`. Published declaration checks live in `test-d/`.
+Focused `*.test.js` files live beside their owning domain, shared capability,
+server, plugin, client, or SDK module. This includes deterministic contracts and
+integration tests with a clear owner. A filename such as
+`baselines/baseline-download.test.js` makes the relevant tests easy to find.
+
+CLI subprocess workflows live in `tests/cli/<domain>/`; browser workflows and
+their fixtures stay in `tests/reporter/`. Packed-package workflows live in
+`tests/packaging/`, and published declaration checks stay in `test-d/`. Shared
+test-only helpers stay in `tests/helpers/`. Avoid separate `unit`, `commands`,
+or `core` test buckets that hide which feature owns a test.
+
+`scripts/test.js` discovers the same source, workflow, and Swift adapter tests for
+normal and watch runs. Build compilation excludes `*.test.js`, so colocated
+tests do not ship in the package. Run the build before the full suite; the packed
+workflow verifies the actual compiled package and report artifacts.
+
+Use real files, images, HTTP, and CLI processes where they are the consumed
+boundary. Do not copy production functions into tests or replace domain logic
+with handwritten fakes. When replacing a test, name the outcome its replacement
+proves before deleting it. Keep pure edge cases when they add confidence beyond
+a workflow, and remove duplicate or assertion-free cases.
 
 Run `pnpm run check:architecture` after moving files or changing imports. Use the
 normal lint, format, build, Node tests, type tests, and reporter tests for the
 parts you change. The architecture check covers structure; user outcomes still
 need tests at their consumed boundary.
+
+Pure role files must not reach operation modules or filesystem/network
+capabilities through helpers. The checker follows those import chains as well
+as checking direct imports and the browser boundary.
 
 A reorganization must preserve public specifiers (`@vizzly-testing/cli`,
 `/client`, `/sdk`, and `/config`), exported names, plugin methods/events, CLI

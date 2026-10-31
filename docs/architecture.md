@@ -67,9 +67,9 @@ routes. SDK and plugin entrypoints assemble domain capabilities for their caller
 There is no runtime domain discovery or automatic wiring based on filenames.
 
 Import a named function from the module that owns it. A cross-domain caller
-should use a service or a reusable contract. Commands may compose other commands
-for an explicit user workflow, such as guided setup; reusable operations belong
-in services. Keep dependencies one-way where possible; if two
+should use a service or a reusable contract. Cross-domain command composition,
+such as linking a project during guided setup, lives under `src/cli/` and is
+passed into the owning command explicitly. Keep dependencies one-way where possible; if two
 domains need each other's internals, reconsider which one owns the operation.
 
 Use package entrypoints for the public exports they promise. Inside the project,
@@ -120,10 +120,27 @@ resolve the same packaged artifacts.
 
 ## Verify the change
 
-Backend tests mirror ownership in `tests/domains/<domain>/`. Shared capability,
-server, plugin, client, and SDK tests have their own folders. CLI workflow tests
-live in `tests/cli/`; browser workflows and reporter support live in
-`tests/reporter/`. Published declaration checks live in `test-d/`.
+Focused `*.test.js` files live beside their owning domain, shared capability,
+server, plugin, client, or SDK module. This includes deterministic contracts and
+integration tests with a clear owner. A filename such as
+`baselines/baseline-download.test.js` makes the relevant tests easy to find.
+
+CLI subprocess workflows live in `tests/cli/<domain>/`; browser workflows and
+their fixtures stay in `tests/reporter/`. Packed-package workflows live in
+`tests/packaging/`, and published declaration checks stay in `test-d/`. Shared
+test-only helpers stay in `tests/helpers/`. Avoid separate `unit`, `commands`,
+or `core` test buckets that hide which feature owns a test.
+
+`scripts/test.js` discovers the same source, workflow, and Swift adapter tests for
+normal and watch runs. Build compilation excludes `*.test.js`, so colocated
+tests do not ship in the package. Run the build before the full suite; the packed
+workflow verifies the actual compiled package and report artifacts.
+
+Use real files, images, HTTP, and CLI processes where they are the consumed
+boundary. Do not copy production functions into tests or replace domain logic
+with handwritten fakes. When replacing a test, name the outcome its replacement
+proves before deleting it. Keep pure edge cases when they add confidence beyond
+a workflow, and remove duplicate or assertion-free cases.
 
 Run `pnpm run check:architecture` after moving files or changing imports. Use the
 normal lint, format, build, Node tests, type tests, and reporter tests for the

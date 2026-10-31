@@ -15,7 +15,7 @@ import {
   writeFileSync as defaultWriteFileSync,
 } from 'node:fs';
 import { compareSync } from '@vizzly-testing/honeydiff';
-import { NetworkError, VizzlyError } from '../../errors/vizzly-error.js';
+import { VizzlyError } from '../../errors/vizzly-error.js';
 import { colors as defaultColors } from '../../services/colors.js';
 import { fetchWithTimeout as defaultFetchWithTimeout } from '../../services/fetch-utils.js';
 import { getDefaultBranch as defaultGetDefaultBranch } from '../../services/git.js';
@@ -36,6 +36,7 @@ import {
   saveBaseline as defaultSaveBaseline,
   saveCurrent as defaultSaveCurrent,
 } from '../baselines/baseline.service.js';
+import { installBaselineBuild } from '../baselines/baseline-download.js';
 import {
   createEmptyBaselineMetadata as defaultCreateEmptyBaselineMetadata,
   loadBaselineMetadata as defaultLoadBaselineMetadata,
@@ -221,7 +222,6 @@ export class TddService {
     // Destructure dependencies
     let {
       output,
-      colors,
       getDefaultBranch,
       getTddBaselines,
       getBuilds,
@@ -229,12 +229,6 @@ export class TddService {
       clearBaselineData,
       generateScreenshotSignature,
       generateBaselineFilename,
-      sanitizeScreenshotName,
-      safePath,
-      existsSync,
-      fetchWithTimeout,
-      writeFileSync,
-      saveBaselineMetadata,
     } = this._deps;
 
     // If no branch specified, detect default branch
@@ -406,225 +400,11 @@ export class TddService {
         baselineBuild.screenshots = apiResponse.screenshots;
       }
 
-      let buildDetails = baselineBuild;
-
-      if (!buildDetails.screenshots || buildDetails.screenshots.length === 0) {
-        output.warn('No screenshots found in baseline build');
-        return null;
-      }
-
-      output.info(
-        `Using baseline from build: ${colors.info(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
-      );
-      output.info(
-        `Checking ${colors.info(buildDetails.screenshots.length)} baseline screenshots...`
-      );
-
-      // Check existing baseline metadata for SHA comparison
-      let existingBaseline = await this.loadBaseline();
-      let existingShaMap = new Map();
-
-      if (existingBaseline) {
-        existingBaseline.screenshots.forEach(s => {
-          if (s.sha256 && s.filename) {
-            existingShaMap.set(s.filename, s.sha256);
-          }
-        });
-      }
-
-      // Download screenshots
-      let downloadedCount = 0;
-      let skippedCount = 0;
-      let errorCount = 0;
-      let batchSize = 5;
-
-      let screenshotsToProcess = [];
-      for (let screenshot of buildDetails.screenshots) {
-        let sanitizedName;
-        try {
-          sanitizedName = sanitizeScreenshotName(screenshot.name);
-        } catch (error) {
-          output.warn(
-            `Skipping screenshot with invalid name '${screenshot.name}': ${error.message}`
-          );
-          errorCount++;
-          continue;
-        }
-
-        let filename = screenshot.filename;
-        if (!filename) {
-          output.warn(
-            `Screenshot ${sanitizedName} has no filename from API - skipping`
-          );
-          errorCount++;
-          continue;
-        }
-
-        let imagePath = safePath(this.baselinePath, filename);
-
-        // Check SHA
-        if (existsSync(imagePath) && screenshot.sha256) {
-          let storedSha = existingShaMap.get(filename);
-          if (storedSha === screenshot.sha256) {
-            downloadedCount++;
-            skippedCount++;
-            continue;
-          }
-        }
-
-        let downloadUrl = screenshot.original_url || screenshot.url;
-        if (!downloadUrl) {
-          output.warn(
-            `Screenshot ${sanitizedName} has no download URL - skipping`
-          );
-          errorCount++;
-          continue;
-        }
-
-        screenshotsToProcess.push({
-          screenshot,
-          sanitizedName,
-          imagePath,
-          downloadUrl,
-          filename,
-        });
-      }
-
-      // Process downloads in batches
-      if (screenshotsToProcess.length > 0) {
-        output.info(
-          `📥 Downloading ${screenshotsToProcess.length} new/updated screenshots...`
-        );
-
-        for (let i = 0; i < screenshotsToProcess.length; i += batchSize) {
-          let batch = screenshotsToProcess.slice(i, i + batchSize);
-          let batchNum = Math.floor(i / batchSize) + 1;
-          let totalBatches = Math.ceil(screenshotsToProcess.length / batchSize);
-
-          output.info(`📦 Processing batch ${batchNum}/${totalBatches}`);
-
-          let downloadPromises = batch.map(
-            async ({ sanitizedName, imagePath, downloadUrl }) => {
-              try {
-                let response = await fetchWithTimeout(downloadUrl);
-                if (!response.ok) {
-                  throw new NetworkError(
-                    `Failed to download ${sanitizedName}: ${response.statusText}`
-                  );
-                }
-
-                let arrayBuffer = await response.arrayBuffer();
-                let imageBuffer = Buffer.from(arrayBuffer);
-                writeFileSync(imagePath, imageBuffer);
-
-                return { success: true, name: sanitizedName };
-              } catch (error) {
-                output.warn(
-                  `Failed to download ${sanitizedName}: ${error.message}`
-                );
-                return {
-                  success: false,
-                  name: sanitizedName,
-                  error: error.message,
-                };
-              }
-            }
-          );
-
-          let batchResults = await Promise.all(downloadPromises);
-          let batchSuccesses = batchResults.filter(r => r.success).length;
-          let batchFailures = batchResults.filter(r => !r.success).length;
-
-          downloadedCount += batchSuccesses;
-          errorCount += batchFailures;
-        }
-      }
-
-      if (downloadedCount === 0 && skippedCount === 0) {
-        output.error('No screenshots were successfully downloaded');
-        return null;
-      }
-
-      // Store baseline metadata
-      this.baselineData = {
-        buildId: baselineBuild.id,
-        buildName: baselineBuild.name,
+      return await this._installBaselineBuild(
+        baselineBuild,
         environment,
-        branch,
-        threshold: this.threshold,
-        signatureProperties: this.signatureProperties,
-        createdAt: new Date().toISOString(),
-        buildInfo: {
-          commitSha: baselineBuild.commit_sha,
-          commitMessage: baselineBuild.commit_message,
-          visual_review: baselineBuild.visual_review || null,
-          completedAt: baselineBuild.completed_at,
-        },
-        screenshots: buildDetails.screenshots
-          .filter(s => s.filename)
-          .map(s => ({
-            name: sanitizeScreenshotName(s.name),
-            originalName: s.name,
-            sha256: s.sha256,
-            id: s.id,
-            filename: s.filename,
-            path: safePath(this.baselinePath, s.filename),
-            browser: s.browser,
-            viewport_width: s.viewport_width,
-            originalUrl: s.original_url,
-            fileSize: s.file_size_bytes,
-            dimensions: { width: s.width, height: s.height },
-          })),
-      };
-
-      saveBaselineMetadata(this.baselinePath, this.baselineData);
-
-      // Save baseline build metadata for MCP plugin
-      let baselineMetadataPath = safePath(
-        this.workingDir,
-        '.vizzly',
-        'baseline-metadata.json'
+        branch
       );
-      writeFileSync(
-        baselineMetadataPath,
-        JSON.stringify(
-          {
-            buildId: baselineBuild.id,
-            buildName: baselineBuild.name,
-            branch,
-            environment,
-            commitSha: baselineBuild.commit_sha,
-            commitMessage: baselineBuild.commit_message,
-            visual_review: baselineBuild.visual_review || null,
-            completedAt: baselineBuild.completed_at,
-            downloadedAt: new Date().toISOString(),
-          },
-          null,
-          2
-        )
-      );
-
-      // Summary
-      let actualDownloads = downloadedCount - skippedCount;
-      if (skippedCount > 0) {
-        if (actualDownloads === 0) {
-          output.info(`All ${skippedCount} baselines up-to-date`);
-        } else {
-          output.info(
-            `Downloaded ${actualDownloads} new screenshots, ${skippedCount} already up-to-date`
-          );
-        }
-      } else {
-        output.info(
-          `Downloaded ${downloadedCount}/${buildDetails.screenshots.length} screenshots successfully`
-        );
-      }
-
-      if (errorCount > 0) {
-        output.warn(`${errorCount} screenshots failed to download`);
-      }
-
-      return this.baselineData;
     } catch (error) {
       output.error(`Failed to download baseline: ${error.message}`);
       throw error;
@@ -640,17 +420,7 @@ export class TddService {
    */
   async processDownloadedBaselines(apiResponse, buildId) {
     // Destructure dependencies
-    let {
-      output,
-      colors,
-      clearBaselineData,
-      sanitizeScreenshotName,
-      safePath,
-      existsSync,
-      fetchWithTimeout,
-      writeFileSync,
-      saveBaselineMetadata,
-    } = this._deps;
+    let { output, clearBaselineData } = this._deps;
 
     // Clear local state before downloading
     output.info('Clearing local state before downloading baselines...');
@@ -688,9 +458,12 @@ export class TddService {
 
     baselineBuild.screenshots = apiResponse.screenshots;
 
-    let buildDetails = baselineBuild;
+    return this._installBaselineBuild(baselineBuild, 'test', null);
+  }
 
-    if (!buildDetails.screenshots || buildDetails.screenshots.length === 0) {
+  async _installBaselineBuild(baselineBuild, environment, branch) {
+    let { output, colors, fetchWithTimeout } = this._deps;
+    if (!baselineBuild.screenshots || baselineBuild.screenshots.length === 0) {
       output.warn('No screenshots found in baseline build');
       return null;
     }
@@ -699,214 +472,23 @@ export class TddService {
       `Using baseline from build: ${colors.info(baselineBuild.name || 'Unknown')} (${baselineBuild.id || 'Unknown ID'})`
     );
     output.info(
-      `Checking ${colors.info(buildDetails.screenshots.length)} baseline screenshots...`
+      `Checking ${colors.info(baselineBuild.screenshots.length)} baseline screenshots...`
     );
-
-    // Check existing baseline metadata for SHA comparison
     let existingBaseline = await this.loadBaseline();
-    let existingShaMap = new Map();
-
-    if (existingBaseline) {
-      existingBaseline.screenshots.forEach(s => {
-        if (s.sha256 && s.filename) {
-          existingShaMap.set(s.filename, s.sha256);
-        }
-      });
-    }
-
-    // Download screenshots
-    let downloadedCount = 0;
-    let skippedCount = 0;
-    let errorCount = 0;
-    let batchSize = 5;
-
-    let screenshotsToProcess = [];
-    for (let screenshot of buildDetails.screenshots) {
-      let sanitizedName;
-      try {
-        sanitizedName = sanitizeScreenshotName(screenshot.name);
-      } catch (error) {
-        output.warn(
-          `Skipping screenshot with invalid name '${screenshot.name}': ${error.message}`
-        );
-        errorCount++;
-        continue;
-      }
-
-      let filename = screenshot.filename;
-      if (!filename) {
-        output.warn(
-          `Screenshot ${sanitizedName} has no filename from API - skipping`
-        );
-        errorCount++;
-        continue;
-      }
-
-      let imagePath = safePath(this.baselinePath, filename);
-
-      // Check SHA
-      if (existsSync(imagePath) && screenshot.sha256) {
-        let storedSha = existingShaMap.get(filename);
-        if (storedSha === screenshot.sha256) {
-          downloadedCount++;
-          skippedCount++;
-          continue;
-        }
-      }
-
-      let downloadUrl = screenshot.original_url || screenshot.url;
-      if (!downloadUrl) {
-        output.warn(
-          `Screenshot ${sanitizedName} has no download URL - skipping`
-        );
-        errorCount++;
-        continue;
-      }
-
-      screenshotsToProcess.push({
-        screenshot,
-        sanitizedName,
-        imagePath,
-        downloadUrl,
-        filename,
-      });
-    }
-
-    // Process downloads in batches
-    if (screenshotsToProcess.length > 0) {
-      output.info(
-        `📥 Downloading ${screenshotsToProcess.length} new/updated screenshots...`
-      );
-
-      for (let i = 0; i < screenshotsToProcess.length; i += batchSize) {
-        let batch = screenshotsToProcess.slice(i, i + batchSize);
-        let batchNum = Math.floor(i / batchSize) + 1;
-        let totalBatches = Math.ceil(screenshotsToProcess.length / batchSize);
-
-        output.info(`📦 Processing batch ${batchNum}/${totalBatches}`);
-
-        let downloadPromises = batch.map(
-          async ({ sanitizedName, imagePath, downloadUrl }) => {
-            try {
-              let response = await fetchWithTimeout(downloadUrl);
-              if (!response.ok) {
-                throw new Error(
-                  `Failed to download ${sanitizedName}: ${response.statusText}`
-                );
-              }
-
-              let arrayBuffer = await response.arrayBuffer();
-              let imageBuffer = Buffer.from(arrayBuffer);
-              writeFileSync(imagePath, imageBuffer);
-
-              return { success: true, name: sanitizedName };
-            } catch (error) {
-              output.warn(
-                `Failed to download ${sanitizedName}: ${error.message}`
-              );
-              return {
-                success: false,
-                name: sanitizedName,
-                error: error.message,
-              };
-            }
-          }
-        );
-
-        let batchResults = await Promise.all(downloadPromises);
-        let batchSuccesses = batchResults.filter(r => r.success).length;
-        let batchFailures = batchResults.filter(r => !r.success).length;
-
-        downloadedCount += batchSuccesses;
-        errorCount += batchFailures;
-      }
-    }
-
-    if (downloadedCount === 0 && skippedCount === 0) {
-      output.error('No screenshots were successfully downloaded');
-      return null;
-    }
-
-    // Store baseline metadata
-    this.baselineData = {
-      buildId: baselineBuild.id,
-      buildName: baselineBuild.name,
-      environment: 'test',
-      branch: null,
+    let installedBaseline = await installBaselineBuild({
+      baselineBuild,
+      baselinePath: this.baselinePath,
+      workingDir: this.workingDir,
       threshold: this.threshold,
       signatureProperties: this.signatureProperties,
-      createdAt: new Date().toISOString(),
-      buildInfo: {
-        commitSha: baselineBuild.commit_sha,
-        commitMessage: baselineBuild.commit_message,
-        visual_review: baselineBuild.visual_review || null,
-        completedAt: baselineBuild.completed_at,
-      },
-      screenshots: buildDetails.screenshots
-        .filter(s => s.filename)
-        .map(s => ({
-          name: sanitizeScreenshotName(s.name),
-          originalName: s.name,
-          sha256: s.sha256,
-          id: s.id,
-          filename: s.filename,
-          path: safePath(this.baselinePath, s.filename),
-          browser: s.browser,
-          viewport_width: s.viewport_width,
-          originalUrl: s.original_url,
-          fileSize: s.file_size_bytes,
-          dimensions: { width: s.width, height: s.height },
-        })),
-    };
-
-    saveBaselineMetadata(this.baselinePath, this.baselineData);
-
-    // Save baseline build metadata for MCP plugin
-    let baselineMetadataPath = safePath(
-      this.workingDir,
-      '.vizzly',
-      'baseline-metadata.json'
-    );
-    writeFileSync(
-      baselineMetadataPath,
-      JSON.stringify(
-        {
-          buildId: baselineBuild.id,
-          buildName: baselineBuild.name,
-          branch: null,
-          environment: 'test',
-          commitSha: baselineBuild.commit_sha,
-          commitMessage: baselineBuild.commit_message,
-          visual_review: baselineBuild.visual_review || null,
-          completedAt: baselineBuild.completed_at,
-          downloadedAt: new Date().toISOString(),
-        },
-        null,
-        2
-      )
-    );
-
-    // Summary
-    let actualDownloads = downloadedCount - skippedCount;
-    if (skippedCount > 0) {
-      if (actualDownloads === 0) {
-        output.info(`All ${skippedCount} baselines up-to-date`);
-      } else {
-        output.info(
-          `Downloaded ${actualDownloads} new screenshots, ${skippedCount} already up-to-date`
-        );
-      }
-    } else {
-      output.info(
-        `Downloaded ${downloadedCount}/${buildDetails.screenshots.length} screenshots successfully`
-      );
-    }
-
-    if (errorCount > 0) {
-      output.warn(`${errorCount} screenshots failed to download`);
-    }
-
-    return this.baselineData;
+      existingBaseline,
+      environment,
+      branch,
+      output,
+      fetchWithTimeout,
+    });
+    if (installedBaseline) this.baselineData = installedBaseline;
+    return installedBaseline;
   }
 
   /**

@@ -14,9 +14,12 @@ import { buildServerInterface } from './server-options.js';
  *
  * @param {Object} config - Configuration object
  * @param {Object} [services={}] - Optional services object
+ * @param {Object} [options={}] - Runtime paths
+ * @param {string} [options.projectRoot] - Workspace for capture and discovery files
  * @returns {Object} Server manager with start/stop/getTddResults methods
  */
-export function createServerManager(config, services = {}) {
+export function createServerManager(config, services = {}, options = {}) {
+  let projectRoot = options.projectRoot || process.cwd();
   let httpServer = null;
   let handler = null;
 
@@ -35,7 +38,7 @@ export function createServerManager(config, services = {}) {
         buildId,
         tddMode,
         setBaseline,
-        projectRoot: process.cwd(),
+        projectRoot,
         services,
         deps,
       });
@@ -44,12 +47,12 @@ export function createServerManager(config, services = {}) {
     },
 
     async stop() {
-      await stopServer({
-        httpServer,
-        handler,
-        projectRoot: process.cwd(),
-        deps,
-      });
+      try {
+        await stopServer({ httpServer, handler, projectRoot, deps });
+      } finally {
+        httpServer = null;
+        handler = null;
+      }
     },
 
     async getTddResults() {

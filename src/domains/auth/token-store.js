@@ -45,30 +45,28 @@ export async function clearAuthTokens() {
   await saveGlobalConfig(config);
 }
 
+function hasValidAccessToken(auth, now = Date.now()) {
+  if (!auth?.accessToken) {
+    return false;
+  }
+
+  if (!auth.expiresAt) {
+    return true;
+  }
+
+  let expiresAt = new Date(auth.expiresAt).getTime();
+  // Treat tokens expiring within five minutes as unavailable.
+  let bufferMs = 5 * 60 * 1000;
+  return now < expiresAt - bufferMs;
+}
+
 /**
  * Check if authentication tokens exist and are not expired
  * @returns {Promise<boolean>} True if valid tokens exist
  */
 export async function hasValidTokens() {
   let auth = await getAuthTokens();
-
-  if (!auth?.accessToken) {
-    return false;
-  }
-
-  // Check if token is expired
-  if (auth.expiresAt) {
-    let expiresAt = new Date(auth.expiresAt);
-    let now = new Date();
-
-    // Consider expired if within 5 minutes of expiry
-    let bufferMs = 5 * 60 * 1000;
-    if (now.getTime() >= expiresAt.getTime() - bufferMs) {
-      return false;
-    }
-  }
-
-  return true;
+  return hasValidAccessToken(auth);
 }
 
 /**
@@ -76,11 +74,8 @@ export async function hasValidTokens() {
  * @returns {Promise<string|null>} Access token or null
  */
 export async function getAccessToken() {
-  let valid = await hasValidTokens();
-  if (!valid) return null;
-
   let auth = await getAuthTokens();
-  return auth?.accessToken || null;
+  return hasValidAccessToken(auth) ? auth.accessToken : null;
 }
 
 /**

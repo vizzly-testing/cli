@@ -205,18 +205,7 @@ export const createTddHandler = (
     const baseline = await tddService.loadBaseline();
 
     if (!baseline) {
-      // Only download baselines if explicitly requested via baseline flags
-      if ((baselineBuild || baselineComparison) && config.apiKey) {
-        output.debug('tdd', 'downloading baselines');
-        await tddService.downloadBaselines(
-          config.build?.environment || 'test',
-          config.build?.branch || null,
-          baselineBuild,
-          baselineComparison
-        );
-      } else {
-        output.debug('tdd', 'no baselines yet');
-      }
+      output.debug('tdd', 'no baselines yet');
     } else {
       output.debug('tdd', `baseline: ${baseline.buildName}`);
     }

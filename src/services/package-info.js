@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 let packageJson;
 
 export function getPackageRoot() {
-  return fileURLToPath(new URL('../../', import.meta.url));
+  return fileURLToPath(new URL('../..', import.meta.url));
 }
 
 /**

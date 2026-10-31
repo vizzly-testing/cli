@@ -1,19 +1,4 @@
-/**
- * Shared CLI runner for integration tests
- *
- * Spawns real CLI processes but with optimized settings to reduce
- * filesystem churn and process spawning overhead.
- *
- * Usage:
- *   import { runCLI, createCLIRunner } from '../helpers/cli-runner.js';
- *
- *   // Simple usage (creates temp dir per call)
- *   let result = await runCLI(['--help']);
- *
- *   // Optimized usage (reuses temp dir)
- *   let cli = createCLIRunner(tempDir);
- *   let result = await cli.run(['--help']);
- */
+/** Run real CLI processes with isolated configuration for workflow tests. */
 
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
@@ -123,65 +108,6 @@ export async function runCLI(args, options = {}) {
       }
     }, timeout);
   });
-}
-
-/**
- * Create a CLI runner bound to a specific temp directory
- *
- * Use this when running multiple CLI commands in a test suite
- * to avoid creating a new temp directory per command.
- *
- * @param {string} cwd - Working directory for all commands
- * @param {Object} [baseEnv={}] - Base environment for all commands
- * @returns {Object} CLI runner object
- */
-export function createCLIRunner(cwd, baseEnv = {}) {
-  return {
-    /**
-     * Run CLI command
-     * @param {string[]} args - CLI arguments
-     * @param {Object} [options] - Additional options
-     */
-    async run(args, options = {}) {
-      return runCLI(args, {
-        cwd,
-        env: { ...baseEnv, ...options.env },
-        timeout: options.timeout,
-      });
-    },
-
-    /**
-     * Run CLI command expecting success (exit code 0)
-     * @param {string[]} args - CLI arguments
-     * @param {Object} [options] - Additional options
-     * @throws {Error} If exit code is not 0
-     */
-    async runSuccess(args, options = {}) {
-      let result = await this.run(args, options);
-      if (result.code !== 0) {
-        throw new Error(
-          `CLI exited with code ${result.code}:\nstdout: ${result.stdout}\nstderr: ${result.stderr}`
-        );
-      }
-      return result;
-    },
-
-    /**
-     * Run CLI command expecting failure (exit code 1)
-     * @param {string[]} args - CLI arguments
-     * @param {Object} [options] - Additional options
-     * @throws {Error} If exit code is 0
-     */
-    async runFailure(args, options = {}) {
-      let result = await this.run(args, options);
-      if (result.code === 0) {
-        throw new Error(
-          `CLI succeeded but expected failure:\nstdout: ${result.stdout}\nstderr: ${result.stderr}`
-        );
-      }
-      return result;
-    },
-  };
 }
 
 /**

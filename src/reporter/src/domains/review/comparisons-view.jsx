@@ -182,6 +182,19 @@ export default function ComparisonsView() {
     });
   }, []);
 
+  let handleGroupError = useCallback(
+    ({ error, ids, completedAction, verb }) => {
+      let succeededIds = asIdList(error?.succeededIds);
+      let failedIds = asIdList(error?.failedIds);
+      if (succeededIds.length > 0) {
+        updateLoadingStateForIds(succeededIds, completedAction);
+      }
+      updateLoadingStateForIds(failedIds.length > 0 ? failedIds : ids, null);
+      addToast(`Failed to ${verb}: ${error.message}`, 'error');
+    },
+    [addToast, updateLoadingStateForIds]
+  );
+
   let handleAcceptGroup = useCallback(
     ids => {
       if (!ids || ids.length === 0) return;
@@ -191,25 +204,17 @@ export default function ComparisonsView() {
         onSuccess: () => {
           updateLoadingStateForIds(ids, 'accepted');
         },
-        onError: err => {
-          let succeededIds = asIdList(err?.succeededIds);
-          let failedIds = asIdList(err?.failedIds);
-
-          if (succeededIds.length > 0) {
-            updateLoadingStateForIds(succeededIds, 'accepted');
-          }
-
-          if (failedIds.length > 0) {
-            updateLoadingStateForIds(failedIds, null);
-          } else {
-            updateLoadingStateForIds(ids, null);
-          }
-
-          addToast(`Failed to accept: ${err.message}`, 'error');
+        onError: error => {
+          handleGroupError({
+            error,
+            ids,
+            completedAction: 'accepted',
+            verb: 'accept',
+          });
         },
       });
     },
-    [acceptBatchMutation, addToast, updateLoadingStateForIds]
+    [acceptBatchMutation, handleGroupError, updateLoadingStateForIds]
   );
 
   let handleRejectGroup = useCallback(
@@ -221,25 +226,17 @@ export default function ComparisonsView() {
         onSuccess: () => {
           updateLoadingStateForIds(ids, 'rejected');
         },
-        onError: err => {
-          let succeededIds = asIdList(err?.succeededIds);
-          let failedIds = asIdList(err?.failedIds);
-
-          if (succeededIds.length > 0) {
-            updateLoadingStateForIds(succeededIds, 'rejected');
-          }
-
-          if (failedIds.length > 0) {
-            updateLoadingStateForIds(failedIds, null);
-          } else {
-            updateLoadingStateForIds(ids, null);
-          }
-
-          addToast(`Failed to reject: ${err.message}`, 'error');
+        onError: error => {
+          handleGroupError({
+            error,
+            ids,
+            completedAction: 'rejected',
+            verb: 'reject',
+          });
         },
       });
     },
-    [rejectBatchMutation, addToast, updateLoadingStateForIds]
+    [rejectBatchMutation, handleGroupError, updateLoadingStateForIds]
   );
 
   // Single-item handlers for fallback paths

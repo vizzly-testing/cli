@@ -1,32 +1,11 @@
-import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { applyChanges } from '../../services/file-changes.js';
 import * as output from '../../services/output.js';
 import { discoverConfig } from '../config/config-discovery.js';
 import { planConfig } from '../config/config-plan.js';
-import {
-  projectLinkCommand,
-  validateProjectLinkOptions,
-} from '../projects/project.commands.js';
+import { validateProjectLinkOptions } from '../projects/project.validations.js';
 import { planAgentSetup } from './agent-setup.js';
 import { createPrompts } from './setup-prompts.js';
-
-function runProcess(command, args) {
-  return new Promise((resolve, reject) => {
-    let child = spawn(command, args, { stdio: 'inherit' });
-    child.once('error', reject);
-    child.once('close', (code, signal) => {
-      if (code === 0) resolve();
-      else
-        reject(
-          new Error(
-            `${command} did not finish successfully (${signal || code}).`
-          )
-        );
-    });
-  });
-}
 
 async function guidedPlan(cwd, config, prompts) {
   output.hint(`Project: ${cwd}`);
@@ -67,25 +46,6 @@ function agentOptions(options) {
   };
 }
 
-async function connectProject(project, options) {
-  let exitCode = 0;
-  let link = () =>
-    projectLinkCommand(project, {}, options, {
-      exit: code => {
-        exitCode = code;
-      },
-    });
-  let result = await link();
-  if (result?.reason === 'auth_required') {
-    let cli = fileURLToPath(new URL('../../cli.js', import.meta.url));
-    await runProcess(process.execPath, [cli, 'login']);
-    result = await link();
-  }
-  let status = result?.linked ? 'linked' : 'failed';
-  if (!result?.linked && exitCode === 1) status = 'auth_required';
-  return { status, project };
-}
-
 function showResult(result, json) {
   if (json) {
     output.data(result);
@@ -111,7 +71,7 @@ function showResult(result, json) {
   }
 }
 
-export async function init(options = {}) {
+export async function init(options = {}, { connectProject } = {}) {
   output.configure({
     json: options.json || false,
     verbose: options.verbose,

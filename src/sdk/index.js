@@ -268,7 +268,10 @@ export class VizzlySDK extends EventEmitter {
 
   async startTDD(options = {}) {
     let tddService = this.createTDDService(options);
-    return tddService.start(options);
+    tddService.clearRunData();
+    await tddService.loadBaseline();
+    this.services.tddService = tddService;
+    return tddService;
   }
 
   /**

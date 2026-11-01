@@ -42,8 +42,8 @@
     },
     "./config": {
       "types": "./dist/types/config.d.ts",
-      "import": "./dist/utils/config-helpers.js",
-      "require": "./dist/utils/config-helpers.js"
+      "import": "./dist/domains/config/config.js",
+      "require": "./dist/domains/config/config.js"
     }
   },
   "main": "./dist/index.js",
@@ -80,11 +80,12 @@
     "test:swift:previews:e2e": "node clients/swift/scripts/run-preview-e2e.js",
     "test:tui": "node --test --test-reporter=spec tests/tui/*.test.js",
     "test:tui:docker": "./tests/tui/run-tui-tests.sh",
-    "lint": "biome check src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts",
-    "lint:fix": "biome check --write --unsafe src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts",
-    "format": "biome format --write src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts",
-    "format:check": "biome format src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts",
-    "fix": "pnpm run format && pnpm run lint:fix"
+    "lint": "pnpm run check:architecture && biome check src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts scripts/check-architecture.js",
+    "lint:fix": "biome check --write --unsafe src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts scripts/check-architecture.js",
+    "format": "biome format --write src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts scripts/check-architecture.js",
+    "format:check": "biome format src tests clients/storybook/src clients/storybook/tests clients/static-site/src clients/static-site/tests clients/vitest/src clients/vitest/tests clients/ember/src clients/ember/tests clients/ember/bin clients/swift/src clients/swift/tests-js clients/swift/scripts scripts/check-architecture.js",
+    "fix": "pnpm run format && pnpm run lint:fix",
+    "check:architecture": "node scripts/check-architecture.js"
   },
   "engines": {
     "node": "^22.18.0 || >=24.0.0"

@@ -1,0 +1,545 @@
+import { normalizeSetBaseline } from './run.normalizers.js';
+import {
+  hasApiKey,
+  shouldDisableVizzly,
+  validateDaemonMode,
+} from './run.rules.js';
+import {
+  buildApiBuildPayload,
+  buildDisabledRunResult,
+  buildRunResult,
+} from './run.serializers.js';
+import { validateTestCommand } from './run.validations.js';
+import {
+  buildClientOptions,
+  buildDisabledEnv,
+  buildSpawnOptions,
+  buildTestEnv,
+} from './run-environment.js';
+
+/**
+ * Test execution and build lifecycle services
+ *
+ * Each operation takes its dependencies as parameters:
+ * - spawn: child_process.spawn for executing commands
+ * - serverManager: for starting/stopping screenshot server
+ * - buildManager: for local build management (TDD mode)
+ * - apiClient: for API builds and finalization
+ * - output: for logging
+ *
+ * This makes them trivially testable without mocking modules.
+ */
+
+// ============================================================================
+// Build Operations
+// ============================================================================
+
+/**
+ * Create a build (either locally for TDD or via API)
+ * @param {Object} options - Options
+ * @param {Object} options.runOptions - Run options (buildName, branch, etc.)
+ * @param {boolean} options.tdd - Whether in TDD mode
+ * @param {Object} options.config - Configuration object
+ * @param {Object} options.deps - Dependencies
+ * @param {Object} options.deps.buildManager - Build manager for local builds
+ * @param {Function} options.deps.createApiClient - API client factory
+ * @param {Function} options.deps.createApiBuild - API build creation function
+ * @param {Object} options.deps.output - Output utilities
+ * @returns {Promise<string>} Build ID
+ */
+export async function createBuild({ runOptions, tdd, config, deps }) {
+  let { buildManager, createApiClient, createApiBuild, output } = deps;
+
+  if (tdd) {
+    // TDD mode: create local build
+    let build = await buildManager.createBuild(runOptions);
+    output.debug('build', `created ${build.id.substring(0, 8)}`);
+    return build.id;
+  }
+
+  // API mode: create build via API
+  let clientOptions = buildClientOptions(config);
+  if (!clientOptions) {
+    throw new Error('No API key available for build creation');
+  }
+
+  let client = createApiClient(clientOptions);
+  let payload = buildApiBuildPayload(runOptions, config._comparisonOverrides);
+  let buildResult = await createApiBuild(client, payload);
+
+  if (!buildResult?.id) {
+    throw new Error('Vizzly API did not return a build ID');
+  }
+
+  output.debug('build', `created ${buildResult.id}`);
+
+  return buildResult.id;
+}
+
+/**
+ * Get build URL from API
+ * @param {Object} options - Options
+ * @param {string} options.buildId - Build ID
+ * @param {Object} options.config - Configuration object
+ * @param {Object} options.deps - Dependencies
+ * @param {Function} options.deps.createApiClient - API client factory
+ * @param {Function} options.deps.getBuild - Get build function
+ * @param {Object} options.deps.output - Output utilities
+ * @returns {Promise<string|null>} Build URL or null
+ */
+export async function fetchBuildUrl({ buildId, config, deps }) {
+  let { createApiClient, getBuild, output } = deps;
+
+  let clientOptions = buildClientOptions(config);
+  if (!clientOptions) {
+    return null;
+  }
+
+  try {
+    let client = createApiClient(clientOptions);
+    let build = await getBuild(client, buildId);
+    return build.url || null;
+  } catch (error) {
+    output.debug('build', 'could not retrieve url', { error: error.message });
+    return null;
+  }
+}
+
+/**
+ * Flush captures before saving the build's final status.
+ * Cloud builds fail when tests or uploads fail. Finalization errors are reported
+ * without replacing the test result; collected upload counts are still returned.
+ *
+ * @param {Object} options - Options
+ * @param {string} options.buildId - Build ID
+ * @param {boolean} options.tdd - Whether in TDD mode
+ * @param {boolean} options.success - Whether tests passed
+ * @param {number} options.executionTime - Execution time in ms
+ * @param {Object} options.config - Configuration object
+ * @param {Object} options.deps - Dependencies
+ * @param {Object} options.deps.serverManager - Server manager
+ * @param {Function} options.deps.createApiClient - API client factory
+ * @param {Function} options.deps.finalizeApiBuild - API finalize function
+ * @param {Object} options.deps.output - Output utilities
+ * @param {Function} [options.deps.onFinalizeFailed] - Callback for finalize failure
+ * @returns {Promise<Object|null|undefined>} Cumulative cloud upload results when
+ * available; no upload results for local TDD or a run without a build.
+ */
+export async function finalizeBuild({
+  buildId,
+  tdd,
+  success,
+  executionTime,
+  config,
+  deps,
+}) {
+  let {
+    serverManager,
+    createApiClient,
+    finalizeApiBuild,
+    output,
+    onFinalizeFailed,
+  } = deps;
+
+  if (!buildId) {
+    return;
+  }
+
+  let uploadStats = null;
+  try {
+    if (tdd) {
+      // TDD mode: use server handler to finalize (local-only)
+      if (serverManager.server?.finishBuild) {
+        await serverManager.server.finishBuild(buildId);
+        output.debug('build', 'finalized', { success });
+      }
+    } else {
+      // API mode: flush uploads first, then finalize build
+      if (serverManager.server?.finishBuild) {
+        uploadStats = await serverManager.server.finishBuild(buildId);
+      }
+
+      // Then update build status via API
+      let clientOptions = buildClientOptions(config);
+      if (clientOptions) {
+        let client = createApiClient(clientOptions);
+        let uploadsFailed = uploadStats?.failed > 0;
+        let buildSucceeded = success && !uploadsFailed;
+        await finalizeApiBuild(
+          client,
+          buildId,
+          buildSucceeded,
+          executionTime,
+          uploadsFailed
+            ? `${uploadStats.failed} screenshot(s) failed to upload. Visual testing is incomplete.`
+            : undefined
+        );
+        output.debug('build', 'finalized via api', { success: buildSucceeded });
+      } else {
+        output.warn(`No API service available to finalize build ${buildId}`);
+      }
+    }
+  } catch (error) {
+    // Don't fail the entire run if build finalization fails
+    output.warn(`Failed to finalize build ${buildId}:`, error.message);
+    if (onFinalizeFailed) {
+      onFinalizeFailed({ buildId, error: error.message, stack: error.stack });
+    }
+  }
+  return uploadStats;
+}
+
+// ============================================================================
+// Test Execution Operations
+// ============================================================================
+
+/**
+ * Execute a test command
+ * @param {Object} options - Options
+ * @param {string} options.command - Test command to execute
+ * @param {Object} options.env - Environment variables
+ * @param {Object} options.deps - Dependencies
+ * @param {Function} options.deps.spawn - Spawn function
+ * @param {Function} options.deps.createError - Error factory
+ * @returns {Promise<{ process: Object }>} Spawned process reference
+ */
+export function executeTestCommand({ command, env, json = false, deps }) {
+  let { spawn, createError } = deps;
+
+  return new Promise((resolve, reject) => {
+    let spawnOptions = buildSpawnOptions(env, { json });
+    let testProcess = spawn(command, spawnOptions);
+
+    if (json) {
+      testProcess.stdout?.on('data', data => {
+        process.stderr.write(data);
+      });
+      testProcess.stderr?.on('data', data => {
+        process.stderr.write(data);
+      });
+    }
+
+    testProcess.on('error', error => {
+      reject(
+        createError(
+          `Failed to run test command: ${error.message}`,
+          'TEST_COMMAND_FAILED'
+        )
+      );
+    });
+
+    testProcess.on('exit', (code, signal) => {
+      if (signal === 'SIGINT') {
+        reject(
+          createError(
+            'Test command was interrupted',
+            'TEST_COMMAND_INTERRUPTED'
+          )
+        );
+      } else if (code !== 0) {
+        reject(
+          createError(
+            `Test command exited with code ${code}`,
+            'TEST_COMMAND_FAILED'
+          )
+        );
+      } else {
+        resolve({ process: testProcess });
+      }
+    });
+
+    // Return process reference for cancellation
+    resolve.__process = testProcess;
+  });
+}
+
+async function executeDisabledTestRun({ testCommand, json, reason, deps }) {
+  let { spawn, createError } = deps;
+  let result = buildDisabledRunResult(reason);
+  try {
+    await executeTestCommand({
+      command: testCommand,
+      env: buildDisabledEnv(),
+      json,
+      deps: { spawn, createError },
+    });
+  } catch (error) {
+    result.testsPassed = 0;
+    result.testsFailed = 1;
+    error.runResult = result;
+    throw error;
+  }
+  return result;
+}
+
+// ============================================================================
+// High-Level Run Operations
+// ============================================================================
+
+/**
+ * Run tests with Vizzly integration
+ * @param {Object} options - Options
+ * @param {Object} options.runOptions - Run options (testCommand, tdd, etc.)
+ * @param {Object} options.config - Configuration object
+ * @param {Object} options.deps - Dependencies
+ * @returns {Promise<Object>} Test result with cumulative cloud upload results
+ * when available. Upload failures alone do not reject the run.
+ * @throws {Error} Test execution failure, with upload results attached when
+ * available so callers can report both without losing the test exit code.
+ */
+export async function runTests({ runOptions, config, deps }) {
+  let {
+    serverManager,
+    buildManager,
+    spawn,
+    createApiClient,
+    createApiBuild,
+    getBuild,
+    finalizeApiBuild,
+    createError,
+    output,
+    onBuildCreated,
+    onServerReady,
+    onFinalizeFailed,
+  } = deps;
+
+  let { testCommand, tdd, allowNoToken } = runOptions;
+  let startTime = Date.now();
+
+  // Validate test command
+  let validation = validateTestCommand(testCommand);
+  if (!validation.valid) {
+    throw createError(validation.error, 'TEST_COMMAND_MISSING');
+  }
+
+  // Check if we should skip Vizzly integration entirely
+  if (
+    shouldDisableVizzly({ allowNoToken, hasApiKey: hasApiKey(config), tdd })
+  ) {
+    return executeDisabledTestRun({
+      testCommand,
+      json: runOptions.json,
+      deps: { spawn, createError },
+    });
+  }
+
+  let buildId = null;
+  let buildUrl = null;
+  let screenshotCount = 0;
+  let testSuccess = false;
+  let testError = null;
+  let uploadStats = null;
+
+  let setBaseline;
+  try {
+    buildId = await createBuild({
+      runOptions,
+      tdd,
+      config,
+      deps: { buildManager, createApiClient, createApiBuild, output },
+    });
+
+    // Get build URL for API mode
+    if (!tdd && buildId) {
+      buildUrl = await fetchBuildUrl({
+        buildId,
+        config,
+        deps: { createApiClient, getBuild, output },
+      });
+      if (buildUrl) {
+        output.info(`Build URL: ${buildUrl}`);
+      }
+
+      if (onBuildCreated) {
+        onBuildCreated({ buildId, url: buildUrl });
+      }
+    }
+
+    // Start server
+    setBaseline = normalizeSetBaseline(runOptions);
+    await serverManager.start(buildId, tdd, setBaseline);
+
+    if (onServerReady) {
+      onServerReady({ port: config.server?.port, buildId, tdd });
+    }
+  } catch (error) {
+    output.warn(
+      'Vizzly encountered an error. Running tests without visual testing.'
+    );
+    output.debug('run', 'setup failed; disabling Vizzly', {
+      error: error.message,
+    });
+
+    try {
+      await serverManager.stop();
+    } catch (stopError) {
+      output.debug('run', 'failed to stop Vizzly after setup error', {
+        error: stopError.message,
+      });
+    }
+
+    return executeDisabledTestRun({
+      testCommand,
+      json: runOptions.json,
+      reason: error.message,
+      deps: { spawn, createError },
+    });
+  }
+
+  // Execute the user's tests. This is the only error that can fail the run.
+  let env = buildTestEnv({
+    port: config.server?.port,
+    buildId,
+    setBaseline,
+    failOnDiff: runOptions.failOnDiff || false,
+  });
+
+  try {
+    await executeTestCommand({
+      command: testCommand,
+      env,
+      json: runOptions.json,
+      deps: { spawn, createError },
+    });
+    testSuccess = true;
+  } catch (error) {
+    testError = error;
+  }
+
+  // Get TDD results before stopping the server
+  let tddResults = null;
+  if (tdd) {
+    try {
+      tddResults = await serverManager.getTddResults?.();
+      if (tddResults) {
+        screenshotCount = tddResults.total || 0;
+      }
+    } catch (tddError) {
+      output.debug('tdd', 'failed to get results', { error: tddError.message });
+      tddResults = {
+        total: 0,
+        errors: 1,
+        error: tddError.message,
+        capture: { accepted: 0, rejected: 0 },
+      };
+    }
+  }
+
+  // Always finalize and cleanup
+  try {
+    let executionTime = Date.now() - startTime;
+
+    if (buildId) {
+      try {
+        uploadStats = await finalizeBuild({
+          buildId,
+          tdd,
+          success: testSuccess,
+          executionTime,
+          config,
+          deps: {
+            serverManager,
+            createApiClient,
+            finalizeApiBuild,
+            output,
+            onFinalizeFailed,
+          },
+        });
+      } catch (finalizeError) {
+        output.error('Failed to finalize build:', finalizeError);
+      }
+    }
+
+    // In API mode, get actual screenshot count from handler after flush
+    if (!tdd && serverManager.server?.getScreenshotCount) {
+      try {
+        screenshotCount = serverManager.server.getScreenshotCount(buildId) || 0;
+      } catch (countError) {
+        output.debug('build', 'failed to get screenshot count', {
+          error: countError.message,
+        });
+      }
+    }
+  } finally {
+    try {
+      await serverManager.stop();
+    } catch (stopError) {
+      output.error('Failed to stop server:', stopError);
+    }
+  }
+
+  let result = buildRunResult({
+    buildId,
+    buildUrl,
+    testSuccess,
+    screenshotCount,
+    tddResults,
+    uploadStats,
+  });
+
+  // Throw test error after cleanup, retaining any completed visual evidence.
+  if (testError) {
+    if (!runOptions.json) {
+      output.error('Test run failed:', testError);
+    }
+    if (uploadStats) testError.uploads = uploadStats;
+    if (tdd) testError.runResult = result;
+    throw testError;
+  }
+
+  return result;
+}
+
+/**
+ * Initialize daemon server (TDD mode only)
+ * @param {Object} options - Options
+ * @param {Object} options.initOptions - Init options
+ * @param {Object} options.deps - Dependencies
+ * @param {Object} options.deps.serverManager - Server manager
+ * @param {Function} options.deps.createError - Error factory
+ * @param {Object} options.deps.output - Output utilities
+ * @param {Function} [options.deps.onServerReady] - Server ready callback
+ */
+export async function initializeDaemon({ initOptions, deps }) {
+  let { serverManager, createError, output, onServerReady } = deps;
+
+  let validation = validateDaemonMode(initOptions);
+  if (!validation.valid) {
+    throw createError(validation.error, 'INVALID_MODE');
+  }
+
+  try {
+    let setBaseline = normalizeSetBaseline(initOptions);
+    await serverManager.start(null, true, setBaseline);
+
+    if (onServerReady) {
+      onServerReady({
+        port: initOptions.port,
+        mode: 'daemon',
+        tdd: true,
+      });
+    }
+  } catch (error) {
+    output.error('Failed to initialize TDD daemon server:', error);
+    throw error;
+  }
+}
+
+/**
+ * Cancel running tests
+ * @param {Object} options - Options
+ * @param {Object|null} options.testProcess - Running test process
+ * @param {Object} options.deps - Dependencies
+ * @param {Object} options.deps.serverManager - Server manager
+ */
+export async function cancelTests({ testProcess, deps }) {
+  let { serverManager } = deps;
+
+  if (testProcess && !testProcess.killed) {
+    testProcess.kill('SIGKILL');
+  }
+
+  if (serverManager) {
+    await serverManager.stop();
+  }
+}

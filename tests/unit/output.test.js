@@ -10,7 +10,7 @@ import {
   normalizeDebugArgs,
   reset,
   warn,
-} from '../../src/utils/output.js';
+} from '../../src/services/output.js';
 
 describe('Output - Log Levels', () => {
   let originalEnv;

@@ -12,21 +12,21 @@
 
 import { EventEmitter } from 'node:events';
 import { createServer } from 'node:http';
-import { VizzlyError } from '../errors/vizzly-error.js';
+import { loadConfig } from '../domains/config/config-loader.js';
+import { resolveImageBuffer } from '../domains/screenshots/image-files.js';
+import {
+  getScreenshotOptionsPayload,
+  normalizeScreenshotOptions,
+} from '../domains/screenshots/screenshot-options.js';
 import {
   handleRequest as handleScreenshotRequest,
   startServer as startScreenshotServer,
   stopServer as stopScreenshotServer,
-} from '../screenshot-server/index.js';
-import { createTDDService } from '../tdd/tdd-service.js';
-import { createUploader } from '../uploader/index.js';
-import { loadConfig } from '../utils/config-loader.js';
-import { resolveImageBuffer } from '../utils/file-helpers.js';
-import * as output from '../utils/output.js';
-import {
-  getScreenshotOptionsPayload,
-  normalizeScreenshotOptions,
-} from '../utils/screenshot-options.js';
+} from '../domains/screenshots/screenshot-server.js';
+import { createTDDService } from '../domains/tdd/tdd.service.js';
+import { createUploader } from '../domains/uploads/upload.service.js';
+import { VizzlyError } from '../errors/vizzly-error.js';
+import * as output from '../services/output.js';
 
 /**
  * Create a new Vizzly instance with custom configuration
@@ -461,9 +461,9 @@ export class VizzlySDK extends EventEmitter {
   }
 }
 
-export { createTDDService } from '../tdd/tdd-service.js';
-// Export service creators for advanced usage
-export { createUploader } from '../uploader/index.js';
 // Re-export key utilities and errors
-export { loadConfig } from '../utils/config-loader.js';
-export * as output from '../utils/output.js';
+export { loadConfig } from '../domains/config/config-loader.js';
+export { createTDDService } from '../domains/tdd/tdd.service.js';
+// Export service creators for advanced usage
+export { createUploader } from '../domains/uploads/upload.service.js';
+export * as output from '../services/output.js';

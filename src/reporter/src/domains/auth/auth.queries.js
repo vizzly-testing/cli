@@ -1,0 +1,30 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../services/query-keys.js';
+import { auth } from './auth.service.js';
+
+export function useAuthStatus() {
+  return useQuery({
+    queryKey: queryKeys.authStatus(),
+    queryFn: auth.getStatus,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+export function useInitiateLogin() {
+  return useMutation({
+    mutationFn: auth.initiateLogin,
+  });
+}
+
+export function usePollAuthorization() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deviceCode => auth.pollAuthorization(deviceCode),
+    onSuccess: data => {
+      if (data.status === 'complete') {
+        queryClient.invalidateQueries({ queryKey: queryKeys.auth });
+        queryClient.invalidateQueries({ queryKey: queryKeys.cloud });
+      }
+    },
+  });
+}

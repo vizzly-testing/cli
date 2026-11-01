@@ -3,10 +3,9 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "UTC"
+      # Check every day, including weekends.
+      interval: "cron"
+      cronjob: "17 9 * * *"
     commit-message:
       prefix: "⬆️"
     # Ember's build plugins still require Babel 7. Review Babel majors together

@@ -3,7 +3,7 @@ import { access, readFile, realpath } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { getPackageName, getPackageRoot } from '../../services/package-info.js';
+import { getPackageName, getPackageRoot } from '../../shared/package-info.js';
 
 let exec = promisify(execFile);
 let installCommands = { npm: 'install', pnpm: 'add' };
@@ -66,7 +66,13 @@ export async function findCliUpdatePlan(
           command: manager,
           args,
           cwd: directory,
-          cliPath: path.join(directory, 'node_modules', name, 'dist', 'cli.js'),
+          cliPath: path.join(
+            directory,
+            'node_modules',
+            name,
+            'bin',
+            'vizzly.js'
+          ),
         };
       }
     } catch {
@@ -86,7 +92,7 @@ export async function findCliUpdatePlan(
           command: manager,
           args: [installCommands[manager], '--global', spec],
           cwd,
-          cliPath: path.join(globalPackage, 'dist', 'cli.js'),
+          cliPath: path.join(globalPackage, 'bin', 'vizzly.js'),
         };
       }
     } catch {

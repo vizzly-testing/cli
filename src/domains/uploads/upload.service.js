@@ -1,12 +1,12 @@
 import { readFile, stat } from 'node:fs/promises';
 import { glob } from 'glob';
+import { getDefaultBranch } from '../../shared/git.js';
+import * as output from '../../shared/output.js';
 import {
   TimeoutError,
   UploadError,
   ValidationError,
-} from '../../errors/vizzly-error.js';
-import { getDefaultBranch } from '../../services/git.js';
-import * as output from '../../services/output.js';
+} from '../../shared/vizzly-error.js';
 import { createApiClient } from '../auth/cloud-client.js';
 import { createBuild } from '../builds/build.service.js';
 import { checkShas } from '../screenshots/cloud-screenshots.js';

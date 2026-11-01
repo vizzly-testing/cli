@@ -14,8 +14,8 @@ import {
  * Uses functional API operations directly
  */
 
-import { getAppBaseUrl } from '../../services/api-url.js';
-import * as defaultOutput from '../../services/output.js';
+import { getAppBaseUrl } from '../../shared/api-url.js';
+import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getPreviewInfo as defaultGetPreviewInfo } from '../previews/preview.service.js';

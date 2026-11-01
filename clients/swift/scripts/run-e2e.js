@@ -8,7 +8,7 @@ let scriptDir = dirname(fileURLToPath(import.meta.url));
 let swiftPackageDir = resolve(scriptDir, '..');
 let repoRoot = resolve(swiftPackageDir, '../..');
 let cliPath = join(repoRoot, 'bin/vizzly.js');
-let distCliPath = join(repoRoot, 'dist/cli.js');
+let distCliPath = join(repoRoot, 'dist/adapters/cli/cli.js');
 
 if (!existsSync(distCliPath)) {
   console.error('Build the CLI first: pnpm run build');

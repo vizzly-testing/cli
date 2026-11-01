@@ -2,7 +2,7 @@
  * Type tests for @vizzly-testing/cli/config
  */
 import { expectError, expectType } from 'tsd';
-import { defineConfig, type VizzlyConfig } from '../src/types/config';
+import { defineConfig, type VizzlyConfig } from '../src/domains/config/config';
 
 // ============================================================================
 // defineConfig

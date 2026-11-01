@@ -10,9 +10,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach } from 'node:test';
-import { resetGitHubEventCache } from '../../src/services/ci-env.js';
+import { resetGitHubEventCache } from '../../src/shared/ci-env.js';
 
-// CI variables read by src/services/ci-env.js, cleared so host CI can't leak in
+// CI variables read by src/shared/ci-env.js, cleared so host CI can't leak in
 export let CI_ENV_VARS = [
   'VIZZLY_BRANCH',
   'VIZZLY_COMMIT_SHA',

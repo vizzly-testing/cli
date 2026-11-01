@@ -1,6 +1,6 @@
 import path from 'node:path';
-import { VizzlyError } from '../../errors/vizzly-error.js';
-import { applyChanges } from '../../services/file-changes.js';
+import { applyChanges } from '../../shared/file-changes.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import { discoverConfig } from '../config/config-discovery.js';
 
 function sameProject(left, right) {

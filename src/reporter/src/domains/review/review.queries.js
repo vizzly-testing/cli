@@ -3,11 +3,23 @@ import { queryKeys } from '../../services/query-keys.js';
 import { SSE_STATE, useSSEState } from '../../services/use-sse.js';
 import {
   asIdList,
-  restoreComparisonsFromPrevious,
+  rollbackComparisonActions,
   runBatchMutation,
   updateComparisonsUserAction,
 } from './batch-mutations.js';
 import { review } from './review.service.js';
+
+function rollbackReviewMutation(queryClient, context) {
+  if (!context?.previousData) return;
+  queryClient.setQueryData(queryKeys.reportData(), current =>
+    rollbackComparisonActions(
+      current,
+      context.previousData,
+      context.ids || [],
+      context.userAction
+    )
+  );
+}
 
 function rollbackBatchMutationError(queryClient, context, error) {
   if (!context?.previousData) {
@@ -19,13 +31,11 @@ function rollbackBatchMutationError(queryClient, context, error) {
   let hasPartialSuccess = failedIds.length > 0 && succeededIds.length > 0;
 
   if (hasPartialSuccess) {
-    queryClient.setQueryData(queryKeys.reportData(), old =>
-      restoreComparisonsFromPrevious(old, context.previousData, failedIds)
-    );
+    rollbackReviewMutation(queryClient, { ...context, ids: failedIds });
     return;
   }
 
-  queryClient.setQueryData(queryKeys.reportData(), context.previousData);
+  rollbackReviewMutation(queryClient, context);
 }
 
 export function useComparison(id, options = {}) {
@@ -57,32 +67,36 @@ export function useReportData(options = {}) {
   });
 }
 
-export function useAcceptBaseline() {
+function useReviewMutation({
+  mutationFn,
+  userAction,
+  rollback = rollbackReviewMutation,
+}) {
   let queryClient = useQueryClient();
   return useMutation({
-    mutationFn: id => review.acceptBaseline(id),
-    onMutate: async id => {
-      let ids = asIdList(id);
-
-      // Cancel any outgoing refetches
+    mutationFn,
+    onMutate: async value => {
+      let ids = asIdList(value);
       await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
-
-      // Optimistically update the comparison
       let previousData = queryClient.getQueryData(queryKeys.reportData());
       queryClient.setQueryData(queryKeys.reportData(), old =>
-        updateComparisonsUserAction(old, ids, 'accepted')
+        updateComparisonsUserAction(old, ids, userAction)
       );
-      return { previousData };
+      return { previousData, ids, userAction };
     },
-    onError: (_err, _id, context) => {
-      // Rollback on error
-      if (context?.previousData) {
-        queryClient.setQueryData(queryKeys.reportData(), context.previousData);
-      }
+    onError: (error, _value, context) => {
+      rollback(queryClient, context, error);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
     },
+  });
+}
+
+export function useAcceptBaseline() {
+  return useReviewMutation({
+    mutationFn: id => review.acceptBaseline(id),
+    userAction: 'accepted',
   });
 }
 
@@ -107,83 +121,27 @@ export function useResetBaselines() {
 }
 
 export function useRejectBaseline() {
-  let queryClient = useQueryClient();
-  return useMutation({
+  return useReviewMutation({
     mutationFn: id => review.rejectBaseline(id),
-    onMutate: async id => {
-      let ids = asIdList(id);
-
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
-
-      // Optimistically update the comparison
-      let previousData = queryClient.getQueryData(queryKeys.reportData());
-      queryClient.setQueryData(queryKeys.reportData(), old =>
-        updateComparisonsUserAction(old, ids, 'rejected')
-      );
-      return { previousData };
-    },
-    onError: (_err, _id, context) => {
-      // Rollback on error
-      if (context?.previousData) {
-        queryClient.setQueryData(queryKeys.reportData(), context.previousData);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
-    },
+    userAction: 'rejected',
   });
 }
 
 export function useAcceptBaselinesBatch() {
-  let queryClient = useQueryClient();
-  return useMutation({
+  return useReviewMutation({
     mutationFn: ids =>
       runBatchMutation(ids, id => review.acceptBaseline(id), 'accept'),
-    onMutate: async ids => {
-      let idList = asIdList(ids);
-
-      await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
-
-      let previousData = queryClient.getQueryData(queryKeys.reportData());
-      queryClient.setQueryData(queryKeys.reportData(), old =>
-        updateComparisonsUserAction(old, idList, 'accepted')
-      );
-
-      return { previousData };
-    },
-    onError: (error, _ids, context) => {
-      rollbackBatchMutationError(queryClient, context, error);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
-    },
+    userAction: 'accepted',
+    rollback: rollbackBatchMutationError,
   });
 }
 
 export function useRejectBaselinesBatch() {
-  let queryClient = useQueryClient();
-  return useMutation({
+  return useReviewMutation({
     mutationFn: ids =>
       runBatchMutation(ids, id => review.rejectBaseline(id), 'reject'),
-    onMutate: async ids => {
-      let idList = asIdList(ids);
-
-      await queryClient.cancelQueries({ queryKey: queryKeys.reportData() });
-
-      let previousData = queryClient.getQueryData(queryKeys.reportData());
-      queryClient.setQueryData(queryKeys.reportData(), old =>
-        updateComparisonsUserAction(old, idList, 'rejected')
-      );
-
-      return { previousData };
-    },
-    onError: (error, _ids, context) => {
-      rollbackBatchMutationError(queryClient, context, error);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tdd });
-    },
+    userAction: 'rejected',
+    rollback: rollbackBatchMutationError,
   });
 }
 

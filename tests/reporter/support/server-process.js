@@ -1,11 +1,11 @@
 // Run the production server in the fixture directory, with isolated local state.
 
+import { createHttpServer } from '../../../src/adapters/http/http-server.js';
 import { createAuthService } from '../../../src/domains/auth/auth.service.js';
 import { saveAuthTokens } from '../../../src/domains/auth/token-store.js';
 import { createConfigService } from '../../../src/domains/config/config.service.js';
 import { createProjectService } from '../../../src/domains/projects/project.service.js';
 import { createTddHandler } from '../../../src/domains/tdd/screenshot-handler.js';
-import { createHttpServer } from '../../../src/server/http-server.js';
 
 let apiUrl = process.env.REPORTER_TEST_API_URL;
 if (process.env.REPORTER_TEST_SIGNED_IN === 'true') {

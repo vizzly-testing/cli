@@ -1,4 +1,4 @@
-import * as defaultOutput from '../../services/output.js';
+import * as defaultOutput from '../../shared/output.js';
 import { CONFIG_DEFAULTS } from './config-defaults.js';
 import { loadConfig as defaultLoadConfig } from './config-loader.js';
 

@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { vizzlyScreenshot } from '../../../dist/client/index.js';
+import { vizzlyScreenshot } from '../../../dist/adapters/client/index.js';
 
 export async function waitForReporterImages(page, selector = 'body') {
   await page.locator(selector).evaluate(async root => {

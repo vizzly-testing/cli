@@ -1,4 +1,4 @@
-import { getPackageVersion } from '../../services/package-info.js';
+import { getPackageVersion } from '../../shared/package-info.js';
 import { parseAuthError, parseAuthenticatedError } from './auth-errors.js';
 import { buildAuthUserAgent, buildRequestHeaders } from './auth-headers.js';
 

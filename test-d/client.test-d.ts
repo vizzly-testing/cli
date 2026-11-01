@@ -2,7 +2,7 @@
  * Type tests for @vizzly-testing/cli/client
  */
 import { expectError, expectType } from 'tsd';
-import type { ScreenshotResult } from '../src/types/client';
+import type { ScreenshotResult } from '../src/adapters/client/index';
 import {
   autoDiscoverTddServer,
   configure,
@@ -13,7 +13,7 @@ import {
   shouldLogClient,
   vizzlyFlush,
   vizzlyScreenshot,
-} from '../src/types/client';
+} from '../src/adapters/client/index';
 
 let screenshotResult: ScreenshotResult = {
   success: true,
@@ -74,7 +74,7 @@ expectError(
 // ============================================================================
 
 // Should return Promise<FlushResult | null>
-import type { FlushResult } from '../src/types/client';
+import type { FlushResult } from '../src/adapters/client/index';
 
 expectType<Promise<FlushResult | null>>(vizzlyFlush());
 let flushResult: FlushResult = {

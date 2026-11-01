@@ -1,0 +1,223 @@
+import assert from 'node:assert';
+import { createHash } from 'node:crypto';
+import { once } from 'node:events';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, it } from 'node:test';
+import { createUploader, createVizzly, VizzlySDK } from './index.js';
+
+describe('sdk/index', () => {
+  describe('createVizzly', () => {
+    it('returns an initialized VizzlySDK and lets explicit config win', async () => {
+      let sdk = await createVizzly(
+        {
+          apiKey: 'explicit-token',
+          server: { port: 6000 },
+        },
+        {
+          loadConfig: async () => ({
+            apiKey: 'file-token',
+            apiUrl: 'https://from-config.example',
+            server: { port: 3000 },
+          }),
+        }
+      );
+
+      assert.ok(sdk instanceof VizzlySDK);
+      assert.deepStrictEqual(sdk.getConfig(), {
+        apiKey: 'explicit-token',
+        apiUrl: 'https://from-config.example',
+        server: { port: 6000 },
+      });
+    });
+
+    it('uses the current SDK config when creating services after config updates', async () => {
+      let uploaderConfigs = [];
+      let tddConfigs = [];
+      let sdk = await createVizzly(
+        {
+          apiKey: 'initial-token',
+          apiUrl: 'https://initial.example',
+          upload: { screenshotsDir: './initial' },
+        },
+        {
+          loadConfig: async () => ({}),
+          createUploader: (config, options) => {
+            uploaderConfigs.push({ config, options });
+            return { upload: async () => ({ success: true }) };
+          },
+          createTDDService: (config, options) => {
+            tddConfigs.push({ config, options });
+            return { start: async () => ({ started: true }) };
+          },
+        }
+      );
+
+      sdk.updateConfig({
+        apiKey: 'updated-token',
+        apiUrl: 'https://updated.example',
+        upload: { screenshotsDir: './updated' },
+      });
+
+      sdk.createUploader({ batchSize: 5 });
+      sdk.createTDDService({ workingDir: '/tmp/vizzly' });
+
+      assert.deepStrictEqual(uploaderConfigs[0].config, {
+        apiKey: 'updated-token',
+        apiUrl: 'https://updated.example',
+        upload: { screenshotsDir: './updated' },
+      });
+      assert.equal(uploaderConfigs[0].options.batchSize, 5);
+      assert.deepStrictEqual(tddConfigs[0].config, {
+        apiKey: 'updated-token',
+        apiUrl: 'https://updated.example',
+        upload: { screenshotsDir: './updated' },
+      });
+      assert.equal(tddConfigs[0].options.workingDir, '/tmp/vizzly');
+    });
+  });
+
+  describe('createUploader', () => {
+    it('uploads through an API that ignores the additive filename field', async t => {
+      let directory = await mkdtemp(
+        join(tmpdir(), 'vizzly-sdk-file-compatibility-')
+      );
+      t.after(async () => {
+        await rm(directory, { recursive: true, force: true });
+      });
+      let bytes = Buffer.from('same file bytes');
+      let sha256 = createHash('sha256').update(bytes).digest('hex');
+      let names = ['Homepage-chrome.png', 'Panel.png.png'];
+      for (let name of names) await writeFile(join(directory, name), bytes);
+      let requests = [];
+      let server = createServer(async (request, response) => {
+        let chunks = [];
+        for await (let chunk of request) chunks.push(chunk);
+        let body = request.headers['content-type']?.includes('application/json')
+          ? JSON.parse(Buffer.concat(chunks).toString())
+          : null;
+        requests.push({ path: request.url, body });
+        response.setHeader('Content-Type', 'application/json');
+        if (request.url === '/api/sdk/builds') {
+          response.statusCode = 201;
+          response.end(JSON.stringify({ id: 'build-1' }));
+          return;
+        }
+        if (request.url === '/api/sdk/check-shas') {
+          // The released API ignores unknown fields such as filename.
+          response.end(JSON.stringify({ existing: [sha256], missing: [] }));
+          return;
+        }
+        response.statusCode = 400;
+        response.end(
+          JSON.stringify({ error: 'No multipart upload should be needed' })
+        );
+      });
+      let ready = once(server, 'listening');
+      server.listen(0, '127.0.0.1');
+      await ready;
+      t.after(async () => {
+        await new Promise(resolve => server.close(resolve));
+      });
+      let apiUrl = `http://127.0.0.1:${server.address().port}`;
+      let uploader = createUploader({ apiKey: 'vzt_compatibility', apiUrl });
+      let result = await uploader.upload({
+        screenshotsDir: directory,
+        buildName: 'SDK compatibility',
+        branch: 'main',
+      });
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.stats.uploaded, 0);
+      assert.strictEqual(result.stats.skipped, 2);
+      assert.deepStrictEqual(
+        requests.map(({ path }) => path),
+        ['/api/sdk/builds', '/api/sdk/check-shas']
+      );
+      assert.deepStrictEqual(
+        requests[1].body.screenshots.map(({ name }) => name).sort(),
+        ['Homepage-chrome', 'Panel.png']
+      );
+      assert.deepStrictEqual(
+        requests[1].body.screenshots.map(({ filename }) => filename).sort(),
+        [...names].sort()
+      );
+    });
+  });
+
+  describe('VizzlySDK server workflow', () => {
+    it('preserves exact-match threshold when uploading screenshots', async () => {
+      let capturedUploadOptions = null;
+      let sdk = new VizzlySDK(
+        {
+          threshold: 2.0,
+          upload: { screenshotsDir: './screenshots' },
+        },
+        {
+          createUploader: () => ({
+            upload: async uploadOptions => {
+              capturedUploadOptions = uploadOptions;
+              return { buildId: 'build-123' };
+            },
+          }),
+        }
+      );
+
+      let result = await sdk.upload({ threshold: 0 });
+
+      assert.deepStrictEqual(result, { buildId: 'build-123' });
+      assert.strictEqual(capturedUploadOptions.threshold, 0);
+    });
+
+    it('uses nested config defaults and forwards upload tracking options', async () => {
+      let capturedUploadOptions = null;
+      let sdk = new VizzlySDK(
+        {
+          build: {
+            name: 'Config Build',
+            branch: 'feature/config',
+            commit: 'abc123',
+            message: 'Config message',
+            environment: 'staging',
+          },
+          comparison: {
+            threshold: 2,
+            minClusterSize: 4,
+          },
+          parallelId: 'config-parallel',
+          upload: { screenshotsDir: './configured-screenshots' },
+        },
+        {
+          createUploader: () => ({
+            upload: async uploadOptions => {
+              capturedUploadOptions = uploadOptions;
+              return { buildId: 'build-123' };
+            },
+          }),
+        }
+      );
+
+      await sdk.upload({
+        metadata: { ci: 'github' },
+        pullRequestNumber: 42,
+      });
+
+      assert.deepStrictEqual(capturedUploadOptions, {
+        screenshotsDir: './configured-screenshots',
+        buildName: 'Config Build',
+        branch: 'feature/config',
+        commit: 'abc123',
+        message: 'Config message',
+        environment: 'staging',
+        threshold: 2,
+        minClusterSize: 4,
+        metadata: { ci: 'github' },
+        pullRequestNumber: 42,
+        parallelId: 'config-parallel',
+        onProgress: capturedUploadOptions.onProgress,
+      });
+      assert.strictEqual(typeof capturedUploadOptions.onProgress, 'function');
+    });
+  });
+});

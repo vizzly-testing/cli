@@ -1,0 +1,468 @@
+/**
+ * Vizzly SDK - Full API for custom integrations
+ *
+ * This is the comprehensive SDK for building custom Vizzly integrations.
+ * For simple test runner usage, use @vizzly-testing/cli/client instead.
+ */
+
+/**
+ * @module @vizzly-testing/cli/sdk
+ * @description Full SDK for custom integrations and advanced usage
+ */
+
+import { EventEmitter } from 'node:events';
+import { createServer } from 'node:http';
+import { loadConfig } from '../../domains/config/config-loader.js';
+import { resolveImageBuffer } from '../../domains/screenshots/image-files.js';
+import { serializeScreenshotRequest } from '../../domains/screenshots/screenshot.serializers.js';
+import { normalizeScreenshotOptions } from '../../domains/screenshots/screenshot-options.js';
+import {
+  handleRequest as handleScreenshotRequest,
+  startServer as startScreenshotServer,
+  stopServer as stopScreenshotServer,
+} from '../../domains/screenshots/screenshot-server.js';
+import { createTDDService } from '../../domains/tdd/tdd.service.js';
+import { createUploader } from '../../domains/uploads/upload.service.js';
+import * as output from '../../shared/output.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
+
+/**
+ * Create a new Vizzly instance with custom configuration
+ *
+ * @param {Object} [config] - Configuration options
+ * @returns {Promise<VizzlySDK>} Configured Vizzly SDK instance
+ *
+ * @example
+ * // Create with custom config
+ * import { createVizzly } from '@vizzly-testing/cli/sdk';
+ *
+ * const vizzly = await createVizzly({
+ *   apiKey: process.env.VIZZLY_TOKEN,
+ *   apiUrl: 'https://app.vizzly.dev',
+ *   server: {
+ *     port: 3003,
+ *     enabled: true
+ *   }
+ * });
+ *
+ * // Start the server
+ * await vizzly.start();
+ *
+ * // Take screenshots
+ * const screenshot = await getScreenshotSomehow();
+ * await vizzly.screenshot('my-test', screenshot);
+ *
+ * // Upload results
+ * const result = await vizzly.upload();
+ * console.log(`Build URL: ${result.url}`);
+ *
+ * // Cleanup
+ * await vizzly.stop();
+ */
+export async function createVizzly(config = {}, options = {}) {
+  // Configure output based on options
+  output.configure({
+    verbose: options.verbose || false,
+  });
+
+  let loadConfigFn = options.loadConfig || loadConfig;
+  let fileConfig = await loadConfigFn();
+  let resolvedConfig = { ...fileConfig, ...config };
+
+  return new VizzlySDK(resolvedConfig, {
+    createUploader: (uploaderOptions = {}, activeConfig = resolvedConfig) => {
+      let { upload: uploadConfig = activeConfig.upload, ...serviceOptions } =
+        uploaderOptions;
+      let createUploaderService = options.createUploader || createUploader;
+      return createUploaderService(
+        {
+          apiKey: activeConfig.apiKey,
+          apiUrl: activeConfig.apiUrl,
+          upload: uploadConfig,
+        },
+        { ...options, ...serviceOptions }
+      );
+    },
+    createTDDService: (tddOptions = {}, activeConfig = resolvedConfig) => {
+      let createTDDServiceInstance =
+        options.createTDDService || createTDDService;
+      return createTDDServiceInstance(activeConfig, {
+        ...options,
+        ...tddOptions,
+      });
+    },
+    createScreenshotServer: createLocalScreenshotServer,
+    fetch: options.fetch,
+    loadConfig: loadConfigFn,
+  });
+}
+
+function createLocalBuildManager() {
+  let screenshots = new Map();
+
+  return {
+    async addScreenshot(buildId, screenshot) {
+      if (!screenshots.has(buildId)) {
+        screenshots.set(buildId, []);
+      }
+      screenshots.get(buildId).push(screenshot);
+    },
+
+    getScreenshots(buildId) {
+      return screenshots.get(buildId) || [];
+    },
+  };
+}
+
+function createLocalScreenshotServer(config, buildManager, options = {}) {
+  let server = null;
+  let deps = {
+    createHttpServer: options.createHttpServer || createServer,
+    output: options.output || output,
+    createError:
+      options.createError ||
+      ((message, code) => new VizzlyError(message, code)),
+  };
+
+  return {
+    async start() {
+      server = await startScreenshotServer({
+        config,
+        requestHandler: (req, res) =>
+          handleScreenshotRequest({
+            req,
+            res,
+            deps: {
+              buildManager,
+              createError: deps.createError,
+              output: deps.output,
+            },
+          }),
+        deps,
+      });
+    },
+
+    async stop() {
+      await stopScreenshotServer({ server, deps: { output: deps.output } });
+      server = null;
+    },
+
+    isRunning() {
+      return Boolean(server?.listening);
+    },
+  };
+}
+
+/**
+ * @typedef {Object} VizzlySDK
+ * @property {Function} start - Start the Vizzly server
+ * @property {Function} stop - Stop the Vizzly server
+ * @property {Function} screenshot - Capture a screenshot
+ * @property {Function} upload - Upload screenshots to Vizzly
+ * @property {Function} compare - Run local comparison (TDD mode)
+ * @property {Function} getConfig - Get current configuration
+ * @property {Function} on - Subscribe to events
+ * @property {Function} off - Unsubscribe from events
+ */
+
+/**
+ * VizzlySDK class implementation
+ * @class
+ * @extends {EventEmitter}
+ */
+export class VizzlySDK extends EventEmitter {
+  /**
+   * @param {Object} config - Configuration
+   * @param {Object} services - Service instances
+   */
+  constructor(config, services) {
+    super();
+    this.config = config;
+    this.services = services || {};
+    this.server = null;
+    this.currentBuildId = null;
+  }
+
+  /**
+   * Stop the Vizzly server
+   * @returns {Promise<void>}
+   */
+  async stop() {
+    if (this.server) {
+      await this.server.stop();
+      this.server = null;
+      this.emit('server:stopped');
+      output.debug('Vizzly server stopped');
+    }
+  }
+
+  /**
+   * Get current configuration
+   * @returns {Object} Current config
+   */
+  getConfig() {
+    return { ...this.config };
+  }
+
+  /**
+   * Merge new config values into the active SDK config.
+   * @param {Object} newConfig - Config updates
+   * @returns {Object} Updated config
+   */
+  updateConfig(newConfig) {
+    Object.assign(this.config, newConfig);
+    return this.getConfig();
+  }
+
+  /**
+   * Reload file config and re-apply current in-memory overrides.
+   * @returns {Promise<Object>} Updated config
+   */
+  async init() {
+    let loadConfigFn = this.services.loadConfig || loadConfig;
+    let fileConfig = await loadConfigFn();
+    let currentConfig = { ...this.config };
+    Object.assign(this.config, fileConfig, currentConfig);
+    return this.getConfig();
+  }
+
+  createUploader(options = {}) {
+    let { upload: uploadConfig = this.config.upload, ...serviceOptions } =
+      options;
+    let createUploaderService =
+      this.services.createUploader ||
+      ((uploaderOptions, activeConfig = this.config) => {
+        let {
+          upload: resolvedUploadConfig = activeConfig.upload,
+          ...resolvedServiceOptions
+        } = uploaderOptions;
+        return createUploader(
+          {
+            apiKey: activeConfig.apiKey,
+            apiUrl: activeConfig.apiUrl,
+            upload: resolvedUploadConfig,
+          },
+          resolvedServiceOptions
+        );
+      });
+
+    return createUploaderService(
+      {
+        upload: uploadConfig,
+        ...serviceOptions,
+      },
+      this.config
+    );
+  }
+
+  createTDDService(options = {}) {
+    let createTDDServiceInstance =
+      this.services.createTDDService ||
+      ((tddOptions, activeConfig = this.config) =>
+        createTDDService(activeConfig, tddOptions));
+
+    return createTDDServiceInstance(options, this.config);
+  }
+
+  async startTDD(options = {}) {
+    let tddService = this.createTDDService(options);
+    tddService.clearRunData();
+    await tddService.loadBaseline();
+    this.services.tddService = tddService;
+    return tddService;
+  }
+
+  /**
+   * Start the Vizzly server
+   * @returns {Promise<{port: number, url: string}>} Server information
+   */
+  async start() {
+    if (this.server) {
+      output.warn('Server already running');
+      return {
+        port: this.config.server?.port || 3000,
+        url: `http://localhost:${this.config.server?.port || 3000}`,
+      };
+    }
+
+    let createScreenshotServer =
+      this.services.createScreenshotServer || createLocalScreenshotServer;
+    let buildManager = createLocalBuildManager();
+    this.server = createScreenshotServer(this.config, buildManager);
+
+    await this.server.start();
+
+    let port = this.config.server?.port || 3000;
+    let serverInfo = {
+      port,
+      url: `http://localhost:${port}`,
+    };
+
+    this.emit('server:started', serverInfo);
+    return serverInfo;
+  }
+
+  /**
+   * Capture a screenshot
+   * @param {string} name - Screenshot name
+   * @param {Buffer|string} imageBuffer - Image data as a Buffer, or a file path to an image
+   * @param {Object} [options] - Options
+   * @returns {Promise<void>}
+   * @throws {VizzlyError} When server is not running
+   * @throws {VizzlyError} When file path is provided but file doesn't exist
+   * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
+   */
+  async screenshot(name, imageBuffer, options = {}) {
+    if (this.server?.isRunning?.() !== true) {
+      throw new VizzlyError(
+        'Server not running. Call start() first.',
+        'SERVER_NOT_RUNNING'
+      );
+    }
+
+    // Resolve Buffer or file path using shared utility
+    let buffer = resolveImageBuffer(imageBuffer, 'screenshot');
+
+    let normalizedOptions = normalizeScreenshotOptions(options);
+
+    // Generate or use provided build ID
+    let buildId = normalizedOptions.buildId || this.currentBuildId || 'default';
+    this.currentBuildId = buildId;
+
+    // Convert Buffer to base64 for JSON transport
+    let imageBase64 = buffer.toString('base64');
+
+    let screenshotData = serializeScreenshotRequest(
+      {
+        buildId,
+        name,
+        image: imageBase64,
+        type: 'base64',
+      },
+      normalizedOptions
+    );
+    // POST to the local screenshot server
+    let serverUrl = `http://localhost:${this.config.server?.port || 3000}`;
+    let fetchFn = this.services.fetch || fetch;
+
+    try {
+      let response = await fetchFn(`${serverUrl}/screenshot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(screenshotData),
+      });
+
+      if (!response.ok) {
+        let errorData = await response
+          .json()
+          .catch(() => ({ error: 'Unknown error' }));
+        throw new VizzlyError(
+          `Screenshot capture failed: ${errorData.error}`,
+          'SCREENSHOT_FAILED',
+          { name, buildId, status: response.status }
+        );
+      }
+
+      this.emit('screenshot:captured', { name, buildId, options });
+      output.debug(`Screenshot captured: ${name}`);
+    } catch (error) {
+      if (error instanceof VizzlyError) throw error;
+
+      throw new VizzlyError(
+        `Failed to send screenshot to server: ${error.message}`,
+        'SCREENSHOT_TRANSPORT_ERROR',
+        { name, buildId, originalError: error.message }
+      );
+    }
+  }
+
+  /**
+   * Upload all captured screenshots
+   * @param {Object} [options] - Upload options
+   * @returns {Promise<Object>} Upload result
+   */
+  async upload(options = {}) {
+    if (!this.services?.uploader) {
+      this.services = this.services || {};
+      this.services.uploader = this.createUploader({
+        upload: this.config.upload,
+      });
+    }
+
+    // Get the screenshots directory from config or default
+    let screenshotsDir =
+      options.screenshotsDir ||
+      this.config?.upload?.screenshotsDir ||
+      './screenshots';
+
+    let uploadOptions = {
+      screenshotsDir,
+      buildName: options.buildName || this.config.build?.name,
+      branch: options.branch || this.config.build?.branch,
+      commit: options.commit || this.config.build?.commit,
+      message: options.message || this.config.build?.message,
+      environment:
+        options.environment || this.config.build?.environment || 'production',
+      threshold: options.threshold ?? this.config.comparison?.threshold,
+      minClusterSize:
+        options.minClusterSize ?? this.config.comparison?.minClusterSize,
+      metadata: options.metadata || {},
+      pullRequestNumber: options.pullRequestNumber,
+      parallelId: options.parallelId || this.config.parallelId,
+      onProgress: progress => {
+        this.emit('upload:progress', progress);
+        if (options.onProgress) {
+          options.onProgress(progress);
+        }
+      },
+    };
+
+    try {
+      let result = await this.services.uploader.upload(uploadOptions);
+      this.emit('upload:completed', result);
+      return result;
+    } catch (error) {
+      this.emit('upload:failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run local comparison in TDD mode
+   * @param {string} name - Screenshot name
+   * @param {Buffer|string} imageBuffer - Current image as a Buffer, or a file path to an image
+   * @returns {Promise<Object>} Comparison result
+   * @throws {VizzlyError} When file path is provided but file doesn't exist
+   * @throws {VizzlyError} When file cannot be read due to permissions or I/O errors
+   */
+  async compare(name, imageBuffer) {
+    if (!this.services?.tddService) {
+      this.services = this.services || {};
+      this.services.tddService = this.createTDDService();
+    }
+
+    // Resolve Buffer or file path using shared utility
+    let buffer = resolveImageBuffer(imageBuffer, 'compare');
+
+    try {
+      let result = await this.services.tddService.compareScreenshot(
+        name,
+        buffer
+      );
+      this.emit('comparison:completed', result);
+      return result;
+    } catch (error) {
+      this.emit('comparison:failed', { name, error });
+      throw error;
+    }
+  }
+}
+
+// Re-export key utilities and errors
+export { loadConfig } from '../../domains/config/config-loader.js';
+export { createTDDService } from '../../domains/tdd/tdd.service.js';
+// Export service creators for advanced usage
+export { createUploader } from '../../domains/uploads/upload.service.js';
+export * as output from '../../shared/output.js';

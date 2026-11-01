@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { vizzlyScreenshot } from '../../dist/client/index.js';
+import { vizzlyScreenshot } from '../../dist/adapters/client/index.js';
 
 test.describe('FluffyCloud SAAS - Visual Tests', () => {
 

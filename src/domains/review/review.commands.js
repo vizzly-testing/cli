@@ -3,7 +3,7 @@
  */
 
 import { randomUUID as defaultRandomUUID } from 'node:crypto';
-import * as defaultOutput from '../../services/output.js';
+import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import { getAccessToken as defaultGetAccessToken } from '../auth/token-store.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';

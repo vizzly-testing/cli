@@ -1,7 +1,7 @@
 import {
   buildEndpointWithParams,
   buildQueryParams,
-} from '../../services/cloud-protocol.js';
+} from '../../shared/cloud-protocol.js';
 import { buildBuildPayload } from './build.serializers.js';
 
 /**

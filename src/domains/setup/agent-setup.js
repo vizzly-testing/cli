@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { fileChange } from '../../services/file-changes.js';
-import { readOptionalFile } from '../../services/files.js';
+import { fileChange } from '../../shared/file-changes.js';
+import { readOptionalFile } from '../../shared/files.js';
 import {
   getPackageRoot,
   getPackageVersion,
-} from '../../services/package-info.js';
+} from '../../shared/package-info.js';
 
 let sourcePath = path.join(getPackageRoot(), 'skills', 'vizzly');
 let start = '<!-- vizzly-agent-guidance -->';

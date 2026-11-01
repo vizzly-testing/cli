@@ -8,7 +8,7 @@ import {
   configure,
   vizzlyFlush,
   vizzlyScreenshot,
-} from '../../../src/client/index.js';
+} from '../../../src/adapters/client/index.js';
 import {
   buildCloudRunOptions,
   buildPreviewUploadRecords,

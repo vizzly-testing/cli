@@ -1,4 +1,4 @@
-import * as output from '../../services/output.js';
+import * as output from '../../shared/output.js';
 import {
   buildScreenshotPayload,
   buildScreenshotResolvePayload,

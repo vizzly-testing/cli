@@ -1,4 +1,4 @@
-import { getAppBaseUrl } from '../../services/api-url.js';
+import { getAppBaseUrl } from '../../shared/api-url.js';
 import {
   detectBranch as defaultDetectBranch,
   detectCommit as defaultDetectCommit,
@@ -6,8 +6,8 @@ import {
   detectCommitMessage as defaultDetectCommitMessage,
   detectPullRequestNumber as defaultDetectPullRequestNumber,
   generateBuildNameWithGit as defaultGenerateBuildNameWithGit,
-} from '../../services/git.js';
-import * as defaultOutput from '../../services/output.js';
+} from '../../shared/git.js';
+import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import { finalizeBuild as defaultFinalizeBuild } from '../builds/build.service.js';
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';

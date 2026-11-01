@@ -2,8 +2,8 @@ import {
   sendError,
   sendServiceUnavailable,
   sendSuccess,
-} from '../../server/middleware/response.js';
-import * as output from '../../services/output.js';
+} from '../../adapters/http/middleware/response.js';
+import * as output from '../../shared/output.js';
 
 /**
  * Projects Router

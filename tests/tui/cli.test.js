@@ -9,7 +9,7 @@
  */
 import { after, before, describe, test } from 'node:test';
 import { DependencyError, Terminal } from 'tui-driver';
-import { vizzlyScreenshot } from '../../src/client/index.js';
+import { vizzlyScreenshot } from '../../src/adapters/client/index.js';
 
 // Terminal dimensions
 let COLS = 100;

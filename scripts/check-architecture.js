@@ -21,7 +21,7 @@ function sourceFiles(directory) {
   });
 }
 
-function moduleImports(filename) {
+function moduleDependencies(filename) {
   let tree = parseSync(readFileSync(path.join(root, filename), 'utf8'), {
     babelrc: false,
     configFile: false,
@@ -29,8 +29,19 @@ function moduleImports(filename) {
     parserOpts: { plugins: ['jsx'] },
   });
   let imports = [];
+  let ioCalls = [];
   traverse(tree, {
-    enter({ node }) {
+    enter({ node, scope }) {
+      if (
+        node.type === 'CallExpression' &&
+        ((node.callee.type === 'Identifier' &&
+          node.callee.name === 'fetch' &&
+          !scope.getBinding('fetch')) ||
+          (node.callee.type === 'MemberExpression' &&
+            node.callee.object.name === 'globalThis' &&
+            node.callee.property.name === 'fetch'))
+      )
+        ioCalls.push('fetch');
       if (node.source?.type === 'StringLiteral') {
         imports.push(node.source.value);
       } else if (
@@ -44,12 +55,14 @@ function moduleImports(filename) {
       }
     },
   });
-  return imports;
+  return { imports, ioCalls };
 }
 
 let files = sourceRoots.flatMap(sourceFiles);
 let failures = [];
 let graph = new Map();
+let ioImports = new Map();
+let pureFiles = [];
 let reporterRoot = 'src/reporter/src/';
 let browserContract = 'src/domains/reports/report.normalizers.js';
 let oldFolders = [
@@ -66,38 +79,52 @@ let oldFolders = [
   'test-runner',
   'uploader',
   'utils',
+  'services',
+  'errors',
+  'types',
+  'cli',
+  'client',
+  'sdk',
+  'server',
+  'plugins',
 ];
 for (let folder of oldFolders) {
   let oldPath = `src/${folder}`;
-  if (sourceFiles(oldPath).length) {
-    failures.push(`${oldPath}: put product behavior in its owning domain`);
+  if (existsSync(path.join(root, oldPath))) {
+    failures.push(`${oldPath}: use domains, adapters, or shared capabilities`);
   }
 }
 
 for (let filename of files) {
-  let imports = moduleImports(filename);
+  let { imports, ioCalls } = moduleDependencies(filename);
+  if (ioCalls.length) ioImports.set(filename, ioCalls);
   let dependencies = [];
-  let isDomain = filename.startsWith('src/domains/');
+  let isTest = filename.endsWith('.test.js');
+  let isDomain = !isTest && filename.startsWith('src/domains/');
   let isAdapter = /\.(commands|routes)\.js$/.test(filename);
   let isPureRole = /\.(normalizers|serializers|validations|rules)\.js$/.test(
     filename
   );
+  if (isPureRole) pureFiles.push(filename);
   if (isDomain && path.posix.basename(filename) === 'index.js') {
     failures.push(
       `${filename}: import specific domain files instead of a barrel`
     );
   }
   for (let specifier of imports) {
+    let builtin = specifier.replace(/^node:/, '');
     if (
-      isPureRole &&
-      /^node:(fs|child_process|http|https|net|tls)(\/|$)/.test(specifier)
+      /^(fs|child_process|http|https|net|tls|dgram|dns|readline|worker_threads)(\/|$)/.test(
+        builtin
+      )
     ) {
-      failures.push(
-        `${filename}: ${specifier} belongs in a service or adapter`
-      );
+      let effects = ioImports.get(filename) || [];
+      effects.push(specifier);
+      ioImports.set(filename, effects);
     }
     if (!specifier.startsWith('.')) {
       if (
+        !isTest &&
         filename.startsWith(reporterRoot) &&
         (isBuiltin(specifier) || specifier.startsWith('@vizzly-testing/cli'))
       ) {
@@ -116,17 +143,27 @@ for (let filename of files) {
     }
     dependencies.push(target);
     if (
-      filename.startsWith('src/services/') &&
-      target.startsWith('src/domains/')
+      !isTest &&
+      filename.startsWith('src/shared/') &&
+      (target.startsWith('src/domains/') ||
+        target.startsWith('src/adapters/') ||
+        target.startsWith('src/reporter/') ||
+        target === 'src/index.js')
     ) {
       failures.push(
         `${filename}: shared capabilities must not depend on ${target}`
       );
     }
-    if (isDomain && !isAdapter && /\.(commands|routes)\.js$/.test(target)) {
+    if (!isTest && target.endsWith('.test.js')) {
+      failures.push(`${filename}: production code must not import ${target}`);
+    }
+    let targetIsAdapter = /\.(commands|routes)\.js$/.test(target);
+    let sameDomain = filename.split('/')[2] === target.split('/')[2];
+    if (isDomain && targetIsAdapter && (!isAdapter || !sameDomain)) {
       failures.push(`${filename}: import data operations instead of ${target}`);
     }
     if (
+      !isTest &&
       filename.startsWith(reporterRoot) &&
       target.startsWith('src/') &&
       !target.startsWith(reporterRoot) &&
@@ -137,7 +174,7 @@ for (let filename of files) {
       );
     }
   }
-  if (filename.startsWith('src/')) graph.set(filename, dependencies);
+  if (!isTest && filename.startsWith('src/')) graph.set(filename, dependencies);
 }
 
 // Detect real module cycles rather than banning useful cross-domain operations.
@@ -160,6 +197,26 @@ function visit(filename) {
   active.delete(filename);
 }
 for (let filename of graph.keys()) visit(filename);
+
+function impureDependency(filename, seen = new Set()) {
+  if (seen.has(filename)) return null;
+  seen.add(filename);
+  if (/\.(service|commands|routes)\.js$/.test(filename)) return [filename];
+  let ioImport = ioImports.get(filename)?.[0];
+  if (ioImport) return [filename, ioImport];
+  for (let dependency of graph.get(filename) || []) {
+    let chain = impureDependency(dependency, seen);
+    if (chain) return [filename, ...chain];
+  }
+  return null;
+}
+for (let filename of pureFiles) {
+  let chain = impureDependency(filename);
+  if (chain)
+    failures.push(
+      `${filename}: pure contract depends on I/O or operations: ${chain.join(' -> ')}`
+    );
+}
 
 if (failures.length) {
   process.stderr.write(`${failures.join('\n')}\n`);

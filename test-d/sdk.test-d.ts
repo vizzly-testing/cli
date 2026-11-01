@@ -2,6 +2,7 @@
  * Type tests for @vizzly-testing/cli/sdk
  */
 import { expectType, expectError } from 'tsd';
+import { VizzlySDK as RootSDK } from '../src/index';
 import {
   createVizzly,
   VizzlySDK,
@@ -9,12 +10,14 @@ import {
   output,
   createUploader,
   createTDDService,
-} from '../src/types/sdk';
-import type { VizzlyConfig, UploadResult, ComparisonResult, Uploader, TddService } from '../src/types/index';
+} from '../src/adapters/sdk/index';
+import type { VizzlyConfig, UploadResult, ComparisonResult, Uploader, TddService } from '../src/index';
 
 // ============================================================================
 // createVizzly
 // ============================================================================
+
+expectType<typeof RootSDK>(VizzlySDK);
 
 // Should return Promise<VizzlySDK>
 expectType<Promise<VizzlySDK>>(createVizzly());

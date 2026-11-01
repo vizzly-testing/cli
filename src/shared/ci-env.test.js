@@ -1,0 +1,582 @@
+import assert from 'node:assert';
+import { unlinkSync } from 'node:fs';
+import { describe, it } from 'node:test';
+import { useCleanCIEnv } from '../../tests/helpers/ci-env.js';
+import {
+  getBranch,
+  getCIProvider,
+  getCommit,
+  getCommitAuthor,
+  getCommitMessage,
+  getGitHubEvent,
+  getPullRequestBaseRef,
+  getPullRequestBaseSha,
+  getPullRequestHeadRef,
+  getPullRequestHeadSha,
+  getPullRequestNumber,
+  isPullRequest,
+  resetGitHubEventCache,
+} from './ci-env.js';
+
+describe('utils/ci-env', () => {
+  let ciEnv = useCleanCIEnv();
+
+  describe('getBranch', () => {
+    it('returns null when no CI env vars set', () => {
+      assert.strictEqual(getBranch(), null);
+    });
+
+    it('prefers VIZZLY_BRANCH override', () => {
+      process.env.VIZZLY_BRANCH = 'vizzly-branch';
+      process.env.GITHUB_REF_NAME = 'github-branch';
+
+      assert.strictEqual(getBranch(), 'vizzly-branch');
+    });
+
+    it('reads GITHUB_HEAD_REF for PRs', () => {
+      process.env.GITHUB_HEAD_REF = 'feature-branch';
+
+      assert.strictEqual(getBranch(), 'feature-branch');
+    });
+
+    it('reads GITHUB_REF_NAME for pushes', () => {
+      process.env.GITHUB_REF_NAME = 'main';
+
+      assert.strictEqual(getBranch(), 'main');
+    });
+
+    it('reads CI_COMMIT_REF_NAME for GitLab', () => {
+      process.env.CI_COMMIT_REF_NAME = 'gitlab-branch';
+
+      assert.strictEqual(getBranch(), 'gitlab-branch');
+    });
+
+    it('reads CIRCLE_BRANCH for CircleCI', () => {
+      process.env.CIRCLE_BRANCH = 'circle-branch';
+
+      assert.strictEqual(getBranch(), 'circle-branch');
+    });
+
+    it('strips refs/heads/ from Azure DevOps BUILD_SOURCEBRANCH', () => {
+      process.env.BUILD_SOURCEBRANCH = 'refs/heads/azure-branch';
+
+      assert.strictEqual(getBranch(), 'azure-branch');
+    });
+
+    it('strips refs/heads/ from AWS CodeBuild CODEBUILD_WEBHOOK_HEAD_REF', () => {
+      process.env.CODEBUILD_WEBHOOK_HEAD_REF = 'refs/heads/codebuild-branch';
+
+      assert.strictEqual(getBranch(), 'codebuild-branch');
+    });
+  });
+
+  describe('getCommit', () => {
+    it('returns null when no CI env vars set', () => {
+      assert.strictEqual(getCommit(), null);
+    });
+
+    it('prefers VIZZLY_COMMIT_SHA override', () => {
+      process.env.VIZZLY_COMMIT_SHA = 'vizzly-sha';
+      process.env.GITHUB_SHA = 'github-sha';
+
+      assert.strictEqual(getCommit(), 'vizzly-sha');
+    });
+
+    it('reads GITHUB_SHA for GitHub Actions push events', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_SHA = 'abc123';
+
+      assert.strictEqual(getCommit(), 'abc123');
+    });
+
+    it('reads the PR head SHA from a GitHub Actions event file', () => {
+      let eventPath = ciEnv.createEventFile({
+        pull_request: {
+          head: { sha: 'pr-head-sha-abc123' },
+          base: { sha: 'base-sha-def456' },
+        },
+      });
+
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = eventPath;
+      process.env.GITHUB_SHA = 'merge-commit-sha';
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getCommit(), 'pr-head-sha-abc123');
+    });
+
+    it('falls back to GITHUB_SHA when the event file is missing', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = '/nonexistent/path/event.json';
+      process.env.GITHUB_SHA = 'fallback-sha';
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getCommit(), 'fallback-sha');
+    });
+
+    it('falls back to GITHUB_SHA when the event is not a pull request', () => {
+      let eventPath = ciEnv.createEventFile({ ref: 'refs/heads/main' });
+
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = eventPath;
+      process.env.GITHUB_SHA = 'push-commit-sha';
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getCommit(), 'push-commit-sha');
+    });
+
+    it('reads generic COMMIT_SHA', () => {
+      process.env.COMMIT_SHA = 'generic-sha';
+
+      assert.strictEqual(getCommit(), 'generic-sha');
+    });
+  });
+
+  describe('getCommitMessage', () => {
+    it('returns null when no CI env vars set', () => {
+      assert.strictEqual(getCommitMessage(), null);
+    });
+
+    it('prefers VIZZLY_COMMIT_MESSAGE override', () => {
+      process.env.VIZZLY_COMMIT_MESSAGE = 'vizzly message';
+      process.env.CI_COMMIT_MESSAGE = 'gitlab message';
+
+      assert.strictEqual(getCommitMessage(), 'vizzly message');
+    });
+
+    it('reads CI_COMMIT_MESSAGE for GitLab', () => {
+      process.env.CI_COMMIT_MESSAGE = 'fix: bug';
+
+      assert.strictEqual(getCommitMessage(), 'fix: bug');
+    });
+
+    it('uses the PR title for GitHub Actions pull_request events', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = ciEnv.createEventFile({
+        pull_request: { title: 'Add dark mode', head: { sha: 'abc' } },
+      });
+
+      assert.strictEqual(getCommitMessage(), 'Add dark mode');
+    });
+
+    it('prefers VIZZLY_COMMIT_MESSAGE over the PR title', () => {
+      process.env.VIZZLY_COMMIT_MESSAGE = 'vizzly message';
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = ciEnv.createEventFile({
+        pull_request: { title: 'Add dark mode' },
+      });
+
+      assert.strictEqual(getCommitMessage(), 'vizzly message');
+    });
+
+    it('returns null for GitHub Actions push events', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = ciEnv.createEventFile({
+        ref: 'refs/heads/main',
+      });
+
+      assert.strictEqual(getCommitMessage(), null);
+    });
+  });
+
+  describe('getCommitAuthor', () => {
+    it('returns nulls when no CI env vars set', () => {
+      assert.deepStrictEqual(getCommitAuthor(), { name: null, email: null });
+    });
+
+    it('reads VIZZLY_COMMIT_AUTHOR_NAME and VIZZLY_COMMIT_AUTHOR_EMAIL', () => {
+      process.env.VIZZLY_COMMIT_AUTHOR_NAME = 'Ada Lovelace';
+      process.env.VIZZLY_COMMIT_AUTHOR_EMAIL = 'ada@example.com';
+      process.env.CI_COMMIT_AUTHOR = 'Someone Else <else@example.com>';
+
+      assert.deepStrictEqual(getCommitAuthor(), {
+        name: 'Ada Lovelace',
+        email: 'ada@example.com',
+      });
+    });
+
+    it('parses GitLab CI_COMMIT_AUTHOR', () => {
+      process.env.CI_COMMIT_AUTHOR = 'Grace Hopper <grace@example.com>';
+
+      assert.deepStrictEqual(getCommitAuthor(), {
+        name: 'Grace Hopper',
+        email: 'grace@example.com',
+      });
+    });
+
+    it('lets a single override win per field', () => {
+      process.env.VIZZLY_COMMIT_AUTHOR_EMAIL = 'override@example.com';
+      process.env.CI_COMMIT_AUTHOR = 'Grace Hopper <grace@example.com>';
+
+      assert.deepStrictEqual(getCommitAuthor(), {
+        name: 'Grace Hopper',
+        email: 'override@example.com',
+      });
+    });
+  });
+
+  describe('getPullRequestNumber', () => {
+    it('returns null when no PR context', () => {
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
+    it('prefers VIZZLY_PR_NUMBER override', () => {
+      process.env.VIZZLY_PR_NUMBER = '42';
+      process.env.CI_MERGE_REQUEST_ID = '99';
+
+      assert.strictEqual(getPullRequestNumber(), 42);
+    });
+
+    it('returns null for malformed VIZZLY_PR_NUMBER override', () => {
+      process.env.VIZZLY_PR_NUMBER = '42abc';
+      process.env.CI_MERGE_REQUEST_ID = '99';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
+    it('returns null for zero PR numbers', () => {
+      process.env.VIZZLY_PR_NUMBER = '0';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
+    it('extracts PR number from GitHub Actions GITHUB_REF', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_NAME = 'pull_request';
+      process.env.GITHUB_REF = 'refs/pull/123/merge';
+
+      assert.strictEqual(getPullRequestNumber(), 123);
+    });
+
+    it('returns null for GitHub push events', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_NAME = 'push';
+      process.env.GITHUB_REF = 'refs/heads/main';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
+    it('reads CI_MERGE_REQUEST_ID for GitLab', () => {
+      process.env.CI_MERGE_REQUEST_ID = '456';
+
+      assert.strictEqual(getPullRequestNumber(), 456);
+    });
+
+    it('returns null for malformed CI provider PR numbers', () => {
+      process.env.CI_MERGE_REQUEST_ID = '456.7';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
+    it('extracts PR number from CircleCI CIRCLE_PULL_REQUEST URL', () => {
+      process.env.CIRCLE_PULL_REQUEST = 'https://github.com/org/repo/pull/789';
+
+      assert.strictEqual(getPullRequestNumber(), 789);
+    });
+
+    it('reads TRAVIS_PULL_REQUEST when not false', () => {
+      process.env.TRAVIS_PULL_REQUEST = '101';
+
+      assert.strictEqual(getPullRequestNumber(), 101);
+    });
+
+    it('returns null for TRAVIS_PULL_REQUEST=false', () => {
+      process.env.TRAVIS_PULL_REQUEST = 'false';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
+    it('reads BUILDKITE_PULL_REQUEST when not false', () => {
+      process.env.BUILDKITE_PULL_REQUEST = '202';
+
+      assert.strictEqual(getPullRequestNumber(), 202);
+    });
+
+    it('returns null for BUILDKITE_PULL_REQUEST=false', () => {
+      process.env.BUILDKITE_PULL_REQUEST = 'false';
+
+      assert.strictEqual(getPullRequestNumber(), null);
+    });
+
+    it('reads DRONE_PULL_REQUEST', () => {
+      process.env.DRONE_PULL_REQUEST = '303';
+
+      assert.strictEqual(getPullRequestNumber(), 303);
+    });
+
+    it('reads ghprbPullId for Jenkins', () => {
+      process.env.ghprbPullId = '404';
+
+      assert.strictEqual(getPullRequestNumber(), 404);
+    });
+
+    it('reads SYSTEM_PULLREQUEST_PULLREQUESTID for Azure DevOps', () => {
+      process.env.SYSTEM_PULLREQUEST_PULLREQUESTID = '505';
+
+      assert.strictEqual(getPullRequestNumber(), 505);
+    });
+
+    it('reads APPVEYOR_PULL_REQUEST_NUMBER', () => {
+      process.env.APPVEYOR_PULL_REQUEST_NUMBER = '606';
+
+      assert.strictEqual(getPullRequestNumber(), 606);
+    });
+  });
+
+  describe('getPullRequestHeadSha', () => {
+    it('returns null when not set', () => {
+      assert.strictEqual(getPullRequestHeadSha(), null);
+    });
+
+    it('prefers VIZZLY_PR_HEAD_SHA override', () => {
+      process.env.VIZZLY_PR_HEAD_SHA = 'vizzly-head';
+      process.env.GITHUB_SHA = 'github-sha';
+
+      assert.strictEqual(getPullRequestHeadSha(), 'vizzly-head');
+    });
+
+    it('reads ghprbActualCommit for Jenkins', () => {
+      process.env.ghprbActualCommit = 'jenkins-pr-sha';
+
+      assert.strictEqual(getPullRequestHeadSha(), 'jenkins-pr-sha');
+    });
+
+    it('reads the PR head SHA from a GitHub Actions event file', () => {
+      let eventPath = ciEnv.createEventFile({
+        pull_request: {
+          head: { sha: 'pr-head-sha-from-event' },
+          base: { sha: 'base-sha' },
+        },
+      });
+
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = eventPath;
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getPullRequestHeadSha(), 'pr-head-sha-from-event');
+    });
+  });
+
+  describe('getPullRequestBaseSha', () => {
+    it('returns null when not set', () => {
+      assert.strictEqual(getPullRequestBaseSha(), null);
+    });
+
+    it('prefers VIZZLY_PR_BASE_SHA override', () => {
+      process.env.VIZZLY_PR_BASE_SHA = 'vizzly-base';
+
+      assert.strictEqual(getPullRequestBaseSha(), 'vizzly-base');
+    });
+
+    it('reads CI_MERGE_REQUEST_TARGET_BRANCH_SHA for GitLab', () => {
+      process.env.CI_MERGE_REQUEST_TARGET_BRANCH_SHA = 'gitlab-base';
+
+      assert.strictEqual(getPullRequestBaseSha(), 'gitlab-base');
+    });
+
+    it('reads the PR base SHA from a GitHub Actions event file', () => {
+      let eventPath = ciEnv.createEventFile({
+        pull_request: {
+          head: { sha: 'head-sha' },
+          base: { sha: 'base-sha-from-event' },
+        },
+      });
+
+      process.env.GITHUB_ACTIONS = 'true';
+      process.env.GITHUB_EVENT_PATH = eventPath;
+
+      resetGitHubEventCache();
+
+      assert.strictEqual(getPullRequestBaseSha(), 'base-sha-from-event');
+    });
+  });
+
+  describe('getGitHubEvent', () => {
+    it('returns an empty object when no event path is set', () => {
+      assert.deepStrictEqual(getGitHubEvent(), {});
+    });
+
+    it('parses and caches the event file', () => {
+      let eventPath = ciEnv.createEventFile({ action: 'opened', number: 42 });
+
+      process.env.GITHUB_EVENT_PATH = eventPath;
+      resetGitHubEventCache();
+
+      let event = getGitHubEvent();
+      assert.deepStrictEqual(event, { action: 'opened', number: 42 });
+
+      unlinkSync(eventPath);
+
+      assert.deepStrictEqual(getGitHubEvent(), event);
+    });
+
+    it('returns an empty object for invalid JSON', () => {
+      let eventPath = ciEnv.createEventFile('not valid json {{{');
+
+      process.env.GITHUB_EVENT_PATH = eventPath;
+      resetGitHubEventCache();
+
+      assert.deepStrictEqual(getGitHubEvent(), {});
+    });
+  });
+
+  describe('getPullRequestHeadRef', () => {
+    it('returns null when not set', () => {
+      assert.strictEqual(getPullRequestHeadRef(), null);
+    });
+
+    it('prefers VIZZLY_PR_HEAD_REF override', () => {
+      process.env.VIZZLY_PR_HEAD_REF = 'vizzly-head-ref';
+
+      assert.strictEqual(getPullRequestHeadRef(), 'vizzly-head-ref');
+    });
+
+    it('reads GITHUB_HEAD_REF', () => {
+      process.env.GITHUB_HEAD_REF = 'feature-branch';
+
+      assert.strictEqual(getPullRequestHeadRef(), 'feature-branch');
+    });
+
+    it('strips refs/heads/ from Azure SYSTEM_PULLREQUEST_SOURCEBRANCH', () => {
+      process.env.SYSTEM_PULLREQUEST_SOURCEBRANCH = 'refs/heads/azure-source';
+
+      assert.strictEqual(getPullRequestHeadRef(), 'azure-source');
+    });
+  });
+
+  describe('getPullRequestBaseRef', () => {
+    it('returns null when not set', () => {
+      assert.strictEqual(getPullRequestBaseRef(), null);
+    });
+
+    it('prefers VIZZLY_PR_BASE_REF override', () => {
+      process.env.VIZZLY_PR_BASE_REF = 'vizzly-base-ref';
+
+      assert.strictEqual(getPullRequestBaseRef(), 'vizzly-base-ref');
+    });
+
+    it('reads GITHUB_BASE_REF', () => {
+      process.env.GITHUB_BASE_REF = 'main';
+
+      assert.strictEqual(getPullRequestBaseRef(), 'main');
+    });
+
+    it('strips refs/heads/ from Azure SYSTEM_PULLREQUEST_TARGETBRANCH', () => {
+      process.env.SYSTEM_PULLREQUEST_TARGETBRANCH = 'refs/heads/main';
+
+      assert.strictEqual(getPullRequestBaseRef(), 'main');
+    });
+  });
+
+  describe('isPullRequest', () => {
+    it('returns false when no PR context', () => {
+      assert.strictEqual(isPullRequest(), false);
+    });
+
+    it('returns true when PR number is available', () => {
+      process.env.VIZZLY_PR_NUMBER = '123';
+
+      assert.strictEqual(isPullRequest(), true);
+    });
+  });
+
+  describe('getCIProvider', () => {
+    it('returns unknown when no CI detected', () => {
+      assert.strictEqual(getCIProvider(), 'unknown');
+    });
+
+    it('detects GitHub Actions', () => {
+      process.env.GITHUB_ACTIONS = 'true';
+
+      assert.strictEqual(getCIProvider(), 'github-actions');
+    });
+
+    it('detects GitLab CI', () => {
+      process.env.GITLAB_CI = 'true';
+
+      assert.strictEqual(getCIProvider(), 'gitlab-ci');
+    });
+
+    it('detects CircleCI', () => {
+      process.env.CIRCLECI = 'true';
+
+      assert.strictEqual(getCIProvider(), 'circleci');
+    });
+
+    it('detects Travis CI', () => {
+      process.env.TRAVIS = 'true';
+
+      assert.strictEqual(getCIProvider(), 'travis-ci');
+    });
+
+    it('detects Buildkite', () => {
+      process.env.BUILDKITE = 'true';
+
+      assert.strictEqual(getCIProvider(), 'buildkite');
+    });
+
+    it('detects Drone CI', () => {
+      process.env.DRONE = 'true';
+
+      assert.strictEqual(getCIProvider(), 'drone-ci');
+    });
+
+    it('detects Jenkins', () => {
+      process.env.JENKINS_URL = 'http://jenkins.example.com';
+
+      assert.strictEqual(getCIProvider(), 'jenkins');
+    });
+
+    it('detects Azure DevOps via TF_BUILD', () => {
+      process.env.TF_BUILD = 'true';
+
+      assert.strictEqual(getCIProvider(), 'azure-devops');
+    });
+
+    it('detects Azure DevOps via AZURE_HTTP_USER_AGENT', () => {
+      process.env.AZURE_HTTP_USER_AGENT = 'vsts';
+
+      assert.strictEqual(getCIProvider(), 'azure-devops');
+    });
+
+    it('detects AWS CodeBuild', () => {
+      process.env.CODEBUILD_BUILD_ID = 'build-123';
+
+      assert.strictEqual(getCIProvider(), 'aws-codebuild');
+    });
+
+    it('detects AppVeyor', () => {
+      process.env.APPVEYOR = 'true';
+
+      assert.strictEqual(getCIProvider(), 'appveyor');
+    });
+
+    it('detects Semaphore', () => {
+      process.env.SEMAPHORE = 'true';
+
+      assert.strictEqual(getCIProvider(), 'semaphore');
+    });
+
+    it('detects Wercker', () => {
+      process.env.WERCKER = 'true';
+
+      assert.strictEqual(getCIProvider(), 'wercker');
+    });
+
+    it('detects Bitbucket Pipelines', () => {
+      process.env.BITBUCKET_BUILD_NUMBER = '123';
+
+      assert.strictEqual(getCIProvider(), 'bitbucket-pipelines');
+    });
+
+    it('detects Heroku CI', () => {
+      process.env.HEROKU_TEST_RUN_ID = 'run-123';
+
+      assert.strictEqual(getCIProvider(), 'heroku-ci');
+    });
+  });
+});

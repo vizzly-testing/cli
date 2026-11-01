@@ -6,7 +6,7 @@ import {
   generateScreenshotSignature,
 } from '../../../src/domains/screenshots/screenshot-identity.js';
 
-let fixtures = fileURLToPath(new URL('../fixtures/', import.meta.url));
+let fixtures = fileURLToPath(new URL('../fixtures', import.meta.url));
 
 export async function writeReporterFixture(fixtureData, workingDir) {
   let data = structuredClone(fixtureData);

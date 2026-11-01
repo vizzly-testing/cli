@@ -1,12 +1,12 @@
 import {
   loadGlobalConfig,
   saveGlobalConfig,
-} from '../../services/global-config.js';
+} from '../../shared/global-config.js';
 import {
   deleteSecret as defaultDeleteSecret,
   getSecret as defaultGetSecret,
   saveSecret as defaultSaveSecret,
-} from '../../services/secret-store.js';
+} from '../../shared/secret-store.js';
 
 export function buildProjectLinkAccount({
   apiUrl,

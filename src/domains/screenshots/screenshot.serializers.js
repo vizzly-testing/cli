@@ -149,3 +149,17 @@ export function buildBadRequestResponse(message) {
 export function buildInternalErrorResponse() {
   return buildErrorResponse(500, 'Internal server error');
 }
+
+export function serializeScreenshotRequest(
+  { buildId, name, image, type },
+  options
+) {
+  return {
+    buildId,
+    name,
+    image,
+    type,
+    properties: options.properties,
+    ...getScreenshotOptionsPayload(options),
+  };
+}

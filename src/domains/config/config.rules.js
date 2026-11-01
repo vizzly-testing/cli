@@ -1,4 +1,4 @@
-import { VizzlyError } from '../../errors/vizzly-error.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 
 /**
  * Valid config scopes for reading

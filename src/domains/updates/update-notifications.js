@@ -5,14 +5,14 @@ import {
   applyChanges,
   fileChange,
   preflightChanges,
-} from '../../services/file-changes.js';
-import { readOptionalFile } from '../../services/files.js';
-import { getGlobalConfigDir } from '../../services/global-config.js';
-import * as output from '../../services/output.js';
+} from '../../shared/file-changes.js';
+import { readOptionalFile } from '../../shared/files.js';
+import { getGlobalConfigDir } from '../../shared/global-config.js';
+import * as output from '../../shared/output.js';
 import {
   getPackageName,
   getPackageVersion,
-} from '../../services/package-info.js';
+} from '../../shared/package-info.js';
 import {
   agentGuidanceFlag,
   agentGuidancePath,

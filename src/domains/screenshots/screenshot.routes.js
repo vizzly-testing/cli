@@ -3,9 +3,12 @@
  * Handles screenshot uploads and flush requests.
  */
 
-import { parseJsonBody } from '../../server/middleware/json-parser.js';
-import { sendError, sendJson } from '../../server/middleware/response.js';
-import * as output from '../../services/output.js';
+import { parseJsonBody } from '../../adapters/http/middleware/json-parser.js';
+import {
+  sendError,
+  sendJson,
+} from '../../adapters/http/middleware/response.js';
+import * as output from '../../shared/output.js';
 import { normalizeScreenshotOptions } from './screenshot-options.js';
 
 /**

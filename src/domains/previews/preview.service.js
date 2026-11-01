@@ -28,7 +28,7 @@ export async function getPreviewInfo(client, buildId) {
   try {
     return await client.request(`/api/sdk/builds/${buildId}/preview`);
   } catch (error) {
-    if (error.status === 404) {
+    if (error.context?.status === 404) {
       return null;
     }
     throw error;

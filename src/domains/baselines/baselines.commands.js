@@ -8,8 +8,8 @@ import {
   statSync as defaultStatSync,
 } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import * as defaultOutput from '../../services/output.js';
-import { createWildcardMatcher } from '../../services/patterns.js';
+import * as defaultOutput from '../../shared/output.js';
+import { createWildcardMatcher } from '../../shared/patterns.js';
 import { loadBaselineMetadata as defaultLoadBaselineMetadata } from './baseline-metadata.js';
 
 /**

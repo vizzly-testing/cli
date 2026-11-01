@@ -52,6 +52,8 @@ test('domain contracts can compose pure helpers and the reporter can consume its
       'export let normalize = value => value;',
     'src/reporter/src/view.js':
       "import { normalize } from '../../domains/reports/report.normalizers.js'; export let view = normalize({});",
+    'tests/packed-client.js':
+      "import { add } from '../dist/shared/math.js'; export let value = add(1, 2);",
     'src/reporter/src/view.test.js':
       "import { readFile } from 'node:fs/promises';",
   });
@@ -61,6 +63,18 @@ test('domain contracts can compose pure helpers and the reporter can consume its
 
 test('the architecture command rejects hidden I/O, operation imports and browser boundary violations', async t => {
   for (let [files, diagnostic] of [
+    [
+      { 'tests/missing-client.js': "import '../dist/shared/missing.js';" },
+      /missing .*dist\/shared\/missing.js/,
+    ],
+    [
+      {
+        'src/shared/compiled-domain.js':
+          "import '../../dist/domains/example/example.service.js';",
+        'src/domains/example/example.service.js': 'export let run = () => {};',
+      },
+      /shared capabilities must not depend on src\/domains/,
+    ],
     [
       {
         'src/shared/host.js': "import '../adapters/http/host.js';",

@@ -502,44 +502,21 @@ export const createTddHandler = (
       let deletedCurrents = 0;
       let deletedDiffs = 0;
 
-      let deleteResetFile = (imagePath, label, name) => {
-        if (!imagePath) return 0;
-
-        try {
-          let filePath = safePath(
-            workingDir,
-            '.vizzly',
-            imagePath.replace('/images/', '')
-          );
-
-          if (!existsSync(filePath)) return 0;
-
-          unlinkSync(filePath);
-          if (label === 'diff') {
-            output.debug(`Deleted diff for ${name}`);
-          }
-          return 1;
-        } catch (error) {
-          output.warn(
-            `Failed to delete ${label} for ${name}: ${error.message}`
-          );
-          return 0;
-        }
-      };
-
       // Delete all baseline, current, and diff images
       for (let comparison of reportData.comparisons) {
-        deletedBaselines += deleteResetFile(
+        deletedBaselines += safeDeleteFile(
           comparison.baseline,
           'baseline',
-          comparison.name
+          comparison.name,
+          { logDeletion: false }
         );
-        deletedCurrents += deleteResetFile(
+        deletedCurrents += safeDeleteFile(
           comparison.current,
           'current screenshot',
-          comparison.name
+          comparison.name,
+          { logDeletion: false }
         );
-        deletedDiffs += deleteResetFile(
+        deletedDiffs += safeDeleteFile(
           comparison.diff,
           'diff',
           comparison.name
@@ -580,8 +557,13 @@ export const createTddHandler = (
    * @param {string} label - Label for logging (e.g., "baseline", "current", "diff")
    * @param {string} name - Screenshot name for logging
    */
-  const safeDeleteFile = (imagePath, label, name) => {
-    if (!imagePath) return;
+  let safeDeleteFile = (
+    imagePath,
+    label,
+    name,
+    { logDeletion = true } = {}
+  ) => {
+    if (!imagePath) return 0;
 
     try {
       // Use safePath to validate the path stays within workingDir
@@ -593,12 +575,14 @@ export const createTddHandler = (
 
       if (existsSync(filePath)) {
         unlinkSync(filePath);
-        output.debug(`Deleted ${label} for ${name}`);
+        if (logDeletion) output.debug(`Deleted ${label} for ${name}`);
+        return 1;
       }
     } catch (error) {
       // safePath throws if path traversal is attempted
       output.warn(`Failed to delete ${label} for ${name}: ${error.message}`);
     }
+    return 0;
   };
 
   const deleteComparison = async comparisonId => {

@@ -108,6 +108,8 @@ for (let filename of files) {
     let target = path.posix.normalize(
       path.posix.join(path.posix.dirname(filename), specifier)
     );
+    // Check built-package imports against their source before build output exists.
+    if (target.startsWith('dist/')) target = `src/${target.slice(5)}`;
     if (!existsSync(path.join(root, target))) {
       failures.push(`${filename}: missing ${specifier}`);
       continue;

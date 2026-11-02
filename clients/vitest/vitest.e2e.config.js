@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import { playwright } from '@vitest/browser-playwright';
-import handler from 'serve-handler';
+import serveStatic from 'serve-static';
 import { defineConfig } from 'vitest/config';
 import { vizzlyPlugin } from './src/index.js';
 
@@ -15,10 +15,15 @@ if (!existsSync(resolve(testSitePath, 'index.html'))) {
 }
 
 // Start static server for test-site assets
+let serve = serveStatic(testSitePath, { fallthrough: false });
 let server = createServer((req, res) => {
-  return handler(req, res, {
-    public: testSitePath,
-    cleanUrls: false,
+  serve(req, res, error => {
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
+    res.writeHead(error?.statusCode || 404, error?.headers);
+    res.end();
   });
 });
 

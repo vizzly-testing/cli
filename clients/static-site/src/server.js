@@ -1,11 +1,11 @@
 /**
- * HTTP server for serving static site files using serve-handler
+ * HTTP server for serving static site files
  * Needed because file:// protocol doesn't load assets properly
  */
 
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
-import handler from 'serve-handler';
+import serveStatic from 'serve-static';
 
 /**
  * Start an HTTP server to serve static files
@@ -16,12 +16,16 @@ import handler from 'serve-handler';
 export async function startStaticServer(rootDir, port = 0) {
   let absoluteRoot = resolve(rootDir);
   let sockets = new Set();
+  let serve = serveStatic(absoluteRoot, { fallthrough: false });
 
   let server = createServer((req, res) => {
-    return handler(req, res, {
-      public: absoluteRoot,
-      cleanUrls: false,
-      trailingSlash: false,
+    serve(req, res, error => {
+      if (res.headersSent) {
+        res.destroy();
+        return;
+      }
+      res.writeHead(error?.statusCode || 404, error?.headers);
+      res.end();
     });
   });
 

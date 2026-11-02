@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import {
   loadPlugin,
+  loadPlugins,
   resolvePackagePluginPath,
   resolvePluginPath,
 } from './plugin-loader.js';
@@ -36,6 +37,26 @@ describe('plugin-loader', () => {
   afterEach(async () => {
     process.chdir(originalCwd);
     await rm(workspace, { recursive: true, force: true });
+  });
+
+  it('loads installed plugins from the Vizzly package scope', async () => {
+    let packageDir = await writePackage(workspace, '@vizzly-testing/example', {
+      name: '@vizzly-testing/example',
+      type: 'module',
+      vizzlyPlugin: 'plugin.js',
+    });
+    await writeFile(
+      join(packageDir, 'plugin.js'),
+      `export default { name: 'installed-plugin', register() {} };`
+    );
+
+    let plugins = await loadPlugins(null, {});
+
+    assert.deepEqual(
+      plugins.map(plugin => plugin.name),
+      ['installed-plugin']
+    );
+    assert.equal(typeof plugins[0].register, 'function');
   });
 
   describe('resolvePackagePluginPath', () => {

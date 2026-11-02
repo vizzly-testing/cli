@@ -33,12 +33,14 @@ describe('commands/upload CLI', () => {
     assert.match(result.stderr, /API token required/);
   });
 
-  it('uploads screenshots and finalizes the build through the CLI', async () => {
+  it('uploads nested PNG screenshots and finalizes the build through the CLI', async () => {
     let workspace = mkdtempSync(join(tmpdir(), 'vizzly-cli-upload-'));
     let screenshots = join(workspace, 'screenshots');
     mkdirSync(screenshots);
+    mkdirSync(join(screenshots, 'nested'));
     writeFileSync(join(screenshots, 'home-chrome.png'), 'png');
-    writeFileSync(join(screenshots, 'settings-firefox.png'), 'png');
+    writeFileSync(join(screenshots, 'nested', 'settings-firefox.png'), 'png');
+    writeFileSync(join(screenshots, 'nested', 'notes.txt'), 'not a screenshot');
 
     await withUploadApiServer(async ({ apiUrl, requests }) => {
       let result = await runCLI(

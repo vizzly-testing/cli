@@ -15,6 +15,10 @@ overrides:
   zod@>=4.0.0 <4.6.6: 4.6.7
   body-parser@>=2.0.0 <2.4.0: 2.4.0
   fast-uri@>=3.0.0 <3.1.9: 3.1.9
+  # Stop affected glob walks when their AbortSignal is cancelled.
+  glob@>=9.0.0 <14.0.2: 14.0.2
+  # Fix credential forwarding in http-proxy's redirect dependency.
+  follow-redirects@>=1.16.0 <1.16.2: 1.16.2
 
 minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true

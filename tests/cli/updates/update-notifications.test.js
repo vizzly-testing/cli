@@ -9,9 +9,11 @@ import { promisify } from 'node:util';
 import { isNewerStableVersion } from '../../../src/domains/updates/update-notifications.js';
 
 let exec = promisify(execFile);
-let worker = fileURLToPath(
-  new URL('../../../src/domains/updates/update-check.js', import.meta.url)
-);
+let notifications = new URL(
+  '../../../src/domains/updates/update-notifications.js',
+  import.meta.url
+).href;
+let check = `import { checkForUpdate } from ${JSON.stringify(notifications)}; await checkForUpdate();`;
 let cli = fileURLToPath(
   new URL('../../../src/adapters/cli/cli.js', import.meta.url)
 );
@@ -51,7 +53,7 @@ test('version notices compare numeric release versions and never suggest prerele
     );
 });
 
-test('background worker caches the public registry version and preserves preferences', async t => {
+test('update checks cache the public registry version and preserve preferences', async t => {
   let { cwd, home, env } = await fixture(t);
   let filename = path.join(home, 'updates.json');
   await writeFile(
@@ -67,10 +69,14 @@ globalThis.fetch = async (url, options) => {
   return new Response(JSON.stringify({ version: '999.0.0' }));
 };\n`
   );
-  let result = await exec(process.execPath, ['--import', preload, worker], {
-    cwd,
-    env,
-  });
+  let result = await exec(
+    process.execPath,
+    ['--import', preload, '--input-type=module', '-e', check],
+    {
+      cwd,
+      env,
+    }
+  );
   assert.equal(result.stdout, '');
   assert.equal(result.stderr, '');
   assert.deepEqual(JSON.parse(await readFile(filename, 'utf8')), {
@@ -106,10 +112,14 @@ test('registry failures and invalid versions leave cached results untouched and 
       preload,
       `globalThis.fetch = async () => { ${response} };\n`
     );
-    let result = await exec(process.execPath, ['--import', preload, worker], {
-      cwd,
-      env,
-    });
+    let result = await exec(
+      process.execPath,
+      ['--import', preload, '--input-type=module', '-e', check],
+      {
+        cwd,
+        env,
+      }
+    );
     assert.equal(result.stdout, '');
     assert.equal(result.stderr, '');
     assert.equal(await readFile(filename, 'utf8'), before);

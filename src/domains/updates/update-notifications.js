@@ -1,6 +1,4 @@
-import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   applyChanges,
   fileChange,
@@ -172,17 +170,6 @@ async function planGuidanceNotice(cwd, cliVersion) {
   };
 }
 
-function startUpdateCheck() {
-  output.printErr('  Checking for Vizzly updates in the background…');
-  let child = spawn(
-    process.execPath,
-    [fileURLToPath(new URL('./update-check.js', import.meta.url))],
-    { detached: true, stdio: 'ignore' }
-  );
-  child.on('error', () => {});
-  child.unref();
-}
-
 export async function notifyUpdates(options = {}) {
   if (
     options.updateNotifier === false ||
@@ -233,8 +220,9 @@ export async function notifyUpdates(options = {}) {
       await stateChange(filename, state),
     ]);
     for (let message of messages) output.printErr(`  ${message}`);
-    if (checkDue) startUpdateCheck();
-    return await offerUpdate(cwd, available);
+    let check = checkDue ? checkForUpdate() : undefined;
+    let updatedCli = await offerUpdate(cwd, available);
+    return { check, updatedCli };
   } catch {
     // Missing, malformed, or unwritable metadata must not break CLI commands.
   }

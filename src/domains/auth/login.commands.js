@@ -31,7 +31,11 @@ export async function loginCommand(
   globalOptions = {},
   deps = {}
 ) {
-  let { now = Date.now, delay: sleep = delay } = deps;
+  let {
+    now = Date.now,
+    delay: sleep = delay,
+    exit = code => process.exit(code),
+  } = deps;
 
   output.configure({
     json: globalOptions.json,
@@ -206,6 +210,6 @@ export async function loginCommand(
       output.error('Login failed', error);
     }
     output.cleanup();
-    process.exit(1);
+    exit(1);
   }
 }

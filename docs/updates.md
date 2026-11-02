@@ -6,9 +6,11 @@ Saying yes applies that update only; future updates still need your okay.
 
 ## Update the CLI
 
-Vizzly checks in the background at most once a day. If it finds a newer
-version, you'll see a notice on your next command. Each version is announced
-once.
+Vizzly checks silently in the background at most once a day while your command
+runs. Before exiting, it waits for the check to finish and shows a notice if a
+newer version is available. The registry request times out after three seconds.
+Cached updates can appear at the start of your next command. Each version is
+announced once.
 
 When Vizzly can identify your npm or pnpm install, it shows the upgrade command
 before asking. For other installs, update with your usual package manager.

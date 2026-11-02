@@ -355,7 +355,11 @@ export async function waitForServerRunning(
  * @param {Object} options - Command options
  * @param {Object} globalOptions - Global CLI options
  */
-export async function tddStartCommand(options = {}, globalOptions = {}) {
+export async function tddStartCommand(
+  options = {},
+  globalOptions = {},
+  { exit = code => process.exit(code) } = {}
+) {
   output.configure({
     json: globalOptions.json,
     verbose: globalOptions.verbose,
@@ -468,7 +472,8 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
         output.stopSpinner();
       }
       output.error(initResult.error?.message || 'TDD server failed to start');
-      process.exit(1);
+      exit(1);
+      return;
     }
 
     // Unref so parent can exit
@@ -485,7 +490,8 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
       output.error(
         'Failed to start TDD server - server not responding to health checks'
       );
-      process.exit(1);
+      exit(1);
+      return;
     }
 
     // Register server in global registry (for menubar app)
@@ -564,7 +570,7 @@ export async function tddStartCommand(options = {}, globalOptions = {}) {
     }
   } catch (error) {
     output.error('Failed to start TDD daemon', error);
-    process.exit(1);
+    exit(1);
   }
 }
 

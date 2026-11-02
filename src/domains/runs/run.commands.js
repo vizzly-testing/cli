@@ -128,6 +128,7 @@ export async function runCommand(
     output = defaultOutput,
     writeSession = defaultWriteSession,
     exit = code => process.exit(code),
+    exitOnSignal = exit,
     processOn = (event, handler) => process.on(event, handler),
     processRemoveListener = (event, handler) =>
       process.removeListener(event, handler),
@@ -190,7 +191,7 @@ export async function runCommand(
 
   let sigintHandler = async () => {
     await cleanup();
-    exit(1);
+    exitOnSignal(1);
   };
 
   let exitHandler = () => output.cleanup();

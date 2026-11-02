@@ -503,7 +503,7 @@ function warnDeprecatedContextAgentOption() {
   output.warn(warning);
 }
 
-function reportValidationErrors(errors) {
+async function reportValidationErrors(errors) {
   if (output.isJson()) {
     output.error('Validation errors', null, { errors });
   } else {
@@ -512,7 +512,7 @@ function reportValidationErrors(errors) {
       output.printErr(`  - ${error}`);
     }
   }
-  process.exit(1);
+  await exitCli(1);
 }
 
 function formatCommanderError(message) {
@@ -569,17 +569,39 @@ program.configureOutput({
 program.showHelpAfterError('(Run vizzly --help for available commands)');
 program.showSuggestionAfterError();
 program.exitOverride();
+let pendingUpdateCheck;
+let updateOptions;
+let commandDeps = { exit: exitCli };
+
+async function exitCli(code) {
+  process.exitCode = code;
+  await pendingUpdateCheck;
+  process.exit(code);
+}
+
+async function finishUpdateNotifications() {
+  let check = pendingUpdateCheck;
+  pendingUpdateCheck = undefined;
+  if (!check) return;
+  await check;
+  if (!process.exitCode) await notifyUpdates(updateOptions);
+}
+
 program.hook('preAction', async (_command, actionCommand) => {
   if (actionCommand.name() === 'init') return;
-  let updatedCli = await notifyUpdates(actionCommand.optsWithGlobals());
+  updateOptions = actionCommand.optsWithGlobals();
+  let notification = await notifyUpdates(updateOptions);
+  pendingUpdateCheck = notification?.check;
+  let updatedCli = notification?.updatedCli;
   if (!updatedCli) return;
   let code = await runUpdatedCli(
     updatedCli,
     process.argv.slice(2),
     process.cwd()
   );
-  process.exit(code);
+  await exitCli(code);
 });
+program.hook('postAction', finishUpdateNotifications);
 
 // Load plugins before defining commands
 // We need to manually parse to get the config option early
@@ -696,22 +718,22 @@ program
     // Validate options
     const validationErrors = validateUploadOptions(path, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
     if (!existsSync(path)) {
       output.error(`Path does not exist: ${path}`);
-      process.exit(1);
+      await exitCli(1);
     }
 
     if (!statSync(path).isDirectory()) {
       output.error(`Path is not a directory: ${path}`);
-      process.exit(1);
+      await exitCli(1);
     }
 
-    let result = await uploadCommand(path, options, globalOptions);
+    let result = await uploadCommand(path, options, globalOptions, commandDeps);
     if (result?.exitCode) {
-      process.exit(result.exitCode);
+      await exitCli(result.exitCode);
     }
   });
 
@@ -757,10 +779,10 @@ tddCmd
 
     let validationErrors = validateTddStartOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await tddStartCommand(options, globalOptions);
+    await tddStartCommand(options, globalOptions, commandDeps);
   });
 
 // TDD Stop - Kill background server
@@ -772,7 +794,7 @@ tddCmd
     let globalOptions = getGlobalOptions();
     let validationErrors = validateTddStartOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
     await tddStopCommand(options, globalOptions);
   });
@@ -786,7 +808,7 @@ tddCmd
     let globalOptions = getGlobalOptions();
     let validationErrors = validateTddStartOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
     await tddStatusCommand(options, globalOptions);
   });
@@ -869,7 +891,7 @@ tddCmd
     // Validate options
     const validationErrors = validateTddOptions(command, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
     const { result, cleanup } = await tddCommand(
@@ -902,7 +924,9 @@ tddCmd
     process.off('SIGTERM', sigtermHandler);
 
     await handleCleanup();
-    process.exit(result?.exitCode || 0);
+    process.exitCode = result?.exitCode || 0;
+    await finishUpdateNotifications();
+    await exitCli(process.exitCode);
   });
 
 program
@@ -935,17 +959,20 @@ program
     // Validate options
     const validationErrors = validateRunOptions(command, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
     try {
-      const result = await runCommand(command, options, globalOptions);
+      const result = await runCommand(command, options, globalOptions, {
+        ...commandDeps,
+        exitOnSignal: code => process.exit(code),
+      });
       if (result && !result.success && result.exitCode > 0) {
-        process.exit(result.exitCode);
+        await exitCli(result.exitCode);
       }
     } catch (error) {
       output.error('Command failed', error);
-      process.exit(1);
+      await exitCli(1);
     }
   });
 
@@ -959,10 +986,10 @@ program
     // Validate options
     const validationErrors = validateStatusOptions(buildId, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await statusCommand(buildId, options, globalOptions);
+    await statusCommand(buildId, options, globalOptions, commandDeps);
   });
 
 program
@@ -1000,10 +1027,10 @@ Examples:
     // Validate options
     const validationErrors = validateBuildsOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await buildsCommand(options, globalOptions);
+    await buildsCommand(options, globalOptions, commandDeps);
   });
 
 program
@@ -1037,10 +1064,10 @@ Examples:
     // Validate options
     const validationErrors = validateComparisonsOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await comparisonsCommand(options, globalOptions);
+    await comparisonsCommand(options, globalOptions, commandDeps);
   });
 
 let contextCmd = program
@@ -1083,10 +1110,10 @@ Deprecation:
     if (options.agent) warnDeprecatedContextAgentOption();
     const validationErrors = validateContextBuildOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await contextBuildCommand(buildId, options, globalOptions);
+    await contextBuildCommand(buildId, options, globalOptions, commandDeps);
   });
 
 contextCmd
@@ -1123,10 +1150,15 @@ Deprecation:
     if (options.agent) warnDeprecatedContextAgentOption();
     const validationErrors = validateContextComparisonOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await contextComparisonCommand(comparisonId, options, globalOptions);
+    await contextComparisonCommand(
+      comparisonId,
+      options,
+      globalOptions,
+      commandDeps
+    );
   });
 
 contextCmd
@@ -1155,10 +1187,10 @@ Examples:
     let globalOptions = getGlobalOptions();
     const validationErrors = validateContextScreenshotOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await contextScreenshotCommand(name, options, globalOptions);
+    await contextScreenshotCommand(name, options, globalOptions, commandDeps);
   });
 
 contextCmd
@@ -1182,10 +1214,15 @@ Examples:
     let globalOptions = getGlobalOptions();
     const validationErrors = validateContextSimilarOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await contextSimilarCommand(fingerprintHash, options, globalOptions);
+    await contextSimilarCommand(
+      fingerprintHash,
+      options,
+      globalOptions,
+      commandDeps
+    );
   });
 
 contextCmd
@@ -1210,10 +1247,10 @@ Examples:
     let globalOptions = getGlobalOptions();
     const validationErrors = validateContextReviewQueueOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await contextReviewQueueCommand(options, globalOptions);
+    await contextReviewQueueCommand(options, globalOptions, commandDeps);
   });
 
 program
@@ -1226,7 +1263,7 @@ program
   .action(async (key, options) => {
     let globalOptions = getGlobalOptions();
 
-    await configCommand(key, options, globalOptions);
+    await configCommand(key, options, globalOptions, commandDeps);
   });
 
 program
@@ -1249,7 +1286,7 @@ Note: Baselines are stored locally in .vizzly/baselines/ during TDD mode.
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    await baselinesCommand(options, globalOptions);
+    await baselinesCommand(options, globalOptions, commandDeps);
   });
 
 let api = program
@@ -1295,10 +1332,10 @@ Writes are never automatically retried after authentication failures.
     // Validate options
     const validationErrors = validateApiOptions(endpoint, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await apiCommand(endpoint, options, globalOptions);
+    await apiCommand(endpoint, options, globalOptions, commandDeps);
   });
 
 api
@@ -1316,12 +1353,17 @@ api
   .action(async (operationId, options) => {
     options = { ...api.opts(), ...options };
     if (options.full && !options.output) {
-      reportValidationErrors([
+      await reportValidationErrors([
         '--full requires --output to avoid dumping the entire schema.',
       ]);
       return;
     }
-    await apiSchemaCommand(operationId, options, getGlobalOptions());
+    await apiSchemaCommand(
+      operationId,
+      options,
+      getGlobalOptions(),
+      commandDeps
+    );
   });
 
 program
@@ -1348,10 +1390,10 @@ Workflow:
 
     const validationErrors = validateApproveOptions(comparisonId, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await approveCommand(comparisonId, options, globalOptions);
+    await approveCommand(comparisonId, options, globalOptions, commandDeps);
   });
 
 program
@@ -1378,10 +1420,10 @@ Workflow:
 
     const validationErrors = validateRejectOptions(comparisonId, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await rejectCommand(comparisonId, options, globalOptions);
+    await rejectCommand(comparisonId, options, globalOptions, commandDeps);
   });
 
 program
@@ -1413,10 +1455,10 @@ Workflow:
 
     const validationErrors = validateCommentOptions(buildId, message, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await commentCommand(buildId, message, options, globalOptions);
+    await commentCommand(buildId, message, options, globalOptions, commandDeps);
   });
 
 program
@@ -1436,7 +1478,7 @@ or the single organization for a project token.
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    await orgsCommand(options, globalOptions);
+    await orgsCommand(options, globalOptions, commandDeps);
   });
 
 program
@@ -1464,10 +1506,10 @@ Workflow:
 
     const validationErrors = validateProjectsOptions(options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await projectsCommand(options, globalOptions);
+    await projectsCommand(options, globalOptions, commandDeps);
   });
 
 let projectCommand = program
@@ -1499,10 +1541,10 @@ used for cloud uploads; your user login remains separate for review actions.
 
     const validationErrors = validateProjectLinkOptions(selector, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await projectLinkCommand(selector, options, globalOptions);
+    await projectLinkCommand(selector, options, globalOptions, commandDeps);
   });
 
 program
@@ -1515,10 +1557,10 @@ program
     // Validate options
     const validationErrors = validateFinalizeOptions(parallelId, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await finalizeCommand(parallelId, options, globalOptions);
+    await finalizeCommand(parallelId, options, globalOptions, commandDeps);
   });
 
 program
@@ -1558,16 +1600,16 @@ program
         output.print('    vizzly preview ./out');
         output.blank();
       }
-      process.exit(1);
+      await exitCli(1);
     }
 
     // Validate options
     const validationErrors = validatePreviewOptions(path, options);
     if (validationErrors.length > 0) {
-      reportValidationErrors(validationErrors);
+      await reportValidationErrors(validationErrors);
     }
 
-    await previewCommand(path, options, globalOptions);
+    await previewCommand(path, options, globalOptions, commandDeps);
   });
 
 program
@@ -1577,7 +1619,7 @@ program
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    await doctorCommand(options, globalOptions);
+    await doctorCommand(options, globalOptions, commandDeps);
   });
 
 program
@@ -1587,7 +1629,7 @@ program
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    await loginCommand(options, globalOptions);
+    await loginCommand(options, globalOptions, commandDeps);
   });
 
 program
@@ -1597,7 +1639,7 @@ program
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    await logoutCommand(options, globalOptions);
+    await logoutCommand(options, globalOptions, commandDeps);
   });
 
 program
@@ -1607,7 +1649,7 @@ program
   .action(async options => {
     let globalOptions = getGlobalOptions();
 
-    await whoamiCommand(options, globalOptions);
+    await whoamiCommand(options, globalOptions, commandDeps);
   });
 
 // Save PATH for the menubar app before commands read or update credentials
@@ -1660,5 +1702,5 @@ try {
   if (error.exitCode == null) {
     output.error('Unexpected CLI error', error);
   }
-  process.exit(error.exitCode ?? 1);
+  await exitCli(error.exitCode ?? 1);
 }

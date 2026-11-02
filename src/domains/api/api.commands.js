@@ -307,7 +307,12 @@ async function readStdin() {
   );
 }
 
-export async function apiSchemaCommand(operationId, options, globalOptions) {
+export async function apiSchemaCommand(
+  operationId,
+  options,
+  globalOptions,
+  deps = {}
+) {
   let endpoint = '/api/sdk/schema';
   if (operationId) {
     endpoint += `/${encodeURIComponent(operationId)}`;
@@ -317,6 +322,7 @@ export async function apiSchemaCommand(operationId, options, globalOptions) {
   return apiCommand(
     endpoint,
     { ...options, schemaDiscovery: true },
-    globalOptions
+    globalOptions,
+    deps
   );
 }

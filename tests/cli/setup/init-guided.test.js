@@ -12,7 +12,6 @@ import {
   realpath,
   rm,
   symlink,
-  watch,
   writeFile,
 } from 'node:fs/promises';
 import http from 'node:http';
@@ -77,7 +76,8 @@ function wizard(
   responses,
   environment = {},
   args = ['init'],
-  entry = cli
+  entry = cli,
+  observe = () => {}
 ) {
   let env = { ...process.env, TERM: 'dumb', COLUMNS: '40', NO_COLOR: '1' };
   for (let name of Object.keys(env)) {
@@ -115,6 +115,7 @@ function wizard(
       let value = chunk.toString();
       output += value;
       pending += value;
+      observe(output);
       while (index < responses.length) {
         let [marker, answer] = responses[index];
         let position = pending.indexOf(marker);
@@ -357,7 +358,7 @@ async function updateCache(cwd, state = {}) {
 }
 
 ptyTest(
-  'the first update check runs in the background and caches results for the next command',
+  'commands run during silent update checks, show new versions before exit, and check only once a day',
   { timeout: 30000 },
   async t => {
     let cwd = await fixture(t);
@@ -385,31 +386,160 @@ ptyTest(
       `let registryFetch = globalThis.fetch;
 globalThis.fetch = (_url, options) => registryFetch('http://127.0.0.1:${server.address().port}/latest', options);\n`
     );
+    let commandFinished;
+    let commandOutput = new Promise(resolve => {
+      commandFinished = resolve;
+    });
     let firstCommand = wizard(
       t,
       cwd,
       [],
       { NODE_OPTIONS: `--import=${preload}` },
-      ['config']
+      ['config'],
+      cli,
+      output => {
+        if (output.includes('Use --verbose')) commandFinished(output);
+      }
     );
-    await requestReceived;
-    // The command must finish while the registry response is still pending.
+    let [, output] = await Promise.all([requestReceived, commandOutput]);
+    assert.doesNotMatch(output, /Checking for Vizzly updates|is available/);
+    pendingResponse.end(JSON.stringify({ version: '999.0.0' }));
     let first = await firstCommand;
     assert.equal(first.code, 0, first.output);
-    assert.match(first.output, /Checking for Vizzly updates in the background/);
-    let changes = watch(path.join(cwd, 'user-state'), {
-      signal: AbortSignal.timeout(10000),
-    });
-    pendingResponse.end(JSON.stringify({ version: '999.0.0' }));
-    for await (let event of changes) {
-      if (event.filename === 'updates.json' && event.eventType === 'rename')
-        break;
-    }
-    let result = await wizard(t, cwd, [], {}, ['config']);
+    assert.match(first.output, /Vizzly 999\.0\.0 is available/);
+    assert.ok(
+      first.output.indexOf('Use --verbose') <
+        first.output.indexOf('Vizzly 999.0.0 is available'),
+      first.output
+    );
+    assert.doesNotMatch(first.output, /Checking for Vizzly updates/);
+    let environment = { NODE_OPTIONS: `--import=${preload}` };
+    let result = await wizard(t, cwd, [], environment, ['config']);
     assert.equal(result.code, 0, result.output);
-    assert.match(result.output, /Vizzly 999\.0\.0 is available/);
-    assert.doesNotMatch(result.output, /Checking for Vizzly updates/);
+    assert.doesNotMatch(
+      result.output,
+      /is available|Checking for Vizzly updates/
+    );
     assert.equal(calls, 1);
+
+    let filename = path.join(cwd, 'user-state', 'updates.json');
+    let state = JSON.parse(await readFile(filename, 'utf8'));
+    state.lastCheckedAt = Date.now() - 24 * 60 * 60 * 1000;
+    await writeFile(filename, JSON.stringify(state));
+    let nextRequest = new Promise(resolve => {
+      receiveRequest = resolve;
+    });
+    let nextCommand = wizard(t, cwd, [], environment, ['config']);
+    await nextRequest;
+    pendingResponse.end(JSON.stringify({ version: '999.0.0' }));
+    let next = await nextCommand;
+    assert.equal(next.code, 0, next.output);
+    assert.doesNotMatch(
+      next.output,
+      /is available|Checking for Vizzly updates/
+    );
+    assert.equal(calls, 2);
+  }
+);
+
+ptyTest(
+  'failed commands wait for pending checks to cache results without changing their exit status',
+  { timeout: 30000 },
+  async t => {
+    let cwd = await fixture(t);
+    let pendingResponse;
+    let receiveRequest;
+    let requestReceived = new Promise(resolve => {
+      receiveRequest = resolve;
+    });
+    let server = http.createServer((_request, response) => {
+      pendingResponse = response;
+      receiveRequest();
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    t.after(() => {
+      server.closeAllConnections();
+      server.close();
+    });
+    let preload = path.join(cwd, 'registry.js');
+    await writeFile(
+      preload,
+      `let registryFetch = globalThis.fetch;
+globalThis.fetch = (_url, options) => registryFetch('http://127.0.0.1:${server.address().port}/latest', options);\n`
+    );
+    for (let args of [
+      ['config', 'missing-key'],
+      ['upload', path.join(cwd, 'missing-directory')],
+    ]) {
+      await updateCache(cwd, { lastCheckedAt: 0 });
+      requestReceived = new Promise(resolve => {
+        receiveRequest = resolve;
+      });
+      let commandFailed;
+      let commandOutput = new Promise(resolve => {
+        commandFailed = resolve;
+      });
+      let command = wizard(
+        t,
+        cwd,
+        [],
+        { NODE_OPTIONS: `--import=${preload}` },
+        args,
+        cli,
+        output => {
+          if (output.includes('missing-')) commandFailed(output);
+        }
+      );
+      await Promise.all([requestReceived, commandOutput]);
+      pendingResponse.end(JSON.stringify({ version: '999.0.0' }));
+      let result = await command;
+      assert.equal(result.code, 1, result.output);
+      assert.doesNotMatch(
+        result.output,
+        /is available|Checking for Vizzly updates|Apply available Vizzly updates/
+      );
+      let state = JSON.parse(
+        await readFile(path.join(cwd, 'user-state', 'updates.json'), 'utf8')
+      );
+      assert.equal(state.latestVersion, '999.0.0');
+      assert.equal(state.notifiedCliVersion, undefined);
+    }
+  }
+);
+
+ptyTest(
+  'up-to-date versions and failed update checks stay silent and preserve command output',
+  { timeout: 30000 },
+  async t => {
+    let { version } = JSON.parse(
+      await readFile(path.join(repository, 'package.json'), 'utf8')
+    );
+    for (let response of [
+      `return new Response(JSON.stringify({ version: '${version}' }));`,
+      "return new Response('unavailable', { status: 503 });",
+      "throw new Error('offline');",
+    ]) {
+      let cwd = await fixture(t);
+      let preload = path.join(cwd, 'registry.js');
+      await writeFile(
+        preload,
+        `globalThis.fetch = async () => { ${response} };\n`
+      );
+      let result = await wizard(
+        t,
+        cwd,
+        [],
+        { NODE_OPTIONS: `--import=${preload}` },
+        ['config']
+      );
+      assert.equal(result.code, 0, result.output);
+      assert.match(result.output, /Use --verbose/);
+      assert.doesNotMatch(
+        result.output,
+        /is available|Checking for Vizzly updates|offline|unavailable/
+      );
+    }
   }
 );
 

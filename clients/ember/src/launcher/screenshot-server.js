@@ -283,7 +283,6 @@ async function handleScreenshot(req, res) {
       // Capture screenshot via Playwright
       let screenshotOptions = {
         type: 'png',
-        animations: 'disabled',
         fullPage: fullPage || false,
       };
 

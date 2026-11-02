@@ -1,0 +1,8 @@
+/* Keep fixture screenshots independent of animation timing. */
+#ember-testing,
+#ember-testing *,
+#ember-testing *::before,
+#ember-testing *::after {
+  animation: none !important;
+  transition: none !important;
+}

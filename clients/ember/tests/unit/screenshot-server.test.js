@@ -299,9 +299,7 @@ describe('screenshot-server', () => {
         );
 
         assert.strictEqual(response.status, 200);
-        assert.deepStrictEqual(screenshotCalls, [
-          { type: 'png', animations: 'disabled' },
-        ]);
+        assert.deepStrictEqual(screenshotCalls, [{ type: 'png' }]);
       } finally {
         await vizzlyServer.stop();
       }

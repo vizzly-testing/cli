@@ -69,7 +69,9 @@ module('Acceptance | Dashboard', function(hooks) {
 ```
 
 The helper waits for Ember's `settled()` when it's available, resizes the app,
-and captures `#ember-testing` without the QUnit runner.
+and captures `#ember-testing` without the QUnit runner. Captures disable CSS
+animations and transitions: finite animations finish before capture, while
+infinite animations pause for the screenshot and resume afterward.
 
 Start Vizzly, then run your tests:
 

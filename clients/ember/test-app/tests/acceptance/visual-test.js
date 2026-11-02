@@ -67,6 +67,16 @@ module('Acceptance | Visual Testing - Pages', function (hooks) {
   // COMPONENTS PAGE TESTS
   // =====================================================
 
+  test('components page - modal state resets after leaving the page', async function (assert) {
+    await visit('/components');
+    await click('[data-test-button="open-modal-medium"]');
+    assert.dom('[data-test-modal="demo-modal"]').exists();
+
+    await visit('/');
+    await visit('/components');
+    assert.dom('[data-test-modal="demo-modal"]').doesNotExist();
+  });
+
   test('components page - desktop viewport', async function (assert) {
     await visit('/components');
     assert.strictEqual(currentURL(), '/components');

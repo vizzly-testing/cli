@@ -345,6 +345,10 @@ jobs:
         working-directory: ./clients/ember
         run: pnpm exec playwright-core install chromium chromium-headless-shell --with-deps
 
+      - name: Run SDK integration tests
+        working-directory: ./clients/ember
+        run: pnpm run test:all
+
       - name: Build Ember test app
         working-directory: ./clients/ember/test-app
         run: pnpm run build --mode development

@@ -5,12 +5,12 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { createCloudServer } from '../../../tests/helpers/cloud-server.js';
-import { createAuthService } from '../../domains/auth/auth.service.js';
 import {
-  clearAuthTokens,
-  saveAuthTokens,
-} from '../../domains/auth/token-store.js';
+  fixtureAuthorization,
+  saveFixtureAuth,
+} from '../../../tests/helpers/auth-session.js';
+import { createCloudServer } from '../../../tests/helpers/cloud-server.js';
+import { createProjectService } from '../../domains/projects/project.service.js';
 import { createCloudProxyRouter } from './cloud-proxy.js';
 
 async function isolateHome(t) {
@@ -22,10 +22,11 @@ async function isolateHome(t) {
     else process.env.VIZZLY_HOME = originalHome;
     await rm(directory, { recursive: true, force: true });
   });
+  return directory;
 }
 
-async function serveProxy(t, authService) {
-  let router = createCloudProxyRouter({ authService });
+async function serveProxy(t, projectService) {
+  let router = createCloudProxyRouter({ projectService });
   let handlerError;
   let server = createServer(async (req, res) => {
     try {
@@ -51,6 +52,21 @@ async function serveProxy(t, authService) {
   return (path, options) => fetch(`${baseUrl}${path}`, options);
 }
 
+function page(items, query) {
+  let limit = Number(query.get('limit'));
+  let offset = Number(query.get('offset'));
+  let values = items.slice(offset, offset + limit);
+  return {
+    values,
+    meta: {
+      total: items.length,
+      limit,
+      offset,
+      hasMore: offset + values.length < items.length,
+    },
+  };
+}
+
 function downloadRequest(body) {
   return {
     method: 'POST',
@@ -59,91 +75,100 @@ function downloadRequest(body) {
   };
 }
 
-test('saved authentication lets the browser browse projects/builds and download selected baselines', async t => {
-  await isolateHome(t);
-  await saveAuthTokens({ accessToken: 'saved-cloud-token' });
+test('cloud reads use the selected user session and SDK contracts', async t => {
+  let home = await isolateHome(t);
+  let projects = Array.from({ length: 61 }, (_, index) => ({
+    id: `project-${index}`,
+    slug: `project-${index}`,
+    organizationSlug: 'my org',
+  }));
   let { client, requests } = await createCloudServer(t, request => {
-    if (request.url === '/api/cli/projects') {
-      return { body: { projects: [{ slug: 'my-project' }] } };
+    let url = new URL(request.url, 'http://cloud');
+    if (url.pathname === '/api/sdk/projects') {
+      let { values, meta } = page(projects, url.searchParams);
+      return { body: { projects: values, meta } };
     }
-    if (request.method === 'GET') {
-      return { body: { builds: [{ id: 'build-123' }] } };
+    if (url.pathname === '/api/sdk/builds') {
+      let { values, meta } = page(
+        [{ id: 'build-1' }, { id: 'build-2' }],
+        url.searchParams
+      );
+      return { body: { builds: values, meta } };
+    }
+    if (url.pathname === '/api/sdk/builds/build-1/tdd-baselines') {
+      return {
+        body: {
+          build: { id: 'build-1' },
+          screenshots: [{ name: 'home' }, { name: 'cart' }],
+          signatureProperties: ['browser'],
+        },
+      };
     }
     return {
-      body: {
-        downloaded: 2,
-        success: false,
-        message: 'Cloud download response',
-      },
+      status: 404,
+      body: { error: `Unexpected cloud request: ${url.pathname}` },
     };
   });
+  await saveFixtureAuth(home, client.getBaseUrl());
   let request = await serveProxy(
     t,
-    createAuthService({ apiUrl: client.getBaseUrl() })
+    createProjectService({ apiUrl: client.getBaseUrl() })
   );
-  let projects = await request('/api/cloud/projects');
-  assert.equal(projects.status, 200);
-  assert.deepEqual(await projects.json(), {
-    projects: [{ slug: 'my-project' }],
-  });
 
-  let builds = await request(
-    '/api/cloud/organizations/my%20org/projects/my%20project/builds?limit=10&branch=feature%2Fnew+page'
+  let projectResponse = await request('/api/cloud/projects');
+  assert.equal(projectResponse.status, 200);
+  assert.deepEqual((await projectResponse.json()).projects, projects);
+  let buildsResponse = await request(
+    '/api/cloud/organizations/my%20org/projects/project-1/builds?limit=2&branch=feature%2Fnew+page'
   );
-  assert.equal(builds.status, 200);
-  assert.deepEqual(await builds.json(), { builds: [{ id: 'build-123' }] });
-  await request('/api/cloud/organizations/org/projects/project/builds');
-  await request('/api/cloud/organizations/org/projects/project/builds?limit=');
-  let download = await request(
+  assert.equal(buildsResponse.status, 200);
+  assert.deepEqual(await buildsResponse.json(), {
+    builds: [{ id: 'build-1' }, { id: 'build-2' }],
+  });
+  let baselineResponse = await request(
     '/api/cloud/baselines/download',
-    downloadRequest({ buildId: 'build-123', screenshotNames: ['home', 'cart'] })
+    downloadRequest({ buildId: 'build-1', screenshotNames: ['cart'] })
   );
-  assert.equal(download.status, 200);
-  assert.deepEqual(await download.json(), {
-    success: false,
-    message: 'Cloud download response',
-    downloaded: 2,
+  assert.equal(baselineResponse.status, 200);
+  assert.deepEqual(await baselineResponse.json(), {
+    success: true,
+    message: 'Baselines downloaded from build build-1',
+    build: { id: 'build-1' },
+    screenshots: [{ name: 'cart' }],
+    signatureProperties: ['browser'],
   });
 
   assert.deepEqual(
-    requests.map(({ method, url }) => ({ method, url })),
+    requests.map(({ method, url }) => [method, url]),
     [
-      { method: 'GET', url: '/api/cli/projects' },
-      {
-        method: 'GET',
-        url: '/api/cli/organizations/my%20org/projects/my%20project/builds?limit=10&branch=feature%2Fnew+page',
-      },
-      {
-        method: 'GET',
-        url: '/api/cli/organizations/org/projects/project/builds?limit=20',
-      },
-      {
-        method: 'GET',
-        url: '/api/cli/organizations/org/projects/project/builds?limit=20',
-      },
-      { method: 'POST', url: '/api/cli/baselines/download' },
+      ['GET', '/api/sdk/projects?limit=50&offset=0'],
+      ['GET', '/api/sdk/projects?limit=50&offset=50'],
+      [
+        'GET',
+        '/api/sdk/builds?organization=my+org&project=project-1&branch=feature%2Fnew+page&limit=2&offset=0',
+      ],
+      ['GET', '/api/sdk/builds/build-1/tdd-baselines'],
     ]
   );
   assert(
-    requests.every(
-      item => item.headers.authorization === 'Bearer saved-cloud-token'
-    )
+    requests.every(item => item.headers.authorization === 'Bearer fixture-user')
   );
-  assert.equal(requests.at(-1).headers['content-type'], 'application/json');
-  assert.deepEqual(requests.at(-1).body, {
-    buildId: 'build-123',
-    screenshotNames: ['home', 'cart'],
-  });
+  assert(
+    requests
+      .slice(0, 3)
+      .every(item => item.headers['vizzly-api-version'] === '2026-09-12')
+  );
 });
 
-test('cloud routing and input errors are handled locally without making cloud requests', async t => {
-  await isolateHome(t);
-  await saveAuthTokens({ accessToken: 'saved-cloud-token' });
+test('cloud route validation and unavailable-service responses stay local', async t => {
+  let home = await isolateHome(t);
   let { client, requests } = await createCloudServer(t, () => ({ body: {} }));
+  await saveFixtureAuth(home, client.getBaseUrl());
   let request = await serveProxy(
     t,
-    createAuthService({ apiUrl: client.getBaseUrl() })
+    createProjectService({ apiUrl: client.getBaseUrl() })
   );
+
   let outside = await request('/other');
   assert.equal(outside.status, 418);
   for (let path of ['/api/cloud/unknown', '/api/cloud/projects']) {
@@ -176,85 +201,91 @@ test('cloud routing and input errors are handled locally without making cloud re
   let response = await unavailable('/api/cloud/projects');
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), {
-    error: 'Auth service not available',
+    error: 'Project service not available',
   });
 });
 
-test('missing or rejected saved authentication produces an empty project list for the browser', async t => {
-  await isolateHome(t);
-  await clearAuthTokens();
-  let { client, requests } = await createCloudServer(t, () => ({
-    status: 401,
-    body: { error: 'Expired access token' },
-  }));
+test('each project read uses the currently saved user session', async t => {
+  let home = await isolateHome(t);
+  let { client, requests } = await createCloudServer(t, request => {
+    if (request.url.startsWith('/api/sdk/projects?')) {
+      let project =
+        request.headers.authorization === 'Bearer session-a'
+          ? { id: 'project-a', slug: 'project-a' }
+          : { id: 'project-b', slug: 'project-b' };
+      return {
+        body: {
+          projects: [project],
+          meta: { total: 1, limit: 50, offset: 0, hasMore: false },
+        },
+      };
+    }
+    return { status: 404, body: { error: 'Unexpected cloud request' } };
+  });
+  let sessionA = {
+    ...fixtureAuthorization,
+    sessionId: '8bfb8060-ef8e-4c3e-b58b-ffb826ba8991',
+  };
+  let sessionB = {
+    ...fixtureAuthorization,
+    sessionId: '8bfb8060-ef8e-4c3e-b58b-ffb826ba8992',
+  };
+  await saveFixtureAuth(home, client.getBaseUrl(), {
+    accessToken: 'session-a',
+    authorization: sessionA,
+  });
   let request = await serveProxy(
     t,
-    createAuthService({ apiUrl: client.getBaseUrl() })
+    createProjectService({ apiUrl: client.getBaseUrl() })
   );
-  let missing = await request('/api/cloud/projects');
-  assert.equal(missing.status, 200);
-  assert.deepEqual(await missing.json(), {
+
+  let firstRead = await request('/api/cloud/projects');
+  assert.deepEqual((await firstRead.json()).projects, [
+    { id: 'project-a', slug: 'project-a' },
+  ]);
+  await saveFixtureAuth(home, client.getBaseUrl(), {
+    accessToken: 'session-b',
+    authorization: sessionB,
+  });
+  let secondRead = await request('/api/cloud/projects');
+  assert.deepEqual((await secondRead.json()).projects, [
+    { id: 'project-b', slug: 'project-b' },
+  ]);
+  assert.deepEqual(
+    requests.map(item => item.headers.authorization),
+    ['Bearer session-a', 'Bearer session-b']
+  );
+});
+
+test('signed-out project reads stay empty without hiding a saved-session error', async t => {
+  let home = await isolateHome(t);
+  let { client, requests } = await createCloudServer(t, request => {
+    if (request.url === '/api/auth/cli/refresh') {
+      return { status: 401, body: { error: 'Refresh rejected' } };
+    }
+    return { status: 401, body: { error: 'Expired session' } };
+  });
+  let request = await serveProxy(
+    t,
+    createProjectService({ apiUrl: client.getBaseUrl() })
+  );
+
+  let signedOut = await request('/api/cloud/projects');
+  assert.equal(signedOut.status, 200);
+  assert.deepEqual(await signedOut.json(), {
     projects: [],
     authenticated: false,
   });
   assert.equal(requests.length, 0);
 
-  await saveAuthTokens({ accessToken: 'rejected-token' });
-  let rejected = await request('/api/cloud/projects');
-  assert.equal(rejected.status, 200);
-  assert.deepEqual(await rejected.json(), {
-    projects: [],
-    authenticated: false,
+  await saveFixtureAuth(home, client.getBaseUrl(), {
+    expiresAt: '2000-01-01T00:00:00.000Z',
   });
-  assert.equal(requests.length, 1);
-  assert.equal(requests[0].headers.authorization, 'Bearer rejected-token');
-});
-
-test('cloud response defaults and failures remain visible through each product route', async t => {
-  await isolateHome(t);
-  await saveAuthTokens({ accessToken: 'saved-cloud-token' });
-  let failing = false;
-  let { client } = await createCloudServer(t, () => ({
-    status: failing ? 503 : 200,
-    body: failing ? { error: 'Cloud is unavailable' } : {},
-  }));
-  let request = await serveProxy(
-    t,
-    createAuthService({ apiUrl: client.getBaseUrl() })
+  let expired = await request('/api/cloud/projects');
+  assert.equal(expired.status, 401);
+  assert.match((await expired.json()).error, /saved login has expired/i);
+  assert.deepEqual(
+    requests.map(({ method, url }) => [method, url]),
+    [['POST', '/api/auth/cli/refresh']]
   );
-  let projects = await request('/api/cloud/projects');
-  assert.deepEqual(await projects.json(), { projects: [] });
-  let builds = await request(
-    '/api/cloud/organizations/org/projects/proj/builds'
-  );
-  assert.deepEqual(await builds.json(), { builds: [] });
-  let download = await request(
-    '/api/cloud/baselines/download',
-    downloadRequest({ buildId: 'build-123' })
-  );
-  assert.deepEqual(await download.json(), {
-    success: true,
-    message: 'Baselines downloaded from build build-123',
-  });
-
-  failing = true;
-  for (let [path, options, endpoint] of [
-    ['/api/cloud/projects', undefined, '/api/cli/projects'],
-    [
-      '/api/cloud/organizations/org/projects/proj/builds',
-      undefined,
-      '/api/cli/organizations/org/projects/proj/builds?limit=20',
-    ],
-    [
-      '/api/cloud/baselines/download',
-      downloadRequest({ buildId: 'build-123' }),
-      '/api/cli/baselines/download',
-    ],
-  ]) {
-    let response = await request(path, options);
-    assert.equal(response.status, 500);
-    assert.deepEqual(await response.json(), {
-      error: `API request failed: 503 - Cloud is unavailable (${endpoint})`,
-    });
-  }
 });

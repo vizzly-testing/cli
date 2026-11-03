@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
+import { getAuthStoragePath } from '../../../src/domains/auth/token-store.js';
+import { saveFixtureAuth } from '../../helpers/auth-session.js';
 import {
   terminalFixture as fixture,
   terminalTest as ptyTest,
@@ -33,19 +35,6 @@ async function projectPickerFixture(t) {
           meta: { total: 11, limit: 10, offset, hasMore: offset === 0 },
         })
       );
-    } else if (url.pathname === '/api/cli/web/link-token') {
-      assert.equal(request.headers['x-organization'], 'studio');
-      response.end(
-        JSON.stringify({
-          organization: { slug: 'studio' },
-          project: { slug: 'web' },
-          token: {
-            id: 'token-1',
-            token: 'vzt_picker_secret',
-            token_prefix: 'vzt_fixture',
-          },
-        })
-      );
     } else {
       response.statusCode = 404;
       response.end(JSON.stringify({ error: 'Unexpected fixture request' }));
@@ -55,20 +44,15 @@ async function projectPickerFixture(t) {
   await once(server, 'listening');
   t.after(() => new Promise(resolve => server.close(resolve)));
   await mkdir(path.join(cwd, 'user-state'));
-  await writeFile(
-    path.join(cwd, 'user-state', 'config.json'),
-    JSON.stringify({
-      auth: {
-        accessToken: 'fixture-picker-user',
-        expiresAt: '2999-01-01T00:00:00Z',
-      },
-    })
-  );
+  let apiUrl = `http://127.0.0.1:${server.address().port}`;
+  let home = path.join(cwd, 'user-state');
+  await saveFixtureAuth(home, apiUrl, { accessToken: 'fixture-picker-user' });
+  let authPath = getAuthStoragePath(apiUrl, home);
   let environment = {
-    VIZZLY_API_URL: `http://127.0.0.1:${server.address().port}`,
+    VIZZLY_API_URL: apiUrl,
     VIZZLY_NO_UPDATE_NOTIFIER: '1',
   };
-  return { cwd, calls, environment };
+  return { cwd, calls, environment, authPath };
 }
 
 ptyTest(
@@ -94,7 +78,6 @@ ptyTest(
       [
         '/api/sdk/projects?limit=10&offset=0',
         '/api/sdk/projects?limit=10&offset=10',
-        '/api/cli/web/link-token',
       ]
     );
     let { default: config } = await import(path.join(cwd, 'vizzly.config.js'));
@@ -110,8 +93,12 @@ ptyTest(
   { timeout: 30000 },
   async t => {
     for (let answer of ['q\n', '\x03', '\x04']) {
-      let { cwd, calls, environment } = await projectPickerFixture(t);
-      let filename = path.join(cwd, 'user-state', 'config.json');
+      let {
+        cwd,
+        calls,
+        environment,
+        authPath: filename,
+      } = await projectPickerFixture(t);
       let before = await readFile(filename, 'utf8');
       let result = await wizard(
         t,

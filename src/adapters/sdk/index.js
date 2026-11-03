@@ -78,6 +78,12 @@ export async function createVizzly(config = {}, options = {}) {
         {
           apiKey: activeConfig.apiKey,
           apiUrl: activeConfig.apiUrl,
+          ...(activeConfig.credential
+            ? { credential: activeConfig.credential }
+            : {}),
+          ...(activeConfig.projectQuery
+            ? { projectQuery: activeConfig.projectQuery }
+            : {}),
           upload: uploadConfig,
         },
         { ...options, ...serviceOptions }
@@ -240,6 +246,12 @@ export class VizzlySDK extends EventEmitter {
           {
             apiKey: activeConfig.apiKey,
             apiUrl: activeConfig.apiUrl,
+            ...(activeConfig.credential
+              ? { credential: activeConfig.credential }
+              : {}),
+            ...(activeConfig.projectQuery
+              ? { projectQuery: activeConfig.projectQuery }
+              : {}),
             upload: resolvedUploadConfig,
           },
           resolvedServiceOptions

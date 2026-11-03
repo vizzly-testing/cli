@@ -13,6 +13,11 @@ export function credentialSourceLabel(source) {
 
 export function showCredential(output, credential, command) {
   output.hint(`Using ${credentialSourceLabel(credential.source)}`);
+  if (credential.authorization) {
+    output.hint(
+      `Permissions: ${credential.authorization.scopes.join(', ') || 'None'}`
+    );
+  }
   if (credential.kind === 'project') {
     output.hint('This project token can access only its project.');
     output.hint(`Browse your account: vizzly ${command} --auth user`);

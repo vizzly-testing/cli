@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
+import { createTokenStore } from '../../../src/domains/auth/token-store.js';
+import { fixtureAuthorization } from '../../helpers/auth-session.js';
 
 async function login(
   t,
@@ -133,16 +135,15 @@ process.disconnect();
     output += chunk;
   });
   let [code] = await once(child, 'close');
-  let config;
-  try {
-    config = JSON.parse(await readFile(join(directory, 'home', 'config.json')));
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-  }
+  let auth =
+    (await createTokenStore({
+      apiUrl,
+      home: join(directory, 'home'),
+    }).getTokens()) || undefined;
   let browserPid = browserHangs
     ? Number(await readFile(join(directory, 'browser.pid'), 'utf8'))
     : undefined;
-  return { code, output, config, requests, waits, browserPid };
+  return { code, output, auth, requests, waits, browserPid };
 }
 
 let pending = { status: 400, body: { code: 'AUTHORIZATION_PENDING' } };
@@ -154,6 +155,7 @@ let complete = {
       refreshToken: 'refresh',
       expiresIn: 900,
     },
+    authorization: fixtureAuthorization,
     user: { name: 'Robert', email: 'robert@example.test' },
     organizations: [{ name: 'Vizzly', slug: 'vizzly' }],
   },
@@ -167,9 +169,9 @@ test(
   async t => {
     let result = await login(t, [pending, pending, complete]);
     assert.equal(result.code, 0, result.output);
-    assert.equal(result.config.auth.accessToken, 'access');
-    assert.equal(result.config.auth.refreshToken, 'refresh');
-    assert.equal(result.config.auth.user.email, 'robert@example.test');
+    assert.equal(result.auth.accessToken, 'access');
+    assert.equal(result.auth.refreshToken, 'refresh');
+    assert.equal(result.auth.user.email, 'robert@example.test');
     assert.match(result.output, /Authenticated/);
     assert.match(result.output, /Vizzly \(@vizzly\)/);
     assert.match(result.output, /Could not open browser automatically/);
@@ -207,7 +209,7 @@ test(
     assert.equal(result.code, 0, result.output);
     assert.deepEqual(result.waits, [5000, 5000, 12000]);
     assert.match(result.output, /Rate limited. Next check in 12s/);
-    assert.equal(result.config.auth.accessToken, 'access');
+    assert.equal(result.auth.accessToken, 'access');
     assert.equal(
       result.requests.filter(req => req.path.endsWith('/initiate')).length,
       1
@@ -229,7 +231,7 @@ for (let [serverCode, message] of [
       ]);
       assert.equal(result.code, 1);
       assert.match(result.output, message);
-      assert.equal(result.config?.auth, undefined);
+      assert.equal(result.auth, undefined);
       assert.equal(result.requests.length, 2);
     }
   );
@@ -250,7 +252,7 @@ for (let [expiresIn, seconds, message] of [
       });
       assert.equal(result.code, 1);
       assert.match(result.output, message);
-      assert.equal(result.config?.auth, undefined);
+      assert.equal(result.auth, undefined);
       assert.equal(
         result.waits.reduce((total, wait) => total + wait, 0),
         seconds * 1000
@@ -267,7 +269,7 @@ test('login stops a stalled poll when the code expires', options, async t => {
   let result = await login(t, [{ hang: true }], { expiresIn: 2 });
   assert.equal(result.code, 1);
   assert.match(result.output, /Device code expired/);
-  assert.equal(result.config?.auth, undefined);
+  assert.equal(result.auth, undefined);
   assert.equal(result.requests.length, 2);
 });
 
@@ -285,7 +287,7 @@ test(
       /Please wait a few minutes before trying again/
     );
     assert.equal(result.requests.length, 1);
-    assert.equal(result.config?.auth, undefined);
+    assert.equal(result.auth, undefined);
   }
 );
 
@@ -302,7 +304,7 @@ test(
     assert.match(result.output, /timed out after 2 minutes/);
     assert.deepEqual(result.waits, [5000, 115000]);
     assert.equal(result.requests.length, 2);
-    assert.equal(result.config?.auth, undefined);
+    assert.equal(result.auth, undefined);
   }
 );
 
@@ -313,7 +315,7 @@ test(
     let result = await login(t, [{ status: 200, body: { status: 'unknown' } }]);
     assert.equal(result.code, 1);
     assert.match(result.output, /Unexpected response/);
-    assert.equal(result.config?.auth, undefined);
+    assert.equal(result.auth, undefined);
     assert.equal(result.requests.length, 2);
   }
 );
@@ -332,7 +334,7 @@ test(
     assert.match(result.output, /Authentication failed/);
     assert.match(result.output, /Please try logging in again/);
     assert.match(result.output, /sign up at https:\/\/vizzly.dev/);
-    assert.equal(result.config?.auth, undefined);
+    assert.equal(result.auth, undefined);
   }
 );
 
@@ -345,7 +347,7 @@ test('a stuck browser launcher cannot prevent login polling or leave the launche
   assert.match(result.output, /Could not open browser automatically/);
   assert.match(result.output, /Please open the URL manually/);
   assert.match(result.output, /Authenticated/);
-  assert.equal(result.config.auth.accessToken, 'access');
+  assert.equal(result.auth.accessToken, 'access');
   assert.equal(result.requests.length, 3);
   assert.throws(() => process.kill(result.browserPid, 0), { code: 'ESRCH' });
 });

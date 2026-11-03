@@ -477,13 +477,13 @@ describe('server/routers/baseline', () => {
         assert.ok(body.error.includes('Download failed'));
       });
 
-      it('uses OAuth when organizationSlug and projectSlug provided', async () => {
+      it('uses the selected user session with the SDK build endpoint', async () => {
         let authRequestPath = null;
-        let authRequestHeaders = null;
         let mockAuthService = {
+          hasSavedSession: async () => true,
           authenticatedRequest: async (path, options) => {
             authRequestPath = path;
-            authRequestHeaders = options.headers;
+            assert.strictEqual(options.method, 'GET');
             return {
               build: { id: 'build-456', status: 'completed' },
               screenshots: [],
@@ -507,18 +507,18 @@ describe('server/routers/baseline', () => {
         await handler(req, res, '/api/baselines/download');
 
         assert.strictEqual(res.statusCode, 200);
-        assert.ok(
-          authRequestPath.includes('/api/cli/my-project/builds/build-456'),
-          `Expected OAuth path, got: ${authRequestPath}`
+        assert.strictEqual(
+          authRequestPath,
+          '/api/sdk/builds/build-456/tdd-baselines'
         );
-        assert.strictEqual(authRequestHeaders['X-Organization'], 'my-org');
       });
 
-      it('falls back to tddService when OAuth fails with auth error', async () => {
+      it('uses project-token access only when no user session is saved', async () => {
         let tddServiceCalled = false;
         let mockAuthService = {
+          hasSavedSession: async () => false,
           authenticatedRequest: async () => {
-            throw new Error('Not authenticated');
+            assert.fail('Should not use the user session');
           },
         };
         let mockTddService = {
@@ -546,13 +546,16 @@ describe('server/routers/baseline', () => {
         await handler(req, res, '/api/baselines/download');
 
         assert.strictEqual(res.statusCode, 200);
-        assert.ok(tddServiceCalled, 'Should fall back to tddService');
+        assert.ok(tddServiceCalled, 'Should use the project-token path');
       });
 
-      it('throws non-auth OAuth errors without fallback', async () => {
+      it('surfaces selected-user auth and scope failures without project-token fallback', async () => {
         let mockAuthService = {
+          hasSavedSession: async () => true,
           authenticatedRequest: async () => {
-            throw new Error('Build not found');
+            let error = new Error('Read permission required');
+            error.context = { status: 403 };
+            throw error;
           },
         };
         let tddServiceCalled = false;
@@ -580,19 +583,20 @@ describe('server/routers/baseline', () => {
 
         await handler(req, res, '/api/baselines/download');
 
-        assert.strictEqual(res.statusCode, 500);
+        assert.strictEqual(res.statusCode, 403);
         assert.ok(
           !tddServiceCalled,
-          'Should NOT fall back for non-auth errors'
+          'Should not switch identities after a selected-user denial'
         );
         let body = res.getParsedBody();
-        assert.ok(body.error.includes('Build not found'));
+        assert.ok(body.error.includes('Read permission required'));
       });
 
-      it('skips OAuth when organizationSlug or projectSlug missing', async () => {
+      it('does not need project and organization slugs for SDK baseline reads', async () => {
         let authServiceCalled = false;
         let tddServiceCalled = false;
         let mockAuthService = {
+          hasSavedSession: async () => true,
           authenticatedRequest: async () => {
             authServiceCalled = true;
             return { build: {}, screenshots: [] };
@@ -620,8 +624,8 @@ describe('server/routers/baseline', () => {
         await handler(req, res, '/api/baselines/download');
 
         assert.strictEqual(res.statusCode, 200);
-        assert.ok(!authServiceCalled, 'Should NOT use OAuth without slugs');
-        assert.ok(tddServiceCalled, 'Should use tddService directly');
+        assert.ok(authServiceCalled, 'Should use the selected user session');
+        assert.ok(!tddServiceCalled, 'Should not switch to project-token auth');
       });
     });
   });

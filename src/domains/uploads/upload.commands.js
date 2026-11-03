@@ -9,12 +9,16 @@ import {
 } from '../../shared/git.js';
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { scopeErrorDetails } from '../auth/credential-error.serializers.js';
 import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import { finalizeBuild as defaultFinalizeBuild } from '../builds/build.service.js';
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getTokenContext as defaultGetTokenContext } from '../context/context.service.js';
-import { requireUploadDestination } from '../projects/upload-destination.service.js';
+import {
+  requireUploadDestination,
+  uploadDestinationInfo,
+} from '../projects/upload-destination.service.js';
 import { writeSession as defaultWriteSession } from '../runs/session-store.js';
 import { createUploader as defaultCreateUploader } from './upload.service.js';
 
@@ -111,16 +115,22 @@ export async function uploadCommand(
     config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token
-    if (!config.apiKey) {
+    if (!config.apiKey && !config.userToken) {
       output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+        'Login or API token required. Run vizzly login, use --token, or set VIZZLY_TOKEN.'
       );
       exit(1);
       return { success: false, reason: 'no-api-key' };
     }
 
     destination = await requireUploadDestination(config);
-    config.uploadDestination = destination;
+    config = {
+      ...config,
+      apiKey: destination.credential.token,
+      credential: destination.credential,
+      projectQuery: destination.projectQuery,
+      uploadDestination: destination,
+    };
     output.info(
       `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
     );
@@ -220,6 +230,7 @@ export async function uploadCommand(
         let client = createApiClient({
           baseUrl: config.apiUrl,
           token: config.apiKey,
+          credential: config.credential,
           command: 'upload',
         });
         let executionTime = Date.now() - uploadStartTime;
@@ -244,7 +255,7 @@ export async function uploadCommand(
           : null);
 
       output.data({
-        destination,
+        destination: uploadDestinationInfo(destination),
         buildId: result.buildId,
         url: buildUrl,
         stats: {
@@ -307,7 +318,7 @@ export async function uploadCommand(
           ));
 
         output.data({
-          destination,
+          destination: uploadDestinationInfo(destination),
           buildId: result.buildId,
           status: buildResult.failedComparisons > 0 ? 'failed' : 'completed',
           url: waitBuildUrl,
@@ -377,7 +388,7 @@ export async function uploadCommand(
     if (status >= 500) {
       if (globalOptions.json) {
         output.data({
-          destination,
+          destination: uploadDestinationInfo(destination),
           buildId: null,
           status: 'skipped',
           message: 'Vizzly API unavailable - upload skipped',
@@ -398,6 +409,7 @@ export async function uploadCommand(
         let client = createApiClient({
           baseUrl: config.apiUrl,
           token: config.apiKey,
+          credential: config.credential,
           command: 'upload',
         });
         let executionTime = Date.now() - uploadStartTime;
@@ -410,7 +422,7 @@ export async function uploadCommand(
     // JSON output for errors
     if (globalOptions.json) {
       output.data({
-        destination,
+        destination: uploadDestinationInfo(destination),
         buildId: buildId || null,
         status: 'failed',
         error: {
@@ -418,6 +430,7 @@ export async function uploadCommand(
           message: error?.getUserMessage
             ? error.getUserMessage()
             : error.message,
+          ...scopeErrorDetails(error),
         },
         executionTimeMs: Date.now() - uploadStartTime,
       });

@@ -17,6 +17,8 @@ import { detectBranch as defaultDetectBranch } from '../../shared/git.js';
 import * as defaultOutput from '../../shared/output.js';
 import { createWildcardMatcher } from '../../shared/patterns.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { requireCredentialScope } from '../auth/credential.rules.js';
+import { resolveCredential } from '../auth/credential.service.js';
 import { getBuild as defaultGetBuild } from '../builds/build.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import {
@@ -357,9 +359,9 @@ export async function previewCommand(
     let config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token (skip for dry-run)
-    if (!options.dryRun && !config.apiKey) {
+    if (!options.dryRun && !config.apiKey && !config.userToken) {
       output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+        'Login or API token required. Run vizzly login, use --token, or set VIZZLY_TOKEN.'
       );
       exit(1);
       return { success: false, reason: 'no-api-key' };
@@ -416,31 +418,45 @@ export async function previewCommand(
     // Create API client for non-dry-run operations (reused for visibility check and upload)
     let client;
     if (!options.dryRun) {
+      let credential = resolveCredential(config, { command: 'preview' });
       client = createApiClient({
         baseUrl: config.apiUrl,
-        token: config.apiKey,
+        token: credential.token,
+        credential,
         command: 'preview',
       });
+      if (credential.kind === 'user') {
+        let identity = await client.request('/api/auth/cli/whoami');
+        requireCredentialScope(
+          {
+            ...credential,
+            authorization: identity.authorization || credential.authorization,
+          },
+          'builds:write'
+        );
+      }
 
       // Check project visibility for private projects
       let buildResponse;
-      try {
-        buildResponse = await getBuild(client, buildId);
-      } catch (error) {
-        if (error.status === 404) {
-          output.error(`Build not found: ${buildId}`);
-        } else {
-          output.error('Failed to verify project visibility', error);
+      if (!options.publicLink) {
+        try {
+          buildResponse = await getBuild(client, buildId);
+        } catch (error) {
+          if (error.status === 404) {
+            output.error(`Build not found: ${buildId}`);
+          } else {
+            output.error('Failed to verify project visibility', error);
+          }
+          exit(1);
+          // Return is for testing (exit is mocked in tests)
+          return { success: false, reason: 'build-fetch-failed', error };
         }
-        exit(1);
-        // Return is for testing (exit is mocked in tests)
-        return { success: false, reason: 'build-fetch-failed', error };
       }
 
       // Check if project is private and user hasn't acknowledged public link access
       // Note: API returns { build, project } at top level, not nested
       // Use === false to handle undefined/missing isPublic defensively
-      let project = buildResponse.project;
+      let project = buildResponse?.project;
       let isPrivate = project && project.isPublic === false;
       if (isPrivate && !options.publicLink) {
         output.error('This project is private.');

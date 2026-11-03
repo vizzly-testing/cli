@@ -1,8 +1,5 @@
-import { preflightChanges } from '../../shared/file-changes.js';
 import * as defaultOutput from '../../shared/output.js';
 import { VizzlyError } from '../../shared/vizzly-error.js';
-import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
-import { resolveCredential } from '../auth/credential.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
 import {
@@ -13,10 +10,6 @@ import {
   planProjectBinding as defaultPlanProjectBinding,
   writeProjectBinding as defaultWriteProjectBinding,
 } from './project-binding.js';
-import {
-  getProjectLink as defaultGetProjectLink,
-  saveProjectLink as defaultSaveProjectLink,
-} from './project-link-store.js';
 import { pickProject } from './project-picker.service.js';
 
 export async function projectLinkCommand(
@@ -26,13 +19,10 @@ export async function projectLinkCommand(
   deps = {}
 ) {
   let {
-    createApiClient = defaultCreateApiClient,
     getApiUrl = defaultGetApiUrl,
     loadConfig = defaultLoadConfig,
     output = defaultOutput,
-    getProjectLink = defaultGetProjectLink,
     planProjectBinding = defaultPlanProjectBinding,
-    saveProjectLink = defaultSaveProjectLink,
     writeProjectBinding = defaultWriteProjectBinding,
     exit = code => process.exit(code),
   } = deps;
@@ -49,6 +39,12 @@ export async function projectLinkCommand(
   );
 
   try {
+    if (options.name || options.expiresAt) {
+      throw new VizzlyError(
+        'Project linking saves an upload destination. Create automation tokens in the project API token settings.',
+        'PROJECT_TOKEN_OPTIONS_UNSUPPORTED'
+      );
+    }
     let config;
     let configError;
     try {
@@ -93,6 +89,8 @@ export async function projectLinkCommand(
     );
     if (errors.length)
       throw new VizzlyError(errors.join(' '), 'PROJECT_INPUT_REQUIRED');
+    organizationSlug = organizationSlug.toLowerCase();
+    projectSlug = projectSlug.toLowerCase();
     let apiUrl = config?.apiUrl || getApiUrl();
     let project = { organizationSlug, projectSlug };
     let binding = await planProjectBinding({
@@ -126,101 +124,12 @@ export async function projectLinkCommand(
 
     if (configError) throw configError;
 
-    if (binding.after !== null) {
-      await preflightChanges([
-        {
-          path: binding.configPath,
-          before: binding.before,
-          after: binding.after,
-        },
-      ]);
-    }
-
-    let linkedProject =
-      !options.name && !options.expiresAt
-        ? await getProjectLink({ apiUrl, ...project })
-        : null;
-    let reused = Boolean(linkedProject);
-    let userToken = linkedProject
-      ? null
-      : config.userToken || globalOptions.token;
-
-    if (!linkedProject && !userToken) {
-      output.error('Login required before linking a project');
-      output.hint('Run "vizzly login" first, then try project link again');
-      output.cleanup();
-      exit(1);
-      return { linked: false, reason: 'auth_required' };
-    }
-
-    if (!linkedProject) {
-      output.startSpinner(`Linking ${organizationSlug}/${projectSlug}...`);
-      let credential = resolveCredential(config, {
-        ...globalOptions,
-        auth: globalOptions.token ? 'auto' : 'user',
-        command: 'project link',
-      });
-      let client = createApiClient({
-        baseUrl: apiUrl,
-        token: credential.token,
-        credential,
-        command: 'project-link',
-      });
-      let response = await client.request(
-        `/api/cli/${projectSlug}/link-token`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Organization': organizationSlug,
-          },
-          body: JSON.stringify({
-            name: options.name,
-            expiresAt: options.expiresAt,
-          }),
-        }
-      );
-      linkedProject = await saveProjectLink({
-        apiUrl,
-        organizationSlug: response.organization?.slug || organizationSlug,
-        organizationName: response.organization?.name,
-        projectSlug: response.project?.slug || projectSlug,
-        projectName: response.project?.name,
-        token: response.token.token,
-        tokenId: response.token.id,
-        tokenPrefix: response.token.token_prefix,
-        expiresAt: response.token.expires_at,
-        createdAt: response.token.created_at,
-      });
-    }
-
-    if (
-      linkedProject.organizationSlug !== organizationSlug ||
-      linkedProject.projectSlug !== projectSlug
-    ) {
-      binding = await planProjectBinding({
-        configPath: binding.configPath,
-        project: {
-          organizationSlug: linkedProject.organizationSlug,
-          projectSlug: linkedProject.projectSlug,
-        },
-        apiUrl,
-        currentProject: config?.project,
-        currentApiUrl: config?._configApiUrl,
-      });
-      if (binding.status === 'manual') throw new Error(binding.instructions);
-    }
     await writeProjectBinding(binding);
-
-    output.stopSpinner();
 
     let result = {
       linked: true,
-      organizationSlug: linkedProject.organizationSlug,
-      projectSlug: linkedProject.projectSlug,
-      tokenPrefix: linkedProject.tokenPrefix,
-      storage: linkedProject.storage,
-      reused,
+      organizationSlug,
+      projectSlug,
       binding: { status: 'bound', configPath: binding.configPath },
     };
     if (globalOptions.json) {
@@ -229,20 +138,14 @@ export async function projectLinkCommand(
       return result;
     }
 
-    output.complete(
-      `Linked ${linkedProject.organizationSlug}/${linkedProject.projectSlug}`
-    );
+    output.complete(`Linked ${organizationSlug}/${projectSlug}`);
     output.hint(
-      `Repository project: ${linkedProject.organizationSlug}/${linkedProject.projectSlug}`
+      'Uploads use your saved login or an explicitly configured API token.'
     );
-    output.hint(
-      'Cloud uploads use this project credential. Browse other projects with --auth user.'
-    );
-    output.hint(`Credential storage: ${linkedProject.storage}`);
+    output.hint('Vizzly checks project access when you upload.');
     output.cleanup();
     return result;
   } catch (error) {
-    output.stopSpinner();
     if (error.code === 'PROMPT_CANCELLED') {
       output.hint('Project selection cancelled; no files changed.');
       output.cleanup();

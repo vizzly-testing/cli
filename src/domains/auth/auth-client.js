@@ -35,6 +35,33 @@ async function parseResponseBody(response) {
  */
 export function createAuthClient(options = {}) {
   let { baseUrl, userAgent } = options;
+  let requestTimeoutMs = options.requestTimeoutMs ?? 30000;
+
+  function requestSignal(signal) {
+    let deadline = AbortSignal.timeout(requestTimeoutMs);
+    return signal ? AbortSignal.any([signal, deadline]) : deadline;
+  }
+
+  function transportError(signal) {
+    return signal.reason?.name === 'TimeoutError'
+      ? new VizzlyError(
+          'The Vizzly authentication request timed out. Try this command again.',
+          'AUTH_REQUEST_TIMEOUT'
+        )
+      : new VizzlyError(
+          `Unable to reach Vizzly at ${new URL(baseUrl).origin}. Try this command again when connected.`,
+          'NETWORK_ERROR'
+        );
+  }
+
+  async function readSuccess(response, signal) {
+    try {
+      return await response.json();
+    } catch (error) {
+      if (signal.aborted) throw transportError(signal);
+      throw error;
+    }
+  }
 
   if (!userAgent) {
     userAgent = buildAuthUserAgent(getPackageVersion());
@@ -44,6 +71,7 @@ export function createAuthClient(options = {}) {
    * Make an unauthenticated request
    */
   async function request(endpoint, fetchOptions = {}) {
+    let signal = requestSignal(fetchOptions.signal);
     let url = `${baseUrl}${endpoint}`;
     let headers = buildRequestHeaders({
       userAgent,
@@ -57,12 +85,10 @@ export function createAuthClient(options = {}) {
         redirect: 'error',
         ...fetchOptions,
         headers,
+        signal,
       });
     } catch {
-      throw new VizzlyError(
-        `Unable to reach Vizzly at ${new URL(baseUrl).origin}. Try this command again when connected.`,
-        'NETWORK_ERROR'
-      );
+      throw transportError(signal);
     }
 
     if (!response.ok) {
@@ -73,7 +99,7 @@ export function createAuthClient(options = {}) {
       throw error;
     }
 
-    return response.json();
+    return readSuccess(response, signal);
   }
 
   /**
@@ -84,6 +110,7 @@ export function createAuthClient(options = {}) {
     accessToken,
     fetchOptions = {}
   ) {
+    let signal = requestSignal(fetchOptions.signal);
     let url = `${baseUrl}${endpoint}`;
     let headers = buildRequestHeaders({
       userAgent,
@@ -92,17 +119,23 @@ export function createAuthClient(options = {}) {
       extra: fetchOptions.headers,
     });
 
-    let response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        signal,
+      });
+    } catch {
+      throw transportError(signal);
+    }
 
     if (!response.ok) {
       let body = await parseResponseBody(response);
       throw parseAuthenticatedError(response.status, body, endpoint);
     }
 
-    return response.json();
+    return readSuccess(response, signal);
   }
 
   return {

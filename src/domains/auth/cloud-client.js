@@ -14,6 +14,7 @@ import {
 } from '../../shared/cloud-protocol.js';
 import { getPackageVersion } from '../../shared/package-info.js';
 import { AuthError, VizzlyError } from '../../shared/vizzly-error.js';
+import { createInsufficientScopeError } from './auth-errors.js';
 
 /**
  * Default API URL
@@ -118,7 +119,21 @@ export function createApiClient(options = {}) {
         );
       }
 
-      // Other errors
+      // Permission denials keep the selected identity and never trigger refresh.
+      if (response.status === 403) {
+        let body;
+        try {
+          body = JSON.parse(errorBody);
+        } catch {
+          // Preserve ordinary non-JSON errors through the shared parser.
+        }
+        if ((body?.code || body?.details?.code) === 'INSUFFICIENT_SCOPE') {
+          throw createInsufficientScopeError({
+            requiredScopes: body.requiredScopes || body.details?.requiredScopes,
+            grantedScopes: body.grantedScopes || body.details?.grantedScopes,
+          });
+        }
+      }
       let error = parseApiError(response.status, errorBody, url);
       throw new VizzlyError(error.message, error.code, {
         status: error.status,

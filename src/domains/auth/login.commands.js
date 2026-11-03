@@ -6,12 +6,16 @@ import {
   buildTokens,
   normalizeDeviceFlowResponse,
 } from './auth.normalizers.js';
-import { resolveAuthorizedTokenData } from './auth.rules.js';
+import {
+  requireScopedAuthorization,
+  resolveAuthorizedTokenData,
+} from './auth.rules.js';
 import {
   completeDeviceFlow,
   initiateDeviceFlow,
   pollDeviceAuthorization,
 } from './auth.service.js';
+import { parseLoginScopes } from './auth.validations.js';
 import { createAuthClient } from './auth-client.js';
 import { waitForLoginPoll } from './login-wait.js';
 import { createTokenStore } from './token-store.js';
@@ -49,14 +53,14 @@ export async function loginCommand(
     output.header('login');
 
     // Create auth client and token store
-    let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
-    });
-    let tokenStore = createTokenStore();
+    let apiUrl = options.apiUrl || getApiUrl();
+    let scope = parseLoginScopes(options.scopes);
+    let client = createAuthClient({ baseUrl: apiUrl });
+    let tokenStore = createTokenStore({ apiUrl });
 
     // Initiate device flow
     output.startSpinner('Connecting to Vizzly...');
-    let deviceFlow = await initiateDeviceFlow(client);
+    let deviceFlow = await initiateDeviceFlow(client, { scope });
     output.stopSpinner();
     let expiresIn = Number(deviceFlow.expires_in ?? deviceFlow.expiresIn);
     let lifetime =
@@ -92,12 +96,14 @@ export async function loginCommand(
     output.blank();
 
     // Try to open browser with pre-filled code
-    let browserOpened = await openBrowser(urlWithCode);
-    if (browserOpened) {
-      output.complete('Browser opened');
-    } else {
-      output.warn('Could not open browser automatically');
-      output.hint('Please open the URL manually');
+    if (options.browser !== false) {
+      let browserOpened = await openBrowser(urlWithCode);
+      if (browserOpened) {
+        output.complete('Browser opened');
+      } else {
+        output.warn('Could not open browser automatically');
+        output.hint('Please open the URL manually');
+      }
     }
 
     output.blank();
@@ -163,10 +169,25 @@ export async function loginCommand(
     // Complete device flow and save tokens
     // Handle both snake_case and camelCase for token data, and nested tokens object
     let tokens = buildTokens(tokenData, now());
+    requireScopedAuthorization(tokens.authorization);
     await completeDeviceFlow(tokenStore, tokens);
 
     // Display success
+    if (globalOptions.json) {
+      output.data({
+        authenticated: true,
+        apiUrl: new URL(apiUrl).origin,
+        credential: { source: 'user', kind: 'user' },
+        authorization: tokens.authorization,
+        user: tokens.user,
+        organizations: tokens.organizations || [],
+      });
+    }
     output.complete('Authenticated');
+    output.keyValue({
+      API: new URL(apiUrl).origin,
+      Permissions: tokens.authorization.scopes.join(', ') || 'None',
+    });
     output.blank();
 
     // Show user info

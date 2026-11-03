@@ -95,9 +95,10 @@ pnpm exec vizzly project status
 pnpm exec vizzly run "pnpm test"
 ```
 
-`vizzly login` signs you in. Linking saves the project name in your config and
-keeps the upload token in user storage. Run it again to reuse a saved token.
-Replace `"pnpm test"` with your test command.
+`vizzly login` opens browser consent so you can choose read, build/upload, review,
+and comment permissions. Your login can perform those actions within your current
+project access. Linking saves the destination in your checkout; it does not issue
+another credential. Replace `"pnpm test"` with your test command.
 
 If you linked with an older CLI, run `project link` once in each repository to
 save its project selection. Handwritten config may need a manual edit; the
@@ -118,7 +119,8 @@ Cloud read commands accept `--auth auto|user|token`. The default, `auto`, uses
 an explicit flag, environment, or config token first, then your saved login,
 then the checkout's linked credential. `user` selects only your saved login;
 `token` selects only an upload or explicit API credential. `--token` and
-`--auth user` cannot be combined. User login and upload credentials stay separate.
+`--auth user` cannot be combined. Your saved login works for uploads too; explicit
+project credentials remain available for CI.
 
 Lists show a page of accessible results and tell you how to fetch the next one.
 Use `--limit` and `--offset` for scripts; JSON keeps paging details under
@@ -130,6 +132,20 @@ Vizzly refreshes an expired or nearly expired selected login automatically.
 If the saved session is rejected, run `vizzly login` and retry your command.
 Connection or server errors preserve your saved session and ask you to retry.
 Submitted API writes are never automatically replayed after an auth failure.
+
+Use `vizzly whoami` to see the selected API origin and granted permissions. For a
+restricted session, use `vizzly login --scopes read` or
+`vizzly login --scopes "read builds:write"`, then confirm the selection in your
+browser. `--no-browser` prints the authorization URL for remote terminals. Missing
+permissions produce `INSUFFICIENT_SCOPE` with an action to authorize the needed
+scope; they do not trigger repeated refreshes or switch identities.
+
+User sessions are isolated by API origin and stored in the system credential store
+when available, with an owner-only file fallback. Custom `VIZZLY_HOME` directories
+use isolated files by default. Concurrent CLI processes coordinate refresh, and
+long-running commands renew again as later access tokens expire. Existing generic
+login credentials require fresh browser consent. See
+[CLI authentication](docs/cli-authentication.md) for the storage and scope contract.
 
 To upload screenshots you already have:
 

@@ -12,9 +12,9 @@ test('signed-out users see the sign-in prompt without fetching projects', async 
   await expect(
     page.getByRole('heading', { name: /sign in required/i })
   ).toBeVisible();
-  expect(cloud.requests.some(request => request.path === '/api/project')).toBe(
-    false
-  );
+  expect(
+    cloud.requests.some(request => request.path === '/api/sdk/projects')
+  ).toBe(false);
 });
 
 test.describe('Signed-in builds', () => {
@@ -33,7 +33,7 @@ test.describe('Signed-in builds', () => {
       page.getByRole('heading', { name: /no projects found/i })
     ).toBeVisible();
     expect(
-      cloud.requests.some(request => request.path === '/api/project')
+      cloud.requests.some(request => request.path === '/api/sdk/projects')
     ).toBe(true);
   });
 });

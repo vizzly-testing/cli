@@ -8,7 +8,12 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
+import {
+  fixtureAuthorization,
+  saveFixtureAuth,
+} from '../../../tests/helpers/auth-session.js';
 import { saveGlobalConfig } from '../../shared/global-config.js';
+import { getAuthStoragePath } from '../auth/token-store.js';
 import { getScreenshotPaths, loadConfig } from './config-loader.js';
 
 describe('utils/config-loader', () => {
@@ -67,6 +72,7 @@ describe('utils/config-loader', () => {
 
       // Clean env
       delete process.env.VIZZLY_TOKEN;
+      delete process.env.VIZZLY_API_URL;
       delete process.env.VIZZLY_BUILD_NAME;
       delete process.env.VIZZLY_PARALLEL_ID;
       delete process.env.VIZZLY_THRESHOLD;
@@ -189,18 +195,28 @@ export default { comparison: { threshold: Threshold.Normal } };`
     });
 
     it('keeps user login separate from cloud upload credentials', async () => {
-      await saveGlobalConfig({
-        auth: {
-          accessToken: 'user-access-token',
-          refreshToken: 'refresh-token',
-          expiresAt: '2999-01-01T00:00:00.000Z',
-        },
+      await saveFixtureAuth(process.env.VIZZLY_HOME, 'https://app.vizzly.dev', {
+        accessToken: 'user-access-token',
+        refreshToken: 'refresh-token',
+        expiresAt: '2999-01-01T00:00:00.000Z',
       });
 
       let config = await loadConfig();
 
       assert.strictEqual(config.apiKey, undefined);
       assert.strictEqual(config.userToken, 'user-access-token');
+      assert.deepStrictEqual(config.userAuthorization, fixtureAuthorization);
+    });
+
+    it('retains unavailable user storage errors for credential selection while loading explicit project tokens', async () => {
+      await saveFixtureAuth(process.env.VIZZLY_HOME, 'https://app.vizzly.dev');
+      writeFileSync(getAuthStoragePath('https://app.vizzly.dev'), '{corrupt');
+      let config = await loadConfig(null, { token: 'explicit-project-token' });
+      assert.strictEqual(config.apiKey, 'explicit-project-token');
+      assert.strictEqual(config.credentialSource, 'flag');
+      assert.strictEqual(config.userToken, undefined);
+      assert.ok(config.userAuthError instanceof Error);
+      assert.strictEqual(config.userAuthError.code, 'AUTH_STORAGE_UNAVAILABLE');
     });
 
     it('uses the repository-linked project token for cloud upload credentials', async () => {

@@ -1,7 +1,11 @@
 import * as output from '../../shared/output.js';
+import { resolveCredential } from '../auth/credential.service.js';
 import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import { loadConfig } from '../config/config-loader.js';
-import { resolveUploadDestination } from './upload-destination.service.js';
+import {
+  resolveUploadDestination,
+  uploadDestinationInfo,
+} from './upload-destination.service.js';
 
 function projectLabel(project) {
   return project
@@ -23,13 +27,13 @@ export async function projectStatusCommand(_options = {}, globalOptions = {}) {
         apiUrl: config.apiUrl,
         configured: config.project || null,
         effective: null,
-        credential: config.apiKey ? { source: config.credentialSource } : null,
+        credential: resolveCredential(config, { allowNoToken: true }),
         status: 'unverified',
         matches: null,
         error: { code: error.code, message: error.message },
       };
     }
-    if (globalOptions.json) output.data(destination);
+    if (globalOptions.json) output.data(uploadDestinationInfo(destination));
     else {
       output.header('project');
       output.labelValue('API', destination.apiUrl);
@@ -40,9 +44,17 @@ export async function projectStatusCommand(_options = {}, globalOptions = {}) {
       output.labelValue(
         'Upload destination',
         destination.status === 'unverified'
-          ? 'unverified (unable to reach Vizzly)'
+          ? destination.effective
+            ? `${projectLabel(destination.effective)} (access checked on upload)`
+            : 'unverified (unable to reach Vizzly)'
           : projectLabel(destination.effective)
       );
+      if (destination.credential?.source === 'user') {
+        output.labelValue(
+          'Build permission',
+          destination.uploadPermission || 'unknown'
+        );
+      }
       output.labelValue(
         'Credential',
         destination.credential

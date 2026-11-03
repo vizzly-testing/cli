@@ -21,28 +21,20 @@ export async function saveSecret(account, secret, options = {}) {
   }
 
   try {
-    try {
-      await execFileFn('security', [
-        'delete-generic-password',
+    await execFileFn(
+      'security',
+      [
+        'add-generic-password',
         '-s',
         service,
         '-a',
         account,
-      ]);
-    } catch {
-      // Missing secrets are fine; add-generic-password creates the current value.
-    }
-
-    await execFileFn('security', [
-      'add-generic-password',
-      '-s',
-      service,
-      '-a',
-      account,
-      '-w',
-      secret,
-      '-U',
-    ]);
+        '-w',
+        secret,
+        '-U',
+      ],
+      { timeout: 30000 }
+    );
     return true;
   } catch {
     return false;
@@ -62,14 +54,11 @@ export async function getSecret(account, options = {}) {
   }
 
   try {
-    let { stdout } = await execFileFn('security', [
-      'find-generic-password',
-      '-s',
-      service,
-      '-a',
-      account,
-      '-w',
-    ]);
+    let { stdout } = await execFileFn(
+      'security',
+      ['find-generic-password', '-s', service, '-a', account, '-w'],
+      { timeout: 30000 }
+    );
     return stdout.trim() || null;
   } catch {
     return null;
@@ -89,13 +78,11 @@ export async function deleteSecret(account, options = {}) {
   }
 
   try {
-    await execFileFn('security', [
-      'delete-generic-password',
-      '-s',
-      service,
-      '-a',
-      account,
-    ]);
+    await execFileFn(
+      'security',
+      ['delete-generic-password', '-s', service, '-a', account],
+      { timeout: 30000 }
+    );
     return true;
   } catch {
     return false;

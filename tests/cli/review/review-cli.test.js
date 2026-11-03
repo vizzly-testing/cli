@@ -1,26 +1,24 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { getAuthStoragePath } from '../../../src/domains/auth/token-store.js';
+import {
+  fixtureAuthorization,
+  saveFixtureAuth,
+} from '../../helpers/auth-session.js';
 import { runCLI } from '../../helpers/cli-runner.js';
 
-function createWorkspace() {
+async function createWorkspace(apiUrl) {
   let cwd = mkdtempSync(join(tmpdir(), 'vizzly-cli-review-'));
   let vizzlyHome = join(cwd, '.vizzly-home');
-  mkdirSync(vizzlyHome, { recursive: true });
-  writeFileSync(
-    join(vizzlyHome, 'config.json'),
-    JSON.stringify({
-      auth: {
-        accessToken: 'user-access-token',
-        refreshToken: 'user-refresh-token',
-        expiresAt: '2099-01-01T00:00:00.000Z',
-        user: { id: 'user-1' },
-      },
-    })
-  );
+  await saveFixtureAuth(vizzlyHome, apiUrl, {
+    accessToken: 'user-access-token',
+    refreshToken: 'user-refresh-token',
+    user: { id: 'user-1' },
+  });
   return { cwd, vizzlyHome };
 }
 
@@ -174,6 +172,7 @@ async function withReviewApiServer(callback) {
         sendJson(res, 200, {
           accessToken: 'refreshed-user-access-token',
           refreshToken: 'refreshed-user-refresh-token',
+          authorization: fixtureAuthorization,
           expiresAt: '2099-01-01T00:00:00.000Z',
         });
         return;
@@ -222,7 +221,7 @@ describe('commands/review CLI', () => {
 
   it('changes review decisions and safely retries the same command', async () => {
     await withReviewApiServer(async ({ apiUrl, state }) => {
-      let { cwd, vizzlyHome } = createWorkspace();
+      let { cwd, vizzlyHome } = await createWorkspace(apiUrl);
       let env = { VIZZLY_API_URL: apiUrl, VIZZLY_HOME: vizzlyHome };
 
       state.failAfterNextDecision = true;
@@ -311,7 +310,7 @@ describe('commands/review CLI', () => {
 
   it('prints approval annotations and human comments, and reports comment failures without replay', async t => {
     await withReviewApiServer(async ({ apiUrl, state }) => {
-      let { cwd, vizzlyHome } = createWorkspace();
+      let { cwd, vizzlyHome } = await createWorkspace(apiUrl);
       t.after(() => rmSync(cwd, { recursive: true, force: true }));
       let env = { VIZZLY_API_URL: apiUrl, VIZZLY_HOME: vizzlyHome };
       let approved = await runCLI(
@@ -362,7 +361,7 @@ describe('commands/review CLI', () => {
 
   it('rejects missing reasons, blank messages, and missing login before making review changes', async t => {
     await withReviewApiServer(async ({ apiUrl, state }) => {
-      let { cwd, vizzlyHome } = createWorkspace();
+      let { cwd, vizzlyHome } = await createWorkspace(apiUrl);
       t.after(() => rmSync(cwd, { recursive: true, force: true }));
       let env = { VIZZLY_API_URL: apiUrl, VIZZLY_HOME: vizzlyHome };
       for (let args of [
@@ -373,7 +372,7 @@ describe('commands/review CLI', () => {
         assert.equal(result.code, 1);
         assert.match(result.stderr, /reason|message.*required/i);
       }
-      rmSync(join(vizzlyHome, 'config.json'));
+      rmSync(getAuthStoragePath(apiUrl, vizzlyHome));
       let result = await runCLI(['--no-color', 'approve', state.comparisonId], {
         cwd,
         env,

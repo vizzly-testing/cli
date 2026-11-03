@@ -1554,8 +1554,6 @@ projectCommand
   .description('Link a Vizzly project for cloud uploads')
   .option('--org <slug>', 'Organization slug')
   .option('--project <slug>', 'Project slug')
-  .option('--name <name>', 'Credential name shown in Vizzly')
-  .option('--expires-at <iso>', 'Optional token expiration timestamp')
   .addHelpText(
     'after',
     `
@@ -1564,8 +1562,9 @@ Examples:
   $ vizzly project link vizzly/storybook
   $ vizzly project link --org vizzly --project storybook
 
-Note: run "vizzly login" first. The linked credential is project-scoped and is
-used for cloud uploads; your user login remains separate for review actions.
+Sign in to use the picker. An explicit org/project can be saved before login.
+Linking saves the upload destination for this checkout. Your selected login
+permissions control which actions are allowed.
 `
   )
   .action(async (selector, options) => {
@@ -1651,8 +1650,16 @@ program
 
 program
   .command('login')
-  .description('Authenticate with your Vizzly account')
+  .description('Log in and choose CLI permissions in your browser')
   .option('--api-url <url>', 'API URL override')
+  .option(
+    '--no-browser',
+    'Print the authorization URL without opening a browser'
+  )
+  .option(
+    '--scopes <names>',
+    'Permissions to request, separated by spaces or commas'
+  )
   .action(async options => {
     let globalOptions = getGlobalOptions();
 

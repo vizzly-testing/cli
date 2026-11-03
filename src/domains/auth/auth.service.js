@@ -4,6 +4,7 @@ import { getApiUrl } from '../config/environment.js';
 import {
   buildTokenData,
   deviceAuthorizationStatus,
+  normalizeAuthorization,
 } from './auth.normalizers.js';
 import {
   buildDevicePollPayload,
@@ -61,9 +62,12 @@ export function createAuthService(options = {}) {
 
   // Create token store adapter for global config
   // Allow injection for testing
-  let tokenStore = options.tokenStore || createTokenStore();
+  let tokenStore = options.tokenStore || createTokenStore({ apiUrl });
 
   return {
+    async hasSavedSession() {
+      return Boolean(await tokenStore.getTokens());
+    },
     /**
      * Check if user is authenticated
      * @returns {Promise<boolean>}
@@ -84,8 +88,8 @@ export function createAuthService(options = {}) {
      * Initiate OAuth device flow
      * @returns {Promise<Object>} Device code info
      */
-    async initiateDeviceFlow() {
-      return initiateDeviceFlow(httpClient);
+    async initiateDeviceFlow(flowOptions) {
+      return initiateDeviceFlow(httpClient, flowOptions);
     },
 
     /**
@@ -130,15 +134,23 @@ export function createAuthService(options = {}) {
      * @returns {Promise<Object>} Response data
      */
     async authenticatedRequest(endpoint, options = {}) {
-      let auth = await tokenStore.getTokens();
-      if (!auth?.accessToken) {
-        throw new Error('Not authenticated');
+      let session = createUserSession({
+        httpClient,
+        tokenStore,
+        baseUrl: apiUrl,
+        command: 'api',
+      });
+      let token = await session.prepare();
+      try {
+        return await httpClient.authenticatedRequest(endpoint, token, options);
+      } catch (error) {
+        let method = (options.method || 'GET').toUpperCase();
+        if (error.context?.status !== 401 || !['GET', 'HEAD'].includes(method))
+          throw error;
+        if (!session.canRefresh()) throw session.loginRequired();
+        token = await session.renew();
+        return await httpClient.authenticatedRequest(endpoint, token, options);
       }
-      return httpClient.authenticatedRequest(
-        endpoint,
-        auth.accessToken,
-        options
-      );
     },
   };
 }
@@ -148,10 +160,14 @@ export function createAuthService(options = {}) {
  * @param {Object} httpClient - HTTP client with request method
  * @returns {Promise<Object>} Device code, user code, verification URL
  */
-export async function initiateDeviceFlow(httpClient) {
+export async function initiateDeviceFlow(httpClient, { scope } = {}) {
   return httpClient.request('/api/auth/cli/device/initiate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: 'vizzly-cli',
+      ...(scope ? { scope } : {}),
+    }),
   });
 }
 
@@ -187,7 +203,10 @@ export async function pollDeviceAuthorization(
  * @returns {Promise<Object>} Token data
  */
 export async function completeDeviceFlow(tokenStore, tokenData) {
-  await tokenStore.saveTokens(buildTokenData(tokenData));
+  requireSessionMetadata(tokenData);
+  await coordinate(tokenStore, () =>
+    tokenStore.saveTokens(buildTokenData(tokenData))
+  );
   return tokenData;
 }
 
@@ -197,47 +216,87 @@ export async function completeDeviceFlow(tokenStore, tokenData) {
  * @param {Object} tokenStore - Token storage
  * @returns {Promise<Object>} New tokens
  */
-export async function refresh(httpClient, tokenStore) {
-  let auth = await tokenStore.getTokens();
-  let validation = validateTokens(auth, 'refreshToken');
-
-  if (!validation.valid) {
-    throw validation.error;
-  }
-
-  let response = await httpClient.request('/api/auth/cli/refresh', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildRefreshPayload(auth.refreshToken)),
-  });
-
-  if (
-    typeof response.accessToken !== 'string' ||
-    !response.accessToken ||
-    typeof response.refreshToken !== 'string' ||
-    !response.refreshToken
-  ) {
-    throw new VizzlyError(
-      'Vizzly returned an invalid login refresh response. Your saved session was preserved.',
-      'INVALID_AUTH_RESPONSE'
-    );
-  }
-
-  // Preserve existing user data when refreshing
-  await tokenStore.saveTokens(buildTokenData(response, auth.user));
-
-  return response;
+function coordinate(tokenStore, operation) {
+  return tokenStore.withRefreshLock
+    ? tokenStore.withRefreshLock(operation)
+    : operation();
 }
 
-/** One selected login and one refresh budget for a command's requests. */
+function requireSessionMetadata(auth) {
+  if (!auth?.authorization) {
+    throw new VizzlyError(
+      'Run vizzly login to authorize this CLI and choose its permissions.',
+      'LOGIN_REQUIRED'
+    );
+  }
+  return normalizeAuthorization(auth.authorization);
+}
+
+export async function refresh(httpClient, tokenStore, { expectedAuth } = {}) {
+  let observed = expectedAuth || (await tokenStore.getTokens());
+  requireSessionMetadata(observed);
+  return await coordinate(tokenStore, async () => {
+    let auth = await tokenStore.getTokens();
+    let validation = validateTokens(auth, 'refreshToken');
+
+    if (!validation.valid) {
+      throw validation.error;
+    }
+    requireSessionMetadata(auth);
+    if (auth.authorization.sessionId !== observed.authorization.sessionId) {
+      throw new VizzlyError(
+        'Your saved login changed during this command. Run the command again.',
+        'AUTH_SESSION_CHANGED'
+      );
+    }
+    if (auth.refreshToken !== observed.refreshToken) return auth;
+
+    let response = await httpClient.request('/api/auth/cli/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildRefreshPayload(auth.refreshToken)),
+    });
+
+    if (
+      typeof response.accessToken !== 'string' ||
+      !response.accessToken ||
+      typeof response.refreshToken !== 'string' ||
+      !response.refreshToken
+    ) {
+      throw new VizzlyError(
+        'Vizzly returned an invalid login refresh response. Your saved session was preserved.',
+        'INVALID_AUTH_RESPONSE'
+      );
+    }
+    let authorization = normalizeAuthorization(response.authorization);
+    if (
+      !authorization ||
+      authorization.sessionId !== auth.authorization.sessionId
+    ) {
+      throw new VizzlyError(
+        'Vizzly returned an invalid session refresh response. Run vizzly login to authorize a new session.',
+        'INVALID_AUTH_RESPONSE'
+      );
+    }
+
+    // Preserve existing user data when refreshing
+    await tokenStore.saveTokens(buildTokenData(response, auth.user));
+
+    return response;
+  });
+}
+
+/** One selected login and one refresh attempt for each access-token window. */
 export function createUserSession({
   baseUrl,
   command = 'projects',
   httpClient = createAuthClient({ baseUrl }),
-  tokenStore = createTokenStore(),
+  tokenStore = createTokenStore({ apiUrl: baseUrl }),
 } = {}) {
   let auth;
   let refreshAttempt;
+  let renewedAccessToken;
+  let renewedOutsideExpiryBuffer = false;
   let loginRequired = () => {
     let error = new AuthError(
       `Your saved login has expired. Run vizzly login, then rerun vizzly ${command}.`,
@@ -249,10 +308,10 @@ export function createUserSession({
   async function renew() {
     if (refreshAttempt) return refreshAttempt;
     refreshAttempt = (async () => {
-      auth = await tokenStore.getTokens();
+      auth ||= await tokenStore.getTokens();
       if (!auth?.refreshToken) throw loginRequired();
       try {
-        await refresh(httpClient, tokenStore);
+        await refresh(httpClient, tokenStore, { expectedAuth: auth });
       } catch (error) {
         if ([400, 401, 403].includes(error.context?.status)) {
           throw loginRequired();
@@ -267,6 +326,9 @@ export function createUserSession({
         throw error;
       }
       auth = await tokenStore.getTokens();
+      renewedAccessToken = auth.accessToken;
+      renewedOutsideExpiryBuffer =
+        Date.parse(auth.expiresAt) > Date.now() + 5 * 60 * 1000;
       return auth.accessToken;
     })();
     return refreshAttempt;
@@ -274,10 +336,18 @@ export function createUserSession({
   async function prepare() {
     auth ||= await tokenStore.getTokens();
     if (!auth?.accessToken) throw loginRequired();
+    requireSessionMetadata(auth);
     if (
       auth.expiresAt &&
       !(Date.parse(auth.expiresAt) > Date.now() + 5 * 60 * 1000)
     ) {
+      if (
+        renewedOutsideExpiryBuffer &&
+        auth.accessToken === renewedAccessToken
+      ) {
+        refreshAttempt = undefined;
+        renewedOutsideExpiryBuffer = false;
+      }
       await renew();
     }
     return auth.accessToken;
@@ -292,26 +362,24 @@ export function createUserSession({
  * @returns {Promise<void>}
  */
 export async function logout(httpClient, tokenStore) {
-  let auth = await tokenStore.getTokens();
+  return await coordinate(tokenStore, async () => {
+    let auth = await tokenStore.getTokens();
 
-  if (auth?.refreshToken) {
-    try {
-      await httpClient.authenticatedRequest(
-        '/api/auth/cli/logout',
-        auth.accessToken,
-        {
+    if (auth?.refreshToken) {
+      try {
+        await httpClient.request('/api/auth/cli/logout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(buildLogoutPayload(auth.refreshToken)),
-        }
-      );
-    } catch (error) {
-      // If server request fails, still clear local tokens
-      output.warn(`Failed to revoke tokens on server: ${error.message}`);
+        });
+      } catch (error) {
+        // If server request fails, still clear local tokens
+        output.warn(`Failed to revoke tokens on server: ${error.message}`);
+      }
     }
-  }
 
-  await tokenStore.clearTokens();
+    await tokenStore.clearTokens();
+  });
 }
 
 /**

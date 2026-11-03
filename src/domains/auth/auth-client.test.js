@@ -52,6 +52,50 @@ describe('auth/client', () => {
     });
   });
 
+  for (let authenticated of [false, true]) {
+    it(`bounds ${authenticated ? 'authenticated' : 'unauthenticated'} network waits with a deadline`, async t => {
+      let deadline = new AbortController();
+      t.mock.method(AbortSignal, 'timeout', duration => {
+        assert.strictEqual(duration, 30000);
+        return deadline.signal;
+      });
+      mockFetch.mock.mockImplementation(
+        (_url, { signal }) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener('abort', () => reject(signal.reason), {
+              once: true,
+            });
+          })
+      );
+      let client = createAuthClient({ baseUrl: 'https://api.test' });
+      let result = authenticated
+        ? client.authenticatedRequest('/api/auth/cli/whoami', 'token')
+        : client.request('/api/auth/cli/refresh');
+      deadline.abort(
+        new DOMException('Request deadline reached', 'TimeoutError')
+      );
+      await assert.rejects(() => result, { code: 'AUTH_REQUEST_TIMEOUT' });
+    });
+  }
+
+  it('retains caller cancellation while applying the request deadline', async () => {
+    let caller = new AbortController();
+    mockFetch.mock.mockImplementation(
+      (_url, { signal }) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), {
+            once: true,
+          });
+        })
+    );
+    let client = createAuthClient({ baseUrl: 'https://api.test' });
+    let result = client.request('/api/auth/cli/device/poll', {
+      signal: caller.signal,
+    });
+    caller.abort();
+    await assert.rejects(() => result, { code: 'NETWORK_ERROR' });
+  });
+
   describe('request', () => {
     it('makes unauthenticated request to endpoint', async () => {
       let client = createAuthClient({ baseUrl: 'https://api.test' });

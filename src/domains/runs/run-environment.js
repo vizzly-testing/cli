@@ -50,6 +50,7 @@ export function buildClientOptions(config) {
   return {
     baseUrl: config.apiUrl,
     token: config.apiKey,
+    ...(config.credential ? { credential: config.credential } : {}),
     command: 'run',
   };
 }

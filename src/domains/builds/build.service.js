@@ -47,13 +47,16 @@ export async function getBuilds(client, filters = {}) {
  * @param {Object} metadata - Build metadata
  * @returns {Promise<Object>} Created build data
  */
-export async function createBuild(client, metadata) {
+export async function createBuild(client, metadata, projectQuery = {}) {
   let payload = buildBuildPayload(metadata);
-  return client.request('/api/sdk/builds', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ build: payload }),
-  });
+  return client.request(
+    buildEndpointWithParams('/api/sdk/builds', projectQuery),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ build: payload }),
+    }
+  );
 }
 
 /**
@@ -117,9 +120,19 @@ export async function finalizeBuild(
  * @param {string} parallelId - Parallel ID to finalize
  * @returns {Promise<Object>} Finalization result
  */
-export async function finalizeParallelBuild(client, parallelId) {
-  return client.request(`/api/sdk/parallel/${parallelId}/finalize`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
+export async function finalizeParallelBuild(
+  client,
+  parallelId,
+  projectQuery = {}
+) {
+  return client.request(
+    buildEndpointWithParams(
+      `/api/sdk/parallel/${parallelId}/finalize`,
+      projectQuery
+    ),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
 }

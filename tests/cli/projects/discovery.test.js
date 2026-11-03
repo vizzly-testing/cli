@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
+import { saveFixtureAuth } from '../../helpers/auth-session.js';
 import { runCLI } from '../../helpers/cli-runner.js';
 import { createCloudServer } from '../../helpers/cloud-server.js';
 
@@ -48,7 +49,7 @@ let organizations = [
   },
 ];
 
-async function createWorkspace(t, { config, accessToken } = {}) {
+async function createWorkspace(t, { config, accessToken, apiUrl } = {}) {
   let cwd = await mkdtemp(path.join(tmpdir(), 'vizzly-project-discovery-'));
   let home = path.join(cwd, '.vizzly-home');
   await mkdir(home, { recursive: true });
@@ -60,12 +61,7 @@ async function createWorkspace(t, { config, accessToken } = {}) {
     );
   }
   if (accessToken) {
-    await writeFile(
-      path.join(home, 'config.json'),
-      JSON.stringify({
-        auth: { accessToken, expiresAt: '2999-01-01T00:00:00.000Z' },
-      })
-    );
+    await saveFixtureAuth(home, apiUrl, { accessToken });
   }
 
   t.after(() => rm(cwd, { recursive: true, force: true }));
@@ -102,6 +98,7 @@ describe('organization and project discovery CLI', () => {
     });
     let workspace = await createWorkspace(t, {
       accessToken: 'saved-user-credential',
+      apiUrl: client.getBaseUrl(),
     });
     let result = await runDiscoveryCLI(workspace, client.getBaseUrl(), [
       'projects',
@@ -141,6 +138,7 @@ describe('organization and project discovery CLI', () => {
     });
     let workspace = await createWorkspace(t, {
       accessToken: 'saved-user-credential',
+      apiUrl: client.getBaseUrl(),
     });
     for (let command of ['projects', 'orgs']) {
       let result = await runDiscoveryCLI(workspace, client.getBaseUrl(), [

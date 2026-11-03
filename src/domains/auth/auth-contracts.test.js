@@ -4,6 +4,7 @@ import { AuthError, VizzlyError } from '../../shared/vizzly-error.js';
 import {
   buildTokenData,
   buildTokens,
+  normalizeAuthorization,
   normalizeDeviceFlowResponse,
 } from './auth.normalizers.js';
 import { resolveAuthorizedTokenData } from './auth.rules.js';
@@ -346,5 +347,48 @@ describe('auth/core', () => {
         }
       );
     });
+  });
+});
+
+describe('CLI authorization metadata', () => {
+  it('preserves the granted scope subset through exchange and refresh projections', () => {
+    let authorization = Object.freeze({
+      sessionId: 'session-1',
+      clientId: 'vizzly-cli',
+      scopes: Object.freeze(['read']),
+    });
+    let tokens = {
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      expiresIn: 900,
+    };
+    assert.deepStrictEqual(
+      buildTokens({ tokens, authorization }).authorization,
+      authorization
+    );
+    assert.deepStrictEqual(
+      buildTokenData({ ...tokens, authorization }).authorization,
+      authorization
+    );
+  });
+
+  it('never invents permissions when the server has no grant metadata', () => {
+    assert.strictEqual(normalizeAuthorization(null), undefined);
+    assert.strictEqual(
+      buildTokens({ tokens: { accessToken: 'access' } }).authorization,
+      undefined
+    );
+  });
+
+  it('rejects malformed scope metadata instead of storing a guessed grant', () => {
+    for (let authorization of [
+      { sessionId: 'session-1', clientId: 'other-client', scopes: ['read'] },
+      { sessionId: 'session-1', clientId: 'vizzly-cli', scopes: 'read' },
+      { clientId: 'vizzly-cli', scopes: ['read'] },
+    ]) {
+      assert.throws(() => normalizeAuthorization(authorization), {
+        code: 'INVALID_AUTH_RESPONSE',
+      });
+    }
   });
 });

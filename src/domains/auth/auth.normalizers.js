@@ -1,3 +1,5 @@
+import { VizzlyError } from '../../shared/vizzly-error.js';
+
 /**
  * Build token data for storage from API response
  * @param {Object} response - API response with tokens
@@ -18,6 +20,9 @@ export function buildTokenData(
         ? new Date(now + response.expiresIn * 1000).toISOString()
         : undefined),
     user: response.user || existingUser,
+    ...(response.authorization
+      ? { authorization: normalizeAuthorization(response.authorization) }
+      : {}),
   };
 }
 
@@ -55,6 +60,9 @@ export function buildTokens(tokenData, now = Date.now()) {
     expiresAt: tokenExpiresAt,
     user: tokenData.user,
     organizations: tokenData.organizations,
+    ...(tokenData.authorization
+      ? { authorization: normalizeAuthorization(tokenData.authorization) }
+      : {}),
   };
 }
 
@@ -66,4 +74,29 @@ export function deviceAuthorizationStatus(error) {
     EXPIRED_TOKEN: 'expired',
     INVALID_DEVICE_CODE: 'invalid',
   }[error.context?.serverCode];
+}
+
+/** Keep only the server's explicit CLI grant; missing metadata grants nothing. */
+export function normalizeAuthorization(value) {
+  if (value == null) return undefined;
+  if (
+    typeof value !== 'object' ||
+    typeof value.sessionId !== 'string' ||
+    !value.sessionId ||
+    value.clientId !== 'vizzly-cli' ||
+    !Array.isArray(value.scopes) ||
+    value.scopes.some(
+      scope => typeof scope !== 'string' || !/^[a-z][a-z0-9:._-]*$/.test(scope)
+    )
+  ) {
+    throw new VizzlyError(
+      'Vizzly returned invalid CLI permission information. Your saved login was preserved.',
+      'INVALID_AUTH_RESPONSE'
+    );
+  }
+  return {
+    sessionId: value.sessionId,
+    clientId: value.clientId,
+    scopes: [...new Set(value.scopes)],
+  };
 }

@@ -1,7 +1,12 @@
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { credentialInfo } from '../auth/credential.rules.js';
+import { resolveCredential } from '../auth/credential.service.js';
+import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
+import { serializeProject } from './discovery.serializers.js';
+import { discoverProjects } from './discovery.service.js';
 
 /**
  * Projects command - List projects the user has access to
@@ -35,58 +40,35 @@ export async function projectsCommand(
   try {
     let config = await loadConfig(globalOptions.config, globalOptions);
 
-    // Prefer user auth token for listing projects (project tokens are org-scoped).
-    // Falls back to config.apiKey which may be: VIZZLY_TOKEN, --token flag, or project token.
-    let token = config.userToken || config.apiKey;
-
-    if (!token) {
-      output.error(
-        'API token required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
-      );
-      output.cleanup();
-      exit(1);
-      return;
-    }
-
+    let credential = resolveCredential(config, {
+      ...globalOptions,
+      ...options,
+      command: 'projects',
+    });
     let client = createApiClient({
       baseUrl: config.apiUrl || getApiUrl(),
-      token,
+      token: credential.token,
+      credential,
+      command: 'projects',
     });
-
-    // Build query params
-    let params = new URLSearchParams();
-    if (options.org) params.set('organization', options.org);
-    if (options.limit) params.set('limit', String(options.limit));
-    if (options.offset) params.set('offset', String(options.offset));
-
-    let queryString = params.toString();
-    let endpoint = `/api/sdk/projects${queryString ? `?${queryString}` : ''}`;
 
     output.startSpinner('Fetching projects...');
 
-    let response = await client.request(endpoint);
+    let response = await discoverProjects(client, options);
 
     output.stopSpinner();
 
-    let projects = response.projects || [];
-    let pagination = response.pagination || {};
+    let { projects, pagination } = response;
 
     if (globalOptions.json) {
       output.data({
-        projects: projects.map(p => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          organizationName: p.organizationName,
-          organizationSlug: p.organizationSlug,
-          buildCount: p.buildCount,
-          createdAt: p.created_at,
-          updatedAt: p.updated_at,
-        })),
+        projects: projects.map(serializeProject),
+        auth: credentialInfo(credential),
         pagination,
       });
     } else {
       output.header('projects');
+      showCredential(output, credential, 'projects');
 
       let colors = output.getColors();
 
@@ -106,16 +88,25 @@ export async function projectsCommand(
           output.print(
             `  ${colors.bold(project.name)} ${colors.dim(`@${project.organizationSlug}/${project.slug}`)}`
           );
-          output.print(`    ${colors.dim(`${project.buildCount} builds`)}`);
+          if (project.buildCount != null)
+            output.print(`    ${colors.dim(`${project.buildCount} builds`)}`);
         }
 
         if (pagination.hasMore) {
           output.blank();
           output.hint(
-            `Use --offset ${(options.offset || 0) + projects.length} to see more`
+            pagination.nextOffset !== null
+              ? `Use --offset ${pagination.nextOffset} to see more`
+              : 'API paging limit reached. Narrow the organization filter.'
           );
         }
       }
+      output.hint(
+        'Read builds: vizzly builds --project <project-slug> --org <org-slug>'
+      );
+      output.hint(
+        'Choose an upload destination: vizzly project link <org>/<project>'
+      );
     }
 
     output.cleanup();
@@ -146,9 +137,11 @@ export function validateProjectsOptions(options = {}) {
 
   if (
     options.offset !== undefined &&
-    (!Number.isInteger(options.offset) || options.offset < 0)
+    (!Number.isInteger(options.offset) ||
+      options.offset < 0 ||
+      options.offset > 10000)
   ) {
-    errors.push('--offset must be a non-negative integer');
+    errors.push('--offset must be an integer between 0 and 10000');
   }
 
   return errors;

@@ -7,7 +7,7 @@ export function createPrompts({
   let reader = createInterface({ input, crlfDelay: Infinity, terminal: false });
   let lines = reader[Symbol.asyncIterator]();
   let cancelled = () =>
-    Object.assign(new Error('Setup cancelled.'), { code: 'INIT_CANCELLED' });
+    Object.assign(new Error('Prompt cancelled.'), { code: 'PROMPT_CANCELLED' });
   let interrupted = false;
   let onInterrupt = () => {
     interrupted = true;

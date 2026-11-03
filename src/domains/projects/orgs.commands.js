@@ -1,7 +1,12 @@
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { credentialInfo } from '../auth/credential.rules.js';
+import { resolveCredential } from '../auth/credential.service.js';
+import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
+import { serializeOrganization } from './discovery.serializers.js';
+import { discoverOrganizations } from './discovery.service.js';
 
 /**
  * Organizations command - List organizations the user has access to
@@ -13,11 +18,7 @@ import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
  * @param {Object} globalOptions - Global CLI options
  * @param {Object} deps - Dependencies for testing
  */
-export async function orgsCommand(
-  _options = {},
-  globalOptions = {},
-  deps = {}
-) {
+export async function orgsCommand(options = {}, globalOptions = {}, deps = {}) {
   let {
     loadConfig = defaultLoadConfig,
     createApiClient = defaultCreateApiClient,
@@ -35,27 +36,21 @@ export async function orgsCommand(
   try {
     let config = await loadConfig(globalOptions.config, globalOptions);
 
-    // Prefer user auth token for listing orgs (project tokens are org-scoped).
-    // Falls back to config.apiKey which may be: VIZZLY_TOKEN, --token flag, or project token.
-    let token = config.userToken || config.apiKey;
-
-    if (!token) {
-      output.error(
-        'API token required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
-      );
-      output.cleanup();
-      exit(1);
-      return;
-    }
-
+    let credential = resolveCredential(config, {
+      ...globalOptions,
+      ...options,
+      command: 'orgs',
+    });
     let client = createApiClient({
       baseUrl: config.apiUrl || getApiUrl(),
-      token,
+      token: credential.token,
+      credential,
+      command: 'orgs',
     });
 
     output.startSpinner('Fetching organizations...');
 
-    let response = await client.request('/api/sdk/organizations');
+    let response = await discoverOrganizations(client, options);
 
     output.stopSpinner();
 
@@ -63,18 +58,14 @@ export async function orgsCommand(
 
     if (globalOptions.json) {
       output.data({
-        organizations: orgs.map(org => ({
-          id: org.id,
-          name: org.name,
-          slug: org.slug,
-          role: org.role,
-          projectCount: org.projectCount,
-          createdAt: org.created_at,
-        })),
+        organizations: orgs.map(serializeOrganization),
+        pagination: response.pagination,
+        auth: credentialInfo(credential),
         count: orgs.length,
       });
     } else {
       output.header('orgs');
+      showCredential(output, credential, 'orgs');
 
       let colors = output.getColors();
 
@@ -89,11 +80,22 @@ export async function orgsCommand(
           output.print(
             `  ${colors.bold(org.name)} ${colors.dim(`@${org.slug}`)}`
           );
-          output.print(
-            `    ${colors.dim(`${org.projectCount} projects · ${roleLabel}`)}`
-          );
+          let details = [
+            org.projectCount != null ? `${org.projectCount} projects` : null,
+            roleLabel,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+          if (details) output.print(`    ${colors.dim(details)}`);
         }
       }
+      if (response.pagination.hasMore)
+        output.hint(
+          response.pagination.nextOffset !== null
+            ? `Use --offset ${response.pagination.nextOffset} to see more`
+            : 'API paging limit reached.'
+        );
+      output.hint('List projects: vizzly projects --org <org-slug>');
     }
 
     output.cleanup();

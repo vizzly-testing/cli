@@ -17,11 +17,11 @@ describe('validateProjectsOptions', () => {
     }
   });
 
-  it('rejects malformed and negative offsets', () => {
-    for (let offset of [Number('1abc'), -1, 1.5]) {
+  it('rejects malformed and out-of-range offsets', () => {
+    for (let offset of [Number('1abc'), -1, 1.5, 10001]) {
       assert.ok(
         validateProjectsOptions({ offset }).includes(
-          '--offset must be a non-negative integer'
+          '--offset must be an integer between 0 and 10000'
         )
       );
     }

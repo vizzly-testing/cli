@@ -1,4 +1,5 @@
 import * as output from '../../shared/output.js';
+import { AuthError, VizzlyError } from '../../shared/vizzly-error.js';
 import { getApiUrl } from '../config/environment.js';
 import {
   buildTokenData,
@@ -210,10 +211,78 @@ export async function refresh(httpClient, tokenStore) {
     body: JSON.stringify(buildRefreshPayload(auth.refreshToken)),
   });
 
+  if (
+    typeof response.accessToken !== 'string' ||
+    !response.accessToken ||
+    typeof response.refreshToken !== 'string' ||
+    !response.refreshToken
+  ) {
+    throw new VizzlyError(
+      'Vizzly returned an invalid login refresh response. Your saved session was preserved.',
+      'INVALID_AUTH_RESPONSE'
+    );
+  }
+
   // Preserve existing user data when refreshing
   await tokenStore.saveTokens(buildTokenData(response, auth.user));
 
   return response;
+}
+
+/** One selected login and one refresh budget for a command's requests. */
+export function createUserSession({
+  baseUrl,
+  command = 'projects',
+  httpClient = createAuthClient({ baseUrl }),
+  tokenStore = createTokenStore(),
+} = {}) {
+  let auth;
+  let refreshAttempt;
+  let loginRequired = () => {
+    let error = new AuthError(
+      `Your saved login has expired. Run vizzly login, then rerun vizzly ${command}.`,
+      { status: 401 }
+    );
+    error.code = 'LOGIN_REQUIRED';
+    return error;
+  };
+  async function renew() {
+    if (refreshAttempt) return refreshAttempt;
+    refreshAttempt = (async () => {
+      auth = await tokenStore.getTokens();
+      if (!auth?.refreshToken) throw loginRequired();
+      try {
+        await refresh(httpClient, tokenStore);
+      } catch (error) {
+        if ([400, 401, 403].includes(error.context?.status)) {
+          throw loginRequired();
+        }
+        if (error.context?.status) {
+          throw new VizzlyError(
+            `Unable to refresh your login (HTTP ${error.context.status}). Try this command again later.`,
+            'AUTH_REFRESH_UNAVAILABLE',
+            error.context
+          );
+        }
+        throw error;
+      }
+      auth = await tokenStore.getTokens();
+      return auth.accessToken;
+    })();
+    return refreshAttempt;
+  }
+  async function prepare() {
+    auth ||= await tokenStore.getTokens();
+    if (!auth?.accessToken) throw loginRequired();
+    if (
+      auth.expiresAt &&
+      !(Date.parse(auth.expiresAt) > Date.now() + 5 * 60 * 1000)
+    ) {
+      await renew();
+    }
+    return auth.accessToken;
+  }
+  return { prepare, renew, loginRequired, canRefresh: () => !refreshAttempt };
 }
 
 /**
@@ -252,17 +321,20 @@ export async function logout(httpClient, tokenStore) {
  * @returns {Promise<Object>} User and organization data
  */
 export async function whoami(httpClient, tokenStore) {
-  let auth = await tokenStore.getTokens();
-  let validation = validateTokens(auth, 'accessToken');
-
-  if (!validation.valid) {
-    throw validation.error;
+  let session = createUserSession({
+    httpClient,
+    tokenStore,
+    command: 'whoami',
+  });
+  let token = await session.prepare();
+  try {
+    return await httpClient.authenticatedRequest('/api/auth/cli/whoami', token);
+  } catch (error) {
+    if (error.context?.status !== 401) throw error;
+    if (!session.canRefresh()) throw session.loginRequired();
+    token = await session.renew();
+    return httpClient.authenticatedRequest('/api/auth/cli/whoami', token);
   }
-
-  return httpClient.authenticatedRequest(
-    '/api/auth/cli/whoami',
-    auth.accessToken
-  );
 }
 
 /**

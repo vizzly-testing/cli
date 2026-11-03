@@ -10,21 +10,15 @@ import {
   buildRequestHeaders,
   buildUserAgent,
   extractErrorBody,
-  isAuthError,
   parseApiError,
 } from '../../shared/cloud-protocol.js';
 import { getPackageVersion } from '../../shared/package-info.js';
 import { AuthError, VizzlyError } from '../../shared/vizzly-error.js';
-import { getAuthTokens, saveAuthTokens } from './token-store.js';
 
 /**
  * Default API URL
  */
 export const DEFAULT_API_URL = 'https://app.vizzly.dev';
-
-function isProjectToken(token) {
-  return typeof token === 'string' && token.startsWith('vzt_');
-}
 
 /** Prefer the transport cause because Node's top-level fetch message is generic. */
 function getNetworkFailureReason(error) {
@@ -58,6 +52,7 @@ export function createApiClient(options = {}) {
     options.sdkUserAgent || options.userAgent
   );
   let allowNoToken = options.allowNoToken || false;
+  let session = options.credential?.session;
 
   // Validate token requirement
   if (!token && !allowNoToken) {
@@ -77,9 +72,12 @@ export function createApiClient(options = {}) {
   async function request(endpoint, fetchOptions = {}, isRetry = false) {
     let {
       responseType = 'json',
-      retryAuthentication = true,
+      retryAuthentication = ['GET', 'HEAD'].includes(
+        fetchOptions.method || 'GET'
+      ),
       ...httpOptions
     } = fetchOptions;
+    if (session) token = await session.prepare();
     let url = buildApiUrl(baseUrl, endpoint);
 
     let headers = buildRequestHeaders({
@@ -108,28 +106,14 @@ export function createApiClient(options = {}) {
     if (!response.ok) {
       let errorBody = await extractErrorBody(response);
 
-      // Handle 401 with token refresh
-      if (
-        retryAuthentication &&
-        response.status === 401 &&
-        !isRetry &&
-        !isProjectToken(token)
-      ) {
-        let auth = await getAuthTokens();
-        let refreshed =
-          auth?.accessToken === token && auth.refreshToken
-            ? await attemptTokenRefresh(auth)
-            : null;
-        if (refreshed) {
-          token = refreshed;
+      if (response.status === 401) {
+        if (retryAuthentication && !isRetry && session?.canRefresh()) {
+          token = await session.renew();
           return request(endpoint, fetchOptions, true);
         }
-      }
-
-      // Auth error
-      if (isAuthError(response.status)) {
+        if (session) throw session.loginRequired();
         throw new AuthError(
-          'Invalid or expired API token. Run "vizzly project link <org>/<project>" or set VIZZLY_TOKEN.',
+          'Invalid or expired API token. Replace the selected --token, VIZZLY_TOKEN, or linked project credential. For account access, use --auth user.',
           { status: response.status }
         );
       }
@@ -155,43 +139,6 @@ export function createApiClient(options = {}) {
       );
     }
     return response.json();
-  }
-
-  /**
-   * Attempt to refresh the access token
-   * @returns {Promise<string|null>} New token or null if refresh failed
-   */
-  async function attemptTokenRefresh(auth) {
-    try {
-      let refreshUrl = buildApiUrl(baseUrl, '/api/auth/cli/refresh');
-      let response = await fetch(refreshUrl, {
-        method: 'POST',
-        redirect: 'error',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': userAgent,
-        },
-        body: JSON.stringify({ refreshToken: auth.refreshToken }),
-      });
-
-      if (!response.ok) return null;
-
-      let data = await response.json();
-
-      // Save new tokens
-      await saveAuthTokens({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        expiresAt:
-          data.expiresAt ||
-          new Date(Date.now() + data.expiresIn * 1000).toISOString(),
-        user: auth.user,
-      });
-
-      return data.accessToken;
-    } catch {
-      return null;
-    }
   }
 
   return {

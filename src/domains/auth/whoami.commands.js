@@ -108,6 +108,7 @@ export async function whoamiCommand(
     let tokenStore = createTokenStore();
 
     let response = await whoami(client, tokenStore);
+    auth = await getAuthTokens();
 
     output.stopSpinner();
 
@@ -196,6 +197,7 @@ export async function whoamiCommand(
         output.data({
           authenticated: false,
           error: error.message,
+          ...(error.code ? { code: error.code } : {}),
         });
       } else {
         output.error('Authentication token is invalid or expired', error);

@@ -9,10 +9,12 @@ import {
 } from '../../shared/git.js';
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import { finalizeBuild as defaultFinalizeBuild } from '../builds/build.service.js';
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getTokenContext as defaultGetTokenContext } from '../context/context.service.js';
+import { requireUploadDestination } from '../projects/upload-destination.service.js';
 import { writeSession as defaultWriteSession } from '../runs/session-store.js';
 import { createUploader as defaultCreateUploader } from './upload.service.js';
 
@@ -25,6 +27,10 @@ import { createUploader as defaultCreateUploader } from './upload.service.js';
  * @returns {Promise<string>} Proper build URL
  */
 export async function constructBuildUrl(buildId, apiUrl, apiToken, deps = {}) {
+  if (deps.destination?.effective) {
+    let { organizationSlug, projectSlug } = deps.destination.effective;
+    return `${getAppBaseUrl(apiUrl)}/${organizationSlug}/${projectSlug}/builds/${buildId}`;
+  }
   let {
     createApiClient = defaultCreateApiClient,
     getTokenContext = defaultGetTokenContext,
@@ -94,6 +100,7 @@ export async function uploadCommand(
 
   let buildId = null;
   let config = null;
+  let destination = null;
   let uploadStartTime = Date.now();
 
   try {
@@ -111,6 +118,12 @@ export async function uploadCommand(
       exit(1);
       return { success: false, reason: 'no-api-key' };
     }
+
+    destination = await requireUploadDestination(config);
+    config.uploadDestination = destination;
+    output.info(
+      `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
+    );
 
     // Collect git metadata if not provided
     let configuredBuildName =
@@ -226,11 +239,12 @@ export async function uploadCommand(
               result.buildId,
               config.apiUrl,
               config.apiKey,
-              deps
+              { ...deps, destination }
             )
           : null);
 
       output.data({
+        destination,
         buildId: result.buildId,
         url: buildUrl,
         stats: {
@@ -266,7 +280,7 @@ export async function uploadCommand(
           result.buildId,
           config.apiUrl,
           config.apiKey,
-          deps
+          { ...deps, destination }
         ));
       output.blank();
       output.labelValue('View', output.link('Results', buildUrl));
@@ -289,10 +303,11 @@ export async function uploadCommand(
             result.buildId,
             config.apiUrl,
             config.apiKey,
-            deps
+            { ...deps, destination }
           ));
 
         output.data({
+          destination,
           buildId: result.buildId,
           status: buildResult.failedComparisons > 0 ? 'failed' : 'completed',
           url: waitBuildUrl,
@@ -343,7 +358,7 @@ export async function uploadCommand(
           result.buildId,
           config.apiUrl,
           config.apiKey,
-          deps
+          { ...deps, destination }
         ));
       output.blank();
       output.labelValue('View', output.link('Results', waitBuildUrl));
@@ -362,6 +377,7 @@ export async function uploadCommand(
     if (status >= 500) {
       if (globalOptions.json) {
         output.data({
+          destination,
           buildId: null,
           status: 'skipped',
           message: 'Vizzly API unavailable - upload skipped',
@@ -394,6 +410,7 @@ export async function uploadCommand(
     // JSON output for errors
     if (globalOptions.json) {
       output.data({
+        destination,
         buildId: buildId || null,
         status: 'failed',
         error: {

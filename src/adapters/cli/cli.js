@@ -47,7 +47,7 @@ import {
 } from '../../domains/previews/preview.commands.js';
 import { orgsCommand } from '../../domains/projects/orgs.commands.js';
 import { projectLinkCommand } from '../../domains/projects/project.commands.js';
-import { validateProjectLinkOptions } from '../../domains/projects/project.validations.js';
+import { projectStatusCommand } from '../../domains/projects/project-status.commands.js';
 import {
   projectsCommand,
   validateProjectsOptions,
@@ -589,6 +589,12 @@ async function finishUpdateNotifications() {
 
 program.hook('preAction', async (_command, actionCommand) => {
   if (actionCommand.name() === 'init') return;
+  if (
+    ['run', 'upload', 'login'].includes(actionCommand.name()) ||
+    (actionCommand.parent?.name() === 'tdd' && actionCommand.name() === 'start')
+  ) {
+    await saveUserPath().catch(() => {});
+  }
   updateOptions = actionCommand.optsWithGlobals();
   let notification = await notifyUpdates(updateOptions);
   pendingUpdateCheck = notification?.check;
@@ -978,6 +984,7 @@ program
 
 program
   .command('status')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Check the status of a build')
   .argument('<build-id>', 'Build ID to check status for')
   .action(async (buildId, options) => {
@@ -994,6 +1001,7 @@ program
 
 program
   .command('builds')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('List and query builds')
   .option('-b, --build <id>', 'Get a specific build by ID')
   .option('--branch <branch>', 'Filter by branch')
@@ -1035,6 +1043,7 @@ Examples:
 
 program
   .command('comparisons')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Query and search comparisons')
   .option('-b, --build <id>', 'Get comparisons for a specific build')
   .option('--id <id>', 'Get a specific comparison by ID')
@@ -1078,6 +1087,7 @@ let contextCmd = program
 
 contextCmd
   .command('build')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Fetch build context')
   .argument('<build-id>', 'Build ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
@@ -1118,6 +1128,7 @@ Deprecation:
 
 contextCmd
   .command('comparison')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Fetch a comparison context bundle')
   .argument('<comparison-id>', 'Comparison ID to fetch context for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
@@ -1163,6 +1174,7 @@ Deprecation:
 
 contextCmd
   .command('screenshot')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Fetch screenshot context and historical memory')
   .argument('<name>', 'Screenshot name')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
@@ -1195,6 +1207,7 @@ Examples:
 
 contextCmd
   .command('similar')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Fetch project-scoped matches for a fingerprint hash')
   .argument('<fingerprint-hash>', 'Fingerprint hash to search for')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
@@ -1227,6 +1240,7 @@ Examples:
 
 contextCmd
   .command('review-queue')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Fetch pending review context for a project')
   .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
   .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
@@ -1291,6 +1305,7 @@ Note: Baselines are stored locally in .vizzly/baselines/ during TDD mode.
 
 let api = program
   .command('api')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Make raw API requests (for power users)')
   .argument('<endpoint>', 'API endpoint (e.g., /api/sdk/builds)')
   .option(
@@ -1463,12 +1478,15 @@ Workflow:
 
 program
   .command('orgs')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('List organizations you have access to')
+  .option('--limit <n>', 'Maximum results to return (1-250)', Number, 50)
+  .option('--offset <n>', 'Skip first N results', Number, 0)
   .addHelpText(
     'after',
     `
 Examples:
-  $ vizzly orgs                            # List all organizations
+  $ vizzly orgs                            # List accessible organizations
   $ vizzly orgs --json                     # Output as JSON for scripting
 
 Note: Shows organizations from your user account (via vizzly login)
@@ -1483,6 +1501,7 @@ or the single organization for a project token.
 
 program
   .command('projects')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('List projects you have access to')
   .option('--org <slug>', 'Filter by organization slug')
   .option('--limit <n>', 'Maximum results to return (1-250)', Number, 50)
@@ -1491,14 +1510,17 @@ program
     'after',
     `
 Examples:
-  $ vizzly projects                        # List all projects
+  $ vizzly projects                        # List accessible projects
   $ vizzly projects --org my-company       # Filter by organization
   $ vizzly projects --json                 # Output as JSON for scripting
 
 Workflow:
   1. List orgs: vizzly orgs
   2. List projects: vizzly projects --org <org-slug>
-  3. Query builds: vizzly builds
+  3. Query builds: vizzly builds --project <project-slug> --org <org-slug>
+
+Use --auth user to browse your account when VIZZLY_TOKEN selects a project.
+Linking is needed only to choose a checkout upload destination.
 `
   )
   .action(async options => {
@@ -1514,9 +1536,18 @@ Workflow:
 
 let projectCommand = program
   .command('project')
-  .description('Manage the project linked to this local checkout')
+  .description('Show or choose the upload destination')
+  .addHelpText(
+    'after',
+    '\nDiscover: vizzly orgs, vizzly projects --auth user\nBrowse: vizzly builds --auth user --project <slug> --org <slug>\nChoose uploads: vizzly project link\nInspect uploads: vizzly project status\nBrowsing another project does not change this checkout’s upload destination.\n'
+  )
   .showHelpAfterError('(Run vizzly project --help for available commands)')
   .showSuggestionAfterError();
+
+projectCommand
+  .command('status')
+  .description('Show configured and effective upload destinations')
+  .action(async options => projectStatusCommand(options, getGlobalOptions()));
 
 projectCommand
   .command('link [selector]')
@@ -1529,6 +1560,7 @@ projectCommand
     'after',
     `
 Examples:
+  $ vizzly project link                     # Choose from accessible projects
   $ vizzly project link vizzly/storybook
   $ vizzly project link --org vizzly --project storybook
 
@@ -1538,11 +1570,6 @@ used for cloud uploads; your user login remains separate for review actions.
   )
   .action(async (selector, options) => {
     let globalOptions = getGlobalOptions();
-
-    const validationErrors = validateProjectLinkOptions(selector, options);
-    if (validationErrors.length > 0) {
-      await reportValidationErrors(validationErrors);
-    }
 
     await projectLinkCommand(selector, options, globalOptions, commandDeps);
   });
@@ -1651,10 +1678,6 @@ program
 
     await whoamiCommand(options, globalOptions, commandDeps);
   });
-
-// Save PATH for the menubar app before commands read or update credentials
-// in the same config file.
-if (needsRuntimeBootstrap) await saveUserPath().catch(() => {});
 
 let commandNames = new Set(program.commands.map(command => command.name()));
 let nestedCommandNames = new Map(

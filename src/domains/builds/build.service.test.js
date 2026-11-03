@@ -23,7 +23,10 @@ describe('cloud builds', () => {
       body: request.url.endsWith('/status')
         ? status
         : request.url.includes('?branch=')
-          ? { builds: [build] }
+          ? {
+              builds: [build],
+              meta: { total: 1, limit: 50, offset: 0, hasMore: false },
+            }
           : { build },
     }));
 
@@ -42,7 +45,16 @@ describe('cloud builds', () => {
     assert.deepEqual(await getBuildStatus(client, build.id), status);
     assert.deepEqual(
       await getBuilds(client, { branch: 'feature/cart', status: 'running' }),
-      { builds: [build] }
+      {
+        builds: [build],
+        pagination: {
+          total: 1,
+          limit: 50,
+          offset: 0,
+          hasMore: false,
+          nextOffset: null,
+        },
+      }
     );
     assert.deepEqual(
       requests.map(({ method, url, body }) => ({ method, url, body })),
@@ -67,7 +79,7 @@ describe('cloud builds', () => {
         { method: 'GET', url: '/api/sdk/builds/build-1/status', body: null },
         {
           method: 'GET',
-          url: '/api/sdk/builds?branch=feature%2Fcart&status=running',
+          url: '/api/sdk/builds?branch=feature%2Fcart&status=running&limit=50&offset=0',
           body: null,
         },
       ]

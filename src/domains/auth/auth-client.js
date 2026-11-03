@@ -1,4 +1,5 @@
 import { getPackageVersion } from '../../shared/package-info.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import { parseAuthError, parseAuthenticatedError } from './auth-errors.js';
 import { buildAuthUserAgent, buildRequestHeaders } from './auth-headers.js';
 
@@ -50,10 +51,19 @@ export function createAuthClient(options = {}) {
       extra: fetchOptions.headers,
     });
 
-    let response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        redirect: 'error',
+        ...fetchOptions,
+        headers,
+      });
+    } catch {
+      throw new VizzlyError(
+        `Unable to reach Vizzly at ${new URL(baseUrl).origin}. Try this command again when connected.`,
+        'NETWORK_ERROR'
+      );
+    }
 
     if (!response.ok) {
       let body = await parseResponseBody(response);

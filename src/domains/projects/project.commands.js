@@ -1,9 +1,14 @@
 import { preflightChanges } from '../../shared/file-changes.js';
 import * as defaultOutput from '../../shared/output.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { resolveCredential } from '../auth/credential.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
-import { parseProjectSelector } from './project.validations.js';
+import {
+  parseProjectSelector,
+  validateProjectLinkOptions,
+} from './project.validations.js';
 import {
   planProjectBinding as defaultPlanProjectBinding,
   writeProjectBinding as defaultWriteProjectBinding,
@@ -12,6 +17,7 @@ import {
   getProjectLink as defaultGetProjectLink,
   saveProjectLink as defaultSaveProjectLink,
 } from './project-link-store.js';
+import { pickProject } from './project-picker.service.js';
 
 export async function projectLinkCommand(
   selector,
@@ -50,6 +56,43 @@ export async function projectLinkCommand(
     } catch (error) {
       configError = error;
     }
+    if ((selector || options.project) && (!organizationSlug || !projectSlug)) {
+      throw new VizzlyError(
+        validateProjectLinkOptions(selector, options).join(' '),
+        'PROJECT_INPUT_REQUIRED'
+      );
+    }
+    if (!organizationSlug || !projectSlug) {
+      if (
+        globalOptions.json ||
+        !process.stdin.isTTY ||
+        !process.stdout.isTTY ||
+        process.env.CI
+      ) {
+        throw new VizzlyError(
+          'Choose an upload destination: vizzly project link <org>/<project>. Run vizzly projects --auth user to discover projects, or run project link interactively.',
+          'PROJECT_INPUT_REQUIRED'
+        );
+      }
+      if (configError) throw configError;
+      let selected = await pickProject(config, {
+        ...globalOptions,
+        ...options,
+        org: organizationSlug,
+      });
+      if (!selected) {
+        output.hint('Project selection cancelled; no files changed.');
+        output.cleanup();
+        return { linked: false, reason: 'cancelled' };
+      }
+      organizationSlug = selected.organizationSlug;
+      projectSlug = selected.projectSlug;
+    }
+    let errors = validateProjectLinkOptions(
+      `${organizationSlug}/${projectSlug}`
+    );
+    if (errors.length)
+      throw new VizzlyError(errors.join(' '), 'PROJECT_INPUT_REQUIRED');
     let apiUrl = config?.apiUrl || getApiUrl();
     let project = { organizationSlug, projectSlug };
     let binding = await planProjectBinding({
@@ -112,9 +155,15 @@ export async function projectLinkCommand(
 
     if (!linkedProject) {
       output.startSpinner(`Linking ${organizationSlug}/${projectSlug}...`);
+      let credential = resolveCredential(config, {
+        ...globalOptions,
+        auth: globalOptions.token ? 'auto' : 'user',
+        command: 'project link',
+      });
       let client = createApiClient({
         baseUrl: apiUrl,
-        token: userToken,
+        token: credential.token,
+        credential,
         command: 'project-link',
       });
       let response = await client.request(
@@ -187,16 +236,25 @@ export async function projectLinkCommand(
       `Repository project: ${linkedProject.organizationSlug}/${linkedProject.projectSlug}`
     );
     output.hint(
-      `Cloud uploads and project-scoped context will use ${linkedProject.tokenPrefix}...`
+      'Cloud uploads use this project credential. Browse other projects with --auth user.'
     );
     output.hint(`Credential storage: ${linkedProject.storage}`);
     output.cleanup();
     return result;
   } catch (error) {
     output.stopSpinner();
+    if (error.code === 'PROMPT_CANCELLED') {
+      output.hint('Project selection cancelled; no files changed.');
+      output.cleanup();
+      exit(130);
+      return { linked: false, reason: 'cancelled' };
+    }
     output.error('Failed to link project', error);
     output.cleanup();
     exit(1);
-    return { linked: false, reason: 'link_failed' };
+    return {
+      linked: false,
+      reason: error.code === 'LOGIN_REQUIRED' ? 'auth_required' : 'link_failed',
+    };
   }
 }

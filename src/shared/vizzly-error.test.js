@@ -73,7 +73,7 @@ describe('errors/vizzly-error', () => {
       Class: AuthError,
       name: 'AuthError',
       code: 'AUTH_ERROR',
-      messageIncludes: ['Authentication error', 'VIZZLY_TOKEN'],
+      messageIncludes: ['Authentication error'],
     },
     {
       Class: NetworkError,

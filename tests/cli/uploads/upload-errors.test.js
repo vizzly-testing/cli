@@ -24,7 +24,9 @@ for (let scenario of [
       for await (let chunk of req) chunks.push(chunk);
       let body = chunks.length ? JSON.parse(Buffer.concat(chunks)) : {};
       let result = {};
-      if (req.url === '/api/sdk/builds' && req.method === 'POST') {
+      if (req.url === '/api/sdk/token/context') {
+        result = { organization: { slug: 'acme' }, project: { slug: 'web' } };
+      } else if (req.url === '/api/sdk/builds' && req.method === 'POST') {
         result = { id: 'build-123' };
       } else if (
         req.url === '/api/sdk/builds/build-123' &&

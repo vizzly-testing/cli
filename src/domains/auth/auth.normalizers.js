@@ -4,11 +4,19 @@
  * @param {Object|null} existingUser - Existing user data to preserve
  * @returns {Object} Token data for storage
  */
-export function buildTokenData(response, existingUser = null) {
+export function buildTokenData(
+  response,
+  existingUser = null,
+  now = Date.now()
+) {
   return {
     accessToken: response.accessToken,
     refreshToken: response.refreshToken,
-    expiresAt: response.expiresAt,
+    expiresAt:
+      response.expiresAt ||
+      (response.expiresIn != null
+        ? new Date(now + response.expiresIn * 1000).toISOString()
+        : undefined),
     user: response.user || existingUser,
   };
 }

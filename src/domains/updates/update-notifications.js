@@ -11,13 +11,13 @@ import {
   getPackageName,
   getPackageVersion,
 } from '../../shared/package-info.js';
+import { createPrompts } from '../../shared/terminal-prompts.js';
 import {
   agentGuidanceFlag,
   agentGuidancePath,
   bundledAgentSkill,
   planAgentSetup,
 } from '../setup/agent-setup.js';
-import { createPrompts } from '../setup/setup-prompts.js';
 import { findCliUpdatePlan, runUpdateProcess } from './cli-update.js';
 
 let day = 24 * 60 * 60 * 1000;
@@ -121,7 +121,7 @@ async function offerUpdate(cwd, { cliVersion, guidanceFlag }) {
     }
     output.printErr('  Vizzly update applied.');
   } catch (error) {
-    if (error.code !== 'INIT_CANCELLED')
+    if (error.code !== 'PROMPT_CANCELLED')
       output.printErr(`  Could not apply the Vizzly update: ${error.message}`);
   }
   return updatedCli;

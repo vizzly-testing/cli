@@ -116,7 +116,12 @@ describe('cloud baseline installation', () => {
         return;
       }
       if (new URL(req.url, origin).pathname === '/api/sdk/builds') {
-        res.end(JSON.stringify({ data: [{ id: 'latest-build' }] }));
+        res.end(
+          JSON.stringify({
+            builds: [{ id: 'latest-build' }],
+            meta: { total: 1, limit: 1, offset: 0, hasMore: false },
+          })
+        );
         return;
       }
       res.end(JSON.stringify(response));

@@ -7,7 +7,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fixtureAuthorization } from '../../../tests/helpers/auth-session.js';
-import { createAuthService, createUserSession } from './auth.service.js';
+import {
+  createAuthService,
+  createUserSession,
+  refresh,
+} from './auth.service.js';
+import { createAuthClient } from './auth-client.js';
 import { createApiClient } from './cloud-client.js';
 import { createTokenStore } from './token-store.js';
 
@@ -27,6 +32,10 @@ async function fixture(t, handle) {
       body,
     });
     let result = await handle(requests.at(-1), requests);
+    if (result.dropConnection) {
+      response.destroy();
+      return;
+    }
     response.writeHead(result.status || 200, {
       'Content-Type': 'application/json',
     });
@@ -185,9 +194,16 @@ for (let status of [401, 500, 429]) {
     let expired = { ...f.auth, expiresAt: '2000-01-01T00:00:00.000Z' };
     await f.tokenStore.saveTokens(expired);
     await assert.rejects(() => f.service.whoami(), {
-      code: status === 401 ? 'LOGIN_REQUIRED' : 'AUTH_REFRESH_UNAVAILABLE',
+      code: {
+        401: 'LOGIN_REQUIRED',
+        500: 'AUTH_REFRESH_UNCERTAIN',
+        429: 'AUTH_REFRESH_UNAVAILABLE',
+      }[status],
     });
-    assert.deepEqual(await f.tokenStore.getTokens(), expired);
+    assert.deepEqual(await f.tokenStore.getTokens(), {
+      ...expired,
+      ...(status === 500 ? { refreshUncertain: true } : {}),
+    });
     assert.equal(f.requests.length, 1);
   });
 }
@@ -199,9 +215,86 @@ test('missing refresh authorization metadata is rejected without guessing permis
   let expired = { ...f.auth, expiresAt: '2000-01-01T00:00:00.000Z' };
   await f.tokenStore.saveTokens(expired);
   await assert.rejects(() => f.service.whoami(), {
-    code: 'INVALID_AUTH_RESPONSE',
+    code: 'AUTH_REFRESH_UNCERTAIN',
   });
-  assert.deepEqual(await f.tokenStore.getTokens(), expired);
+  assert.deepEqual(await f.tokenStore.getTokens(), {
+    ...expired,
+    refreshUncertain: true,
+  });
+});
+
+test('a dropped committed refresh response is never replayed by a fresh service', async t => {
+  let currentRefreshToken = 'old-refresh';
+  let f = await fixture(t, request => {
+    assert.equal(request.path, '/api/auth/cli/refresh');
+    if (request.body.refreshToken !== currentRefreshToken) {
+      return {
+        status: 401,
+        body: {
+          error: 'Refresh token was reused.',
+          code: 'REFRESH_TOKEN_REUSED',
+        },
+      };
+    }
+    currentRefreshToken = 'new-refresh';
+    return { dropConnection: true };
+  });
+  let expired = { ...f.auth, expiresAt: '2000-01-01T00:00:00.000Z' };
+  await f.tokenStore.saveTokens(expired);
+
+  await assert.rejects(() => f.service.whoami(), {
+    code: 'AUTH_REFRESH_UNCERTAIN',
+  });
+  assert.equal(currentRefreshToken, 'new-refresh');
+  assert.equal((await f.tokenStore.getTokens()).refreshUncertain, true);
+
+  let freshStore = createTokenStore({ apiUrl: f.apiUrl, home: f.home });
+  let freshService = createAuthService({
+    apiUrl: f.apiUrl,
+    tokenStore: freshStore,
+  });
+  await assert.rejects(() => freshService.whoami(), {
+    code: 'AUTH_REFRESH_UNCERTAIN',
+  });
+  assert.equal(f.requests.length, 1);
+  await assert.rejects(
+    () => freshService.whoami(),
+    error => {
+      assert.equal(error.code, 'AUTH_REFRESH_UNCERTAIN');
+      assert.match(error.message, /Run vizzly login/);
+      return true;
+    }
+  );
+});
+
+test('a rate-limited refresh clears uncertainty and can be retried', async t => {
+  let attempts = 0;
+  let f = await fixture(t, request => {
+    assert.equal(request.path, '/api/auth/cli/refresh');
+    assert.equal(request.body.refreshToken, 'old-refresh');
+    attempts++;
+    return attempts === 1
+      ? {
+          status: 429,
+          body: {
+            error: 'Too many authentication attempts.',
+            retryAfter: 1,
+          },
+        }
+      : { body: renewed() };
+  });
+  await f.tokenStore.saveTokens(f.auth);
+  let client = createAuthClient({ baseUrl: f.apiUrl });
+
+  await assert.rejects(() => refresh(client, f.tokenStore), {
+    code: 'RATE_LIMIT_ERROR',
+  });
+  assert.equal((await f.tokenStore.getTokens()).refreshUncertain, undefined);
+  await refresh(client, f.tokenStore);
+
+  assert.equal(attempts, 2);
+  assert.equal((await f.tokenStore.getTokens()).refreshToken, 'new-refresh');
+  assert.equal((await f.tokenStore.getTokens()).refreshUncertain, undefined);
 });
 
 test('unscoped legacy records require fresh browser consent before any request', async t => {

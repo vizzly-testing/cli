@@ -130,7 +130,9 @@ now honors explicit token settings consistently with other cloud reads.
 
 Vizzly refreshes an expired or nearly expired selected login automatically.
 If the saved session is rejected, run `vizzly login` and retry your command.
-Connection or server errors preserve your saved session and ask you to retry.
+A definite rejected refresh preserves your saved credentials. If a refresh may have
+completed but its response was lost, the CLI requires a new login rather than
+reusing a possibly consumed refresh token.
 Submitted API writes are never automatically replayed after an auth failure.
 
 Use `vizzly whoami` to see the selected API origin and granted permissions. For a
@@ -144,8 +146,7 @@ User sessions are isolated by API origin and stored in the system credential sto
 when available, with an owner-only file fallback. Custom `VIZZLY_HOME` directories
 use isolated files by default. Concurrent CLI processes coordinate refresh, and
 long-running commands renew again as later access tokens expire. Existing generic
-login credentials require fresh browser consent. See
-[CLI authentication](docs/cli-authentication.md) for the storage and scope contract.
+login credentials require fresh browser consent.
 
 To upload screenshots you already have:
 

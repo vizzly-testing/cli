@@ -232,6 +232,25 @@ function requireSessionMetadata(auth) {
   return normalizeAuthorization(auth.authorization);
 }
 
+function refreshUncertainError(cause) {
+  let error = new VizzlyError(
+    'Vizzly may have renewed your saved login, but the new credentials were not safely saved. Run vizzly login to authorize a new session. The CLI will not retry the old refresh token.',
+    'AUTH_REFRESH_UNCERTAIN',
+    cause?.context || {}
+  );
+  if (cause) error.cause = cause;
+  return error;
+}
+
+function isDefiniteRefreshRejection(error) {
+  let status = error.context?.status;
+  return (
+    status >= 400 &&
+    status < 500 &&
+    error.context?.serverCode !== 'REFRESH_TOKEN_REUSED'
+  );
+}
+
 export async function refresh(httpClient, tokenStore, { expectedAuth } = {}) {
   let observed = expectedAuth || (await tokenStore.getTokens());
   requireSessionMetadata(observed);
@@ -243,6 +262,7 @@ export async function refresh(httpClient, tokenStore, { expectedAuth } = {}) {
       throw validation.error;
     }
     requireSessionMetadata(auth);
+    if (auth.refreshUncertain) throw refreshUncertainError();
     if (auth.authorization.sessionId !== observed.authorization.sessionId) {
       throw new VizzlyError(
         'Your saved login changed during this command. Run the command again.',
@@ -251,36 +271,55 @@ export async function refresh(httpClient, tokenStore, { expectedAuth } = {}) {
     }
     if (auth.refreshToken !== observed.refreshToken) return auth;
 
-    let response = await httpClient.request('/api/auth/cli/refresh', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildRefreshPayload(auth.refreshToken)),
-    });
-
-    if (
-      typeof response.accessToken !== 'string' ||
-      !response.accessToken ||
-      typeof response.refreshToken !== 'string' ||
-      !response.refreshToken
-    ) {
-      throw new VizzlyError(
-        'Vizzly returned an invalid login refresh response. Your saved session was preserved.',
-        'INVALID_AUTH_RESPONSE'
-      );
-    }
-    let authorization = normalizeAuthorization(response.authorization);
-    if (
-      !authorization ||
-      authorization.sessionId !== auth.authorization.sessionId
-    ) {
-      throw new VizzlyError(
-        'Vizzly returned an invalid session refresh response. Run vizzly login to authorize a new session.',
-        'INVALID_AUTH_RESPONSE'
-      );
+    await tokenStore.markRefreshUncertain();
+    let response;
+    try {
+      response = await httpClient.request('/api/auth/cli/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildRefreshPayload(auth.refreshToken)),
+      });
+    } catch (error) {
+      if (isDefiniteRefreshRejection(error)) {
+        try {
+          await tokenStore.clearRefreshUncertain();
+        } catch {
+          throw refreshUncertainError(error);
+        }
+        throw error;
+      }
+      throw refreshUncertainError(error);
     }
 
-    // Preserve existing user data when refreshing
-    await tokenStore.saveTokens(buildTokenData(response, auth.user));
+    try {
+      if (
+        typeof response.accessToken !== 'string' ||
+        !response.accessToken ||
+        typeof response.refreshToken !== 'string' ||
+        !response.refreshToken
+      ) {
+        throw new VizzlyError(
+          'Vizzly returned an invalid login refresh response.',
+          'INVALID_AUTH_RESPONSE'
+        );
+      }
+      let authorization = normalizeAuthorization(response.authorization);
+      if (
+        !authorization ||
+        authorization.sessionId !== auth.authorization.sessionId
+      ) {
+        throw new VizzlyError(
+          'Vizzly returned an invalid session refresh response.',
+          'INVALID_AUTH_RESPONSE'
+        );
+      }
+
+      // Preserve existing user data when refreshing. Saving replaces the
+      // marker with the new pair, so a crash cannot replay the old token.
+      await tokenStore.saveTokens(buildTokenData(response, auth.user));
+    } catch (error) {
+      throw refreshUncertainError(error);
+    }
 
     return response;
   });
@@ -313,6 +352,7 @@ export function createUserSession({
       try {
         await refresh(httpClient, tokenStore, { expectedAuth: auth });
       } catch (error) {
+        if (error.code === 'AUTH_REFRESH_UNCERTAIN') throw error;
         if ([400, 401, 403].includes(error.context?.status)) {
           throw loginRequired();
         }

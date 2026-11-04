@@ -103,6 +103,35 @@ test('atomic replacements never expose partial credential JSON', async () => {
   );
 });
 
+test('refresh uncertainty survives reload and a successful replacement clears it', async () => {
+  let tokens = store();
+  await tokens.saveTokens(auth);
+  await tokens.markRefreshUncertain();
+
+  let reloaded = store();
+  assert.deepEqual(await reloaded.getTokens(), {
+    ...auth,
+    refreshUncertain: true,
+  });
+  assert.equal(
+    JSON.parse(await readFile(getAuthStoragePath(apiUrl, home), 'utf8'))
+      .refreshUncertain,
+    true
+  );
+
+  await reloaded.saveTokens({
+    ...auth,
+    accessToken: 'new-access',
+    refreshToken: 'new-refresh',
+  });
+  assert.equal((await tokens.getTokens()).refreshUncertain, undefined);
+  assert.equal(
+    JSON.parse(await readFile(getAuthStoragePath(apiUrl, home), 'utf8'))
+      .refreshUncertain,
+    undefined
+  );
+});
+
 test('corrupt or origin-mismatched credential files fail without another identity fallback', async () => {
   await store().saveTokens(auth);
   let filename = getAuthStoragePath(apiUrl, home);
@@ -142,14 +171,23 @@ test('Keychain credentials leave only metadata on disk and unavailable native st
   });
   await tokens.saveTokens(auth);
   assert.deepEqual(await tokens.getTokens(), auth);
+  await tokens.markRefreshUncertain();
+  assert.equal((await tokens.getTokens()).refreshUncertain, true);
   let disk = JSON.parse(
     await readFile(getAuthStoragePath(apiUrl, home), 'utf8')
   );
   assert.equal(disk.storage, 'keychain');
+  assert.equal(disk.refreshUncertain, true);
   assert.equal(disk.accessToken, undefined);
   assert.equal(disk.refreshToken, undefined);
   assert.deepEqual(disk.authorization, fixtureAuthorization);
   assert.equal(commands.includes('delete-generic-password'), false);
+  await tokens.saveTokens({
+    ...auth,
+    accessToken: 'renewed-access',
+    refreshToken: 'renewed-refresh',
+  });
+  assert.equal((await tokens.getTokens()).refreshUncertain, undefined);
   locked = true;
   await assert.rejects(() => tokens.getTokens(), {
     code: 'AUTH_STORAGE_UNAVAILABLE',

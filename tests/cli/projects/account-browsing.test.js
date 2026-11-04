@@ -285,7 +285,7 @@ test('expired and near-expiry saved sessions recover without falling back to the
   }
 });
 
-test('rejected and unavailable refreshes preserve session state and give different recovery advice', async t => {
+test('rejected refreshes preserve credentials and uncertain server failures prevent token replay', async t => {
   for (let status of [401, 503]) {
     let f = await fixture(t, { expired: true });
     f.state.refreshStatus = status;
@@ -295,10 +295,22 @@ test('rejected and unavailable refreshes preserve session state and give differe
     });
     assert.equal(result.code, 1);
     assert.equal(f.requests.length, 1);
-    assert.equal(await readFile(f.authPath, 'utf8'), before);
-    if (status === 401)
+    if (status === 401) {
+      assert.equal(await readFile(f.authPath, 'utf8'), before);
       assert.match(result.stderr, /LOGIN_REQUIRED|vizzly login/);
-    else assert.doesNotMatch(result.stderr, /vizzly login/);
+    } else {
+      let saved = JSON.parse(await readFile(f.authPath, 'utf8'));
+      assert.deepEqual(saved, {
+        ...JSON.parse(before),
+        refreshUncertain: true,
+      });
+      assert.match(result.stderr, /AUTH_REFRESH_UNCERTAIN/);
+      assert.match(result.stderr, /vizzly login/);
+      let retried = await f.cli(['projects', '--json']);
+      assert.equal(retried.code, 1);
+      assert.match(retried.stderr, /AUTH_REFRESH_UNCERTAIN/);
+      assert.equal(f.requests.length, 1);
+    }
   }
 });
 

@@ -58,6 +58,18 @@ function tokenData(auth) {
   );
 }
 
+async function readRecord(filename, apiUrl) {
+  let record;
+  try {
+    record = JSON.parse(await readFile(filename, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw storageError();
+  }
+  if (record.apiUrl !== apiUrl) throw storageError();
+  return record;
+}
+
 async function writeRecord(filename, record) {
   let directory = dirname(filename);
   await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -100,27 +112,29 @@ export function createTokenStore(options = {}) {
   let lockKey = `vizzly-auth|${process.getuid?.() ?? 'user'}|${home}|${apiUrl}`;
 
   async function getTokens() {
-    let record;
-    try {
-      record = JSON.parse(await readFile(filename, 'utf8'));
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw storageError();
-      return null;
-    }
-    if (record.apiUrl !== apiUrl) throw storageError();
+    let record = await readRecord(filename, apiUrl);
+    if (!record) return null;
     if (record.storage === 'keychain') {
       let secret = await getSecret(account, secretOptions);
       if (!secret) throw storageError();
       try {
         let auth = JSON.parse(secret);
         if (!auth.accessToken) throw storageError();
-        return tokenData(auth);
+        return {
+          ...tokenData(auth),
+          ...(record.refreshUncertain ? { refreshUncertain: true } : {}),
+        };
       } catch {
         throw storageError();
       }
     }
     if (record.storage !== 'file') throw storageError();
-    return record.accessToken ? tokenData(record) : null;
+    return record.accessToken
+      ? {
+          ...tokenData(record),
+          ...(record.refreshUncertain ? { refreshUncertain: true } : {}),
+        }
+      : null;
   }
 
   async function saveTokens(auth) {
@@ -146,6 +160,22 @@ export function createTokenStore(options = {}) {
     await writeRecord(filename, saved ? metadata : { ...metadata, ...tokens });
   }
 
+  async function markRefreshUncertain() {
+    let record = await readRecord(filename, apiUrl);
+    if (!record || (record.storage === 'file' && !record.refreshToken)) {
+      throw storageError();
+    }
+    if (record.refreshUncertain) return;
+    await writeRecord(filename, { ...record, refreshUncertain: true });
+  }
+
+  async function clearRefreshUncertain() {
+    let record = await readRecord(filename, apiUrl);
+    if (!record?.refreshUncertain) return;
+    let { refreshUncertain, ...rest } = record;
+    await writeRecord(filename, rest);
+  }
+
   async function clearTokens() {
     await writeRecord(filename, { version: 1, apiUrl, storage: 'file' });
     if (storage !== 'file') await deleteSecret(account, secretOptions);
@@ -164,7 +194,15 @@ export function createTokenStore(options = {}) {
       throw error;
     }
   }
-  return { apiUrl, getTokens, saveTokens, clearTokens, withRefreshLock };
+  return {
+    apiUrl,
+    getTokens,
+    saveTokens,
+    clearTokens,
+    markRefreshUncertain,
+    clearRefreshUncertain,
+    withRefreshLock,
+  };
 }
 
 export async function getAuthTokens(apiUrl) {

@@ -382,7 +382,13 @@ function findNestedCommandRequest(
     return null;
   }
 
-  let valueOptions = new Set(['-c', '--config', '--token', '--log-level']);
+  let valueOptions = new Set([
+    '-c',
+    '--config',
+    '--token',
+    '--log-level',
+    '--via-agent',
+  ]);
 
   for (let i = startIndex; i < args.length; i++) {
     let arg = args[i];
@@ -419,7 +425,13 @@ function findRequestedCommand(
   commandNames,
   nestedCommandNames = new Map()
 ) {
-  let valueOptions = new Set(['-c', '--config', '--token', '--log-level']);
+  let valueOptions = new Set([
+    '-c',
+    '--config',
+    '--token',
+    '--log-level',
+    '--via-agent',
+  ]);
   let args = argv.slice(2);
   let jsonValueCandidate = null;
 
@@ -544,6 +556,11 @@ program
   .version(getPackageVersion())
   .option('-c, --config <path>', 'Config file path')
   .option('--token <token>', 'Vizzly API token')
+  .option(
+    '--via-agent <slug>',
+    'Disclose the agent assisting a review or comment'
+  )
+  .option('--no-agent-attribution', 'Omit agent disclosure for this action')
   .option('-v, --verbose', 'Verbose output (shorthand for --log-level debug)')
   .option(
     '--log-level <level>',
@@ -1383,6 +1400,7 @@ api
 
 program
   .command('approve')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Approve a comparison')
   .argument('<comparison-id>', 'Comparison ID to approve')
   .option('-m, --comment <message>', 'Optional comment explaining the approval')
@@ -1393,6 +1411,9 @@ Examples:
   $ vizzly approve abc123-def456-7890     # Approve a comparison
   $ vizzly approve abc123 -m "LGTM"       # Approve with comment
   $ vizzly approve abc123 --json          # Output as JSON for scripting
+
+Known agents are disclosed automatically. Override with --via-agent <slug> or
+omit disclosure with --no-agent-attribution. VIZZLY_VIA_AGENT sets the default.
 
 Workflow:
   1. List comparisons: vizzly comparisons -b <build-id>
@@ -1413,6 +1434,7 @@ Workflow:
 
 program
   .command('reject')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Reject a comparison')
   .argument('<comparison-id>', 'Comparison ID to reject')
   .option('-r, --reason <message>', 'Required reason for rejection')
@@ -1423,6 +1445,9 @@ Examples:
   $ vizzly reject abc123 -r "Button color is wrong"
   $ vizzly reject abc123 --reason "Needs design review"
   $ vizzly reject abc123 -r "Regression" --json
+
+Known agents are disclosed automatically. Override with --via-agent <slug> or
+omit disclosure with --no-agent-attribution. VIZZLY_VIA_AGENT sets the default.
 
 Workflow:
   1. List comparisons: vizzly comparisons -b <build-id>
@@ -1443,12 +1468,22 @@ Workflow:
 
 program
   .command('comment')
-  .description('Add a comment to a build')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
+  .description('Add a comment to a build or screenshot')
+  .option('--screenshot <id>', 'Screenshot ID in this build')
+  .option(
+    '--region <x,y,width,height>',
+    'Screenshot region in bitmap pixels from the top-left'
+  )
+  .option(
+    '--reply-to <id>',
+    'Reply to a comment on the same build or screenshot'
+  )
   .argument('<build-id>', 'Build ID to comment on')
   .argument('<message>', 'Comment message')
   .option(
     '-t, --type <type>',
-    'Comment type: general, approval, rejection',
+    'Comment type: general, approval, rejection, question',
     'general'
   )
   .addHelpText(
@@ -1459,6 +1494,12 @@ Examples:
   $ vizzly comment abc123 "Approved" -t approval
   $ vizzly comment abc123 "Please fix the header" -t rejection
   $ vizzly comment abc123 "CI feedback" --json
+  $ vizzly comment <build-id> "Header overlaps" --screenshot <screenshot-id> --region 20,40,300,80
+  $ vizzly comment <build-id> "Reviewed" --via-agent codex
+
+Agent disclosure is automatic in known harnesses. VIZZLY_VIA_AGENT sets an
+override; use --no-agent-attribution (or VIZZLY_VIA_AGENT=none) to omit it.
+Only agent details are sent; session and thread IDs stay local.
 
 Workflow:
   1. Get build ID: vizzly builds --branch main

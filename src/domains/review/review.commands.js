@@ -1,19 +1,20 @@
-import { createUserSession } from '../auth/auth.service.js';
 /**
  * Review commands - approve, reject, and comment on comparisons/builds
  */
 
 import { randomUUID as defaultRandomUUID } from 'node:crypto';
 import * as defaultOutput from '../../shared/output.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
-import { getAccessToken as defaultGetAccessToken } from '../auth/token-store.js';
+import { requireCredentialScope } from '../auth/credential.rules.js';
+import { resolveCredential } from '../auth/credential.service.js';
+import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 
 function createReviewDeps(deps = {}) {
   return {
     loadConfig: deps.loadConfig || defaultLoadConfig,
     createApiClient: deps.createApiClient || defaultCreateApiClient,
-    getAccessToken: deps.getAccessToken || defaultGetAccessToken,
     randomUUID: deps.randomUUID || defaultRandomUUID,
     output: deps.output || defaultOutput,
     exit: deps.exit || (code => process.exit(code)),
@@ -33,41 +34,36 @@ async function loadReviewConfig({ loadConfig, options, globalOptions }) {
   return await loadConfig(globalOptions.config, allOptions);
 }
 
-function isProjectToken(token) {
-  return typeof token === 'string' && token.startsWith('vzt_');
-}
-
-async function getReviewToken(config, getAccessToken) {
-  if (config.userToken) {
-    return config.userToken;
+function createReviewClient({
+  createApiClient,
+  config,
+  command,
+  globalOptions,
+  options,
+  output,
+}) {
+  let credential = resolveCredential(config, {
+    ...globalOptions,
+    ...options,
+    command,
+  });
+  if (credential.kind === 'project') {
+    throw new VizzlyError(
+      'User login required for review actions. VIZZLY_TOKEN and --token take precedence; omit a project token to use vizzly login.',
+      'USER_AUTH_REQUIRED'
+    );
   }
-
-  let userToken = await getAccessToken();
-  if (userToken) {
-    return userToken;
-  }
-
-  if (config.apiKey && !isProjectToken(config.apiKey)) {
-    return config.apiKey;
-  }
-
-  return null;
-}
-
-function createReviewClient({ createApiClient, config, command, token }) {
-  let credential = {
-    token,
-    source: token === config.userToken ? 'user' : 'config',
-    kind: 'user',
-  };
-  if (credential.source === 'user') {
-    credential.session = createUserSession({ baseUrl: config.apiUrl, command });
-  }
+  requireCredentialScope(
+    credential,
+    command === 'comment' ? 'comments:write' : 'reviews:write'
+  );
+  if (!globalOptions.json) showCredential(output, credential);
   return createApiClient({
     baseUrl: config.apiUrl,
-    token,
+    token: credential.token,
     credential,
     command,
+    attribution: globalOptions,
   });
 }
 
@@ -96,8 +92,7 @@ async function runReviewMutation({
   deps,
   configure = true,
 }) {
-  let { loadConfig, createApiClient, getAccessToken, output, exit } =
-    createReviewDeps(deps);
+  let { loadConfig, createApiClient, output, exit } = createReviewDeps(deps);
 
   if (configure) {
     configureOutput(output, globalOptions);
@@ -105,24 +100,15 @@ async function runReviewMutation({
 
   try {
     let config = await loadReviewConfig({ loadConfig, options, globalOptions });
-    let token = await getReviewToken(config, getAccessToken);
-
-    if (!token) {
-      output.error('User login required for review actions');
-      output.hint('Run "vizzly login" to approve, reject, or comment');
-      output.cleanup();
-      exit(1);
-      return;
-    }
-
-    output.startSpinner(spinnerMessage);
-
     let client = createReviewClient({
       createApiClient,
       config,
       command,
-      token,
+      globalOptions,
+      options,
+      output,
     });
+    output.startSpinner(spinnerMessage);
     let response = await client.request(endpoint, {
       method: 'POST',
       ...jsonBody(requestBody),
@@ -166,6 +152,8 @@ export function createCommentBody(message, options = {}) {
   return {
     content: message,
     type: options.type || 'general',
+    ...(options.region ? { region: parseCommentRegion(options.region) } : {}),
+    ...(options.replyTo ? { parentCommentId: options.replyTo } : {}),
   };
 }
 
@@ -198,14 +186,8 @@ async function runComparisonDecision({
   deps,
   configure = true,
 }) {
-  let {
-    loadConfig,
-    createApiClient,
-    getAccessToken,
-    randomUUID,
-    output,
-    exit,
-  } = createReviewDeps(deps);
+  let { loadConfig, createApiClient, randomUUID, output, exit } =
+    createReviewDeps(deps);
 
   if (configure) {
     configureOutput(output, globalOptions);
@@ -213,22 +195,15 @@ async function runComparisonDecision({
 
   try {
     let config = await loadReviewConfig({ loadConfig, options, globalOptions });
-    let token = await getReviewToken(config, getAccessToken);
-    if (!token) {
-      output.error('User login required for review actions');
-      output.hint('Run "vizzly login" to approve, reject, or comment');
-      output.cleanup();
-      exit(1);
-      return;
-    }
-
-    output.startSpinner(spinnerMessage);
     let client = createReviewClient({
       createApiClient,
       config,
       command,
-      token,
+      globalOptions,
+      options,
+      output,
     });
+    output.startSpinner(spinnerMessage);
     let comparisonResponse = await client.request(
       `/api/sdk/comparisons/${comparisonId}`
     );
@@ -395,7 +370,7 @@ export async function commentCommand(
 
   return await runReviewMutation({
     command: 'comment',
-    endpoint: `/api/sdk/builds/${buildId}/comments`,
+    endpoint: `/api/sdk/builds/${buildId}${options.screenshot ? `/screenshots/${options.screenshot}` : ''}/comments`,
     failureMessage: 'Failed to add comment',
     globalOptions,
     options,
@@ -413,8 +388,13 @@ export async function commentCommand(
         buildId,
         comment: response.comment,
       }),
-    writeHumanSuccess: output => {
+    writeHumanSuccess: (output, response) => {
       output.complete('Comment added');
+      if (options.screenshot)
+        output.labelValue('Screenshot', options.screenshot);
+      if (options.region) output.labelValue('Region', options.region);
+      if (response.comment?.attribution?.via)
+        output.labelValue('Agent', response.comment.attribution.via.name);
       output.labelValue('Build', buildId);
       output.labelValue('Message', message);
     },
@@ -461,6 +441,25 @@ export function validateRejectOptions(comparisonId, options = {}) {
  * @param {Object} options - Command options
  * @returns {string[]} Array of error messages
  */
+export function parseCommentRegion(value) {
+  let numbers = value.split(',').map(Number);
+  if (
+    numbers.length !== 4 ||
+    value.split(',').some(part => !part.trim()) ||
+    numbers.some(number => !Number.isSafeInteger(number)) ||
+    numbers[0] < 0 ||
+    numbers[1] < 0 ||
+    numbers[2] <= 0 ||
+    numbers[3] <= 0
+  ) {
+    throw new Error(
+      '--region requires x,y,width,height in bitmap pixels; x/y must be nonnegative and width/height positive integers'
+    );
+  }
+  let [x, y, width, height] = numbers;
+  return { x, y, width, height };
+}
+
 export function validateCommentOptions(buildId, message, options = {}) {
   let errors = [];
   if (!buildId || buildId.trim() === '') {
@@ -471,9 +470,22 @@ export function validateCommentOptions(buildId, message, options = {}) {
   }
   if (
     options.type &&
-    !['general', 'approval', 'rejection'].includes(options.type)
+    !['general', 'approval', 'rejection', 'question'].includes(options.type)
   ) {
-    errors.push('--type must be one of: general, approval, rejection');
+    errors.push(
+      '--type must be one of: general, approval, rejection, question'
+    );
+  }
+  if (options.region && !options.screenshot)
+    errors.push('--region requires --screenshot');
+  if (options.region && options.replyTo)
+    errors.push('Replies inherit their location; omit --region');
+  if (options.region) {
+    try {
+      parseCommentRegion(options.region);
+    } catch (error) {
+      errors.push(error.message);
+    }
   }
   return errors;
 }

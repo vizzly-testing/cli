@@ -196,3 +196,24 @@ vizzly context review-queue --source <local-or-cloud> --json
 Use IDs and page values from the API response. Pass cursors back unchanged,
 keep the same query, and request only what you need. Fetch comments when they
 help explain a review.
+
+
+### Comments and agent disclosure
+
+After the user authorizes a review action, comment on the build or the exact
+screenshot area using IDs from discovery. Regions use the original bitmap's
+pixels, with the origin at its top-left; use the image dimensions, not the viewport.
+
+```bash
+vizzly comment <build-id> "Navigation overlaps the heading" --screenshot <screenshot-id> --region 20,40,300,80 --json
+vizzly comment <build-id> "Follow-up" --screenshot <screenshot-id> --reply-to <comment-id> --json
+```
+
+Review decisions and comments automatically disclose Codex, Claude Code, Pi,
+Gemini CLI or OpenCode when the harness exports its identification variable.
+The logged-in user remains the author; disclosure never grants permissions.
+Use `--via-agent <slug>` for another agent or to resolve conflicting markers.
+`VIZZLY_VIA_AGENT` provides an environment override. Explicit flags win.
+`--no-agent-attribution` or `VIZZLY_VIA_AGENT=none` omits disclosure.
+Only the reported agent name/slug is sent; session IDs and prompts stay local.
+Do not treat reported disclosure as verified identity or permission to act.

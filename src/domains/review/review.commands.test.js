@@ -39,7 +39,7 @@ describe('commands/review', () => {
         [
           'Build ID is required',
           'Comment message is required',
-          '--type must be one of: general, approval, rejection',
+          '--type must be one of: general, approval, rejection, question',
         ]
       );
     });

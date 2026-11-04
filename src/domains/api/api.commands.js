@@ -8,6 +8,8 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { resolveCredential } from '../auth/credential.service.js';
+import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 
 let API_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'];
@@ -152,19 +154,16 @@ export async function apiCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // A linked project's upload credential must not hide an existing user login.
-    // Explicit file/env/--token credentials still take precedence.
-    let token = config.linkedProject
-      ? config.userToken || config.apiKey
-      : config.apiKey || config.userToken;
-    if (!token && !options.schemaDiscovery) {
-      output.error(
-        'Authentication required. Run vizzly login or set VIZZLY_TOKEN.'
-      );
-      output.cleanup();
-      exit(1);
-      return;
-    }
+    let credentialConfig =
+      options.schemaDiscovery && (options.auth || 'auto') === 'auto'
+        ? { ...config, userToken: null }
+        : config;
+    let credential = resolveCredential(credentialConfig, {
+      ...allOptions,
+      command: 'api',
+      allowNoToken: Boolean(options.schemaDiscovery),
+    });
+    let token = credential.token;
 
     if (options.data?.startsWith('@')) {
       let source = options.data.slice(1);
@@ -194,6 +193,7 @@ export async function apiCommand(
     let client = createApiClient({
       baseUrl: config.apiUrl,
       token,
+      credential,
       command: 'api',
       allowNoToken: Boolean(options.schemaDiscovery),
     });
@@ -237,6 +237,7 @@ export async function apiCommand(
 
     // Pretty print response for humans
     output.header('api');
+    showCredential(output, credential, 'projects');
     output.labelValue('Endpoint', normalizedEndpoint);
     output.labelValue('Method', method);
     output.blank();

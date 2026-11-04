@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -58,6 +58,8 @@ function reviewResponse(state) {
 
 function createReviewState() {
   return {
+    comments: [],
+    commentStatus: 200,
     annotation: null,
     buildId: 'build-1',
     comparisonId: 'comparison-1',
@@ -141,6 +143,22 @@ async function withReviewApiServer(callback) {
             organization_slug: state.organizationSlug,
           },
         });
+        return;
+      }
+
+      if (
+        req.method === 'POST' &&
+        req.url === `/api/sdk/builds/${state.buildId}/comments`
+      ) {
+        let body = await readJson(req);
+        state.comments.push(body);
+        sendJson(
+          res,
+          state.commentStatus,
+          state.commentStatus === 200
+            ? { comment: { id: 'comment-1', ...body } }
+            : { error: 'Comment service unavailable' }
+        );
         return;
       }
 
@@ -288,6 +306,83 @@ describe('commands/review CLI', () => {
       assert.strictEqual(state.decision, 'approved');
       assert.strictEqual(state.annotation, 'Updated review is ready');
       assert.strictEqual(state.history.length, 3);
+    });
+  });
+
+  it('prints approval annotations and human comments, and reports comment failures without replay', async t => {
+    await withReviewApiServer(async ({ apiUrl, state }) => {
+      let { cwd, vizzlyHome } = createWorkspace();
+      t.after(() => rmSync(cwd, { recursive: true, force: true }));
+      let env = { VIZZLY_API_URL: apiUrl, VIZZLY_HOME: vizzlyHome };
+      let approved = await runCLI(
+        [
+          '--no-color',
+          'approve',
+          state.comparisonId,
+          '--comment',
+          'Ready to ship',
+        ],
+        { cwd, env }
+      );
+      assert.equal(approved.code, 0, approved.stderr);
+      assert.match(approved.stdout + approved.stderr, /approved/);
+      assert.match(approved.stdout + approved.stderr, /Ready to ship/);
+      let commented = await runCLI(
+        [
+          '--no-color',
+          'comment',
+          state.buildId,
+          'Looks good',
+          '--type',
+          'approval',
+        ],
+        { cwd, env }
+      );
+      assert.equal(commented.code, 0, commented.stderr);
+      assert.match(commented.stdout + commented.stderr, /Comment added/);
+      assert.match(commented.stdout + commented.stderr, /Looks good/);
+      assert.deepEqual(state.comments, [
+        { content: 'Looks good', type: 'approval' },
+      ]);
+      state.commentStatus = 503;
+      let failed = await runCLI(
+        ['--json', 'comment', state.buildId, 'Follow up'],
+        { cwd, env }
+      );
+      assert.equal(failed.code, 1);
+      assert.equal(parseResult(failed).created, false);
+      assert.match(
+        parseResult(failed).error.message,
+        /Comment service unavailable/
+      );
+      assert.equal(state.comments.length, 2);
+      assert.equal(state.refreshRequests, 0);
+    });
+  });
+
+  it('rejects missing reasons, blank messages, and missing login before making review changes', async t => {
+    await withReviewApiServer(async ({ apiUrl, state }) => {
+      let { cwd, vizzlyHome } = createWorkspace();
+      t.after(() => rmSync(cwd, { recursive: true, force: true }));
+      let env = { VIZZLY_API_URL: apiUrl, VIZZLY_HOME: vizzlyHome };
+      for (let args of [
+        ['reject', state.comparisonId],
+        ['comment', state.buildId, '   '],
+      ]) {
+        let result = await runCLI(['--no-color', ...args], { cwd, env });
+        assert.equal(result.code, 1);
+        assert.match(result.stderr, /reason|message.*required/i);
+      }
+      rmSync(join(vizzlyHome, 'config.json'));
+      let result = await runCLI(['--no-color', 'approve', state.comparisonId], {
+        cwd,
+        env,
+      });
+      assert.equal(result.code, 1);
+      assert.match(result.stderr, /User login required/);
+      assert.equal(state.decisionRequests.length, 0);
+      assert.equal(state.comments.length, 0);
+      assert.equal(state.refreshRequests, 0);
     });
   });
 });

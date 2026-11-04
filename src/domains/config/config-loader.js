@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import * as output from '../../shared/output.js';
-import { getAccessToken } from '../auth/token-store.js';
+import { getAuthTokens } from '../auth/token-store.js';
 import { getProjectLink } from '../projects/project-link-store.js';
 import { deepMerge } from './config.normalizers.js';
 import { validateVizzlyConfigWithDefaults } from './config.validations.js';
@@ -40,6 +40,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   // Merge validated file config
   mergeConfig(config, validatedFileConfig);
+  if (config.apiKey) config.credentialSource = 'config';
 
   // 3. Override with environment variables (higher priority than fallbacks)
   let envApiKey = getApiToken();
@@ -51,6 +52,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   if (envApiKey) {
     config.apiKey = envApiKey;
+    config.credentialSource = 'environment';
     output.debug('config', 'using token from environment');
   }
   if (envApiUrl !== 'https://app.vizzly.dev') config.apiUrl = envApiUrl;
@@ -70,6 +72,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 
   // 4. Apply CLI overrides (highest priority)
   if (cliOverrides.token) {
+    config.credentialSource = 'flag';
     output.debug('config', 'using token from --token flag');
   }
 
@@ -94,6 +97,7 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     });
     if (linkedProject?.token) {
       config.apiKey = linkedProject.token;
+      config.credentialSource = 'linked-project';
       config.linkedProject = {
         account: linkedProject.account,
         apiUrl: linkedProject.apiUrl,
@@ -111,9 +115,9 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
   }
 
   // 6. Keep user auth separate from upload credentials.
-  let userToken = await getAccessToken();
-  if (userToken) {
-    config.userToken = userToken;
+  let auth = await getAuthTokens();
+  if (auth) {
+    config.userToken = auth.accessToken;
     output.debug('config', 'using user login for user-authenticated commands');
   }
 

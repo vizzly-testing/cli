@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { createApiClient } from './cloud-client.js';
+import { resolveCredential } from './credential.service.js';
 import { getAuthTokens, saveAuthTokens } from './token-store.js';
 
 let originalHome;
@@ -49,7 +50,7 @@ describe('saved-token API refresh', () => {
     await saveAuthTokens({
       accessToken: 'expired-access',
       refreshToken: 'saved-refresh',
-      expiresAt: '2020-01-01T00:00:00.000Z',
+      expiresAt: '2999-01-01T00:00:00.000Z',
       user: { id: 'user-1' },
     });
 
@@ -87,6 +88,10 @@ describe('saved-token API refresh', () => {
         let client = createApiClient({
           baseUrl: apiUrl,
           token: 'expired-access',
+          credential: resolveCredential({
+            apiUrl,
+            userToken: 'expired-access',
+          }),
         });
         let result = await client.request('/api/sdk/projects');
 
@@ -178,7 +183,7 @@ describe('saved-token API refresh', () => {
     };
     await saveAuthTokens(saved);
 
-    for (let token of ['explicit-user-access', null]) {
+    for (let token of ['explicit-user-access', 'saved-user-access', null]) {
       let requests = [];
       await withApiServer(
         (request, response) => {
@@ -239,9 +244,13 @@ describe('saved-token API refresh', () => {
         response.end(JSON.stringify({ error: 'unauthorized' }));
       },
       async apiUrl => {
-        let client = createApiClient({ baseUrl: apiUrl, token: 'old-access' });
+        let client = createApiClient({
+          baseUrl: apiUrl,
+          token: 'old-access',
+          credential: resolveCredential({ apiUrl, userToken: 'old-access' }),
+        });
         await assert.rejects(() => client.request('/api/sdk/projects'), {
-          code: 'AUTH_ERROR',
+          code: 'LOGIN_REQUIRED',
         });
         assert.deepEqual(requests, [
           { url: '/api/sdk/projects', authorization: 'Bearer old-access' },
@@ -254,7 +263,7 @@ describe('saved-token API refresh', () => {
         await assert.rejects(
           () =>
             client.request('/api/sdk/projects', { retryAuthentication: false }),
-          { code: 'AUTH_ERROR' }
+          { code: 'LOGIN_REQUIRED' }
         );
         assert.deepEqual(requests, [
           { url: '/api/sdk/projects', authorization: 'Bearer new-access' },

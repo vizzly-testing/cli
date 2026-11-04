@@ -76,9 +76,22 @@ If the configured port is busy, `tdd run` picks an available one. An explicit
 
 ### Review in the cloud
 
+Sign in to discover projects and read their builds from any directory:
+
 ```bash
 pnpm exec vizzly login
-pnpm exec vizzly project link your-org/your-project
+pnpm exec vizzly orgs
+pnpm exec vizzly projects --org your-org
+pnpm exec vizzly builds --project your-project --org your-org
+```
+
+Browsing doesn't change your checkout's upload destination. When you're ready
+to upload, choose a project interactively or supply its qualified name:
+
+```bash
+pnpm exec vizzly project link
+# Or: pnpm exec vizzly project link your-org/your-project
+pnpm exec vizzly project status
 pnpm exec vizzly run "pnpm test"
 ```
 
@@ -89,6 +102,34 @@ Replace `"pnpm test"` with your test command.
 If you linked with an older CLI, run `project link` once in each repository to
 save its project selection. Handwritten config may need a manual edit; the
 command prints what to add. Explicit `--token` and `VIZZLY_TOKEN` still work.
+Before an upload, Vizzly checks the token's project and shows the destination.
+If it conflicts with your checkout's configured project, fix the binding or
+remove the token override before uploading.
+
+An explicit token can expose fewer projects than your user account. Use
+`--auth user` to browse with your saved login while keeping that upload token:
+
+```bash
+pnpm exec vizzly projects --auth user
+pnpm exec vizzly builds --auth user --project another-project --org another-org
+```
+
+Cloud read commands accept `--auth auto|user|token`. The default, `auto`, uses
+an explicit flag, environment, or config token first, then your saved login,
+then the checkout's linked credential. `user` selects only your saved login;
+`token` selects only an upload or explicit API credential. `--token` and
+`--auth user` cannot be combined. User login and upload credentials stay separate.
+
+Lists show a page of accessible results and tell you how to fetch the next one.
+Use `--limit` and `--offset` for scripts; JSON keeps paging details under
+`pagination`. `orgs` and `projects` also report the credential source under `auth`.
+A project token can see only its own project. Organization/project discovery
+now honors explicit token settings consistently with other cloud reads.
+
+Vizzly refreshes an expired or nearly expired selected login automatically.
+If the saved session is rejected, run `vizzly login` and retry your command.
+Connection or server errors preserve your saved session and ask you to retry.
+Submitted API writes are never automatically replayed after an auth failure.
 
 To upload screenshots you already have:
 
@@ -218,7 +259,8 @@ with `pnpm exec` when Vizzly is installed locally.
 | --- | --- |
 | `vizzly init` | Walk through setup. Use `--quick` to create config without questions. |
 | `vizzly config [key]` | Show your current config. |
-| `vizzly project link <org>/<project>` | Link this checkout to a cloud project. |
+| `vizzly project link [org/project]` | Choose this checkout's upload project; omit the name for a picker. |
+| `vizzly project status` | Show the configured and effective upload destinations. |
 | `vizzly orgs` | List your organizations. |
 | `vizzly projects` | List projects you can access. |
 | `vizzly login` | Sign in through the browser. |

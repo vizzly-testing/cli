@@ -369,7 +369,7 @@ export class TddService {
           limit: 1,
         });
 
-        if (!builds.data || builds.data.length === 0) {
+        if (!builds.builds || builds.builds.length === 0) {
           output.warn(`No baseline builds found for ${environment}/${branch}`);
           output.info(
             'Tip: Run a build in normal mode first to create baselines'
@@ -377,11 +377,14 @@ export class TddService {
           return null;
         }
 
-        let apiResponse = await getTddBaselines(this.client, builds.data[0].id);
+        let apiResponse = await getTddBaselines(
+          this.client,
+          builds.builds[0].id
+        );
 
         if (!apiResponse) {
           throw new Error(
-            `Build ${builds.data[0].id} not found or API returned null`
+            `Build ${builds.builds[0].id} not found or API returned null`
           );
         }
 

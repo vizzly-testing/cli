@@ -12,6 +12,7 @@ import {
 import * as defaultOutput from '../../shared/output.js';
 import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import {
   createBuild as defaultCreateApiBuild,
   finalizeBuild as defaultFinalizeApiBuild,
@@ -21,6 +22,7 @@ import { createBuildObject as defaultCreateBuildObject } from '../builds/build-i
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getTokenContext as defaultGetTokenContext } from '../context/context.service.js';
+import { requireUploadDestination } from '../projects/upload-destination.service.js';
 import { createUploader as defaultCreateUploader } from '../uploads/upload.service.js';
 import {
   finalizeBuild as defaultFinalizeBuild,
@@ -57,6 +59,10 @@ export async function resolveBuildDisplayUrl({
   }
 
   let baseUrl = getAppBaseUrl(config.apiUrl);
+  if (config.uploadDestination?.effective) {
+    let { organizationSlug, projectSlug } = config.uploadDestination.effective;
+    return `${baseUrl}/${organizationSlug}/${projectSlug}/builds/${result.buildId}`;
+  }
 
   try {
     let client = createApiClient({
@@ -239,6 +245,14 @@ export async function runCommand(
       return { success: false, reason: 'no-api-key' };
     }
 
+    if (config.apiKey) {
+      config.uploadDestination = await requireUploadDestination(config);
+      let destination = config.uploadDestination;
+      output.info(
+        `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
+      );
+    }
+
     // Collect git metadata and build info
     let configuredBuildName =
       config.build.name && config.build.name !== CONFIG_DEFAULTS.build.name
@@ -416,6 +430,7 @@ export async function runCommand(
         });
 
         let jsonResult = {
+          destination: config.uploadDestination,
           buildId: result.buildId,
           status: 'completed',
           url: displayUrl,
@@ -568,6 +583,7 @@ export async function runCommand(
           }
 
           let jsonResult = {
+            destination: config.uploadDestination,
             buildId: result.buildId,
             status: buildResult.status,
             url: displayUrl,

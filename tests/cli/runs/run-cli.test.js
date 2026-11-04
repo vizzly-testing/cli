@@ -250,7 +250,13 @@ describe('commands/run CLI', () => {
       assert.strictEqual(payload.data.status, 'completed');
       assert.strictEqual(payload.data.buildId, 'build-123');
       assert.strictEqual(payload.data.comparisons.total, 0);
-      assert.equal(requests[0].json.build.metadata, undefined);
+      assert.equal(
+        requests.find(
+          request =>
+            request.method === 'POST' && request.url === '/api/sdk/builds'
+        ).json.build.metadata,
+        undefined
+      );
       assert.strictEqual(
         payload.data.contextCommand,
         'vizzly api schema sdk.getBuildContext --json'
@@ -258,11 +264,11 @@ describe('commands/run CLI', () => {
       assert.deepStrictEqual(
         requests.map(request => `${request.method} ${request.url}`),
         [
+          'GET /api/sdk/token/context',
           'POST /api/sdk/builds',
           'GET /api/sdk/builds/build-123',
           'PUT /api/sdk/builds/build-123/status',
           'GET /api/sdk/builds/build-123',
-          'GET /api/sdk/token/context',
         ]
       );
     });
@@ -310,7 +316,10 @@ describe('commands/run CLI', () => {
         );
         assert.equal(result.code, 0, result.stderr + result.stdout);
         assert.deepEqual(
-          requests[0].json.build.metadata.comparison,
+          requests.find(
+            request =>
+              request.method === 'POST' && request.url === '/api/sdk/builds'
+          ).json.build.metadata.comparison,
           scenario.expected
         );
       });

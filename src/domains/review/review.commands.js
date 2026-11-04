@@ -1,3 +1,4 @@
+import { createUserSession } from '../auth/auth.service.js';
 /**
  * Review commands - approve, reject, and comment on comparisons/builds
  */
@@ -54,9 +55,18 @@ async function getReviewToken(config, getAccessToken) {
 }
 
 function createReviewClient({ createApiClient, config, command, token }) {
+  let credential = {
+    token,
+    source: token === config.userToken ? 'user' : 'config',
+    kind: 'user',
+  };
+  if (credential.source === 'user') {
+    credential.session = createUserSession({ baseUrl: config.apiUrl, command });
+  }
   return createApiClient({
     baseUrl: config.apiUrl,
     token,
+    credential,
     command,
   });
 }
@@ -239,6 +249,8 @@ async function runComparisonDecision({
       `/api/visual-review/builds/${locator.build_id}/comparisons/${comparisonId}/decision`,
       {
         method: 'POST',
+        // The server deduplicates this decision by the unchanged commandId.
+        retryAuthentication: true,
         headers: {
           ...organizationHeaders,
           'Content-Type': 'application/json',

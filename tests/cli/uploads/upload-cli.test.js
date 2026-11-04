@@ -86,36 +86,44 @@ describe('commands/upload CLI', () => {
       assert.deepStrictEqual(
         requests.map(request => `${request.method} ${request.url}`),
         [
+          'GET /api/sdk/token/context',
           'POST /api/sdk/builds',
           'POST /api/sdk/check-shas',
           'POST /api/sdk/upload',
           'PUT /api/sdk/builds/build-123/status',
-          'GET /api/sdk/token/context',
         ]
       );
 
-      assert.strictEqual(requests[0].json.build.name, 'CLI upload');
-      assert.strictEqual(requests[0].json.build.branch, 'main');
-      assert.strictEqual(requests[0].json.build.commit_sha, 'abc123');
-      assert.strictEqual(
-        requests[0].json.build.commit_message,
-        'Upload screenshots'
+      let build = requests.find(
+        request =>
+          request.method === 'POST' && request.url === '/api/sdk/builds'
+      ).json.build;
+      assert.strictEqual(build.name, 'CLI upload');
+      assert.strictEqual(build.branch, 'main');
+      assert.strictEqual(build.commit_sha, 'abc123');
+      assert.strictEqual(build.commit_message, 'Upload screenshots');
+      assert.strictEqual(build.environment, 'test');
+      assert.equal(build.metadata?.comparison, undefined);
+      let shaRequest = requests.find(
+        request => request.url === '/api/sdk/check-shas'
       );
-      assert.strictEqual(requests[0].json.build.environment, 'test');
-      assert.equal(requests[0].json.build.metadata?.comparison, undefined);
+      let uploadRequest = requests.find(
+        request => request.url === '/api/sdk/upload'
+      );
+      let finalRequest = requests.find(request => request.method === 'PUT');
       // Keep the released preflight name; the additive filename identifies multipart captures.
       assert.deepStrictEqual(
-        requests[1].json.screenshots.map(({ name }) => name).sort(),
+        shaRequest.json.screenshots.map(({ name }) => name).sort(),
         ['home-chrome', 'settings-firefox']
       );
       assert.deepStrictEqual(
-        requests[1].json.screenshots.map(({ filename }) => filename).sort(),
+        shaRequest.json.screenshots.map(({ filename }) => filename).sort(),
         ['home-chrome.png', 'settings-firefox.png']
       );
-      assert.match(requests[2].contentType, /multipart\/form-data/);
-      assert.ok(requests[2].body.includes('home-chrome.png'));
-      assert.ok(requests[2].body.includes('settings-firefox.png'));
-      assert.strictEqual(requests[3].json.status, 'completed');
+      assert.match(uploadRequest.contentType, /multipart\/form-data/);
+      assert.ok(uploadRequest.body.includes('home-chrome.png'));
+      assert.ok(uploadRequest.body.includes('settings-firefox.png'));
+      assert.strictEqual(finalRequest.json.status, 'completed');
     });
   });
 
@@ -137,9 +145,15 @@ describe('commands/upload CLI', () => {
         }
       );
       assert.equal(result.code, 0, result.stderr + result.stdout);
-      assert.deepEqual(requests[0].json.build.metadata.comparison, {
-        threshold: 0,
-      });
+      assert.deepEqual(
+        requests.find(
+          request =>
+            request.method === 'POST' && request.url === '/api/sdk/builds'
+        ).json.build.metadata.comparison,
+        {
+          threshold: 0,
+        }
+      );
     });
   });
 });

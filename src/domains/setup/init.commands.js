@@ -1,31 +1,27 @@
 import path from 'node:path';
 import { applyChanges } from '../../shared/file-changes.js';
 import * as output from '../../shared/output.js';
+import { createPrompts } from '../../shared/terminal-prompts.js';
 import { discoverConfig } from '../config/config-discovery.js';
 import { planConfig } from '../config/config-plan.js';
-import { validateProjectLinkOptions } from '../projects/project.validations.js';
 import { planAgentSetup } from './agent-setup.js';
-import { createPrompts } from './setup-prompts.js';
 
 async function guidedPlan(cwd, config, prompts) {
   output.hint(`Project: ${cwd}`);
   let guidance = await prompts.confirm(
     'Add the Vizzly skill and AGENTS.md instructions?'
   );
-  let cloudProject = null;
-  if (
-    await prompts.confirm('Connect this repository to a Vizzly Cloud project?')
-  ) {
-    cloudProject = await prompts.ask('Project (organization/project)');
-    let errors = validateProjectLinkOptions(cloudProject);
-    if (errors.length) throw new Error(errors.join(' '));
-  }
+  let connectCloud = await prompts.confirm(
+    'Connect this repository to a Vizzly Cloud project?'
+  );
   let agents = await planAgentSetup(cwd, { skill: guidance, guidance });
   let changes = [planConfig(config), ...agents.changes];
   output.labelValue('Proposed changes', '');
   output.list(changes.map(change => path.relative(cwd, change.path)));
-  if (cloudProject) {
-    output.hint(`Connect project: ${cloudProject}`);
+  if (connectCloud) {
+    output.hint(
+      'After local setup, sign in and choose an accessible cloud project.'
+    );
     output.hint(
       'Local setup is saved first. If cloud linking fails, your local files stay in place.'
     );
@@ -35,7 +31,7 @@ async function guidedPlan(cwd, config, prompts) {
       code: 'INIT_CANCELLED',
     });
   }
-  return { ...agents, changes, cloudProject };
+  return { ...agents, changes, connectCloud };
 }
 
 function agentOptions(options) {
@@ -118,7 +114,8 @@ export async function init(options = {}, { connectProject } = {}) {
       plan = await guidedPlan(cwd, config, prompts);
     }
   } catch (error) {
-    if (error.code !== 'INIT_CANCELLED') throw error;
+    if (!['INIT_CANCELLED', 'PROMPT_CANCELLED'].includes(error.code))
+      throw error;
     output.hint('Setup cancelled; no files changed.');
     return { status: 'cancelled', mode, exitCode: 130 };
   } finally {
@@ -138,13 +135,12 @@ export async function init(options = {}, { connectProject } = {}) {
     ...(plan.agentGuidance ? { agentGuidance: plan.agentGuidance } : {}),
     exitCode: 0,
   };
-  if (plan.cloudProject) {
+  if (plan.connectCloud) {
     try {
-      result.cloud = await connectProject(plan.cloudProject, options);
+      result.cloud = await connectProject(options);
     } catch (error) {
       result.cloud = {
         status: 'failed',
-        project: plan.cloudProject,
         error: error.message,
       };
     }

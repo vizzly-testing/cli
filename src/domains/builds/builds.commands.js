@@ -6,6 +6,9 @@ import { formatBuildForJson } from './build.serializers.js';
 
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { credentialInfo } from '../auth/credential.rules.js';
+import { resolveCredential } from '../auth/credential.service.js';
+import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import {
   getBuild as defaultGetBuild,
@@ -43,22 +46,17 @@ export async function buildsCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    let token = config.apiKey || config.userToken;
-
-    // Validate cloud auth
-    if (!token) {
-      output.error(
-        'Authentication required. Use --token, set VIZZLY_TOKEN, or run "vizzly login"'
-      );
-      exit(1);
-      return;
-    }
-
-    let client = createApiClient({
-      baseUrl: config.apiUrl,
-      token,
+    let credential = resolveCredential(config, {
+      ...allOptions,
       command: 'builds',
     });
+    let client = createApiClient({
+      baseUrl: config.apiUrl,
+      token: credential.token,
+      credential,
+      command: 'builds',
+    });
+    if (!globalOptions.json) showCredential(output, credential, 'builds');
 
     // If a specific build ID is provided, get that build
     if (options.build) {
@@ -95,21 +93,19 @@ export async function buildsCommand(
     let response = await getBuilds(client, filters);
     output.stopSpinner();
 
-    let builds = response.builds || [];
-    let pagination = response.pagination || {
-      total: builds.length,
-      hasMore: false,
-    };
+    let { builds, pagination } = response;
 
     // JSON output
     if (globalOptions.json) {
       output.data({
+        auth: credentialInfo(credential),
         builds: builds.map(b => formatBuildForJson(b)),
         pagination: {
           total: pagination.total,
           limit: filters.limit,
           offset: filters.offset,
           hasMore: pagination.hasMore,
+          nextOffset: pagination.nextOffset,
         },
       });
       output.cleanup();
@@ -174,9 +170,13 @@ export async function buildsCommand(
 
     // Pagination info
     if (pagination.total > builds.length) {
+      output.hint(`Showing ${builds.length} of ${pagination.total} builds.`);
+    }
+    if (pagination.hasMore) {
       output.hint(
-        `Showing ${builds.length} of ${pagination.total} builds. ` +
-          `Use --offset ${filters.offset + filters.limit} to see more.`
+        pagination.nextOffset !== null
+          ? `Use --offset ${pagination.nextOffset} to see more.`
+          : 'API paging limit reached. Narrow the project or branch filter.'
       );
     }
 

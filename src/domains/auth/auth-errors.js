@@ -64,12 +64,14 @@ export function parseAuthenticatedError(status, body, endpoint) {
 
   if (status === 401) {
     return new AuthError(
-      'Authentication token is invalid or expired. Please run "vizzly login" again.'
+      'Authentication token is invalid or expired. Please run "vizzly login" again.',
+      { status }
     );
   }
 
   return new VizzlyError(
     `API request failed: ${status}${errorText ? ` - ${errorText}` : ''} (${endpoint})`,
-    'API_REQUEST_ERROR'
+    'API_REQUEST_ERROR',
+    { status }
   );
 }

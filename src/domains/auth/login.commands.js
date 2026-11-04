@@ -188,7 +188,10 @@ export async function loginCommand(
     }
 
     output.blank();
-    output.hint('You can now browse cloud builds and download baselines');
+    output.hint('Discover your projects: vizzly projects --auth user');
+    output.hint(
+      'Choose this checkout’s upload destination: vizzly project link'
+    );
 
     output.cleanup();
   } catch (error) {

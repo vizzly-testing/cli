@@ -17,6 +17,7 @@ import {
 import { getAppBaseUrl } from '../../shared/api-url.js';
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { resolveCredential } from '../auth/credential.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getPreviewInfo as defaultGetPreviewInfo } from '../previews/preview.service.js';
 import { getBuildStatus as defaultGetBuildStatus } from './build.service.js';
@@ -40,10 +41,12 @@ function configureOutput(output, globalOptions) {
   });
 }
 
-function createStatusClient({ createApiClient, config }) {
+function createStatusClient({ createApiClient, config, options }) {
+  let credential = resolveCredential(config, { ...options, command: 'status' });
   return createApiClient({
     baseUrl: config.apiUrl,
-    token: config.apiKey || config.userToken,
+    token: credential.token,
+    credential,
     command: 'status',
   });
 }
@@ -382,7 +385,11 @@ export async function statusCommand(
 
     // Get build details via functional API
     output.startSpinner('Fetching build status...');
-    let client = createStatusClient({ createApiClient, config });
+    let client = createStatusClient({
+      createApiClient,
+      config,
+      options: allOptions,
+    });
     let buildStatus = await getBuildStatus(client, buildId);
 
     // Also fetch preview info (if exists)

@@ -1,7 +1,5 @@
-import {
-  buildEndpointWithParams,
-  buildQueryParams,
-} from '../../shared/cloud-protocol.js';
+import { readCloudPage } from '../../shared/cloud-pagination.js';
+import { buildEndpointWithParams } from '../../shared/cloud-protocol.js';
 import { buildBuildPayload } from './build.serializers.js';
 
 /**
@@ -40,9 +38,7 @@ export async function getBuildStatus(client, buildId) {
  * @returns {Promise<Array>} List of builds
  */
 export async function getBuilds(client, filters = {}) {
-  let query = buildQueryParams(filters);
-  let endpoint = `/api/sdk/builds${query ? `?${query}` : ''}`;
-  return client.request(endpoint);
+  return readCloudPage(client, '/api/sdk/builds', 'builds', filters);
 }
 
 /**

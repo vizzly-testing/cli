@@ -45,6 +45,33 @@ before trying again. Treat schema examples as argument arrays, not shell scripts
 
 ## Choose the evidence
 
+Discover accessible organizations and projects before guessing a destination:
+
+```bash
+vizzly orgs --auth user --json
+vizzly projects --auth user --json
+vizzly builds --auth user --project <project-slug> --org <org-slug> --json
+```
+
+These reads don't require linking a checkout. `--auth user` selects the saved
+login even when the repo launcher exports a project token. A project token sees
+only its own project. In `auto` mode, explicit flag/env/config credentials win
+over a saved login; a saved login wins over an implicit linked upload credential.
+Use `--auth token` to deliberately inspect the token's view. Don't combine
+`--auth user` with `--token`.
+
+Follow `pagination.nextOffset` when `pagination.hasMore` is true. A list command
+returns one logical page; large limits can require several bounded API requests.
+If the next offset is null while more results exist, narrow your filters to stay
+within the API's offset limit. An expired selected login is refreshed automatically;
+a rejected session asks for login. Report the recovery action when interactive
+login isn't authorized. Network failures preserve the session.
+
+`vizzly project status --json` describes configured and effective upload
+destinations separately. Use `project link` only when setup or changing the
+upload destination is authorized. It issues or reuses a project credential and
+binds the checkout. Browsing another project must not change that binding.
+
 Use the ID supplied by the task. If no cloud build is named, find recent builds
 and choose the one matching the branch, commit, or pull request:
 

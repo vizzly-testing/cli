@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { loadConfig } from '../../domains/config/config-loader.js';
 import { projectLinkCommand } from '../../domains/projects/project.commands.js';
+import { pickProject } from '../../domains/projects/project-picker.service.js';
 
 function runProcess(command, args) {
   return new Promise((resolve, reject) => {
@@ -18,21 +20,29 @@ function runProcess(command, args) {
   });
 }
 
-export async function connectProject(project, options) {
-  let exitCode = 0;
-  let link = () =>
-    projectLinkCommand(project, {}, options, {
-      exit: code => {
-        exitCode = code;
-      },
-    });
-  let result = await link();
-  if (result?.reason === 'auth_required') {
+export async function connectProject(options) {
+  let config = await loadConfig(options.config, options);
+  let selected;
+  try {
+    selected = await pickProject(config, options);
+  } catch (error) {
+    if (error.code !== 'LOGIN_REQUIRED') throw error;
     let cli = fileURLToPath(new URL('./cli.js', import.meta.url));
-    await runProcess(process.execPath, [cli, 'login']);
-    result = await link();
+    await runProcess(process.execPath, [
+      cli,
+      'login',
+      '--api-url',
+      config.apiUrl,
+    ]);
+    config = await loadConfig(options.config, options);
+    selected = await pickProject(config, options);
   }
-  let status = result?.linked ? 'linked' : 'failed';
-  if (!result?.linked && exitCode === 1) status = 'auth_required';
-  return { status, project };
+  if (!selected) return { status: 'cancelled' };
+  let project = `${selected.organizationSlug}/${selected.projectSlug}`;
+  let result = await projectLinkCommand(project, {}, options, {
+    exit: code => {
+      process.exitCode = code;
+    },
+  });
+  return { status: result?.linked ? 'linked' : 'failed', project };
 }

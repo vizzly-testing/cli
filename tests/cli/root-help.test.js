@@ -9,11 +9,11 @@ describe('cli root help', () => {
     assert.strictEqual(result.code, 0);
     assert.match(
       result.stdout,
-      /Setup[\s\S]*project\s+Manage the project linked to this local checkout/
+      /Setup[\s\S]*project\s+Show or choose the upload destination/
     );
     assert.doesNotMatch(
       result.stdout,
-      /Plugins[\s\S]*project\s+Manage the project linked to this local checkout/
+      /Plugins[\s\S]*project\s+Show or choose the upload destination/
     );
   });
 });

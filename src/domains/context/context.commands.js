@@ -2,6 +2,8 @@
 
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { resolveCredential } from '../auth/credential.service.js';
+import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { readSession as defaultReadSession } from '../runs/session-store.js';
 import {
@@ -33,10 +35,6 @@ import {
 import { createLocalWorkspaceContextProvider as defaultCreateLocalWorkspaceContextProvider } from './local-workspace-provider.js';
 import { resolveContextSource as defaultResolveContextSource } from './provider-resolver.js';
 
-function buildAuthErrorMessage() {
-  return 'Authentication required. Use --token, set VIZZLY_TOKEN, run "vizzly login", or link a project.';
-}
-
 function hasExplicitCloudScope(options = {}, config = {}) {
   return Boolean(
     options.org ||
@@ -49,7 +47,8 @@ function hasExplicitCloudScope(options = {}, config = {}) {
 function createClient(config, createApiClient) {
   return createApiClient({
     baseUrl: config.apiUrl,
-    token: config.apiKey || config.userToken,
+    token: config.readCredential.token,
+    credential: config.readCredential,
     command: 'context',
   });
 }
@@ -67,27 +66,6 @@ function createClient(config, createApiClient) {
  */
 function attachContextSource(context, source) {
   return { ...context, source };
-}
-
-async function loadContextConfig(globalOptions, options, deps) {
-  let {
-    loadConfig = defaultLoadConfig,
-    requireApiKey = true,
-    output = defaultOutput,
-    exit = code => process.exit(code),
-  } = deps;
-
-  let allOptions = { ...globalOptions, ...options };
-  let config = await loadConfig(globalOptions.config, allOptions);
-
-  if (requireApiKey && !config.apiKey && !config.userToken) {
-    output.error(buildAuthErrorMessage());
-    output.cleanup();
-    exit(1);
-    return null;
-  }
-
-  return config;
 }
 
 function createCloudContextProvider(config, deps = {}) {
@@ -187,14 +165,12 @@ async function loadContextRuntime(
     createLocalWorkspaceContextProvider = defaultCreateLocalWorkspaceContextProvider,
     resolveContextSource = defaultResolveContextSource,
     output = defaultOutput,
-    exit = code => process.exit(code),
+    loadConfig = defaultLoadConfig,
   } = deps;
 
-  let config = await loadContextConfig(globalOptions, options, {
-    ...deps,
-    output,
-    exit,
-    requireApiKey: false,
+  let config = await loadConfig(globalOptions.config, {
+    ...globalOptions,
+    ...options,
   });
   let requestedSource = options.source || 'auto';
   let projectRoot = deps.projectRoot || process.cwd();
@@ -212,17 +188,21 @@ async function loadContextRuntime(
     }
   );
 
-  if (source === 'cloud' && !config.apiKey && !config.userToken) {
+  if (source === 'cloud') {
     if (
+      !config.apiKey &&
+      !config.userToken &&
       shouldExplainLocalSimilarityGap(requestedSource, command, localProvider)
     ) {
       throw buildLocalFingerprintCapabilityError();
     }
-
-    output.error(buildAuthErrorMessage());
-    output.cleanup();
-    exit(1);
-    return null;
+    config.readCredential = resolveCredential(config, {
+      ...globalOptions,
+      ...options,
+      command: 'context',
+    });
+    if (!globalOptions.json)
+      showCredential(output, config.readCredential, 'projects');
   }
 
   let provider =

@@ -5,6 +5,7 @@
 import * as defaultOutput from '../../shared/output.js';
 import { createWildcardMatcher } from '../../shared/patterns.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { resolveCredential } from '../auth/credential.service.js';
 import { getBuild as defaultGetBuild } from '../builds/build.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import {
@@ -50,18 +51,14 @@ export async function comparisonsCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Validate API token
-    if (!config.apiKey) {
-      output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
-      );
-      exit(1);
-      return;
-    }
-
+    let credential = resolveCredential(config, {
+      ...allOptions,
+      command: 'comparisons',
+    });
     let client = createApiClient({
       baseUrl: config.apiUrl,
-      token: config.apiKey,
+      token: credential.token,
+      credential,
       command: 'comparisons',
     });
 

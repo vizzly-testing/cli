@@ -57,7 +57,7 @@ export class AuthError extends VizzlyError {
   }
 
   getUserMessage() {
-    return `Authentication error: ${this.message}. Please check your VIZZLY_TOKEN.`;
+    return `Authentication error: ${this.message}`;
   }
 }
 

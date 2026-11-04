@@ -45,7 +45,12 @@ function createCleanEnv(overrides = {}) {
  * @returns {Promise<{code: number, stdout: string, stderr: string}>}
  */
 export async function runCLI(args, options = {}) {
-  let { cwd, env = {}, timeout = process.env.CI ? 15000 : 10000 } = options;
+  let {
+    cwd,
+    env = {},
+    timeout = process.env.CI ? 15000 : 10000,
+    entrypoint = CLI_PATH,
+  } = options;
 
   // Create temp directory if not provided
   if (!cwd) {
@@ -62,7 +67,7 @@ export async function runCLI(args, options = {}) {
   });
 
   return new Promise((resolve, reject) => {
-    let child = spawn('node', [CLI_PATH, ...args], {
+    let child = spawn('node', [entrypoint, ...args], {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: cleanEnv,
       cwd,

@@ -257,7 +257,9 @@ test('explicit tokens, source selection, and noninteractive missing targets are 
   }
   let human = await f.cli(['projects'], { VIZZLY_TOKEN: projectToken });
   assert.match(human.stdout + human.stderr, /only its project/);
-  assert.match(human.stdout + human.stderr, /--auth user/);
+  assert.match(human.stdout + human.stderr, /Credential:\s+VIZZLY_TOKEN/);
+  assert.match(human.stdout + human.stderr, /Unset VIZZLY_TOKEN/);
+  assert.doesNotMatch(human.stdout + human.stderr, /--auth user/);
   assert.doesNotMatch(human.stdout + human.stderr, /undefined/);
 });
 

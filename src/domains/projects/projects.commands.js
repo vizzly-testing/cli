@@ -7,6 +7,7 @@ import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
 import { serializeProject } from './discovery.serializers.js';
 import { discoverProjects } from './discovery.service.js';
+import { showProjectTable } from './project-presentation.js';
 
 /**
  * Projects command - List projects the user has access to
@@ -68,10 +69,9 @@ export async function projectsCommand(
       });
     } else {
       output.header('projects');
-      showCredential(output, credential, 'projects');
+      showCredential(output, credential);
 
-      let colors = output.getColors();
-
+      output.blank();
       if (projects.length === 0) {
         output.print('  No projects found');
         if (options.org) {
@@ -84,13 +84,7 @@ export async function projectsCommand(
         );
         output.blank();
 
-        for (let project of projects) {
-          output.print(
-            `  ${colors.bold(project.name)} ${colors.dim(`@${project.organizationSlug}/${project.slug}`)}`
-          );
-          if (project.buildCount != null)
-            output.print(`    ${colors.dim(`${project.buildCount} builds`)}`);
-        }
+        showProjectTable(output, projects);
 
         if (pagination.hasMore) {
           output.blank();
@@ -101,12 +95,18 @@ export async function projectsCommand(
           );
         }
       }
-      output.hint(
-        'Read builds: vizzly builds --project <project-slug> --org <org-slug>'
-      );
-      output.hint(
-        'Choose an upload destination: vizzly project link <org>/<project>'
-      );
+      if (projects.length > 0) {
+        output.blank();
+        let project = projects.length === 1 ? projects[0] : null;
+        let selector = project
+          ? `${project.organizationSlug}/${project.slug}`
+          : '<org>/<project>';
+        let buildSelector = project
+          ? `--project ${project.slug} --org ${project.organizationSlug}`
+          : '--project <project-slug> --org <org-slug>';
+        output.hint(`Read builds: vizzly builds ${buildSelector}`);
+        output.hint(`Choose uploads: vizzly project link ${selector}`);
+      }
     }
 
     output.cleanup();

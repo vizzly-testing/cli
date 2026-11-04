@@ -158,6 +158,7 @@ test('whoami reports the selected origin, identity source, session, and actual s
   assert.match(human.stdout, /saved user login/);
   assert.ok(human.stdout.includes(f.apiUrl));
   assert.match(human.stdout, /Permissions.*read/);
+  assert.doesNotMatch(human.stdout, /Session|[0-9a-f]{8}-[0-9a-f-]{27,}/i);
   assert.doesNotMatch(
     result.stdout + human.stdout,
     /fixture-user-refresh|fixture-refresh/

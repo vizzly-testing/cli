@@ -238,7 +238,7 @@ export async function apiCommand(
 
     // Pretty print response for humans
     output.header('api');
-    showCredential(output, credential, 'projects');
+    showCredential(output, credential);
     output.labelValue('Endpoint', normalizedEndpoint);
     output.labelValue('Method', method);
     output.blank();

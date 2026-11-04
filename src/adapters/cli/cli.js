@@ -1519,7 +1519,8 @@ Workflow:
   2. List projects: vizzly projects --org <org-slug>
   3. Query builds: vizzly builds --project <project-slug> --org <org-slug>
 
-Use --auth user to browse your account when VIZZLY_TOKEN selects a project.
+VIZZLY_TOKEN takes precedence over a saved login. Otherwise, your login is used.
+The output shows which credential was selected.
 Linking is needed only to choose a checkout upload destination.
 `
   )
@@ -1539,7 +1540,7 @@ let projectCommand = program
   .description('Show or choose the upload destination')
   .addHelpText(
     'after',
-    '\nDiscover: vizzly orgs, vizzly projects --auth user\nBrowse: vizzly builds --auth user --project <slug> --org <slug>\nChoose uploads: vizzly project link\nInspect uploads: vizzly project status\nBrowsing another project does not change this checkout’s upload destination.\n'
+    '\nDiscover: vizzly orgs, vizzly projects\nBrowse: vizzly builds --project <slug> --org <slug>\nChoose uploads: vizzly project link\nInspect uploads: vizzly project status\nBrowsing another project does not change this checkout’s upload destination.\n'
   )
   .showHelpAfterError('(Run vizzly project --help for available commands)')
   .showSuggestionAfterError();

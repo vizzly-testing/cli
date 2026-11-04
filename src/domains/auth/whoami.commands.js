@@ -143,7 +143,6 @@ export async function whoamiCommand(
         Email: response.user.email,
         API: apiOrigin,
         Credential: 'saved user login',
-        Session: authorization.sessionId,
         Permissions: authorization.scopes.join(', ') || 'None',
       };
 

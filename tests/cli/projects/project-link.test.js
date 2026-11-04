@@ -21,21 +21,12 @@ before(async () => {
     requests.push({
       url: request.url,
       headers: request.headers,
-      body: JSON.parse(Buffer.concat(chunks).toString()),
+      body: Buffer.concat(chunks).toString(),
     });
-    let projectSlug = request.url.split('/')[3];
     response.setHeader('Content-Type', 'application/json');
+    response.statusCode = 404;
     response.end(
-      JSON.stringify({
-        organization: { slug: request.headers['x-organization'].toLowerCase() },
-        project: { slug: projectSlug.toLowerCase() },
-        token: {
-          id: `id-${projectSlug}`,
-          token: `vzt_fixture_${projectSlug}`,
-          token_prefix: 'vzt_fix',
-          expires_at: requests.at(-1).body.expiresAt || null,
-        },
-      })
+      JSON.stringify({ error: 'Linking must not issue cloud requests' })
     );
   });
   server.listen(0, '127.0.0.1');
@@ -56,10 +47,7 @@ async function project(name) {
   let cwd = path.join(directory, name);
   let home = path.join(cwd, 'user-state');
   await mkdir(home, { recursive: true });
-  await writeFile(
-    path.join(home, 'config.json'),
-    JSON.stringify({ auth: { accessToken: 'fixture-user' } })
-  );
+  await writeFile(path.join(home, 'config.json'), '{}');
   return { cwd, home };
 }
 
@@ -95,28 +83,32 @@ async function cli(fixture, args) {
 }
 
 describe('project linking', () => {
-  it('binds the repository and reuses credentials without a second token request', async () => {
+  it('binds the repository repeatedly without issuing or changing credentials', async () => {
     let fixture = await project('repeat');
     let start = requests.length;
+    let authBefore = await readFile(
+      path.join(fixture.home, 'config.json'),
+      'utf8'
+    );
     let first = await cli(fixture, ['project', 'link', 'team/app']);
     assert.equal(first.code, 0, first.stderr + first.stdout);
     assert.equal(first.data.linked, true);
-    assert.equal(first.data.reused, false);
     assert.equal(first.data.binding.status, 'bound');
     let filename = path.join(fixture.cwd, 'vizzly.config.js');
     let configSource = await readFile(filename, 'utf8');
     assert.ok(configSource.includes('"organizationSlug": "team"'));
     assert.ok(!configSource.includes('vzt_fixture'));
-    assert.equal(requests.at(-1).url, '/api/cli/app/link-token');
-    assert.equal(requests.at(-1).headers.authorization, 'Bearer fixture-user');
     let second = await cli(fixture, ['project', 'link', 'team/app']);
     assert.equal(second.code, 0, second.stderr + second.stdout);
-    assert.equal(second.data.reused, true);
-    assert.equal(requests.length, start + 1);
+    assert.equal(requests.length, start);
     assert.equal(await readFile(filename, 'utf8'), configSource);
+    assert.equal(
+      await readFile(path.join(fixture.home, 'config.json'), 'utf8'),
+      authBefore
+    );
   });
 
-  it('preserves executable config and requests an edit before minting credentials', async () => {
+  it('preserves executable config and requests an explicit destination edit', async () => {
     let fixture = await project('executable');
     let source =
       'let threshold = Number(process.env.THRESHOLD || 2);\n' +
@@ -134,7 +126,7 @@ describe('project linking', () => {
     assert.equal(requests.length, start);
   });
 
-  it('binds the canonical API identity so the next command finds its credential', async () => {
+  it('normalizes destination slugs without provisioning a project credential', async () => {
     let fixture = await project('canonical');
     let result = await cli(fixture, ['project', 'link', 'Team/App']);
     assert.equal(result.code, 0, result.stderr + result.stdout);
@@ -144,14 +136,13 @@ describe('project linking', () => {
     );
     assert.match(source, /"organizationSlug": "team"/);
     assert.match(source, /"projectSlug": "app"/);
-    let loaded = await cli(fixture, ['config', 'linkedProject']);
+    let loaded = await cli(fixture, ['config', 'project']);
     assert.equal(loaded.code, 0, loaded.stderr + loaded.stdout);
-    assert.equal(loaded.data.value.organization, 'team');
-    assert.equal(loaded.data.value.project, 'app');
+    assert.equal(loaded.data.value.organizationSlug, 'team');
+    assert.equal(loaded.data.value.projectSlug, 'app');
     let start = requests.length;
     let repeated = await cli(fixture, ['project', 'link', 'team/app']);
     assert.equal(repeated.code, 0, repeated.stderr + repeated.stdout);
-    assert.equal(repeated.data.reused, true);
     assert.equal(requests.length, start);
   });
 
@@ -194,7 +185,7 @@ describe('project linking', () => {
     });
   });
 
-  it('retains explicit token name and expiration for a requested new credential', async () => {
+  it('rejects token-provisioning options instead of silently minting a credential', async () => {
     let fixture = await project('expiry');
     let result = await cli(fixture, [
       'project',
@@ -205,24 +196,25 @@ describe('project linking', () => {
       '--expires-at',
       '2999-01-01T00:00:00.000Z',
     ]);
-    assert.equal(result.code, 0, result.stderr + result.stdout);
-    assert.deepEqual(requests.at(-1).body, {
-      name: 'Fixture link',
-      expiresAt: '2999-01-01T00:00:00.000Z',
-    });
+    assert.equal(result.code, 1, result.stderr + result.stdout);
+    assert.match(
+      result.stderr + result.stdout,
+      /unknown option|automation tokens/
+    );
   });
 
-  it('requires login when no matching credential exists', async () => {
+  it('can save an explicit destination before login without claiming project access', async () => {
     let fixture = await project('anonymous');
     await writeFile(path.join(fixture.home, 'config.json'), '{}');
     let start = requests.length;
     let result = await cli(fixture, ['project', 'link', 'team/app']);
-    assert.equal(result.code, 1, result.stderr + result.stdout);
-    assert.ok(result.stderr.includes('Login required'));
+    assert.equal(result.code, 0, result.stderr + result.stdout);
+    assert.equal(result.data.linked, true);
     assert.equal(requests.length, start);
-    await assert.rejects(readFile(path.join(fixture.cwd, 'vizzly.config.js')), {
-      code: 'ENOENT',
-    });
+    assert.match(
+      await readFile(path.join(fixture.cwd, 'vizzly.config.js'), 'utf8'),
+      /"projectSlug": "app"/
+    );
   });
 
   it('returns an actionable manual edit for config that cannot be evaluated', async () => {

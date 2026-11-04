@@ -1,3 +1,4 @@
+import { getAppBaseUrl } from '../../shared/api-url.js';
 import { normalizeSetBaseline } from './run.normalizers.js';
 import {
   hasApiKey,
@@ -65,7 +66,7 @@ export async function createBuild({ runOptions, tdd, config, deps }) {
 
   let client = createApiClient(clientOptions);
   let payload = buildApiBuildPayload(runOptions, config._comparisonOverrides);
-  let buildResult = await createApiBuild(client, payload);
+  let buildResult = await createApiBuild(client, payload, config.projectQuery);
 
   if (!buildResult?.id) {
     throw new Error('Vizzly API did not return a build ID');
@@ -89,6 +90,14 @@ export async function createBuild({ runOptions, tdd, config, deps }) {
  */
 export async function fetchBuildUrl({ buildId, config, deps }) {
   let { createApiClient, getBuild, output } = deps;
+
+  if (
+    config.credential?.kind === 'user' &&
+    config.uploadDestination?.effective
+  ) {
+    let { organizationSlug, projectSlug } = config.uploadDestination.effective;
+    return `${getAppBaseUrl(config.apiUrl)}/${organizationSlug}/${projectSlug}/builds/${buildId}`;
+  }
 
   let clientOptions = buildClientOptions(config);
   if (!clientOptions) {

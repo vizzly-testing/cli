@@ -75,3 +75,26 @@ export function parseAuthenticatedError(status, body, endpoint) {
     { status }
   );
 }
+
+export function createInsufficientScopeError({
+  requiredScopes = [],
+  grantedScopes = [],
+} = {}) {
+  let required = Array.isArray(requiredScopes)
+    ? requiredScopes.filter(
+        scope => typeof scope === 'string' && /^[a-z][a-z0-9:._-]*$/.test(scope)
+      )
+    : [];
+  let granted = Array.isArray(grantedScopes)
+    ? grantedScopes.filter(
+        scope => typeof scope === 'string' && /^[a-z][a-z0-9:._-]*$/.test(scope)
+      )
+    : [];
+  let requested = [...new Set([...granted, ...required])];
+  let permission = required.join(', ') || 'the required';
+  return new VizzlyError(
+    `This credential does not include ${permission} permission. Run vizzly login${requested.length ? ` --scopes "${requested.join(' ')}"` : ''} and authorize the required permissions in your browser.`,
+    'INSUFFICIENT_SCOPE',
+    { status: 403, requiredScopes: required, grantedScopes: granted }
+  );
+}

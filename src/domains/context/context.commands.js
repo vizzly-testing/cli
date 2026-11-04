@@ -201,8 +201,7 @@ async function loadContextRuntime(
       ...options,
       command: 'context',
     });
-    if (!globalOptions.json)
-      showCredential(output, config.readCredential, 'projects');
+    if (!globalOptions.json) showCredential(output, config.readCredential);
   }
 
   let provider =

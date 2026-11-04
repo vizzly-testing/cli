@@ -105,32 +105,15 @@ async function handleResetBaselines(res, screenshotHandler) {
   }
 }
 
-function shouldFallbackFromOAuth(error) {
-  return (
-    error.message?.includes('Not authenticated') ||
-    error.message?.includes('401')
-  );
-}
-
 async function downloadBaselinesWithOAuth({
   authService,
   tddService,
   buildId,
-  organizationSlug,
-  projectSlug,
 }) {
   output.info(`Downloading baselines from build ${buildId}...`);
-  output.debug(
-    'baseline',
-    `Using OAuth for ${organizationSlug}/${projectSlug}`
-  );
-
   let apiResponse = await authService.authenticatedRequest(
-    `/api/cli/${projectSlug}/builds/${buildId}/tdd-baselines`,
-    {
-      method: 'GET',
-      headers: { 'X-Organization': organizationSlug },
-    }
+    `/api/sdk/builds/${buildId}/tdd-baselines`,
+    { method: 'GET' }
   );
 
   if (!apiResponse) {
@@ -157,38 +140,17 @@ async function handleBaselineDownload({ req, res, tddService, authService }) {
 
   try {
     let body = await parseJsonBody(req);
-    let { buildId, organizationSlug, projectSlug } = body;
+    let { buildId } = body;
 
     if (!buildId) {
       sendError(res, 400, 'buildId is required');
       return true;
     }
 
-    let result;
-
-    if (authService && organizationSlug && projectSlug) {
-      try {
-        result = await downloadBaselinesWithOAuth({
-          authService,
-          tddService,
-          buildId,
-          organizationSlug,
-          projectSlug,
-        });
-      } catch (oauthError) {
-        if (!shouldFallbackFromOAuth(oauthError)) {
-          throw oauthError;
-        }
-        output.debug(
-          'baseline',
-          `OAuth failed, trying other auth methods: ${oauthError.message}`
-        );
-      }
-    }
-
-    if (!result) {
-      result = await downloadBaselinesWithToken(tddService, buildId);
-    }
+    let result =
+      authService && (await authService.hasSavedSession())
+        ? await downloadBaselinesWithOAuth({ authService, tddService, buildId })
+        : await downloadBaselinesWithToken(tddService, buildId);
 
     sendSuccess(res, {
       success: true,
@@ -198,7 +160,7 @@ async function handleBaselineDownload({ req, res, tddService, authService }) {
     return true;
   } catch (error) {
     output.error('Error downloading baselines:', error);
-    sendError(res, 500, error.message);
+    sendError(res, error.context?.status || 500, error.message);
     return true;
   }
 }

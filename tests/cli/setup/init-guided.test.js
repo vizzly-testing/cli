@@ -14,6 +14,7 @@ import {
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { saveFixtureAuth } from '../../helpers/auth-session.js';
 import {
   terminalFixture as fixture,
   terminalTest as ptyTest,
@@ -658,7 +659,7 @@ ptyTest(
 );
 
 ptyTest(
-  'cloud linking after local setup saves repository identity and keeps credentials in user storage',
+  'cloud linking after local setup saves a destination without issuing credentials',
   { timeout: 30000 },
   async t => {
     let cwd = await fixture(t);
@@ -685,27 +686,17 @@ ptyTest(
         );
         return;
       }
-      response.end(
-        JSON.stringify({
-          organization: { slug: 'fixture-org' },
-          project: { slug: 'fixture-app' },
-          token: {
-            id: 'fixture-id',
-            token: 'fixture-private-token',
-            token_prefix: 'fixture-prefix',
-          },
-        })
-      );
+      response.statusCode = 404;
+      response.end(JSON.stringify({ error: 'Unexpected fixture request' }));
     });
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     t.after(() => new Promise(resolve => server.close(resolve)));
     await mkdir(path.join(cwd, 'user-state'));
-    await writeFile(
-      path.join(cwd, 'user-state', 'config.json'),
-      JSON.stringify({ auth: { accessToken: 'fixture-user-login' } })
-    );
     let apiUrl = `http://127.0.0.1:${server.address().port}`;
+    await saveFixtureAuth(path.join(cwd, 'user-state'), apiUrl, {
+      accessToken: 'fixture-user-login',
+    });
     let result = await wizard(
       t,
       cwd,
@@ -718,10 +709,7 @@ ptyTest(
       { VIZZLY_API_URL: apiUrl }
     );
     assert.equal(result.code, 0, result.output);
-    assert.deepEqual(calls, [
-      '/api/sdk/projects?limit=10&offset=0',
-      '/api/cli/fixture-app/link-token',
-    ]);
+    assert.deepEqual(calls, ['/api/sdk/projects?limit=10&offset=0']);
     let source = await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8');
     assert.doesNotMatch(source, /fixture-private-token/);
     let { default: config } = await import(path.join(cwd, 'vizzly.config.js'));

@@ -9,6 +9,7 @@ import { pipeline } from 'node:stream/promises';
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import { resolveCredential } from '../auth/credential.service.js';
+import { scopeErrorDetails } from '../auth/credential-error.serializers.js';
 import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 
@@ -237,7 +238,7 @@ export async function apiCommand(
 
     // Pretty print response for humans
     output.header('api');
-    showCredential(output, credential, 'projects');
+    showCredential(output, credential);
     output.labelValue('Endpoint', normalizedEndpoint);
     output.labelValue('Method', method);
     output.blank();
@@ -261,6 +262,7 @@ export async function apiCommand(
           message: error.message,
           code: error.code,
           status: error.context?.status,
+          ...scopeErrorDetails(error),
         },
       });
       output.cleanup();

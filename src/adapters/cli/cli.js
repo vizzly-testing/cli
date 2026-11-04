@@ -1519,7 +1519,8 @@ Workflow:
   2. List projects: vizzly projects --org <org-slug>
   3. Query builds: vizzly builds --project <project-slug> --org <org-slug>
 
-Use --auth user to browse your account when VIZZLY_TOKEN selects a project.
+VIZZLY_TOKEN takes precedence over a saved login. Otherwise, your login is used.
+The output shows which credential was selected.
 Linking is needed only to choose a checkout upload destination.
 `
   )
@@ -1539,7 +1540,7 @@ let projectCommand = program
   .description('Show or choose the upload destination')
   .addHelpText(
     'after',
-    '\nDiscover: vizzly orgs, vizzly projects --auth user\nBrowse: vizzly builds --auth user --project <slug> --org <slug>\nChoose uploads: vizzly project link\nInspect uploads: vizzly project status\nBrowsing another project does not change this checkout’s upload destination.\n'
+    '\nDiscover: vizzly orgs, vizzly projects\nBrowse: vizzly builds --project <slug> --org <slug>\nChoose uploads: vizzly project link\nInspect uploads: vizzly project status\nBrowsing another project does not change this checkout’s upload destination.\n'
   )
   .showHelpAfterError('(Run vizzly project --help for available commands)')
   .showSuggestionAfterError();
@@ -1554,8 +1555,6 @@ projectCommand
   .description('Link a Vizzly project for cloud uploads')
   .option('--org <slug>', 'Organization slug')
   .option('--project <slug>', 'Project slug')
-  .option('--name <name>', 'Credential name shown in Vizzly')
-  .option('--expires-at <iso>', 'Optional token expiration timestamp')
   .addHelpText(
     'after',
     `
@@ -1564,8 +1563,9 @@ Examples:
   $ vizzly project link vizzly/storybook
   $ vizzly project link --org vizzly --project storybook
 
-Note: run "vizzly login" first. The linked credential is project-scoped and is
-used for cloud uploads; your user login remains separate for review actions.
+Sign in to use the picker. An explicit org/project can be saved before login.
+Linking saves the upload destination for this checkout. Your selected login
+permissions control which actions are allowed.
 `
   )
   .action(async (selector, options) => {
@@ -1651,8 +1651,16 @@ program
 
 program
   .command('login')
-  .description('Authenticate with your Vizzly account')
+  .description('Log in and choose CLI permissions in your browser')
   .option('--api-url <url>', 'API URL override')
+  .option(
+    '--no-browser',
+    'Print the authorization URL without opening a browser'
+  )
+  .option(
+    '--scopes <names>',
+    'Permissions to request, separated by spaces or commas'
+  )
   .action(async options => {
     let globalOptions = getGlobalOptions();
 

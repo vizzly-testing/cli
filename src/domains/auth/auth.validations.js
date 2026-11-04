@@ -1,4 +1,4 @@
-import { AuthError } from '../../shared/vizzly-error.js';
+import { AuthError, VizzlyError } from '../../shared/vizzly-error.js';
 
 /**
  * Validate that tokens exist and have required fields
@@ -17,4 +17,21 @@ export function validateTokens(auth, requiredField = 'accessToken') {
   }
 
   return { valid: true, error: null };
+}
+
+let cliScopes = ['read', 'builds:write', 'reviews:write', 'comments:write'];
+
+export function parseLoginScopes(value) {
+  if (value === undefined) return undefined;
+  let scopes =
+    typeof value === 'string'
+      ? [...new Set(value.split(/[\s,]+/).filter(Boolean))]
+      : [];
+  if (!scopes.length || scopes.some(scope => !cliScopes.includes(scope))) {
+    throw new VizzlyError(
+      `--scopes must contain one or more of: ${cliScopes.join(', ')}.`,
+      'INVALID_SCOPE'
+    );
+  }
+  return scopes.join(' ');
 }

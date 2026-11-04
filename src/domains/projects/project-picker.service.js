@@ -1,6 +1,7 @@
 import * as output from '../../shared/output.js';
 import { createPrompts } from '../../shared/terminal-prompts.js';
 import { createApiClient } from '../auth/cloud-client.js';
+import { requireCredentialScope } from '../auth/credential.rules.js';
 import { resolveCredential } from '../auth/credential.service.js';
 import { discoverProjects } from './discovery.service.js';
 
@@ -11,6 +12,7 @@ export async function pickProject(config, options = {}, prompts = null) {
     auth: options.token ? 'auto' : 'user',
     command: 'project link',
   });
+  requireCredentialScope(credential, 'read');
   let client = createApiClient({
     baseUrl: config.apiUrl,
     token: credential.token,

@@ -1,5 +1,7 @@
 import * as defaultOutput from '../../shared/output.js';
 import { getApiUrl as defaultGetApiUrl } from '../config/environment.js';
+import { normalizeAuthorization } from './auth.normalizers.js';
+import { requireScopedAuthorization } from './auth.rules.js';
 import { whoami as defaultWhoami } from './auth.service.js';
 import { createAuthClient as defaultCreateAuthClient } from './auth-client.js';
 import {
@@ -23,7 +25,7 @@ export function getTokenExpiryStatus(expiresAt, now = new Date()) {
     return {
       level: 'warn',
       message: 'Token has expired',
-      refreshHint: 'Run "vizzly login" to refresh your authentication',
+      refreshHint: 'Access tokens renew automatically when needed.',
     };
   }
 
@@ -51,7 +53,7 @@ export function getTokenExpiryStatus(expiresAt, now = new Date()) {
   return {
     level: 'warn',
     message: 'Token expires in less than a minute',
-    refreshHint: 'Run "vizzly login" to refresh your authentication',
+    refreshHint: 'Access tokens renew automatically when needed.',
   };
 }
 
@@ -84,11 +86,13 @@ export async function whoamiCommand(
 
   try {
     // Check if user is logged in
-    let auth = await getAuthTokens();
+    let apiUrl = options.apiUrl || getApiUrl();
+    let apiOrigin = new URL(apiUrl).origin;
+    let auth = await getAuthTokens(apiUrl);
 
     if (!auth?.accessToken) {
       if (globalOptions.json) {
-        output.data({ authenticated: false });
+        output.data({ authenticated: false, apiUrl: apiOrigin });
       } else {
         output.header('whoami');
         output.print('  Not logged in');
@@ -103,12 +107,14 @@ export async function whoamiCommand(
     output.startSpinner('Fetching user information...');
 
     let client = createAuthClient({
-      baseUrl: options.apiUrl || getApiUrl(),
+      baseUrl: apiUrl,
     });
-    let tokenStore = createTokenStore();
+    let tokenStore = createTokenStore({ apiUrl });
 
     let response = await whoami(client, tokenStore);
-    auth = await getAuthTokens();
+    auth = await getAuthTokens(apiUrl);
+    let authorization = normalizeAuthorization(response.authorization);
+    requireScopedAuthorization(authorization);
 
     output.stopSpinner();
 
@@ -116,9 +122,12 @@ export async function whoamiCommand(
     if (globalOptions.json) {
       output.data({
         authenticated: true,
+        apiUrl: apiOrigin,
+        credential: { source: 'user', kind: 'user' },
+        authorization,
         user: response.user,
         organizations: response.organizations || [],
-        tokenExpiresAt: auth.expiresAt,
+        tokenExpiresAt: auth?.expiresAt,
       });
       output.cleanup();
       return;
@@ -132,6 +141,9 @@ export async function whoamiCommand(
       let userInfo = {
         User: response.user.name || response.user.username,
         Email: response.user.email,
+        API: apiOrigin,
+        Credential: 'saved user login',
+        Permissions: authorization.scopes.join(', ') || 'None',
       };
 
       if (response.user.username) {
@@ -167,7 +179,7 @@ export async function whoamiCommand(
     }
 
     // Show token expiry info
-    if (auth.expiresAt) {
+    if (auth?.expiresAt) {
       output.blank();
       let expiry = getTokenExpiryStatus(auth.expiresAt);
       if (expiry.level === 'warn') {

@@ -46,6 +46,7 @@ export async function configCommand(
       upload: config.upload || {},
       comparison: config.comparison || CONFIG_DEFAULTS.comparison,
       tdd: config.tdd || {},
+      ...(config.project ? { project: config.project } : {}),
     };
 
     // Add API config (without exposing full token)
@@ -118,6 +119,7 @@ export async function configCommand(
     displaySection(output, 'Server', displayConfig.server);
     displaySection(output, 'Comparison', displayConfig.comparison);
     displaySection(output, 'TDD', displayConfig.tdd);
+    displaySection(output, 'Project', displayConfig.project);
 
     if (globalOptions.verbose) {
       displaySection(output, 'Build', displayConfig.build);

@@ -1,3 +1,4 @@
+import { buildEndpointWithParams } from '../../shared/cloud-protocol.js';
 import * as output from '../../shared/output.js';
 import {
   buildScreenshotPayload,
@@ -13,14 +14,22 @@ import { computeSha256 } from './screenshot-hash.js';
  * @param {string} buildId - Build ID for screenshot record creation
  * @returns {Promise<Object>} { existing, missing, screenshots }
  */
-export async function checkShas(client, screenshots, buildId) {
+export async function checkShas(
+  client,
+  screenshots,
+  buildId,
+  projectQuery = {}
+) {
   try {
     let payload = buildShaCheckPayload(screenshots, buildId);
-    return await client.request('/api/sdk/check-shas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    return await client.request(
+      buildEndpointWithParams('/api/sdk/check-shas', projectQuery),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
   } catch (error) {
     // Continue without deduplication on error
     output.debug('sha-check', 'failed, continuing without deduplication', {

@@ -4,6 +4,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { getAuthStoragePath } from '../../../src/domains/auth/token-store.js';
+import {
+  fixtureAuthorization,
+  saveFixtureAuth,
+} from '../../helpers/auth-session.js';
 import { findJSONMessage, runCLI } from '../../helpers/cli-runner.js';
 import { createCloudServer } from '../../helpers/cloud-server.js';
 
@@ -36,24 +41,15 @@ function page(items, query) {
   };
 }
 
-async function fixture(t, { expired = false, binding = true } = {}) {
+async function fixture(
+  t,
+  { expired = false, binding = true, scopes = fixtureAuthorization.scopes } = {}
+) {
   let cwd = await mkdtemp(path.join(tmpdir(), 'vizzly-account-'));
   let home = path.join(cwd, 'state');
   await mkdir(home);
   t.after(() => rm(cwd, { recursive: true, force: true }));
   let configPath = path.join(cwd, '.vizzlyrc.json');
-  let authPath = path.join(home, 'config.json');
-  await writeFile(
-    authPath,
-    JSON.stringify({
-      auth: {
-        accessToken: userToken,
-        refreshToken: 'synthetic-refresh',
-        expiresAt: expired ? '2020-01-01T00:00:00Z' : '2999-01-01T00:00:00Z',
-        user: { name: 'Fixture user' },
-      },
-    })
-  );
   await writeFile(
     configPath,
     JSON.stringify(
@@ -65,6 +61,7 @@ async function fixture(t, { expired = false, binding = true } = {}) {
     )
   );
   let state = {
+    authorization: { ...fixtureAuthorization, scopes },
     refreshStatus: 200,
     rejectUser: false,
     failPage: null,
@@ -87,6 +84,7 @@ async function fixture(t, { expired = false, binding = true } = {}) {
                 accessToken: 'synthetic-refreshed',
                 refreshToken: 'synthetic-rotated',
                 expiresIn: 3600,
+                authorization: state.authorization,
               }
             : { error: 'refresh rejected' },
       };
@@ -95,7 +93,13 @@ async function fixture(t, { expired = false, binding = true } = {}) {
       return { status: 401, body: { error: 'invalid user' } };
     }
     if (url.pathname === '/api/auth/cli/whoami') {
-      return { body: { user: { name: 'Fixture user' }, organizations: [] } };
+      return {
+        body: {
+          user: { name: 'Fixture user' },
+          organizations: [],
+          authorization: state.authorization,
+        },
+      };
     }
     if (url.pathname === '/api/sdk/projects') {
       assert.equal(request.headers['vizzly-api-version'], '2026-09-12');
@@ -149,22 +153,17 @@ async function fixture(t, { expired = false, binding = true } = {}) {
         body: { organization: { slug: 'acme' }, project: { slug: 'app-0' } },
       };
     }
-    if (url.pathname === '/api/cli/app-1/link-token') {
-      return {
-        body: {
-          organization: { slug: 'studio' },
-          project: { slug: 'app-1' },
-          token: {
-            id: 't-1',
-            token: projectToken,
-            token_prefix: 'vzt_fixture',
-          },
-        },
-      };
-    }
     return { status: 404, body: { error: 'Unexpected fixture request' } };
   });
   let apiUrl = client.getBaseUrl();
+  let authPath = getAuthStoragePath(apiUrl, home);
+  await saveFixtureAuth(home, apiUrl, {
+    accessToken: userToken,
+    refreshToken: 'synthetic-refresh',
+    expiresAt: expired ? '2020-01-01T00:00:00Z' : '2999-01-01T00:00:00Z',
+    user: { name: 'Fixture user' },
+    authorization: state.authorization,
+  });
   async function cli(args, env = {}) {
     let result = await runCLI(['--no-color', ...args], {
       cwd,
@@ -258,7 +257,9 @@ test('explicit tokens, source selection, and noninteractive missing targets are 
   }
   let human = await f.cli(['projects'], { VIZZLY_TOKEN: projectToken });
   assert.match(human.stdout + human.stderr, /only its project/);
-  assert.match(human.stdout + human.stderr, /--auth user/);
+  assert.match(human.stdout + human.stderr, /Credential:\s+VIZZLY_TOKEN/);
+  assert.match(human.stdout + human.stderr, /Unset VIZZLY_TOKEN/);
+  assert.doesNotMatch(human.stdout + human.stderr, /--auth user/);
   assert.doesNotMatch(human.stdout + human.stderr, /undefined/);
 });
 
@@ -269,14 +270,14 @@ test('expired and near-expiry saved sessions recover without falling back to the
   ]) {
     let f = await fixture(t);
     let auth = JSON.parse(await readFile(f.authPath, 'utf8'));
-    auth.auth.expiresAt = expiresAt;
+    auth.expiresAt = expiresAt;
     await writeFile(f.authPath, JSON.stringify(auth));
     let result = await f.cli(['projects', '--auth', 'user', '--json'], {
       VIZZLY_TOKEN: projectToken,
     });
     assert.equal(result.code, 0, result.stderr);
     assert.equal(f.requests[0].url, '/api/auth/cli/refresh');
-    let saved = JSON.parse(await readFile(f.authPath, 'utf8')).auth;
+    let saved = JSON.parse(await readFile(f.authPath, 'utf8'));
     assert.equal(saved.accessToken, 'synthetic-refreshed');
     assert.equal(saved.user.name, 'Fixture user');
     assert.ok(Date.parse(saved.expiresAt) > Date.now());
@@ -284,7 +285,7 @@ test('expired and near-expiry saved sessions recover without falling back to the
   }
 });
 
-test('rejected and unavailable refreshes preserve session state and give different recovery advice', async t => {
+test('rejected refreshes preserve credentials and uncertain server failures prevent token replay', async t => {
   for (let status of [401, 503]) {
     let f = await fixture(t, { expired: true });
     f.state.refreshStatus = status;
@@ -294,10 +295,22 @@ test('rejected and unavailable refreshes preserve session state and give differe
     });
     assert.equal(result.code, 1);
     assert.equal(f.requests.length, 1);
-    assert.equal(await readFile(f.authPath, 'utf8'), before);
-    if (status === 401)
+    if (status === 401) {
+      assert.equal(await readFile(f.authPath, 'utf8'), before);
       assert.match(result.stderr, /LOGIN_REQUIRED|vizzly login/);
-    else assert.doesNotMatch(result.stderr, /vizzly login/);
+    } else {
+      let saved = JSON.parse(await readFile(f.authPath, 'utf8'));
+      assert.deepEqual(saved, {
+        ...JSON.parse(before),
+        refreshUncertain: true,
+      });
+      assert.match(result.stderr, /AUTH_REFRESH_UNCERTAIN/);
+      assert.match(result.stderr, /vizzly login/);
+      let retried = await f.cli(['projects', '--json']);
+      assert.equal(retried.code, 1);
+      assert.match(retried.stderr, /AUTH_REFRESH_UNCERTAIN/);
+      assert.equal(f.requests.length, 1);
+    }
   }
 });
 
@@ -372,6 +385,37 @@ test('offline project status keeps the checkout binding separate from an unverif
     organizationSlug: 'acme',
     projectSlug: 'app-0',
   });
+});
+
+test('explicit destinations work with write-only login and status distinguishes missing upload permission', async t => {
+  for (let scopes of [['builds:write'], ['read']]) {
+    let f = await fixture(t, { binding: false, scopes });
+    let authBefore = await readFile(f.authPath, 'utf8');
+    let linked = await f.cli(['project', 'link', 'studio/app-1', '--json']);
+    assert.equal(linked.code, 0, linked.stderr);
+    assert.equal(f.requests.length, 0);
+    assert.equal(await readFile(f.authPath, 'utf8'), authBefore);
+    let inspected = await f.cli(['project', 'status', '--json']);
+    assert.equal(inspected.code, 0, inspected.stderr);
+    let destination = data(inspected);
+    assert.equal(destination.status, 'unverified');
+    assert.equal(destination.credential.source, 'user');
+    assert.deepEqual(destination.credential.authorization.scopes, scopes);
+    assert.equal(
+      destination.uploadPermission,
+      scopes.includes('builds:write') ? 'granted' : 'missing'
+    );
+    assert.deepEqual(destination.effective, {
+      organizationSlug: 'studio',
+      projectSlug: 'app-1',
+    });
+    assert.deepEqual(
+      f.requests.map(request => request.url),
+      ['/api/auth/cli/whoami']
+    );
+    assert.equal(Object.hasOwn(destination.credential, 'token'), false);
+    assert.equal(Object.hasOwn(destination.credential, 'session'), false);
+  }
 });
 
 test('linking chooses uploads, browsing stays read-only, and a mismatched override fails before writes', async t => {

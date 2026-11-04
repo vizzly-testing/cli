@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createTokenStore } from '../../../src/domains/auth/token-store.js';
 import { writeReporterFixture } from './write-reporter-fixture.js';
 
 export async function startRealReporter(fixtureData, options = {}) {
@@ -100,9 +101,10 @@ export async function startRealReporter(fixtureData, options = {}) {
       readConfig: async () =>
         JSON.parse(await readFile(join(workingDir, '.vizzlyrc.json'), 'utf8')),
       readAuth: async () =>
-        JSON.parse(
-          await readFile(join(workingDir, 'home', 'config.json'), 'utf8')
-        ).auth,
+        createTokenStore({
+          apiUrl: options.apiUrl,
+          home: join(workingDir, 'home'),
+        }).getTokens(),
       readReport: async () =>
         JSON.parse(
           await readFile(

@@ -5,7 +5,9 @@
 
 import * as defaultOutput from '../../shared/output.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { resolveCredential } from '../auth/credential.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
+import { requireUploadDestination } from '../projects/upload-destination.service.js';
 import { writeSession as defaultWriteSession } from '../runs/session-store.js';
 import { finalizeParallelBuild as defaultFinalizeParallelBuild } from './build.service.js';
 
@@ -48,14 +50,20 @@ export async function finalizeCommand(
     let allOptions = { ...globalOptions, ...options };
     let config = await loadConfig(globalOptions.config, allOptions);
 
-    // Validate API token
-    if (!config.apiKey) {
+    if (!config.apiKey && !config.userToken) {
       output.error(
-        'API token required. Use --token or set VIZZLY_TOKEN environment variable'
+        'Login or API token required. Run vizzly login, use --token, or set VIZZLY_TOKEN.'
       );
       exit(1);
       return { success: false, reason: 'no-api-key' };
     }
+
+    let credential = resolveCredential(config, { command: 'finalize' });
+    let destination =
+      credential.kind === 'user'
+        ? await requireUploadDestination(config)
+        : null;
+    credential = destination?.credential || credential;
 
     if (globalOptions.verbose) {
       output.info('Configuration loaded');
@@ -69,10 +77,15 @@ export async function finalizeCommand(
     output.startSpinner('Finalizing parallel build...');
     let client = createApiClient({
       baseUrl: config.apiUrl,
-      token: config.apiKey,
+      token: credential.token,
+      credential,
       command: 'finalize',
     });
-    let result = await finalizeParallelBuild(client, parallelId);
+    let result = await finalizeParallelBuild(
+      client,
+      parallelId,
+      destination?.projectQuery
+    );
     output.stopSpinner();
 
     // Write session for subsequent commands (like preview)

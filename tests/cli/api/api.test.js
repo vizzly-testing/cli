@@ -13,6 +13,11 @@ import {
   parseApiHeaders,
   validateApiOptions,
 } from '../../../src/domains/api/api.commands.js';
+import { createTokenStore } from '../../../src/domains/auth/token-store.js';
+import {
+  fixtureAuthorization,
+  saveFixtureAuth,
+} from '../../helpers/auth-session.js';
 
 let directory, server, origin;
 let requests = [];
@@ -41,6 +46,7 @@ before(async () => {
         JSON.stringify({
           accessToken: 'refreshed-user',
           refreshToken: 'new-refresh',
+          authorization: fixtureAuthorization,
           expiresIn: 900,
         })
       );
@@ -246,7 +252,6 @@ async function credentialHome(name) {
   await writeFile(
     join(home, 'config.json'),
     JSON.stringify({
-      auth: { accessToken: 'logged-in-user', refreshToken: 'saved-refresh' },
       projectLink: {
         active: 'fixture',
         links: {
@@ -255,6 +260,10 @@ async function credentialHome(name) {
       },
     })
   );
+  await saveFixtureAuth(home, origin, {
+    accessToken: 'logged-in-user',
+    refreshToken: 'saved-refresh',
+  });
   return { VIZZLY_HOME: home, VIZZLY_TOKEN: '' };
 }
 test('CLI prefers login over linked upload credentials and honors explicit tokens', async () => {
@@ -289,10 +298,11 @@ test('CLI refreshes a read once but never replays generic writes', async () => {
       ['GET', '/api/refreshable'],
     ]
   );
-  let saved = JSON.parse(
-    await readFile(join(environment.VIZZLY_HOME, 'config.json'), 'utf8')
-  );
-  assert.equal(saved.auth.accessToken, 'refreshed-user');
+  let saved = await createTokenStore({
+    apiUrl: origin,
+    home: environment.VIZZLY_HOME,
+  }).getTokens();
+  assert.equal(saved.accessToken, 'refreshed-user');
   for (let method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
     before = requests.length;
     result = await cli(

@@ -1,5 +1,6 @@
 import { once } from 'node:events';
 import { createServer } from 'node:http';
+import { fixtureAuthorization } from '../../helpers/auth-session.js';
 
 // Only the remote service is simulated. Local auth, storage, and HTTP routes are real.
 export async function startCloudApi() {
@@ -66,10 +67,42 @@ export async function startCloudApi() {
             organizations: [{ slug: 'test-org', name: 'Test organization' }],
           },
         };
-      else if (path === '/api/project')
-        response = { body: { projects: api.projects } };
-      else if (path.startsWith('/api/project/') && path.endsWith('/builds'))
-        response = { body: { builds: api.builds } };
+      else if (path === '/api/sdk/projects') {
+        let url = new URL(req.url, 'http://cloud');
+        let limit = Number(url.searchParams.get('limit'));
+        let offset = Number(url.searchParams.get('offset'));
+        let projects = api.projects.slice(offset, offset + limit);
+        response = {
+          body: {
+            projects,
+            meta: {
+              total: api.projects.length,
+              limit,
+              offset,
+              hasMore: offset + projects.length < api.projects.length,
+            },
+          },
+        };
+      } else if (path === '/api/sdk/builds') {
+        let url = new URL(req.url, 'http://cloud');
+        let limit = Number(url.searchParams.get('limit'));
+        let offset = Number(url.searchParams.get('offset'));
+        let builds = api.builds.slice(offset, offset + limit);
+        response = {
+          body: {
+            builds,
+            meta: {
+              total: api.builds.length,
+              limit,
+              offset,
+              hasMore: offset + builds.length < api.builds.length,
+            },
+          },
+        };
+      } else if (/^\/api\/sdk\/builds\/[^/]+\/tdd-baselines$/.test(path))
+        response = {
+          body: { build: {}, screenshots: [], signatureProperties: [] },
+        };
       else
         response = {
           status: 404,
@@ -105,5 +138,6 @@ export let authorizedResponse = {
       expiresIn: 3600,
     },
     user: { username: 'test-user' },
+    authorization: fixtureAuthorization,
   },
 };

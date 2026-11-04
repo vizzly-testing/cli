@@ -1,4 +1,6 @@
 import { VizzlyError } from '../../shared/vizzly-error.js';
+import { normalizeAuthorization } from './auth.normalizers.js';
+import { createInsufficientScopeError } from './auth-errors.js';
 
 export function selectCredential(config, options = {}) {
   let mode = options.auth || 'auto';
@@ -20,6 +22,14 @@ export function selectCredential(config, options = {}) {
   let source =
     config.credentialSource ||
     (config.linkedProject ? 'linked-project' : 'config');
+  let explicitToken =
+    config.apiKey && ['flag', 'environment', 'config'].includes(source);
+  if (
+    config.userAuthError &&
+    (mode === 'user' || (mode === 'auto' && !explicitToken))
+  ) {
+    throw config.userAuthError;
+  }
   let useUser =
     mode === 'user' ||
     (mode === 'auto' &&
@@ -38,9 +48,28 @@ export function selectCredential(config, options = {}) {
     token: token || null,
     source: token ? (useUser ? 'user' : source) : 'anonymous',
     kind: useUser ? 'user' : token?.startsWith('vzt_') ? 'project' : 'token',
+    ...(useUser && config.userAuthorization
+      ? { authorization: normalizeAuthorization(config.userAuthorization) }
+      : {}),
   };
 }
 
 export function credentialInfo(credential) {
-  return { source: credential.source, kind: credential.kind };
+  return {
+    source: credential.source,
+    kind: credential.kind,
+    ...(credential.authorization
+      ? { authorization: normalizeAuthorization(credential.authorization) }
+      : {}),
+  };
+}
+
+/** Explicit token overrides are authorized by the API, never by inferred scopes. */
+export function requireCredentialScope(credential, scope) {
+  if (credential.kind !== 'user' || !credential.authorization) return;
+  if (credential.authorization.scopes.includes(scope)) return;
+  throw createInsufficientScopeError({
+    requiredScopes: [scope],
+    grantedScopes: credential.authorization.scopes,
+  });
 }

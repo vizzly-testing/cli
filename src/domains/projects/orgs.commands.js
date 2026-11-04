@@ -65,7 +65,7 @@ export async function orgsCommand(options = {}, globalOptions = {}, deps = {}) {
       });
     } else {
       output.header('orgs');
-      showCredential(output, credential, 'orgs');
+      showCredential(output, credential);
 
       let colors = output.getColors();
 

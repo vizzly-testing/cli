@@ -1,5 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { glob } from 'glob';
+import { buildEndpointWithParams } from '../../shared/cloud-protocol.js';
 import { getDefaultBranch } from '../../shared/git.js';
 import * as output from '../../shared/output.js';
 import {
@@ -48,13 +49,22 @@ import { getElapsedTime, isTimedOut } from './upload-timing.js';
  */
 
 export function createUploader(
-  { apiKey, apiUrl, userAgent, command, upload: uploadConfig = {} } = {},
+  {
+    apiKey,
+    apiUrl,
+    credential,
+    projectQuery,
+    userAgent,
+    command,
+    upload: uploadConfig = {},
+  } = {},
   options = {}
 ) {
   let signal = options.signal || new AbortController().signal;
   let client = createApiClient({
     baseUrl: apiUrl,
     token: apiKey,
+    credential,
     command: command || 'upload',
     sdkUserAgent: userAgent,
     allowNoToken: true,
@@ -86,7 +96,7 @@ export function createUploader(
   async function uploadScreenshots(uploadOptions) {
     return upload({
       uploadOptions,
-      config: { apiKey, apiUrl },
+      config: { apiKey, apiUrl, projectQuery },
       signal,
       batchSize,
       deps: {
@@ -209,6 +219,7 @@ export async function checkExistingFiles({
   client,
   signal,
   buildId,
+  projectQuery,
   deps,
 }) {
   let { checkShas, createError, output } = deps;
@@ -224,7 +235,7 @@ export async function checkExistingFiles({
     let screenshotBatch = batch.map(fileToScreenshotFormat);
 
     try {
-      let res = await checkShas(client, screenshotBatch, buildId);
+      let res = await checkShas(client, screenshotBatch, buildId, projectQuery);
       let { existing = [], screenshots = [] } = res || {};
 
       for (let sha of existing) {
@@ -265,6 +276,7 @@ export async function checkExistingFiles({
 export async function uploadFiles({
   toUpload,
   buildId,
+  projectQuery,
   client,
   signal,
   batchSize,
@@ -294,12 +306,15 @@ export async function uploadFiles({
     }
 
     try {
-      result = await client.request('/api/sdk/upload', {
-        method: 'POST',
-        body: form,
-        signal,
-        headers: {},
-      });
+      result = await client.request(
+        buildEndpointWithParams('/api/sdk/upload', projectQuery || {}),
+        {
+          method: 'POST',
+          body: form,
+          signal,
+          headers: {},
+        }
+      );
     } catch (err) {
       throw createError(`Upload failed: ${err.message}`, 'UPLOAD_FAILED', {
         batch: Math.floor(i / batchSize) + 1,
@@ -460,7 +475,7 @@ export async function upload({
     // Create build
     let defaultBranch = await getDefaultBranch();
     let buildInfo = buildBuildInfo(uploadOptions, defaultBranch);
-    let build = await createBuild(client, buildInfo);
+    let build = await createBuild(client, buildInfo, config.projectQuery);
     let buildId = build.id;
 
     let toUpload = fileMetadata;
@@ -473,6 +488,7 @@ export async function upload({
         client,
         signal,
         buildId,
+        projectQuery: config.projectQuery,
         deps: { checkShas, createError, output },
       });
       toUpload = existingResult.toUpload;
@@ -490,6 +506,7 @@ export async function upload({
       existing,
       screenshots,
       buildId,
+      projectQuery: config.projectQuery,
       buildInfo,
       client,
       signal,

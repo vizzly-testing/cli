@@ -366,6 +366,12 @@ export function error(message, err = null, data = {}) {
         name: err.name,
         message: err.getUserMessage ? err.getUserMessage() : err.message,
         code: err.code,
+        ...(err.code === 'INSUFFICIENT_SCOPE'
+          ? {
+              requiredScopes: err.context?.requiredScopes || [],
+              grantedScopes: err.context?.grantedScopes || [],
+            }
+          : {}),
       };
       if (isVerbose()) {
         errorData.error.stack = err.stack;

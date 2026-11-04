@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
+import { saveFixtureAuth } from '../../helpers/auth-session.js';
 import { runCLI } from '../../helpers/cli-runner.js';
 import { createCloudServer } from '../../helpers/cloud-server.js';
 
@@ -48,7 +49,7 @@ let organizations = [
   },
 ];
 
-async function createWorkspace(t, { config, accessToken } = {}) {
+async function createWorkspace(t, { config, accessToken, apiUrl } = {}) {
   let cwd = await mkdtemp(path.join(tmpdir(), 'vizzly-project-discovery-'));
   let home = path.join(cwd, '.vizzly-home');
   await mkdir(home, { recursive: true });
@@ -60,12 +61,7 @@ async function createWorkspace(t, { config, accessToken } = {}) {
     );
   }
   if (accessToken) {
-    await writeFile(
-      path.join(home, 'config.json'),
-      JSON.stringify({
-        auth: { accessToken, expiresAt: '2999-01-01T00:00:00.000Z' },
-      })
-    );
+    await saveFixtureAuth(home, apiUrl, { accessToken });
   }
 
   t.after(() => rm(cwd, { recursive: true, force: true }));
@@ -102,6 +98,7 @@ describe('organization and project discovery CLI', () => {
     });
     let workspace = await createWorkspace(t, {
       accessToken: 'saved-user-credential',
+      apiUrl: client.getBaseUrl(),
     });
     let result = await runDiscoveryCLI(workspace, client.getBaseUrl(), [
       'projects',
@@ -109,7 +106,10 @@ describe('organization and project discovery CLI', () => {
       '2',
     ]);
     assert.equal(result.code, 0, result.stderr);
-    assert.match(result.stdout, /Frontend/);
+    assert.match(result.stdout, /Name\s+Project\s+Organization\s+Builds/);
+    assert.match(result.stdout, /Frontend\s+vizzly\/frontend\s+Vizzly\s+100/);
+    assert.match(result.stdout, /Credential:\s+saved user login/);
+    assert.doesNotMatch(result.stdout, /Permissions:/);
     assert.match(result.stdout, /Dashboard/);
     assert.match(result.stdout, /Showing:\s+2 of 8/);
     assert.match(result.stdout, /--offset 2/);
@@ -120,6 +120,65 @@ describe('organization and project discovery CLI', () => {
     assert.match(orgs.stdout, /PitStop/);
     assert.match(orgs.stdout, /Count:\s+2/);
     assert.match(orgs.stdout, /via token/);
+  });
+
+  it('clearly lists a single project and selects the available credential automatically', async t => {
+    let { client, requests } = await createCloudServer(t, () => ({
+      body: {
+        projects: [
+          {
+            id: 'project-1',
+            name: 'Project',
+            slug: 'project',
+            organizationName: 'Robert',
+            organizationSlug: 'rob',
+          },
+        ],
+        meta: { total: 1, limit: 50, offset: 0, hasMore: false },
+      },
+    }));
+    let workspace = await createWorkspace(t, {
+      accessToken: 'saved-user-credential',
+      apiUrl: client.getBaseUrl(),
+    });
+    for (let withToken of [false, true]) {
+      let result = await runDiscoveryCLI(
+        workspace,
+        client.getBaseUrl(),
+        ['projects'],
+        withToken ? { VIZZLY_TOKEN: 'vzt_explicit-project' } : {}
+      );
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /Name\s+Project\s+Organization/);
+      assert.match(result.stdout, /Project\s+rob\/project\s+Robert/);
+      assert.match(
+        result.stdout,
+        /Read builds: vizzly builds --project project --org rob/
+      );
+      assert.match(
+        result.stdout,
+        /Choose uploads: vizzly project link rob\/project/
+      );
+      assert.doesNotMatch(result.stdout, /<org>|<project>|--auth|Permissions:/);
+      assert.match(
+        result.stdout,
+        withToken
+          ? /Credential:\s+VIZZLY_TOKEN/
+          : /Credential:\s+saved user login/
+      );
+      assert.equal(
+        requests.at(-1).headers.authorization,
+        withToken
+          ? 'Bearer vzt_explicit-project'
+          : 'Bearer saved-user-credential'
+      );
+    }
+    let verbose = await runDiscoveryCLI(workspace, client.getBaseUrl(), [
+      'projects',
+      '--verbose',
+    ]);
+    assert.equal(verbose.code, 0, verbose.stderr);
+    assert.match(verbose.stdout, /Permissions: read, builds:write/);
   });
 
   it('reports empty accessible lists and distinguishes an absent login', async t => {
@@ -141,6 +200,7 @@ describe('organization and project discovery CLI', () => {
     });
     let workspace = await createWorkspace(t, {
       accessToken: 'saved-user-credential',
+      apiUrl: client.getBaseUrl(),
     });
     for (let command of ['projects', 'orgs']) {
       let result = await runDiscoveryCLI(workspace, client.getBaseUrl(), [

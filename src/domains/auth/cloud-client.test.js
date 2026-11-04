@@ -5,6 +5,10 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
+import {
+  fixtureAuthorization,
+  saveFixtureAuth,
+} from '../../../tests/helpers/auth-session.js';
 import { createApiClient } from './cloud-client.js';
 import { resolveCredential } from './credential.service.js';
 import { getAuthTokens, saveAuthTokens } from './token-store.js';
@@ -47,12 +51,7 @@ async function readJson(request) {
 describe('saved-token API refresh', () => {
   it('refreshes a saved user token once and retries the request with rotated credentials', async () => {
     let requests = [];
-    await saveAuthTokens({
-      accessToken: 'expired-access',
-      refreshToken: 'saved-refresh',
-      expiresAt: '2999-01-01T00:00:00.000Z',
-      user: { id: 'user-1' },
-    });
+    let selectedOrigin;
 
     await withApiServer(
       async (request, response) => {
@@ -71,6 +70,7 @@ describe('saved-token API refresh', () => {
               accessToken: 'new-access',
               refreshToken: 'new-refresh',
               expiresIn: 3600,
+              authorization: fixtureAuthorization,
             })
           );
           return;
@@ -85,6 +85,12 @@ describe('saved-token API refresh', () => {
         response.end(JSON.stringify({ projects: [] }));
       },
       async apiUrl => {
+        selectedOrigin = apiUrl;
+        await saveFixtureAuth(home, apiUrl, {
+          accessToken: 'expired-access',
+          refreshToken: 'saved-refresh',
+          user: { id: 'user-1' },
+        });
         let client = createApiClient({
           baseUrl: apiUrl,
           token: 'expired-access',
@@ -126,7 +132,7 @@ describe('saved-token API refresh', () => {
     );
     assert.deepEqual(requests[1].body, { refreshToken: 'saved-refresh' });
 
-    let saved = await getAuthTokens();
+    let saved = await getAuthTokens(selectedOrigin);
     assert.equal(saved.accessToken, 'new-access');
     assert.equal(saved.refreshToken, 'new-refresh');
     assert.equal(saved.user.id, 'user-1');
@@ -217,10 +223,6 @@ describe('saved-token API refresh', () => {
   });
 
   it('retries a saved session only once and honors requests that disable authentication retries', async () => {
-    await saveAuthTokens({
-      accessToken: 'old-access',
-      refreshToken: 'old-refresh',
-    });
     let requests = [];
     let refreshes = 0;
     await withApiServer(
@@ -236,6 +238,7 @@ describe('saved-token API refresh', () => {
               accessToken: 'new-access',
               refreshToken: 'new-refresh',
               expiresIn: 3600,
+              authorization: fixtureAuthorization,
             })
           );
           return;
@@ -244,6 +247,10 @@ describe('saved-token API refresh', () => {
         response.end(JSON.stringify({ error: 'unauthorized' }));
       },
       async apiUrl => {
+        await saveFixtureAuth(home, apiUrl, {
+          accessToken: 'old-access',
+          refreshToken: 'old-refresh',
+        });
         let client = createApiClient({
           baseUrl: apiUrl,
           token: 'old-access',
@@ -257,7 +264,7 @@ describe('saved-token API refresh', () => {
           { url: '/api/auth/cli/refresh', authorization: undefined },
           { url: '/api/sdk/projects', authorization: 'Bearer new-access' },
         ]);
-        assert.equal((await getAuthTokens()).accessToken, 'new-access');
+        assert.equal((await getAuthTokens(apiUrl)).accessToken, 'new-access');
 
         requests.length = 0;
         await assert.rejects(

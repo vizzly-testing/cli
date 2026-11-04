@@ -5,17 +5,18 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, beforeEach, test } from 'node:test';
+import {
+  fixtureAuthorization,
+  saveFixtureAuth,
+} from '../../../tests/helpers/auth-session.js';
 import { createAuthRouter } from './auth.routes.js';
 import { createAuthService } from './auth.service.js';
-import {
-  clearAuthTokens,
-  getAuthTokens,
-  saveAuthTokens,
-} from './token-store.js';
+import { clearAuthTokens, getAuthTokens } from './token-store.js';
 
 let upstream;
 let local;
 let base;
+let apiUrl;
 let response;
 let testHome;
 let originalHome = process.env.VIZZLY_HOME;
@@ -36,9 +37,8 @@ before(async () => {
   });
   upstream.listen(0, '127.0.0.1');
   await once(upstream, 'listening');
-  let service = createAuthService({
-    apiUrl: `http://127.0.0.1:${upstream.address().port}`,
-  });
+  apiUrl = `http://127.0.0.1:${upstream.address().port}`;
+  let service = createAuthService({ apiUrl });
   let router = createAuthRouter({ authService: service });
   local = createServer(async (req, res) => {
     if (!(await router(req, res, new URL(req.url, 'http://local').pathname))) {
@@ -50,7 +50,7 @@ before(async () => {
   base = `http://127.0.0.1:${local.address().port}`;
 });
 beforeEach(async () => {
-  await clearAuthTokens();
+  await clearAuthTokens(apiUrl);
   paths = [];
   authorizations = [];
   response = { status: 200, body: {} };
@@ -138,7 +138,7 @@ test('expected outcomes use protocol codes rather than the error wording', async
     let result = await post('poll', { deviceCode: 'device' });
     assert.equal(result.status, 200);
     assert.deepEqual(result.body, { status: expected });
-    assert.equal(await getAuthTokens(), null);
+    assert.equal(await getAuthTokens(apiUrl), null);
   }
   assert.ok(paths.every(path => path === '/api/auth/cli/device/poll'));
 });
@@ -156,7 +156,7 @@ test('upstream throttling retains status, code and retry timing through both end
     assert.equal(result.body.retryAfter, 73);
     assert.equal(result.headers.get('retry-after'), '73');
   }
-  assert.equal(await getAuthTokens(), null);
+  assert.equal(await getAuthTokens(apiUrl), null);
 });
 
 test('token aliases save normalized credentials without returning them to the browser', async () => {
@@ -164,14 +164,18 @@ test('token aliases save normalized credentials without returning them to the br
     { accessToken: 'access', refreshToken: 'refresh', expiresIn: 900 },
     { access_token: 'access', refresh_token: 'refresh', expires_in: 900 },
   ]) {
-    response.body = { tokens, user: { username: 'test-user' } };
+    response.body = {
+      tokens,
+      user: { username: 'test-user' },
+      authorization: fixtureAuthorization,
+    };
     let result = await post('poll', { deviceCode: 'device' });
     assert.equal(result.status, 200);
     assert.deepEqual(result.body, {
       status: 'complete',
       user: { username: 'test-user' },
     });
-    let saved = await getAuthTokens();
+    let saved = await getAuthTokens(apiUrl);
     assert.equal(saved.accessToken, 'access');
     assert.equal(saved.refreshToken, 'refresh');
     assert.ok(Date.parse(saved.expiresAt) > Date.now());
@@ -183,15 +187,18 @@ test('unknown successful authorization payloads fail instead of silently staying
   let result = await post('poll', { deviceCode: 'device' });
   assert.equal(result.status, 500);
   assert.match(result.body.error, /Unexpected response/);
-  assert.equal(await getAuthTokens(), null);
+  assert.equal(await getAuthTokens(apiUrl), null);
 });
 
-test('sign-out authenticates revocation and clears the local session', async () => {
-  await saveAuthTokens({ accessToken: 'access', refreshToken: 'refresh' });
+test('sign-out uses the refresh credential and clears the local session', async () => {
+  await saveFixtureAuth(testHome, apiUrl, {
+    accessToken: 'access',
+    refreshToken: 'refresh',
+  });
   response.body = { message: 'CLI logout successful' };
   let result = await post('logout');
   assert.equal(result.status, 200);
   assert.deepEqual(paths, ['/api/auth/cli/logout']);
-  assert.deepEqual(authorizations, ['Bearer access']);
-  assert.equal(await getAuthTokens(), null);
+  assert.deepEqual(authorizations, [undefined]);
+  assert.equal(await getAuthTokens(apiUrl), null);
 });

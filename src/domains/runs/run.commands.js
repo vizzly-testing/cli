@@ -12,6 +12,7 @@ import {
 import * as defaultOutput from '../../shared/output.js';
 import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
+import { scopeErrorDetails } from '../auth/credential-error.serializers.js';
 import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import {
   createBuild as defaultCreateApiBuild,
@@ -22,7 +23,10 @@ import { createBuildObject as defaultCreateBuildObject } from '../builds/build-i
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getTokenContext as defaultGetTokenContext } from '../context/context.service.js';
-import { requireUploadDestination } from '../projects/upload-destination.service.js';
+import {
+  requireUploadDestination,
+  uploadDestinationInfo,
+} from '../projects/upload-destination.service.js';
 import { createUploader as defaultCreateUploader } from '../uploads/upload.service.js';
 import {
   finalizeBuild as defaultFinalizeBuild,
@@ -68,6 +72,7 @@ export async function resolveBuildDisplayUrl({
     let client = createApiClient({
       baseUrl: config.apiUrl,
       token: config.apiKey,
+      credential: config.credential,
       command: 'run',
     });
     let tokenContext = await getTokenContext(client);
@@ -237,17 +242,23 @@ export async function runCommand(
     }
 
     // Validate API token (unless --allow-no-token is set)
-    if (!config.apiKey && !config.allowNoToken) {
+    if (!config.apiKey && !config.userToken && !config.allowNoToken) {
       output.error(
-        'API token required. Use --token, set VIZZLY_TOKEN environment variable, or use --allow-no-token to run without uploading'
+        'Login or API token required. Run vizzly login, use --token, set VIZZLY_TOKEN, or use --allow-no-token to run without uploading.'
       );
       exit(1);
       return { success: false, reason: 'no-api-key' };
     }
 
-    if (config.apiKey) {
-      config.uploadDestination = await requireUploadDestination(config);
-      let destination = config.uploadDestination;
+    if (config.apiKey || config.userToken) {
+      let destination = await requireUploadDestination(config);
+      config = {
+        ...config,
+        apiKey: destination.credential.token,
+        credential: destination.credential,
+        projectQuery: destination.projectQuery,
+        uploadDestination: destination,
+      };
       output.info(
         `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
       );
@@ -430,7 +441,7 @@ export async function runCommand(
         });
 
         let jsonResult = {
-          destination: config.uploadDestination,
+          destination: uploadDestinationInfo(config.uploadDestination),
           buildId: result.buildId,
           status: 'completed',
           url: displayUrl,
@@ -512,6 +523,7 @@ export async function runCommand(
             error: {
               code: error.code,
               message: error.message,
+              ...scopeErrorDetails(error),
             },
             executionTimeMs,
             git: { branch, commit, message },
@@ -535,6 +547,7 @@ export async function runCommand(
               message: error.getUserMessage
                 ? error.getUserMessage()
                 : error.message,
+              ...scopeErrorDetails(error),
             },
             executionTimeMs,
             git: { branch, commit, message },
@@ -583,7 +596,7 @@ export async function runCommand(
           }
 
           let jsonResult = {
-            destination: config.uploadDestination,
+            destination: uploadDestinationInfo(config.uploadDestination),
             buildId: result.buildId,
             status: buildResult.status,
             url: displayUrl,
@@ -641,6 +654,7 @@ export async function runCommand(
       let errorDetails = {
         code: error.code || 'VIZZLY_STATUS_UNAVAILABLE',
         message: error.getUserMessage ? error.getUserMessage() : error.message,
+        ...scopeErrorDetails(error),
       };
       let unavailableResult = {
         buildId: result.buildId || null,

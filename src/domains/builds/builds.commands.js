@@ -56,7 +56,7 @@ export async function buildsCommand(
       credential,
       command: 'builds',
     });
-    if (!globalOptions.json) showCredential(output, credential, 'builds');
+    if (!globalOptions.json) showCredential(output, credential);
 
     // If a specific build ID is provided, get that build
     if (options.build) {

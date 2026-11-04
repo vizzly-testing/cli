@@ -1,8 +1,28 @@
 import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient } from '../auth/cloud-client.js';
-import { credentialInfo, selectCredential } from '../auth/credential.rules.js';
+import {
+  credentialInfo,
+  requireCredentialScope,
+} from '../auth/credential.rules.js';
+import { resolveCredential } from '../auth/credential.service.js';
 
-/** Resolve the effective upload token, independently of the saved user login. */
+export function uploadDestinationInfo(destination) {
+  if (!destination) return destination;
+  return {
+    ...destination,
+    credential: destination.credential
+      ? credentialInfo(destination.credential)
+      : null,
+  };
+}
+
+function uploadPermission(credential) {
+  let scopes = credential.authorization?.scopes;
+  if (!Array.isArray(scopes)) return 'unknown';
+  return scopes.includes('builds:write') ? 'granted' : 'missing';
+}
+
+/** Resolve identity separately from the checkout's intended upload project. */
 export async function resolveUploadDestination(config) {
   let result = {
     apiUrl: config.apiUrl,
@@ -11,10 +31,17 @@ export async function resolveUploadDestination(config) {
     credential: null,
     status: 'unconfigured',
     matches: null,
+    projectQuery: {},
+    uploadPermission: 'unknown',
   };
-  if (!config.apiKey) return result;
-  let credential = selectCredential(config, { auth: 'token' });
-  result.credential = credentialInfo(credential);
+  let credential = resolveCredential(config, {
+    allowNoToken: true,
+    command: 'upload',
+  });
+  if (!credential.token) return result;
+  result.credential = credential;
+  result.uploadPermission = uploadPermission(credential);
+  if (credential.source === 'user' && !config.project) return result;
   result.status = 'unverified';
   let client = createApiClient({
     baseUrl: config.apiUrl,
@@ -22,6 +49,22 @@ export async function resolveUploadDestination(config) {
     credential,
     command: 'project-status',
   });
+  if (credential.source === 'user') {
+    let identity = await client.request('/api/auth/cli/whoami');
+    result.credential = {
+      ...credential,
+      token: client.getToken(),
+      authorization: identity.authorization || credential.authorization,
+    };
+    result.effective = config.project;
+    result.matches = true;
+    result.projectQuery = {
+      project: config.project.projectSlug,
+      organization: config.project.organizationSlug,
+    };
+    result.uploadPermission = uploadPermission(result.credential);
+    return result;
+  }
   let context = await client.request('/api/sdk/token/context');
   if (!context.organization?.slug || !context.project?.slug) {
     throw new VizzlyError(
@@ -34,6 +77,7 @@ export async function resolveUploadDestination(config) {
     projectSlug: context.project.slug,
   };
   result.status = 'verified';
+  result.uploadPermission = 'granted';
   result.matches =
     !result.configured ||
     (result.configured.organizationSlug === result.effective.organizationSlug &&
@@ -43,12 +87,13 @@ export async function resolveUploadDestination(config) {
 
 export async function requireUploadDestination(config) {
   let destination = await resolveUploadDestination(config);
-  if (destination.status !== 'verified') {
+  if (!destination.effective) {
     throw new VizzlyError(
-      'Choose an upload destination with vizzly project link or set VIZZLY_TOKEN.',
+      'Log in and choose an upload destination with vizzly project link <org>/<project>, or set VIZZLY_TOKEN.',
       'UPLOAD_PROJECT_REQUIRED'
     );
   }
+  requireCredentialScope(destination.credential, 'builds:write');
   if (!destination.matches) {
     throw new VizzlyError(
       `Upload token targets ${destination.effective.organizationSlug}/${destination.effective.projectSlug}, but this checkout is configured for ${destination.configured.organizationSlug}/${destination.configured.projectSlug}. Remove the token override or link the intended project before uploading.`,

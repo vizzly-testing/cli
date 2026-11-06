@@ -1411,6 +1411,10 @@ Examples:
   $ vizzly approve abc123 -m "LGTM"       # Approve with comment
   $ vizzly approve abc123 --json          # Output as JSON for scripting
 
+Regions use the chosen layer's bitmap pixels. Current and diff share the
+current image's pixels; baseline uses the baseline image, which can differ in
+height. Replies inherit their thread's layer and location.
+
 Known agents are disclosed automatically. Set the agent with --via-agent <slug>
 or VIZZLY_VIA_AGENT.
 
@@ -1445,6 +1449,10 @@ Examples:
   $ vizzly reject abc123 --reason "Needs design review"
   $ vizzly reject abc123 -r "Regression" --json
 
+Regions use the chosen layer's bitmap pixels. Current and diff share the
+current image's pixels; baseline uses the baseline image, which can differ in
+height. Replies inherit their thread's layer and location.
+
 Known agents are disclosed automatically. Set the agent with --via-agent <slug>
 or VIZZLY_VIA_AGENT.
 
@@ -1470,31 +1478,30 @@ program
   .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Add a comment to a build or screenshot')
   .option('--screenshot <id>', 'Screenshot ID in this build')
-  .option(
-    '--region <x,y,width,height>',
-    'Screenshot region in bitmap pixels from the top-left'
-  )
+  .option('--layer <layer>', 'Image: current (default), baseline, diff')
+  .option('--region <x,y,width,height>', "Region in the layer's bitmap pixels")
+  .option('--point <x,y>', 'Point as 0-100 percentages')
   .option(
     '--reply-to <id>',
     'Reply to a comment on the same build or screenshot'
   )
   .argument('<build-id>', 'Build ID to comment on')
   .argument('<message>', 'Comment message')
-  .option(
-    '-t, --type <type>',
-    'Comment type: general, approval, rejection, question',
-    'general'
-  )
   .addHelpText(
     'after',
     `
 Examples:
   $ vizzly comment abc123 "Looks good overall"
-  $ vizzly comment abc123 "Approved" -t approval
-  $ vizzly comment abc123 "Please fix the header" -t rejection
   $ vizzly comment abc123 "CI feedback" --json
   $ vizzly comment <build-id> "Header overlaps" --screenshot <screenshot-id> --region 20,40,300,80
+  $ vizzly comment <build-id> "Old footer spacing" --screenshot <screenshot-id> --layer baseline --region 40,200,320,120
+  $ vizzly comment <build-id> "Button shifted" --screenshot <screenshot-id> --layer diff --point 50,12
+  $ vizzly comment <build-id> "Agreed" --screenshot <screenshot-id> --reply-to <comment-id>
   $ vizzly comment <build-id> "Reviewed" --via-agent codex
+
+Regions use the chosen layer's bitmap pixels. Current and diff share the
+current image's pixels; baseline uses the baseline image, which can differ in
+height. Replies inherit their thread's layer and location.
 
 Known agents are disclosed automatically. Set the agent with --via-agent <slug>
 or VIZZLY_VIA_AGENT.

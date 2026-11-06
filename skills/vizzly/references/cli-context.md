@@ -201,11 +201,19 @@ help explain a review.
 ### Comments and agent disclosure
 
 After the user authorizes a review action, comment on the build or the exact
-screenshot area using IDs from discovery. Regions use the original bitmap's
-pixels, with the origin at its top-left; use the image dimensions, not the viewport.
+screenshot area using IDs from discovery. `--layer current|baseline|diff`
+picks the image you're commenting on and defaults to `current`. Regions use
+that layer's original bitmap pixels, with the origin at its top-left; use the
+image dimensions, not the viewport. Current and diff share the current image's
+pixels, while baseline uses the baseline image, which can be a different
+height. `--point x,y` pins a spot as integer percentages (0-100) instead of a
+region. Replies inherit their thread's layer and location, so omit `--layer`,
+`--region`, and `--point` with `--reply-to`.
 
 ```bash
 vizzly comment <build-id> "Navigation overlaps the heading" --screenshot <screenshot-id> --region 20,40,300,80 --json
+vizzly comment <build-id> "Old footer spacing" --screenshot <screenshot-id> --layer baseline --region 40,200,320,120 --json
+vizzly comment <build-id> "Button shifted" --screenshot <screenshot-id> --layer diff --point 50,12 --json
 vizzly comment <build-id> "Follow-up" --screenshot <screenshot-id> --reply-to <comment-id> --json
 ```
 

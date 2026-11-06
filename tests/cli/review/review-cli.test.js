@@ -334,17 +334,52 @@ describe('commands/review CLI', () => {
           'comment',
           state.buildId,
           'Looks good',
-          '--type',
-          'approval',
+          '--screenshot',
+          'shot-1',
+          '--layer',
+          'baseline',
+          '--region',
+          '40,200,320,120',
         ],
         { cwd, env }
       );
       assert.equal(commented.code, 0, commented.stderr);
       assert.match(commented.stdout + commented.stderr, /Comment added/);
       assert.match(commented.stdout + commented.stderr, /Looks good/);
+      assert.match(commented.stdout + commented.stderr, /Layer: baseline/);
       assert.deepEqual(state.comments, [
-        { content: 'Looks good', type: 'approval' },
+        {
+          content: 'Looks good',
+          layer: 'baseline',
+          region: { x: 40, y: 200, width: 320, height: 120 },
+        },
       ]);
+      let pinned = await runCLI(
+        [
+          '--json',
+          'comment',
+          state.buildId,
+          'Button shifted',
+          '--screenshot',
+          'shot-1',
+          '--point',
+          '50,12',
+        ],
+        { cwd, env }
+      );
+      assert.equal(pinned.code, 0, pinned.stderr);
+      assert.equal(parseResult(pinned).layer, 'current');
+      assert.deepEqual(state.comments.at(-1), {
+        content: 'Button shifted',
+        positionX: 50,
+        positionY: 12,
+      });
+      let removedType = await runCLI(
+        ['comment', state.buildId, 'Old client', '--type', 'approval'],
+        { cwd, env }
+      );
+      assert.equal(removedType.code, 1);
+      assert.match(removedType.stderr, /unknown option.*--type/);
       state.commentStatus = 503;
       let failed = await runCLI(
         ['--json', 'comment', state.buildId, 'Follow up'],
@@ -356,7 +391,7 @@ describe('commands/review CLI', () => {
         parseResult(failed).error.message,
         /Comment service unavailable/
       );
-      assert.equal(state.comments.length, 2);
+      assert.equal(state.comments.length, 3);
       assert.equal(state.refreshRequests, 0);
     });
   });
@@ -549,9 +584,14 @@ describe('agent review disclosure through the CLI', () => {
     });
   });
 
-  it('rejects malformed or unscoped regions before sending comments', async () => {
+  it('rejects malformed or unscoped locations before sending comments', async () => {
     for (let flags of [
       ['--region', '1,2,3,4'],
+      ['--layer', 'baseline'],
+      ['--screenshot', 'shot-1', '--layer', 'before'],
+      ['--screenshot', 'shot-1', '--reply-to', 'c-1', '--layer', 'baseline'],
+      ['--screenshot', 'shot-1', '--point', '101,5'],
+      ['--screenshot', 'shot-1', '--point', '5,5', '--region', '1,2,3,4'],
       ['--screenshot', 'shot-1', '--region', '-1,2,3,4'],
       ['--screenshot', 'shot-1', '--region', '1,2,0,4'],
       ['--screenshot', 'shot-1', '--region', '1,,3,4'],
@@ -564,7 +604,7 @@ describe('agent review disclosure through the CLI', () => {
         ...flags,
       ]);
       assert.equal(result.code, 1);
-      assert.match(result.stdout + result.stderr, /region/);
+      assert.match(result.stdout + result.stderr, /region|layer|point/);
     }
   });
 });

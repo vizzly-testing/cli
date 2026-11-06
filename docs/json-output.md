@@ -748,6 +748,7 @@ vizzly reject <comparison-id> --reason "Unexpected regression" --json
 
 ```bash
 vizzly comment <build-id> "Needs design review" --json
+vizzly comment <build-id> "Old footer spacing" --screenshot <screenshot-id> --layer baseline --region 40,200,320,120 --json
 ```
 
 ```json
@@ -756,10 +757,14 @@ vizzly comment <build-id> "Needs design review" --json
   "data": {
     "created": true,
     "buildId": "build_123",
+    "layer": "baseline",
     "comment": {}
   }
 }
 ```
+
+`layer` is included for screenshot comments (`current`, `baseline`, or
+`diff`).
 
 Sign in with `vizzly login` to approve, reject, or comment. Project tokens
 can't perform review actions.

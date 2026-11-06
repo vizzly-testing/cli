@@ -151,8 +151,9 @@ export function createRejectionBody(options = {}) {
 export function createCommentBody(message, options = {}) {
   return {
     content: message,
-    type: options.type || 'general',
+    ...(options.layer ? { layer: options.layer } : {}),
     ...(options.region ? { region: parseCommentRegion(options.region) } : {}),
+    ...(options.point ? parseCommentPoint(options.point) : {}),
     ...(options.replyTo ? { parentCommentId: options.replyTo } : {}),
   };
 }
@@ -386,13 +387,22 @@ export async function commentCommand(
       output.data({
         created: true,
         buildId,
+        ...(options.screenshot
+          ? { layer: getCommentLayer(response, options) }
+          : {}),
         comment: response.comment,
       }),
     writeHumanSuccess: (output, response) => {
       output.complete('Comment added');
       if (options.screenshot)
         output.labelValue('Screenshot', options.screenshot);
+      if (options.screenshot)
+        output.labelValue('Layer', getCommentLayer(response, options));
       if (options.region) output.labelValue('Region', options.region);
+      if (options.point) {
+        let { positionX, positionY } = parseCommentPoint(options.point);
+        output.labelValue('Point', `${positionX}%, ${positionY}%`);
+      }
       if (response.comment?.attribution?.via)
         output.labelValue('Agent', response.comment.attribution.via.name);
       output.labelValue('Build', buildId);
@@ -434,13 +444,12 @@ export function validateRejectOptions(comparisonId, options = {}) {
   return errors;
 }
 
-/**
- * Validate comment command options
- * @param {string} buildId - Build ID
- * @param {string} message - Comment message
- * @param {Object} options - Command options
- * @returns {string[]} Array of error messages
- */
+let COMMENT_LAYERS = ['current', 'baseline', 'diff'];
+
+function getCommentLayer(response, options) {
+  return response.comment?.layer || options.layer || 'current';
+}
+
 export function parseCommentRegion(value) {
   let numbers = value.split(',').map(Number);
   if (
@@ -460,6 +469,31 @@ export function parseCommentRegion(value) {
   return { x, y, width, height };
 }
 
+export function parseCommentPoint(value) {
+  let parts = value.split(',');
+  let numbers = parts.map(Number);
+  if (
+    numbers.length !== 2 ||
+    parts.some(part => !part.trim()) ||
+    numbers.some(
+      number => !Number.isSafeInteger(number) || number < 0 || number > 100
+    )
+  ) {
+    throw new Error(
+      '--point requires x,y as integer percentages from 0 to 100'
+    );
+  }
+  let [positionX, positionY] = numbers;
+  return { positionX, positionY };
+}
+
+/**
+ * Validate comment command options
+ * @param {string} buildId - Build ID
+ * @param {string} message - Comment message
+ * @param {Object} options - Command options
+ * @returns {string[]} Array of error messages
+ */
 export function validateCommentOptions(buildId, message, options = {}) {
   let errors = [];
   if (!buildId || buildId.trim() === '') {
@@ -468,21 +502,23 @@ export function validateCommentOptions(buildId, message, options = {}) {
   if (!message || message.trim() === '') {
     errors.push('Comment message is required');
   }
-  if (
-    options.type &&
-    !['general', 'approval', 'rejection', 'question'].includes(options.type)
-  ) {
-    errors.push(
-      '--type must be one of: general, approval, rejection, question'
-    );
+  if (options.layer && !COMMENT_LAYERS.includes(options.layer))
+    errors.push(`--layer must be one of: ${COMMENT_LAYERS.join(', ')}`);
+  for (let flag of ['layer', 'region', 'point']) {
+    if (!options[flag]) continue;
+    if (!options.screenshot) errors.push(`--${flag} requires --screenshot`);
+    if (options.replyTo)
+      errors.push(`Replies inherit their thread's ${flag}; omit --${flag}`);
   }
-  if (options.region && !options.screenshot)
-    errors.push('--region requires --screenshot');
-  if (options.region && options.replyTo)
-    errors.push('Replies inherit their location; omit --region');
-  if (options.region) {
+  if (options.region && options.point)
+    errors.push('Use either --region or --point, not both');
+  for (let [flag, parse] of [
+    ['region', parseCommentRegion],
+    ['point', parseCommentPoint],
+  ]) {
+    if (!options[flag]) continue;
     try {
-      parseCommentRegion(options.region);
+      parse(options[flag]);
     } catch (error) {
       errors.push(error.message);
     }

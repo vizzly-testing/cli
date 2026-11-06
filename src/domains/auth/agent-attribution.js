@@ -21,6 +21,12 @@ let agents = [
 ];
 
 function agentVia(slug) {
+  if (slug === 'none') {
+    throw new VizzlyError(
+      'Use an agent slug. Agent attribution cannot be turned off.',
+      'INVALID_AGENT_ATTRIBUTION'
+    );
+  }
   if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 48) {
     throw new VizzlyError(
       'Agent slug must be lowercase words separated by hyphens (maximum 48 characters).',
@@ -36,22 +42,12 @@ function agentVia(slug) {
 }
 
 export function resolveAgentAttribution(options = {}, env = process.env) {
-  if (options.viaAgent && options.agentAttribution === false) {
-    throw new VizzlyError(
-      'Choose --via-agent or --no-agent-attribution.',
-      'INVALID_AGENT_ATTRIBUTION'
-    );
-  }
-  if (options.agentAttribution === false) return null;
-  if (options.viaAgent) return agentVia(options.viaAgent);
-  if (env.VIZZLY_VIA_AGENT)
-    return env.VIZZLY_VIA_AGENT === 'none'
-      ? null
-      : agentVia(env.VIZZLY_VIA_AGENT);
+  let override = options.viaAgent || env.VIZZLY_VIA_AGENT;
+  if (override) return agentVia(override);
   let matches = agents.filter(agent => agent.matches(env));
   if (matches.length > 1) {
     throw new VizzlyError(
-      `Multiple agents detected: ${matches.map(agent => agent.name).join(', ')}. Use --via-agent <slug> or --no-agent-attribution.`,
+      `Multiple agents detected: ${matches.map(agent => agent.name).join(', ')}. Use --via-agent <slug> to choose the agent.`,
       'AMBIGUOUS_AGENT_ATTRIBUTION'
     );
   }
@@ -84,10 +80,7 @@ export function attributeReviewRequest(
       'INVALID_REQUEST_BODY'
     );
   }
-  let overridden =
-    options.viaAgent ||
-    options.agentAttribution === false ||
-    env.VIZZLY_VIA_AGENT;
+  let overridden = options.viaAgent || env.VIZZLY_VIA_AGENT;
   if (overridden || !Object.hasOwn(body, 'via')) {
     let { via: _previous, ...content } = body;
     body = via ? { ...content, via } : content;
@@ -100,7 +93,7 @@ export function attributeReviewRequest(
       (body.via.version ?? null) !== via.version)
   ) {
     throw new VizzlyError(
-      'Request via conflicts with the detected agent. Select --via-agent or --no-agent-attribution.',
+      'Request via conflicts with the detected agent. Use --via-agent <slug> to choose the agent.',
       'AMBIGUOUS_AGENT_ATTRIBUTION'
     );
   }

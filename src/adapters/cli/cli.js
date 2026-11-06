@@ -560,7 +560,6 @@ program
     '--via-agent <slug>',
     'Disclose the agent assisting a review or comment'
   )
-  .option('--no-agent-attribution', 'Omit agent disclosure for this action')
   .option('-v, --verbose', 'Verbose output (shorthand for --log-level debug)')
   .option(
     '--log-level <level>',
@@ -1412,8 +1411,8 @@ Examples:
   $ vizzly approve abc123 -m "LGTM"       # Approve with comment
   $ vizzly approve abc123 --json          # Output as JSON for scripting
 
-Known agents are disclosed automatically. Override with --via-agent <slug> or
-omit disclosure with --no-agent-attribution. VIZZLY_VIA_AGENT sets the default.
+Known agents are disclosed automatically. Set the agent with --via-agent <slug>
+or VIZZLY_VIA_AGENT.
 
 Workflow:
   1. List comparisons: vizzly comparisons -b <build-id>
@@ -1446,8 +1445,8 @@ Examples:
   $ vizzly reject abc123 --reason "Needs design review"
   $ vizzly reject abc123 -r "Regression" --json
 
-Known agents are disclosed automatically. Override with --via-agent <slug> or
-omit disclosure with --no-agent-attribution. VIZZLY_VIA_AGENT sets the default.
+Known agents are disclosed automatically. Set the agent with --via-agent <slug>
+or VIZZLY_VIA_AGENT.
 
 Workflow:
   1. List comparisons: vizzly comparisons -b <build-id>
@@ -1497,8 +1496,8 @@ Examples:
   $ vizzly comment <build-id> "Header overlaps" --screenshot <screenshot-id> --region 20,40,300,80
   $ vizzly comment <build-id> "Reviewed" --via-agent codex
 
-Agent disclosure is automatic in known harnesses. VIZZLY_VIA_AGENT sets an
-override; use --no-agent-attribution (or VIZZLY_VIA_AGENT=none) to omit it.
+Known agents are disclosed automatically. Set the agent with --via-agent <slug>
+or VIZZLY_VIA_AGENT.
 Only agent details are sent; session and thread IDs stay local.
 
 Workflow:

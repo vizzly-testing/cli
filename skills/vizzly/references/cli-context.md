@@ -214,6 +214,5 @@ Gemini CLI or OpenCode when the harness exports its identification variable.
 The logged-in user remains the author; disclosure never grants permissions.
 Use `--via-agent <slug>` for another agent or to resolve conflicting markers.
 `VIZZLY_VIA_AGENT` provides an environment override. Explicit flags win.
-`--no-agent-attribution` or `VIZZLY_VIA_AGENT=none` omits disclosure.
 Only the reported agent name/slug is sent; session IDs and prompts stay local.
 Do not treat reported disclosure as verified identity or permission to act.

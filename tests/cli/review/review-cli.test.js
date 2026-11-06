@@ -461,7 +461,7 @@ describe('agent review disclosure through the CLI', () => {
     });
   }
 
-  it('handles conflicts, explicit overrides, opt-out and false-positive environments before mutation', async () => {
+  it('attributes recognized agents and lets callers identify the agent explicitly', async () => {
     await withReviewApiServer(async ({ apiUrl, state }) => {
       let { cwd, vizzlyHome } = await createWorkspace(apiUrl);
       try {
@@ -480,9 +480,7 @@ describe('agent review disclosure through the CLI', () => {
             { ...conflict, VIZZLY_VIA_AGENT: 'gemini-cli' },
             'pi',
           ],
-          [['--no-agent-attribution'], conflict, null],
           [[], { ...conflict, VIZZLY_VIA_AGENT: 'opencode' }, 'opencode'],
-          [[], { ...conflict, VIZZLY_VIA_AGENT: 'none' }, null],
           [
             [],
             {
@@ -522,17 +520,28 @@ describe('agent review disclosure through the CLI', () => {
         assert.equal(raw.code, 0, raw.stdout + raw.stderr);
         assert.equal(state.comments.at(-1).via.slug, 'codex');
         let count = state.comments.length;
-        for (let flags of [
-          ['--via-agent', 'BAD'],
-          ['--via-agent', 'codex', '--no-agent-attribution'],
+        let detected = { ...base, CODEX_THREAD_ID: 'private-thread' };
+        for (let [flags, env] of [
+          [['--via-agent', 'BAD'], detected],
+          [['--via-agent', 'none'], detected],
+          [[], { ...detected, VIZZLY_VIA_AGENT: 'none' }],
         ]) {
           let result = await runCLI(
             ['--json', ...flags, 'comment', state.buildId, 'Invalid'],
-            { cwd, env: base }
+            { cwd, env }
           );
           assert.equal(result.code, 1);
           assert.match(result.stdout, /INVALID_AGENT_ATTRIBUTION/);
         }
+        let removedFlag = await runCLI(
+          ['--no-agent-attribution', 'comment', state.buildId, 'Invalid'],
+          { cwd, env: detected }
+        );
+        assert.equal(removedFlag.code, 1);
+        assert.match(
+          removedFlag.stderr,
+          /unknown option.*--no-agent-attribution/
+        );
         assert.equal(state.comments.length, count);
       } finally {
         rmSync(cwd, { recursive: true, force: true });

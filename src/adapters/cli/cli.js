@@ -382,7 +382,13 @@ function findNestedCommandRequest(
     return null;
   }
 
-  let valueOptions = new Set(['-c', '--config', '--token', '--log-level']);
+  let valueOptions = new Set([
+    '-c',
+    '--config',
+    '--token',
+    '--log-level',
+    '--via-agent',
+  ]);
 
   for (let i = startIndex; i < args.length; i++) {
     let arg = args[i];
@@ -419,7 +425,13 @@ function findRequestedCommand(
   commandNames,
   nestedCommandNames = new Map()
 ) {
-  let valueOptions = new Set(['-c', '--config', '--token', '--log-level']);
+  let valueOptions = new Set([
+    '-c',
+    '--config',
+    '--token',
+    '--log-level',
+    '--via-agent',
+  ]);
   let args = argv.slice(2);
   let jsonValueCandidate = null;
 
@@ -544,6 +556,10 @@ program
   .version(getPackageVersion())
   .option('-c, --config <path>', 'Config file path')
   .option('--token <token>', 'Vizzly API token')
+  .option(
+    '--via-agent <slug>',
+    'Disclose the agent assisting a review or comment'
+  )
   .option('-v, --verbose', 'Verbose output (shorthand for --log-level debug)')
   .option(
     '--log-level <level>',
@@ -1383,6 +1399,7 @@ api
 
 program
   .command('approve')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Approve a comparison')
   .argument('<comparison-id>', 'Comparison ID to approve')
   .option('-m, --comment <message>', 'Optional comment explaining the approval')
@@ -1393,6 +1410,13 @@ Examples:
   $ vizzly approve abc123-def456-7890     # Approve a comparison
   $ vizzly approve abc123 -m "LGTM"       # Approve with comment
   $ vizzly approve abc123 --json          # Output as JSON for scripting
+
+Regions use the chosen layer's bitmap pixels. Current and diff share the
+current image's pixels; baseline uses the baseline image, which can differ in
+height. Replies inherit their thread's layer and location.
+
+Known agents are disclosed automatically. Set the agent with --via-agent <slug>
+or VIZZLY_VIA_AGENT.
 
 Workflow:
   1. List comparisons: vizzly comparisons -b <build-id>
@@ -1413,6 +1437,7 @@ Workflow:
 
 program
   .command('reject')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('Reject a comparison')
   .argument('<comparison-id>', 'Comparison ID to reject')
   .option('-r, --reason <message>', 'Required reason for rejection')
@@ -1423,6 +1448,13 @@ Examples:
   $ vizzly reject abc123 -r "Button color is wrong"
   $ vizzly reject abc123 --reason "Needs design review"
   $ vizzly reject abc123 -r "Regression" --json
+
+Regions use the chosen layer's bitmap pixels. Current and diff share the
+current image's pixels; baseline uses the baseline image, which can differ in
+height. Replies inherit their thread's layer and location.
+
+Known agents are disclosed automatically. Set the agent with --via-agent <slug>
+or VIZZLY_VIA_AGENT.
 
 Workflow:
   1. List comparisons: vizzly comparisons -b <build-id>
@@ -1443,22 +1475,37 @@ Workflow:
 
 program
   .command('comment')
-  .description('Add a comment to a build')
+  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
+  .description('Add a comment to a build or screenshot')
+  .option('--screenshot <id>', 'Screenshot ID in this build')
+  .option('--layer <layer>', 'Image: current (default), baseline, diff')
+  .option('--region <x,y,width,height>', "Region in the layer's bitmap pixels")
+  .option('--point <x,y>', 'Point as 0-100 percentages')
+  .option(
+    '--reply-to <id>',
+    'Reply to a comment on the same build or screenshot'
+  )
   .argument('<build-id>', 'Build ID to comment on')
   .argument('<message>', 'Comment message')
-  .option(
-    '-t, --type <type>',
-    'Comment type: general, approval, rejection',
-    'general'
-  )
   .addHelpText(
     'after',
     `
 Examples:
   $ vizzly comment abc123 "Looks good overall"
-  $ vizzly comment abc123 "Approved" -t approval
-  $ vizzly comment abc123 "Please fix the header" -t rejection
   $ vizzly comment abc123 "CI feedback" --json
+  $ vizzly comment <build-id> "Header overlaps" --screenshot <screenshot-id> --region 20,40,300,80
+  $ vizzly comment <build-id> "Old footer spacing" --screenshot <screenshot-id> --layer baseline --region 40,200,320,120
+  $ vizzly comment <build-id> "Button shifted" --screenshot <screenshot-id> --layer diff --point 50,12
+  $ vizzly comment <build-id> "Agreed" --screenshot <screenshot-id> --reply-to <comment-id>
+  $ vizzly comment <build-id> "Reviewed" --via-agent codex
+
+Regions use the chosen layer's bitmap pixels. Current and diff share the
+current image's pixels; baseline uses the baseline image, which can differ in
+height. Replies inherit their thread's layer and location.
+
+Known agents are disclosed automatically. Set the agent with --via-agent <slug>
+or VIZZLY_VIA_AGENT.
+Only agent details are sent; session and thread IDs stay local.
 
 Workflow:
   1. Get build ID: vizzly builds --branch main

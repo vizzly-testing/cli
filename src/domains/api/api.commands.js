@@ -196,6 +196,7 @@ export async function apiCommand(
       token,
       credential,
       command: 'api',
+      attribution: globalOptions,
       allowNoToken: Boolean(options.schemaDiscovery),
     });
 

@@ -146,7 +146,9 @@ async function withReviewApiServer(callback) {
 
       if (
         req.method === 'POST' &&
-        req.url === `/api/sdk/builds/${state.buildId}/comments`
+        (req.url === `/api/sdk/builds/${state.buildId}/comments` ||
+          req.url ===
+            `/api/sdk/builds/${state.buildId}/screenshots/shot-1/comments`)
       ) {
         let body = await readJson(req);
         state.comments.push(body);
@@ -332,17 +334,52 @@ describe('commands/review CLI', () => {
           'comment',
           state.buildId,
           'Looks good',
-          '--type',
-          'approval',
+          '--screenshot',
+          'shot-1',
+          '--layer',
+          'baseline',
+          '--region',
+          '40,200,320,120',
         ],
         { cwd, env }
       );
       assert.equal(commented.code, 0, commented.stderr);
       assert.match(commented.stdout + commented.stderr, /Comment added/);
       assert.match(commented.stdout + commented.stderr, /Looks good/);
+      assert.match(commented.stdout + commented.stderr, /Layer: baseline/);
       assert.deepEqual(state.comments, [
-        { content: 'Looks good', type: 'approval' },
+        {
+          content: 'Looks good',
+          layer: 'baseline',
+          region: { x: 40, y: 200, width: 320, height: 120 },
+        },
       ]);
+      let pinned = await runCLI(
+        [
+          '--json',
+          'comment',
+          state.buildId,
+          'Button shifted',
+          '--screenshot',
+          'shot-1',
+          '--point',
+          '50,12',
+        ],
+        { cwd, env }
+      );
+      assert.equal(pinned.code, 0, pinned.stderr);
+      assert.equal(parseResult(pinned).layer, 'current');
+      assert.deepEqual(state.comments.at(-1), {
+        content: 'Button shifted',
+        positionX: 50,
+        positionY: 12,
+      });
+      let removedType = await runCLI(
+        ['comment', state.buildId, 'Old client', '--type', 'approval'],
+        { cwd, env }
+      );
+      assert.equal(removedType.code, 1);
+      assert.match(removedType.stderr, /unknown option.*--type/);
       state.commentStatus = 503;
       let failed = await runCLI(
         ['--json', 'comment', state.buildId, 'Follow up'],
@@ -354,7 +391,7 @@ describe('commands/review CLI', () => {
         parseResult(failed).error.message,
         /Comment service unavailable/
       );
-      assert.equal(state.comments.length, 2);
+      assert.equal(state.comments.length, 3);
       assert.equal(state.refreshRequests, 0);
     });
   });
@@ -378,10 +415,238 @@ describe('commands/review CLI', () => {
         env,
       });
       assert.equal(result.code, 1);
-      assert.match(result.stderr, /User login required/);
+      assert.match(result.stderr, /[Ll]ogin required/);
       assert.equal(state.decisionRequests.length, 0);
       assert.equal(state.comments.length, 0);
       assert.equal(state.refreshRequests, 0);
     });
+  });
+});
+
+describe('agent review disclosure through the CLI', () => {
+  for (let [slug, name, markers] of [
+    [
+      'codex',
+      'Codex',
+      {
+        CODEX_THREAD_ID: 'private-thread',
+        CODEX_SESSION_ID: 'private-session',
+      },
+    ],
+    ['claude-code', 'Claude Code', { CLAUDECODE: '1' }],
+    ['pi', 'Pi', { PI_SESSION_ID: 'private-pi-session' }],
+    ['gemini-cli', 'Gemini CLI', { GEMINI_CLI: '1' }],
+    ['opencode', 'OpenCode', { OPENCODE: '1' }],
+  ]) {
+    it(`discloses ${name} on approvals, rejections and region comments without sending marker values`, async () => {
+      await withReviewApiServer(async ({ apiUrl, state }) => {
+        let { cwd, vizzlyHome } = await createWorkspace(apiUrl);
+        try {
+          let env = {
+            VIZZLY_API_URL: apiUrl,
+            VIZZLY_HOME: vizzlyHome,
+            ...markers,
+          };
+          for (let args of [
+            ['approve', state.comparisonId],
+            ['reject', state.comparisonId, '--reason', 'Header overlaps'],
+            [
+              'comment',
+              state.buildId,
+              'Header overlaps',
+              '--screenshot',
+              'shot-1',
+              '--region',
+              '0,20,200,80',
+            ],
+          ]) {
+            let result = await runCLI(['--json', '--no-color', ...args], {
+              cwd,
+              env,
+            });
+            assert.equal(result.code, 0, result.stderr + result.stdout);
+          }
+          let bodies = [
+            ...state.decisionRequests.map(request => request.body),
+            ...state.comments,
+          ];
+          assert.equal(bodies.length, 3);
+          for (let body of bodies) {
+            assert.deepEqual(body.via, {
+              type: 'agent',
+              slug,
+              name,
+              version: null,
+            });
+            assert.doesNotMatch(
+              JSON.stringify(body),
+              /private-thread|private-session|private-pi-session|SESSION_ID|THREAD_ID/
+            );
+          }
+          assert.deepEqual(state.comments[0].region, {
+            x: 0,
+            y: 20,
+            width: 200,
+            height: 80,
+          });
+        } finally {
+          rmSync(cwd, { recursive: true, force: true });
+        }
+      });
+    });
+  }
+
+  it('attributes recognized agents and lets callers identify the agent explicitly', async () => {
+    await withReviewApiServer(async ({ apiUrl, state }) => {
+      let { cwd, vizzlyHome } = await createWorkspace(apiUrl);
+      try {
+        let base = { VIZZLY_API_URL: apiUrl, VIZZLY_HOME: vizzlyHome };
+        let conflict = { ...base, CODEX_THREAD_ID: 'secret', CLAUDECODE: '1' };
+        let blocked = await runCLI(
+          ['--json', 'comment', state.buildId, 'Conflict'],
+          { cwd, env: conflict }
+        );
+        assert.equal(blocked.code, 1);
+        assert.match(blocked.stdout, /AMBIGUOUS_AGENT_ATTRIBUTION/);
+        assert.equal(state.comments.length, 0);
+        for (let [flags, env, slug] of [
+          [
+            ['--via-agent', 'pi'],
+            { ...conflict, VIZZLY_VIA_AGENT: 'gemini-cli' },
+            'pi',
+          ],
+          [[], { ...conflict, VIZZLY_VIA_AGENT: 'opencode' }, 'opencode'],
+          [
+            [],
+            {
+              ...base,
+              TERM_PROGRAM: 'vscode',
+              VSCODE_PID: '1',
+              AGENT: '1',
+              CI: 'true',
+              GEMINI_CLI: '0',
+              CLAUDECODE: '0',
+            },
+            null,
+          ],
+          [[], base, null],
+        ]) {
+          let result = await runCLI(
+            ['--json', ...flags, 'comment', state.buildId, 'Review note'],
+            { cwd, env }
+          );
+          assert.equal(result.code, 0, result.stdout + result.stderr);
+          assert.equal(state.comments.at(-1).via?.slug ?? null, slug);
+        }
+        let raw = await runCLI(
+          [
+            '--json',
+            '--via-agent',
+            'codex',
+            'api',
+            `/api/sdk/builds/${state.buildId}/comments`,
+            '-X',
+            'POST',
+            '-d',
+            '{"content":"Raw review note"}',
+          ],
+          { cwd, env: base }
+        );
+        assert.equal(raw.code, 0, raw.stdout + raw.stderr);
+        assert.equal(state.comments.at(-1).via.slug, 'codex');
+        let count = state.comments.length;
+        let detected = { ...base, CODEX_THREAD_ID: 'private-thread' };
+        for (let [flags, env] of [
+          [['--via-agent', 'BAD'], detected],
+          [['--via-agent', 'none'], detected],
+          [[], { ...detected, VIZZLY_VIA_AGENT: 'none' }],
+        ]) {
+          let result = await runCLI(
+            ['--json', ...flags, 'comment', state.buildId, 'Invalid'],
+            { cwd, env }
+          );
+          assert.equal(result.code, 1);
+          assert.match(result.stdout, /INVALID_AGENT_ATTRIBUTION/);
+        }
+        let removedFlag = await runCLI(
+          ['--no-agent-attribution', 'comment', state.buildId, 'Invalid'],
+          { cwd, env: detected }
+        );
+        assert.equal(removedFlag.code, 1);
+        assert.match(
+          removedFlag.stderr,
+          /unknown option.*--no-agent-attribution/
+        );
+        assert.equal(state.comments.length, count);
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it('rejects malformed or unscoped locations before sending comments', async () => {
+    for (let flags of [
+      ['--region', '1,2,3,4'],
+      ['--layer', 'baseline'],
+      ['--screenshot', 'shot-1', '--layer', 'before'],
+      ['--screenshot', 'shot-1', '--reply-to', 'c-1', '--layer', 'baseline'],
+      ['--screenshot', 'shot-1', '--point', '101,5'],
+      ['--screenshot', 'shot-1', '--point', '5,5', '--region', '1,2,3,4'],
+      ['--screenshot', 'shot-1', '--region', '-1,2,3,4'],
+      ['--screenshot', 'shot-1', '--region', '1,2,0,4'],
+      ['--screenshot', 'shot-1', '--region', '1,,3,4'],
+    ]) {
+      let result = await runCLI([
+        '--json',
+        'comment',
+        'build-1',
+        'Note',
+        ...flags,
+      ]);
+      assert.equal(result.code, 1);
+      assert.match(result.stdout + result.stderr, /region|layer|point/);
+    }
+  });
+});
+
+it('review commands honor explicit project tokens and granted user scopes', async () => {
+  await withReviewApiServer(async ({ apiUrl, state }) => {
+    let { cwd, vizzlyHome } = await createWorkspace(apiUrl);
+    try {
+      let env = {
+        VIZZLY_API_URL: apiUrl,
+        VIZZLY_HOME: vizzlyHome,
+        VIZZLY_TOKEN: 'vzt_explicit-project',
+      };
+      let denied = await runCLI(
+        ['--json', 'comment', state.buildId, 'Must not impersonate'],
+        { cwd, env }
+      );
+      assert.equal(denied.code, 1);
+      assert.match(denied.stdout, /USER_AUTH_REQUIRED/);
+      assert.equal(state.comments.length, 0);
+      let user = await runCLI(
+        ['--json', 'comment', state.buildId, 'Chosen user', '--auth', 'user'],
+        { cwd, env }
+      );
+      assert.equal(user.code, 0, user.stdout + user.stderr);
+      assert.equal(state.comments.length, 1);
+      await saveFixtureAuth(vizzlyHome, apiUrl, {
+        authorization: { ...fixtureAuthorization, scopes: ['read'] },
+      });
+      delete env.VIZZLY_TOKEN;
+      for (let args of [
+        ['comment', state.buildId, 'No write scope'],
+        ['approve', state.comparisonId],
+      ]) {
+        let denied = await runCLI(['--json', ...args], { cwd, env });
+        assert.equal(denied.code, 1);
+        assert.match(denied.stdout, /INSUFFICIENT_SCOPE/);
+      }
+      assert.equal(state.comments.length, 1);
+      assert.equal(state.decisionRequests.length, 0);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });

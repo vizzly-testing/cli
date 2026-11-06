@@ -14,6 +14,7 @@ import {
 } from '../../shared/cloud-protocol.js';
 import { getPackageVersion } from '../../shared/package-info.js';
 import { AuthError, VizzlyError } from '../../shared/vizzly-error.js';
+import { attributeReviewRequest } from './agent-attribution.js';
 import { createInsufficientScopeError } from './auth-errors.js';
 
 /**
@@ -71,6 +72,12 @@ export function createApiClient(options = {}) {
    * @returns {Promise<Object>} Parsed JSON response
    */
   async function request(endpoint, fetchOptions = {}, isRetry = false) {
+    fetchOptions = attributeReviewRequest(
+      endpoint,
+      fetchOptions,
+      options.attribution,
+      options.env
+    );
     let {
       responseType = 'json',
       retryAuthentication = ['GET', 'HEAD'].includes(

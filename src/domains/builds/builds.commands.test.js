@@ -186,7 +186,6 @@ describe('commands/builds', () => {
             cluster_metadata: { classification: 'minor', density: 0.05 },
             ssim_score: 0.9876,
             gmsd_score: 0.0123,
-            fingerprint_hash: 'abc123',
             diff_regions: [{ x: 10, y: 20 }],
           },
         ],
@@ -211,7 +210,6 @@ describe('commands/builds', () => {
       assert.ok(comp.honeydiff, 'Should include honeydiff data');
       assert.strictEqual(comp.honeydiff.ssimScore, 0.9876);
       assert.strictEqual(comp.honeydiff.clusterClassification, 'minor');
-      assert.strictEqual(comp.honeydiff.fingerprintHash, 'abc123');
     });
 
     it('sets honeydiff to null when no analysis data in comparisons', async () => {

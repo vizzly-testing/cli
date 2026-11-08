@@ -231,19 +231,16 @@ other instructions. Use `--agent-skill` for just the skill. Run either command
 again to refresh it without changing your config.
 `--skip-agent-skill` skips agent setup unless you also request `--agent-guidance`.
 
-Use `context` to read local results. For cloud results, check the API schema
-to find the available requests:
+Use `tdd screenshots` to read local results. For cloud results, check the API
+schema to find the available requests:
 
 ```bash
-pnpm exec vizzly context build current --source local --json
-pnpm exec vizzly context review-queue --source local --json
+pnpm exec vizzly tdd screenshots list --json
 pnpm exec vizzly api schema --json
-pnpm exec vizzly api schema sdk.getBuildContext --json
+pnpm exec vizzly api schema sdk.listBuildScreenshots --json
 ```
 
-The schema lists inputs, output fields, and how to fetch more results. The old
-`context build --agent` and `context comparison --agent` formats are deprecated.
-Use the API schema for new cloud workflows and `context --json` for local data.
+The schema lists inputs, output fields, and how to fetch more results.
 See the [JSON reference](docs/json-output.md) for output formats and scripts.
 
 ### Parallel CI and uploads
@@ -317,19 +314,6 @@ with `pnpm exec` when Vizzly is installed locally.
 | `vizzly status <build-id>` | Check cloud build status. |
 | `vizzly builds` | List builds, or fetch one with `--build <id>`. |
 | `vizzly comparisons --build <build-id>` | List a build's comparisons; also supports `--id` or `--name` queries. |
-
-</details>
-
-<details>
-<summary>Build and screenshot context</summary>
-
-| Command | What it does |
-| --- | --- |
-| `vizzly context build <build-id>` | Read build context. |
-| `vizzly context comparison <comparison-id>` | Read comparison context. |
-| `vizzly context screenshot <name>` | Read screenshot history. |
-| `vizzly context similar <fingerprint-hash>` | Find cloud comparisons with similar diffs. |
-| `vizzly context review-queue` | Read comparisons waiting for review. |
 
 </details>
 

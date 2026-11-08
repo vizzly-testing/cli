@@ -14,8 +14,8 @@ import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import { finalizeBuild as defaultFinalizeBuild } from '../builds/build.service.js';
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
-import { getTokenContext as defaultGetTokenContext } from '../context/context.service.js';
 import {
+  getTokenContext as defaultGetTokenContext,
   requireUploadDestination,
   uploadDestinationInfo,
 } from '../projects/upload-destination.service.js';

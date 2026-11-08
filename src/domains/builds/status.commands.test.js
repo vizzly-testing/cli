@@ -226,12 +226,8 @@ describe('status display decisions', () => {
     );
   });
 
-  it('creates executable visual-context follow-up commands', () => {
+  it('creates executable comparison follow-up commands', () => {
     assert.deepStrictEqual(createStatusSuggestedCommands(createBuild()), [
-      {
-        label: 'Discover build context API',
-        command: 'vizzly api schema sdk.getBuildContext --json',
-      },
       {
         label: 'List comparisons',
         command: 'vizzly --json comparisons --build build-123',

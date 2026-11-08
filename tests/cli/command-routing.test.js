@@ -97,18 +97,6 @@ describe('cli command routing', () => {
     ]);
   });
 
-  it('points unknown context subcommands to context help', async () => {
-    let result = await runCLI([
-      '--no-color',
-      'context',
-      'definitely-not-a-command',
-    ]);
-
-    assert.strictEqual(result.code, 1);
-    assert.match(result.stderr, /unknown command 'definitely-not-a-command'/);
-    assert.match(result.stderr, /Run vizzly context --help/);
-  });
-
   it('points unknown project subcommands to project help', async () => {
     let result = await runCLI([
       '--no-color',

@@ -199,7 +199,6 @@ describe('commands/comparisons', () => {
             analysis_details: {
               clusters: { count: 3, average_density: 0.81 },
             },
-            fingerprint_hash: 'fp-checkout',
           },
         ],
       };
@@ -241,7 +240,6 @@ describe('commands/comparisons', () => {
         current: 'https://cdn.test/current.png',
         diff: 'https://cdn.test/diff.png',
       });
-      assert.strictEqual(comparison.honeydiff.fingerprintHash, 'fp-checkout');
       assert.strictEqual(comparison.honeydiff.regionCount, 3);
       assert.deepStrictEqual(comparison.honeydiff.details, {
         clusters: { count: 3, average_density: 0.81 },
@@ -488,10 +486,8 @@ describe('commands/comparisons', () => {
         },
         ssim_score: 0.9876,
         gmsd_score: 0.0123,
-        fingerprint_hash: 'abc123def456',
         diff_regions: [{ x: 10, y: 20, width: 50, height: 30 }],
         diff_lines: [20, 30, 40],
-        fingerprint_data: { hash_components: [1, 2, 3] },
       };
 
       await comparisonsCommand(
@@ -513,7 +509,6 @@ describe('commands/comparisons', () => {
       assert.strictEqual(result.honeydiff.ssimScore, 0.9876);
       assert.strictEqual(result.honeydiff.gmsdScore, 0.0123);
       assert.strictEqual(result.honeydiff.clusterClassification, 'minor');
-      assert.strictEqual(result.honeydiff.fingerprintHash, 'abc123def456');
       assert.deepStrictEqual(result.honeydiff.diffRegions, [
         { x: 10, y: 20, width: 50, height: 30 },
       ]);
@@ -537,7 +532,6 @@ describe('commands/comparisons', () => {
             },
             ssim_score: 0.9521,
             gmsd_score: 0.0345,
-            fingerprint_hash: 'search-hash-789',
           },
         },
       ];
@@ -567,7 +561,6 @@ describe('commands/comparisons', () => {
         result.honeydiff.clusterClassification,
         'dynamic_content'
       );
-      assert.strictEqual(result.honeydiff.fingerprintHash, 'search-hash-789');
     });
 
     it('sets honeydiff to null when no analysis data present', async () => {
@@ -673,7 +666,6 @@ describe('commands/comparisons', () => {
         cluster_metadata: { classification: 'minor' },
         ssim_score: 0.9876,
         gmsd_score: 0.0123,
-        fingerprint_hash: 'abc123',
       };
 
       await comparisonsCommand(
@@ -702,10 +694,6 @@ describe('commands/comparisons', () => {
       assert.ok(
         labelValues.some(([label]) => label === 'GMSD'),
         'Should show GMSD score'
-      );
-      assert.ok(
-        labelValues.some(([label]) => label === 'Fingerprint'),
-        'Should show fingerprint'
       );
     });
   });

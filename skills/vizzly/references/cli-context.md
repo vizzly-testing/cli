@@ -1,4 +1,4 @@
-# CLI context
+# CLI evidence
 
 Use the repo's usual CLI command and existing credentials. If cloud auth isn't
 available, report it. Only start an interactive login when setup is part of
@@ -83,23 +83,25 @@ and choose the one matching the branch, commit, or pull request:
 ```bash
 vizzly builds --branch <branch> --limit 5 --json
 vizzly status <build-id> --json
-vizzly api schema sdk.getBuildContext --json
+vizzly comparisons --build <build-id> --json
+vizzly api schema sdk.listBuildScreenshots --json
 ```
 
-Use status to check build progress, then follow the build-context API for
-screenshots and diffs. Keep the API's comparison order and inspect the records
-that matter to the task. The first comparison isn't necessarily the most useful.
+Use status to check build progress, then read the build's comparisons and
+captures for screenshots and diffs. Keep the API's comparison order and inspect
+the records that matter to the task. The first comparison isn't necessarily the
+most useful.
 
 For saved local results:
 
 ```bash
-vizzly context build current --source local --json
-vizzly context screenshot "<screenshot-name>" --source local --json
-vizzly context review-queue --source local --json
+vizzly tdd screenshots list --json
+vizzly tdd screenshots list --status failed --json
+vizzly tdd screenshots show "<screenshot-name>" --json
 ```
 
-Check that the saved build, branch, timestamp, and baseline are recent enough
-for the task.
+These read the latest saved run. If it may predate your change, generate fresh
+evidence before drawing conclusions.
 
 ## Generate fresh evidence
 
@@ -157,21 +159,21 @@ To make visual differences fail CI, see the
 
 ## Inspect a comparison
 
-Find comparison and image requests in the schema:
+Read the comparison, then find its image request in the schema:
 
 ```bash
-vizzly api schema getComparisonContext --json
+vizzly comparisons --id <comparison-id> --json
 vizzly api schema sdk.getComparisonImage --json
 ```
 
-Request `comparison.images` to check which current, baseline, and diff images
-are available. Download them through `sdk.getComparisonImage`, using the
-comparison ID and image kind. Include the version header from the schema and
-use `--output <new-file>` to save each image.
+Download the current, baseline, and diff images through
+`sdk.getComparisonImage`, using the comparison ID and image kind. Include the
+version header from the schema and use `--output <new-file>` to save each image.
 
 View the available images together. A new capture may have no baseline, and an
 identical capture may have no diff. Report missing or inaccessible images;
-don't invent them. Request `comparison.review` to check the review decision.
+don't invent them. Use `visual_review` on the comparison to check the review
+decision.
 
 Changed regions and full analysis use separate requests. Discover them when
 the images alone don't answer the question:
@@ -188,9 +190,8 @@ change; they don't decide the current review.
 Other useful commands:
 
 ```bash
-vizzly context screenshot "<screenshot-name>" --source <local-or-cloud> --json
-vizzly context similar <fingerprint-hash> --source cloud --json
-vizzly context review-queue --source <local-or-cloud> --json
+vizzly comparisons --name "<screenshot-name>" --json
+vizzly comparisons --build <build-id> --status changed --json
 ```
 
 Use IDs and page values from the API response. Pass cursors back unchanged,

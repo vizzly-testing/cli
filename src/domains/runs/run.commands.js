@@ -22,8 +22,8 @@ import {
 import { createBuildObject as defaultCreateBuildObject } from '../builds/build-info.js';
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
-import { getTokenContext as defaultGetTokenContext } from '../context/context.service.js';
 import {
+  getTokenContext as defaultGetTokenContext,
   requireUploadDestination,
   uploadDestinationInfo,
 } from '../projects/upload-destination.service.js';
@@ -84,22 +84,6 @@ export async function resolveBuildDisplayUrl({
   }
 
   return undefined;
-}
-
-/**
- * Build the follow-up command for a cloud run.
- *
- * JSON consumers start with the public schema so they can discover the current
- * request shape. Human output keeps the readable context summary.
- *
- * @param {string} buildId - Cloud build ID to inspect.
- * @param {Object} options - Command output options.
- * @param {boolean} [options.structured=false] - Include machine-readable JSON.
- * @returns {string} Cloud context or schema discovery command.
- */
-function buildContextCommand(buildId, { structured = false } = {}) {
-  if (structured) return 'vizzly api schema sdk.getBuildContext --json';
-  return `vizzly context build ${buildId} --source cloud`;
 }
 
 /**
@@ -453,9 +437,6 @@ export async function runCommand(
             commit,
             message,
           },
-          contextCommand: result.buildId
-            ? buildContextCommand(result.buildId, { structured: true })
-            : null,
           exitCode: 0,
         };
 
@@ -495,10 +476,6 @@ export async function runCommand(
             `  ${colors.brand.textTertiary('Build')}        ${colors.dim(result.buildId)}`
           );
         }
-
-        output.print(
-          `  ${colors.brand.textTertiary('Context')}     ${colors.dim(buildContextCommand(result.buildId))}`
-        );
       }
     } catch (error) {
       // Test execution failed - build should already be finalized by test runner
@@ -608,9 +585,6 @@ export async function runCommand(
               commit,
               message,
             },
-            contextCommand: buildContextCommand(result.buildId, {
-              structured: true,
-            }),
             exitCode,
           };
 
@@ -667,12 +641,6 @@ export async function runCommand(
 
       if (apiBuild?.conclusion !== undefined) {
         unavailableResult.conclusion = apiBuild.conclusion;
-      }
-
-      if (result.buildId) {
-        unavailableResult.contextCommand = buildContextCommand(result.buildId, {
-          structured: true,
-        });
       }
 
       if (globalOptions.json) {

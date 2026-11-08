@@ -247,7 +247,7 @@ describe('api/client', () => {
       );
     });
 
-    it('surfaces typed context errors from the API', async () => {
+    it('surfaces typed errors from the API', async () => {
       let client = createApiClient({
         token: 'test-token',
         baseUrl: 'https://api.test',
@@ -259,19 +259,16 @@ describe('api/client', () => {
         headers: new Map(),
         text: async () =>
           JSON.stringify({
-            error: 'Context evidence changed; request the first page again',
-            details: { code: 'CONTEXT_CURSOR_STALE' },
+            error: 'Results changed; request the first page again',
+            details: { code: 'CURSOR_STALE' },
           }),
       }));
 
       await assert.rejects(
-        () => client.request('/api/sdk/context/builds/build-123'),
+        () => client.request('/api/sdk/builds/build-123'),
         error => {
-          assert.strictEqual(error.code, 'CONTEXT_CURSOR_STALE');
-          assert.strictEqual(
-            error.context.details.code,
-            'CONTEXT_CURSOR_STALE'
-          );
+          assert.strictEqual(error.code, 'CURSOR_STALE');
+          assert.strictEqual(error.context.details.code, 'CURSOR_STALE');
           return true;
         }
       );

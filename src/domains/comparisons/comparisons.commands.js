@@ -9,15 +9,15 @@ import { resolveCredential } from '../auth/credential.service.js';
 import { getBuild as defaultGetBuild } from '../builds/build.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import {
+  getComparison as defaultGetComparison,
+  searchComparisons as defaultSearchComparisons,
+} from './cloud-comparisons.js';
+import {
   getComparisonBrowser,
   getComparisonName,
   getComparisonResult,
   getComparisonViewport,
-} from '../context/context.normalizers.js';
-import {
-  getComparison as defaultGetComparison,
-  searchComparisons as defaultSearchComparisons,
-} from './cloud-comparisons.js';
+} from './comparison.normalizers.js';
 
 /**
  * Comparisons command - query comparisons with various filters
@@ -209,8 +209,6 @@ function formatComparisonForJson(comparison) {
     comparison.cluster_metadata || diffImage.cluster_metadata || null;
   let ssimScore = comparison.ssim_score ?? diffImage.ssim_score ?? null;
   let gmsdScore = comparison.gmsd_score ?? diffImage.gmsd_score ?? null;
-  let fingerprintHash =
-    comparison.fingerprint_hash || diffImage.fingerprint_hash || null;
   let analysisDetails =
     comparison.analysis_details || diffImage.analysis_details || null;
   let diffRegions = comparison.diff_regions ?? diffImage.diff_regions ?? null;
@@ -224,7 +222,6 @@ function formatComparisonForJson(comparison) {
     clusterMetadata ||
     ssimScore != null ||
     gmsdScore != null ||
-    fingerprintHash ||
     analysisDetails ||
     regionCount != null;
 
@@ -260,13 +257,10 @@ function formatComparisonForJson(comparison) {
           gmsdScore,
           clusterClassification: clusterMetadata?.classification || null,
           clusterMetadata,
-          fingerprintHash,
           regionCount,
           details: analysisDetails,
           diffRegions,
           diffLines: comparison.diff_lines ?? diffImage.diff_lines ?? null,
-          fingerprintData:
-            comparison.fingerprint_data ?? diffImage.fingerprint_data ?? null,
         }
       : null,
     buildId: comparison.build_id,
@@ -325,7 +319,6 @@ function displayComparison(output, comparison, verbose) {
       honeydiff.clusterMetadata ||
       honeydiff.ssimScore != null ||
       honeydiff.gmsdScore != null ||
-      honeydiff.fingerprintHash ||
       honeydiff.regionCount != null
     ) {
       output.blank();
@@ -337,9 +330,6 @@ function displayComparison(output, comparison, verbose) {
       }
       if (honeydiff.gmsdScore != null) {
         output.labelValue('GMSD', honeydiff.gmsdScore.toFixed(4));
-      }
-      if (honeydiff.fingerprintHash) {
-        output.labelValue('Fingerprint', honeydiff.fingerprintHash);
       }
       if (honeydiff.regionCount != null) {
         output.labelValue('Regions', String(honeydiff.regionCount));

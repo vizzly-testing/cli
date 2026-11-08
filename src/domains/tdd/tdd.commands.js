@@ -39,21 +39,6 @@ import {
 import { getServerRegistry } from './server-registry.js';
 
 /**
- * Build the follow-up command for local TDD evidence.
- *
- * JSON consumers need a self-contained command that returns structured
- * evidence when executed. Human output keeps the existing readable summary.
- *
- * @param {Object} options - Command output options.
- * @param {boolean} [options.structured=false] - Include machine-readable JSON.
- * @returns {string} Executable local context command.
- */
-function buildLocalContextCommand({ structured = false } = {}) {
-  let jsonFlag = structured ? ' --json' : '';
-  return `vizzly context build current --source local${jsonFlag}`;
-}
-
-/**
  * TDD command implementation
  * @param {string} testCommand - Test command to execute
  * @param {Object} options - Command options
@@ -357,15 +342,12 @@ export async function tddCommand(
         reportPath,
         reportError,
         ...(runError ? { error: { message: runError.message } } : {}),
-        contextCommand: buildLocalContextCommand({ structured: true }),
       });
       output.cleanup();
     }
 
-    if (!globalOptions.json) {
-      if (reportPath) output.hint(`Report: ${getReportFileUrl(reportPath)}`);
-      output.blank?.();
-      output.print(`  Context      ${buildLocalContextCommand()}`);
+    if (!globalOptions.json && reportPath) {
+      output.hint(`Report: ${getReportFileUrl(reportPath)}`);
     }
 
     if (reportPath && options.open !== false) {

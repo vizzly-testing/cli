@@ -32,10 +32,10 @@ function cleanupAndExit(code = 1) {
   process.exit(code);
 }
 
-function printLocalContext() {
-  let contextResult = spawnSync(
+function printLocalScreenshots() {
+  let screenshotsResult = spawnSync(
     process.execPath,
-    [cliPath, 'context', 'build', 'current', '--source', 'local', '--agent'],
+    [cliPath, 'tdd', 'screenshots', 'list', '--json'],
     {
       cwd: tempDir,
       encoding: 'utf8',
@@ -46,15 +46,15 @@ function printLocalContext() {
     }
   );
 
-  if (contextResult.stdout) {
-    process.stdout.write(contextResult.stdout);
+  if (screenshotsResult.stdout) {
+    process.stdout.write(screenshotsResult.stdout);
   }
 
-  if (contextResult.stderr) {
-    process.stderr.write(contextResult.stderr);
+  if (screenshotsResult.stderr) {
+    process.stderr.write(screenshotsResult.stderr);
   }
 
-  return contextResult.status ?? 1;
+  return screenshotsResult.status ?? 1;
 }
 
 let child = spawn(
@@ -76,8 +76,8 @@ child.on('exit', code => {
     cleanupAndExit(code ?? 1);
   }
 
-  let contextStatus = printLocalContext();
-  cleanupAndExit(contextStatus);
+  let screenshotsStatus = printLocalScreenshots();
+  cleanupAndExit(screenshotsStatus);
 });
 
 child.on('error', error => {

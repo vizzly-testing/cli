@@ -33,7 +33,7 @@ For user-facing changes, use the repo-local Vizzly skill at
 - For cloud reviews, discover supported requests with
   \`vizzly api schema --json\` and inspect baseline, current, and diff images
   together.
-- For local results, use \`vizzly context ... --json\`.
+- For local results, use \`vizzly tdd screenshots ... --json\`.
 
 Don't approve or reject changes, or replace baselines, unless the task asks
 for it.

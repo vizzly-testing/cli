@@ -5,10 +5,12 @@ can cause diffs. Check the images before deciding that's what happened.
 
 ## Check before changing settings
 
-1. Open the images and check screenshot history:
+1. Open the images and check the screenshot's history across cloud builds, or
+   its latest local capture:
 
    ```bash
-   vizzly context screenshot "<screenshot-name>" --source <local-or-cloud> --json
+   vizzly comparisons --name "<screenshot-name>" --json
+   vizzly tdd screenshots show "<screenshot-name>" --json
    ```
 
 2. Note where the change appears, how often it happens, the capture details,

@@ -140,15 +140,15 @@ describe('parseApiError', () => {
     let result = parseApiError(
       409,
       JSON.stringify({
-        error: 'Context evidence changed; request the first page again',
-        details: { code: 'CONTEXT_CURSOR_STALE' },
+        error: 'Results changed; request the first page again',
+        details: { code: 'CURSOR_STALE' },
       }),
-      'https://api.test/context'
+      'https://api.test/builds'
     );
 
-    assert.strictEqual(result.code, 'CONTEXT_CURSOR_STALE');
-    assert.strictEqual(result.details.code, 'CONTEXT_CURSOR_STALE');
-    assert.match(result.message, /Context evidence changed/);
+    assert.strictEqual(result.code, 'CURSOR_STALE');
+    assert.strictEqual(result.details.code, 'CURSOR_STALE');
+    assert.match(result.message, /Results changed/);
     assert.ok(!result.message.includes('{"error"'));
   });
 });

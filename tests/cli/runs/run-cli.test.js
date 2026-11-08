@@ -257,10 +257,6 @@ describe('commands/run CLI', () => {
         ).json.build.metadata,
         undefined
       );
-      assert.strictEqual(
-        payload.data.contextCommand,
-        'vizzly api schema sdk.getBuildContext --json'
-      );
       assert.deepStrictEqual(
         requests.map(request => `${request.method} ${request.url}`),
         [
@@ -361,10 +357,6 @@ describe('commands/run CLI', () => {
         assert.strictEqual(payload.data.testsPassed, true);
         assert.strictEqual(payload.data.error.code, 'BUILD_STATUS_FAILED');
         assert.match(payload.data.error.message, /503/);
-        assert.strictEqual(
-          payload.data.contextCommand,
-          'vizzly api schema sdk.getBuildContext --json'
-        );
       },
       { waitStatusCode: 503 }
     );

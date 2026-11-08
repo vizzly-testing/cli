@@ -9,15 +9,15 @@ import { resolveCredential } from '../auth/credential.service.js';
 import { getBuild as defaultGetBuild } from '../builds/build.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import {
+  getComparison as defaultGetComparison,
+  searchComparisons as defaultSearchComparisons,
+} from './cloud-comparisons.js';
+import {
   getComparisonBrowser,
   getComparisonName,
   getComparisonResult,
   getComparisonViewport,
-} from '../context/context.normalizers.js';
-import {
-  getComparison as defaultGetComparison,
-  searchComparisons as defaultSearchComparisons,
-} from './cloud-comparisons.js';
+} from './comparison.normalizers.js';
 
 /**
  * Comparisons command - query comparisons with various filters

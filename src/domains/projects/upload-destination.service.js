@@ -16,6 +16,16 @@ export function uploadDestinationInfo(destination) {
   };
 }
 
+/**
+ * Read the organization and project a token belongs to.
+ *
+ * @param {Object} client - API client
+ * @returns {Promise<Object>} Token organization and project
+ */
+export async function getTokenContext(client) {
+  return client.request('/api/sdk/token/context');
+}
+
 function uploadPermission(credential) {
   let scopes = credential.authorization?.scopes;
   if (!Array.isArray(scopes)) return 'unknown';
@@ -65,7 +75,7 @@ export async function resolveUploadDestination(config) {
     result.uploadPermission = uploadPermission(result.credential);
     return result;
   }
-  let context = await client.request('/api/sdk/token/context');
+  let context = await getTokenContext(client);
   if (!context.organization?.slug || !context.project?.slug) {
     throw new VizzlyError(
       'This credential has no upload project. Run vizzly project link <org>/<project>.',

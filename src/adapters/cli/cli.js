@@ -25,20 +25,6 @@ import {
 } from '../../domains/comparisons/comparisons.commands.js';
 import { configCommand } from '../../domains/config/config.commands.js';
 import { loadConfig } from '../../domains/config/config-loader.js';
-import {
-  contextBuildCommand,
-  contextComparisonCommand,
-  contextReviewQueueCommand,
-  contextScreenshotCommand,
-  contextSimilarCommand,
-} from '../../domains/context/context.commands.js';
-import {
-  validateContextBuildOptions,
-  validateContextComparisonOptions,
-  validateContextReviewQueueOptions,
-  validateContextScreenshotOptions,
-  validateContextSimilarOptions,
-} from '../../domains/context/context.validations.js';
 import { doctorCommand } from '../../domains/diagnostics/doctor.commands.js';
 import { getContext } from '../../domains/diagnostics/environment-context.js';
 import {
@@ -144,7 +130,6 @@ const formatHelp = (cmd, helper) => {
             'tdd',
             'upload',
             'status',
-            'context',
             'finalize',
             'preview',
             'builds',
@@ -503,16 +488,6 @@ function getGlobalOptions() {
     ...options,
     noColor: options.noColor || options.color === false,
   };
-}
-
-function warnDeprecatedContextAgentOption() {
-  let warning = [
-    '`vizzly context --agent` is deprecated and will be removed in v0.38.0.',
-    'For cloud reviews, use `vizzly api schema --json` and follow the',
-    'discovered operations. For local evidence, use',
-    '`vizzly context ... --json`.',
-  ].join(' ');
-  output.warn(warning);
 }
 
 async function reportValidationErrors(errors) {
@@ -1093,194 +1068,6 @@ Examples:
     }
 
     await comparisonsCommand(options, globalOptions, commandDeps);
-  });
-
-let contextCmd = program
-  .command('context')
-  .description('Fetch build and diff context')
-  .showHelpAfterError('(Run vizzly context --help for available commands)')
-  .showSuggestionAfterError();
-
-contextCmd
-  .command('build')
-  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
-  .description('Fetch build context')
-  .argument('<build-id>', 'Build ID to fetch context for')
-  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
-  .option('--agent', 'Deprecated; use API schema for cloud review.')
-  .option('--full', 'Return the full build context instead of compact context')
-  .option(
-    '--cursor <cursor>',
-    'Continue compact evidence from an opaque API cursor'
-  )
-  .option(
-    '--include <items>',
-    'Add raw diff diagnostics to compact context: diffs'
-  )
-  .addHelpText(
-    'after',
-    `
-Examples:
-  $ vizzly context build abc123 --source cloud
-  $ vizzly context build current --source local
-  $ vizzly api schema --json
-  $ vizzly context build current --source local --json
-
-Deprecation:
-  --agent will be removed in v0.38.0. Use the API schema for cloud reviews;
-  use --json without --agent for local evidence.
-`
-  )
-  .action(async (buildId, options) => {
-    let globalOptions = getGlobalOptions();
-    if (options.agent) warnDeprecatedContextAgentOption();
-    const validationErrors = validateContextBuildOptions(options);
-    if (validationErrors.length > 0) {
-      await reportValidationErrors(validationErrors);
-    }
-
-    await contextBuildCommand(buildId, options, globalOptions, commandDeps);
-  });
-
-contextCmd
-  .command('comparison')
-  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
-  .description('Fetch a comparison context bundle')
-  .argument('<comparison-id>', 'Comparison ID to fetch context for')
-  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
-  .option('--agent', 'Deprecated; use API schema for cloud review.')
-  .option(
-    '--full',
-    'Return the full comparison context instead of compact context'
-  )
-  .option(
-    '--cursor <cursor>',
-    'Continue compact history from an opaque API cursor'
-  )
-  .option('--include <items>', 'Add detail to compact context: diffs')
-  .addHelpText(
-    'after',
-    `
-Examples:
-  $ vizzly context comparison def456 --source cloud
-  $ vizzly context comparison def456 --source local
-  $ vizzly context comparison def456 --source cloud --json
-  $ vizzly api schema getComparisonContext --json
-
-Deprecation:
-  --agent will be removed in v0.38.0. Use the API schema for cloud reviews;
-  use --json without --agent for local evidence.
-`
-  )
-  .action(async (comparisonId, options) => {
-    let globalOptions = getGlobalOptions();
-    if (options.agent) warnDeprecatedContextAgentOption();
-    const validationErrors = validateContextComparisonOptions(options);
-    if (validationErrors.length > 0) {
-      await reportValidationErrors(validationErrors);
-    }
-
-    await contextComparisonCommand(
-      comparisonId,
-      options,
-      globalOptions,
-      commandDeps
-    );
-  });
-
-contextCmd
-  .command('screenshot')
-  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
-  .description('Fetch screenshot context and historical memory')
-  .argument('<name>', 'Screenshot name')
-  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
-  .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
-  .option('--org <slug>', 'Organization slug when project slug is ambiguous')
-  .option(
-    '--recent-limit <n>',
-    'Maximum recent comparisons to return (1-50)',
-    Number
-  )
-  .addHelpText(
-    'after',
-    `
-Examples:
-  $ vizzly context screenshot Dashboard --source cloud
-  $ vizzly context screenshot Dashboard --source local
-  $ vizzly context screenshot Dashboard --source cloud --project storybook --org acme
-  $ vizzly context screenshot Dashboard --source cloud --json
-`
-  )
-  .action(async (name, options) => {
-    let globalOptions = getGlobalOptions();
-    const validationErrors = validateContextScreenshotOptions(options);
-    if (validationErrors.length > 0) {
-      await reportValidationErrors(validationErrors);
-    }
-
-    await contextScreenshotCommand(name, options, globalOptions, commandDeps);
-  });
-
-contextCmd
-  .command('similar')
-  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
-  .description('Fetch project-scoped matches for a fingerprint hash')
-  .argument('<fingerprint-hash>', 'Fingerprint hash to search for')
-  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
-  .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
-  .option('--org <slug>', 'Organization slug when project slug is ambiguous')
-  .option('--limit <n>', 'Maximum matches to return (1-50)', Number)
-  .addHelpText(
-    'after',
-    `
-Examples:
-  $ vizzly context similar fp-dashboard --source cloud
-  $ vizzly context similar fp-dashboard --source cloud --project storybook --org acme
-  $ vizzly context similar fp-dashboard --source cloud --json
-`
-  )
-  .action(async (fingerprintHash, options) => {
-    let globalOptions = getGlobalOptions();
-    const validationErrors = validateContextSimilarOptions(options);
-    if (validationErrors.length > 0) {
-      await reportValidationErrors(validationErrors);
-    }
-
-    await contextSimilarCommand(
-      fingerprintHash,
-      options,
-      globalOptions,
-      commandDeps
-    );
-  });
-
-contextCmd
-  .command('review-queue')
-  .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
-  .description('Fetch pending review context for a project')
-  .option('--source <source>', 'Context source: auto, cloud, or local', 'auto')
-  .option('-p, --project <slug-or-id>', 'Project scope for user auth lookups')
-  .option('--org <slug>', 'Organization slug when project slug is ambiguous')
-  .option('--limit <n>', 'Maximum comparisons to return (1-100)', Number)
-  .option('--offset <n>', 'Skip first N comparisons', Number)
-  .addHelpText(
-    'after',
-    `
-Examples:
-  $ vizzly context review-queue --source cloud --project storybook --org acme
-  $ vizzly context review-queue --source local
-  $ vizzly context review-queue --source cloud --limit 10
-  $ vizzly context review-queue --source cloud --json
-`
-  )
-  .action(async options => {
-    let globalOptions = getGlobalOptions();
-    const validationErrors = validateContextReviewQueueOptions(options);
-    if (validationErrors.length > 0) {
-      await reportValidationErrors(validationErrors);
-    }
-
-    await contextReviewQueueCommand(options, globalOptions, commandDeps);
   });
 
 program

@@ -141,10 +141,6 @@ describe('cli/tdd lifecycle', () => {
     assert.strictEqual(payload.status, 'data');
     assert.strictEqual(payload.data.status, 'completed');
     assert.strictEqual(payload.data.summary.total, 0);
-    assert.strictEqual(
-      payload.data.contextCommand,
-      'vizzly context build current --source local --json'
-    );
   });
 
   it('keeps JSON TDD run failures parseable while forwarding child output to stderr', async () => {

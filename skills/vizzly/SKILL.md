@@ -24,17 +24,16 @@ For cloud API queries, selectable fields, or an authorized review decision,
 start with `vizzly api schema --json` and follow
 [schema discovery](references/cli-context.md#query-the-cloud-api).
 Discover request details as needed instead of loading the entire OpenAPI document.
-Use `vizzly context ... --json` for local evidence and human-readable `context`
-output for guided inspection.
+Use `vizzly tdd screenshots ... --json` for saved local evidence.
 
 1. Choose the supplied cloud build or comparison when one is named. Otherwise,
    use current local evidence or find the relevant cloud build.
 2. For cloud data, discover the relevant API operations. For locally saved data,
-   request JSON context:
+   list the latest TDD run as JSON:
 
    ```bash
    vizzly api schema --json
-   vizzly context build current --source local --json
+   vizzly tdd screenshots list --json
    ```
 
 3. Confirm the build, source, branch, timestamps, baseline, review state, and
@@ -65,7 +64,7 @@ output for guided inspection.
 
 ## Load A Reference When Needed
 
-- [CLI context](references/cli-context.md): local and cloud evidence, build
+- [CLI evidence](references/cli-context.md): local and cloud evidence, build
   discovery, schema queries, review decisions, images, and TDD lifecycle.
 - [SDK capture](references/sdks.md): add or change screenshot capture code.
 - [Dynamic content](references/dynamic-content.md): investigate unstable

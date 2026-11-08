@@ -1,5 +1,3 @@
-import { getVisualReviewState } from '../context/context.normalizers.js';
-
 export function normalizeBuildStatus(buildStatus) {
   return buildStatus.build;
 }
@@ -31,6 +29,5 @@ export function getComparisonStatus(status = {}) {
  * @returns {string|null} API-provided review state when available.
  */
 export function getBuildReviewState(status = {}) {
-  let build = normalizeBuildStatus(status);
-  return getVisualReviewState(build);
+  return normalizeBuildStatus(status)?.visual_review?.state || null;
 }

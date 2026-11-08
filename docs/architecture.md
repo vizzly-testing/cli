@@ -29,7 +29,6 @@ to its domain, even when only one adapter currently uses it.
 | `builds` | Cloud build creation, reads, status, and finalization. |
 | `comparisons` | Comparison queries and local comparison results. |
 | `config` | Configuration contracts, discovery, loading, planning, and local settings routes. |
-| `context` | Cloud and local visual evidence, provider selection, and context projections. |
 | `diagnostics` | Doctor checks and local environment information. |
 | `previews` | Static preview requests and upload commands. |
 | `projects` | Organization/project access, project linking, and project credentials. |
@@ -66,9 +65,8 @@ One service file can compose these helpers without becoming a large file itself.
 Commands can share the same domain without sharing one command file.
 
 Keep terminal rendering in a focused presenter when it obscures command flow.
-For example, Context separates option validation, compact response contracts,
-outgoing projections, and `context-presentation.js`; its commands select a source
-and call those pieces explicitly.
+For example, `projects/project-presentation.js` renders project tables for
+`projects.commands.js`, which calls it explicitly.
 
 Keep durable record contracts in `*.model.js` when the application actually owns
 that persisted shape. A build request payload alone doesn't need a model.

@@ -75,7 +75,6 @@ vizzly run "pnpm test" --json
   "data": {
     "buildId": "abc123-def456",
     "status": "completed",
-    "contextCommand": "vizzly api schema sdk.getBuildContext --json",
     "screenshotsCaptured": 15,
     "executionTimeMs": 4821,
     "git": {
@@ -88,8 +87,8 @@ vizzly run "pnpm test" --json
 }
 ```
 
-Run `contextCommand` to find the cloud build-context API, then use `buildId`
-to fetch that build's results.
+Use `buildId` with `vizzly comparisons --build` to read that build's results,
+or run `vizzly api schema --json` to find other cloud requests.
 
 Add `--wait` to include comparison results:
 
@@ -113,7 +112,6 @@ Add `--wait` to include comparison results:
       "identical": 12
     },
     "visual_review": { "state": "pending" },
-    "contextCommand": "vizzly api schema sdk.getBuildContext --json",
     "exitCode": 1
   }
 }
@@ -165,15 +163,14 @@ vizzly tdd run "pnpm test" --json
       "errors": 0
     },
     "reportPath": "/path/to/project/.vizzly/report/index.html",
-    "reportError": null,
-    "contextCommand": "vizzly context build current --source local --json"
+    "reportError": null
   }
 }
 ```
 
 Test output goes to stderr in JSON mode. Captured screenshots also produce
-`.vizzly/report-data.json` and `.vizzly/report/index.html`. Run the returned
-`contextCommand` to inspect that local data.
+`.vizzly/report-data.json` and `.vizzly/report/index.html`. Use
+`vizzly tdd screenshots` to inspect that local data.
 
 `reportPath` is null when no report was generated. `capture.rejected` counts
 failed screenshot requests; comparison errors also appear in `capture.errors`
@@ -328,90 +325,6 @@ vizzly tdd list --json
   }
 }
 ```
-
-### `vizzly context`
-
-Use `context` for human summaries and saved local `.vizzly/` data. Each result
-includes a `source` field. Context examples below show commands rather than a
-fixed response shape, since the fields depend on the source and available data.
-
-For new cloud agent workflows, discover the API and its response fields:
-
-```bash
-vizzly api schema --json
-vizzly api schema sdk.getBuildContext --json
-vizzly api schema getComparisonContext --json
-```
-
-`--agent` on `context build` and `context comparison` is deprecated. It still
-returns the older compact format, with up to 10 evidence records and cursors
-for more results. `--full` bypasses compact formatting. Use the schema-driven
-API for new cloud workflows and `context --json` for local data.
-
-#### `vizzly context build`
-
-```bash
-vizzly context build abc123 --source cloud --json
-vizzly context build current --source local --json
-```
-
-Read build details, baseline information, and comparisons. The cloud response
-comes from the API; the local response comes from the saved workspace report.
-
-#### `vizzly context comparison`
-
-```bash
-vizzly context comparison cmp-1 --source cloud --json
-vizzly context comparison build-detail-screenshots --source local --json
-```
-
-Read one comparison and its available history. Use IDs for cloud comparisons;
-local lookup also accepts screenshot names.
-
-#### `vizzly context screenshot`
-
-```bash
-vizzly context screenshot Dashboard --source cloud --json
-vizzly context screenshot Dashboard --source local --json
-```
-
-Read the screenshot's available comparison history.
-
-#### `vizzly context similar`
-
-```bash
-vizzly context similar fp-dashboard --source cloud --project storybook --org acme --json
-```
-
-Find cloud comparisons with a similar diff fingerprint. An abbreviated payload
-inside `data` looks like this:
-
-```json
-{
-  "resource": "fingerprint_context",
-  "source": "cloud",
-  "fingerprint_hash": "fp-dashboard",
-  "comparisons": [
-    {
-      "id": "cmp-1",
-      "build_id": "abc123",
-      "screenshot": { "name": "Dashboard" }
-    }
-  ]
-}
-```
-
-`context similar --source local` isn't supported and returns an error.
-
-#### `vizzly context review-queue`
-
-```bash
-vizzly context review-queue --source cloud --project storybook --org acme --json
-vizzly context review-queue --source local --json
-```
-
-Read the comparisons waiting for review in the selected source. These context
-commands don't make review decisions.
 
 ### `vizzly builds`
 
@@ -818,10 +731,6 @@ vizzly status <build-id> --json
       "web": "https://app.vizzly.dev/acme/storybook/builds/abc123-def456"
     },
     "suggestedCommands": [
-      {
-        "label": "Discover build context API",
-        "command": "vizzly api schema sdk.getBuildContext --json"
-      },
       {
         "label": "List comparisons",
         "command": "vizzly --json comparisons --build abc123-def456"

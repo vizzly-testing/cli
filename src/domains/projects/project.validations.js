@@ -35,3 +35,12 @@ export function validateProjectLinkOptions(selector, options = {}) {
 
   return errors;
 }
+
+export function validateProjectDestinationOptions(options = {}) {
+  if (Boolean(options.project) !== Boolean(options.org)) {
+    return [
+      'Use --project <slug> and --org <slug> together to choose an upload destination.',
+    ];
+  }
+  return [];
+}

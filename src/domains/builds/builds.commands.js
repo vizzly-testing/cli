@@ -10,6 +10,11 @@ import { credentialInfo } from '../auth/credential.rules.js';
 import { resolveCredential } from '../auth/credential.service.js';
 import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
+import { showProjectSelection } from '../projects/project-presentation.js';
+import {
+  isProjectSelectionInteractive,
+  resolveProjectSelection,
+} from '../projects/project-selection.service.js';
 import {
   getBuild as defaultGetBuild,
   getBuilds as defaultGetBuilds,
@@ -78,11 +83,21 @@ export async function buildsCommand(
       return;
     }
 
+    let projectSelection = await resolveProjectSelection(config, {
+      credential,
+      client,
+      project: options.project,
+      org: options.org,
+      interactive: isProjectSelectionInteractive(),
+    });
+    if (!globalOptions.json) showProjectSelection(output, projectSelection);
+
     // List builds with filters
     output.startSpinner('Fetching builds...');
     let filters = {
       limit: options.limit || 20,
       offset: options.offset || 0,
+      ...projectSelection.projectQuery,
     };
     if (options.branch) filters.branch = options.branch;
     if (options.status) filters.status = options.status;
@@ -99,6 +114,7 @@ export async function buildsCommand(
     if (globalOptions.json) {
       output.data({
         auth: credentialInfo(credential),
+        projectSelection,
         builds: builds.map(b => formatBuildForJson(b)),
         pagination: {
           total: pagination.total,

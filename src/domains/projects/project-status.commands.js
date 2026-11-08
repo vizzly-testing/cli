@@ -2,6 +2,7 @@ import * as output from '../../shared/output.js';
 import { resolveCredential } from '../auth/credential.service.js';
 import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import { loadConfig } from '../config/config-loader.js';
+import { showProjectSelection } from './project-presentation.js';
 import {
   resolveUploadDestination,
   uploadDestinationInfo,
@@ -36,6 +37,10 @@ export async function projectStatusCommand(_options = {}, globalOptions = {}) {
     if (globalOptions.json) output.data(uploadDestinationInfo(destination));
     else {
       output.header('project');
+      showProjectSelection(output, {
+        ...destination,
+        project: destination.effective,
+      });
       output.labelValue('API', destination.apiUrl);
       output.labelValue(
         'Checkout project',

@@ -1,3 +1,4 @@
+import { validateProjectDestinationOptions } from '../projects/project.validations.js';
 /**
  * Validate builds command options
  */
@@ -43,8 +44,8 @@ export function validateStatusOptions(buildId) {
  * @param {string} parallelId - Parallel ID to finalize
  * @param {Object} options - Command options
  */
-export function validateFinalizeOptions(parallelId, _options) {
-  let errors = [];
+export function validateFinalizeOptions(parallelId, options = {}) {
+  let errors = validateProjectDestinationOptions(options);
 
   if (!parallelId || parallelId.trim() === '') {
     errors.push('Parallel ID is required');

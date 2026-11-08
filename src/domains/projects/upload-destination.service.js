@@ -5,6 +5,10 @@ import {
   requireCredentialScope,
 } from '../auth/credential.rules.js';
 import { resolveCredential } from '../auth/credential.service.js';
+import {
+  isProjectSelectionInteractive,
+  resolveProjectSelection,
+} from './project-selection.service.js';
 
 export function uploadDestinationInfo(destination) {
   if (!destination) return destination;
@@ -23,7 +27,7 @@ function uploadPermission(credential) {
 }
 
 /** Resolve identity separately from the checkout's intended upload project. */
-export async function resolveUploadDestination(config) {
+export async function resolveUploadDestination(config, options = {}) {
   let result = {
     apiUrl: config.apiUrl,
     configured: config.project || null,
@@ -41,7 +45,6 @@ export async function resolveUploadDestination(config) {
   if (!credential.token) return result;
   result.credential = credential;
   result.uploadPermission = uploadPermission(credential);
-  if (credential.source === 'user' && !config.project) return result;
   result.status = 'unverified';
   let client = createApiClient({
     baseUrl: config.apiUrl,
@@ -56,12 +59,17 @@ export async function resolveUploadDestination(config) {
       token: client.getToken(),
       authorization: identity.authorization || credential.authorization,
     };
-    result.effective = config.project;
-    result.matches = true;
-    result.projectQuery = {
-      project: config.project.projectSlug,
-      organization: config.project.organizationSlug,
-    };
+    let selection = await resolveProjectSelection(config, {
+      ...options,
+      credential: result.credential,
+      client,
+    });
+    result.effective = selection.project;
+    result.matches = selection.project ? true : null;
+    result.projectQuery = selection.projectQuery;
+    result.source = selection.source;
+    result.repository = selection.repository;
+    result.repositories = selection.repositories;
     result.uploadPermission = uploadPermission(result.credential);
     return result;
   }
@@ -72,6 +80,7 @@ export async function resolveUploadDestination(config) {
       'UPLOAD_PROJECT_REQUIRED'
     );
   }
+  result.source = 'token';
   result.effective = {
     organizationSlug: context.organization.slug,
     projectSlug: context.project.slug,
@@ -85,8 +94,11 @@ export async function resolveUploadDestination(config) {
   return result;
 }
 
-export async function requireUploadDestination(config) {
-  let destination = await resolveUploadDestination(config);
+export async function requireUploadDestination(config, options = {}) {
+  let destination = await resolveUploadDestination(config, {
+    interactive: isProjectSelectionInteractive(),
+    ...options,
+  });
   if (!destination.effective) {
     throw new VizzlyError(
       'Log in and choose an upload destination with vizzly project link <org>/<project>, or set VIZZLY_TOKEN.',

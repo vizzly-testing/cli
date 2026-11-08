@@ -85,27 +85,41 @@ pnpm exec vizzly projects --org your-org
 pnpm exec vizzly builds --project your-project --org your-org
 ```
 
-Browsing doesn't change your checkout's upload destination. When you're ready
-to upload, choose a project interactively or supply its qualified name:
+When this checkout has a GitHub remote connected to one accessible Vizzly
+project, the CLI selects it automatically. Run builds or upload without linking:
 
 ```bash
-pnpm exec vizzly project link
-# Or: pnpm exec vizzly project link your-org/your-project
+pnpm exec vizzly builds
 pnpm exec vizzly project status
 pnpm exec vizzly run "pnpm test"
 ```
 
 `vizzly login` opens browser consent so you can choose read, build/upload, review,
-and comment permissions. Your login can perform those actions within your current
-project access. Linking saves the destination in your checkout; it does not issue
-another credential. Replace `"pnpm test"` with your test command.
+and comment permissions. Automatic project discovery needs `read`; uploading
+also needs `builds:write`. A login with only `builds:write` can upload when you
+supply a destination explicitly.
 
-If you linked with an older CLI, run `project link` once in each repository to
-save its project selection. Handwritten config may need a manual edit; the
-command prints what to add. Explicit `--token` and `VIZZLY_TOKEN` still work.
-Before an upload, Vizzly checks the token's project and shows the destination.
-If it conflicts with your checkout's configured project, fix the binding or
-remove the token override before uploading.
+The CLI checks all GitHub remotes, including SSH and HTTPS URLs, and combines
+matches by project. With several matches, a terminal offers a picker and remembers
+your choice for this checkout and API server. That choice is checked against
+current connections and access on every command. A single detected match saves
+nothing. JSON output and CI report the matching projects so you can choose one:
+
+```bash
+pnpm exec vizzly run "pnpm test" --org your-org --project your-project
+pnpm exec vizzly projects --repository github.com/your-org/your-repo
+```
+
+Use `vizzly project link your-org/your-project` to save an explicit destination
+in your config. Configured projects and explicit token settings take precedence
+over repository discovery. `project status` shows the selected project and how
+it was chosen. A package config scopes a remembered choice to that package;
+otherwise it belongs to the Git checkout. Discovery also works from subdirectories
+and worktrees.
+
+Explicit `--token` and `VIZZLY_TOKEN` still work. Before uploading, Vizzly checks
+the token's project against any configured or command-selected destination.
+Browsing with `--project` and `--org` leaves the saved upload destination alone.
 
 An explicit token can expose fewer projects than your user account. Use
 `--auth user` to browse with your saved login while keeping that upload token:
@@ -276,7 +290,7 @@ with `pnpm exec` when Vizzly is installed locally.
 | --- | --- |
 | `vizzly init` | Walk through setup. Use `--quick` to create config without questions. |
 | `vizzly config [key]` | Show your current config. |
-| `vizzly project link [org/project]` | Choose this checkout's upload project; omit the name for a picker. |
+| `vizzly project link [org/project]` | Save an explicit upload project; omit the name to detect or choose one. |
 | `vizzly project status` | Show the configured and effective upload destinations. |
 | `vizzly orgs` | List your organizations. |
 | `vizzly projects` | List projects you can access. |

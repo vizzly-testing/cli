@@ -15,6 +15,8 @@ import { finalizeBuild as defaultFinalizeBuild } from '../builds/build.service.j
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import { getTokenContext as defaultGetTokenContext } from '../context/context.service.js';
+import { validateProjectDestinationOptions } from '../projects/project.validations.js';
+import { projectSelectionExplanation } from '../projects/project-presentation.js';
 import {
   requireUploadDestination,
   uploadDestinationInfo,
@@ -132,7 +134,7 @@ export async function uploadCommand(
       uploadDestination: destination,
     };
     output.info(
-      `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
+      `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${[credentialSourceLabel(destination.credential.source), projectSelectionExplanation(destination.source)].filter(Boolean).join(', ')})`
     );
 
     // Collect git metadata if not provided
@@ -455,7 +457,7 @@ export async function uploadCommand(
  * @param {Object} options - Command options
  */
 export function validateUploadOptions(screenshotsPath, options) {
-  let errors = [];
+  let errors = validateProjectDestinationOptions(options);
 
   if (!screenshotsPath) {
     errors.push('Screenshots path is required');

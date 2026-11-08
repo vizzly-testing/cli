@@ -1,9 +1,14 @@
 import * as output from '../../shared/output.js';
 import { createPrompts } from '../../shared/terminal-prompts.js';
+import { VizzlyError } from '../../shared/vizzly-error.js';
 import { createApiClient } from '../auth/cloud-client.js';
 import { requireCredentialScope } from '../auth/credential.rules.js';
 import { resolveCredential } from '../auth/credential.service.js';
 import { discoverProjects } from './discovery.service.js';
+import {
+  isProjectSelectionInteractive,
+  resolveProjectSelection,
+} from './project-selection.service.js';
 
 /** A paged selection; selecting a project does not link or issue credentials. */
 export async function pickProject(config, options = {}, prompts = null) {
@@ -72,4 +77,34 @@ export async function pickProject(config, options = {}, prompts = null) {
   } finally {
     if (!prompts) reader.close();
   }
+}
+
+/** Use the checkout's repository before offering the full account picker. */
+export async function chooseProject(config, options = {}) {
+  let credential = resolveCredential(config, {
+    ...options,
+    auth: options.token ? 'auto' : 'user',
+    command: 'project link',
+  });
+  let client = createApiClient({
+    baseUrl: config.apiUrl,
+    token: credential.token,
+    credential,
+    command: 'project-link',
+  });
+  let interactive = isProjectSelectionInteractive();
+  let selection = await resolveProjectSelection(config, {
+    credential,
+    client,
+    org: options.org,
+    interactive,
+  });
+  if (selection.project) return selection.project;
+  if (!interactive) {
+    throw new VizzlyError(
+      'Choose an upload destination with vizzly project link <org>/<project>. No connected project was detected for this checkout.',
+      'PROJECT_INPUT_REQUIRED'
+    );
+  }
+  return pickProject(config, options);
 }

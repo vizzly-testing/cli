@@ -714,6 +714,8 @@ program
 
 program
   .command('upload')
+  .option('--project <slug>', 'Upload project slug')
+  .option('--org <slug>', 'Upload organization slug')
   .description('Upload screenshots to Vizzly')
   .argument('<path>', 'Path to screenshots directory')
   .option('-b, --build-name <name>', 'Build name for grouping')
@@ -953,6 +955,8 @@ tddCmd
 
 program
   .command('run')
+  .option('--project <slug>', 'Upload project slug')
+  .option('--org <slug>', 'Upload organization slug')
   .description('Run tests with Vizzly integration')
   .argument('<command>', 'Test command to run')
   .option('--port <port>', 'Port for screenshot server', '47392')
@@ -1551,6 +1555,10 @@ program
   .option('--auth <source>', 'Credential source: auto, user, token', 'auto')
   .description('List projects you have access to')
   .option('--org <slug>', 'Filter by organization slug')
+  .option(
+    '--repository <identity>',
+    'Filter by connected repository, github.com/owner/repo'
+  )
   .option('--limit <n>', 'Maximum results to return (1-250)', Number, 50)
   .option('--offset <n>', 'Skip first N results', Number, 0)
   .addHelpText(
@@ -1568,7 +1576,7 @@ Workflow:
 
 VIZZLY_TOKEN takes precedence over a saved login. Otherwise, your login is used.
 The output shows which credential was selected.
-Linking is needed only to choose a checkout upload destination.
+Connected GitHub repositories are detected automatically. Use project link to choose an explicit destination.
 `
   )
   .action(async options => {
@@ -1623,6 +1631,8 @@ permissions control which actions are allowed.
 
 program
   .command('finalize')
+  .option('--project <slug>', 'Upload project slug')
+  .option('--org <slug>', 'Upload organization slug')
   .description('Finalize a parallel build after all shards complete')
   .argument('<parallel-id>', 'Parallel ID to finalize')
   .action(async (parallelId, options) => {

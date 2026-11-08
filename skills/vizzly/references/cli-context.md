@@ -71,11 +71,23 @@ decisions require `reviews:write`, and comments require `comments:write`. A scop
 denial requires explicit user consent for additional permissions, not repeated
 refreshes or a different identity.
 
-`vizzly project status --json` describes configured and effective upload
-destinations separately. Use `project link` only when setup or changing the
-upload destination is authorized. It saves the destination without issuing a credential.
-The selected login can upload when it has `builds:write`; explicit project tokens
-remain the automation path. Browsing another project must not change that binding.
+Inside a checkout, `vizzly builds --json` automatically selects a project
+connected to its GitHub remotes. Configured projects and explicit credentials take
+precedence. `vizzly projects --repository github.com/owner/repo --json` lists the
+accessible connected projects. Automatic lookup requires `read` permission.
+
+`vizzly project status --json` reports the destination and selection source.
+One repository match needs no setup. Several matches return
+`PROJECT_SELECTION_AMBIGUOUS` with candidates in JSON or CI. Pass `--project` and
+`--org` to select one for the command, or let the user choose interactively. The
+CLI remembers an interactive choice per checkout/package, remote identities and
+API server, and checks it against current connections on every command.
+
+Use `project link` only when saving an explicit config destination is authorized.
+A build-only login can upload with that configured destination or paired
+`--project`/`--org` flags. Explicit project tokens remain the automation path.
+Commands with build or comparison IDs use those IDs directly. Local context
+never needs repository discovery.
 
 Use the ID supplied by the task. If no cloud build is named, find recent builds
 and choose the one matching the branch, commit, or pull request:

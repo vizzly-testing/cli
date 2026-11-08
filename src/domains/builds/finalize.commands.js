@@ -60,7 +60,7 @@ export async function finalizeCommand(
 
     let credential = resolveCredential(config, { command: 'finalize' });
     let destination =
-      credential.kind === 'user'
+      credential.kind === 'user' || (options.project && options.org)
         ? await requireUploadDestination(config)
         : null;
     credential = destination?.credential || credential;

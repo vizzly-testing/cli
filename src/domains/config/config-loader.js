@@ -145,6 +145,14 @@ function applyCLIOverrides(config, cliOverrides = {}) {
   // Global overrides
   if (cliOverrides.token) config.apiKey = cliOverrides.token;
 
+  if (cliOverrides.project && cliOverrides.org) {
+    config.project = {
+      organizationSlug: cliOverrides.org.toLowerCase(),
+      projectSlug: cliOverrides.project.toLowerCase(),
+    };
+    config._projectSource = 'explicit';
+  }
+
   // Build-related overrides
   if (cliOverrides.buildName) config.build.name = cliOverrides.buildName;
   if (cliOverrides.environment)

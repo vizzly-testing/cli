@@ -14,6 +14,11 @@ import {
   getComparisonResult,
   getComparisonViewport,
 } from '../context/context.normalizers.js';
+import { showProjectSelection } from '../projects/project-presentation.js';
+import {
+  isProjectSelectionInteractive,
+  resolveProjectSelection,
+} from '../projects/project-selection.service.js';
 import {
   getComparison as defaultGetComparison,
   searchComparisons as defaultSearchComparisons,
@@ -137,11 +142,18 @@ export async function comparisonsCommand(
 
     // Search comparisons by name across builds
     if (options.name) {
+      let projectSelection = await resolveProjectSelection(config, {
+        credential,
+        client,
+        project: options.project,
+        org: options.org,
+        interactive: isProjectSelectionInteractive(),
+      });
+      if (!globalOptions.json) showProjectSelection(output, projectSelection);
       output.startSpinner('Searching comparisons...');
       let filters = {
         branch: options.branch,
-        project: options.project,
-        organization: options.org,
+        ...projectSelection.projectQuery,
         limit: options.limit || 50,
         offset: options.offset || 0,
       };
@@ -157,6 +169,7 @@ export async function comparisonsCommand(
       if (globalOptions.json) {
         output.data({
           comparisons: comparisons.map(formatComparisonForJson),
+          projectSelection,
           pagination: {
             total: pagination.total,
             limit: filters.limit,

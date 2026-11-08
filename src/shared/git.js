@@ -15,6 +15,34 @@ async function runGit(args, cwd = process.cwd()) {
   return stdout.trim();
 }
 
+/** Read repository identity through Git so linked worktrees work too. */
+export async function getRepositoryInfo(cwd = process.cwd()) {
+  let root;
+  let names;
+  try {
+    root = await runGit(['rev-parse', '--show-toplevel'], cwd);
+    names = await runGit(['remote'], cwd);
+  } catch {
+    return null;
+  }
+  let remotes = await Promise.all(
+    names
+      .split('\n')
+      .filter(Boolean)
+      .map(async name => {
+        let urls = await runGit(
+          ['remote', 'get-url', '--all', '--', name],
+          cwd
+        );
+        return urls
+          .split('\n')
+          .filter(Boolean)
+          .map(url => ({ name, url }));
+      })
+  );
+  return { root, remotes: remotes.flat() };
+}
+
 export async function getCommonAncestor(commit1, commit2, cwd = process.cwd()) {
   try {
     return await runGit(['merge-base', commit1, commit2], cwd);

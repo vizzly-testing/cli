@@ -25,3 +25,21 @@ export function showProjectTable(output, projects) {
   output.print(`  ${colors.dim(line(headers))}`);
   for (let row of rows) output.print(`  ${line(row)}`);
 }
+
+export function projectSelectionExplanation(source) {
+  return {
+    config: 'from config',
+    explicit: 'from command options',
+    repository: 'detected from GitHub remotes',
+    'saved-selection': 'saved choice for this checkout',
+  }[source];
+}
+
+export function showProjectSelection(output, selection) {
+  if (!selection?.project) return;
+  let { organizationSlug, projectSlug } = selection.project;
+  let explanation = projectSelectionExplanation(selection.source);
+  output.info(
+    `Using ${organizationSlug}/${projectSlug}${explanation ? ` (${explanation})` : ''}`
+  );
+}

@@ -5,6 +5,11 @@ import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.
 import { resolveCredential } from '../auth/credential.service.js';
 import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
+import { showProjectSelection } from '../projects/project-presentation.js';
+import {
+  isProjectSelectionInteractive,
+  resolveProjectSelection,
+} from '../projects/project-selection.service.js';
 import { readSession as defaultReadSession } from '../runs/session-store.js';
 import {
   validateCompactContext,
@@ -39,6 +44,7 @@ function hasExplicitCloudScope(options = {}, config = {}) {
   return Boolean(
     options.org ||
       options.project ||
+      config.project ||
       config.linkedProject?.organizationSlug ||
       config.linkedProject?.projectSlug
   );
@@ -64,11 +70,15 @@ function createClient(config, createApiClient) {
  * @param {string} source - Provider source selected by the CLI.
  * @returns {Object} Context payload with explicit source provenance.
  */
-function attachContextSource(context, source) {
-  return { ...context, source };
+function attachContextSource(context, source, projectSelection) {
+  return {
+    ...context,
+    source,
+    ...(projectSelection ? { projectSelection } : {}),
+  };
 }
 
-function createCloudContextProvider(config, deps = {}) {
+function createCloudContextProvider(config, deps = {}, selectedClient = null) {
   let {
     createApiClient = defaultCreateApiClient,
     getBuildContext = defaultGetBuildContext,
@@ -77,7 +87,7 @@ function createCloudContextProvider(config, deps = {}) {
     getSimilarFingerprintContext = defaultGetSimilarFingerprintContext,
     getReviewQueueContext = defaultGetReviewQueueContext,
   } = deps;
-  let client = createClient(config, createApiClient);
+  let client = selectedClient || createClient(config, createApiClient);
 
   return {
     source: 'cloud',
@@ -95,20 +105,32 @@ function createCloudContextProvider(config, deps = {}) {
     },
     async getScreenshotContext(screenshotName, query) {
       return attachContextSource(
-        await getScreenshotContext(client, screenshotName, query),
-        'cloud'
+        await getScreenshotContext(client, screenshotName, {
+          ...config.projectSelection?.projectQuery,
+          ...query,
+        }),
+        'cloud',
+        config.projectSelection
       );
     },
     async getSimilarFingerprintContext(fingerprintHash, query) {
       return attachContextSource(
-        await getSimilarFingerprintContext(client, fingerprintHash, query),
-        'cloud'
+        await getSimilarFingerprintContext(client, fingerprintHash, {
+          ...config.projectSelection?.projectQuery,
+          ...query,
+        }),
+        'cloud',
+        config.projectSelection
       );
     },
     async getReviewQueueContext(query) {
       return attachContextSource(
-        await getReviewQueueContext(client, query),
-        'cloud'
+        await getReviewQueueContext(client, {
+          ...config.projectSelection?.projectQuery,
+          ...query,
+        }),
+        'cloud',
+        config.projectSelection
       );
     },
   };
@@ -188,6 +210,7 @@ async function loadContextRuntime(
     }
   );
 
+  let cloudClient;
   if (source === 'cloud') {
     if (
       !config.apiKey &&
@@ -202,12 +225,28 @@ async function loadContextRuntime(
       command: 'context',
     });
     if (!globalOptions.json) showCredential(output, config.readCredential);
+    cloudClient = createClient(
+      config,
+      deps.createApiClient || defaultCreateApiClient
+    );
+    if (['screenshot', 'similar', 'review-queue'].includes(command)) {
+      config.projectSelection = await resolveProjectSelection(config, {
+        credential: config.readCredential,
+        client: cloudClient,
+        cwd: projectRoot,
+        project: options.project,
+        org: options.org,
+        interactive: isProjectSelectionInteractive(),
+      });
+      if (!globalOptions.json)
+        showProjectSelection(output, config.projectSelection);
+    }
   }
 
   let provider =
     source === 'local'
       ? localProvider
-      : createCloudContextProvider(config, deps);
+      : createCloudContextProvider(config, deps, cloudClient);
 
   return {
     config,

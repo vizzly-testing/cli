@@ -10,7 +10,7 @@ import {
   planProjectBinding as defaultPlanProjectBinding,
   writeProjectBinding as defaultWriteProjectBinding,
 } from './project-binding.js';
-import { pickProject } from './project-picker.service.js';
+import { chooseProject } from './project-picker.service.js';
 
 export async function projectLinkCommand(
   selector,
@@ -59,23 +59,15 @@ export async function projectLinkCommand(
       );
     }
     if (!organizationSlug || !projectSlug) {
-      if (
-        globalOptions.json ||
-        !process.stdin.isTTY ||
-        !process.stdout.isTTY ||
-        process.env.CI
-      ) {
-        throw new VizzlyError(
-          'Choose an upload destination: vizzly project link <org>/<project>. Run vizzly projects --auth user to discover projects, or run project link interactively.',
-          'PROJECT_INPUT_REQUIRED'
-        );
-      }
       if (configError) throw configError;
-      let selected = await pickProject(config, {
-        ...globalOptions,
-        ...options,
-        org: organizationSlug,
-      });
+      let selected = await chooseProject(
+        { ...config, project: null },
+        {
+          ...globalOptions,
+          ...options,
+          org: organizationSlug,
+        }
+      );
       if (!selected) {
         output.hint('Project selection cancelled; no files changed.');
         output.cleanup();

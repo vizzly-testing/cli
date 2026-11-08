@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../../domains/config/config-loader.js';
 import { projectLinkCommand } from '../../domains/projects/project.commands.js';
-import { pickProject } from '../../domains/projects/project-picker.service.js';
+import { chooseProject } from '../../domains/projects/project-picker.service.js';
 
 function runProcess(command, args) {
   return new Promise((resolve, reject) => {
@@ -24,7 +24,7 @@ export async function connectProject(options) {
   let config = await loadConfig(options.config, options);
   let selected;
   try {
-    selected = await pickProject(config, options);
+    selected = await chooseProject(config, options);
   } catch (error) {
     if (error.code !== 'LOGIN_REQUIRED') throw error;
     let cli = fileURLToPath(new URL('./cli.js', import.meta.url));
@@ -35,7 +35,7 @@ export async function connectProject(options) {
       config.apiUrl,
     ]);
     config = await loadConfig(options.config, options);
-    selected = await pickProject(config, options);
+    selected = await chooseProject(config, options);
   }
   if (!selected) return { status: 'cancelled' };
   let project = `${selected.organizationSlug}/${selected.projectSlug}`;

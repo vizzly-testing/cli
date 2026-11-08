@@ -495,7 +495,6 @@ vizzly comparisons --build <id> --status changed --json
           "diff": "https://..."
         },
         "honeydiff": {
-          "fingerprintHash": "00000000001ec127",
           "regionCount": 12,
           "details": {
             "clusters": { "count": 12, "average_density": 0.81 }

@@ -84,13 +84,8 @@ export function formatBuildForJson(build, includeComparisons = false) {
         c.cluster_metadata || diffImage.cluster_metadata || null;
       let ssimScore = c.ssim_score ?? diffImage.ssim_score ?? null;
       let gmsdScore = c.gmsd_score ?? diffImage.gmsd_score ?? null;
-      let fingerprintHash =
-        c.fingerprint_hash || diffImage.fingerprint_hash || null;
       let hasHoneydiff =
-        clusterMetadata ||
-        ssimScore != null ||
-        gmsdScore != null ||
-        fingerprintHash;
+        clusterMetadata || ssimScore != null || gmsdScore != null;
 
       return {
         id: c.id,
@@ -117,7 +112,6 @@ export function formatBuildForJson(build, includeComparisons = false) {
               gmsdScore,
               clusterClassification: clusterMetadata?.classification || null,
               clusterMetadata,
-              fingerprintHash,
               diffRegions: c.diff_regions ?? diffImage.diff_regions ?? null,
             }
           : null,

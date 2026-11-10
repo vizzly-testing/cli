@@ -14,6 +14,8 @@ import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import { finalizeBuild as defaultFinalizeBuild } from '../builds/build.service.js';
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
+import { projectSelectionErrorDetails } from '../projects/project.serializers.js';
+import { projectLabel } from '../projects/project-selection.service.js';
 import {
   getTokenContext as defaultGetTokenContext,
   requireUploadDestination,
@@ -31,9 +33,15 @@ import { createUploader as defaultCreateUploader } from './upload.service.js';
  * @returns {Promise<string>} Proper build URL
  */
 export async function constructBuildUrl(buildId, apiUrl, apiToken, deps = {}) {
-  if (deps.destination?.effective) {
+  if (
+    deps.destination?.effective?.organizationSlug &&
+    deps.destination?.effective?.projectSlug
+  ) {
     let { organizationSlug, projectSlug } = deps.destination.effective;
     return `${getAppBaseUrl(apiUrl)}/${organizationSlug}/${projectSlug}/builds/${buildId}`;
+  }
+  if (deps.destination?.effective?.projectId) {
+    return `${getAppBaseUrl(apiUrl)}/builds/${buildId}`;
   }
   let {
     createApiClient = defaultCreateApiClient,
@@ -132,7 +140,7 @@ export async function uploadCommand(
       uploadDestination: destination,
     };
     output.info(
-      `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
+      `Upload destination: ${projectLabel(destination.effective)} (${credentialSourceLabel(destination.credential.source)})`
     );
 
     // Collect git metadata if not provided
@@ -427,6 +435,7 @@ export async function uploadCommand(
         status: 'failed',
         error: {
           code: error.code || 'UPLOAD_FAILED',
+          ...projectSelectionErrorDetails(error),
           message: error?.getUserMessage
             ? error.getUserMessage()
             : error.message,

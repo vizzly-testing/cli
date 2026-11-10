@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import * as output from '../../shared/output.js';
 import { getAuthTokens } from '../auth/token-store.js';
+import { findDirectoryProjectLink } from '../projects/directory-link.service.js';
 import { getProjectLink } from '../projects/project-link-store.js';
 import { deepMerge } from './config.normalizers.js';
 import { validateVizzlyConfigWithDefaults } from './config.validations.js';
@@ -18,7 +19,9 @@ import {
 export async function loadConfig(configPath = null, cliOverrides = {}) {
   // 1. Load from config file using cosmiconfig
   let explorer = createConfigExplorer();
-  let result = configPath ? explorer.load(configPath) : explorer.search();
+  let result = configPath
+    ? explorer.load(resolve(cliOverrides.cwd || process.cwd(), configPath))
+    : explorer.search(cliOverrides.cwd || process.cwd());
 
   let fileConfig = {};
   if (result?.config) {
@@ -89,8 +92,23 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     Object.keys(comparisonOverrides).map(key => [key, validatedComparison[key]])
   );
 
+  config._configPath = result?.filepath || null;
+  config._projectSource = configPath ? 'explicit-config' : 'config';
+  if (cliOverrides.project) config._projectSource = 'explicit';
+  if (
+    !cliOverrides._ignoreProjectBinding &&
+    !cliOverrides.project &&
+    !cliOverrides.org &&
+    !(configPath && config.project)
+  ) {
+    config._directoryProject = await findDirectoryProjectLink({
+      cwd: cliOverrides.cwd || process.cwd(),
+      apiOrigin: config.apiUrl,
+    });
+  }
+
   // 5. Use only the credential belonging to this repository's destination.
-  if (!config.apiKey && config.project) {
+  if (!config.apiKey && config.project && !config._directoryProject?.binding) {
     let linkedProject = await getProjectLink({
       apiUrl: config.apiUrl,
       ...config.project,
@@ -130,7 +148,6 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
     config.userAuthError = error;
   }
 
-  config._configPath = result?.filepath || null;
   config._configApiUrl = validatedFileConfig.apiUrl;
 
   return config;
@@ -144,6 +161,13 @@ export async function loadConfig(configPath = null, cliOverrides = {}) {
 function applyCLIOverrides(config, cliOverrides = {}) {
   // Global overrides
   if (cliOverrides.token) config.apiKey = cliOverrides.token;
+
+  if (cliOverrides.project && cliOverrides.org) {
+    config.project = {
+      organizationSlug: cliOverrides.org,
+      projectSlug: cliOverrides.project,
+    };
+  }
 
   // Build-related overrides
   if (cliOverrides.buildName) config.build.name = cliOverrides.buildName;

@@ -675,7 +675,7 @@ ptyTest(
           JSON.stringify({
             projects: [
               {
-                id: 'p-1',
+                id: 'db429384-7714-47b3-a6c2-2003b9340449',
                 name: 'Fixture app',
                 slug: 'fixture-app',
                 organizationSlug: 'fixture-org',
@@ -713,11 +713,15 @@ ptyTest(
     let source = await readFile(path.join(cwd, 'vizzly.config.js'), 'utf8');
     assert.doesNotMatch(source, /fixture-private-token/);
     let { default: config } = await import(path.join(cwd, 'vizzly.config.js'));
-    assert.equal(config.apiUrl, apiUrl);
-    assert.deepEqual(config.project, {
-      organizationSlug: 'fixture-org',
-      projectSlug: 'fixture-app',
+    assert.equal(config.project, undefined);
+    let linked = JSON.parse(
+      await readFile(path.join(cwd, 'vizzly.project.json'), 'utf8')
+    );
+    assert.deepEqual(linked, {
+      version: 1,
+      apiOrigin: apiUrl,
+      projectId: 'db429384-7714-47b3-a6c2-2003b9340449',
     });
-    assert.match(result.output, /Linked fixture-org\/fixture-app/);
+    assert.match(result.output, /Linked db429384-7714-47b3-a6c2-2003b9340449/);
   }
 );

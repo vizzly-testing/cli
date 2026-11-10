@@ -18,7 +18,7 @@ let entrypoint = fileURLToPath(
 let userToken = 'synthetic-user-access';
 let projectToken = 'vzt_synthetic-upload';
 let projects = Array.from({ length: 260 }, (_, index) => ({
-  id: `project-${index}`,
+  id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
   name: `Project ${index}`,
   slug: `app-${index}`,
   organizationSlug: index % 2 ? 'studio' : 'acme',
@@ -150,7 +150,10 @@ async function fixture(
     }
     if (url.pathname === '/api/sdk/token/context') {
       return {
-        body: { organization: { slug: 'acme' }, project: { slug: 'app-0' } },
+        body: {
+          organization: { slug: 'acme' },
+          project: { id: projects[0].id, slug: 'app-0' },
+        },
       };
     }
     return { status: 404, body: { error: 'Unexpected fixture request' } };
@@ -391,7 +394,7 @@ test('explicit destinations work with write-only login and status distinguishes 
   for (let scopes of [['builds:write'], ['read']]) {
     let f = await fixture(t, { binding: false, scopes });
     let authBefore = await readFile(f.authPath, 'utf8');
-    let linked = await f.cli(['project', 'link', 'studio/app-1', '--json']);
+    let linked = await f.cli(['project', 'link', projects[1].id, '--json']);
     assert.equal(linked.code, 0, linked.stderr);
     assert.equal(f.requests.length, 0);
     assert.equal(await readFile(f.authPath, 'utf8'), authBefore);
@@ -406,13 +409,11 @@ test('explicit destinations work with write-only login and status distinguishes 
       scopes.includes('builds:write') ? 'granted' : 'missing'
     );
     assert.deepEqual(destination.effective, {
-      organizationSlug: 'studio',
-      projectSlug: 'app-1',
+      version: 1,
+      apiOrigin: f.apiUrl,
+      projectId: projects[1].id,
     });
-    assert.deepEqual(
-      f.requests.map(request => request.url),
-      ['/api/auth/cli/whoami']
-    );
+    assert.equal(f.requests.length, 0);
     assert.equal(Object.hasOwn(destination.credential, 'token'), false);
     assert.equal(Object.hasOwn(destination.credential, 'session'), false);
   }
@@ -423,6 +424,13 @@ test('linking chooses uploads, browsing stays read-only, and a mismatched overri
   let linked = await f.cli(['project', 'link', 'studio/app-1', '--json']);
   assert.equal(linked.code, 0, linked.stderr);
   let before = await readFile(f.configPath, 'utf8');
+  let linkPath = path.join(f.cwd, 'vizzly.project.json');
+  let linkBefore = await readFile(linkPath, 'utf8');
+  assert.deepEqual(JSON.parse(linkBefore), {
+    version: 1,
+    apiOrigin: f.apiUrl,
+    projectId: projects[1].id,
+  });
   let discovered = await f.cli(['projects', '--json']);
   assert.equal(data(discovered).auth.source, 'user');
   let browsed = await f.cli([
@@ -437,6 +445,7 @@ test('linking chooses uploads, browsing stays read-only, and a mismatched overri
   ]);
   assert.equal(browsed.code, 0, browsed.stderr);
   assert.equal(await readFile(f.configPath, 'utf8'), before);
+  assert.equal(await readFile(linkPath, 'utf8'), linkBefore);
   let screenshots = path.join(f.cwd, 'screenshots');
   await mkdir(screenshots);
   await writeFile(path.join(screenshots, 'home.png'), 'synthetic-png');
@@ -450,4 +459,6 @@ test('linking chooses uploads, browsing stays read-only, and a mismatched overri
     /UPLOAD_PROJECT_MISMATCH|does not match|configured for/
   );
   assert.ok(f.requests.every(r => r.method === 'GET'));
+  assert.equal(await readFile(linkPath, 'utf8'), linkBefore);
+  assert.equal(await readFile(f.configPath, 'utf8'), before);
 });

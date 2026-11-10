@@ -39,7 +39,10 @@ export async function projectsCommand(
   });
 
   try {
-    let config = await loadConfig(globalOptions.config, globalOptions);
+    let config = await loadConfig(globalOptions.config, {
+      ...globalOptions,
+      _ignoreProjectBinding: true,
+    });
 
     let credential = resolveCredential(config, {
       ...globalOptions,

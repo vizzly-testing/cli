@@ -1,3 +1,4 @@
+import { projectSelectionErrorDetails } from '../projects/project.serializers.js';
 import { formatBuildForJson } from './build.serializers.js';
 
 /**
@@ -10,6 +11,10 @@ import { credentialInfo } from '../auth/credential.rules.js';
 import { resolveCredential } from '../auth/credential.service.js';
 import { showCredential } from '../auth/credential-presentation.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
+import {
+  projectSelectionExplanation,
+  resolveProjectSelection,
+} from '../projects/project-selection.service.js';
 import {
   getBuild as defaultGetBuild,
   getBuilds as defaultGetBuilds,
@@ -43,7 +48,11 @@ export async function buildsCommand(
 
   try {
     // Load configuration with CLI overrides
-    let allOptions = { ...globalOptions, ...options };
+    let allOptions = {
+      ...globalOptions,
+      ...options,
+      _ignoreProjectBinding: Boolean(options.build),
+    };
     let config = await loadConfig(globalOptions.config, allOptions);
 
     let credential = resolveCredential(config, {
@@ -78,17 +87,24 @@ export async function buildsCommand(
       return;
     }
 
+    let projectSelection = resolveProjectSelection(config, {
+      ...allOptions,
+      credential,
+    });
+    if (projectSelection && !globalOptions.json) {
+      output.hint(projectSelectionExplanation(projectSelection));
+    }
+
     // List builds with filters
     output.startSpinner('Fetching builds...');
     let filters = {
       limit: options.limit || 20,
       offset: options.offset || 0,
+      ...projectSelection?.projectQuery,
     };
     if (options.branch) filters.branch = options.branch;
     if (options.status) filters.status = options.status;
     if (options.environment) filters.environment = options.environment;
-    if (options.project) filters.project = options.project;
-    if (options.org) filters.organization = options.org;
 
     let response = await getBuilds(client, filters);
     output.stopSpinner();
@@ -99,6 +115,7 @@ export async function buildsCommand(
     if (globalOptions.json) {
       output.data({
         auth: credentialInfo(credential),
+        ...(projectSelection ? { projectSelection } : {}),
         builds: builds.map(b => formatBuildForJson(b)),
         pagination: {
           total: pagination.total,
@@ -183,7 +200,11 @@ export async function buildsCommand(
     output.cleanup();
   } catch (error) {
     output.stopSpinner();
-    output.error('Failed to fetch builds', error);
+    output.error(
+      'Failed to fetch builds',
+      error,
+      projectSelectionErrorDetails(error)
+    );
     output.cleanup();
     exit(1);
   }

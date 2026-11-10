@@ -5,6 +5,11 @@ import {
   requireCredentialScope,
 } from '../auth/credential.rules.js';
 import { resolveCredential } from '../auth/credential.service.js';
+import {
+  projectLabel,
+  projectLinkRequired,
+  resolveProjectSelection,
+} from './project-selection.service.js';
 
 export function uploadDestinationInfo(destination) {
   if (!destination) return destination;
@@ -36,7 +41,8 @@ function uploadPermission(credential) {
 export async function resolveUploadDestination(config) {
   let result = {
     apiUrl: config.apiUrl,
-    configured: config.project || null,
+    configured: config._directoryProject?.binding || config.project || null,
+    projectSelection: resolveProjectSelection(config, { required: false }),
     effective: null,
     credential: null,
     status: 'unconfigured',
@@ -51,30 +57,21 @@ export async function resolveUploadDestination(config) {
   if (!credential.token) return result;
   result.credential = credential;
   result.uploadPermission = uploadPermission(credential);
-  if (credential.source === 'user' && !config.project) return result;
+  let selection = result.projectSelection;
+  if (credential.source === 'user' && !selection) return result;
   result.status = 'unverified';
+  if (credential.source === 'user') {
+    result.effective = result.configured;
+    result.matches = true;
+    result.projectQuery = selection.projectQuery;
+    return result;
+  }
   let client = createApiClient({
     baseUrl: config.apiUrl,
     token: credential.token,
     credential,
     command: 'project-status',
   });
-  if (credential.source === 'user') {
-    let identity = await client.request('/api/auth/cli/whoami');
-    result.credential = {
-      ...credential,
-      token: client.getToken(),
-      authorization: identity.authorization || credential.authorization,
-    };
-    result.effective = config.project;
-    result.matches = true;
-    result.projectQuery = {
-      project: config.project.projectSlug,
-      organization: config.project.organizationSlug,
-    };
-    result.uploadPermission = uploadPermission(result.credential);
-    return result;
-  }
   let context = await getTokenContext(client);
   if (!context.organization?.slug || !context.project?.slug) {
     throw new VizzlyError(
@@ -90,23 +87,28 @@ export async function resolveUploadDestination(config) {
   result.uploadPermission = 'granted';
   result.matches =
     !result.configured ||
-    (result.configured.organizationSlug === result.effective.organizationSlug &&
-      result.configured.projectSlug === result.effective.projectSlug);
+    (result.configured.projectId
+      ? result.configured.projectId === context.project.id
+      : result.configured.organizationSlug ===
+          result.effective.organizationSlug &&
+        result.configured.projectSlug === result.effective.projectSlug);
   return result;
 }
 
 export async function requireUploadDestination(config) {
   let destination = await resolveUploadDestination(config);
   if (!destination.effective) {
+    if (destination.credential?.source === 'user')
+      throw projectLinkRequired(config);
     throw new VizzlyError(
-      'Log in and choose an upload destination with vizzly project link <org>/<project>, or set VIZZLY_TOKEN.',
-      'UPLOAD_PROJECT_REQUIRED'
+      'Log in with vizzly login or set VIZZLY_TOKEN before uploading.',
+      'LOGIN_REQUIRED'
     );
   }
   requireCredentialScope(destination.credential, 'builds:write');
   if (!destination.matches) {
     throw new VizzlyError(
-      `Upload token targets ${destination.effective.organizationSlug}/${destination.effective.projectSlug}, but this checkout is configured for ${destination.configured.organizationSlug}/${destination.configured.projectSlug}. Remove the token override or link the intended project before uploading.`,
+      `Upload token targets ${projectLabel(destination.effective)}, but this checkout is configured for ${projectLabel(destination.configured)}. Remove the token override or link the intended project before uploading.`,
       'UPLOAD_PROJECT_MISMATCH'
     );
   }

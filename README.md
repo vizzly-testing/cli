@@ -85,27 +85,48 @@ pnpm exec vizzly projects --org your-org
 pnpm exec vizzly builds --project your-project --org your-org
 ```
 
-Browsing doesn't change your checkout's upload destination. When you're ready
-to upload, choose a project interactively or supply its qualified name:
+Choose a project once from the app directory:
 
 ```bash
 pnpm exec vizzly project link
 # Or: pnpm exec vizzly project link your-org/your-project
+pnpm exec vizzly builds
 pnpm exec vizzly project status
 pnpm exec vizzly run "pnpm test"
 ```
 
+Linking saves `vizzly.project.json` in that directory. Commit it so teammates,
+CI, and agents use the same project. It contains the API origin and stable
+project ID, with no credentials. Project renames won't break the link.
+Capture settings stay in your existing Vizzly config.
+
+In a monorepo, link each app separately:
+
+```bash
+pnpm exec vizzly project link your-org/web --directory apps/web
+pnpm exec vizzly project link your-org/docs --directory apps/docs
+cd apps/web
+pnpm exec vizzly builds
+```
+
+Commands find the link from nested source folders. They stop at a nearer
+package or Git boundary, so an unlinked package won't use another app's project.
+A workspace root requires an explicit `--directory .` when linking.
+Agents can supply a qualified name or save a known project UUID offline:
+
+```bash
+pnpm exec vizzly project link <project-uuid> --directory apps/web --json
+```
+
 `vizzly login` opens browser consent so you can choose read, build/upload, review,
 and comment permissions. Your login can perform those actions within your current
-project access. Linking saves the destination in your checkout; it does not issue
-another credential. Replace `"pnpm test"` with your test command.
+project access. Linking doesn't issue a credential or grant access. A known UUID
+can be saved before login; the server checks access when you use it.
 
-If you linked with an older CLI, run `project link` once in each repository to
-save its project selection. Handwritten config may need a manual edit; the
-command prints what to add. Explicit `--token` and `VIZZLY_TOKEN` still work.
-Before an upload, Vizzly checks the token's project and shows the destination.
-If it conflicts with your checkout's configured project, fix the binding or
-remove the token override before uploading.
+Explicit `--token` and `VIZZLY_TOKEN` still take precedence. Before uploading,
+Vizzly checks that the token's project matches the directory link. The link never
+changes the API server used for credentials. If you use a development API, select
+it with `VIZZLY_API_URL` when linking and when running commands.
 
 An explicit token can expose fewer projects than your user account. Use
 `--auth user` to browse with your saved login while keeping that upload token:
@@ -273,7 +294,7 @@ with `pnpm exec` when Vizzly is installed locally.
 | --- | --- |
 | `vizzly init` | Walk through setup. Use `--quick` to create config without questions. |
 | `vizzly config [key]` | Show your current config. |
-| `vizzly project link [org/project]` | Choose this checkout's upload project; omit the name for a picker. |
+| `vizzly project link [org/project-or-UUID]` | Save this directory's project; omit the name for a picker. Use `--directory` for another app. |
 | `vizzly project status` | Show the configured and effective upload destinations. |
 | `vizzly orgs` | List your organizations. |
 | `vizzly projects` | List projects you can access. |

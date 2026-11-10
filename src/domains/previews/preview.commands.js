@@ -355,7 +355,11 @@ export async function previewCommand(
     }
 
     // Load configuration
-    let allOptions = { ...globalOptions, ...options };
+    let allOptions = {
+      ...globalOptions,
+      ...options,
+      _ignoreProjectBinding: true,
+    };
     let config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token (skip for dry-run)

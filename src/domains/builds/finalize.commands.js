@@ -1,3 +1,4 @@
+import { projectSelectionErrorDetails } from '../projects/project.serializers.js';
 /**
  * Finalize command implementation
  * Uses functional API operations directly
@@ -158,7 +159,11 @@ export async function finalizeCommand(
       };
     }
 
-    output.error('Failed to finalize parallel build', error);
+    output.error(
+      'Failed to finalize parallel build',
+      error,
+      projectSelectionErrorDetails(error)
+    );
     exit(1);
     return { success: false, error };
   } finally {

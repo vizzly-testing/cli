@@ -1,3 +1,4 @@
+import { projectSelectionErrorDetails } from '../projects/project.serializers.js';
 /**
  * Comparisons command - query and search comparisons
  */
@@ -8,6 +9,10 @@ import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.
 import { resolveCredential } from '../auth/credential.service.js';
 import { getBuild as defaultGetBuild } from '../builds/build.service.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
+import {
+  projectSelectionExplanation,
+  resolveProjectSelection,
+} from '../projects/project-selection.service.js';
 import {
   getComparison as defaultGetComparison,
   searchComparisons as defaultSearchComparisons,
@@ -48,7 +53,11 @@ export async function comparisonsCommand(
 
   try {
     // Load configuration with CLI overrides
-    let allOptions = { ...globalOptions, ...options };
+    let allOptions = {
+      ...globalOptions,
+      ...options,
+      _ignoreProjectBinding: Boolean(options.id || options.build),
+    };
     let config = await loadConfig(globalOptions.config, allOptions);
 
     let credential = resolveCredential(config, {
@@ -137,11 +146,17 @@ export async function comparisonsCommand(
 
     // Search comparisons by name across builds
     if (options.name) {
+      let projectSelection = resolveProjectSelection(config, {
+        ...allOptions,
+        credential,
+      });
+      if (projectSelection && !globalOptions.json) {
+        output.hint(projectSelectionExplanation(projectSelection));
+      }
       output.startSpinner('Searching comparisons...');
       let filters = {
         branch: options.branch,
-        project: options.project,
-        organization: options.org,
+        ...projectSelection?.projectQuery,
         limit: options.limit || 50,
         offset: options.offset || 0,
       };
@@ -156,6 +171,7 @@ export async function comparisonsCommand(
 
       if (globalOptions.json) {
         output.data({
+          ...(projectSelection ? { projectSelection } : {}),
           comparisons: comparisons.map(formatComparisonForJson),
           pagination: {
             total: pagination.total,
@@ -190,7 +206,11 @@ export async function comparisonsCommand(
     exit(1);
   } catch (error) {
     output.stopSpinner();
-    output.error('Failed to fetch comparisons', error);
+    output.error(
+      'Failed to fetch comparisons',
+      error,
+      projectSelectionErrorDetails(error)
+    );
     output.cleanup();
     exit(1);
   }

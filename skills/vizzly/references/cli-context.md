@@ -225,3 +225,17 @@ Use `--via-agent <slug>` for another agent or to resolve conflicting markers.
 `VIZZLY_VIA_AGENT` provides an environment override. Explicit flags win.
 Only the reported agent name/slug is sent; session IDs and prompts stay local.
 Do not treat reported disclosure as verified identity or permission to act.
+
+### Directory project selection
+
+Run `vizzly project link <org>/<project> --json` once in the app directory, or
+provide `--directory apps/web` from a monorepo root. A known project UUID can be
+linked offline. This writes `vizzly.project.json`, which is safe to commit and
+contains no credentials. Never guess a project from a single accessible result.
+
+Then use `vizzly builds --json`, comparison name searches, and uploads from that
+app or a nested source folder without repeating project flags. Unlinked packages
+return `PROJECT_LINK_REQUIRED` with recovery arguments. Follow those explicitly;
+ordinary commands never prompt or change the link. Known build/comparison IDs
+work without a directory link. Use `vizzly project status --json` to inspect the
+local destination. The configured API origin must match the link before use.

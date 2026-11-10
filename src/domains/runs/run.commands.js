@@ -22,6 +22,8 @@ import {
 import { createBuildObject as defaultCreateBuildObject } from '../builds/build-info.js';
 import { CONFIG_DEFAULTS } from '../config/config-defaults.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
+import { projectSelectionErrorDetails } from '../projects/project.serializers.js';
+import { projectLabel } from '../projects/project-selection.service.js';
 import {
   getTokenContext as defaultGetTokenContext,
   requireUploadDestination,
@@ -244,7 +246,7 @@ export async function runCommand(
         uploadDestination: destination,
       };
       output.info(
-        `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
+        `Upload destination: ${projectLabel(destination.effective)} (${credentialSourceLabel(destination.credential.source)})`
       );
     }
 
@@ -671,7 +673,7 @@ export async function runCommand(
       errorContext = 'Server startup failed';
     }
 
-    output.error(errorContext, error);
+    output.error(errorContext, error, projectSelectionErrorDetails(error));
     exit(1);
     return { success: false, error };
   } finally {

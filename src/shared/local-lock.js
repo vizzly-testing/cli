@@ -67,7 +67,8 @@ export async function withLocalLock(key, operation, { signal } = {}) {
   let deadline = AbortSignal.timeout(60000);
   let waitingSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
   let identity = createHash('sha256').update(key).digest('hex');
-  let port = 20000 + (Number.parseInt(identity.slice(0, 8), 16) % 40000);
+  // Stay below default ephemeral ranges so outbound clients cannot occupy locks.
+  let port = 20000 + (Number.parseInt(identity.slice(0, 8), 16) % 10000);
   for (let attempts = 0; attempts < 64; attempts++) {
     if (deadline.aborted && !signal?.aborted) {
       throw lockError(

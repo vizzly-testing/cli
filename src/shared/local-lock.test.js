@@ -81,7 +81,7 @@ test('independent callers enter an exclusive operation one at a time', async () 
 test('another Vizzly lock identity on the same port is allowed to finish before acquisition', async () => {
   let key = randomUUID();
   let identity = createHash('sha256').update(key).digest('hex');
-  let port = 20000 + (Number.parseInt(identity.slice(0, 8), 16) % 40000);
+  let port = 20000 + (Number.parseInt(identity.slice(0, 8), 16) % 10000);
   let server = createServer(socket => {
     socket.end(`vizzly-local-lock-v1 ${'0'.repeat(64)}\n`);
     server.close();
@@ -126,4 +126,29 @@ test('an acquisition deadline leaves the current owner in control of its operati
   release();
   await owner;
   assert.equal(ownerFinished, true);
+});
+
+// This key previously selected 36350, within Linux's outbound port range.
+test('an occupied outbound-range port cannot prevent a local operation', async t => {
+  let connections = 0;
+  let service = createServer(socket => {
+    connections++;
+    socket.end('unrelated service\n');
+  });
+  try {
+    service.listen(36350, '127.0.0.1');
+    await once(service, 'listening');
+    t.after(() => new Promise(resolve => service.close(resolve)));
+  } catch (error) {
+    // An already occupied port provides the same regression scenario.
+    if (error.code !== 'EADDRINUSE') throw error;
+  }
+  assert.equal(
+    await withLocalLock(
+      'outgoing-connection-lock-regression',
+      async () => 'acquired'
+    ),
+    'acquired'
+  );
+  assert.equal(connections, 0);
 });

@@ -3,9 +3,11 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      # Check every day, including weekends.
-      interval: "cron"
-      cronjob: "17 9 * * *"
+      # Routine updates run weekly; security updates run independently.
+      interval: "weekly"
+      day: "monday"
+      time: "09:17"
+      timezone: "Etc/UTC"
     commit-message:
       prefix: "⬆️"
     # Ember's build plugins still require Babel 7. Review Babel majors together
@@ -26,17 +28,20 @@ updates:
         patterns:
           - "*"
       dependencies:
+        applies-to: version-updates
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
       major-dependencies:
+        applies-to: version-updates
         patterns:
           - "*"
         update-types:
           - "major"
-    open-pull-requests-limit: 20
+    # One routine PR per group; security PRs have a separate GitHub limit.
+    open-pull-requests-limit: 2
     cooldown:
       semver-major-days: 30
       semver-minor-days: 14

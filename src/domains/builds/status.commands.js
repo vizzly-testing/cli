@@ -370,7 +370,11 @@ export async function statusCommand(
 
   try {
     // Load configuration with CLI overrides
-    let allOptions = { ...globalOptions, ...options };
+    let allOptions = {
+      ...globalOptions,
+      ...options,
+      _ignoreProjectBinding: true,
+    };
     let config = await loadConfig(globalOptions.config, allOptions);
 
     // Validate API token

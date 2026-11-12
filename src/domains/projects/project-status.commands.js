@@ -3,15 +3,13 @@ import { resolveCredential } from '../auth/credential.service.js';
 import { credentialSourceLabel } from '../auth/credential-presentation.js';
 import { loadConfig } from '../config/config-loader.js';
 import {
+  projectLabel,
+  resolveProjectSelection,
+} from './project-selection.service.js';
+import {
   resolveUploadDestination,
   uploadDestinationInfo,
 } from './upload-destination.service.js';
-
-function projectLabel(project) {
-  return project
-    ? `${project.organizationSlug}/${project.projectSlug}`
-    : 'none';
-}
 
 export async function projectStatusCommand(_options = {}, globalOptions = {}) {
   output.configure({ json: globalOptions.json, color: !globalOptions.noColor });
@@ -25,7 +23,8 @@ export async function projectStatusCommand(_options = {}, globalOptions = {}) {
         throw error;
       destination = {
         apiUrl: config.apiUrl,
-        configured: config.project || null,
+        configured: config._directoryProject?.binding || config.project || null,
+        projectSelection: resolveProjectSelection(config, { required: false }),
         effective: null,
         credential: resolveCredential(config, { allowNoToken: true }),
         status: 'unverified',
@@ -65,9 +64,11 @@ export async function projectStatusCommand(_options = {}, globalOptions = {}) {
         output.warn(
           'The upload token does not match this checkout. Uploads will fail until corrected.'
         );
-      if (!destination.effective)
+      if (!destination.effective && !destination.configured)
         output.hint('Choose uploads: vizzly project link');
-      output.hint('Browse projects: vizzly projects --auth user');
+      if (destination.projectSelection?.path)
+        output.labelValue('Link file', destination.projectSelection.path);
+      output.hint('Browse projects: vizzly projects');
     }
     output.cleanup();
   } catch (error) {

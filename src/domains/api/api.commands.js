@@ -152,7 +152,11 @@ export async function apiCommand(
 
   try {
     // Load configuration
-    let allOptions = { ...globalOptions, ...options };
+    let allOptions = {
+      ...globalOptions,
+      ...options,
+      _ignoreProjectBinding: true,
+    };
     let config = await loadConfig(globalOptions.config, allOptions);
 
     let credentialConfig =

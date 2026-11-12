@@ -15,7 +15,7 @@ async function projectPickerFixture(t) {
   let cwd = await fixture(t);
   let calls = [];
   let projects = Array.from({ length: 11 }, (_, index) => ({
-    id: `project-${index}`,
+    id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
     name: `App ${index}`,
     slug: 'web',
     organizationSlug: index === 10 ? 'studio' : `team-${index}`,
@@ -80,11 +80,15 @@ ptyTest(
         '/api/sdk/projects?limit=10&offset=10',
       ]
     );
-    let { default: config } = await import(path.join(cwd, 'vizzly.config.js'));
-    assert.deepEqual(config.project, {
-      organizationSlug: 'studio',
-      projectSlug: 'web',
+    let binding = JSON.parse(
+      await readFile(path.join(cwd, 'vizzly.project.json'), 'utf8')
+    );
+    assert.deepEqual(binding, {
+      version: 1,
+      apiOrigin: environment.VIZZLY_API_URL,
+      projectId: '00000000-0000-4000-8000-000000000011',
     });
+    assert.deepEqual(await readdir(cwd), ['user-state', 'vizzly.project.json']);
   }
 );
 

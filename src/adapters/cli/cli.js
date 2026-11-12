@@ -627,7 +627,10 @@ let setupCommand = findRequestedCommand(
 )?.name;
 let needsRuntimeBootstrap = !['init', 'project'].includes(setupCommand);
 if (needsRuntimeBootstrap) {
-  let config = await loadConfig(configPath, { token: tokenArg });
+  let config = await loadConfig(configPath, {
+    token: tokenArg,
+    _ignoreProjectBinding: true,
+  });
   let services = createServices(config);
   let pluginServices = createPluginServices(services);
   try {
@@ -1386,9 +1389,10 @@ projectCommand
 
 projectCommand
   .command('link [selector]')
-  .description('Link a Vizzly project for cloud uploads')
+  .description('Save the Vizzly project for this directory')
   .option('--org <slug>', 'Organization slug')
   .option('--project <slug>', 'Project slug')
+  .option('--directory <path>', 'Directory that owns this project destination')
   .addHelpText(
     'after',
     `
@@ -1396,10 +1400,13 @@ Examples:
   $ vizzly project link                     # Choose from accessible projects
   $ vizzly project link vizzly/storybook
   $ vizzly project link --org vizzly --project storybook
+  $ vizzly project link vizzly/web --directory apps/web
+  $ vizzly project link <project-uuid>      # Save locally without signing in
 
-Sign in to use the picker. An explicit org/project can be saved before login.
-Linking saves the upload destination for this checkout. Your selected login
-permissions control which actions are allowed.
+Sign in or set VIZZLY_TOKEN to choose from accessible projects.
+Linking saves vizzly.project.json in the nearest package directory. Commit it
+to share the destination. In a monorepo, select the package with --directory.
+Your selected credentials control which actions are allowed.
 `
   )
   .action(async (selector, options) => {

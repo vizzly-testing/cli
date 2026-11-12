@@ -21,7 +21,10 @@ function runProcess(command, args) {
 }
 
 export async function connectProject(options) {
-  let config = await loadConfig(options.config, options);
+  let config = await loadConfig(options.config, {
+    ...options,
+    _ignoreProjectBinding: true,
+  });
   let selected;
   try {
     selected = await pickProject(config, options);
@@ -34,11 +37,14 @@ export async function connectProject(options) {
       '--api-url',
       config.apiUrl,
     ]);
-    config = await loadConfig(options.config, options);
+    config = await loadConfig(options.config, {
+      ...options,
+      _ignoreProjectBinding: true,
+    });
     selected = await pickProject(config, options);
   }
   if (!selected) return { status: 'cancelled' };
-  let project = `${selected.organizationSlug}/${selected.projectSlug}`;
+  let project = selected.projectId;
   let result = await projectLinkCommand(project, {}, options, {
     exit: code => {
       process.exitCode = code;

@@ -1,24 +1,14 @@
 import * as output from '../../shared/output.js';
 import { createPrompts } from '../../shared/terminal-prompts.js';
-import { createApiClient } from '../auth/cloud-client.js';
-import { requireCredentialScope } from '../auth/credential.rules.js';
-import { resolveCredential } from '../auth/credential.service.js';
+import { credentialInfo } from '../auth/credential.rules.js';
+import { showCredential } from '../auth/credential-presentation.js';
 import { discoverProjects } from './discovery.service.js';
+import { createProjectSelectionClient } from './link-target.service.js';
 
 /** A paged selection; selecting a project does not link or issue credentials. */
 export async function pickProject(config, options = {}, prompts = null) {
-  let credential = resolveCredential(config, {
-    ...options,
-    auth: options.token ? 'auto' : 'user',
-    command: 'project link',
-  });
-  requireCredentialScope(credential, 'read');
-  let client = createApiClient({
-    baseUrl: config.apiUrl,
-    token: credential.token,
-    credential,
-    command: 'project-link',
-  });
+  let { client, credential } = createProjectSelectionClient(config, options);
+  showCredential(output, credential);
   let reader = prompts || createPrompts();
   let org = options.org;
   let offset = 0;
@@ -63,6 +53,8 @@ export async function pickProject(config, options = {}, prompts = null) {
         : null;
       if (selected) {
         return {
+          projectId: selected.id,
+          auth: credentialInfo(credential),
           organizationSlug: selected.organizationSlug,
           projectSlug: selected.slug,
         };

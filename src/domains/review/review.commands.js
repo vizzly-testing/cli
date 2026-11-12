@@ -30,7 +30,11 @@ function configureOutput(output, globalOptions) {
 }
 
 async function loadReviewConfig({ loadConfig, options, globalOptions }) {
-  let allOptions = { ...globalOptions, ...options };
+  let allOptions = {
+    ...globalOptions,
+    ...options,
+    _ignoreProjectBinding: true,
+  };
   return await loadConfig(globalOptions.config, allOptions);
 }
 

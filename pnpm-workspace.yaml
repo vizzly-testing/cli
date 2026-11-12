@@ -23,11 +23,14 @@ overrides:
 minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
-# These security fixes and their required dependencies are newer than seven days.
+# Allow these exact security fixes and required dependencies without waiting.
 minimumReleaseAgeExclude:
   - '@isaacs/nonrecursive-glob-match@1.0.3'
   - body-parser@2.4.0
   - fast-uri@3.1.9
+  # Parser CPU-exhaustion fix (GHSA-474x-hrwr-fgx4) and its required dependency.
+  - fast-xml-parser@5.12.0
+  - is-unsafe@2.0.3
   - glob@14.0.2
   - minimatch@11.0.4
   - path-scurry@3.0.0

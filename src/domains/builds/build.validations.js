@@ -1,3 +1,21 @@
+/** Return input guidance when a cloud build ID is not a UUID. */
+export function getBuildIdValidationError(buildId) {
+  if (
+    typeof buildId === 'string' &&
+    buildId.length === 36 &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      buildId
+    )
+  ) {
+    return null;
+  }
+
+  return (
+    'Build ID must be a UUID. Get an ID from `vizzly builds --json` ' +
+    'and check that a build was returned.'
+  );
+}
+
 /**
  * Validate builds command options
  */

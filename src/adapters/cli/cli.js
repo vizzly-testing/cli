@@ -1049,7 +1049,7 @@ program
     'after',
     `
 Examples:
-  $ vizzly comparisons -b abc123           # List comparisons for a build
+  $ vizzly comparisons -b 73364d47-c49d-41fd-886b-373c59cc6804  # List comparisons for a build
   $ vizzly comparisons --id def456         # Get specific comparison by ID
   $ vizzly comparisons --name "Button"     # Search by screenshot name
   $ vizzly comparisons --name "Login*"     # Wildcard search

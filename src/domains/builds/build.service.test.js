@@ -13,7 +13,11 @@ import {
 
 describe('cloud builds', () => {
   it('creates a build and reads its detail, processing status, and filtered list', async t => {
-    let build = { id: 'build-1', name: 'Checkout', branch: 'feature/cart' };
+    let build = {
+      id: '73364d47-c49d-41fd-886b-373c59cc6804',
+      name: 'Checkout',
+      branch: 'feature/cart',
+    };
     let status = {
       resource: 'build_status',
       processing: { total: 2, completed: 1 },
@@ -73,10 +77,14 @@ describe('cloud builds', () => {
         },
         {
           method: 'GET',
-          url: '/api/sdk/builds/build-1?include=screenshots',
+          url: `/api/sdk/builds/${build.id}?include=screenshots`,
           body: null,
         },
-        { method: 'GET', url: '/api/sdk/builds/build-1/status', body: null },
+        {
+          method: 'GET',
+          url: `/api/sdk/builds/${build.id}/status`,
+          body: null,
+        },
         {
           method: 'GET',
           url: '/api/sdk/builds?branch=feature%2Fcart&status=running&limit=50&offset=0',
@@ -84,6 +92,19 @@ describe('cloud builds', () => {
         },
       ]
     );
+  });
+
+  it('rejects invalid build detail IDs before sending HTTP', async t => {
+    let { client, requests } = await createCloudServer(t, () =>
+      assert.fail('Invalid build IDs must not call the API')
+    );
+    for (let id of [null, undefined, '', 'null', 'undefined', 'build-1', 123]) {
+      await assert.rejects(getBuild(client, id, 'comparisons'), {
+        code: 'VALIDATION_ERROR',
+        message: /Build ID must be a UUID.*vizzly builds --json/,
+      });
+    }
+    assert.deepEqual(requests, []);
   });
 
   it('sends build outcomes, elapsed time, and parallel finalization over HTTP', async t => {

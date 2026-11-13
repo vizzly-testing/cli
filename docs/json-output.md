@@ -889,7 +889,12 @@ counts for this.
 ### Get the latest build ID
 
 ```bash
-build_id=$(vizzly builds --limit 1 --json | jq -r '.data.builds[0].id')
+builds=$(vizzly builds --limit 1 --json) || exit 1
+build_id=$(printf '%s' "$builds" | jq -er \
+  '.data.builds[0].id | select(type == "string" and length > 0)') || {
+  echo "No build ID returned. Check that a build exists before continuing." >&2
+  exit 1
+}
 echo "Latest build: $build_id"
 ```
 

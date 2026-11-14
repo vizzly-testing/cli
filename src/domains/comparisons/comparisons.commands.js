@@ -7,6 +7,7 @@ import { createWildcardMatcher } from '../../shared/patterns.js';
 import { createApiClient as defaultCreateApiClient } from '../auth/cloud-client.js';
 import { resolveCredential } from '../auth/credential.service.js';
 import { getBuild as defaultGetBuild } from '../builds/build.service.js';
+import { getBuildIdValidationError } from '../builds/build.validations.js';
 import { loadConfig as defaultLoadConfig } from '../config/config-loader.js';
 import {
   getComparison as defaultGetComparison,
@@ -517,6 +518,11 @@ function getStatusIcon(colors, status) {
  */
 export function validateComparisonsOptions(options = {}) {
   let errors = [];
+
+  if (options.build !== undefined) {
+    let error = getBuildIdValidationError(options.build);
+    if (error) errors.push(`--build: ${error}`);
+  }
 
   if (
     options.limit !== undefined &&

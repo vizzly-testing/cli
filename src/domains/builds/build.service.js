@@ -1,6 +1,8 @@
 import { readCloudPage } from '../../shared/cloud-pagination.js';
 import { buildEndpointWithParams } from '../../shared/cloud-protocol.js';
+import { ValidationError } from '../../shared/vizzly-error.js';
 import { buildBuildPayload } from './build.serializers.js';
+import { getBuildIdValidationError } from './build.validations.js';
 
 /**
  * Get build information
@@ -10,6 +12,9 @@ import { buildBuildPayload } from './build.serializers.js';
  * @returns {Promise<Object>} Build data
  */
 export async function getBuild(client, buildId, include = null) {
+  let error = getBuildIdValidationError(buildId);
+  if (error) throw new ValidationError(error);
+
   let endpoint = `/api/sdk/builds/${buildId}`;
   if (include) {
     endpoint = buildEndpointWithParams(endpoint, { include });

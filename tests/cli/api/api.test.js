@@ -195,6 +195,44 @@ test('CLI sends decisions using file or stdin JSON and arbitrary documented head
   assert.equal(result.code, 0, result.stderr + result.stdout);
   assert.equal(result.json.data.response.received.decision, 'rejected');
 });
+
+test('API review writes disclose the detected agent and honor an explicit override', async () => {
+  let environment = {
+    CODEX_THREAD_ID: 'private-thread',
+    CODEX_SESSION_ID: '',
+    CLAUDECODE: '0',
+    PI_SESSION_ID: '',
+    GEMINI_CLI: '0',
+    OPENCODE: '0',
+    VIZZLY_VIA_AGENT: '',
+  };
+  for (let [flags, slug, name] of [
+    [[], 'codex', 'Codex'],
+    [['--via-agent', 'pi'], 'pi', 'Pi'],
+  ]) {
+    let result = await cli(
+      [
+        ...flags,
+        'api',
+        '/api/sdk/builds/73364d47-c49d-41fd-886b-373c59cc6804/comments',
+        '-X',
+        'POST',
+        '-d',
+        '{"content":"Review note"}',
+      ],
+      '',
+      environment
+    );
+
+    assert.equal(result.code, 0, result.stderr + result.stdout);
+    assert.deepEqual(result.json.data.response.received, {
+      content: 'Review note',
+      via: { type: 'agent', slug, name, version: null },
+    });
+    assert.doesNotMatch(result.stdout, /private-thread/);
+  }
+});
+
 test('image output writes real bytes without overwriting an existing file', async () => {
   let path = join(directory, 'image.png');
   let result = await cli(['api', '/api/image', '--output', path]);

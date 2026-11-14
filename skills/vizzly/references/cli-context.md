@@ -103,11 +103,12 @@ ID and the exact body for a retry of the same action. Writes aren't automaticall
 replayed. If the outcome is uncertain, read the review state before retrying;
 reread on a conflict.
 
-The generic API command sends the body you supply. It doesn't add the dedicated
-review commands' automatic agent disclosure. Include the schema's `via` object
-for an agent-assisted write, such as
-`{"type":"agent","slug":"codex","name":"Codex"}`. The authenticated user stays
-the author; disclosure doesn't grant permission or verify an agent's identity.
+Review and comment POSTs disclose recognized agents automatically, including
+requests made through `vizzly api`. Use `--via-agent <slug>` or `VIZZLY_VIA_AGENT`
+to identify another agent or resolve conflicting markers. If you supply `via`
+in the body, it must match the detected agent unless you choose an override.
+The authenticated user stays the author; disclosure doesn't grant permission
+or verify an agent's identity. Other API requests keep their supplied bodies.
 
 Screenshot comments use the chosen layer's bitmap pixels from its top-left.
 Current and diff use current-image pixels; baseline uses its own image, which

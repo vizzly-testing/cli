@@ -5,16 +5,18 @@ can cause diffs. Check the images before deciding that's what happened.
 
 ## Check before changing settings
 
-1. Open the images and check the screenshot's history across cloud builds, or
-   its latest local capture:
+1. Open the current and baseline images. Discover cloud captures through the
+   API, or inspect the latest saved local comparison:
 
    ```bash
-   vizzly comparisons --name "<screenshot-name>" --json
-   vizzly tdd screenshots show "<screenshot-name>" --json
+   vizzly api schema sdk.listBuildScreenshots --json
+   vizzly api schema sdk.getComparisonImage --json
+   vizzly tdd screenshots show <comparison-id> --image all --json
    ```
 
-2. Note where the change appears, how often it happens, the capture details,
-   and whether it appears in other builds or variants.
+2. Follow the discovered paths to inspect relevant captures. Note where the
+   change appears, how often it happens, the capture details, and whether it
+   appears in other builds or variants. See [CLI evidence](cli-context.md).
 3. Use fixed test data when it can remove changes unrelated to the test.
 4. Use diff regions to find changed pixels. They don't tell you why the pixels
    changed or whether to approve them.

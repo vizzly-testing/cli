@@ -25,7 +25,8 @@ vizzly finalize "<shared-ci-run-id>" --json
 ## Troubleshoot
 
 - `vizzly doctor`: check local config.
-- `vizzly status <build-id> --json`: check cloud build status.
+- `vizzly api schema sdk.getBuildStatus --json`: discover the cloud build's
+  processing and review status request, then call its path with `vizzly api`.
 - `vizzly api schema --json`: find cloud review requests and their inputs
   and outputs.
 

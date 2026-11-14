@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { parseJSONOutput, runCLI } from '../../helpers/cli-runner.js';
 
+let buildId = '73364d47-c49d-41fd-886b-373c59cc6804';
+let previewUrl = `https://preview.test/${buildId}`;
+
 function createWorkspace() {
   return mkdtempSync(join(tmpdir(), 'vizzly-cli-preview-'));
 }
@@ -33,7 +36,7 @@ describe('commands/preview CLI', () => {
       'preview',
       './missing-preview-dir',
       '--build',
-      'build-123',
+      buildId,
     ]);
 
     assert.strictEqual(result.code, 1);
@@ -56,7 +59,7 @@ describe('commands/preview CLI', () => {
         'preview',
         previewDir,
         '--build',
-        'build-123',
+        buildId,
         '--dry-run',
       ],
       { cwd: workspace }
@@ -85,7 +88,7 @@ describe('commands/preview CLI', () => {
 
     await withPreviewApiServer(async ({ apiUrl, requests }) => {
       let result = await runCLI(
-        ['--no-color', '--json', 'preview', previewDir, '--build', 'build-123'],
+        ['--no-color', '--json', 'preview', previewDir, '--build', buildId],
         {
           cwd: workspace,
           env: {
@@ -101,11 +104,8 @@ describe('commands/preview CLI', () => {
       let payload = JSON.parse(result.stdout);
       assert.strictEqual(payload.status, 'data');
       assert.strictEqual(payload.data.success, true);
-      assert.strictEqual(payload.data.buildId, 'build-123');
-      assert.strictEqual(
-        payload.data.previewUrl,
-        'https://preview.test/build-123'
-      );
+      assert.strictEqual(payload.data.buildId, buildId);
+      assert.strictEqual(payload.data.previewUrl, previewUrl);
       assert.strictEqual(payload.data.files, 2);
       assert.ok(requests[1].body.includes('index.html'));
       assert.ok(requests[1].body.includes('assets/app.js'));
@@ -113,8 +113,8 @@ describe('commands/preview CLI', () => {
       assert.deepStrictEqual(
         requests.map(request => `${request.method} ${request.url}`),
         [
-          'GET /api/sdk/builds/build-123',
-          'POST /api/sdk/builds/build-123/preview/upload-zip',
+          `GET /api/sdk/builds/${buildId}`,
+          `POST /api/sdk/builds/${buildId}/preview/upload-zip`,
         ]
       );
       assert.match(requests[1].contentType, /multipart\/form-data/);
@@ -134,16 +134,16 @@ async function withPreviewApiServer(callback) {
     });
     res.setHeader('content-type', 'application/json');
 
-    if (req.method === 'GET' && req.url === '/api/sdk/builds/build-123') {
+    if (req.method === 'GET' && req.url === `/api/sdk/builds/${buildId}`) {
       return respond(res, { project: { isPublic: true } });
     }
 
     if (
       req.method === 'POST' &&
-      req.url === '/api/sdk/builds/build-123/preview/upload-zip'
+      req.url === `/api/sdk/builds/${buildId}/preview/upload-zip`
     ) {
       return respond(res, {
-        previewUrl: 'https://preview.test/build-123',
+        previewUrl,
         uploaded: 2,
         totalBytes: body.length,
         newBytes: body.length,

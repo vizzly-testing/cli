@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { runCLI } from '../../helpers/cli-runner.js';
 
+let buildId = '73364d47-c49d-41fd-886b-373c59cc6804';
+
 function createWorkspace() {
   return mkdtempSync(join(tmpdir(), 'vizzly-cli-run-'));
 }
@@ -33,8 +35,7 @@ async function withApiServer(callback, options = {}) {
     waitStatusCode = 200,
     waitBuildState = 'completed',
   } = options;
-  let buildId = 'build-123';
-  let buildUrl = 'http://app.test/org/project/builds/build-123';
+  let buildUrl = `http://app.test/org/project/builds/${buildId}`;
   let requests = [];
   let buildReadCount = 0;
   let server = createServer(async (req, res) => {
@@ -171,14 +172,16 @@ describe('commands/run CLI', () => {
           request => request.method === 'PUT'
         );
         assert.equal(finalizations.length, 1);
-        assert.equal(finalizations[0].url, '/api/sdk/builds/build-123/status');
+        assert.equal(finalizations[0].url, `/api/sdk/builds/${buildId}/status`);
         assert.equal(finalizations[0].json.status, 'failed');
         assert.match(finalizations[0].json.failureReason, /already in use/);
         assert.equal(typeof finalizations[0].json.executionTimeMs, 'number');
         let payload = parseSingleJson(result.stdout);
         assert.equal(payload.data.exitCode, scenario.testExit);
         if (scenario.finalizationStatus !== 200) {
-          assert.match(result.stderr, /Failed to finalize build build-123/);
+          assert.ok(
+            result.stderr.includes(`Failed to finalize build ${buildId}`)
+          );
         }
       }, scenario);
     });
@@ -248,7 +251,7 @@ describe('commands/run CLI', () => {
       let payload = parseSingleJson(result.stdout);
       assert.strictEqual(payload.status, 'data');
       assert.strictEqual(payload.data.status, 'completed');
-      assert.strictEqual(payload.data.buildId, 'build-123');
+      assert.strictEqual(payload.data.buildId, buildId);
       assert.strictEqual(payload.data.comparisons.total, 0);
       assert.equal(
         requests.find(
@@ -262,9 +265,9 @@ describe('commands/run CLI', () => {
         [
           'GET /api/sdk/token/context',
           'POST /api/sdk/builds',
-          'GET /api/sdk/builds/build-123',
-          'PUT /api/sdk/builds/build-123/status',
-          'GET /api/sdk/builds/build-123',
+          `GET /api/sdk/builds/${buildId}`,
+          `PUT /api/sdk/builds/${buildId}/status`,
+          `GET /api/sdk/builds/${buildId}`,
         ]
       );
     });

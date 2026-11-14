@@ -1,12 +1,12 @@
 # CLI evidence
 
-Use the repo's usual CLI command and existing credentials. If cloud auth isn't
-available, report it. Only start an interactive login when setup is part of
-the task.
+Use the repository's CLI invocation and existing credentials. Cloud evidence
+comes from `vizzly api`; saved local comparisons come from `vizzly tdd screenshots`.
+The API command targets the configured cloud server, not the local TDD server.
 
 ## Query the cloud API
 
-Check the live API schema for endpoints and options:
+Discover the requests supported by this server before choosing a path:
 
 ```bash
 vizzly api schema --json
@@ -15,103 +15,115 @@ vizzly api schema <operation-id> -q view=fields --json
 vizzly api schema <operation-id> -q view=response --json
 ```
 
-The index lists available requests. Each operation shows the method, path,
-parameters, auth, and example arguments. Ask for field choices or response types
-as needed. API results are under `data.response`.
+Use the returned method, path, headers, parameters, and body with `vizzly api`.
+Replace path placeholders with actual IDs. Include the API version header from
+discovery; the CLI doesn't add it. Treat `example.argv` as an argument array,
+not a shell script. API payloads are under `data.response`, inside the CLI's
+`status: "data"` envelope. Check the exit code before consuming a result.
 
-Call the returned path with `vizzly api <path>`. Use `-X` for the method, `-H`
-for headers, and `-q` for query parameters. Include the API version header from
-the schema on data requests. Use `fields` to ask for just the data you need.
+Useful operations to look for in the index:
 
-The CLI fetches one page per request. Use the response's page fields to get
-more results. Pass cursors back unchanged and keep the same query.
+| Evidence | Operation |
+| --- | --- |
+| Accessible projects | `sdk.listProjects` |
+| Builds matching a project, branch, or environment | `sdk.listBuilds` |
+| Processing progress and review outcome | `sdk.getBuildStatus` |
+| All captures in a build | `sdk.listBuildScreenshots` |
+| Current review state | `visualReview.show` |
+| One capture's image | `sdk.getScreenshotImage` |
+| Current, baseline, or diff image | `sdk.getComparisonImage` |
+| Paged changed regions or full analysis | `sdk.getComparisonRegions`, `sdk.getComparisonAnalysis` |
+| Review discussion | `sdk.listBuildComments`, `sdk.listScreenshotComments` |
 
-To review a build, find the project and build, then check its screenshots,
-comparisons, and image endpoints. Download images with `--output <new-file>`
-and view the baseline, current, and diff together. File output also helps with
-large analysis results. Existing files won't be overwritten. Export the full
-schema only when needed:
+These are discovery hints. Use the current index and each operation's contract
+if a name, field, permission, or endpoint differs.
+
+Use a build supplied by the task. Otherwise, find the project and a build whose
+branch, commit, or pull request matches the work. Keep missing values unknown.
+Build completion and review approval are separate facts.
+
+List the build's screenshots before inspecting individual comparisons. A capture
+can have a null `comparison_id` while processing, or after a failure. Use the
+screenshot's own image request when there is no comparison; never put `null` or
+`undefined` into a comparison path.
+
+The API returns one page per request. Follow that operation's page fields:
+build lists use `meta`, screenshot lists use `page`, and region lists use cursors.
+Keep filters and page size unchanged when continuing. Inspect the captures that
+matter to the task; the first record isn't necessarily the most useful.
+
+## Inspect images and details
+
+Download images with `--output <new-file>`. Existing files aren't overwritten.
+Open current, baseline, and diff together when available. A new capture may have
+no baseline; an identical capture may have no diff. Report which images you
+actually inspected, and call a result metadata-only if no image could be opened.
+
+Discover regions and analysis only when images don't answer the question:
+
+```bash
+vizzly api schema sdk.getComparisonRegions --json
+vizzly api schema sdk.getComparisonAnalysis --json
+```
+
+Use `--output <new-file>` for full analysis. Compare measurements with the images;
+don't infer a visual cause from percentages or region counts alone. An unavailable
+analysis artifact doesn't mean the screenshot passed.
+
+Export the full schema only when needed:
 
 ```bash
 vizzly api schema --full --output <new-file> --json
 ```
 
-Review decisions need the user's authorization, user credentials, and the
-organization header listed in the schema. Check the decision request's body
-before sending it with `-d @<file>` or `-d @-` for stdin. Make a fresh `commandId`
-for each intended decision, then read back the review state. Writes aren't
-retried automatically. If you're unsure whether one succeeded, check the state
-before trying again. Treat schema examples as argument arrays, not shell scripts.
+## Credentials and authorized writes
 
-## Choose the evidence
+Schema discovery works without login. Ordinary API reads need credentials for
+the operation. `--auth user` selects the saved login; `--auth token` selects a
+project token. Explicit flag/env/config credentials win in `auto` mode. Don't
+combine `--auth user` with `--token`, change the upload binding to browse another
+project, or print tokens. Report missing authentication; start a login only when
+setup is in scope. `vizzly whoami --json` reports granted scopes.
 
-Discover accessible organizations and projects before guessing a destination:
-
-```bash
-vizzly orgs --auth user --json
-vizzly projects --auth user --json
-vizzly builds --auth user --project <project-slug> --org <org-slug> --json
-```
-
-These reads don't require linking a checkout. `--auth user` selects the saved
-login even when the repo launcher exports a project token. A project token sees
-only its own project. In `auto` mode, explicit flag/env/config credentials win
-over a saved login; a saved login wins over an implicit linked upload credential.
-Use `--auth token` to deliberately inspect the token's view. Don't combine
-`--auth user` with `--token`.
-
-Follow `pagination.nextOffset` when `pagination.hasMore` is true. A list command
-returns one logical page; large limits can require several bounded API requests.
-If the next offset is null while more results exist, narrow your filters to stay
-within the API's offset limit. An expired selected login is refreshed automatically;
-a rejected session asks for login. Report the recovery action when interactive
-login isn't authorized. Network failures preserve the session. `whoami` reports
-granted scopes: reads require `read`, uploads require `builds:write`, review
-decisions require `reviews:write`, and comments require `comments:write`. A scope
-denial requires explicit user consent for additional permissions, not repeated
-refreshes or a different identity.
-
-`vizzly project status --json` describes configured and effective upload
-destinations separately. Use `project link` only when setup or changing the
-upload destination is authorized. It saves the destination without issuing a credential.
-The selected login can upload when it has `builds:write`; explicit project tokens
-remain the automation path. Browsing another project must not change that binding.
-
-Use the ID supplied by the task. If no cloud build is named, find recent builds
-and choose the one matching the branch, commit, or pull request:
+For an authorized review decision or comment, discover its schema:
 
 ```bash
-vizzly builds --branch <branch> --limit 5 --json
-vizzly status <build-id> --json
-vizzly comparisons --build <build-id> --json
-vizzly api schema sdk.listBuildScreenshots --json
+vizzly api schema visualReview.comparison.decide --json
+vizzly api schema visualReview.build.decide --json
+vizzly api schema sdk.createScreenshotComment --json
+vizzly api schema sdk.createBuildComment --json
 ```
 
-Use status to check build progress, then read the build's comparisons and
-captures for screenshots and diffs. Keep the API's comparison order and inspect
-the records that matter to the task. The first comparison isn't necessarily the
-most useful.
+Review writes require a user login with the operation's scope. Project tokens
+can't approve, reject, or comment. Include `X-Organization` when the schema
+requires it. Send the body with `-d @request.json` or `-d @-`.
 
-For saved local results:
+Use a fresh UUID `commandId` for each intended action that supports it. Keep that
+ID and the exact body for a retry of the same action. Writes aren't automatically
+replayed. If the outcome is uncertain, read the review state before retrying;
+reread on a conflict.
 
-```bash
-vizzly tdd screenshots list --json
-vizzly tdd screenshots list --status failed --json
-vizzly tdd screenshots show "<screenshot-name>" --json
-```
+The generic API command sends the body you supply. It doesn't add the dedicated
+review commands' automatic agent disclosure. Include the schema's `via` object
+for an agent-assisted write, such as
+`{"type":"agent","slug":"codex","name":"Codex"}`. The authenticated user stays
+the author; disclosure doesn't grant permission or verify an agent's identity.
 
-These read the latest saved run. If it may predate your change, generate fresh
-evidence before drawing conclusions.
+Screenshot comments use the chosen layer's bitmap pixels from its top-left.
+Current and diff use current-image pixels; baseline uses its own image, which
+may have a different height. Use image dimensions rather than viewport size.
+Replies inherit their thread's layer and location. Check the schema for region,
+point, and reply fields instead of copying fields from a CLI shortcut.
 
-## Generate fresh evidence
+## Generate fresh local evidence
 
 For one run, let Vizzly start and stop the local server:
 
 ```bash
-vizzly tdd run "<existing visual test command>" --no-open
+vizzly tdd run "<existing visual test command>" --no-open --json
 ```
 
-For repeated runs, start a background server once:
+For repeated runs, start one background server and run the existing tests:
 
 ```bash
 vizzly tdd start --json
@@ -120,108 +132,48 @@ vizzly tdd status --json
 vizzly tdd stop --json
 ```
 
-Choose `tdd run` or `tdd start`. Only stop a server started for this task.
+Use the reported port when one was auto-selected. Only stop a server started
+for this task. Keep the test command's output and exit status: setup, capture,
+comparison, or report errors can fail a visual run even when the tests pass.
 
-## Review a local TDD run
+## Review a saved local TDD run
 
-After `tdd run` exits, read captures from `.vizzly/`. You don't need a running
-server or cloud credentials:
-
-```bash
-vizzly tdd screenshots list --page 1 --page-size 20
-vizzly tdd screenshots latest
-vizzly tdd screenshots show <comparison-id>
-```
-
-`latest` prints the newest current screenshot's path. Use `list` to find a
-specific comparison ID or browser variant. While changing UI, open the current
-image first. Add `--image diff` or `--image all` when you need to compare it.
-Open the printed paths with an image viewer.
-
-`accept` replaces one local baseline and updates the report entry. Use it only
-when the task explicitly authorizes accepting a baseline:
+Read `.vizzly/` from the project directory after the run. No server or cloud
+credentials are needed:
 
 ```bash
-vizzly tdd screenshots accept <comparison-id>
+vizzly tdd screenshots list --page 1 --page-size 20 --json
+vizzly tdd screenshots list --status failed --json
+vizzly tdd screenshots list --status new --json
+vizzly tdd screenshots show <comparison-id> --image all --json
+vizzly tdd screenshots latest "<screenshot-name>" --json
 ```
 
-Don't accept a change just to make a diff disappear.
+`list` returns comparison IDs, status, browser, viewport, current image paths,
+and pagination. Follow `hasNext` with the next `page`, retaining `pageSize` and
+the status filter. A screenshot name may identify several variants; use the
+comparison ID to select one. Local status `failed` means a visual difference,
+while `error` means comparison processing failed.
 
-When the task calls for a cloud build:
+`show` returns comparison facts, local image paths, and saved analysis details.
+The default image is current; `--image all` adds baseline and diff. Check each
+image's `exists` flag and open the files with an image viewer. A null image is
+unavailable, not an invitation to guess its path. `latest` selects the newest
+capture, optionally by exact name; without `--json` it prints only its path.
+
+These commands describe the latest saved report, not cloud history or a project
+review queue. They don't identify the Git commit that produced the captures.
+Generate fresh evidence if the report may predate your change.
+
+Only when accepting a local baseline is part of the task:
 
 ```bash
-vizzly run "<existing visual test command>" --json
-vizzly api schema --json
+vizzly tdd screenshots accept <comparison-id> --json
 ```
 
-To make visual differences fail CI, see the
-[CI guide](ci.md#cloud-ci).
+This copies one current image into its baseline and updates the saved report.
+It doesn't approve a cloud build. Don't accept a change to hide an unexplained
+diff. `vizzly baselines --json` lists the local baseline files and metadata.
 
-## Inspect a comparison
-
-Read the comparison, then find its image request in the schema:
-
-```bash
-vizzly comparisons --id <comparison-id> --json
-vizzly api schema sdk.getComparisonImage --json
-```
-
-Download the current, baseline, and diff images through
-`sdk.getComparisonImage`, using the comparison ID and image kind. Include the
-version header from the schema and use `--output <new-file>` to save each image.
-
-View the available images together. A new capture may have no baseline, and an
-identical capture may have no diff. Report missing or inaccessible images;
-don't invent them. Use `visual_review` on the comparison to check the review
-decision.
-
-Changed regions and full analysis use separate requests. Discover them when
-the images alone don't answer the question:
-
-```bash
-vizzly api schema sdk.getComparisonRegions --json
-vizzly api schema sdk.getComparisonAnalysis --json
-```
-
-Use `--output <new-file>` for full analysis. Compare those details with the
-images and earlier comparisons. Previous decisions can help explain a recurring
-change; they don't decide the current review.
-
-Other useful commands:
-
-```bash
-vizzly comparisons --name "<screenshot-name>" --json
-vizzly comparisons --build <build-id> --status changed --json
-```
-
-Use IDs and page values from the API response. Pass cursors back unchanged,
-keep the same query, and request only what you need. Fetch comments when they
-help explain a review.
-
-
-### Comments and agent disclosure
-
-After the user authorizes a review action, comment on the build or the exact
-screenshot area using IDs from discovery. `--layer current|baseline|diff`
-picks the image you're commenting on and defaults to `current`. Regions use
-that layer's original bitmap pixels, with the origin at its top-left; use the
-image dimensions, not the viewport. Current and diff share the current image's
-pixels, while baseline uses the baseline image, which can be a different
-height. `--point x,y` pins a spot as integer percentages (0-100) instead of a
-region. Replies inherit their thread's layer and location, so omit `--layer`,
-`--region`, and `--point` with `--reply-to`.
-
-```bash
-vizzly comment <build-id> "Navigation overlaps the heading" --screenshot <screenshot-id> --region 20,40,300,80 --json
-vizzly comment <build-id> "Old footer spacing" --screenshot <screenshot-id> --layer baseline --region 40,200,320,120 --json
-vizzly comment <build-id> "Button shifted" --screenshot <screenshot-id> --layer diff --point 50,12 --json
-vizzly comment <build-id> "Follow-up" --screenshot <screenshot-id> --reply-to <comment-id> --json
-```
-
-Review decisions and comments automatically disclose Codex, Claude Code, Pi,
-Gemini CLI or OpenCode when the harness exports its identification variable.
-The logged-in user remains the author; disclosure never grants permissions.
-Use `--via-agent <slug>` for another agent or to resolve conflicting markers.
-`VIZZLY_VIA_AGENT` provides an environment override. Explicit flags win.
-Only the reported agent name/slug is sent; session IDs and prompts stay local.
-Do not treat reported disclosure as verified identity or permission to act.
+For cloud capture, use the repository's existing `vizzly run` workflow and then
+discover its results with `vizzly api schema`. See the [CI guide](ci.md#cloud-ci).

@@ -36,14 +36,15 @@ Use `vizzly tdd screenshots ... --json` for saved local evidence.
    vizzly tdd screenshots list --json
    ```
 
-3. Confirm the build, source, branch, timestamps, baseline, review state, and
-   pagination before drawing conclusions. Follow the schema's page instructions
-   for cloud data. Missing fields remain unknown.
+3. For cloud data, confirm the build, branch, timestamps, baseline, review state,
+   and pagination from the response. Follow the schema's page instructions.
+   Local screenshot commands read the latest saved report; they don't establish
+   which Git commit produced it. Rerun the visual tests when freshness is unclear.
 4. For cloud data, discover the comparison and image operations from the schema.
    View the current image with the baseline and diff when they're available.
    A new screenshot may have no baseline or diff. Say which images you inspected;
    if you couldn't open any images, label the result metadata-only.
-5. Read image dimensions, viewport, browser, diff regions, and relevant history
+5. Read image dimensions, viewport, browser, diff regions, and available history
    alongside the images. A prior approval is supporting evidence, not permission
    to approve the current comparison.
 6. State observations before possible causes. Make the smallest justified

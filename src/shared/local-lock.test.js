@@ -81,7 +81,7 @@ test('independent callers enter an exclusive operation one at a time', async () 
 test('another Vizzly lock identity on the same port is allowed to finish before acquisition', async () => {
   let key = randomUUID();
   let identity = createHash('sha256').update(key).digest('hex');
-  let port = 20000 + (Number.parseInt(identity.slice(0, 8), 16) % 40000);
+  let port = 20000 + (Number.parseInt(identity.slice(0, 8), 16) % 10000);
   let server = createServer(socket => {
     socket.end(`vizzly-local-lock-v1 ${'0'.repeat(64)}\n`);
     server.close();

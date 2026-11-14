@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { createServer as createTcpServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -314,6 +316,54 @@ test('CLI refreshes a read once but never replays generic writes', async () => {
     assert.equal(requests.length, before + 1);
   }
 });
+
+test('CLI refresh succeeds when a local service occupies the former auth lock port', async t => {
+  let home;
+  let occupied = createTcpServer(socket => {
+    socket.end('unrelated local service\n');
+  });
+  for (let index = 0; ; index++) {
+    home = join(directory, `port-collision-${index}`);
+    let key = `vizzly-auth|${process.getuid?.() ?? 'user'}|${home}|${origin}`;
+    let identity = createHash('sha256').update(key).digest('hex');
+    // Reproduce the old overlap with the OS's HTTP port allocation range.
+    let port = 20000 + (Number.parseInt(identity.slice(0, 8), 16) % 40000);
+    if (port < 32768) continue;
+    try {
+      let ready = once(occupied, 'listening');
+      occupied.listen(port, '127.0.0.1');
+      await ready;
+      break;
+    } catch (error) {
+      if (error.code !== 'EADDRINUSE') throw error;
+    }
+  }
+  t.after(() => new Promise(resolve => occupied.close(resolve)));
+  await saveFixtureAuth(home, origin, {
+    accessToken: 'logged-in-user',
+    refreshToken: 'saved-refresh',
+  });
+
+  let before = requests.length;
+  let result = await cli(['api', '/api/refreshable'], '', {
+    VIZZLY_HOME: home,
+    VIZZLY_TOKEN: '',
+  });
+
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.deepEqual(result.json.data.response.items, ['one']);
+  assert.deepEqual(
+    requests.slice(before).map(({ method, url }) => [method, url]),
+    [
+      ['GET', '/api/refreshable'],
+      ['POST', '/api/auth/cli/refresh'],
+      ['GET', '/api/refreshable'],
+    ]
+  );
+  let saved = await createTokenStore({ apiUrl: origin, home }).getTokens();
+  assert.equal(saved.accessToken, 'refreshed-user');
+});
+
 test('failed image downloads remove partial files and binary output requires a file', async () => {
   let path = join(directory, 'partial.png');
   let result = await cli(['api', '/api/broken-image', '--output', path]);

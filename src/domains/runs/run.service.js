@@ -293,12 +293,13 @@ async function executeDisabledTestRun({ testCommand, json, reason, deps }) {
  * @param {Object} options.runOptions - Run options (testCommand, tdd, etc.)
  * @param {Object} options.config - Configuration object
  * @param {Object} options.deps - Dependencies
+ * @param {Error} [options.setupError] - Credential or project setup failure
  * @returns {Promise<Object>} Test result with cumulative cloud upload results
  * when available. Upload failures alone do not reject the run.
  * @throws {Error} Test execution failure, with upload results attached when
  * available so callers can report both without losing the test exit code.
  */
-export async function runTests({ runOptions, config, deps }) {
+export async function runTests({ runOptions, config, setupError, deps }) {
   let {
     serverManager,
     buildManager,
@@ -325,6 +326,7 @@ export async function runTests({ runOptions, config, deps }) {
 
   // Check if we should skip Vizzly integration entirely
   if (
+    !setupError &&
     shouldDisableVizzly({ allowNoToken, hasApiKey: hasApiKey(config), tdd })
   ) {
     return executeDisabledTestRun({
@@ -343,6 +345,8 @@ export async function runTests({ runOptions, config, deps }) {
 
   let setBaseline;
   try {
+    if (setupError) throw setupError;
+
     buildId = await createBuild({
       runOptions,
       tdd,
@@ -375,7 +379,7 @@ export async function runTests({ runOptions, config, deps }) {
     }
   } catch (error) {
     output.warn(
-      'Vizzly encountered an error. Running tests without visual testing.'
+      `Vizzly encountered an error. Running tests without visual testing.\n${error.getUserMessage ? error.getUserMessage() : error.message}`
     );
     output.debug('run', 'setup failed; disabling Vizzly', {
       error: error.message,

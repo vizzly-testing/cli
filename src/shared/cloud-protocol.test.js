@@ -115,6 +115,22 @@ describe('buildQueryParams', () => {
 });
 
 describe('parseApiError', () => {
+  it('preserves a nested API error message and code', () => {
+    let result = parseApiError(
+      404,
+      JSON.stringify({
+        error: {
+          code: 'ROUTE_NOT_FOUND',
+          message: 'No route for GET /api/sdk/token/context',
+        },
+      }),
+      'http://localhost:3000/api/sdk/token/context'
+    );
+    assert.equal(result.code, 'ROUTE_NOT_FOUND');
+    assert.match(result.message, /No route for GET \/api\/sdk\/token\/context/);
+    assert.doesNotMatch(result.message, /\[object Object\]/);
+  });
+
   it('builds error message with status and body', () => {
     let result = parseApiError(404, 'Not found', 'https://api.test/builds/123');
 

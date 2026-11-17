@@ -10,6 +10,8 @@ import { parseJSONOutput, runCLI } from '../../helpers/cli-runner.js';
 for (let scenario of [
   { json: true, wait: false, status: 400, testExit: 0 },
   { json: true, wait: true, status: 503, testExit: 0 },
+  { json: false, wait: false, status: 500, testExit: 0 },
+  { json: true, wait: false, status: 500, testExit: 7 },
   { json: false, wait: false, status: 400, testExit: 0 },
   { json: true, wait: false, status: 400, testExit: 7 },
 ]) {
@@ -43,7 +45,9 @@ for (let scenario of [
           res.statusCode = scenario.status;
           result = {
             error:
-              'Image dimensions 1×60001 exceed the 60,000-pixel limit per dimension',
+              scenario.status >= 500
+                ? 'Visual service unavailable'
+                : 'Image dimensions 1×60001 exceed the 60,000-pixel limit per dimension',
           };
         } else {
           uploaded.push(body.name);
@@ -132,7 +136,12 @@ for (let scenario of [
       /1 screenshot\(s\) failed to upload/
     );
     assert.match(result.stderr + result.stdout, /Rejected: capture/);
-    assert.match(result.stderr + result.stdout, /60,000-pixel limit/);
+    assert.match(
+      result.stderr + result.stdout,
+      scenario.status >= 500
+        ? /Visual service unavailable/
+        : /60,000-pixel limit/
+    );
     if (scenario.json) {
       let data = parseJSONOutput(result.stdout).find(
         message => message.status === 'data'

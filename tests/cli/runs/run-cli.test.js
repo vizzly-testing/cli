@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -30,6 +30,7 @@ async function getFreePort() {
 
 async function withApiServer(callback, options = {}) {
   let {
+    tokenContextStatus = 200,
     buildCreationStatus = 200,
     finalizationStatus = 200,
     waitStatusCode = 200,
@@ -104,6 +105,18 @@ async function withApiServer(callback, options = {}) {
     }
 
     if (req.method === 'GET' && req.url === '/api/sdk/token/context') {
+      if (tokenContextStatus !== 200) {
+        res.statusCode = tokenContextStatus;
+        res.end(
+          JSON.stringify({
+            error: {
+              code: 'LOOKUP_FAILED',
+              message: 'Project lookup unavailable',
+            },
+          })
+        );
+        return;
+      }
       res.end(
         JSON.stringify({
           organization: { slug: 'org' },
@@ -133,6 +146,162 @@ async function withApiServer(callback, options = {}) {
 }
 
 describe('commands/run CLI', () => {
+  for (let tokenContextStatus of [401, 403, 404, 500, 503]) {
+    for (let scenario of [
+      { json: false, exitCode: 0 },
+      { json: true, exitCode: 0 },
+      { json: true, exitCode: 7 },
+    ]) {
+      it(`runs tests once when project lookup returns ${tokenContextStatus}, preserving exit ${scenario.exitCode}`, async t => {
+        await withApiServer(
+          async ({ apiUrl, requests }) => {
+            let cwd = createWorkspace();
+            t.after(() => rmSync(cwd, { recursive: true, force: true }));
+            let command = [
+              `require('node:fs').appendFileSync('executed.txt', process.env.VIZZLY_ENABLED + '\\n');`,
+              `process.exit(${scenario.exitCode});`,
+            ].join(' ');
+            let result = await runCLI(
+              [
+                '--no-color',
+                ...(scenario.json ? ['--json'] : []),
+                'run',
+                `node -e ${JSON.stringify(command)}`,
+              ],
+              {
+                cwd,
+                env: { VIZZLY_API_URL: apiUrl, VIZZLY_TOKEN: 'vzt_test_token' },
+              }
+            );
+
+            assert.equal(result.code, scenario.exitCode, result.stderr);
+            assert.equal(
+              readFileSync(join(cwd, 'executed.txt'), 'utf8'),
+              'false\n'
+            );
+            assert.match(result.stderr, /Running tests without visual testing/);
+            assert.deepEqual(
+              requests.map(request => `${request.method} ${request.url}`),
+              ['GET /api/sdk/token/context']
+            );
+            assert.doesNotMatch(result.stderr, /\[object Object\]/);
+            if (scenario.json)
+              assert.equal(
+                parseSingleJson(result.stdout).data.exitCode,
+                scenario.exitCode
+              );
+          },
+          { tokenContextStatus }
+        );
+      });
+    }
+  }
+
+  for (let exitCode of [0, 7]) {
+    it(`runs tests when build creation returns 500, preserving exit ${exitCode}`, async t => {
+      await withApiServer(
+        async ({ apiUrl }) => {
+          let cwd = createWorkspace();
+          t.after(() => rmSync(cwd, { recursive: true, force: true }));
+          let command = `process.exit(process.env.VIZZLY_ENABLED === 'false' ? ${exitCode} : 9)`;
+          let result = await runCLI(
+            [
+              '--no-color',
+              '--json',
+              'run',
+              `node -e ${JSON.stringify(command)}`,
+            ],
+            {
+              cwd,
+              env: { VIZZLY_API_URL: apiUrl, VIZZLY_TOKEN: 'vzt_test_token' },
+            }
+          );
+          assert.equal(result.code, exitCode, result.stderr);
+          assert.equal(parseSingleJson(result.stdout).data.exitCode, exitCode);
+          assert.match(result.stderr, /Running tests without visual testing/);
+        },
+        { buildCreationStatus: 500 }
+      );
+    });
+  }
+
+  for (let exitCode of [0, 7]) {
+    it(`preserves test exit ${exitCode} when finalization returns 500 without rerunning tests`, async t => {
+      await withApiServer(
+        async ({ apiUrl, requests }) => {
+          let cwd = createWorkspace();
+          t.after(() => rmSync(cwd, { recursive: true, force: true }));
+          let port = await getFreePort();
+          let command = [
+            `require('node:fs').appendFileSync('executed.txt', process.env.VIZZLY_ENABLED + '\\n');`,
+            `process.exit(${exitCode});`,
+          ].join(' ');
+          let result = await runCLI(
+            [
+              '--no-color',
+              '--json',
+              'run',
+              `node -e ${JSON.stringify(command)}`,
+              '--port',
+              String(port),
+            ],
+            {
+              cwd,
+              env: { VIZZLY_API_URL: apiUrl, VIZZLY_TOKEN: 'vzt_test_token' },
+            }
+          );
+          assert.equal(result.code, exitCode, result.stderr);
+          assert.equal(parseSingleJson(result.stdout).data.exitCode, exitCode);
+          assert.equal(
+            readFileSync(join(cwd, 'executed.txt'), 'utf8'),
+            'true\n'
+          );
+          assert.match(result.stderr, /Failed to finalize build/);
+          assert.match(result.stderr, /500/);
+          assert.equal(
+            requests.filter(request => request.method === 'PUT').length,
+            1
+          );
+        },
+        { finalizationStatus: 500 }
+      );
+    });
+  }
+
+  it('runs tests when the API cannot be reached', async t => {
+    let cwd = createWorkspace();
+    t.after(() => rmSync(cwd, { recursive: true, force: true }));
+    let port = await getFreePort();
+    let command = `process.exit(process.env.VIZZLY_ENABLED === 'false' ? 0 : 9)`;
+    let result = await runCLI(
+      ['--no-color', 'run', `node -e ${JSON.stringify(command)}`],
+      {
+        cwd,
+        env: {
+          VIZZLY_API_URL: `http://127.0.0.1:${port}`,
+          VIZZLY_TOKEN: 'vzt_test_token',
+        },
+      }
+    );
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stderr, /Running tests without visual testing/);
+  });
+
+  for (let exitCode of [0, 7]) {
+    it(`runs tests without credentials and preserves exit ${exitCode}`, async t => {
+      let cwd = createWorkspace();
+      t.after(() => rmSync(cwd, { recursive: true, force: true }));
+      let command = `process.exit(process.env.VIZZLY_ENABLED === 'false' ? ${exitCode} : 9)`;
+      let result = await runCLI(
+        ['--no-color', '--json', 'run', `node -e ${JSON.stringify(command)}`],
+        { cwd }
+      );
+      assert.equal(result.code, exitCode, result.stderr);
+      assert.equal(parseSingleJson(result.stdout).data.exitCode, exitCode);
+      assert.match(result.stderr, /Running tests without visual testing/);
+    });
+  }
+
   for (let scenario of [
     { finalizationStatus: 200, testExit: 0 },
     { finalizationStatus: 503, testExit: 7 },
@@ -325,45 +494,49 @@ describe('commands/run CLI', () => {
     }
   });
 
-  it('does not claim the API build completed when its status is unavailable', async () => {
-    await withApiServer(
-      async ({ apiUrl }) => {
-        let cwd = createWorkspace();
-        let port = await getFreePort();
+  for (let waitStatusCode of [500, 503]) {
+    it(`preserves passing tests when status lookup returns ${waitStatusCode}`, async () => {
+      await withApiServer(
+        async ({ apiUrl }) => {
+          let cwd = createWorkspace();
+          let port = await getFreePort();
 
-        let result = await runCLI(
-          [
-            '--no-color',
-            '--json',
-            'run',
-            `node -e ${JSON.stringify('process.exit(0)')}`,
-            '--wait',
-            '--port',
-            String(port),
-          ],
-          {
-            cwd,
-            env: {
-              VIZZLY_API_URL: apiUrl,
-              VIZZLY_TOKEN: 'vzt_test_token',
-            },
-          }
-        );
+          let result = await runCLI(
+            [
+              '--no-color',
+              '--json',
+              'run',
+              `node -e ${JSON.stringify('process.exit(0)')}`,
+              '--wait',
+              '--port',
+              String(port),
+            ],
+            {
+              cwd,
+              env: {
+                VIZZLY_API_URL: apiUrl,
+                VIZZLY_TOKEN: 'vzt_test_token',
+              },
+            }
+          );
 
-        assert.strictEqual(
-          result.code,
-          0,
-          `${result.stderr}\n${result.stdout}`
-        );
-        let payload = parseSingleJson(result.stdout);
-        assert.strictEqual(payload.data.status, null);
-        assert.strictEqual(payload.data.testsPassed, true);
-        assert.strictEqual(payload.data.error.code, 'BUILD_STATUS_FAILED');
-        assert.match(payload.data.error.message, /503/);
-      },
-      { waitStatusCode: 503 }
-    );
-  });
+          assert.strictEqual(
+            result.code,
+            0,
+            `${result.stderr}\n${result.stdout}`
+          );
+          let payload = parseSingleJson(result.stdout);
+          assert.strictEqual(payload.data.status, null);
+          assert.strictEqual(payload.data.testsPassed, true);
+          assert.strictEqual(payload.data.error.code, 'BUILD_STATUS_FAILED');
+          assert.ok(
+            payload.data.error.message.includes(String(waitStatusCode))
+          );
+        },
+        { waitStatusCode }
+      );
+    });
+  }
 
   it('preserves an API-reported failed build after the child tests pass', async () => {
     await withApiServer(

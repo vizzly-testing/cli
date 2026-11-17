@@ -58,7 +58,7 @@ export async function resolveBuildDisplayUrl({
     return result.url;
   }
 
-  if (!config.apiKey) {
+  if (!result.buildId || !config.apiKey) {
     return undefined;
   }
 
@@ -141,6 +141,7 @@ export async function runCommand(
   let startTime = null;
   let isTddMode = false;
   let config = null;
+  let setupError = null;
   let result = null;
 
   // Ensure cleanup on exit
@@ -225,27 +226,30 @@ export async function runCommand(
       });
     }
 
-    // Validate API token (unless --allow-no-token is set)
+    // Credential failures disable visual testing without blocking the child.
     if (!config.apiKey && !config.userToken && !config.allowNoToken) {
-      output.error(
-        'Login or API token required. Run vizzly login, use --token, set VIZZLY_TOKEN, or use --allow-no-token to run without uploading.'
+      setupError = new VizzlyError(
+        'Login or API token required for visual testing. Run vizzly login, use --token, or set VIZZLY_TOKEN.',
+        'AUTH_REQUIRED'
       );
-      exit(1);
-      return { success: false, reason: 'no-api-key' };
     }
 
     if (config.apiKey || config.userToken) {
-      let destination = await requireUploadDestination(config);
-      config = {
-        ...config,
-        apiKey: destination.credential.token,
-        credential: destination.credential,
-        projectQuery: destination.projectQuery,
-        uploadDestination: destination,
-      };
-      output.info(
-        `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
-      );
+      try {
+        let destination = await requireUploadDestination(config);
+        config = {
+          ...config,
+          apiKey: destination.credential.token,
+          credential: destination.credential,
+          projectQuery: destination.projectQuery,
+          uploadDestination: destination,
+        };
+        output.info(
+          `Upload destination: ${destination.effective.organizationSlug}/${destination.effective.projectSlug} (${credentialSourceLabel(destination.credential.source)})`
+        );
+      } catch (error) {
+        setupError = error;
+      }
     }
 
     // Collect git metadata and build info
@@ -340,6 +344,7 @@ export async function runCommand(
 
     try {
       result = await runTests({
+        setupError,
         runOptions,
         config: configWithVerbose,
         deps: {

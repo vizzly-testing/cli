@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -210,29 +210,36 @@ test('a write-only user run captures screenshots and finalizes with the same log
   assert.doesNotMatch(result.stdout + result.stderr, /synthetic-upload/);
 });
 
-for (let command of ['upload', 'run']) {
-  test(`${command} rejects a read-only login before creating builds or starting tests`, async t => {
-    let f = await fixture(t, { scopes: ['read'] });
-    let args =
-      command === 'upload'
-        ? [command, f.screenshots]
-        : [command, "node -e \"require('fs').writeFileSync('started','yes')\""];
-    let result = await runCLI(['--json', ...args], f.options);
-    assert.equal(result.code, 1, result.stderr + result.stdout);
-    assert.match(result.stderr + result.stdout, /builds:write/);
-    let error =
-      findJSONMessage(result.stdout, 'data')?.data.error ||
-      findJSONMessage(result.stderr, 'error')?.error;
-    assert.equal(error.code, 'INSUFFICIENT_SCOPE');
-    assert.deepEqual(error.requiredScopes, ['builds:write']);
-    assert.deepEqual(error.grantedScopes, ['read']);
-    assert.equal(
-      f.requests.filter(request => request.method !== 'GET').length,
-      0
-    );
-    await assert.rejects(access(join(f.cwd, 'started')), { code: 'ENOENT' });
-  });
-}
+test('upload rejects a read-only login before creating builds', async t => {
+  let f = await fixture(t, { scopes: ['read'] });
+  let result = await runCLI(['--json', 'upload', f.screenshots], f.options);
+  assert.equal(result.code, 1, result.stderr + result.stdout);
+  let error =
+    findJSONMessage(result.stdout, 'data')?.data.error ||
+    findJSONMessage(result.stderr, 'error')?.error;
+  assert.equal(error.code, 'INSUFFICIENT_SCOPE');
+  assert.deepEqual(error.requiredScopes, ['builds:write']);
+  assert.deepEqual(error.grantedScopes, ['read']);
+  assert.equal(
+    f.requests.filter(request => request.method !== 'GET').length,
+    0
+  );
+});
+
+test('run keeps testing with a read-only login without creating builds', async t => {
+  let f = await fixture(t, { scopes: ['read'] });
+  let command = `node -e "require('node:fs').writeFileSync('started', process.env.VIZZLY_ENABLED)"`;
+  let result = await runCLI(['--json', 'run', command], f.options);
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.equal(findJSONMessage(result.stdout, 'data').data.exitCode, 0);
+  assert.match(result.stderr, /builds:write/);
+  assert.match(result.stderr, /Running tests without visual testing/);
+  assert.equal(await readFile(join(f.cwd, 'started'), 'utf8'), 'false');
+  assert.equal(
+    f.requests.filter(request => request.method !== 'GET').length,
+    0
+  );
+});
 
 test('an explicit CI token stays authoritative over an available saved login', async t => {
   let f = await fixture(t, { scopes: ['read'], expired: true });

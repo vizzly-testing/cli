@@ -257,8 +257,12 @@ pnpm exec vizzly finalize "$GITHUB_RUN_ID"
 Use `--batch-size` to set how many screenshots upload per request.
 `--upload-timeout` limits how long `--wait` waits for build processing; it
 doesn't set the HTTP upload timeout. You can also set
-`--threshold` and `--min-cluster-size`. If CI has no cloud token,
-`vizzly run --allow-no-token` lets your test command run without starting Vizzly.
+`--threshold` and `--min-cluster-size`.
+
+Missing credentials, failed project lookups, and unavailable Vizzly services do
+not prevent your test command from running. The CLI warns, disables visual
+capture, and preserves the test command's exit code. Use `--allow-no-token` to
+run without visual capture when no token is configured, without that warning.
 
 ## Commands
 

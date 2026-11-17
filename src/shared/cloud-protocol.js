@@ -115,9 +115,17 @@ export function parseApiError(status, body, url) {
   if (body) {
     try {
       let parsedBody = JSON.parse(body);
-      responseDetails = parsedBody.details ?? null;
-      responseCode = parsedBody.code ?? parsedBody.details?.code ?? null;
-      responseMessage = parsedBody.error ?? parsedBody.message ?? body;
+      let nestedError = parsedBody.error;
+      responseDetails = parsedBody.details ?? nestedError?.details ?? null;
+      responseCode =
+        parsedBody.code ??
+        parsedBody.details?.code ??
+        nestedError?.code ??
+        null;
+      responseMessage =
+        [nestedError, nestedError?.message, parsedBody.message].find(
+          value => typeof value === 'string'
+        ) ?? body;
     } catch {
       // Plain-text API errors remain valid and are surfaced unchanged.
     }
